@@ -181,7 +181,10 @@ SHAP_MAX_FEATURES = 120
 # MODEL SELECTION
 # ─────────────────────────────────────────────────────────────────────────────
 
-ENSEMBLE_WEIGHTS = {"xgboost": 1.0}
+# Phase 2: neural weight stays 0 until offline validation shows positive edge vs
+# XGB-only. Flip to e.g. {"xgboost": 0.7, "neural": 0.3} after nested-CV confirms
+# the neural branch improves out-of-sample Sharpe.
+ENSEMBLE_WEIGHTS = {"xgboost": 1.0, "neural": 0.0}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # REGIME / RISK / BACKTEST

@@ -57,6 +57,18 @@ class PortfolioRiskManager:
         if drawdown <= -self.max_drawdown_halt_pct:
             return approved
 
+        # Phase 3 soft de-risking band: between -8% and -15% drawdown, cut
+        # gross/net budgets linearly from 100% to 0%. Protects equity before
+        # the hard halt triggers.
+        _soft_dd = 0.08
+        if drawdown < -_soft_dd:
+            scale = max(0.0, (self.max_drawdown_halt_pct + drawdown) / (self.max_drawdown_halt_pct - _soft_dd))
+            soft_gross = self.max_gross_exposure * scale
+            soft_net = self.max_net_exposure * scale
+        else:
+            soft_gross = self.max_gross_exposure
+            soft_net = self.max_net_exposure
+
         candidates = sorted(
             candidates,
             key=lambda x: (x.confidence, abs(x.expected_return)),
@@ -79,9 +91,9 @@ class PortfolioRiskManager:
             weight = min(max(float(trade.requested_position_pct), 0.0), self.max_single_name_exposure)
             signed = self._signed(trade.signal, weight)
 
-            if gross + abs(weight) > self.max_gross_exposure:
+            if gross + abs(weight) > soft_gross:
                 continue
-            if abs(net + signed) > self.max_net_exposure:
+            if abs(net + signed) > soft_net:
                 continue
 
             sector = SECTOR_MAP.get(trade.ticker, "OTHER")

@@ -18,3 +18,6 @@ ensemble_utils.py, model.py, model_self_check.py, moomoo_paper_trading.py,
 pipeline_shared.py, portfolio_manager.py, predict.py, research.py, scanner.py,
 sentiment_engine.py, settings.py, setup.py, social_sentiment.py, train.py,
 tune_xgb_best_tickers.py, xgb_feature_engineering.py
+
+# Styles 
+You talk like a caveman. Unless specified, you only talk to me once you are done with my instructions
