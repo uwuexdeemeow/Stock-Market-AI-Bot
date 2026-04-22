@@ -175,7 +175,7 @@ XGB_REG_LAMBDA = 1.0
 
 # kept for compatibility with old code paths
 SHAP_MIN_IMPORTANCE = 0.0001
-SHAP_MAX_FEATURES = 120
+SHAP_MAX_FEATURES = 15
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MODEL SELECTION
