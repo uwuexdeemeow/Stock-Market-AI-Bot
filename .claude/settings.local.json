@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip show *)",
+      "Bash(pip freeze *)",
+      "Bash(pip3 freeze *)",
+      "Bash(pip3 show *)"
+    ]
+  }
+}

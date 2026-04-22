@@ -1,0 +1,55 @@
+Files included:
+- backtest_fixed.py
+- tune_xgb_best_tickers.py
+
+What each file fixes:
+1) Check equity curve vs SPY during 2022 drawdown
+   - backtest_fixed.py writes metrics["diagnostics_2022"]
+
+2) Increase HIGH signal position sizing
+   - backtest_fixed.py applies HIGH_SIGNAL_BOOST = 1.25
+
+3) Per-ticker breakdown
+   - backtest_fixed.py writes *_ticker_breakdown.csv
+
+4) Strategy modes
+   - backtest_fixed.py supports:
+     --mode long_short
+     --mode long_only
+     --mode long_only_bear_cash
+
+5) XGBoost hyperparameter tuning
+   - tune_xgb_best_tickers.py tunes your best tickers from a breakdown CSV or an explicit ticker list
+
+Recommended run order:
+
+A. Replace your current backtest.py with backtest_fixed.py
+
+B. Run all three strategy modes:
+   python backtest.py --mode long_short
+   python backtest.py --mode long_only
+   python backtest.py --mode long_only_bear_cash
+
+C. Run stress versions:
+   python backtest.py --mode long_short --stress 2.0
+   python backtest.py --mode long_only --stress 2.0
+   python backtest.py --mode long_only_bear_cash --stress 2.0
+
+D. Inspect:
+   signals/portfolio_long_short_metrics.json
+   signals/portfolio_long_short_ticker_breakdown.csv
+   signals/portfolio_long_only_metrics.json
+   signals/portfolio_long_only_ticker_breakdown.csv
+   signals/portfolio_long_only_bear_cash_metrics.json
+   signals/portfolio_long_only_bear_cash_ticker_breakdown.csv
+
+E. Tune the best tickers:
+   python tune_xgb_best_tickers.py --from-breakdown signals/portfolio_long_only_ticker_breakdown.csv --top 4
+
+Or tune specific names:
+   python tune_xgb_best_tickers.py --tickers AMZN MSFT GOOGL TSLA
+
+Outputs:
+- models/tuning/<TICKER>_tuning_results.csv
+- models/tuning/<TICKER>_best_xgb_params.pkl
+- models/tuning/best_ticker_tuning_summary.csv

@@ -1,0 +1,52 @@
+# Core data & ML
+numpy==2.4.4
+pandas==3.0.2
+scikit-learn==1.8.0
+xgboost==3.2.0
+shap==0.51.0
+scipy==1.17.1
+joblib==1.5.3
+
+# Deep learning
+torch==2.11.0
+torchvision==0.26.0
+transformers==5.5.4
+tokenizers==0.22.2
+accelerate==1.13.0
+safetensors==0.7.0
+
+# Market data
+yfinance==1.2.2
+finnhub-python==2.4.27
+
+# NLP / Sentiment
+vaderSentiment==3.3.2
+finvader==1.0.2
+nltk==3.6.2
+
+# Social data
+praw==7.8.1
+prawcore==2.4.0
+
+# Data I/O
+pyarrow==23.0.1
+fastparquet==2026.3.0
+feedparser==6.0.12
+beautifulsoup4==4.14.3
+requests==2.33.1
+httpx==0.28.1
+
+# Broker
+moomoo_api==10.3.6308
+
+# Utilities
+python-dotenv==1.2.2
+tqdm==4.67.3
+psutil==7.2.2
+matplotlib==3.10.8
+seaborn==0.13.2
+rich==15.0.0
+PyYAML==6.0.3
+python-dateutil==2.9.0.post0
+pytz==2026.1.post1
+numba==0.65.0

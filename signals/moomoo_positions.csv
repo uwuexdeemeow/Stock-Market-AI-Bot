@@ -1,0 +1,4 @@
+code,stock_name,position_market,qty,can_sell_qty,cost_price,cost_price_valid,average_cost,diluted_cost,market_val,nominal_price,pl_ratio,pl_ratio_valid,pl_ratio_avg_cost,pl_val,pl_val_valid,today_buy_qty,today_buy_val,today_pl_val,today_trd_val,today_sell_qty,today_sell_val,position_side,unrealized_pl,realized_pl,currency,position_id
+US.GOOGL,Alphabet-A,US,446.0,446.0,337.69,True,N/A,337.69,150402.35,337.225,-0.1377002576327401,True,N/A,-207.39,True,N/A,N/A,118.19,N/A,N/A,N/A,LONG,N/A,N/A,USD,2707973783444298035
+US.AMZN,Amazon,US,596.0,596.0,252.76,True,N/A,252.76,150418.48,252.38,-0.1503402437094477,True,N/A,-226.48,True,N/A,N/A,-187.805,N/A,N/A,N/A,LONG,N/A,N/A,USD,2707973787739265330
+US.GS,Goldman Sachs,US,0.0,0.0,0.0,True,N/A,0.0,0.0,935.67,0.0,True,N/A,-7.2,True,N/A,N/A,-7.2,N/A,N/A,N/A,LONG,N/A,N/A,USD,206158430256

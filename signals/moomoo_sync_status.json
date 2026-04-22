@@ -1,0 +1,10 @@
+{
+  "synced_at": "2026-04-21T15:05:22.050297Z",
+  "host": "127.0.0.1",
+  "port": 11111,
+  "market": "US",
+  "positions_file": "/Users/amos/Code/Stock Market AI Bot/signals/moomoo_positions.csv",
+  "orders_file": "/Users/amos/Code/Stock Market AI Bot/signals/moomoo_orders.csv",
+  "positions_count": 3,
+  "orders_count": 27
+}

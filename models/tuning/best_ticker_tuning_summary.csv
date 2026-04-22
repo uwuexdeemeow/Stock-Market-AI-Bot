@@ -1,0 +1,5 @@
+ticker,accuracy,baseline_up_rate,max_depth,learning_rate,subsample,colsample_bytree,min_child_weight
+GOOGL,61.5023,58.216,4,0.08,0.7,0.6,3
+AMZN,55.8685,54.9296,8,0.08,0.85,0.6,3
+MSFT,55.3991,54.9296,6,0.08,0.7,0.8,5
+TSLA,52.3474,47.8873,8,0.08,0.7,0.6,5

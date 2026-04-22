@@ -1,0 +1,47 @@
+Backtest modes you can now run
+
+1) Baseline long + short
+python backtest.py --mode long_short
+
+2) Long-only
+python backtest.py --mode long_only
+
+3) Long-only + bear-regime cash
+python backtest.py --mode long_only_bear_cash
+
+Single-ticker versions
+python backtest.py --ticker NVDA --mode long_short
+python backtest.py --ticker NVDA --mode long_only
+python backtest.py --ticker NVDA --mode long_only_bear_cash
+
+Stress tests
+python backtest.py --mode long_short --stress 2.0
+python backtest.py --mode long_only --stress 2.0
+python backtest.py --mode long_only_bear_cash --stress 2.0
+
+What each run now gives you
+- trades CSV
+- equity CSV
+- metrics JSON
+- per-ticker breakdown CSV
+- 2022 diagnostics inside metrics JSON under diagnostics_2022
+
+How to evaluate #1 (2022 vs SPY drawdown)
+Open the metrics JSON and compare diagnostics_2022:
+- total_return_pct
+- benchmark_return_pct
+- alpha_pct
+- max_drawdown_pct
+- sharpe_ratio_daily
+
+How to evaluate #3 (best tickers)
+Open the ticker_breakdown CSV and sort by:
+1. total_pnl
+2. win_rate
+3. trades
+
+Recommended comparison order
+1. long_short
+2. long_only
+3. long_only_bear_cash
+4. repeat all 3 with --stress 2.0
