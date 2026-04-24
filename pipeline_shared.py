@@ -17,6 +17,14 @@ from settings import (
 )
 from sentiment_engine import build_sentiment_feature_dataframe, SentimentEngine, score_todays_news
 from social_sentiment import build_social_sentiment_features, get_live_social_signal
+from fundamental_features import (
+    build_pead_features,
+    build_iv_rank_features,
+    build_sector_strength_features,
+    build_market_breadth_features,
+    build_gap_features,
+    build_volume_features,
+)
 
 def flatten_yf(df: pd.DataFrame) -> pd.DataFrame:
     if isinstance(df.columns, pd.MultiIndex):
@@ -136,22 +144,59 @@ def build_multi_market(ticker: str, dates: pd.DatetimeIndex, start: str, end: st
     sector = SECTOR_MAP.get(ticker.upper())
     if sector:
         symbols["sector"] = sector
+
+    spy_close = None  # kept for regime feature below
+    vix_close = None
+
     for name, sym in symbols.items():
         try:
             raw = flatten_yf(yf.download(sym, start=start, end=end, progress=False, auto_adjust=True))
             close = raw["Close"].reindex(dates, method="ffill")
             result[f"{name}_ret1d"] = close.pct_change(1).fillna(0)
             result[f"{name}_ret5d"] = close.pct_change(5).fillna(0)
-            if name in ("spy","qqq","dia"):
+            result[f"{name}_ret20d"] = close.pct_change(20).fillna(0)
+            # Horizon-matched return for the target function — must equal RETURN_HORIZON_DAYS
+            # so make_direction_target can shift it forward to get the correct benchmark window.
+            if name in ("spy", "sector") and RETURN_HORIZON_DAYS not in (5, 20):
+                result[f"{name}_ret{RETURN_HORIZON_DAYS}d"] = close.pct_change(RETURN_HORIZON_DAYS).fillna(0)
+            if name in ("spy", "qqq", "dia"):
                 ma20 = close.rolling(20).mean()
                 result[f"{name}_above_ma20"] = (close > ma20).astype(int).fillna(0)
                 result[f"{name}_vol10"] = close.pct_change(1).rolling(10).std().fillna(0)
+            if name == "spy":
+                spy_close = close
+                ma200 = close.rolling(200, min_periods=50).mean()
+                result["spy_dist_ma200"] = ((close - ma200) / (ma200 + 1e-9)).clip(-0.3, 0.3).fillna(0)
+                ma50 = close.rolling(50, min_periods=20).mean()
+                result["spy_dist_ma50"] = ((close - ma50) / (ma50 + 1e-9)).clip(-0.2, 0.2).fillna(0)
+            if name == "vix":
+                vix_close = close
             if name == "gld":
                 result["gld_risk_off"] = (close.pct_change(5) > 0.02).astype(int).fillna(0)
             if name == "hyg":
                 result["credit_stress"] = (close.pct_change(5) < -0.02).astype(int).fillna(0)
         except Exception:
             continue
+
+    # Regime label: combines SPY trend + VIX level into a single -1/0/+1 signal.
+    # The model can condition all other features on this regime context.
+    #   +1 = bull  (SPY above 200d MA and VIX calm < 20)
+    #   -1 = bear  (SPY below 200d MA  or  VIX stressed > 28)
+    #    0 = neutral / transitional
+    if spy_close is not None and vix_close is not None:
+        spy_above_200 = (result.get("spy_dist_ma200", pd.Series(0, index=dates)) > 0)
+        vix_bull = vix_close < 20
+        vix_bear = vix_close > 28
+        regime = pd.Series(0, index=dates, dtype=float)
+        regime[spy_above_200 & vix_bull] = 1.0
+        regime[~spy_above_200 | vix_bear] = -1.0
+        result["regime"] = regime.values
+        # Continuous version: how far into bull/bear territory (0–1 scale)
+        result["regime_strength"] = result.get("spy_dist_ma200", pd.Series(0, index=dates)).values
+    else:
+        result["regime"] = 0.0
+        result["regime_strength"] = 0.0
+
     return result.fillna(0)
 
 def build_calendar_features(dates: pd.DatetimeIndex) -> pd.DataFrame:
@@ -226,21 +271,45 @@ def build_research_feature_frame(ticker: str, start: str, end: str) -> pd.DataFr
         return df
     df = add_technical_features(df)
     dates = df.index
+
+    # Build multi-market frame first (sector_ret5d/20d needed by sector strength)
+    mm_frame = build_multi_market(ticker, dates, start, end)
+
     frames = [
         build_multi_timeframe(df["Close"], dates),
         build_vix_features(dates, start, end),
-        build_multi_market(ticker, dates, start, end),
+        mm_frame,
         build_options_features_context(ticker, dates, live=False),  # FIX: avoid historical options leakage
         build_sentiment_features(ticker, dates),
         build_calendar_features(dates),
+        # New free alpha features
+        build_pead_features(ticker, dates),
+        build_iv_rank_features(df),
+        build_gap_features(df),
+        build_volume_features(df),
+        build_market_breadth_features(dates, start, end),
     ]
     if SOCIAL_SENTIMENT_ENABLED:
         try:
             frames.append(build_social_sentiment_features(ticker, dates))
         except Exception:
             pass
+
     out = pd.concat([df] + frames, axis=1)
     out = out.loc[:, ~out.columns.duplicated()]
+
+    # Sector strength is derived from the combined frame (needs sector_ret5d/20d + ret_5d/20d)
+    sector_strength = build_sector_strength_features(ticker, out)
+    out = pd.concat([out, sector_strength], axis=1)
+    out = out.loc[:, ~out.columns.duplicated()]
+
+    # Compute iv_hv_spread here so the parquet has a real value, not the 0.0
+    # placeholder left by build_iv_rank_features.  In research mode iv_atm is
+    # 0.25 (the neutral constant from build_options_features_context), so the
+    # spread = 0.25 - hvol_20d, which is time-varying and meaningful.
+    if "iv_atm" in out.columns and "hvol_20d" in out.columns:
+        out["iv_hv_spread"] = (out["iv_atm"] - out["hvol_20d"]).clip(-0.5, 0.5)
+
     out = apply_feature_lag(out, ["short_interest", "analyst", "recommend"], lag_days=5)
     out = out.replace([np.inf, -np.inf], 0.0).fillna(0.0)
     out.dropna(subset=["Close", "target"], inplace=True)
@@ -249,33 +318,88 @@ def build_research_feature_frame(ticker: str, start: str, end: str) -> pd.DataFr
 def build_live_features_with_latest_news(ticker: str, feature_cols: list[str]) -> pd.DataFrame | None:
     end = datetime.utcnow().date()
     start = end - timedelta(days=270)
-    df = fetch_price_data(ticker, start.isoformat(), (end + timedelta(days=1)).isoformat())
+    start_str = start.isoformat()
+    end_str = (end + timedelta(days=1)).isoformat()
+
+    df = fetch_price_data(ticker, start_str, end_str)
     if df.empty:
         return None
     df = add_technical_features(df)
     dates = df.index
+
+    mm_frame = build_multi_market(ticker, dates, start_str, end_str)
+    options_frame = build_options_features_context(ticker, dates, live=True)
+
     frames = [
         build_multi_timeframe(df["Close"], dates),
-        build_vix_features(dates, start.isoformat(), (end + timedelta(days=1)).isoformat()),
-        build_multi_market(ticker, dates, start.isoformat(), (end + timedelta(days=1)).isoformat()),
-        build_options_features_context(ticker, dates, live=True),
+        build_vix_features(dates, start_str, end_str),
+        mm_frame,
+        options_frame,
         build_calendar_features(dates),
+        # New free alpha features (live path)
+        build_pead_features(ticker, dates),
+        build_iv_rank_features(df),
+        build_gap_features(df),
+        build_volume_features(df),
+        build_market_breadth_features(dates, start_str, end_str),
     ]
     try:
-        sent = build_sentiment_feature_dataframe(ticker, dates, finnhub_client=None, engine_level="finbert", sleep_rss=0.1, logger=None)
-        # overwrite latest row with freshest news signal
+        sent = build_sentiment_feature_dataframe(
+            ticker,
+            dates,
+            finnhub_client=None,
+            engine_level="finbert",
+            sleep_rss=0.1,
+            logger=None,
+        )
+        if sent is None or sent.empty:
+            sent = pd.DataFrame(index=dates)
+        else:
+            sent = sent.reindex(dates)
+
+        # Ensure live diagnostic/news columns always exist so the predictor can
+        # distinguish "no headlines fetched" from "headlines fetched but net score
+        # happened to be near zero".
+        for col in [
+            "news_sentiment",
+            "headline_volume",
+            "live_news_headline_count",
+            "live_news_breaking",
+            "live_news_score_abs",
+            "live_news_has_signal",
+        ]:
+            if col not in sent.columns:
+                sent[col] = 0.0
+
+        # Overwrite latest row with freshest same-day news signal.
         try:
             engine = SentimentEngine(level="finbert")
-            live_news = score_todays_news(ticker, engine)
-            if not sent.empty:
-                latest = sent.index[-1]
-                sent.loc[latest, "news_sentiment"] = float(live_news.get("composite_score", 0.0) or 0.0)
-                sent.loc[latest, "headline_volume"] = float(live_news.get("headline_count", 0) or 0.0)
-        except Exception:
-            pass
+            live_news = score_todays_news(ticker, engine) or {}
+            latest = dates[-1]
+            composite_score = float(live_news.get("composite_score", 0.0) or 0.0)
+            headline_count = float(live_news.get("headline_count", 0) or 0.0)
+            breaking_count = float(live_news.get("breaking_count", 0) or 0.0)
+            score_abs = float(live_news.get("avg_abs_score", 0.0) or 0.0)
+            has_signal = 1.0 if (headline_count > 0 or abs(composite_score) > 1e-9 or score_abs > 1e-9) else 0.0
+
+            sent.loc[latest, "news_sentiment"] = composite_score
+            sent.loc[latest, "headline_volume"] = headline_count
+            sent.loc[latest, "live_news_headline_count"] = headline_count
+            sent.loc[latest, "live_news_breaking"] = breaking_count
+            sent.loc[latest, "live_news_score_abs"] = score_abs
+            sent.loc[latest, "live_news_has_signal"] = has_signal
+
+            if headline_count > 0 and abs(composite_score) <= 1e-9 and score_abs <= 1e-9:
+                print(
+                    f"[{ticker}] Headlines were fetched but scored near-zero sentiment — "
+                    f"headline_count={int(headline_count)}; check date alignment and scorer output."
+                )
+        except Exception as e:
+            print(f"[{ticker}] live news refresh failed: {e}")
+
         frames.append(sent)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[{ticker}] sentiment feature builder failed: {e}")
     if SOCIAL_SENTIMENT_ENABLED:
         try:
             social_df = build_social_sentiment_features(ticker, dates)
@@ -289,18 +413,37 @@ def build_live_features_with_latest_news(ticker: str, feature_cols: list[str]) -
             pass
     out = pd.concat([df] + frames, axis=1)
     out = out.loc[:, ~out.columns.duplicated()]
-    for col in feature_cols:
-        if col not in out.columns:
-            out[col] = 0.0
+
+    # Sector strength requires combined frame (sector_ret5d/20d + ret_5d/20d)
+    sector_strength = build_sector_strength_features(ticker, out)
+    out = pd.concat([out, sector_strength], axis=1)
+    out = out.loc[:, ~out.columns.duplicated()]
+
+    # For live path: fill iv_hv_spread = ATM IV - realized HV (options premium signal)
+    if "iv_atm" in out.columns and "hvol_20d" in out.columns:
+        out["iv_hv_spread"] = (out["iv_atm"] - out["hvol_20d"]).clip(-0.5, 0.5)
+
+    missing_cols = [c for c in feature_cols if c not in out.columns]
+    if missing_cols:
+        out = pd.concat(
+            [out, pd.DataFrame(0.0, index=out.index, columns=missing_cols)],
+            axis=1,
+        )
     out = out.replace([np.inf, -np.inf], 0.0).fillna(0.0)
 
     sentiment_cols = [c for c in out.columns if ("sent_" in c or "sentiment" in c)]
     if sentiment_cols:
         recent = out[sentiment_cols].tail(min(5, len(out))).fillna(0.0)
         nonzero_ratio = float((recent.abs() > 1e-9).any(axis=1).mean()) if not recent.empty else 0.0
-        if nonzero_ratio < 0.20:
+        latest_headlines = float(out["live_news_headline_count"].iloc[-1]) if "live_news_headline_count" in out.columns else 0.0
+        latest_breaking = float(out["live_news_breaking"].iloc[-1]) if "live_news_breaking" in out.columns else 0.0
+        latest_score_abs = float(out["live_news_score_abs"].iloc[-1]) if "live_news_score_abs" in out.columns else 0.0
+        latest_has_signal = float(out["live_news_has_signal"].iloc[-1]) if "live_news_has_signal" in out.columns else 0.0
+
+        if nonzero_ratio < 0.20 and latest_has_signal <= 0.0 and latest_headlines <= 0.0 and latest_breaking <= 0.0:
             print(
                 f"WARNING: [{ticker}] live sentiment features appear degraded at source "
-                f"(recent non-zero ratio={nonzero_ratio:.2f}, cols={len(sentiment_cols)})"
+                f"(recent non-zero ratio={nonzero_ratio:.2f}, cols={len(sentiment_cols)}, "
+                f"headlines={int(latest_headlines)}, breaking={int(latest_breaking)}, score_abs={latest_score_abs:.4f})"
             )
     return out

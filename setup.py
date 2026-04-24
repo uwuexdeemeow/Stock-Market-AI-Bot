@@ -177,7 +177,7 @@ def check_python_version():
 #   requests    — HTTP library for fetching web content
 #
 # SOCIAL MEDIA:
-#   praw        — Python Reddit API Wrapper (needs Reddit API key)
+#   tweepy      — X/Twitter API client (needs X API credentials)
 #
 # BROKER INTEGRATION:
 #   moomoo      — broker-connected simulated trading through OpenD
@@ -223,7 +223,7 @@ PACKAGES = [
     ("requests",         "requests",       "required", "HTTP requests — needed for RSS + StockTwits"),
 
     # ── Social media ────────────────────────────────────────────────────────
-    ("praw",             "praw",           "optional", "Python Reddit API Wrapper (needs free API key)"),
+    ("tweepy",           "tweepy",         "optional", "X/Twitter API client for social sentiment (needs API credentials)"),
     ("moomoo-api",       "moomoo",         "required", "Moomoo OpenAPI SDK for broker-connected paper trading"),
 
     # ── File formats ────────────────────────────────────────────────────────
@@ -407,7 +407,7 @@ def verify_imports():
         ("transformers",   "FinBERT (high-accuracy sentiment)"),
         ("finvader",       "FinVADER (fast financial sentiment)"),
         ("finnhub",        "Finnhub premium news"),
-        ("praw",           "Reddit social sentiment"),
+        ("tweepy",         "X/Twitter social sentiment"),
         ("moomoo",         "Moomoo OpenAPI / OpenD broker connection"),
     ]
 
@@ -465,20 +465,17 @@ def check_api_keys():
 
     print()
 
-    # ── Reddit ──────────────────────────────────────────────────────────────
-    reddit_id     = os.environ.get("REDDIT_CLIENT_ID", "").strip()
-    reddit_secret = os.environ.get("REDDIT_CLIENT_SECRET", "").strip()
+    # ── X / Twitter ──────────────────────────────────────────────────────────
+    x_bearer = os.environ.get("X_BEARER_TOKEN", "").strip()
 
-    if reddit_id and reddit_secret:
-        ok(f"Reddit API: SET ({reddit_id[:6]}...)")
-        info("  → Social sentiment from Reddit wallstreetbets, stocks, etc.")
+    if x_bearer:
+        ok(f"X Bearer Token: SET ({x_bearer[:6]}...)")
+        info("  → Social sentiment from X/Twitter active")
     else:
-        warn("Reddit API: NOT SET (social sentiment from StockTwits only)")
-        info("  → Get free key at: https://www.reddit.com/prefs/apps")
-        info("  → Set with:")
-        info("      export REDDIT_CLIENT_ID=your_client_id")
-        info("      export REDDIT_CLIENT_SECRET=your_client_secret")
-        info("      export REDDIT_USER_AGENT=stockbot/1.0 by yourusername")
+        warn("X Bearer Token: NOT SET")
+        info("  → X/Twitter social sentiment will be skipped")
+        info("  → Get a free token at: https://developer.twitter.com/en/portal/dashboard")
+        info("  → Then add to .env:  X_BEARER_TOKEN=your_token_here")
 
     print()
 
@@ -610,6 +607,11 @@ def run_smoke_test():
         ok(f"XGBoost: import test passed ({getattr(xgboost, '__version__', 'version unknown')})")
     except Exception as e:
         err(f"XGBoost import failed: {e}")
+        msg = str(e).lower()
+        if "omp" in msg or "openmp" in msg or "libiomp" in msg:
+            info("  Likely OpenMP runtime conflict detected.")
+            info("  macOS fix: keep one OpenMP toolchain only (avoid mixed Homebrew/conda runtimes).")
+            info("  Windows fix: reinstall a CUDA-compatible torch build and a clean xgboost wheel in one environment.")
 
     # Test 5: SHAP import only
     try:

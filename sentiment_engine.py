@@ -62,6 +62,7 @@ ACCURACY BENCHMARKS (from academic literature):
 """
 
 import json
+import os
 import re
 import time
 import logging
@@ -266,6 +267,65 @@ class SentimentEngine:
             return self._score_finbert_batch(texts, batch_size=32)
 
         return [self.score(t) for t in texts]
+
+    def score_batch_detail(self, texts: list) -> list:
+        """
+        Like score_batch but returns a list of dicts with separate positive /
+        negative probabilities instead of just the compound score.
+
+        Each dict has:
+            compound  — P(pos) - P(neg) weighted by confidence (existing signal)
+            p_pos     — raw probability of positive sentiment (0–1)
+            p_neg     — raw probability of negative sentiment (0–1)
+
+        Separating p_pos and p_neg lets the model learn asymmetric reactions:
+        negative news often causes sharper moves than equivalent positive news,
+        and short signals need their own dedicated feature column.
+
+        For FinVADER / GPT (no raw probability output), p_pos and p_neg are
+        derived from the compound score: if compound > 0, p_pos=compound else
+        p_neg=abs(compound).  This is a simplification but preserves direction.
+        """
+        if not texts:
+            return []
+
+        if self.model == "finbert":
+            return self._score_finbert_batch_detail(texts, batch_size=32)
+
+        # Fallback for FinVADER / GPT: derive pos/neg from compound
+        compounds = [self.score(t) for t in texts]
+        return [
+            {
+                "compound": c,
+                "p_pos": max(c, 0.0),
+                "p_neg": max(-c, 0.0),
+            }
+            for c in compounds
+        ]
+
+    def _score_finbert_batch_detail(self, texts: list, batch_size: int = 32) -> list:
+        """FinBERT batch scoring returning raw P(pos) and P(neg) per headline."""
+        import torch
+        results = []
+        for i in range(0, len(texts), batch_size):
+            batch = [t if t else " " for t in texts[i: i + batch_size]]
+            with torch.no_grad():
+                inputs = self.tokenizer(
+                    batch, return_tensors="pt", truncation=True,
+                    max_length=512, padding=True,
+                )
+                inputs = {k: v.to(self._device) for k, v in inputs.items()}
+                probs = torch.softmax(self.model(**inputs).logits, dim=-1).cpu().numpy()
+            for p in probs:
+                compound = float(p[0] - p[1])
+                if p[2] > 0.6:
+                    compound *= (1 - p[2])
+                results.append({
+                    "compound": compound,
+                    "p_pos": float(p[0]),
+                    "p_neg": float(p[1]),
+                })
+        return results
 
     def _score_finvader(self, text: str) -> float:
         """
@@ -473,16 +533,22 @@ def _normalize_trading_index(dates) -> "pd.DatetimeIndex":
     return idx
 
 
+_MARKET_OPEN_HOUR  = 9.5    # 9:30 ET
+_MARKET_CLOSE_HOUR = 16.0   # 16:00 ET
+
+
 def _align_pub_to_trading_day(pub, trading_idx: "pd.DatetimeIndex"):
     """
-    Map a headline's calendar time to a trading row in `dates`.
+    Map a headline's publication time to a trading row and classify its session.
 
-    Price data has only **trading days**. Headlines often fall on nights/weekends.
-    Without this step, `reindex(dates)` yields all zeros because Saturday's
-    Timestamp never appears in the index.
+    Returns (trading_day_timestamp, session_str)  or  None if out of range.
 
-    Rule: use the **first trading session on or after** the headline date
-    (US/Eastern calendar for UTC timestamps from Finnhub).
+    Session classification (US Eastern time):
+        "premarket"  — before 09:30 ET on a trading day
+        "regular"    — 09:30–16:00 ET (market hours)
+        "afterhours" — after 16:00 ET → pushed to the NEXT trading session
+                       because the market is closed and the impact will be felt
+                       when it next opens.
     """
     import pandas as pd
 
@@ -495,17 +561,28 @@ def _align_pub_to_trading_day(pub, trading_idx: "pd.DatetimeIndex"):
             p = p.tz_convert("America/New_York").tz_localize(None)
         except Exception:
             p = p.tz_localize(None)
-    p = p.normalize()
 
-    if p > trading_idx[-1]:
+    hour = p.hour + p.minute / 60.0
+
+    # Determine which calendar date this headline belongs to for trading purposes.
+    if hour >= _MARKET_CLOSE_HOUR:
+        # After market close → impacts the NEXT session. Use date + 1 day so
+        # searchsorted finds the next trading day.
+        cal_date = (p + pd.Timedelta(days=1)).normalize()
+        session = "afterhours"
+    else:
+        cal_date = p.normalize()
+        session = "premarket" if hour < _MARKET_OPEN_HOUR else "regular"
+
+    if cal_date > trading_idx[-1]:
         return None
-    if p < trading_idx[0]:
-        return trading_idx[0]
+    if cal_date < trading_idx[0]:
+        return trading_idx[0], session
 
-    pos = trading_idx.searchsorted(p, side="left")
+    pos = trading_idx.searchsorted(cal_date, side="left")
     if pos >= len(trading_idx):
         return None
-    return trading_idx[pos]
+    return trading_idx[pos], session
 
 
 def headline_mentions_ticker(ticker: str, title: str) -> bool:
@@ -515,23 +592,75 @@ def headline_mentions_ticker(ticker: str, title: str) -> bool:
     """
     if not ticker or not title:
         return False
-    t = ticker.upper().strip()
-    u = title.upper()
-    if t in u:
-        return True
-    if "-" in t:
-        base = t.split("-")[0]
-        if len(base) >= 2 and base in u:
+    u = str(title).upper()
+    for alias in _ticker_news_aliases(ticker):
+        a = str(alias).upper().strip()
+        if a and a in u:
             return True
-        if "BTC" in t and ("BITCOIN" in u or "BTC" in u):
-            return True
-        if "ETH" in t and ("ETHEREUM" in u or "ETH" in u):
-            return True
-    if t == "GOOGL" and ("GOOGLE" in u or "ALPHABET" in u or "GOOG" in u):
-        return True
-    if t == "GOOG" and ("GOOGLE" in u or "ALPHABET" in u or "GOOGL" in u):
-        return True
     return False
+
+
+# -----------------------------------------------------------------------------
+# Ticker News Aliases and Live Google News Queries
+# -----------------------------------------------------------------------------
+
+def _ticker_news_aliases(ticker: str) -> list[str]:
+    """Balanced alias list so live news can match both bullish and bearish catalysts."""
+    t = (ticker or "").upper().strip()
+    aliases = [t]
+    alias_map = {
+        "AAPL": ["Apple"],
+        "MSFT": ["Microsoft"],
+        "NVDA": ["Nvidia"],
+        "AMD": ["AMD", "Advanced Micro Devices"],
+        "GOOGL": ["Google", "Alphabet", "GOOG"],
+        "GOOG": ["Google", "Alphabet", "GOOGL"],
+        "META": ["Meta", "Facebook"],
+        "AMZN": ["Amazon"],
+        "TSLA": ["Tesla"],
+        "JPM": ["JPMorgan", "JPMorgan Chase"],
+        "GS": ["Goldman Sachs", "Goldman"],
+        "BAC": ["Bank of America"],
+        "UNH": ["UnitedHealth", "UnitedHealth Group"],
+        "JNJ": ["Johnson & Johnson"],
+        "ABBV": ["AbbVie"],
+        "XOM": ["Exxon", "ExxonMobil"],
+        "CVX": ["Chevron"],
+        "CAT": ["Caterpillar"],
+        "DE": ["Deere", "John Deere"],
+        "MU": ["Micron", "Micron Technology"],
+        "INTC": ["Intel"],
+        "BTC-USD": ["Bitcoin", "BTC", "crypto"],
+        "ETH-USD": ["Ethereum", "ETH", "crypto"],
+    }
+    aliases.extend(alias_map.get(t, []))
+    if "-" in t:
+        aliases.append(t.split("-")[0])
+    # Preserve order, remove blanks/duplicates.
+    dedup = []
+    seen = set()
+    for a in aliases:
+        a = str(a).strip()
+        if a and a not in seen:
+            dedup.append(a)
+            seen.add(a)
+    return dedup
+
+
+def _google_news_live_queries(ticker: str) -> list[str]:
+    """
+    Symmetric live-news queries that can surface both bullish and bearish catalysts.
+    We do NOT bias the search toward only negative or only positive stories.
+    """
+    aliases = _ticker_news_aliases(ticker)
+    primary = aliases[0]
+    alias_or = " OR ".join(f'"{a}"' for a in aliases[:4])
+    return [
+        f"({alias_or}) (stock OR shares OR earnings OR guidance OR analyst)",
+        f"({alias_or}) (upgrade OR downgrade OR investigation OR lawsuit OR sec OR forecast)",
+        f"({alias_or}) (profit OR revenue OR margin OR demand OR warning)",
+        f'"{primary}"',
+    ]
 
 
 def _fetch_rss_headlines(url: str, ticker: str) -> list:
@@ -560,14 +689,11 @@ def _fetch_rss_headlines(url: str, ticker: str) -> list:
                 pub = pd.to_datetime(raw_t, errors="coerce")
                 if pd.isna(pub):
                     continue
+                # Convert to ET and drop tz info but KEEP the time-of-day so
+                # _align_pub_to_trading_day can split premarket vs after-hours.
                 if pub.tzinfo is not None:
-                    pub = (
-                        pub.tz_convert("America/New_York")
-                        .tz_localize(None)
-                        .normalize()
-                    )
-                else:
-                    pub = pub.normalize()
+                    pub = pub.tz_convert("America/New_York").tz_localize(None)
+                # No .normalize() — preserve hour/minute
                 title = e.get("title", e.get("summary", "")).strip()
                 if title:
                     out.append((pub, title))
@@ -601,11 +727,9 @@ def _fetch_finnhub_headlines(
                 ts_utc = pd.to_datetime(
                     item.get("datetime", 0), unit="s", utc=True
                 )
-                ts = (
-                    ts_utc.tz_convert("America/New_York")
-                    .tz_localize(None)
-                    .normalize()
-                )
+                # Keep time-of-day (no .normalize()) so we can detect
+                # premarket vs after-hours headlines downstream.
+                ts = ts_utc.tz_convert("America/New_York").tz_localize(None)
                 title = item.get("headline", "").strip()
                 if title:
                     out.append((ts, title))
@@ -614,6 +738,35 @@ def _fetch_finnhub_headlines(
         return out
     except Exception:
         return []
+
+
+# Helper: FINNHUB API KEY lookup (robust)
+def _get_finnhub_api_key() -> str:
+    """Best-effort FINNHUB_API_KEY lookup without crashing if dotenv/config is absent."""
+    key = os.environ.get("FINNHUB_API_KEY", "").strip()
+    if key:
+        return key
+    try:
+        from dotenv import load_dotenv  # type: ignore
+        load_dotenv()
+        key = os.environ.get("FINNHUB_API_KEY", "").strip()
+        if key:
+            return key
+    except Exception:
+        pass
+    try:
+        from config_v2 import FINNHUB_API_KEY as key  # type: ignore
+        if key:
+            return str(key).strip()
+    except Exception:
+        pass
+    try:
+        from config import FINNHUB_API_KEY as key  # type: ignore
+        if key:
+            return str(key).strip()
+    except Exception:
+        pass
+    return ""
 
 
 def build_sentiment_feature_dataframe(
@@ -663,49 +816,74 @@ def build_sentiment_feature_dataframe(
         if sleep_rss > 0:
             time.sleep(sleep_rss)
 
-    # Flatten for batch scoring (preserves order for grouping)
-    meta: list[tuple[str, object]] = []
+    # Flatten all headlines for batch scoring in one pass
+    meta: list[tuple[str, object]] = []   # (source_name, pub_datetime)
     texts: list[str] = []
     for name, headlines in sources_data.items():
         for pub_date, title in headlines:
             meta.append((name, pub_date))
             texts.append(title if title else " ")
 
-    scores_list: list[float] = []
+    lg.info(f"  [{ticker}] Headlines to score after filtering: {len(texts)}")
+    detail_list: list[dict] = []
     if texts:
-        scores_list = engine.score_batch(texts)
+        detail_list = engine.score_batch_detail(texts)
+        compounds = [d["compound"] for d in detail_list]
+        if compounds:
+            lg.info(
+                f"  [{ticker}] Score sample: min={min(compounds):.4f}, "
+                f"max={max(compounds):.4f}, mean={float(np.mean(compounds)):.4f}"
+            )
 
     total_headlines = sum(len(h) for h in sources_data.values())
     trading_idx = _normalize_trading_index(dates)
     date_axis = pd.DatetimeIndex(pd.to_datetime(dates, utc=False).normalize())
-    source_scores = {n: defaultdict(list) for n in sources_data}
-    headline_counts: dict = defaultdict(int)
+
+    # Per-day accumulators — track compound, p_pos, p_neg per session separately
+    source_scores:    dict = {n: defaultdict(list) for n in sources_data}
+    day_pos:          dict = defaultdict(list)   # positive scores per day
+    day_neg:          dict = defaultdict(list)   # negative scores per day
+    day_premarket:    dict = defaultdict(list)   # premarket compound scores
+    day_afterhours:   dict = defaultdict(list)   # after-hours compound scores
+    headline_counts:  dict = defaultdict(int)
     dropped_align = 0
 
-    for (name, pub_date), score in zip(meta, scores_list):
-        adj = _align_pub_to_trading_day(pub_date, trading_idx)
-        if adj is None:
+    for (name, pub_date), detail in zip(meta, detail_list):
+        aligned = _align_pub_to_trading_day(pub_date, trading_idx)
+        if aligned is None:
             dropped_align += 1
             continue
-        source_scores[name][adj].append(score)
+        adj, session = aligned
+        compound = detail["compound"]
+        p_pos    = detail["p_pos"]
+        p_neg    = detail["p_neg"]
+        w        = weights.get(name, 1.0)
+
+        source_scores[name][adj].append(compound)
         headline_counts[adj] += 1
+
+        if p_pos > 0:
+            day_pos[adj].append(p_pos * w)
+        if p_neg > 0:
+            day_neg[adj].append(p_neg * w)
+
+        if session == "premarket":
+            day_premarket[adj].append(compound * w)
+        elif session == "afterhours":
+            day_afterhours[adj].append(compound * w)
 
     if dropped_align > 0:
         lg.info(
-            f"  [{ticker}] Mapped headlines to trading days; "
-            f"{dropped_align} outside range skipped."
+            f"  [{ticker}] {dropped_align} headlines outside date range skipped."
         )
 
     result = pd.DataFrame(index=dates)
     src_cols: list[tuple[str, float]] = []
 
+    # Per-source net compound score (backward-compat columns: sent_finnhub etc.)
     for name in sources_data:
         col = f"sent_{name}"
-        daily = {
-            d: float(np.mean(v))
-            for d, v in source_scores[name].items()
-            if v
-        }
+        daily = {d: float(np.mean(v)) for d, v in source_scores[name].items() if v}
         series = pd.Series(daily, dtype=float)
         series.index = pd.DatetimeIndex(series.index).normalize()
         series = series.reindex(date_axis).fillna(0.0)
@@ -714,35 +892,60 @@ def build_sentiment_feature_dataframe(
 
     lg.info(f"  [{ticker}] Total headlines scored: {total_headlines}")
 
+    # ── Weighted net compound score ───────────────────────────────────────────
     total_w = sum(w for _, w in src_cols)
     if total_w > 0 and src_cols:
-        result["news_sentiment"] = sum(
-            result[col] * w for col, w in src_cols
-        ) / total_w
+        result["news_sentiment"] = sum(result[col] * w for col, w in src_cols) / total_w
     else:
         result["news_sentiment"] = 0.0
 
-    only_cols = [c for c, _ in src_cols]
-    if only_cols:
-        result["sentiment_disagreement"] = result[only_cols].std(axis=1).fillna(0)
-    else:
-        result["sentiment_disagreement"] = np.zeros(len(dates), dtype=float)
+    # ── Separate positive / negative raw signals ──────────────────────────────
+    def _day_series(day_dict: dict) -> pd.Series:
+        daily = {d: float(np.mean(v)) for d, v in day_dict.items() if v}
+        s = pd.Series(daily, dtype=float)
+        s.index = pd.DatetimeIndex(s.index).normalize()
+        return s.reindex(date_axis).fillna(0.0)
 
+    result["sent_pos"]        = _day_series(day_pos).values      # avg P(positive) on positive-news days
+    result["sent_neg"]        = _day_series(day_neg).values      # avg P(negative) on negative-news days
+    result["sent_premarket"]  = _day_series(day_premarket).values  # before 9:30 ET
+    result["sent_afterhours"] = _day_series(day_afterhours).values # after 16:00 ET, already next-session
+
+    # ── Disagreement across sources ───────────────────────────────────────────
+    only_cols = [c for c, _ in src_cols]
+    result["sentiment_disagreement"] = (
+        result[only_cols].std(axis=1).fillna(0) if only_cols
+        else pd.Series(0.0, index=dates)
+    )
+
+    # ── Headline volume ───────────────────────────────────────────────────────
     vol_s = pd.Series(dict(headline_counts), dtype=float)
     vol_s.index = pd.DatetimeIndex(vol_s.index).normalize()
     vol_s = vol_s.reindex(date_axis).fillna(0)
-    rmean = vol_s.rolling(20).mean().replace(0, 1)
+    rmean = vol_s.rolling(20, min_periods=5).mean().replace(0, 1)
     result["headline_volume"] = (vol_s / rmean).fillna(1.0)
-    result["sentiment_3d"] = result["news_sentiment"].rolling(3).mean().fillna(0)
-    result["sentiment_7d"] = result["news_sentiment"].rolling(7).mean().fillna(0)
-    result["sentiment_delta"] = result["news_sentiment"].diff().fillna(0)
+
+    # Headline volume spike: how many std devs above the 20-day average
+    vstd = vol_s.rolling(20, min_periods=5).std().replace(0, 1)
+    result["headline_vol_spike"] = ((vol_s - rmean) / vstd).clip(-3, 3).fillna(0.0).values
+
+    # ── Exponential decay (more recent = more weight) ─────────────────────────
+    # EWM span=2 ≈ half-life 1 trading day (fast news decay)
+    # EWM span=5 ≈ half-life ~3.5 trading days (slower carry-forward)
+    net = result["news_sentiment"]
+    result["sent_decay_1d"]  = net.ewm(span=2,  min_periods=1).mean().fillna(0.0)
+    result["sent_decay_3d"]  = net.ewm(span=5,  min_periods=1).mean().fillna(0.0)
+    result["sent_neg_decay"] = result["sent_neg"].ewm(span=5, min_periods=1).mean().fillna(0.0)
+    result["sent_pos_decay"] = result["sent_pos"].ewm(span=5, min_periods=1).mean().fillna(0.0)
+
+    # ── Legacy rolling features (kept for backward compat) ───────────────────
+    result["sentiment_3d"]    = net.rolling(3).mean().fillna(0)
+    result["sentiment_7d"]    = net.rolling(7).mean().fillna(0)
+    result["sentiment_delta"] = net.diff().fillna(0)
     result["sentiment_accel"] = result["sentiment_delta"].diff().fillna(0)
 
-    nz = int((result["news_sentiment"].abs() > 1e-9).sum())
-    lg.info(
-        f"  [{ticker}] Trading days with non-zero news_sentiment: "
-        f"{nz} / {len(dates)}"
-    )
+    nz = int((net.abs() > 1e-9).sum())
+    lg.info(f"  [{ticker}] Trading days with non-zero news_sentiment: {nz} / {len(dates)}")
     if total_headlines == 0:
         lg.warning(
             f"  [{ticker}] No headlines from any source — check FINNHUB_API_KEY, "
@@ -750,7 +953,7 @@ def build_sentiment_feature_dataframe(
         )
     elif nz == 0:
         lg.warning(
-            f"  [{ticker}] Headlines were scored but news_sentiment is all zero — "
+            f"  [{ticker}] Headlines scored but news_sentiment is all zero — "
             "check date alignment and FinBERT/finvader install."
         )
 
@@ -765,76 +968,113 @@ def build_sentiment_feature_dataframe(
 
 def fetch_premarket_news(ticker: str, max_age_hours: int = 16) -> list:
     """
-    Fetch only RECENT headlines (published within the last 16 hours).
+    Fetch only RECENT headlines (published within the last `max_age_hours`).
 
-    WHY THIS MATTERS:
-    The current pipeline fetches all headlines from the last 30 days.
-    That means a prediction made Monday morning is weighted by news from
-    two weeks ago, not this morning's pre-market earnings release.
-
-    For the PREDICTOR (04_predict_v2.py), we only want:
-      - Pre-market news (6 AM - 9:30 AM EST today)
-      - After-hours news from yesterday (4 PM - 6 AM today)
-      - Any breaking news in the last 16 hours
-
-    This function filters headlines by age and returns only the recent ones.
-    The sentiment from these headlines is what should drive today's prediction.
-
-    Parameters:
-      ticker        : stock symbol e.g. "AAPL"
-      max_age_hours : only return headlines newer than this many hours (default 16)
+    Uses the stronger RSS helper with browser-like headers and also attempts
+    Finnhub live company news when an API key is available.
 
     Returns:
       List of (published_datetime, headline_text) tuples, newest first.
     """
-    import feedparser
-    import requests
     from datetime import datetime, timedelta, timezone
     import pandas as pd
 
     cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
-    recent_headlines = []
+    recent_headlines: list[tuple[datetime, str]] = []
 
-    # Sources to check for real-time news
-    sources = [
-        f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker}&region=US&lang=en-US",
-        f"https://news.google.com/rss/search?q={ticker}+stock&hl=en-US&gl=US&ceid=US:en",
+    rss_sources = [
+        ("yahoo_finance", "https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker}&region=US&lang=en-US"),
     ]
 
-    for url in sources:
+    for i, q in enumerate(_google_news_live_queries(ticker), start=1):
+        rss_sources.append(
+            (
+                f"google_news_{i}",
+                "https://news.google.com/rss/search?q={ticker_query}&hl=en-US&gl=US&ceid=US:en".replace(
+                    "{ticker_query}", q.replace(" ", "+")
+                ),
+            )
+        )
+
+    for source_name, url in rss_sources:
         try:
-            feed = feedparser.parse(url)
-            for entry in feed.entries[:30]:
+            fetched = _fetch_rss_headlines(url, ticker)
+            kept = 0
+            for pub, title in fetched:
                 try:
-                    pub_str = entry.get("published", entry.get("updated", ""))
-                    pub     = pd.to_datetime(pub_str).to_pydatetime()
-
-                    # Normalise timezone
-                    if pub.tzinfo is None:
-                        pub = pub.replace(tzinfo=timezone.utc)
-
-                    # Only keep headlines newer than cutoff
-                    if pub >= cutoff:
-                        title = entry.get("title", "").strip()
-                        if title:
-                            recent_headlines.append((pub, title))
-
+                    ts = pd.Timestamp(pub)
+                    if ts.tzinfo is None:
+                        ts = ts.tz_localize("America/New_York").tz_convert("UTC")
+                    else:
+                        ts = ts.tz_convert("UTC")
+                    py_dt = ts.to_pydatetime()
+                    if py_dt >= cutoff and title:
+                        # For broader Google/Yahoo feeds, keep only headlines that appear
+                        # relevant to the ticker or one of its aliases.
+                        if source_name.startswith("google_news") or source_name == "yahoo_finance":
+                            aliases = _ticker_news_aliases(ticker)
+                            u = title.upper()
+                            if not any(str(a).upper() in u for a in aliases):
+                                continue
+                        recent_headlines.append((py_dt, title.strip()))
+                        kept += 1
                 except Exception:
                     continue
-        except Exception:
-            continue
+            print(f"[{ticker}] {source_name} recent headlines: {kept}")
+        except Exception as e:
+            print(f"[{ticker}] {source_name} fetch failed: {e}")
 
-    # Deduplicate by title
-    seen  = set()
-    dedup = []
+    finnhub_key = _get_finnhub_api_key()
+    if finnhub_key:
+        try:
+            import requests
+
+            today_utc = datetime.now(timezone.utc).date()
+            start_utc = (datetime.now(timezone.utc) - timedelta(hours=max_age_hours)).date()
+            url = "https://finnhub.io/api/v1/company-news"
+            params = {
+                "symbol": ticker,
+                "from": start_utc.isoformat(),
+                "to": today_utc.isoformat(),
+                "token": finnhub_key,
+            }
+            resp = requests.get(url, params=params, headers=_rss_http_headers(), timeout=30)
+            resp.raise_for_status()
+            payload = resp.json() or []
+
+            kept = 0
+            for item in payload[:100]:
+                try:
+                    ts = pd.to_datetime(item.get("datetime", 0), unit="s", utc=True)
+                    if pd.isna(ts):
+                        continue
+                    py_dt = ts.to_pydatetime()
+                    if py_dt < cutoff:
+                        continue
+                    title = str(item.get("headline", "") or "").strip()
+                    if not title:
+                        continue
+                    recent_headlines.append((py_dt, title))
+                    kept += 1
+                except Exception:
+                    continue
+            print(f"[{ticker}] finnhub recent headlines: {kept}")
+        except Exception as e:
+            print(f"[{ticker}] finnhub fetch failed: {e}")
+    else:
+        print(f"[{ticker}] finnhub skipped: FINNHUB_API_KEY not found")
+
+    # Deduplicate by title, keep newest occurrence.
+    dedup_map: dict[str, datetime] = {}
     for pub, title in recent_headlines:
-        if title not in seen:
-            seen.add(title)
-            dedup.append((pub, title))
+        prev = dedup_map.get(title)
+        if prev is None or pub > prev:
+            dedup_map[title] = pub
 
-    # Sort newest first
+    dedup = [(pub, title) for title, pub in dedup_map.items()]
     dedup.sort(key=lambda x: x[0], reverse=True)
 
+    print(f"[{ticker}] total recent headlines after dedupe: {len(dedup)}")
     return dedup
 
 
@@ -847,60 +1087,59 @@ def score_todays_news(ticker: str, engine: SentimentEngine) -> dict:
       headline_count    : how many headlines found in the last 16 hours
       strongest_headline: the headline with the highest absolute score
       strongest_score   : its score
-      is_breaking_news  : True if > 3 headlines in the last 2 hours (unusual activity)
-
-    This is what the predictor should use for TODAY's news signal, not the
-    stale 30-day rolling average from training.
+      is_breaking_news  : True if > 3 headlines in the last 2 hours
+      breaking_count    : number of headlines in the last 2 hours
+      avg_abs_score     : mean absolute headline sentiment score
     """
     headlines = fetch_premarket_news(ticker, max_age_hours=16)
 
     if not headlines:
         return {
-            "composite_score"   : 0.0,
-            "headline_count"    : 0,
+            "composite_score": 0.0,
+            "headline_count": 0,
             "strongest_headline": "",
-            "strongest_score"   : 0.0,
-            "is_breaking_news"  : False,
+            "strongest_score": 0.0,
+            "is_breaking_news": False,
+            "breaking_count": 0,
+            "avg_abs_score": 0.0,
         }
 
-    texts  = [h[1] for h in headlines]
+    texts = [h[1] for h in headlines]
     scores = engine.score_batch(texts)
 
-    # Weight more recent headlines higher (exponential decay)
-    # A headline from 1 hour ago matters more than one from 14 hours ago
-    from datetime import datetime, timezone
-    now    = datetime.now(timezone.utc)
+    from datetime import datetime, timezone, timedelta
+    now = datetime.now(timezone.utc)
     weights = []
     for pub, _ in headlines:
         age_hours = (now - pub).total_seconds() / 3600
-        weight    = max(0.1, 1.0 - (age_hours / 16))  # linear decay over 16 hours
+        weight = max(0.1, 1.0 - (age_hours / 16))
         weights.append(weight)
 
-    total_weight   = sum(weights) + 1e-9
-    composite      = sum(s * w for s, w in zip(scores, weights)) / total_weight
+    total_weight = sum(weights) + 1e-9
+    composite = sum(s * w for s, w in zip(scores, weights)) / total_weight
 
-    # Find the strongest single headline
-    abs_scores     = [abs(s) for s in scores]
+    abs_scores = [abs(s) for s in scores]
+    avg_abs_score = float(sum(abs_scores) / len(abs_scores)) if abs_scores else 0.0
     if abs_scores:
-        strongest_idx  = abs_scores.index(max(abs_scores))
+        strongest_idx = abs_scores.index(max(abs_scores))
         strongest_text = texts[strongest_idx]
-        strongest_scr  = scores[strongest_idx]
+        strongest_scr = scores[strongest_idx]
     else:
         strongest_text = ""
-        strongest_scr  = 0.0
+        strongest_scr = 0.0
 
-    # Breaking news: more than 3 headlines in last 2 hours
-    from datetime import timedelta
-    two_hours_ago  = datetime.now(timezone.utc) - timedelta(hours=2)
-    recent_2h      = sum(1 for pub, _ in headlines if pub >= two_hours_ago)
-    is_breaking    = recent_2h > 3
+    two_hours_ago = datetime.now(timezone.utc) - timedelta(hours=2)
+    recent_2h = sum(1 for pub, _ in headlines if pub >= two_hours_ago)
+    is_breaking = recent_2h > 3
 
     return {
-        "composite_score"   : round(composite, 4),
-        "headline_count"    : len(headlines),
+        "composite_score": round(composite, 4),
+        "headline_count": len(headlines),
         "strongest_headline": strongest_text,
-        "strongest_score"   : round(strongest_scr, 4),
-        "is_breaking_news"  : is_breaking,
+        "strongest_score": round(strongest_scr, 4),
+        "is_breaking_news": is_breaking,
+        "breaking_count": int(recent_2h),
+        "avg_abs_score": round(avg_abs_score, 4),
     }
 
 

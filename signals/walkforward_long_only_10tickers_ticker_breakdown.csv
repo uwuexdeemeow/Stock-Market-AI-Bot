@@ -1,0 +1,4 @@
+ticker,trades,win_rate,avg_pnl,median_pnl,total_pnl,long_trades,short_trades
+AMZN,47,0.766,29.4998,32.62,1386.49,47,0
+TSLA,70,0.5286,12.928,9.52,904.96,70,0
+GS,12,0.5,-4.675,-3.305,-56.1,12,0

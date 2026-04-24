@@ -1,0 +1,5 @@
+ticker,best_val_accuracy,test_accuracy,baseline_test,test_beats_baseline,max_depth,learning_rate,subsample,colsample_bytree,min_child_weight
+GOOGL,57.346,58.216,58.216,False,4,0.03,0.7,0.6,1
+MSFT,62.7078,54.5667,55.0351,False,4,0.08,0.7,0.8,5
+AMZN,61.6114,53.9906,54.9296,False,6,0.05,0.7,0.8,3
+TSLA,51.0689,49.6487,48.0094,True,8,0.08,0.85,0.6,5

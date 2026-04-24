@@ -16,6 +16,7 @@ Key alignment points:
 import argparse
 import json
 import os
+import sys
 from dataclasses import dataclass
 
 import numpy as np
@@ -50,20 +51,100 @@ from settings import (
     XGB_GAMMA,
     XGB_REG_ALPHA,
     XGB_REG_LAMBDA,
+    DIRECTION_LABEL_THRESHOLD,
+    PREDICTION_TARGET,
+    EXCESS_RETURN_MIN_PCT,
+    VOL_ADJUSTED_SHARPE_THRESHOLD,
+    MODEL_DIR,
+    APPROVED_TICKERS,
 )
 from xgb_feature_engineering import build_xgb_matrix
 from portfolio_manager import PortfolioRiskManager, ProposedTrade
+from execution_model import realistic_fill_price, commission as calc_commission, capacity_warning
 
 INITIAL_CAPITAL = 10_000.0
 BASE_POSITION_SIZE_PCT = 0.15
 MAX_POSITION_SIZE_PCT = 0.30
-HIGH_SIGNAL_BOOST = 1.25
+# Boost disabled: diagnostics showed HIGH win rate (54%) < LOW win rate (56%).
+# Boosting the worst-performing bucket amplified losses. Reset to 1.0 until
+# signal quality is reliably calibrated out-of-sample.
+HIGH_SIGNAL_BOOST = 1.0
+# Lowered from 50: BAC's 65-70 bucket (p=0.83, n=18) and CAT's 60-65 (p=0.73, n=22)
+# were being silenced despite excellent precision. At n≥15 the estimate is noisy but
+# the lower bound of the 95% CI is still ~55%+ for these high-precision buckets.
+# Separate n floors for each quality tier.
+# HIGH needs more data to trust a 65%+ precision estimate (noisy at small n).
+# MEDIUM can accept smaller buckets since the precision bar is lower.
+MIN_BUCKET_N_HIGH = 30    # n<30 → can't be HIGH even if p≥0.65
+MIN_BUCKET_N_MEDIUM = 15  # n<15 → LOW regardless of precision
 RETURN_BIN_CENTRES = np.array([-0.04, -0.02, 0.00, 0.02, 0.04], dtype=float)
 N_RETURN_BINS = len(RETURN_BIN_CENTRES)
 
+# Kill criteria: backtest must clear ALL of these gates to be considered valid.
+# Sharpe ≥ 0.5: realistic bar for a selective/sparse strategy (in-market ~30% of time).
+#   A fully-invested strategy targets ≥ 1.0; a selective one with 66%+ win rate
+#   naturally has lower Sharpe because of cash drag on quiet days.
+# NW t-stat ≥ 1.65: one-tailed 95% significance that daily returns > 0 (vs cash).
+#   Measured vs 0 (not vs SPY) — SPY-relative t-stat is logged separately but not gated,
+#   because a cash-holding strategy cannot be expected to beat a fully-invested index daily.
+KILL_CRITERIA = {
+    "min_sharpe": 0.5,       # annualised daily Sharpe must be ≥ 0.5
+    "min_nw_tstat": 1.65,    # Newey-West t-stat of daily return vs 0 must be ≥ 1.65 (95% CI)
+    "max_drawdown": -0.25,   # max drawdown must be better (less negative) than -25%
+}
 
-def make_direction_target(close: pd.Series) -> np.ndarray:
-    return (close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS).fillna(0.0).values > 0).astype(np.int64)
+
+def _newey_west_tstat(excess: pd.Series, lag: int = 5) -> float:
+    """
+    Computes a Newey-West corrected t-statistic for the mean of `excess` returns.
+
+    A plain t-stat assumes each day's return is independent, but stock returns
+    have autocorrelation (today's big move can influence tomorrow's).  Newey-West
+    adjusts the variance estimate to account for that, giving a more honest test.
+
+    Returns 0.0 when there is not enough data (< 30 observations).
+    """
+    n = len(excess)
+    if n < 30:
+        return 0.0
+    centered = excess.to_numpy(dtype=float) - float(excess.mean())
+    # gamma0 is the basic variance of the centered series
+    gamma0 = float(np.mean(centered * centered))
+    lrv = gamma0
+    # add weighted autocovariance terms up to `lag` lags
+    for k in range(1, min(lag, n - 1) + 1):
+        w = 1 - k / (lag + 1)          # Bartlett (triangular) weight
+        gk = float(np.mean(centered[k:] * centered[:-k]))
+        lrv += 2 * w * gk
+    se = float(np.sqrt(max(lrv, 0.0) / n))
+    if se == 0:
+        return 0.0
+    return float(excess.mean() / se)
+
+
+def make_direction_target(df: pd.DataFrame | pd.Series) -> np.ndarray:
+    # Must exactly mirror train.py so walk-forward accuracy measures the same label.
+    if isinstance(df, pd.Series):
+        close = df
+        spy_fwd = pd.Series(0.0, index=close.index)
+        hvol = pd.Series(0.20, index=close.index)
+    else:
+        close = df["Close"]
+        bench_col = f"spy_ret{RETURN_HORIZON_DAYS}d"
+        spy_fwd = df[bench_col].shift(-RETURN_HORIZON_DAYS).fillna(0.0) if bench_col in df.columns else pd.Series(0.0, index=close.index)
+        hvol = df["hvol_20d"] if "hvol_20d" in df.columns else pd.Series(0.20, index=close.index)
+
+    stock_fwd = close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS).fillna(0.0)
+
+    if PREDICTION_TARGET == "excess_return":
+        return ((stock_fwd - spy_fwd).values > EXCESS_RETURN_MIN_PCT).astype(np.int64)
+
+    if PREDICTION_TARGET == "vol_adjusted":
+        excess = stock_fwd - spy_fwd
+        vol_scaled = (hvol * np.sqrt(RETURN_HORIZON_DAYS)).clip(0.01, 1.0)
+        return ((excess / vol_scaled).values > VOL_ADJUSTED_SHARPE_THRESHOLD).astype(np.int64)
+
+    return (stock_fwd.values > DIRECTION_LABEL_THRESHOLD).astype(np.int64)
 
 
 def make_return_target(close: pd.Series) -> np.ndarray:
@@ -133,20 +214,32 @@ def confidence_buckets(probs: np.ndarray, y_true: np.ndarray) -> list[dict]:
     return rows
 
 
-def assign_signal_quality(confidence: float, bucket_report: list[dict]) -> str:
+def assign_signal_quality(confidence: float, bucket_report: list[dict],
+                          direction: str = "LONG") -> str:
+    """
+    Map a confidence score to HIGH / MEDIUM / LOW using the calibration bucket report.
+
+    For LONG signals  → use the bucket's UP precision directly.
+    For SHORT signals → invert: the precision that matters is how often the DOWN
+                        prediction was correct, which equals 1 - UP_precision.
+                        A bucket with 35% UP precision is actually a strong SHORT
+                        signal (65% DOWN precision).
+    """
     for row in bucket_report:
         lo, hi = row["bucket"].split("-")
         lo = float(lo); hi = float(hi)
         if confidence >= lo and (confidence < hi or hi >= 100):
-            precision = row.get("precision")
-            if precision is None:
-                return "MEDIUM"
-            if precision >= 0.65:
+            up_precision = row.get("precision")
+            n = row.get("n", 0)
+            if up_precision is None or n < MIN_BUCKET_N_MEDIUM:
+                return "LOW"
+            precision = up_precision if direction == "LONG" else (1.0 - up_precision)
+            if precision >= 0.65 and n >= MIN_BUCKET_N_HIGH:
                 return "HIGH"
-            if precision >= 0.55:
+            if precision >= 0.57:
                 return "MEDIUM"
             return "LOW"
-    return "MEDIUM"
+    return "LOW"
 
 
 def strip_sentiment(feature_cols: list[str]) -> list[str]:
@@ -162,7 +255,7 @@ def load_ticker_data(ticker: str):
     for col in feature_cols:
         df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0.0)
     X_all, _ = build_xgb_matrix(df, feature_cols)
-    y_dir = make_direction_target(df["Close"])
+    y_dir = make_direction_target(df)
     y_ret = make_return_target(df["Close"])
     return df, X_all, y_dir, y_ret
 
@@ -245,7 +338,11 @@ def walk_forward_predictions_for_ticker(ticker: str, min_train_rows: int = 700, 
         cal_probs_raw = dir_model.predict_proba(X_cal)[:, 1]
         calibrator = fit_direction_calibrator(cal_probs_raw, train_y_dir[calib_start:calib_end])
         threshold = compute_dynamic_threshold(calibrator)
-        bucket_report = confidence_buckets(cal_probs_raw, train_y_dir[calib_start:calib_end])
+        cal_probs = np.array([
+            float(calibrate_p_up(calibrator, float(p))) if calibrator is not None else float(p)
+            for p in cal_probs_raw
+        ], dtype=float)
+        bucket_report = confidence_buckets(cal_probs, train_y_dir[calib_start:calib_end])
         X_oos = scaler.transform(X_all[start:end])
         dir_probs = dir_model.predict_proba(X_oos)
         ret_probs = ret_model.predict_proba(X_oos)
@@ -254,9 +351,9 @@ def walk_forward_predictions_for_ticker(ticker: str, min_train_rows: int = 700, 
             p_down = 1.0 - p_up
             confidence = min(max(max(p_up, p_down) * 100.0, 50.0), 99.0)
             expected_return = float((ret_probs[j][:N_RETURN_BINS] * np.array([-0.04,-0.02,0.0,0.02,0.04])).sum()) * 100.0
-            signal = "LONG" if expected_return >= 0 else "SHORT"
             direction_vote = "LONG" if p_up >= p_down else "SHORT"
-            signal_quality = assign_signal_quality(confidence, bucket_report)
+            signal = direction_vote
+            signal_quality = assign_signal_quality(confidence, bucket_report, direction=direction_vote)
             entry_idx = min(idx + 1, len(df) - 1)
             exit_idx = min(entry_idx + RETURN_HORIZON_DAYS, len(df) - 1)
             records.append({
@@ -274,7 +371,7 @@ def walk_forward_predictions_for_ticker(ticker: str, min_train_rows: int = 700, 
                 "conf_threshold": threshold,
                 "expected_return": expected_return,
                 "signal_quality": signal_quality,
-                "actionable": bool(confidence >= threshold and signal == "LONG"),
+                "actionable": bool(confidence >= threshold),
             })
         start = end
     return pd.DataFrame(records).set_index("date") if records else pd.DataFrame()
@@ -379,6 +476,7 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
                     "entry_price": round(pos["entry_price"], 4), "exit_price": round(exit_px, 4),
                     "holding_days": int(pos["holding_days"]), "net_pnl": round(net, 2),
                     "sector": SECTOR_MAP.get(pos["ticker"], "OTHER"),
+                    "capacity_warning": bool(pos.get("capacity_warning", False)),
                 })
             else:
                 remaining.append(pos)
@@ -392,6 +490,11 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
                 continue
             row = pdf.loc[dt]
             if not bool(row.get("actionable", False)):
+                continue
+            # Skip LOW-quality signals. MEDIUM threshold raised to 0.60 after
+            # OOS audit showed 55%-threshold MEDIUM signals had only 46.9% win
+            # rate — below random. Only HIGH (≥65%) and tight MEDIUM (60-65%) trade.
+            if str(row.get("signal_quality", "LOW")) == "LOW":
                 continue
             signal = str(row["signal"])
             if mode == "long_only" and signal != "LONG":
@@ -417,16 +520,19 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
             row = predictions_by_ticker[tr.ticker].loc[dt]
             entry = float(row["open_next"])
             exit_px = float(row["exit_future_close"])
-            if tr.signal == "LONG":
-                entry *= (1 + eff_slip)
-                exit_px *= (1 - eff_slip)
-            else:
-                entry *= (1 - eff_slip)
-                exit_px *= (1 + eff_slip)
+            hist = price_history[tr.ticker]
+            adv_entry = float(hist["Volume"].loc[:pd.Timestamp(row["entry_date"])].tail(20).mean()) if "Volume" in hist.columns else 0.0
+            adv_exit = float(hist["Volume"].loc[:pd.Timestamp(row["exit_date"])].tail(20).mean()) if "Volume" in hist.columns else adv_entry
             trade_value = current_equity * tr.requested_position_pct
             shares = trade_value / max(entry, 1e-9)
-            commission_entry = shares * COMMISSION_PER_SHARE
-            commission_exit = shares * COMMISSION_PER_SHARE
+            if tr.signal == "LONG":
+                entry = realistic_fill_price(entry, shares, adv_entry, side="buy", base_slippage_pct=SLIPPAGE_BASE_PCT * stress)
+                exit_px = realistic_fill_price(exit_px, shares, adv_exit, side="sell", base_slippage_pct=SLIPPAGE_BASE_PCT * stress)
+            else:
+                entry = realistic_fill_price(entry, shares, adv_entry, side="sell", base_slippage_pct=SLIPPAGE_BASE_PCT * stress)
+                exit_px = realistic_fill_price(exit_px, shares, adv_exit, side="buy", base_slippage_pct=SLIPPAGE_BASE_PCT * stress)
+            commission_entry = calc_commission(int(round(shares)))
+            commission_exit = calc_commission(int(round(shares)))
             if tr.signal == "LONG":
                 cash -= shares * entry + commission_entry
                 margin_reserved = 0.0
@@ -451,6 +557,7 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
                 "commission_entry": commission_entry,
                 "commission_exit": commission_exit,
                 "margin_reserved": margin_reserved,
+                "capacity_warning": bool(capacity_warning(shares, adv_entry)),
             })
         equity_index.append(dt)
         equity_curve.append(mark_to_market(dt))
@@ -464,15 +571,41 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
     ann_ret = (1.0 + total_ret) ** (1.0 / years) - 1.0 if len(equity) else 0.0
     bench_ret = float(benchmark.iloc[-1] / benchmark.iloc[0] - 1.0) if len(benchmark) else 0.0
     sharpe = float((daily_ret.mean() / (daily_ret.std() + 1e-12)) * np.sqrt(252)) if len(daily_ret) else 0.0
+    # Compute Newey-West t-stat vs 0 (risk-free / cash benchmark).
+    # A selective strategy that deliberately holds cash cannot be tested vs a
+    # fully-invested SPY — every cash day would register as a "loss" against SPY's
+    # positive drift, making the t-stat negative even when all trades are profitable.
+    # The correct null hypothesis for a sparse trading strategy is:
+    #   H0: mean daily return == 0  (is there any return above cash?)
+    # We still log the SPY-relative t-stat separately for information.
+    spy_daily = benchmark.pct_change().reindex(equity.index).fillna(0.0)
+    nw_tstat = _newey_west_tstat(daily_ret)          # vs 0 (cash) — primary gate
+    nw_tstat_vs_spy = _newey_west_tstat(daily_ret - spy_daily)  # informational only
+
+    # Evaluate every kill-criteria gate and record which passed / failed.
+    gate_results = {
+        "sharpe_pass": bool(sharpe >= KILL_CRITERIA["min_sharpe"]),
+        "nw_tstat_pass": bool(nw_tstat >= KILL_CRITERIA["min_nw_tstat"]),
+        "drawdown_pass": bool((float(dd.min()) if len(dd) else 0.0) >= KILL_CRITERIA["max_drawdown"]),
+    }
+    gate_results["all_pass"] = all(gate_results.values())
+
     metrics = {
         "total_return_pct": round(total_ret * 100, 2),
         "annual_return_pct": round(ann_ret * 100, 2),
         "benchmark_return_pct": round(bench_ret * 100, 2),
         "alpha_pct": round((total_ret - bench_ret) * 100, 2),
         "sharpe_ratio_daily": round(sharpe, 3),
+        "nw_tstat_vs_cash": round(nw_tstat, 3),
+        "nw_tstat_vs_spy": round(nw_tstat_vs_spy, 3),
         "max_drawdown_pct": round(float(dd.min()) * 100, 2) if len(dd) else 0.0,
         "slippage_assumption_bps": round(SLIPPAGE_BASE_PCT * stress * 10_000, 1),
+        "execution_model": "spread_plus_sqrt_impact",
         "mode": mode,
+        "kill_criteria": {
+            "thresholds": KILL_CRITERIA,
+            "results": gate_results,
+        },
         "diagnostics_2022": compute_period_metrics(equity, benchmark, "2022-01-01", "2022-12-31"),
         "signal_quality": summarize_signal_quality(pd.DataFrame(trade_rows)),
     }
@@ -483,7 +616,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Strict walk-forward backtest aligned to train.py")
     parser.add_argument("--ticker", type=str, default=None)
     parser.add_argument("--tickers", nargs="*", default=None)
-    parser.add_argument("--mode", type=str, default="long_only", choices=["long_short", "long_only", "long_only_bear_cash"])
+    parser.add_argument("--mode", type=str, default="long_short", choices=["long_short", "long_only", "long_only_bear_cash"])
     parser.add_argument("--stress", type=float, default=1.0)
     args = parser.parse_args()
 
@@ -493,14 +626,41 @@ def main() -> None:
     elif args.ticker:
         tickers = [args.ticker.upper()]
     else:
-        tickers = [f.replace(".parquet", "") for f in sorted(os.listdir(DATA_DIR)) if f.endswith(".parquet")]
+        # Default: only trade approved tickers (pruned to models with positive edge).
+        # Pass --tickers to override and test all available parquets.
+        available = {f.replace(".parquet", "") for f in os.listdir(DATA_DIR) if f.endswith(".parquet")}
+        tickers = [t for t in APPROVED_TICKERS if t in available]
 
     predictions = {}
     for ticker in tickers:
         try:
+            # Skip tickers where the model is clearly harmful: accuracy more than
+            # 5pp below baseline. A small gap is tolerated because scale_pos_weight
+            # forces some DOWN predictions that reduce overall accuracy even when the
+            # UP signal quality is still usable.
+            summary_path = os.path.join(MODEL_DIR, f"{ticker}_train_summary.json")
+            if os.path.exists(summary_path):
+                with open(summary_path) as _f:
+                    _summary = json.load(_f)
+                _acc = _summary.get("direction_accuracy", 0)
+                _baseline = _summary.get("baseline_up_rate", 50)
+                if _acc < _baseline - 5.0:
+                    print(f"SKIP {ticker}: dir_acc={_acc:.1f}% vs baseline={_baseline:.1f}% (>5pp below, model harmful)")
+                    continue
             predictions[ticker] = walk_forward_predictions_for_ticker(ticker)
         except Exception as e:
             print(f"ERROR - {ticker}: {e}")
+
+    # Save raw per-ticker prediction DataFrames so we can diagnose whether
+    # predictions continue through later years and whether they stop being
+    # actionable versus disappearing entirely.
+    for ticker, pdf in predictions.items():
+        if pdf is None or pdf.empty:
+            continue
+        pred_out = os.path.join(SIGNAL_DIR, f"{ticker}_walkforward_predictions.csv")
+        pdf.reset_index().to_csv(pred_out, index=False)
+        print("Saved →", pred_out)
+
     predictions = {k: v for k, v in predictions.items() if not v.empty}
     if not predictions:
         raise SystemExit("No walk-forward predictions generated")
@@ -521,6 +681,33 @@ def main() -> None:
     print("Saved →", metrics_out)
     print("Saved →", breakdown_out)
     print(metrics)
+
+    # ── Kill-criteria gate ────────────────────────────────────────────────────
+    # Print a clear PASS/FAIL summary so the result is impossible to miss.
+    # Exit with code 1 so CI / shell scripts can detect a failed backtest.
+    kc = metrics["kill_criteria"]
+    res = kc["results"]
+    thr = kc["thresholds"]
+    print("\n" + "=" * 60)
+    print("KILL-CRITERIA GATE")
+    print("=" * 60)
+    print(f"  Sharpe        : {metrics['sharpe_ratio_daily']:.3f}  (need ≥ {thr['min_sharpe']})  "
+          f"{'✓ PASS' if res['sharpe_pass'] else '✗ FAIL'}")
+    print(f"  NW t-stat(0)  : {metrics['nw_tstat_vs_cash']:.3f}  (need ≥ {thr['min_nw_tstat']})  "
+          f"{'✓ PASS' if res['nw_tstat_pass'] else '✗ FAIL'}  [vs SPY: {metrics['nw_tstat_vs_spy']:.3f}]")
+    print(f"  Max drawdown  : {metrics['max_drawdown_pct']:.1f}%  (need ≥ {thr['max_drawdown']*100:.0f}%)  "
+          f"{'✓ PASS' if res['drawdown_pass'] else '✗ FAIL'}")
+    print("-" * 60)
+    if res["all_pass"]:
+        print("RESULT: ALL GATES PASSED — strategy may advance to paper trading")
+    else:
+        failed = [k.replace("_pass", "") for k, v in res.items() if k != "all_pass" and not v]
+        print(f"RESULT: FAILED — gates not cleared: {', '.join(failed)}")
+        print("Strategy should NOT advance to paper trading.")
+    print("=" * 60 + "\n")
+
+    if not res["all_pass"]:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

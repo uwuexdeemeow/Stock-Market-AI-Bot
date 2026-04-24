@@ -1,0 +1,5 @@
+ticker,trades,win_rate,avg_pnl,median_pnl,total_pnl,long_trades,short_trades
+BTC-USD,41,0.6829,170.6644,235.36,6997.24,41,0
+AMZN,34,0.7941,63.7309,36.915,2166.85,34,0
+NVDA,58,0.5,-21.0919,-0.245,-1223.33,58,0
+AMD,50,0.28,-88.9938,-58.435,-4449.69,50,0

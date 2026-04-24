@@ -43,6 +43,10 @@ from settings import (
     EMBARGO_DAYS,
     CONFIDENCE_TARGET_PRECISION,
     DEFAULT_FIXED_CONFIDENCE_THRESHOLD,
+    DIRECTION_LABEL_THRESHOLD,
+    PREDICTION_TARGET,
+    EXCESS_RETURN_MIN_PCT,
+    VOL_ADJUSTED_SHARPE_THRESHOLD,
     XGB_N_ESTIMATORS,
     XGB_MAX_DEPTH,
     XGB_LEARNING_RATE,
@@ -72,9 +76,59 @@ N_RETURN_BINS = len(RETURN_BIN_LABELS)
 RETURN_BIN_CENTRES = np.array([-0.04, -0.02, 0.00, 0.02, 0.04], dtype=float)
 
 
-def make_direction_target(close: pd.Series) -> np.ndarray:
-    fwd = close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS)
-    return (fwd.fillna(0.0).values > 0).astype(np.int64)
+def make_direction_target(df: pd.DataFrame | pd.Series) -> np.ndarray:
+    """
+    Build the binary direction label according to PREDICTION_TARGET.
+
+    Three modes (set in settings.py):
+
+    "direction"     — original behaviour: UP if stock_forward_ret > threshold.
+                      Noisy because it includes beta; a stock can go up 2 % just
+                      because SPY went up 2 % — that is not alpha.
+
+    "excess_return" — UP if (stock_ret - spy_ret) > EXCESS_RETURN_MIN_PCT.
+                      Strips out market beta.  The model only gets credit for
+                      returns that outperform SPY over the same window.  The
+                      0.5 % floor clears estimated slippage + commission.
+
+    "vol_adjusted"  — UP if excess_ret / daily_hvol_scaled > threshold.
+                      A 2 % excess return during a calm (10 % vol) market is a
+                      stronger signal than the same 2 % during a 50 % vol crisis.
+                      Teaches the model to find risk-adjusted opportunities.
+
+    The SPY benchmark return is read from the parquet column
+    spy_ret{N}d where N = RETURN_HORIZON_DAYS.  That column stores the BACKWARD-
+    looking SPY return at each date; shifting it by -N converts it to the
+    FORWARD-looking return for the same N-day window, perfectly aligned with the
+    stock forward return.
+    """
+    # Accept either a full DataFrame or just the Close series (legacy fallback)
+    if isinstance(df, pd.Series):
+        close = df
+        spy_fwd = pd.Series(0.0, index=close.index)
+        hvol = pd.Series(0.20, index=close.index)
+    else:
+        close = df["Close"]
+        bench_col = f"spy_ret{RETURN_HORIZON_DAYS}d"
+        # shift(-N) converts backward return at t+N into forward return at t
+        spy_fwd = df[bench_col].shift(-RETURN_HORIZON_DAYS).fillna(0.0) if bench_col in df.columns else pd.Series(0.0, index=close.index)
+        hvol = df["hvol_20d"] if "hvol_20d" in df.columns else pd.Series(0.20, index=close.index)
+
+    stock_fwd = close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS).fillna(0.0)
+
+    if PREDICTION_TARGET == "excess_return":
+        excess = stock_fwd - spy_fwd
+        return (excess.values > EXCESS_RETURN_MIN_PCT).astype(np.int64)
+
+    if PREDICTION_TARGET == "vol_adjusted":
+        excess = stock_fwd - spy_fwd
+        # Scale hvol to the N-day window: daily_vol * sqrt(N)
+        vol_scaled = (hvol * np.sqrt(RETURN_HORIZON_DAYS)).clip(0.01, 1.0)
+        sharpe_proxy = excess / vol_scaled
+        return (sharpe_proxy.values > VOL_ADJUSTED_SHARPE_THRESHOLD).astype(np.int64)
+
+    # "direction" — original behaviour
+    return (stock_fwd.values > DIRECTION_LABEL_THRESHOLD).astype(np.int64)
 
 
 def make_return_target(close: pd.Series) -> np.ndarray:
@@ -103,27 +157,59 @@ def compute_split_indices(n_total: int) -> dict:
     }
 
 
-def compute_dynamic_threshold(calibrator, target_precision: float = 0.58, default: float = 57.5) -> tuple[float, bool]:
+def compute_dynamic_threshold(
+    calibrator,
+    target_precision: float = 0.58,
+    default: float = 57.5,
+    raw_probs: np.ndarray | None = None,
+    y_true: np.ndarray | None = None,
+) -> tuple[float, bool]:
     """
     Returns (threshold, used_fallback).
-    used_fallback=True means the calibrator was None or failed, and the
-    default fixed threshold was used instead.
+
+    Priority order:
+    1. Isotonic calibrator → scan calibrated probability grid for target precision.
+    2. Raw XGBoost probs + labels → bin by confidence percentile and find where
+       precision >= target. Data-driven even without isotonic calibration.
+    3. Hard-coded default (57.5). Last resort only.
     """
-    if calibrator is None:
-        return default, True
-    raw_grid = np.linspace(0.50, 0.99, 200)
-    try:
-        cal_grid = calibrator.predict(raw_grid)
-        conf_grid = np.maximum(cal_grid, 1.0 - cal_grid) * 100.0
-        idx = np.where(cal_grid >= target_precision)[0]
-        if len(idx):
-            return float(np.clip(conf_grid[idx[0]], 52.0, 80.0)), False
-    except Exception:
-        pass
+    # --- Path 1: calibrator available ---
+    if calibrator is not None:
+        raw_grid = np.linspace(0.50, 0.99, 200)
+        try:
+            cal_grid = calibrator.predict(raw_grid)
+            conf_grid = np.maximum(cal_grid, 1.0 - cal_grid) * 100.0
+            idx = np.where(cal_grid >= target_precision)[0]
+            if len(idx):
+                return float(np.clip(conf_grid[idx[0]], 52.0, 80.0)), False
+        except Exception:
+            pass
+
+    # --- Path 2: scan raw XGBoost probs directly ---
+    # Isotonic calibration failed its quality test, but we still have the raw
+    # probabilities and true labels on the calibration split. Convert raw probs
+    # to confidence scores (max(p, 1-p)*100) and find the lowest threshold where
+    # precision meets the target with at least 20 samples above it.
+    if raw_probs is not None and y_true is not None:
+        probs = np.asarray(raw_probs, dtype=float)
+        labels = np.asarray(y_true, dtype=int)
+        conf = np.maximum(probs, 1.0 - probs) * 100.0
+        pred_up = (probs >= 0.5).astype(int)
+        # Scan thresholds from low to high; stop at first one meeting the target.
+        for t in np.arange(52.0, 80.0, 0.5):
+            mask = conf >= t
+            if mask.sum() < 20:
+                break  # too few samples — every higher threshold also has too few
+            precision = float((pred_up[mask] == labels[mask]).mean())
+            if precision >= target_precision:
+                return float(t), True  # still flagged as fallback (no calibrator)
+
+    # --- Path 3: hard-coded default ---
     return default, True
 
 
 def build_models(X_train, y_dir_train, X_cal, y_dir_cal, y_ret_train, y_ret_cal,
+                 sample_weight: np.ndarray | None = None,
                  param_overrides: dict | None = None):
     """
     param_overrides: if provided by tune_xgb_best_tickers.py --apply, these
@@ -150,12 +236,17 @@ def build_models(X_train, y_dir_train, X_cal, y_dir_cal, y_ret_train, y_ret_cal,
         applied = {k: v for k, v in param_overrides.items() if k in allowed}
         common.update(applied)
         log.info("build_models: applying tuned param overrides: %s", applied)
+    # Balance UP/DOWN classes so the model doesn't collapse to always predicting
+    # the majority class. If 55% of training labels are UP, scale_pos_weight=0.82
+    # tells XGBoost to weight DOWN cases more, forcing it to learn both directions.
     dir_model = xgb.XGBClassifier(objective="binary:logistic", eval_metric="logloss", **common)
-    dir_model.fit(X_train, y_dir_train, eval_set=[(X_cal, y_dir_cal)], verbose=False)
+    dir_model.fit(X_train, y_dir_train, sample_weight=sample_weight,
+                  eval_set=[(X_cal, y_dir_cal)], verbose=False)
     ret_model = xgb.XGBClassifier(
         objective="multi:softprob", num_class=N_RETURN_BINS, eval_metric="mlogloss", **common
     )
-    ret_model.fit(X_train, y_ret_train, eval_set=[(X_cal, y_ret_cal)], verbose=False)
+    ret_model.fit(X_train, y_ret_train, sample_weight=sample_weight,
+                  eval_set=[(X_cal, y_ret_cal)], verbose=False)
     return dir_model, ret_model
 
 
@@ -243,9 +334,10 @@ def walk_forward_summary(X_all: np.ndarray, y_all: np.ndarray, n_folds: int = 5)
         if train_end < 100 or test_end <= test_start:
             continue
         scaler = StandardScaler()
-        X_train = scaler.fit_transform(X_all[:train_end])
+        fold_idx = np.arange(0, train_end, max(1, RETURN_HORIZON_DAYS))
+        X_train = scaler.fit_transform(X_all[fold_idx])
         X_test = scaler.transform(X_all[test_start:test_end])
-        y_train = y_all[:train_end]
+        y_train = y_all[fold_idx]
         y_test = y_all[test_start:test_end]
         model = xgb.XGBClassifier(
             objective="binary:logistic",
@@ -303,7 +395,7 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
         df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
     X_all, xgb_feature_cols = build_xgb_matrix(df, feature_cols_raw)
-    y_dir_all = make_direction_target(df["Close"])
+    y_dir_all = make_direction_target(df)
     y_ret_all = make_return_target(df["Close"])
     future_returns = make_future_return(df["Close"])
 
@@ -316,19 +408,47 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
         log.error("Invalid split for %s", ticker)
         return False
 
-    # Scaler fit only on training rows — never sees calibration or test data.
+    # Non-overlapping subsample for training only.
+    # With a 10-day return horizon, consecutive rows predict windows that share
+    # 9 of the same 10 days.  Training on every row means XGBoost sees nearly
+    # identical (X, y) pairs — it cannot learn to distinguish them and collapses
+    # to predicting the base rate.  Keeping every Nth row (stride = horizon)
+    # gives fully independent, non-overlapping return windows so each training
+    # example is truly informative.  Calibration and test rows stay dense so
+    # threshold-finding and accuracy reporting remain representative.
+    stride = max(1, RETURN_HORIZON_DAYS)
+    train_idx = np.arange(0, train_end, stride)
+    X_train_sparse = X_all[train_idx]
+    y_dir_train_sparse = y_dir_all[train_idx]
+    y_ret_train_sparse = y_ret_all[train_idx]
+    log.info(
+        "[%s] Non-overlapping train rows: %d → %d (stride=%d)",
+        ticker, train_end, len(train_idx), stride,
+    )
+
+    # Scaler fit only on the subsampled training rows.
     scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_all[:train_end])
+    X_train = scaler.fit_transform(X_train_sparse)
     X_cal = scaler.transform(X_all[calib_start:calib_end])
     X_test = scaler.transform(X_all[test_start:])
 
+    # Exponential time-decay weights: rows from further in the past get lower
+    # weight.  Half-life = 2 trading years (504 days) so a 4-year-old row gets
+    # ~25% the weight of today's row.  The model therefore learns mostly from
+    # recent market behaviour while still benefiting from older examples.
+    half_life = 504.0
+    age = train_end - train_idx          # how many rows ago each sample is
+    sample_weight = np.exp(-np.log(2) / half_life * age)
+    sample_weight = (sample_weight / sample_weight.mean()).astype(np.float32)
+
     dir_model, ret_model = build_models(
         X_train,
-        y_dir_all[:train_end],
+        y_dir_train_sparse,
         X_cal,
         y_dir_all[calib_start:calib_end],
-        y_ret_all[:train_end],
+        y_ret_train_sparse,
         y_ret_all[calib_start:calib_end],
+        sample_weight=sample_weight,
         param_overrides=param_overrides,
     )
 
@@ -339,23 +459,31 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
     save_direction_calibrator(calibrator, cal_path)
 
     # Track whether the calibrator was usable or fell back to the fixed default.
+    # Pass raw cal_probs + labels so compute_dynamic_threshold can derive a
+    # data-driven threshold even when isotonic calibration fails its quality test.
     threshold, threshold_used_fallback = compute_dynamic_threshold(
         calibrator,
         target_precision=CONFIDENCE_TARGET_PRECISION,
         default=DEFAULT_FIXED_CONFIDENCE_THRESHOLD,
+        raw_probs=cal_probs,
+        y_true=y_dir_all[calib_start:calib_end],
     )
     if threshold_used_fallback:
-        log.warning(
-            "[%s] Calibrator fallback: isotonic calibrator was None or failed. "
-            "Using fixed threshold %.1f. Calibration set size: %d",
+        log.info(
+            "[%s] Calibrator skipped (Brier/rank test); threshold %.1f derived "
+            "from raw probs on calibration set (%d rows)",
             ticker, threshold, calib_end - calib_start,
         )
     else:
         log.info("[%s] Dynamic threshold: %.1f (calibration set size: %d)", ticker, threshold, calib_end - calib_start)
 
     test_probs = dir_model.predict_proba(X_test)
-    test_p_up = test_probs[:, 1]
-    y_pred = test_probs.argmax(axis=1)
+    test_p_up_raw = test_probs[:, 1]
+    test_p_up = np.array([
+        float(calibrator.predict([float(p)])[0]) if calibrator is not None else float(p)
+        for p in test_p_up_raw
+    ], dtype=float)
+    y_pred = (test_p_up >= 0.5).astype(np.int64)
     dir_acc = float(accuracy_score(y_dir_all[test_start:], y_pred) * 100.0)
     baseline_up_rate = float(np.mean(y_dir_all[test_start:]) * 100.0) if len(y_dir_all[test_start:]) else 50.0
 
@@ -395,7 +523,7 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
         "confidence_buckets": buckets,
         "threshold_sweep": sweep,
         "return_model_eval": return_eval,
-        "model_version": "xgb_complete_v2",
+        "model_version": "xgb_complete_v5",
         "trained_at": datetime.now().isoformat(),
         "sentiment_features_removed": True,
         "param_overrides": param_overrides or {},

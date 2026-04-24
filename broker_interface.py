@@ -1,21 +1,13 @@
 """
 broker_interface.py — Abstract broker so the rest of the system isn't married
 to Moomoo.
-
-PLAIN ENGLISH:
-Today we paper-trade via Moomoo. Tomorrow we might use Alpaca, IBKR, or a
-crypto venue. If code that needs to "place an order" imports Moomoo
-directly, we'll be rewriting everything on the switch. The fix is to
-define a small abstract interface (`Broker`) here and have each concrete
-adapter (MoomooBroker, AlpacaBroker, DryRunBroker) implement it.
-
-The rest of the pipeline only ever talks to `Broker`.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Literal
 
 
@@ -56,7 +48,7 @@ class Broker(ABC):
     @abstractmethod
     def get_positions(self) -> list[Position]: ...
     @abstractmethod
-    def place_order(self, order: Order) -> str: ...  # returns order_id
+    def place_order(self, order: Order) -> str: ...
     @abstractmethod
     def cancel_order(self, order_id: str) -> bool: ...
     @abstractmethod
@@ -64,26 +56,88 @@ class Broker(ABC):
 
 
 class DryRunBroker(Broker):
-    """For testing — accepts everything, stores nothing real."""
-    def __init__(self, starting_equity: float = 100_000.0):
-        self._equity = starting_equity
+    """Simple in-memory paper broker for local testing.
+
+    By default market orders are immediately filled at the last known mark for
+    the ticker. Set marks through set_mark_price() before placing orders.
+    """
+
+    def __init__(self, starting_equity: float = 100_000.0, commission_per_share: float = 0.005):
+        self._cash = float(starting_equity)
+        self._commission_per_share = float(commission_per_share)
         self._positions: dict[str, Position] = {}
-        self._orders: list[Order] = []
-        self._fills: list[Fill] = []
+        self._orders: dict[str, Order] = {}
+        self._fills: list[tuple[str, Fill]] = []
+        self._marks: dict[str, float] = {}
+
+    def set_mark_price(self, ticker: str, price: float) -> None:
+        self._marks[str(ticker).upper()] = float(price)
+
+    def _now_iso(self) -> str:
+        return datetime.now(timezone.utc).isoformat()
+
+    def _commission(self, qty: int) -> float:
+        return abs(int(qty)) * self._commission_per_share
 
     def get_equity(self) -> float:
-        return self._equity
+        mtm = self._cash
+        for pos in self._positions.values():
+            mark = self._marks.get(pos.ticker, pos.avg_price)
+            mtm += pos.quantity * mark
+        return float(mtm)
 
     def get_positions(self) -> list[Position]:
-        return list(self._positions.values())
+        return [Position(ticker=p.ticker, quantity=p.quantity, avg_price=p.avg_price) for p in self._positions.values() if p.quantity != 0]
 
     def place_order(self, order: Order) -> str:
-        oid = f"dry-{len(self._orders)}"
-        self._orders.append(order)
+        if int(order.quantity) <= 0:
+            raise ValueError("Order quantity must be positive")
+        ticker = str(order.ticker).upper()
+        px = float(order.limit_price if order.limit_price is not None else self._marks.get(ticker, 0.0))
+        if px <= 0:
+            raise ValueError(f"No executable price available for {ticker}; set a mark or limit_price first")
+
+        oid = f"dry-{len(self._orders) + 1}"
+        self._orders[oid] = Order(ticker=ticker, side=order.side, quantity=int(order.quantity), type=order.type, limit_price=order.limit_price, client_id=order.client_id)
+
+        qty = int(order.quantity)
+        signed = qty if order.side == "buy" else -qty
+        fee = self._commission(qty)
+        self._cash -= signed * px + fee
+
+        prev = self._positions.get(ticker, Position(ticker=ticker, quantity=0, avg_price=0.0))
+        new_qty = prev.quantity + signed
+        if new_qty == 0:
+            self._positions.pop(ticker, None)
+        elif prev.quantity == 0 or (prev.quantity > 0) != (new_qty > 0):
+            self._positions[ticker] = Position(ticker=ticker, quantity=new_qty, avg_price=px)
+        elif signed > 0:
+            total_cost = prev.avg_price * prev.quantity + px * qty
+            self._positions[ticker] = Position(ticker=ticker, quantity=new_qty, avg_price=total_cost / new_qty)
+        else:
+            self._positions[ticker] = Position(ticker=ticker, quantity=new_qty, avg_price=prev.avg_price)
+
+        self._fills.append((self._now_iso(), Fill(order_id=oid, ticker=ticker, side=order.side, quantity=qty, price=px, commission=fee)))
         return oid
 
     def cancel_order(self, order_id: str) -> bool:
-        return True
+        return order_id in self._orders
 
     def recent_fills(self, since_iso: str) -> list[Fill]:
-        return list(self._fills)
+        try:
+            cutoff = datetime.fromisoformat(since_iso.replace("Z", "+00:00"))
+        except Exception:
+            cutoff = None
+        out: list[Fill] = []
+        for ts, fill in self._fills:
+            if cutoff is None:
+                out.append(fill)
+                continue
+            try:
+                fill_dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            except Exception:
+                out.append(fill)
+                continue
+            if fill_dt >= cutoff:
+                out.append(fill)
+        return out

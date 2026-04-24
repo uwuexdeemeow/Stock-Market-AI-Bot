@@ -1,34 +1,32 @@
 """
-diagnostics.py — deeper environment/runtime checks
-
-Run this when setup.py passes but you want to verify heavier components like:
-- CUDA / MPS visibility
-- XGBoost local fit and predict
-- SHAP explainability import path
-- optional model artifact sanity
+diagnostics.py — deeper environment/runtime checks.
 """
 
-import os
-import sys
-import json
-import platform
-import subprocess
+from __future__ import annotations
+
 import importlib
+import json
+import os
+import platform
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
-GREEN  = "\033[92m"
+GREEN = "\033[92m"
 YELLOW = "\033[93m"
-RED    = "\033[91m"
-BLUE   = "\033[94m"
-BOLD   = "\033[1m"
-RESET  = "\033[0m"
+RED = "\033[91m"
+BLUE = "\033[94m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
 
-def ok(msg):   print(f"  {GREEN}✓{RESET}  {msg}")
+
+def ok(msg): print(f"  {GREEN}✓{RESET}  {msg}")
 def warn(msg): print(f"  {YELLOW}⚠{RESET}  {msg}")
-def err(msg):  print(f"  {RED}✗{RESET}  {msg}")
+def err(msg): print(f"  {RED}✗{RESET}  {msg}")
 def info(msg): print(f"  {BLUE}→{RESET}  {msg}")
-def hdr(msg):  print(f"\n{BOLD}{msg}{RESET}\n{'─'*60}")
+def hdr(msg): print(f"\n{BOLD}{msg}{RESET}\n{'─'*60}")
+
 
 def detect_acceleration_backend():
     result = {
@@ -43,10 +41,7 @@ def detect_acceleration_backend():
     try:
         nvidia_smi = shutil.which("nvidia-smi")
         if nvidia_smi:
-            smi = subprocess.run(
-                [nvidia_smi, "--query-gpu=name", "--format=csv,noheader"],
-                capture_output=True, text=True, timeout=5
-            )
+            smi = subprocess.run([nvidia_smi, "--query-gpu=name", "--format=csv,noheader"], capture_output=True, text=True, timeout=5)
             if smi.returncode == 0:
                 names = [x.strip() for x in smi.stdout.splitlines() if x.strip()]
                 if names:
@@ -58,10 +53,7 @@ def detect_acceleration_backend():
     try:
         import torch
     except Exception as e:
-        if result["nvidia_hardware_present"]:
-            result["reason"] = f"NVIDIA GPU detected ({result['nvidia_hardware_name']}) but torch import failed: {e}"
-        else:
-            result["reason"] = f"torch import failed: {e}"
+        result["reason"] = f"torch import failed: {e}"
         return result
 
     try:
@@ -86,15 +78,17 @@ def detect_acceleration_backend():
     if result["nvidia_hardware_present"]:
         result["reason"] = (
             f"NVIDIA GPU detected ({result['nvidia_hardware_name']}) but PyTorch CUDA is unavailable. "
-            f"This usually means a CPU-only torch build, missing/unsupported CUDA runtime, or driver mismatch."
+            "This usually means a CPU-only torch build, missing/unsupported CUDA runtime, or driver mismatch."
         )
     return result
+
 
 def check_env():
     hdr("SYSTEM / PYTHON")
     ok(f"Python: {sys.version.split()[0]}")
     ok(f"Platform: {platform.platform()}")
     ok(f"Executable: {sys.executable}")
+
 
 def check_acceleration():
     hdr("ACCELERATION BACKEND")
@@ -107,6 +101,7 @@ def check_acceleration():
     else:
         warn(backend["reason"])
 
+
 def check_imports():
     hdr("IMPORTS")
     modules = ["torch", "xgboost", "shap", "numpy", "pandas", "sklearn", "pyarrow", "moomoo"]
@@ -118,6 +113,7 @@ def check_imports():
         except Exception as e:
             warn(f"{mod}: {e}")
 
+
 def check_xgboost_runtime():
     hdr("XGBOOST RUNTIME")
     try:
@@ -126,7 +122,6 @@ def check_xgboost_runtime():
 
         X = np.random.randn(128, 8).astype("float32")
         y = (X[:, 0] + 0.25 * X[:, 1] > 0).astype("int32")
-
         model = xgb.XGBClassifier(
             n_estimators=10,
             max_depth=3,
@@ -142,6 +137,10 @@ def check_xgboost_runtime():
         ok(f"XGBoost fit/predict passed (shape={proba.shape})")
     except Exception as e:
         err(f"XGBoost runtime failed: {e}")
+        msg = str(e).lower()
+        if "omp" in msg or "openmp" in msg or "libiomp" in msg:
+            info("Likely OpenMP runtime conflict. On macOS remove duplicate OpenMP installs or use a consistent conda/pip stack.")
+
 
 def check_shap():
     hdr("SHAP")
@@ -150,6 +149,7 @@ def check_shap():
         ok(f"SHAP import passed ({getattr(shap, '__version__', 'unknown')})")
     except Exception as e:
         err(f"SHAP failed: {e}")
+
 
 def check_model_artifacts():
     hdr("MODEL ARTIFACTS")
@@ -166,6 +166,7 @@ def check_model_artifacts():
         count = sum(1 for p in files if p.suffix == suffix)
         info(f"  {suffix}: {count}")
 
+
 def main():
     print(f"\n{'='*60}")
     print("  DEEP DIAGNOSTICS")
@@ -176,6 +177,7 @@ def main():
     check_xgboost_runtime()
     check_shap()
     check_model_artifacts()
+
 
 if __name__ == "__main__":
     main()

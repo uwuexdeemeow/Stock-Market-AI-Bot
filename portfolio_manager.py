@@ -14,6 +14,7 @@ from settings import (
     SECTOR_MAP,
 )
 
+
 @dataclass
 class ProposedTrade:
     ticker: str
@@ -22,6 +23,7 @@ class ProposedTrade:
     confidence: float
     expected_return: float
     requested_position_pct: float
+
 
 class PortfolioRiskManager:
     def __init__(
@@ -57,23 +59,16 @@ class PortfolioRiskManager:
         if drawdown <= -self.max_drawdown_halt_pct:
             return approved
 
-        # Phase 3 soft de-risking band: between -8% and -15% drawdown, cut
-        # gross/net budgets linearly from 100% to 0%. Protects equity before
-        # the hard halt triggers.
-        _soft_dd = 0.08
-        if drawdown < -_soft_dd:
-            scale = max(0.0, (self.max_drawdown_halt_pct + drawdown) / (self.max_drawdown_halt_pct - _soft_dd))
+        soft_dd = 0.08
+        if drawdown < -soft_dd:
+            scale = max(0.0, (self.max_drawdown_halt_pct + drawdown) / (self.max_drawdown_halt_pct - soft_dd))
             soft_gross = self.max_gross_exposure * scale
             soft_net = self.max_net_exposure * scale
         else:
             soft_gross = self.max_gross_exposure
             soft_net = self.max_net_exposure
 
-        candidates = sorted(
-            candidates,
-            key=lambda x: (x.confidence, abs(x.expected_return)),
-            reverse=True,
-        )
+        candidates = sorted(candidates, key=lambda x: (x.confidence, abs(x.expected_return)), reverse=True)
 
         gross = 0.0
         net = 0.0
@@ -83,12 +78,15 @@ class PortfolioRiskManager:
 
         for ticker, series in price_history.items():
             try:
-                returns_cache[ticker] = series.pct_change().dropna().tail(60)
+                px = pd.Series(series).dropna()
+                returns_cache[ticker] = px.pct_change().dropna().tail(60)
             except Exception:
                 returns_cache[ticker] = pd.Series(dtype=float)
 
         for trade in candidates:
             weight = min(max(float(trade.requested_position_pct), 0.0), self.max_single_name_exposure)
+            if weight <= 0:
+                continue
             signed = self._signed(trade.signal, weight)
 
             if gross + abs(weight) > soft_gross:

@@ -1,5 +1,5 @@
 """
-confidence_calibration.py — v4: Isotonic calibration + dynamic threshold.
+confidence_calibration.py — v5: Validated isotonic calibration + dynamic threshold.
 """
 from __future__ import annotations
 
@@ -11,17 +11,64 @@ import numpy as np
 from sklearn.isotonic import IsotonicRegression
 
 
+def _brier_score(probs: np.ndarray, y_true: np.ndarray) -> float:
+    """Mean squared error between predicted probabilities and actual outcomes."""
+    return float(np.mean((probs - y_true.astype(float)) ** 2))
+
+
 def fit_direction_calibrator(p_up_raw: np.ndarray,
                               y_true: np.ndarray) -> Optional[IsotonicRegression]:
+    """
+    Fit an isotonic regression calibrator, but only keep it if it actually
+    improves Brier score on a held-out validation slice.
+
+    Isotonic regression can overfit small calibration sets and invert the
+    probability ordering out-of-sample (higher confidence → worse accuracy).
+    This function fits on the first 80% of the data and validates on the last
+    20%. If calibration makes Brier score worse on that held-out slice, it
+    returns None so raw XGBoost probabilities are used instead.
+    """
     p_up_raw = np.asarray(p_up_raw, dtype=float).reshape(-1)
     y_true   = np.asarray(y_true,   dtype=int).reshape(-1)
-    if len(p_up_raw) < 25:
+    # Raised from 25 → 100: isotonic regression needs enough points to
+    # fit a reliable monotone curve without noise spikes.
+    if len(p_up_raw) < 100:
         return None
     if len(np.unique(y_true)) < 2:
         return None
+
+    # Hold out the last 20% for out-of-sample validation.
+    split = max(int(len(p_up_raw) * 0.8), 50)
+    p_train, p_val = p_up_raw[:split], p_up_raw[split:]
+    y_train, y_val = y_true[:split],   y_true[split:]
+
+    if len(np.unique(y_train)) < 2 or len(p_val) < 10:
+        return None
+
     model = IsotonicRegression(y_min=0.0, y_max=1.0, out_of_bounds="clip")
-    model.fit(p_up_raw, y_true)
-    return model
+    model.fit(p_train, y_train)
+
+    p_val_cal = np.clip(model.predict(p_val), 0.0, 1.0)
+
+    # Reject if calibration raises Brier score on the held-out slice.
+    if _brier_score(p_val_cal, y_val) >= _brier_score(p_val, y_val):
+        return None
+
+    # Reject if calibration inverts the probability ranking — the exact failure
+    # mode seen in diagnostics where higher confidence → lower actual win rate.
+    # Spearman rank correlation between calibrated probs and outcomes must be
+    # at least weakly positive; if it's negative, calibration is harmful.
+    ranks_raw = np.argsort(np.argsort(p_val))
+    ranks_cal = np.argsort(np.argsort(p_val_cal))
+    rank_corr_raw = float(np.corrcoef(ranks_raw, y_val)[0, 1])
+    rank_corr_cal = float(np.corrcoef(ranks_cal, y_val)[0, 1])
+    if rank_corr_cal < 0 or rank_corr_cal < rank_corr_raw - 0.05:
+        return None
+
+    # Validation passed — refit on all data.
+    model_full = IsotonicRegression(y_min=0.0, y_max=1.0, out_of_bounds="clip")
+    model_full.fit(p_up_raw, y_true)
+    return model_full
 
 
 def save_direction_calibrator(model: Optional[IsotonicRegression], path: str) -> None:

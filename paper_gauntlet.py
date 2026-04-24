@@ -1,23 +1,5 @@
 """
 paper_gauntlet.py — Track paper-trading performance against model predictions.
-
-PLAIN ENGLISH:
-Before live capital, we run a "gauntlet" — at least 3 months of paper
-trading where every day we log:
-  * what the model predicted (direction, confidence, expected return)
-  * what actually happened (realized return, fill price, fees)
-  * slippage realized vs slippage modeled
-
-If, after ~60+ trading days:
-  * realized Sharpe net of costs ≥ 1.0
-  * realized alpha vs SPY statistically positive (Newey-West t > 2)
-  * mean realized slippage within 1.5× modeled slippage
-  * max drawdown ≤ 10%
-…then the system earns the right to go live. Otherwise: iterate.
-
-This script reads signals/paper_trades.csv + signals/paper_equity.csv
-(written by moomoo_paper_trading.py) and produces a scorecard to
-logs/paper_gauntlet_<YYYYMMDD>.json plus a human-readable markdown summary.
 """
 
 from __future__ import annotations
@@ -57,27 +39,29 @@ def _max_drawdown(equity: pd.Series) -> float:
 
 
 def _newey_west_tstat(excess: pd.Series, lag: int = 5) -> float:
-    """Simple Newey-West t-stat on the mean of `excess` returns."""
     n = len(excess)
     if n < 30:
         return 0.0
-    r = excess.to_numpy() - excess.mean()
-    gamma0 = float(np.mean(r * r))
+    centered = excess.to_numpy(dtype=float) - float(excess.mean())
+    gamma0 = float(np.mean(centered * centered))
     lrv = gamma0
-    for k in range(1, lag + 1):
+    for k in range(1, min(lag, n - 1) + 1):
         w = 1 - k / (lag + 1)
-        gk = float(np.mean(r[k:] * r[:-k]))
+        gk = float(np.mean(centered[k:] * centered[:-k]))
         lrv += 2 * w * gk
-    se = float(np.sqrt(lrv / n))
+    se = float(np.sqrt(max(lrv, 0.0) / n))
     if se == 0:
         return 0.0
     return float(excess.mean() / se)
 
 
 def score() -> dict:
+    os.makedirs(LOG_DIR, exist_ok=True)
     if not (os.path.exists(TRADES_CSV) and os.path.exists(EQUITY_CSV)):
-        return {"status": "no_data",
-                "hint": "Run paper trading first; no paper_trades.csv or paper_equity.csv yet."}
+        return {
+            "status": "no_data",
+            "hint": "Run paper trading first; no paper_trades.csv or paper_equity.csv yet.",
+        }
 
     eq = pd.read_csv(EQUITY_CSV, parse_dates=["date"]).set_index("date").sort_index()
     trades = pd.read_csv(TRADES_CSV, parse_dates=["date"]).sort_values("date")
@@ -86,16 +70,13 @@ def score() -> dict:
     sharpe = _sharpe(rets)
     dd = _max_drawdown(eq["equity"])
 
-    # SPY benchmark
-    spy = yf.download("SPY", start=eq.index[0], end=eq.index[-1] + pd.Timedelta(days=1),
-                      progress=False, auto_adjust=True)
+    spy = yf.download("SPY", start=eq.index[0], end=eq.index[-1] + pd.Timedelta(days=1), progress=False, auto_adjust=True)
     if isinstance(spy.columns, pd.MultiIndex):
         spy.columns = spy.columns.get_level_values(0)
     spy_rets = spy["Close"].pct_change().reindex(rets.index).fillna(0)
     excess = rets - spy_rets
     tstat = _newey_west_tstat(excess)
 
-    # slippage: compare modeled vs realized if columns are present
     slip_ratio = None
     if {"modeled_slippage", "realized_slippage"}.issubset(trades.columns):
         modeled = trades["modeled_slippage"].abs().mean()
@@ -113,9 +94,9 @@ def score() -> dict:
     report = {
         "run_at": datetime.utcnow().isoformat() + "Z",
         "days_of_data": int(n_days),
-        "sharpe_net": round(sharpe, 3),
-        "max_drawdown": round(dd, 4),
-        "alpha_tstat_vs_spy": round(tstat, 3),
+        "sharpe_net": round(float(sharpe), 3),
+        "max_drawdown": round(float(dd), 4),
+        "alpha_tstat_vs_spy": round(float(tstat), 3),
         "slippage_ratio_realized_over_modeled": slip_ratio,
         "gates": gates,
         "all_gates_passed": all(gates.values()),

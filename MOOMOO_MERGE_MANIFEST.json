@@ -1,0 +1,45 @@
+{
+  "generated_at": "2026-04-16T05:19:03.675932",
+  "base_package": "full_quant_model_fixed_20260415_140822.zip",
+  "integrated_files": [
+    "moomoo_paper_trading.py",
+    "settings.py",
+    "MOOMOO_INTEGRATION.md"
+  ],
+  "notes": [
+    "paper/backtest slippage unified",
+    "moomoo sizing uses account equity via broker API",
+    "local paper_trading.py remains in package if you want it as fallback"
+  ],
+  "files": [
+    "ANALYSIS_COVERAGE.md",
+    "DYNAMIC_WEIGHTING_MANIFEST.json",
+    "DYNAMIC_WEIGHTING_README.md",
+    "FIXES_APPLIED.md",
+    "FIXES_MANIFEST.json",
+    "MOOMOO_INTEGRATION.md",
+    "PACKAGE_MANIFEST.json",
+    "PAPER_TRADING_MANIFEST.json",
+    "PAPER_TRADING_README.md",
+    "README_PRODUCTION.md",
+    "SYNTAX_CHECK.json",
+    "backtest.py",
+    "clean_ticker_models.py",
+    "confidence_calibration.py",
+    "dynamic_weighting.py",
+    "model_self_check.py",
+    "moomoo_paper_trading.py",
+    "paper_trading.py",
+    "pipeline_shared.py",
+    "portfolio_manager.py",
+    "predict.py",
+    "research.py",
+    "scanner.py",
+    "sentiment_engine.py",
+    "settings.py",
+    "setup.py",
+    "social_sentiment.py",
+    "train.py",
+    "xgb_feature_engineering.py"
+  ]
+}

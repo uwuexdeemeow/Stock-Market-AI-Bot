@@ -1,18 +1,6 @@
 """
-calibration_stability.py — Check that the confidence calibration is stable over time.
-
-PLAIN ENGLISH:
-The model outputs a raw score (e.g., 0.72). We then use "isotonic
-regression" to turn that into a probability ("72% chance of going up").
-If the mapping between raw score and actual win-rate drifts a lot between
-different time periods, our "confidence" numbers lie. This script:
-  1. Splits the calibration set into K chronological folds.
-  2. Fits isotonic regression on each fold.
-  3. Compares the learned mappings — if Kolmogorov–Smirnov distance > 0.1
-     between adjacent folds, calibration is unstable. Retraining more
-     often (or using a Platt/sigmoid calibrator) may help.
+calibration_stability.py — Check that confidence calibration is stable over time.
 """
-
 from __future__ import annotations
 
 import numpy as np
@@ -21,22 +9,63 @@ from scipy.stats import ks_2samp
 from sklearn.isotonic import IsotonicRegression
 
 
-def calibration_stability(raw_scores: pd.Series, labels: pd.Series, n_folds: int = 5) -> dict:
-    """Return KS distance between consecutive isotonic calibrators."""
-    idx = np.array_split(np.arange(len(raw_scores)), n_folds)
-    curves = []
-    grid = np.linspace(raw_scores.min(), raw_scores.max(), 100)
+def calibration_stability(raw_scores: pd.Series, labels: pd.Series, n_folds: int = 5, min_fold_size: int = 25) -> dict:
+    """Return KS distance between consecutive valid isotonic calibrators.
+
+    A fold is skipped if it is too small or only contains one class.
+    This avoids false crashes on sparse calibration windows.
+    """
+    raw = pd.Series(raw_scores).reset_index(drop=True)
+    y = pd.Series(labels).reset_index(drop=True).astype(int)
+    n = min(len(raw), len(y))
+    raw = raw.iloc[:n]
+    y = y.iloc[:n]
+
+    if n < max(n_folds, min_fold_size):
+        return {
+            "ks_between_folds": [],
+            "max_ks": None,
+            "stable": None,
+            "valid_folds": 0,
+            "skipped_folds": n_folds,
+            "reason": "not_enough_samples",
+        }
+
+    idx = np.array_split(np.arange(n), n_folds)
+    grid = np.linspace(float(raw.min()), float(raw.max()), 100)
+    curves: list[np.ndarray] = []
+    skipped = 0
+
     for fold in idx:
+        fold_scores = raw.iloc[fold]
+        fold_labels = y.iloc[fold]
+        if len(fold_scores) < min_fold_size or fold_labels.nunique() < 2:
+            skipped += 1
+            continue
         ir = IsotonicRegression(out_of_bounds="clip")
-        ir.fit(raw_scores.iloc[fold], labels.iloc[fold])
+        ir.fit(fold_scores, fold_labels)
         curves.append(ir.predict(grid))
 
-    ks = []
+    if len(curves) < 2:
+        return {
+            "ks_between_folds": [],
+            "max_ks": None,
+            "stable": None,
+            "valid_folds": len(curves),
+            "skipped_folds": skipped,
+            "reason": "not_enough_valid_folds",
+        }
+
+    ks_vals = []
     for i in range(len(curves) - 1):
         stat, _ = ks_2samp(curves[i], curves[i + 1])
-        ks.append(float(stat))
+        ks_vals.append(float(stat))
+
+    max_ks = float(max(ks_vals)) if ks_vals else None
     return {
-        "ks_between_folds": ks,
-        "max_ks": float(max(ks)) if ks else 0.0,
-        "stable": bool(ks) and max(ks) < 0.10,
+        "ks_between_folds": ks_vals,
+        "max_ks": max_ks,
+        "stable": bool(max_ks is not None and max_ks < 0.10),
+        "valid_folds": len(curves),
+        "skipped_folds": skipped,
     }

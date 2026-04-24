@@ -25,8 +25,7 @@ finvader==1.0.2
 nltk==3.6.2
 
 # Social data
-praw==7.8.1
-prawcore==2.4.0
+tweepy==4.15.0
 
 # Data I/O
 pyarrow==23.0.1

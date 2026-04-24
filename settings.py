@@ -141,8 +141,24 @@ USE_NEWS_SENTIMENT = True
 # TARGETS / SPLITS
 # ─────────────────────────────────────────────────────────────────────────────
 
-RETURN_HORIZON_DAYS = 5
+RETURN_HORIZON_DAYS = 10
 RETURN_BINS = [-0.03, -0.01, 0.01, 0.03]
+
+# ── Prediction target ─────────────────────────────────────────────────────────
+# "direction"      — original: UP if stock_ret > DIRECTION_LABEL_THRESHOLD
+# "excess_return"  — UP if (stock_ret - spy_ret) > EXCESS_RETURN_MIN_PCT
+#                    Removes beta noise; model only gets credit for alpha.
+# "vol_adjusted"   — UP if (stock_ret - spy_ret) / hvol_20d_scaled > threshold
+#                    Rewards the same excess return more during calm markets.
+PREDICTION_TARGET = "excess_return"
+
+# Minimum excess return vs SPY (after estimated slippage) to label a row UP.
+# 0.5 % clears the spread + commission hurdle for a $10k position.
+EXCESS_RETURN_MIN_PCT = 0.005
+
+# Sharpe-proxy threshold used when PREDICTION_TARGET = "vol_adjusted".
+# A row is UP only if annualised excess Sharpe > this value.
+VOL_ADJUSTED_SHARPE_THRESHOLD = 0.3
 RETURN_BIN_LABELS = [
     "strong_down",
     "moderate_down",
@@ -158,12 +174,17 @@ EMBARGO_DAYS = RETURN_HORIZON_DAYS
 CONFIDENCE_TARGET_PRECISION = 0.58
 DEFAULT_FIXED_CONFIDENCE_THRESHOLD = 57.5
 
+# Label threshold: 0.0 means any positive 5-day return counts as UP.
+# Tested 0.003 (0.3% min move) — hurt performance by cutting too many
+# profitable trades and reducing the universe to 7 tickers.
+DIRECTION_LABEL_THRESHOLD = 0.0
+
 # ─────────────────────────────────────────────────────────────────────────────
 # XGBOOST SETTINGS
 # ─────────────────────────────────────────────────────────────────────────────
 
 XGB_N_ESTIMATORS = 500
-XGB_MAX_DEPTH = 6
+XGB_MAX_DEPTH = 4
 XGB_LEARNING_RATE = 0.05
 XGB_SUBSAMPLE = 0.8
 XGB_COLSAMPLE_BYTREE = 0.7
@@ -181,10 +202,30 @@ SHAP_MAX_FEATURES = 15
 # MODEL SELECTION
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Phase 2: neural weight stays 0 until offline validation shows positive edge vs
-# XGB-only. Flip to e.g. {"xgboost": 0.7, "neural": 0.3} after nested-CV confirms
-# the neural branch improves out-of-sample Sharpe.
+# Production default: XGBoost is the only active model until the neural branch
+# proves incremental out-of-sample value in nested CV / walk-forward testing.
+#
+# Keep both keys for backward compatibility with older code, but expose the
+# active 3-model stack explicitly for the newer dynamic-weighting path.
 ENSEMBLE_WEIGHTS = {"xgboost": 1.0, "neural": 0.0}
+ACTIVE_MODEL_WEIGHTS = {
+    "xgboost": 1.0,
+    "lstm_attention": 0.0,
+    "transformer": 0.0,
+}
+LIVE_SHORTS_ENABLED = True
+
+# Tickers approved for both backtesting and live trading.
+# Based on model quality audit (2026-04-24):
+#   Kept:    GS, BAC, CAT, UNH, NVDA — positive edge + reliable precision buckets
+#            GOOGL, MSFT, AMZN, BTC-USD — thin but non-harmful edge
+#   Dropped: AAPL (precision inverts with confidence), MU (-18.5pp edge),
+#            TSLA (<50% precision), INTC (coin-flip), AMD/META/JNJ (near-random)
+APPROVED_TICKERS = [
+    "GS", "BAC", "CAT", "UNH", "NVDA",
+    "GOOGL", "MSFT", "AMZN", "BTC-USD",
+]
+DEFAULT_APPROVED_LIVE_TICKERS = APPROVED_TICKERS
 
 # ─────────────────────────────────────────────────────────────────────────────
 # REGIME / RISK / BACKTEST
@@ -198,6 +239,8 @@ EXTREME_VIX_MULT = 0.40
 
 SLIPPAGE_BASE_PCT = 0.0010
 COMMISSION_PER_SHARE = 0.005
+BID_ASK_SPREAD_BPS = 5.0
+CAPACITY_ADV_THRESHOLD = 0.05
 
 MAX_GROSS_EXPOSURE = 1.00
 MAX_NET_EXPOSURE = 0.60
@@ -205,3 +248,12 @@ MAX_SECTOR_EXPOSURE = 0.35
 MAX_SINGLE_NAME_EXPOSURE = 0.20
 MAX_PAIR_CORRELATION = 0.85
 MAX_DRAWDOWN_HALT_PCT = 0.15
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DRIFT / MONITORING
+# ─────────────────────────────────────────────────────────────────────────────
+
+DRIFT_PSI_CAUTION = 0.10
+DRIFT_PSI_ALERT = 0.25
+DRIFT_KS_CAUTION = 0.05
+DRIFT_KS_ALERT = 0.10

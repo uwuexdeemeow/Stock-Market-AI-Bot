@@ -1,20 +1,6 @@
 """
-data_validation.py — Schema + freshness guards for every dataframe leaving the
-feature pipeline.
-
-PLAIN ENGLISH:
-Bad data is the single biggest source of silent bugs in trading systems.
-Before we let a dataframe into training OR inference, we verify:
-  * expected columns exist
-  * there are no NaNs in critical columns
-  * index is monotonically increasing dates, no dups, no gaps > N days
-  * most recent bar is < max_lag_days old (freshness)
-  * no obviously broken rows (price <= 0, volume < 0, return > +/-50%)
-
-If `pandera` is installed it's used for schema contracts; otherwise we
-fall back to explicit assertions. Either way, failures raise loudly.
+data_validation.py — Schema + freshness guards for every dataframe leaving the feature pipeline.
 """
-
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -26,7 +12,6 @@ REQUIRED_PRICE_COLS = ["Open", "High", "Low", "Close", "Volume"]
 
 
 def validate_price_frame(df: pd.DataFrame, ticker: str, max_lag_days: int = 5) -> None:
-    """Raise ValueError on any contract violation."""
     if df is None or df.empty:
         raise ValueError(f"{ticker}: empty price frame")
 
@@ -41,8 +26,8 @@ def validate_price_frame(df: pd.DataFrame, ticker: str, max_lag_days: int = 5) -
     if df.index.has_duplicates:
         raise ValueError(f"{ticker}: duplicate timestamps")
 
-    if (df["Close"] <= 0).any():
-        raise ValueError(f"{ticker}: non-positive close price")
+    if (df[["Open", "High", "Low", "Close"]] <= 0).any().any():
+        raise ValueError(f"{ticker}: non-positive OHLC price")
     if (df["Volume"] < 0).any():
         raise ValueError(f"{ticker}: negative volume")
 
@@ -51,7 +36,10 @@ def validate_price_frame(df: pd.DataFrame, ticker: str, max_lag_days: int = 5) -
         raise ValueError(f"{ticker}: >50% single-day move — likely bad tick or split not adjusted")
 
     lag = datetime.utcnow().date() - df.index[-1].date()
-    if lag > timedelta(days=max_lag_days):
+    allowed_lag = timedelta(days=max_lag_days)
+    if datetime.utcnow().weekday() >= 5:
+        allowed_lag += timedelta(days=2)
+    if lag > allowed_lag:
         raise ValueError(f"{ticker}: stale data — last bar is {lag.days} days old")
 
 

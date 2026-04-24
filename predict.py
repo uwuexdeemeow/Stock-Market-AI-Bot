@@ -53,10 +53,26 @@ def evaluate_sentiment_health(df: pd.DataFrame) -> tuple[str, float, list[str]]:
     cols = [c for c in df.columns if ("sent_" in c or "sentiment" in c)]
     if not cols:
         return "UNAVAILABLE", 0.0, []
+
     recent = df[cols].tail(min(5, len(df))).fillna(0.0)
     if recent.empty:
         return "UNAVAILABLE", 0.0, cols
+
     nonzero_ratio = float((recent.abs() > 1e-9).any(axis=1).mean())
+    latest_headlines = float(df["live_news_headline_count"].iloc[-1]) if "live_news_headline_count" in df.columns else 0.0
+    latest_breaking = float(df["live_news_breaking"].iloc[-1]) if "live_news_breaking" in df.columns else 0.0
+    latest_score_abs = float(df["live_news_score_abs"].iloc[-1]) if "live_news_score_abs" in df.columns else 0.0
+    latest_has_signal = float(df["live_news_has_signal"].iloc[-1]) if "live_news_has_signal" in df.columns else 0.0
+
+    # If headlines were fetched today, do not treat a near-zero composite score as a
+    # degraded feed. That can happen when the news mix is balanced/neutral.
+    if latest_has_signal > 0.0 or latest_headlines > 0.0 or latest_breaking > 0.0 or latest_score_abs > 1e-9:
+        if nonzero_ratio < 0.20:
+            return "PARTIAL", nonzero_ratio, cols
+        if nonzero_ratio < 0.50:
+            return "PARTIAL", nonzero_ratio, cols
+        return "FULL", nonzero_ratio, cols
+
     if nonzero_ratio < 0.20:
         return "DEGRADED", nonzero_ratio, cols
     if nonzero_ratio < 0.50:
@@ -113,7 +129,7 @@ def predict_ticker(ticker: str) -> dict:
         saved = pickle.load(f)
 
     feature_cols = saved["feature_cols"]
-    xgb_scaler = saved.get("xgb_scaler")
+    xgb_scaler = saved.get("xgb_scaler") or saved.get("scaler")
     xgb_feature_cols = saved.get("xgb_feature_cols")
     threshold = float(saved.get("confidence_threshold", DEFAULT_FIXED_CONFIDENCE_THRESHOLD))
 
@@ -131,6 +147,8 @@ def predict_ticker(ticker: str) -> dict:
 
     sentiment_health, sentiment_nonzero_ratio, sentiment_cols = evaluate_sentiment_health(df)
     xgb_mat, _ = build_xgb_matrix(df, saved.get("feature_cols_raw", feature_cols), xgb_feature_cols)
+    if xgb_scaler is None:
+        raise RuntimeError(f"No scaler found in saved metadata for {ticker}")
     X_flat = xgb_scaler.transform(xgb_mat[[-1]])
 
     dir_model, ret_model = load_xgb_models(ticker)
@@ -195,6 +213,8 @@ def predict_ticker(ticker: str) -> dict:
         "sentiment": round(sentiment, 3),
         "live_news_headlines": int(df["live_news_headline_count"].iloc[-1]) if "live_news_headline_count" in df.columns else 0,
         "live_news_breaking": int(df["live_news_breaking"].iloc[-1]) if "live_news_breaking" in df.columns else 0,
+        "live_news_score_abs": round(float(df["live_news_score_abs"].iloc[-1]), 4) if "live_news_score_abs" in df.columns else 0.0,
+        "live_news_has_signal": bool(float(df["live_news_has_signal"].iloc[-1])) if "live_news_has_signal" in df.columns else False,
         "sentiment_health": sentiment_health,
         "sentiment_nonzero_ratio": round(sentiment_nonzero_ratio, 2),
         "sentiment_feature_count": len(sentiment_cols),
@@ -203,7 +223,7 @@ def predict_ticker(ticker: str) -> dict:
         "suppressed_reason": suppressed_reason,
         "selected_mode": "xgboost_only",
         "selected_model_name": None,
-        "feature_health": "DEGRADED" if sentiment_health == "DEGRADED" else "FULL",
+        "feature_health": sentiment_health,
         "models_used": "xgboost_only",
         "model_version": saved.get("model_version", "unknown"),
         "predicted_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -235,7 +255,13 @@ def main() -> None:
             print(f"ERROR - {ticker}: {e}")
     if not rows:
         raise SystemExit("No predictions generated")
-    out = pd.DataFrame(rows).sort_values(["actionable", "signal_quality", "confidence"], ascending=[False, True, False])
+    out = pd.DataFrame(rows)
+    if "signal_quality" in out.columns:
+        quality_rank = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+        out["_signal_quality_rank"] = out["signal_quality"].map(quality_rank).fillna(1)
+        out = out.sort_values(["actionable", "_signal_quality_rank", "confidence"], ascending=[False, True, False]).drop(columns=["_signal_quality_rank"])
+    else:
+        out = out.sort_values(["actionable", "confidence"], ascending=[False, False])
     out_path = os.path.join(SIGNAL_DIR, "signals.csv")
     out.to_csv(out_path, index=False)
     print(out.to_string(index=False))

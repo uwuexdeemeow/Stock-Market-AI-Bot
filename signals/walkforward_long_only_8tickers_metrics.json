@@ -1,0 +1,57 @@
+{
+  "total_return_pct": -23.32,
+  "annual_return_pct": -2.32,
+  "benchmark_return_pct": 316.43,
+  "alpha_pct": -339.75,
+  "sharpe_ratio_daily": -0.139,
+  "nw_tstat_vs_cash": -0.684,
+  "nw_tstat_vs_spy": -2.861,
+  "max_drawdown_pct": -43.55,
+  "slippage_assumption_bps": 10.0,
+  "execution_model": "spread_plus_sqrt_impact",
+  "mode": "long_only",
+  "kill_criteria": {
+    "thresholds": {
+      "min_sharpe": 0.5,
+      "min_nw_tstat": 1.65,
+      "max_drawdown": -0.25
+    },
+    "results": {
+      "sharpe_pass": false,
+      "nw_tstat_pass": false,
+      "drawdown_pass": false,
+      "all_pass": false
+    }
+  },
+  "diagnostics_2022": {
+    "period": "2022-01-01 to 2022-12-31",
+    "total_return_pct": 0.0,
+    "benchmark_return_pct": -18.18,
+    "alpha_pct": 18.18,
+    "sharpe_ratio_daily": 0.0,
+    "max_drawdown_pct": 0.0
+  },
+  "signal_quality": {
+    "HIGH": {
+      "n": 0,
+      "win_rate": null,
+      "avg_pnl": null,
+      "median_pnl": null,
+      "total_pnl": 0.0
+    },
+    "MEDIUM": {
+      "n": 12,
+      "win_rate": 0.0833,
+      "avg_pnl": -194.3175,
+      "median_pnl": -200.57,
+      "total_pnl": -2331.81
+    },
+    "LOW": {
+      "n": 0,
+      "win_rate": null,
+      "avg_pnl": null,
+      "median_pnl": null,
+      "total_pnl": 0.0
+    }
+  }
+}
