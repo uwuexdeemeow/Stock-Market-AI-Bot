@@ -22,6 +22,104 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from settings import (
+    DIRECTION_LABEL_THRESHOLD,
+    EXCESS_RETURN_MIN_PCT,
+    PREDICTION_TARGET,
+    RETURN_BINS,
+    RETURN_HORIZON_DAYS,
+    VOL_ADJUSTED_SHARPE_THRESHOLD,
+)
+
+
+def make_forward_return_target(close: pd.Series, horizon: int = RETURN_HORIZON_DAYS) -> pd.Series:
+    return close.pct_change(horizon).shift(-horizon)
+
+
+def make_spy_forward_return(
+    df: pd.DataFrame,
+    horizon: int = RETURN_HORIZON_DAYS,
+    index: pd.Index | None = None,
+) -> pd.Series:
+    idx = df.index if index is None else index
+    bench_col = f"spy_ret{horizon}d"
+    if bench_col not in df.columns:
+        return pd.Series(0.0, index=idx)
+    return df[bench_col].shift(-horizon).reindex(idx)
+
+
+def make_valid_label_mask(df: pd.DataFrame, horizon: int = RETURN_HORIZON_DAYS) -> pd.Series:
+    stock_fwd = make_forward_return_target(df["Close"], horizon=horizon)
+    spy_fwd = make_spy_forward_return(df, horizon=horizon)
+    return stock_fwd.notna() & spy_fwd.notna()
+
+
+def make_direction_target(
+    df: pd.DataFrame | pd.Series,
+    *,
+    prediction_target: str = PREDICTION_TARGET,
+    horizon: int = RETURN_HORIZON_DAYS,
+    stock_fwd: pd.Series | None = None,
+    spy_fwd: pd.Series | None = None,
+    direction_threshold: float = DIRECTION_LABEL_THRESHOLD,
+    excess_return_min_pct: float = EXCESS_RETURN_MIN_PCT,
+    vol_adjusted_sharpe_threshold: float = VOL_ADJUSTED_SHARPE_THRESHOLD,
+) -> np.ndarray:
+    """
+    Build the shared binary direction label.
+
+    Forward returns are intentionally not filled. Callers that train/evaluate
+    models should filter with make_valid_label_mask() so unknown future returns
+    are excluded instead of being converted to fake flat-return examples.
+    """
+    if isinstance(df, pd.Series):
+        close = df
+        if spy_fwd is None:
+            spy_fwd = pd.Series(0.0, index=close.index)
+        hvol = pd.Series(0.20, index=close.index)
+    else:
+        close = df["Close"]
+        if spy_fwd is None:
+            spy_fwd = make_spy_forward_return(df, horizon=horizon)
+        hvol = df["hvol_20d"] if "hvol_20d" in df.columns else pd.Series(0.20, index=close.index)
+
+    if stock_fwd is None:
+        stock_fwd = make_forward_return_target(close, horizon=horizon)
+
+    if prediction_target == "triple_barrier" and not isinstance(df, pd.Series):
+        labels = triple_barrier(
+            close,
+            high=df["High"] if "High" in df.columns else None,
+            low=df["Low"] if "Low" in df.columns else None,
+            max_hold=horizon,
+        )
+        return (labels.values > 0).astype(np.int64)
+
+    if prediction_target == "excess_return":
+        excess = stock_fwd - spy_fwd
+        return (excess.values > excess_return_min_pct).astype(np.int64)
+
+    if prediction_target == "vol_adjusted":
+        excess = stock_fwd - spy_fwd
+        vol_scaled = (hvol * np.sqrt(horizon)).clip(0.01, 1.0)
+        return ((excess / vol_scaled).values > vol_adjusted_sharpe_threshold).astype(np.int64)
+
+    return (stock_fwd.values > direction_threshold).astype(np.int64)
+
+
+def make_return_bucket_target(
+    close: pd.Series,
+    *,
+    return_bins: list[float] = RETURN_BINS,
+    n_return_bins: int | None = None,
+    horizon: int = RETURN_HORIZON_DAYS,
+    stock_fwd: pd.Series | None = None,
+) -> np.ndarray:
+    fwd = stock_fwd if stock_fwd is not None else make_forward_return_target(close, horizon=horizon)
+    n_bins = len(return_bins) + 1 if n_return_bins is None else n_return_bins
+    buckets = np.digitize(fwd.values, return_bins)
+    return np.clip(buckets, 0, n_bins - 1).astype(np.int64)
+
 
 def forward_return(close: pd.Series, horizon: int = 5) -> pd.Series:
     """Simple H-day forward log return (baseline label)."""

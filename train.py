@@ -36,7 +36,12 @@ from sklearn.metrics import accuracy_score, classification_report
 from sklearn.preprocessing import StandardScaler
 
 from confidence_calibration import fit_direction_calibrator, save_direction_calibrator
-from labels import triple_barrier
+from labels import (
+    make_direction_target as shared_make_direction_target,
+    make_forward_return_target,
+    make_return_bucket_target,
+    make_spy_forward_return,
+)
 from model_quality import evaluate_model_quality, update_scaler_metadata, upsert_quality_report
 from settings import (
     DATA_DIR,
@@ -85,7 +90,22 @@ FEATURE_MIN_STD = 1e-9
 FEATURE_MAX_MISSING_RATE = 0.50
 
 
-def make_direction_target(df: pd.DataFrame | pd.Series) -> np.ndarray:
+def _legacy_direction_target_wrapper(
+    df: pd.DataFrame | pd.Series,
+    stock_fwd: pd.Series | None = None,
+    spy_fwd: pd.Series | None = None,
+) -> np.ndarray:
+    return shared_make_direction_target(
+        df,
+        prediction_target=PREDICTION_TARGET,
+        horizon=RETURN_HORIZON_DAYS,
+        stock_fwd=stock_fwd,
+        spy_fwd=spy_fwd,
+        direction_threshold=DIRECTION_LABEL_THRESHOLD,
+        excess_return_min_pct=EXCESS_RETURN_MIN_PCT,
+        vol_adjusted_sharpe_threshold=VOL_ADJUSTED_SHARPE_THRESHOLD,
+    )
+
     """
     Build the binary direction label according to PREDICTION_TARGET.
 
@@ -114,16 +134,18 @@ def make_direction_target(df: pd.DataFrame | pd.Series) -> np.ndarray:
     # Accept either a full DataFrame or just the Close series (legacy fallback)
     if isinstance(df, pd.Series):
         close = df
-        spy_fwd = pd.Series(0.0, index=close.index)
+        if spy_fwd is None:
+            spy_fwd = pd.Series(0.0, index=close.index)
         hvol = pd.Series(0.20, index=close.index)
     else:
         close = df["Close"]
-        bench_col = f"spy_ret{RETURN_HORIZON_DAYS}d"
-        # shift(-N) converts backward return at t+N into forward return at t
-        spy_fwd = df[bench_col].shift(-RETURN_HORIZON_DAYS).fillna(0.0) if bench_col in df.columns else pd.Series(0.0, index=close.index)
+        if spy_fwd is None:
+            # shift(-N) converts backward return at t+N into forward return at t
+            spy_fwd = make_spy_forward_return(df)
         hvol = df["hvol_20d"] if "hvol_20d" in df.columns else pd.Series(0.20, index=close.index)
 
-    stock_fwd = close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS).fillna(0.0)
+    if stock_fwd is None:
+        stock_fwd = make_forward_return(close)
 
     if PREDICTION_TARGET == "triple_barrier" and not isinstance(df, pd.Series):
         labels = triple_barrier(
@@ -131,7 +153,7 @@ def make_direction_target(df: pd.DataFrame | pd.Series) -> np.ndarray:
             high=df["High"] if "High" in df.columns else None,
             low=df["Low"] if "Low" in df.columns else None,
             max_hold=RETURN_HORIZON_DAYS,
-        ).fillna(0.0)
+        )
         return (labels.values > 0).astype(np.int64)
 
     if PREDICTION_TARGET == "excess_return":
@@ -203,15 +225,13 @@ def build_feature_audit(df: pd.DataFrame, feature_cols: list[str], y_dir: np.nda
     return report, dropped
 
 
-def make_return_target(close: pd.Series) -> np.ndarray:
-    fwd = close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS)
-    buckets = np.digitize(fwd.fillna(0.0).values, RETURN_BINS)
-    return np.clip(buckets, 0, N_RETURN_BINS - 1).astype(np.int64)
+def make_return_target(close: pd.Series, stock_fwd: pd.Series | None = None) -> np.ndarray:
+    return make_return_bucket_target(close, return_bins=RETURN_BINS, n_return_bins=N_RETURN_BINS, stock_fwd=stock_fwd)
 
 
-def make_future_return(close: pd.Series) -> np.ndarray:
-    fwd = close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS)
-    return fwd.fillna(0.0).values.astype(float)
+def make_future_return(close: pd.Series, stock_fwd: pd.Series | None = None) -> np.ndarray:
+    fwd = stock_fwd if stock_fwd is not None else make_forward_return_target(close, horizon=RETURN_HORIZON_DAYS)
+    return fwd.values.astype(float)
 
 
 def compute_split_indices(n_total: int) -> dict:
@@ -499,16 +519,54 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
         log.error("Not enough rows for %s: %s", ticker, len(df))
         return False
 
+    stock_fwd_all = make_forward_return_target(df["Close"], horizon=RETURN_HORIZON_DAYS)
+    spy_fwd_all = make_spy_forward_return(df, horizon=RETURN_HORIZON_DAYS)
+    valid_labels = stock_fwd_all.notna() & spy_fwd_all.notna()
+    if not bool(valid_labels.all()):
+        log.info("[%s] Dropping %d rows with unknown future labels", ticker, int((~valid_labels).sum()))
+
+    y_dir_full = shared_make_direction_target(
+        df,
+        prediction_target=PREDICTION_TARGET,
+        horizon=RETURN_HORIZON_DAYS,
+        stock_fwd=stock_fwd_all,
+        spy_fwd=spy_fwd_all,
+        direction_threshold=DIRECTION_LABEL_THRESHOLD,
+        excess_return_min_pct=EXCESS_RETURN_MIN_PCT,
+        vol_adjusted_sharpe_threshold=VOL_ADJUSTED_SHARPE_THRESHOLD,
+    )
+    df = df.loc[valid_labels].copy()
+    stock_fwd = stock_fwd_all.loc[df.index]
+    y_dir_all = y_dir_full[valid_labels.to_numpy()]
+    y_ret_all = make_return_target(df["Close"], stock_fwd=stock_fwd)
+    future_returns = make_future_return(df["Close"], stock_fwd=stock_fwd)
+    if len(df) < 250:
+        log.error("Not enough labelled rows for %s: %s", ticker, len(df))
+        return False
+
     exclude = {"target", "Open", "High", "Low", "Close", "Volume", "ma5", "ma10", "ma20", "ma50", "ma200"}
     feature_cols_raw = [c for c in df.columns if c not in exclude and pd.api.types.is_numeric_dtype(df[c])]
 
-    # Sentiment features excluded: live feed can produce zeros that create
-    # distribution shift vs training data where values were non-zero.
-    feature_cols_raw = [c for c in feature_cols_raw if not ("sent_" in c or "sentiment" in c)]
-
-    y_dir_all = make_direction_target(df)
-    y_ret_all = make_return_target(df["Close"])
-    future_returns = make_future_return(df["Close"])
+    # Conservative production feature set: keep point-in-time price, volume,
+    # volatility, trend, relative-strength, and regime features only.
+    risky_keywords = (
+        "sent", "social", "news", "iv_", "put_call", "option", "earn", "eps_",
+        "analyst", "recommend", "short_interest", "dark_pool", "dow_", "month_",
+        "opex", "calendar", "sector_ret", "ret_vs_sector", "gld_", "hyg_", "tnx_",
+        "tlt_", "eem_", "iwm_", "dia_", "uup_",
+    )
+    allowed_prefixes = (
+        "ret_", "hvol_", "rsi_", "dist_ma", "ma_cross_", "macd", "atr_", "bb_",
+        "vol_ratio", "volume_chg_", "hl_range", "spread_proxy", "roc_", "drawdown_",
+        "weekly_", "monthly_", "tf_alignment", "spy_", "qqq_", "vix_", "regime",
+        "ret_vs_spy", "ret_vs_qqq", "breadth_", "pct_above_",
+    )
+    allowed_exact = {"obv_slope", "vwap_dist", "uptick_ratio", "variance_ratio"}
+    feature_cols_raw = [
+        c for c in feature_cols_raw
+        if not any(k in c.lower() for k in risky_keywords)
+        and (c in allowed_exact or any(c.startswith(prefix) for prefix in allowed_prefixes))
+    ]
 
     feature_audit, dropped_features = build_feature_audit(df, feature_cols_raw, y_dir_all)
     feature_audit_path = os.path.join(MODEL_DIR, f"{ticker}_feature_audit.json")

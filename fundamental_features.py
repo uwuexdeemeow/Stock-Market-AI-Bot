@@ -37,6 +37,11 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
+try:
+    from settings import USE_EARNINGS_DATA
+except Exception:
+    USE_EARNINGS_DATA = False
+
 
 def _flatten_yf(df: pd.DataFrame) -> pd.DataFrame:
     """Remove multi-level column headers that yfinance sometimes produces."""
@@ -74,6 +79,8 @@ def build_pead_features(ticker: str, dates: pd.DatetimeIndex) -> pd.DataFrame:
         "days_since_earnings": 60.0,
         "days_to_next_earnings": 60.0,
     })
+    if not USE_EARNINGS_DATA:
+        return result
 
     try:
         tk = yf.Ticker(ticker)

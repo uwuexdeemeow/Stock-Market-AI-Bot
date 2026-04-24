@@ -24,6 +24,7 @@ import yfinance as yf
 
 from risk_sizing import compute_position_size
 from settings import BORROW_COST_ANNUAL_DEFAULT, BORROW_COSTS
+from trade_rules import load_trade_rule, passes_trade_rule
 
 SIGNAL_DIR = Path("signals")
 SIGNALS_FILE = SIGNAL_DIR / "signals.csv"
@@ -128,10 +129,24 @@ def filter_signals(
         df = df[~df["ticker"].isin(exclude_tickers)].copy()
     if enforce_approved_universe:
         approved = load_approved_tickers()
-        if approved:
+        if not approved:
+            df = df.iloc[0:0].copy()
+        else:
             df = df[df["ticker"].isin(approved)].copy()
     if not allow_shorts and "signal" in df.columns:
         df = df[df["signal"].astype(str).str.upper() == "LONG"].copy()
+    if not df.empty:
+        keep_mask: list[bool] = []
+        rejection_reasons: list[str] = []
+        mode = "long_short" if allow_shorts else "long_only"
+        for _, row in df.iterrows():
+            ticker = str(row["ticker"]).upper().strip()
+            ok, reason = passes_trade_rule(row, load_trade_rule(ticker), mode=mode)
+            keep_mask.append(ok)
+            rejection_reasons.append(reason or "")
+        df = df.copy()
+        df["paper_filter_rejection_reason"] = rejection_reasons
+        df = df[pd.Series(keep_mask, index=df.index)].copy()
     return df
 
 
@@ -166,7 +181,7 @@ def main() -> None:
 
     out_path = SIGNAL_DIR / "signals_live_filtered.csv"
     df.to_csv(out_path, index=False)
-    print(f"Saved filtered live universe → {out_path}")
+    print(f"Saved filtered live universe -> {out_path}")
 
     # Print a readable summary table
     display_cols = ["ticker", "signal", "confidence", "expected_return",
@@ -182,13 +197,13 @@ def main() -> None:
             conf = row.get("confidence", None)
             shares = row.get("recommended_shares", "?")
             pct = row.get("recommended_position_pct", "?")
-            print(f"\nCandidate: {ticker}  signal={signal}  confidence={conf}  → {shares} shares ({pct}% of equity)")
+            print(f"\nCandidate: {ticker}  signal={signal}  confidence={conf}  -> {shares} shares ({pct}% of equity)")
             choice = input(f"Submit this trade for {ticker}? [y/N]: ").strip().lower()
             if choice in {"y", "yes"}:
                 keep_rows.append(row)
         df = pd.DataFrame(keep_rows)
         df.to_csv(out_path, index=False)
-        print(f"Saved interactively approved trades → {out_path}")
+        print(f"Saved interactively approved trades -> {out_path}")
 
     print("\nNext step: enter the recommended_shares from the CSV directly into moomoo.")
     print("Live shorts are disabled by default. Use --allow-shorts to enable.")

@@ -26,7 +26,13 @@ import yfinance as yf
 from sklearn.preprocessing import StandardScaler
 
 from confidence_calibration import fit_direction_calibrator, calibrate_p_up
-from labels import triple_barrier
+from labels import (
+    make_direction_target as shared_make_direction_target,
+    make_forward_return_target,
+    make_return_bucket_target,
+    make_spy_forward_return,
+)
+from train import compute_dynamic_threshold as training_compute_dynamic_threshold
 from model_quality import (
     evaluate_model_quality,
     read_quality_report,
@@ -42,6 +48,8 @@ from settings import (
     TRAIN_CALIBRATION_SPLIT,
     CALIBRATION_TEST_SPLIT,
     EMBARGO_DAYS,
+    CONFIDENCE_TARGET_PRECISION,
+    DEFAULT_FIXED_CONFIDENCE_THRESHOLD,
     VIX_HIGH_THRESHOLD,
     VIX_EXTREME_THRESHOLD,
     BEAR_REGIME_MULT,
@@ -136,7 +144,16 @@ def _newey_west_tstat(excess: pd.Series, lag: int = 5) -> float:
     return float(excess.mean() / se)
 
 
-def make_direction_target(df: pd.DataFrame | pd.Series) -> np.ndarray:
+def _legacy_direction_target_wrapper(df: pd.DataFrame | pd.Series) -> np.ndarray:
+    return shared_make_direction_target(
+        df,
+        prediction_target=PREDICTION_TARGET,
+        horizon=RETURN_HORIZON_DAYS,
+        direction_threshold=DIRECTION_LABEL_THRESHOLD,
+        excess_return_min_pct=EXCESS_RETURN_MIN_PCT,
+        vol_adjusted_sharpe_threshold=VOL_ADJUSTED_SHARPE_THRESHOLD,
+    )
+
     # Must exactly mirror train.py so walk-forward accuracy measures the same label.
     if isinstance(df, pd.Series):
         close = df
@@ -145,10 +162,10 @@ def make_direction_target(df: pd.DataFrame | pd.Series) -> np.ndarray:
     else:
         close = df["Close"]
         bench_col = f"spy_ret{RETURN_HORIZON_DAYS}d"
-        spy_fwd = df[bench_col].shift(-RETURN_HORIZON_DAYS).fillna(0.0) if bench_col in df.columns else pd.Series(0.0, index=close.index)
+        spy_fwd = df[bench_col].shift(-RETURN_HORIZON_DAYS) if bench_col in df.columns else pd.Series(0.0, index=close.index)
         hvol = df["hvol_20d"] if "hvol_20d" in df.columns else pd.Series(0.20, index=close.index)
 
-    stock_fwd = close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS).fillna(0.0)
+    stock_fwd = close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS)
 
     if PREDICTION_TARGET == "triple_barrier" and not isinstance(df, pd.Series):
         labels = triple_barrier(
@@ -156,7 +173,7 @@ def make_direction_target(df: pd.DataFrame | pd.Series) -> np.ndarray:
             high=df["High"] if "High" in df.columns else None,
             low=df["Low"] if "Low" in df.columns else None,
             max_hold=RETURN_HORIZON_DAYS,
-        ).fillna(0.0)
+        )
         return (labels.values > 0).astype(np.int64)
 
     if PREDICTION_TARGET == "excess_return":
@@ -170,10 +187,8 @@ def make_direction_target(df: pd.DataFrame | pd.Series) -> np.ndarray:
     return (stock_fwd.values > DIRECTION_LABEL_THRESHOLD).astype(np.int64)
 
 
-def make_return_target(close: pd.Series) -> np.ndarray:
-    fwd = close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS).fillna(0.0).values
-    buckets = np.digitize(fwd, [-0.03, -0.01, 0.01, 0.03])
-    return np.clip(buckets, 0, 4).astype(np.int64)
+def _legacy_return_target_wrapper(close: pd.Series) -> np.ndarray:
+    return make_return_bucket_target(close, horizon=RETURN_HORIZON_DAYS)
 
 
 def compute_split_indices(n_total: int) -> dict:
@@ -184,21 +199,6 @@ def compute_split_indices(n_total: int) -> dict:
     calib_end = max(calib_start + 20, split_test - EMBARGO_DAYS)
     test_start = split_test
     return {"train_end": train_end, "calib_start": calib_start, "calib_end": calib_end, "test_start": test_start}
-
-
-def compute_dynamic_threshold(calibrator, target_precision=0.58, default=57.5) -> float:
-    if calibrator is None:
-        return default
-    raw_grid = np.linspace(0.50, 0.99, 200)
-    try:
-        cal_grid = calibrator.predict(raw_grid)
-        conf_grid = np.maximum(cal_grid, 1.0 - cal_grid) * 100.0
-        idx = np.where(cal_grid >= target_precision)[0]
-        if len(idx):
-            return float(np.clip(conf_grid[idx[0]], 52.0, 80.0))
-    except Exception:
-        pass
-    return default
 
 
 def build_models(X_train, y_dir_train, X_cal, y_dir_cal, y_ret_train, y_ret_cal):
@@ -266,30 +266,66 @@ def assign_signal_quality(confidence: float, bucket_report: list[dict],
 
 
 def strip_sentiment(feature_cols: list[str]) -> list[str]:
-    return [c for c in feature_cols if not ("sent_" in c or "sentiment" in c)]
+    risky_keywords = (
+        "sent", "social", "news", "iv_", "put_call", "option", "earn", "eps_",
+        "analyst", "recommend", "short_interest", "dark_pool", "dow_", "month_",
+        "opex", "calendar", "sector_ret", "ret_vs_sector", "gld_", "hyg_", "tnx_",
+        "tlt_", "eem_", "iwm_", "dia_", "uup_",
+    )
+    allowed_prefixes = (
+        "ret_", "hvol_", "rsi_", "dist_ma", "ma_cross_", "macd", "atr_", "bb_",
+        "vol_ratio", "volume_chg_", "hl_range", "spread_proxy", "roc_", "drawdown_",
+        "weekly_", "monthly_", "tf_alignment", "spy_", "qqq_", "vix_", "regime",
+        "ret_vs_spy", "ret_vs_qqq", "breadth_", "pct_above_",
+    )
+    allowed_exact = {"obv_slope", "vwap_dist", "uptick_ratio", "variance_ratio"}
+    return [
+        c for c in feature_cols
+        if not any(k in c.lower() for k in risky_keywords)
+        and (c in allowed_exact or any(c.startswith(prefix) for prefix in allowed_prefixes))
+    ]
 
 
 def load_ticker_data(ticker: str):
     path = os.path.join(DATA_DIR, f"{ticker}.parquet")
     df = pd.read_parquet(path).copy()
+    stock_fwd_all = make_forward_return_target(df["Close"], horizon=RETURN_HORIZON_DAYS)
+    spy_fwd_all = make_spy_forward_return(df, horizon=RETURN_HORIZON_DAYS)
+    valid_labels = stock_fwd_all.notna() & spy_fwd_all.notna()
+    y_dir_full = shared_make_direction_target(
+        df,
+        prediction_target=PREDICTION_TARGET,
+        horizon=RETURN_HORIZON_DAYS,
+        stock_fwd=stock_fwd_all,
+        spy_fwd=spy_fwd_all,
+        direction_threshold=DIRECTION_LABEL_THRESHOLD,
+        excess_return_min_pct=EXCESS_RETURN_MIN_PCT,
+        vol_adjusted_sharpe_threshold=VOL_ADJUSTED_SHARPE_THRESHOLD,
+    )
+    df = df.loc[valid_labels].copy()
+    stock_fwd = stock_fwd_all.loc[df.index]
+    y_dir = y_dir_full[valid_labels.to_numpy()]
+    y_ret = make_return_bucket_target(df["Close"], horizon=RETURN_HORIZON_DAYS, stock_fwd=stock_fwd)
     exclude = {"target", "Open", "High", "Low", "Close", "Volume", "ma5", "ma10", "ma20", "ma50", "ma200"}
     feature_cols = [c for c in df.columns if c not in exclude and pd.api.types.is_numeric_dtype(df[c])]
     feature_cols = strip_sentiment(feature_cols)
     for col in feature_cols:
         df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0.0)
     X_all, _ = build_xgb_matrix(df, feature_cols)
-    y_dir = make_direction_target(df)
-    y_ret = make_return_target(df["Close"])
     return df, X_all, y_dir, y_ret
 
 
-def build_benchmark(index: pd.DatetimeIndex) -> pd.Series:
-    local_spy = os.path.join(DATA_DIR, "SPY.parquet")
-    if os.path.exists(local_spy):
+BENCHMARK_SYMBOLS = ("SPY", "QQQ", "IWM")
+
+
+def build_benchmark(index: pd.DatetimeIndex, symbol: str = "SPY") -> pd.Series:
+    symbol = symbol.upper()
+    local_path = os.path.join(DATA_DIR, f"{symbol}.parquet")
+    if os.path.exists(local_path):
         try:
-            spy_df = pd.read_parquet(local_spy)
-            spy_df.index = pd.DatetimeIndex(spy_df.index)
-            close = spy_df["Close"].reindex(index).ffill().bfill()
+            bench_df = pd.read_parquet(local_path)
+            bench_df.index = pd.DatetimeIndex(bench_df.index)
+            close = bench_df["Close"].reindex(index).ffill().bfill()
             if not close.empty and float(close.iloc[0]) != 0.0:
                 return close / close.iloc[0]
         except Exception:
@@ -297,16 +333,23 @@ def build_benchmark(index: pd.DatetimeIndex) -> pd.Series:
     start = index.min().strftime("%Y-%m-%d")
     end = (index.max() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
     try:
-        spy = yf.download("SPY", start=start, end=end, progress=False, auto_adjust=True)
-        if isinstance(spy.columns, pd.MultiIndex):
-            spy.columns = spy.columns.get_level_values(0)
-        if not spy.empty and "Close" in spy.columns:
-            close = spy["Close"].reindex(index).ffill().bfill()
+        raw = yf.download(symbol, start=start, end=end, progress=False, auto_adjust=True)
+        if isinstance(raw.columns, pd.MultiIndex):
+            raw.columns = raw.columns.get_level_values(0)
+        if not raw.empty and "Close" in raw.columns:
+            close = raw["Close"].reindex(index).ffill().bfill()
             if not close.empty and float(close.iloc[0]) != 0.0:
                 return close / close.iloc[0]
     except Exception:
         pass
     return pd.Series(index=index, data=1.0, dtype=float)
+
+
+def build_benchmarks(index: pd.DatetimeIndex) -> pd.DataFrame:
+    return pd.DataFrame(
+        {symbol: build_benchmark(index, symbol=symbol) for symbol in BENCHMARK_SYMBOLS},
+        index=index,
+    ).ffill().bfill()
 
 
 def build_vix_series(index: pd.DatetimeIndex) -> pd.Series:
@@ -356,16 +399,32 @@ def requested_position_pct(confidence: float, expected_return: float, signal_qua
     return min(MAX_POSITION_SIZE_PCT, size)
 
 
+def historical_annual_vol(price_history: dict[str, pd.DataFrame], ticker: str, dt, lookback: int = 63) -> float:
+    """Annualized realized vol using only prices known at or before dt."""
+    if ticker not in price_history:
+        return 0.20
+    hist = price_history[ticker]
+    if "Close" not in hist.columns:
+        return 0.20
+    closes = hist["Close"].loc[:pd.Timestamp(dt)].dropna()
+    if len(closes) < 20:
+        return 0.20
+    vol = float(closes.pct_change().tail(lookback).std() * np.sqrt(252))
+    return max(0.05, min(1.0, vol))
+
+
 def walk_forward_predictions_for_ticker(ticker: str, min_train_rows: int = 700, test_block: int = 126) -> pd.DataFrame:
     df, X_all, y_dir, y_ret = load_ticker_data(ticker)
     dates = pd.DatetimeIndex(df.index)
     records = []
     start = min_train_rows
-    while start + test_block < len(df) - 1:
-        end = min(start + test_block, len(df) - 1)
-        train_X = X_all[:start]
-        train_y_dir = y_dir[:start]
-        train_y_ret = y_ret[:start]
+    last_oos_exclusive = max(0, len(df) - RETURN_HORIZON_DAYS - 1)
+    while start < last_oos_exclusive:
+        end = min(start + test_block, last_oos_exclusive)
+        train_cutoff = max(0, start - RETURN_HORIZON_DAYS)
+        train_X = X_all[:train_cutoff]
+        train_y_dir = y_dir[:train_cutoff]
+        train_y_ret = y_ret[:train_cutoff]
         split = compute_split_indices(len(train_X))
         train_end, calib_start, calib_end = split["train_end"], split["calib_start"], split["calib_end"]
         if train_end < 100 or calib_end <= calib_start:
@@ -376,7 +435,13 @@ def walk_forward_predictions_for_ticker(ticker: str, min_train_rows: int = 700, 
         dir_model, ret_model = build_models(X_train, train_y_dir[:train_end], X_cal, train_y_dir[calib_start:calib_end], train_y_ret[:train_end], train_y_ret[calib_start:calib_end])
         cal_probs_raw = dir_model.predict_proba(X_cal)[:, 1]
         calibrator = fit_direction_calibrator(cal_probs_raw, train_y_dir[calib_start:calib_end])
-        threshold = compute_dynamic_threshold(calibrator)
+        threshold, threshold_used_fallback = training_compute_dynamic_threshold(
+            calibrator,
+            target_precision=CONFIDENCE_TARGET_PRECISION,
+            default=DEFAULT_FIXED_CONFIDENCE_THRESHOLD,
+            raw_probs=cal_probs_raw,
+            y_true=train_y_dir[calib_start:calib_end],
+        )
         cal_probs = np.array([
             float(calibrate_p_up(calibrator, float(p))) if calibrator is not None else float(p)
             for p in cal_probs_raw
@@ -408,6 +473,7 @@ def walk_forward_predictions_for_ticker(ticker: str, min_train_rows: int = 700, 
                 "direction_vote": direction_vote,
                 "confidence": confidence,
                 "conf_threshold": threshold,
+                "threshold_used_fallback": bool(threshold_used_fallback),
                 "expected_return": expected_return,
                 "signal_quality": signal_quality,
                 "actionable": bool(confidence >= threshold),
@@ -465,6 +531,70 @@ def compute_period_metrics(equity: pd.Series, benchmark: pd.Series, start: str, 
     return {"period": f"{start} to {end}", "total_return_pct": round(total_ret * 100, 2), "benchmark_return_pct": round(bench_ret * 100, 2), "alpha_pct": round((total_ret - bench_ret) * 100, 2), "sharpe_ratio_daily": round(sharpe, 3), "max_drawdown_pct": round(float(dd.min()) * 100, 2)}
 
 
+def compute_benchmark_comparisons(equity: pd.Series, benchmarks: pd.DataFrame) -> dict:
+    rows = {}
+    if equity.empty or benchmarks.empty:
+        return rows
+    daily_ret = equity.pct_change().fillna(0.0)
+    total_ret = float(equity.iloc[-1] / equity.iloc[0] - 1.0)
+    for symbol in benchmarks.columns:
+        bm = benchmarks[symbol].reindex(equity.index).ffill().bfill()
+        if bm.empty or float(bm.iloc[0]) == 0.0:
+            continue
+        bm_ret = float(bm.iloc[-1] / bm.iloc[0] - 1.0)
+        bm_daily = bm.pct_change().fillna(0.0)
+        data_available = bool(bm.nunique(dropna=True) > 1)
+        rows[symbol] = {
+            "data_available": data_available,
+            "benchmark_return_pct": round(bm_ret * 100.0, 2),
+            "alpha_pct": round((total_ret - bm_ret) * 100.0, 2),
+            "nw_tstat_vs_benchmark": round(_newey_west_tstat(daily_ret - bm_daily), 3),
+        }
+    return rows
+
+
+def build_trade_attribution_report(trades_df: pd.DataFrame) -> pd.DataFrame:
+    columns = [
+        "group_type", "group", "trades", "win_rate", "avg_pnl", "median_pnl",
+        "total_pnl", "avg_holding_days", "avg_position_pct", "profit_factor",
+    ]
+    if trades_df.empty:
+        return pd.DataFrame(columns=columns)
+
+    df = trades_df.copy()
+    if "entry_date" in df.columns:
+        df["entry_year"] = pd.to_datetime(df["entry_date"], errors="coerce").dt.year.astype("Int64").astype(str)
+    group_specs = [
+        ("ticker", "ticker"),
+        ("sector", "sector"),
+        ("signal", "signal"),
+        ("signal_quality", "signal_quality"),
+        ("exit_reason", "exit_reason"),
+        ("entry_year", "entry_year"),
+    ]
+    rows = []
+    for group_type, col in group_specs:
+        if col not in df.columns:
+            continue
+        for group, g in df.groupby(col, dropna=False):
+            pnl = pd.to_numeric(g["net_pnl"], errors="coerce").fillna(0.0)
+            wins = pnl[pnl > 0].sum()
+            losses = abs(pnl[pnl < 0].sum())
+            rows.append({
+                "group_type": group_type,
+                "group": str(group),
+                "trades": int(len(g)),
+                "win_rate": round(float((pnl > 0).mean()), 4),
+                "avg_pnl": round(float(pnl.mean()), 2),
+                "median_pnl": round(float(pnl.median()), 2),
+                "total_pnl": round(float(pnl.sum()), 2),
+                "avg_holding_days": round(float(pd.to_numeric(g.get("holding_days", 0), errors="coerce").fillna(0).mean()), 2),
+                "avg_position_pct": round(float(pd.to_numeric(g.get("position_pct", 0), errors="coerce").fillna(0).mean()), 2),
+                "profit_factor": round(float(wins / losses), 3) if losses > 0 else None,
+            })
+    return pd.DataFrame(rows, columns=columns).sort_values(["group_type", "total_pnl"], ascending=[True, False])
+
+
 def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode: str, stress: float, use_trade_rules: bool = True):
     manager = PortfolioRiskManager()
     cash = INITIAL_CAPITAL
@@ -480,7 +610,8 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
     trade_rules = {ticker: load_trade_rule(ticker) for ticker in predictions_by_ticker}
     all_dates = sorted(all_dates)
     vix = build_vix_series(pd.DatetimeIndex(all_dates))
-    benchmark = build_benchmark(pd.DatetimeIndex(all_dates))
+    benchmarks = build_benchmarks(pd.DatetimeIndex(all_dates))
+    benchmark = benchmarks["SPY"]
     spy_close = benchmark * 100.0
     equity_curve, equity_index = [], []
 
@@ -525,6 +656,7 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
 
         reg_state = regime_state(spy_close, dt)
         reg_mult = regime_size_multiplier(spy_close, float(vix.get(dt, 20.0)), dt)
+        current_equity = mark_to_market(dt)
         candidates = []
         for ticker, pdf in predictions_by_ticker.items():
             if pdf.empty or dt not in pdf.index:
@@ -563,13 +695,8 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
                     continue
                 if MARKET_REGIME_SPY_MA200_REQUIRED and reg_state == "bear":
                     continue
-            # Compute 3-month realized vol for this ticker to anchor vol-target sizing.
-            asset_vol = 0.20  # fallback: assume 20% annual vol if history is short
-            if ticker in price_history:
-                _closes = price_history[ticker]["Close"].dropna()
-                if len(_closes) >= 20:
-                    asset_vol = float(_closes.pct_change().tail(63).std() * np.sqrt(252))
-                    asset_vol = max(0.05, min(1.0, asset_vol))
+            # Compute realized vol only from history known on this signal date.
+            asset_vol = historical_annual_vol(price_history, ticker, dt)
             requested_pct = compute_position_size(
                 float(row["confidence"]),
                 expected_return,
@@ -587,7 +714,6 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
                 expected_return=expected_return,
                 requested_position_pct=requested_pct,
             ))
-        current_equity = mark_to_market(dt)
         eq_series = pd.Series(index=pd.DatetimeIndex(equity_index), data=equity_curve, dtype=float) if equity_curve else pd.Series(dtype=float)
         approved = manager.approve_day(candidates, {k: v["Close"] for k, v in price_history.items()}, eq_series)
         eff_slip = SLIPPAGE_BASE_PCT * stress
@@ -606,10 +732,8 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
             )
             adv_entry = float(hist["Volume"].loc[:pd.Timestamp(row["entry_date"])].tail(20).mean()) if "Volume" in hist.columns else 0.0
             adv_exit = float(hist["Volume"].loc[:pd.Timestamp(exit_date)].tail(20).mean()) if "Volume" in hist.columns else adv_entry
-            # Realized vol used to scale bid-ask spread (volatile stocks pay wider spreads).
-            _hist_closes = hist["Close"].dropna()
-            fill_vol = float(_hist_closes.pct_change().tail(63).std() * np.sqrt(252)) if len(_hist_closes) >= 20 else 0.20
-            fill_vol = max(0.05, min(1.0, fill_vol))
+            # Realized vol used to scale bid-ask spread, known only at entry.
+            fill_vol = historical_annual_vol(price_history, tr.ticker, row["entry_date"])
             trade_value = current_equity * tr.requested_position_pct
             shares = trade_value / max(entry, 1e-9)
             if tr.signal == "LONG":
@@ -658,7 +782,8 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
         equity_curve.append(mark_to_market(dt))
 
     equity = pd.Series(index=pd.DatetimeIndex(equity_index), data=equity_curve, dtype=float)
-    benchmark = build_benchmark(equity.index)
+    benchmarks = build_benchmarks(equity.index)
+    benchmark = benchmarks["SPY"]
     daily_ret = equity.pct_change().fillna(0.0)
     dd = equity / equity.cummax() - 1.0
     total_ret = float(equity.iloc[-1] / equity.iloc[0] - 1.0) if len(equity) else 0.0
@@ -676,6 +801,7 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
     spy_daily = benchmark.pct_change().reindex(equity.index).fillna(0.0)
     nw_tstat = _newey_west_tstat(daily_ret)          # vs 0 (cash) — primary gate
     nw_tstat_vs_spy = _newey_west_tstat(daily_ret - spy_daily)  # informational only
+    benchmark_comparisons = compute_benchmark_comparisons(equity, benchmarks)
 
     # Evaluate every kill-criteria gate and record which passed / failed.
     gate_results = {
@@ -690,6 +816,7 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
         "annual_return_pct": round(ann_ret * 100, 2),
         "benchmark_return_pct": round(bench_ret * 100, 2),
         "alpha_pct": round((total_ret - bench_ret) * 100, 2),
+        "benchmark_comparisons": benchmark_comparisons,
         "sharpe_ratio_daily": round(sharpe, 3),
         "nw_tstat_vs_cash": round(nw_tstat, 3),
         "nw_tstat_vs_spy": round(nw_tstat_vs_spy, 3),
@@ -704,7 +831,7 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
         "diagnostics_2022": compute_period_metrics(equity, benchmark, "2022-01-01", "2022-12-31"),
         "signal_quality": summarize_signal_quality(pd.DataFrame(trade_rows)),
     }
-    return pd.DataFrame(trade_rows), equity, benchmark, metrics
+    return pd.DataFrame(trade_rows), equity, benchmarks, metrics
 
 
 def default_backtest_tickers() -> list[str]:
@@ -802,7 +929,7 @@ def main() -> None:
         raise SystemExit("No walk-forward predictions generated")
 
     effective_mode = args.mode if args.allow_shorts else "long_only"
-    trades_df, equity, benchmark, metrics = run_portfolio_backtest(
+    trades_df, equity, benchmarks, metrics = run_portfolio_backtest(
         predictions,
         effective_mode,
         args.stress,
@@ -813,9 +940,14 @@ def main() -> None:
     equity_out = os.path.join(SIGNAL_DIR, f"{suffix}_equity.csv")
     metrics_out = os.path.join(SIGNAL_DIR, f"{suffix}_metrics.json")
     breakdown_out = os.path.join(SIGNAL_DIR, f"{suffix}_ticker_breakdown.csv")
+    attribution_out = os.path.join(SIGNAL_DIR, f"{suffix}_trade_attribution.csv")
     trades_df.to_csv(trades_out, index=False)
-    pd.DataFrame({"equity": equity, "benchmark_spy_norm": benchmark.reindex(equity.index)}).to_csv(equity_out)
+    equity_frame = pd.DataFrame({"equity": equity})
+    for symbol in benchmarks.columns:
+        equity_frame[f"benchmark_{symbol.lower()}_norm"] = benchmarks[symbol].reindex(equity.index)
+    equity_frame.to_csv(equity_out)
     summarize_ticker_breakdown(trades_df).to_csv(breakdown_out, index=False)
+    build_trade_attribution_report(trades_df).to_csv(attribution_out, index=False)
     with open(metrics_out, "w") as f:
         json.dump(metrics, f, indent=2)
     quality_report = write_quality_outputs(list(predictions.keys()), trades_df, metrics, "backtest_walkforward")
@@ -823,6 +955,7 @@ def main() -> None:
     print("Saved ->", equity_out)
     print("Saved ->", metrics_out)
     print("Saved ->", breakdown_out)
+    print("Saved ->", attribution_out)
     print(metrics)
 
     # ── Kill-criteria gate ────────────────────────────────────────────────────

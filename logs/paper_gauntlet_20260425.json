@@ -1,0 +1,6 @@
+{
+  "status": "no_data",
+  "approved_for_real_capital": false,
+  "reason": "No paper_trades.csv or paper_equity.csv found.",
+  "generated_at": "2026-04-24T20:34:17+00:00"
+}

@@ -129,13 +129,13 @@ SIGNALS_FILE = os.path.join(SIGNAL_DIR, "signals.csv")
 
 USE_MULTI_TIMEFRAME = True
 USE_VIX_TERM = True
-USE_OPTIONS_DATA = True
+USE_OPTIONS_DATA = False
 USE_ORDER_BOOK = True
-USE_ANALYST_DATA = True
-USE_EARNINGS_DATA = True
+USE_ANALYST_DATA = False
+USE_EARNINGS_DATA = False
 USE_YIELD_CURVE = True
-SOCIAL_SENTIMENT_ENABLED = True
-USE_NEWS_SENTIMENT = True
+SOCIAL_SENTIMENT_ENABLED = False
+USE_NEWS_SENTIMENT = False
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TARGETS / SPLITS

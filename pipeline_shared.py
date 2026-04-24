@@ -13,7 +13,7 @@ import yfinance as yf
 from settings import (
     MULTI_MARKET, SECTOR_MAP,
     USE_MULTI_TIMEFRAME, USE_VIX_TERM, USE_OPTIONS_DATA,
-    RETURN_HORIZON_DAYS, SOCIAL_SENTIMENT_ENABLED,
+    RETURN_HORIZON_DAYS, SOCIAL_SENTIMENT_ENABLED, USE_EARNINGS_DATA, USE_NEWS_SENTIMENT,
 )
 from sentiment_engine import build_sentiment_feature_dataframe, SentimentEngine, score_todays_news
 from social_sentiment import build_social_sentiment_features, get_live_social_signal
@@ -93,20 +93,34 @@ def add_technical_features(df: pd.DataFrame) -> pd.DataFrame:
     df["hl_range_5d"] = df["hl_range"].rolling(5).mean()
     df["roc_5"] = c.pct_change(5) / (c.pct_change(20).rolling(4).mean() + 1e-9)
     df["roc_10"] = c.pct_change(10) / (c.pct_change(40).rolling(4).mean() + 1e-9)
+    df["drawdown_20d"] = c / (c.rolling(20, min_periods=5).max() + 1e-9) - 1.0
+    df["drawdown_60d"] = c / (c.rolling(60, min_periods=20).max() + 1e-9) - 1.0
+    df["volume_chg_1d"] = v.pct_change(1)
+    df["volume_chg_5d"] = v.pct_change(5)
     # FIX: align direction target with return horizon
     df["target"] = (c.shift(-RETURN_HORIZON_DAYS) > c).astype(int)
     return df
+
+def _completed_period_to_daily(series: pd.Series, dates: pd.DatetimeIndex) -> pd.Series:
+    """Expose period-level values only after the period has fully completed."""
+    known = series.dropna().copy()
+    if known.empty:
+        return pd.Series(0.0, index=dates)
+    known.index = pd.DatetimeIndex(known.index) + pd.offsets.BDay(1)
+    return known.reindex(dates, method="ffill").fillna(0.0)
+
 
 def build_multi_timeframe(close: pd.Series, dates: pd.DatetimeIndex) -> pd.DataFrame:
     result = pd.DataFrame(index=dates)
     if not USE_MULTI_TIMEFRAME:
         return result
-    wk = close.resample("W").last().ffill()
-    result["weekly_ret"] = wk.pct_change(1).reindex(dates, method="ffill").fillna(0.0).values
-    result["weekly_vol"] = wk.pct_change(1).rolling(8).std().reindex(dates, method="ffill").fillna(0.0).values
-    mo = close.resample("ME").last().ffill()
-    result["monthly_ret"] = mo.pct_change(1).reindex(dates, method="ffill").fillna(0.0).values
-    result["monthly_trend"] = np.sign((mo - mo.rolling(3).mean()).reindex(dates, method="ffill").fillna(0.0))
+    wk = close.resample("W-FRI").last()
+    wk_ret = wk.pct_change(1)
+    result["weekly_ret"] = _completed_period_to_daily(wk_ret, dates).values
+    result["weekly_vol"] = _completed_period_to_daily(wk_ret.rolling(8).std(), dates).values
+    mo = close.resample("ME").last()
+    result["monthly_ret"] = _completed_period_to_daily(mo.pct_change(1), dates).values
+    result["monthly_trend"] = np.sign(_completed_period_to_daily(mo - mo.rolling(3).mean(), dates))
     result["weekly_trend"] = np.sign(result["weekly_ret"])
     result["tf_alignment"] = result["weekly_trend"] + np.sign(result["weekly_ret"]) + result["monthly_trend"]
     return result
@@ -213,45 +227,103 @@ def build_calendar_features(dates: pd.DatetimeIndex) -> pd.DataFrame:
             result.iloc[i, result.columns.get_loc("month_end")] = 1
     return result
 
+
+CONSERVATIVE_BASE_COLUMNS = {"Open", "High", "Low", "Close", "Volume", "target"}
+CONSERVATIVE_FEATURE_PREFIXES = (
+    "ret_",
+    "hvol_",
+    "rsi_",
+    "dist_ma",
+    "ma_cross_",
+    "macd",
+    "atr_",
+    "bb_",
+    "vol_ratio",
+    "volume_chg_",
+    "hl_range",
+    "spread_proxy",
+    "roc_",
+    "drawdown_",
+    "weekly_",
+    "monthly_",
+    "tf_alignment",
+    "spy_",
+    "qqq_",
+    "vix_",
+    "regime",
+    "ret_vs_spy",
+    "ret_vs_qqq",
+    "breadth_",
+    "pct_above_",
+)
+CONSERVATIVE_FEATURE_EXACT = {
+    "obv_slope",
+    "vwap_dist",
+    "uptick_ratio",
+    "variance_ratio",
+}
+RISKY_FEATURE_KEYWORDS = (
+    "sent",
+    "social",
+    "news",
+    "iv_",
+    "put_call",
+    "option",
+    "earn",
+    "eps_",
+    "analyst",
+    "recommend",
+    "short_interest",
+    "dark_pool",
+)
+
+
+def add_relative_strength_features(frame: pd.DataFrame) -> pd.DataFrame:
+    out = frame.copy()
+    if {"ret_5d", "spy_ret5d"}.issubset(out.columns):
+        out["ret_vs_spy_5d"] = out["ret_5d"] - out["spy_ret5d"]
+    if {"ret_20d", "spy_ret20d"}.issubset(out.columns):
+        out["ret_vs_spy_20d"] = out["ret_20d"] - out["spy_ret20d"]
+    if {"ret_5d", "qqq_ret5d"}.issubset(out.columns):
+        out["ret_vs_qqq_5d"] = out["ret_5d"] - out["qqq_ret5d"]
+    if {"ret_20d", "qqq_ret20d"}.issubset(out.columns):
+        out["ret_vs_qqq_20d"] = out["ret_20d"] - out["qqq_ret20d"]
+    return out
+
+
+def keep_conservative_feature_set(frame: pd.DataFrame) -> pd.DataFrame:
+    """Keep only point-in-time price, volume, relative-strength, and regime features."""
+    out = add_relative_strength_features(frame)
+    keep = []
+    for col in out.columns:
+        col_l = col.lower()
+        if col in CONSERVATIVE_BASE_COLUMNS:
+            keep.append(col)
+            continue
+        if any(k in col_l for k in RISKY_FEATURE_KEYWORDS):
+            continue
+        if col in CONSERVATIVE_FEATURE_EXACT or any(col.startswith(prefix) for prefix in CONSERVATIVE_FEATURE_PREFIXES):
+            keep.append(col)
+    return out.loc[:, keep]
+
 def build_options_features_context(ticker: str, dates: pd.DatetimeIndex, live: bool = False) -> pd.DataFrame:
-    """Historical research uses neutral options features to avoid leakage. Live prediction can use current snapshot."""
+    """Return neutral options features until point-in-time options history is available."""
     result = pd.DataFrame(index=dates)
     result["iv_atm"] = 0.25
     result["put_call_ratio"] = 1.0
     result["iv_skew"] = 0.0
-    if not live or not USE_OPTIONS_DATA:
-        return result
-    try:
-        tk = yf.Ticker(ticker)
-        expirations = tk.options
-        if not expirations:
-            return result
-        chain = tk.option_chain(expirations[0])
-        calls, puts = chain.calls, chain.puts
-        if calls.empty or puts.empty:
-            return result
-        price = float(tk.fast_info.get("last_price", 0) or 0)
-        if price <= 0:
-            return result
-        calls["dist"] = (calls["strike"] - price).abs()
-        puts["dist"] = (puts["strike"] - price).abs()
-        atm_c = calls.loc[calls["dist"].idxmin()]
-        atm_p = puts.loc[puts["dist"].idxmin()]
-        iv_c = float(atm_c.get("impliedVolatility", 0.25) or 0.25)
-        iv_p = float(atm_p.get("impliedVolatility", 0.25) or 0.25)
-        iv_atm = (iv_c + iv_p) / 2
-        call_vol = float(calls["volume"].sum()); put_vol = float(puts["volume"].sum())
-        pc_ratio = put_vol / (call_vol + 1)
-        otm_p = puts[puts["strike"].between(price * 0.93, price * 0.97)]
-        otm_c = calls[calls["strike"].between(price * 1.03, price * 1.07)]
-        iv_op = float(otm_p["impliedVolatility"].mean()) if not otm_p.empty else iv_atm
-        iv_oc = float(otm_c["impliedVolatility"].mean()) if not otm_c.empty else iv_atm
-        result["iv_atm"] = iv_atm
-        result["put_call_ratio"] = min(pc_ratio, 5.0)
-        result["iv_skew"] = iv_op - iv_oc
-    except Exception:
-        pass
     return result
+
+
+def build_earnings_features_context(ticker: str, dates: pd.DatetimeIndex) -> pd.DataFrame:
+    """Neutral earnings features unless point-in-time earnings data is explicitly enabled."""
+    if USE_EARNINGS_DATA:
+        return build_pead_features(ticker, dates)
+    return pd.DataFrame(index=dates, data={
+        "eps_surprise_pct": 0.0,
+        "days_since_earnings": 60.0,
+        "days_to_next_earnings": 60.0,
+    })
 
 def apply_feature_lag(df: pd.DataFrame, keywords: list[str], lag_days: int = 5) -> pd.DataFrame:
     out = df.copy()
@@ -263,6 +335,8 @@ def apply_feature_lag(df: pd.DataFrame, keywords: list[str], lag_days: int = 5) 
 
 
 def build_sentiment_features(ticker: str, dates: pd.DatetimeIndex) -> pd.DataFrame:
+    if not USE_NEWS_SENTIMENT:
+        return pd.DataFrame(index=dates)
     return build_sentiment_feature_dataframe(ticker, dates, finnhub_client=None, engine_level="finbert", sleep_rss=0.1, logger=None)
 
 def build_research_feature_frame(ticker: str, start: str, end: str) -> pd.DataFrame:
@@ -279,12 +353,6 @@ def build_research_feature_frame(ticker: str, start: str, end: str) -> pd.DataFr
         build_multi_timeframe(df["Close"], dates),
         build_vix_features(dates, start, end),
         mm_frame,
-        build_options_features_context(ticker, dates, live=False),  # FIX: avoid historical options leakage
-        build_sentiment_features(ticker, dates),
-        build_calendar_features(dates),
-        # New free alpha features
-        build_pead_features(ticker, dates),
-        build_iv_rank_features(df),
         build_gap_features(df),
         build_volume_features(df),
         build_market_breadth_features(dates, start, end),
@@ -303,14 +371,7 @@ def build_research_feature_frame(ticker: str, start: str, end: str) -> pd.DataFr
     out = pd.concat([out, sector_strength], axis=1)
     out = out.loc[:, ~out.columns.duplicated()]
 
-    # Compute iv_hv_spread here so the parquet has a real value, not the 0.0
-    # placeholder left by build_iv_rank_features.  In research mode iv_atm is
-    # 0.25 (the neutral constant from build_options_features_context), so the
-    # spread = 0.25 - hvol_20d, which is time-varying and meaningful.
-    if "iv_atm" in out.columns and "hvol_20d" in out.columns:
-        out["iv_hv_spread"] = (out["iv_atm"] - out["hvol_20d"]).clip(-0.5, 0.5)
-
-    out = apply_feature_lag(out, ["short_interest", "analyst", "recommend"], lag_days=5)
+    out = keep_conservative_feature_set(out)
     out = out.replace([np.inf, -np.inf], 0.0).fillna(0.0)
     out.dropna(subset=["Close", "target"], inplace=True)
     return out
@@ -328,21 +389,25 @@ def build_live_features_with_latest_news(ticker: str, feature_cols: list[str]) -
     dates = df.index
 
     mm_frame = build_multi_market(ticker, dates, start_str, end_str)
-    options_frame = build_options_features_context(ticker, dates, live=True)
 
     frames = [
         build_multi_timeframe(df["Close"], dates),
         build_vix_features(dates, start_str, end_str),
         mm_frame,
-        options_frame,
-        build_calendar_features(dates),
-        # New free alpha features (live path)
-        build_pead_features(ticker, dates),
-        build_iv_rank_features(df),
         build_gap_features(df),
         build_volume_features(df),
         build_market_breadth_features(dates, start_str, end_str),
     ]
+    out = pd.concat([df] + frames, axis=1)
+    out = out.loc[:, ~out.columns.duplicated()]
+    sector_strength = build_sector_strength_features(ticker, out)
+    out = pd.concat([out, sector_strength], axis=1)
+    out = keep_conservative_feature_set(out.loc[:, ~out.columns.duplicated()])
+    missing_cols = [c for c in feature_cols if c not in out.columns]
+    if missing_cols:
+        out = pd.concat([out, pd.DataFrame(0.0, index=out.index, columns=missing_cols)], axis=1)
+    return out.replace([np.inf, -np.inf], 0.0).fillna(0.0)
+
     try:
         sent = build_sentiment_feature_dataframe(
             ticker,
@@ -419,7 +484,7 @@ def build_live_features_with_latest_news(ticker: str, feature_cols: list[str]) -
     out = pd.concat([out, sector_strength], axis=1)
     out = out.loc[:, ~out.columns.duplicated()]
 
-    # For live path: fill iv_hv_spread = ATM IV - realized HV (options premium signal)
+    # Keep options-derived features aligned with training: neutral IV minus realized HV.
     if "iv_atm" in out.columns and "hvol_20d" in out.columns:
         out["iv_hv_spread"] = (out["iv_atm"] - out["hvol_20d"]).clip(-0.5, 0.5)
 

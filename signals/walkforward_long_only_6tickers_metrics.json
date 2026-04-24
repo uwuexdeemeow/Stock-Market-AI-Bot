@@ -1,12 +1,12 @@
 {
-  "total_return_pct": 6.52,
-  "annual_return_pct": 0.56,
+  "total_return_pct": 6.19,
+  "annual_return_pct": 0.53,
   "benchmark_return_pct": 319.68,
-  "alpha_pct": -313.16,
-  "sharpe_ratio_daily": 0.106,
-  "nw_tstat_vs_cash": 0.447,
-  "nw_tstat_vs_spy": -2.606,
-  "max_drawdown_pct": -14.37,
+  "alpha_pct": -313.49,
+  "sharpe_ratio_daily": 0.102,
+  "nw_tstat_vs_cash": 0.43,
+  "nw_tstat_vs_spy": -2.612,
+  "max_drawdown_pct": -14.43,
   "slippage_assumption_bps": 10.0,
   "execution_model": "spread_plus_sqrt_impact",
   "mode": "long_only",
@@ -35,16 +35,16 @@
     "HIGH": {
       "n": 7,
       "win_rate": 1.0,
-      "avg_pnl": 121.3857,
-      "median_pnl": 125.19,
-      "total_pnl": 849.7
+      "avg_pnl": 120.6414,
+      "median_pnl": 124.47,
+      "total_pnl": 844.49
     },
     "MEDIUM": {
       "n": 40,
       "win_rate": 0.5,
-      "avg_pnl": -4.944,
-      "median_pnl": -46.385,
-      "total_pnl": -197.76
+      "avg_pnl": -5.646,
+      "median_pnl": -47.115,
+      "total_pnl": -225.84
     },
     "LOW": {
       "n": 0,

@@ -33,7 +33,11 @@ import pandas as pd
 import xgboost as xgb
 from sklearn.preprocessing import StandardScaler
 
-from labels import triple_barrier
+from labels import (
+    make_direction_target as shared_make_direction_target,
+    make_forward_return_target,
+    make_spy_forward_return,
+)
 from settings import (
     DATA_DIR,
     MODEL_DIR,
@@ -80,35 +84,22 @@ TUNE_VAL_FRAC    = 0.15
 # test is whatever remains after the three above + embargo gaps
 
 
-def make_direction_target(close: pd.Series) -> np.ndarray:
-    fwd = close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS)
-    return (fwd.fillna(0.0).values > 0).astype(np.int64)
+def _legacy_direction_target(close: pd.Series) -> np.ndarray:
+    return shared_make_direction_target(close, prediction_target="direction", horizon=RETURN_HORIZON_DAYS)
 
 
-def make_direction_target_frame(df: pd.DataFrame) -> np.ndarray:
-    close = df["Close"]
-    stock_fwd = close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS).fillna(0.0)
-    bench_col = f"spy_ret{RETURN_HORIZON_DAYS}d"
-    spy_fwd = df[bench_col].shift(-RETURN_HORIZON_DAYS).fillna(0.0) if bench_col in df.columns else pd.Series(0.0, index=df.index)
-    hvol = df["hvol_20d"] if "hvol_20d" in df.columns else pd.Series(0.20, index=df.index)
-    if PREDICTION_TARGET == "triple_barrier":
-        labels = triple_barrier(
-            close,
-            high=df["High"] if "High" in df.columns else None,
-            low=df["Low"] if "Low" in df.columns else None,
-            max_hold=RETURN_HORIZON_DAYS,
-        ).fillna(0.0)
-        return (labels.values > 0).astype(np.int64)
-    if PREDICTION_TARGET == "excess_return":
-        return ((stock_fwd - spy_fwd).values > EXCESS_RETURN_MIN_PCT).astype(np.int64)
-    if PREDICTION_TARGET == "vol_adjusted":
-        vol_scaled = (hvol * np.sqrt(RETURN_HORIZON_DAYS)).clip(0.01, 1.0)
-        return (((stock_fwd - spy_fwd) / vol_scaled).values > VOL_ADJUSTED_SHARPE_THRESHOLD).astype(np.int64)
-    return (stock_fwd.values > 0.0).astype(np.int64)
+def _legacy_direction_target_frame(df: pd.DataFrame) -> np.ndarray:
+    return shared_make_direction_target(
+        df,
+        prediction_target=PREDICTION_TARGET,
+        horizon=RETURN_HORIZON_DAYS,
+        excess_return_min_pct=EXCESS_RETURN_MIN_PCT,
+        vol_adjusted_sharpe_threshold=VOL_ADJUSTED_SHARPE_THRESHOLD,
+    )
 
 
-def make_future_return(close: pd.Series) -> np.ndarray:
-    return close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS).fillna(0.0).to_numpy(dtype=float)
+def _legacy_future_return(close: pd.Series) -> np.ndarray:
+    return make_forward_return_target(close, horizon=RETURN_HORIZON_DAYS).to_numpy(dtype=float)
 
 
 def compute_tune_splits(n_total: int) -> dict:
@@ -155,6 +146,21 @@ def load_ticker_data(ticker: str):
         raise RuntimeError(f"Missing parquet for {ticker}")
 
     df = pd.read_parquet(parquet_path).copy()
+    stock_fwd_all = make_forward_return_target(df["Close"], horizon=RETURN_HORIZON_DAYS)
+    spy_fwd_all = make_spy_forward_return(df, horizon=RETURN_HORIZON_DAYS)
+    valid_labels = stock_fwd_all.notna() & spy_fwd_all.notna()
+    y_all_full = shared_make_direction_target(
+        df,
+        prediction_target=PREDICTION_TARGET,
+        horizon=RETURN_HORIZON_DAYS,
+        stock_fwd=stock_fwd_all,
+        spy_fwd=spy_fwd_all,
+        excess_return_min_pct=EXCESS_RETURN_MIN_PCT,
+        vol_adjusted_sharpe_threshold=VOL_ADJUSTED_SHARPE_THRESHOLD,
+    )
+    df = df.loc[valid_labels].copy()
+    y_all = y_all_full[valid_labels.to_numpy()]
+    future_returns = stock_fwd_all.loc[df.index].to_numpy(dtype=float)
     if len(df) < 400:
         raise RuntimeError(f"Not enough rows for {ticker}: {len(df)} (need ≥ 400)")
 
@@ -170,8 +176,6 @@ def load_ticker_data(ticker: str):
         df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
     X_all, _ = build_xgb_matrix(df, feature_cols_raw)
-    y_all = make_direction_target_frame(df)
-    future_returns = make_future_return(df["Close"])
     return df, X_all, y_all, future_returns, feature_cols_raw
 
 

@@ -26,7 +26,7 @@ import os
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from settings import BASE_DIR, LOG_DIR
 
@@ -43,6 +43,8 @@ STEPS = [
     ("research", [sys.executable, "research.py"]),
     ("predict",  [sys.executable, "predict.py"]),
     ("paper",    [sys.executable, "moomoo_paper_trading.py"]),
+    ("paper_gauntlet", [sys.executable, "paper_gauntlet.py"]),
+    ("quant_audit", [sys.executable, "quant_audit.py"]),
 ]
 
 
@@ -53,14 +55,15 @@ def _run_step(name: str, cmd: list[str], timeout: int = 1800) -> dict:
                             capture_output=True, text=True)
         return {"step": name, "rc": cp.returncode,
                 "seconds": round(time.time() - t0, 1),
+                "stdout_tail": cp.stdout[-1000:] if cp.stdout else "",
                 "stderr_tail": cp.stderr[-500:] if cp.stderr else ""}
     except subprocess.TimeoutExpired:
-        return {"step": name, "rc": 124, "seconds": timeout, "stderr_tail": "timeout"}
+        return {"step": name, "rc": 124, "seconds": timeout, "stdout_tail": "", "stderr_tail": "timeout"}
 
 
 def run_daily() -> dict:
     """Run every step, short-circuit on first failure."""
-    run = {"started_at": datetime.utcnow().isoformat() + "Z", "steps": []}
+    run = {"started_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "steps": []}
     for name, cmd in STEPS:
         log.info("starting %s", name)
         result = _run_step(name, cmd)
@@ -69,7 +72,7 @@ def run_daily() -> dict:
         if result["rc"] != 0:
             log.error("step %s failed; aborting pipeline", name)
             break
-    run["finished_at"] = datetime.utcnow().isoformat() + "Z"
+    run["finished_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     # append to a daily JSONL for easy grep / dashboarding
     with open(os.path.join(LOG_DIR, "pipeline_runs.jsonl"), "a") as f:
@@ -83,5 +86,9 @@ if __name__ == "__main__":
         result = run_daily()
         ok = all(s["rc"] == 0 for s in result["steps"])
         sys.exit(0 if ok else 1)
+    if mode == "audit":
+        result = _run_step("quant_audit", [sys.executable, "quant_audit.py"])
+        print(result.get("stdout_tail", ""))
+        sys.exit(0 if result["rc"] == 0 else result["rc"])
     print(f"unknown mode: {mode}")
     sys.exit(2)

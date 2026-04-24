@@ -1,0 +1,178 @@
+{
+  "generated_at": "2026-04-24T20:34:24+00:00",
+  "watchlist_size": 21,
+  "files": [
+    {
+      "path": "train.py",
+      "exists": true,
+      "size_bytes": 33051,
+      "modified_at": "2026-04-25T03:52:50"
+    },
+    {
+      "path": "backtest.py",
+      "exists": true,
+      "size_bytes": 41903,
+      "modified_at": "2026-04-25T04:12:28"
+    },
+    {
+      "path": "predict.py",
+      "exists": true,
+      "size_bytes": 15851,
+      "modified_at": "2026-04-25T03:58:34"
+    },
+    {
+      "path": "leakage_audit.py",
+      "exists": true,
+      "size_bytes": 7063,
+      "modified_at": "2026-04-25T03:52:50"
+    },
+    {
+      "path": "optimize_trade_rules.py",
+      "exists": true,
+      "size_bytes": 8140,
+      "modified_at": "2026-04-25T03:52:50"
+    },
+    {
+      "path": "model_quality.py",
+      "exists": true,
+      "size_bytes": 7415,
+      "modified_at": "2026-04-25T03:52:50"
+    },
+    {
+      "path": "trade_rules.py",
+      "exists": true,
+      "size_bytes": 6703,
+      "modified_at": "2026-04-25T03:52:50"
+    },
+    {
+      "path": "moomoo_paper_trading.py",
+      "exists": true,
+      "size_bytes": 8141,
+      "modified_at": "2026-04-25T04:32:15"
+    },
+    {
+      "path": "paper_gauntlet.py",
+      "exists": true,
+      "size_bytes": 4088,
+      "modified_at": "2026-04-25T04:33:40"
+    }
+  ],
+  "model_quality": {
+    "rows": 16,
+    "approved": 0,
+    "rejected": 16,
+    "approved_tickers": [],
+    "top_rejections": [
+      {
+        "ticker": "META",
+        "approval_reason": "return_spearman -0.1565 <= 0.0000; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500"
+      },
+      {
+        "ticker": "BTC-USD",
+        "approval_reason": "portfolio_sharpe 0.102 < 0.500; portfolio_nw_tstat 0.430 < 1.650"
+      },
+      {
+        "ticker": "AMZN",
+        "approval_reason": "walkforward_trades 7 < 10; portfolio_sharpe 0.102 < 0.500; portfolio_nw_tstat 0.430 < 1.650"
+      },
+      {
+        "ticker": "UNH",
+        "approval_reason": "walkforward_trades 1 < 10; walkforward_sharpe 0.000 < 0.500; portfolio_sharpe 0.102 < 0.500; portfolio_nw_tstat 0.430 < 1.650"
+      },
+      {
+        "ticker": "AAPL",
+        "approval_reason": "walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500"
+      },
+      {
+        "ticker": "NVDA",
+        "approval_reason": "walkforward_sharpe -3.104 < 0.500; portfolio_sharpe 0.102 < 0.500; portfolio_nw_tstat 0.430 < 1.650"
+      },
+      {
+        "ticker": "AMD",
+        "approval_reason": "walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500; listed as weak until retrained and backtested"
+      },
+      {
+        "ticker": "TSLA",
+        "approval_reason": "direction_edge 1.64pp < 2.00pp; return_spearman -0.0256 <= 0.0000; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500; listed as weak until retrained and backtested"
+      }
+    ]
+  },
+  "trade_rules": {
+    "rule_files": 1,
+    "report_rows": 1,
+    "approved_rule_candidates": 1,
+    "best_rules": [
+      {
+        "ticker": "AAPL",
+        "confidence_threshold": 62.5,
+        "min_expected_return": 0.0,
+        "allowed_qualities": "['MEDIUM']",
+        "exit_horizon_days": 10,
+        "stop_loss_pct": 0.04,
+        "take_profit_pct": 0.12,
+        "max_position_pct": 0.15,
+        "allow_shorts": false,
+        "avoid_bear_regime": false,
+        "optimized_at": "2026-04-25T03:41:50",
+        "optimization_score": 392.6799,
+        "score": 392.6799,
+        "trades": 39,
+        "win_rate": 0.8205,
+        "total_pnl": 1224.54,
+        "avg_pnl": 31.3985,
+        "profit_factor": 4.208,
+        "sharpe": 3.0878,
+        "max_drawdown_pct": -2.53,
+        "approved_candidate": true
+      }
+    ]
+  },
+  "signals": {
+    "signals": 16,
+    "actionable": 0,
+    "approved_live_tickers": 0,
+    "suppressed_reasons": {
+      "model_not_approved: walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500": 5,
+      "model_not_approved: direction_edge 1.18pp < 2.00pp; return_spearman -0.0938 <= 0.0000; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500": 1,
+      "model_not_approved: direction_edge -8.20pp < 2.00pp; return_spearman -0.0841 <= 0.0000; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500; listed as weak until retrained and backtested": 1,
+      "model_not_approved: direction_edge -0.47pp < 2.00pp; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500": 1,
+      "model_not_approved: direction_edge 1.64pp < 2.00pp; return_spearman -0.0256 <= 0.0000; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500; listed as weak until retrained and backtested": 1,
+      "model_not_approved: direction_edge -2.11pp < 2.00pp; return_spearman -0.0681 <= 0.0000; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500; listed as weak until retrained and backtested": 1,
+      "model_not_approved: direction_edge -12.42pp < 2.00pp; return_spearman -0.0017 <= 0.0000; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500; listed as weak until retrained and backtested": 1,
+      "model_not_approved: direction_edge 0.00pp < 2.00pp; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500": 1
+    }
+  },
+  "backtest": {
+    "latest_trades_file": "signals\\walkforward_long_only_6tickers_trades.csv",
+    "latest_equity_file": "signals\\walkforward_long_only_6tickers_equity.csv",
+    "latest_trade_rows": 47,
+    "latest_equity_rows": 4132
+  },
+  "paper": {
+    "filtered_live_rows": 0,
+    "paper_trade_rows": 0,
+    "paper_equity_rows": 0
+  },
+  "findings": [
+    {
+      "severity": "high",
+      "area": "model_selection",
+      "finding": "No ticker is currently approved for live trading. This is safe, but the system has no deployable edge yet."
+    },
+    {
+      "severity": "high",
+      "area": "live_signals",
+      "finding": "approved_live_tickers.csv has no approved tickers. Paper/live filters should produce no trades until the model gate improves."
+    },
+    {
+      "severity": "medium",
+      "area": "model_selection",
+      "finding": "10 tickers still have preliminary train-only quality rows. Re-run backtest.py for those tickers before live use."
+    },
+    {
+      "severity": "medium",
+      "area": "paper_trading",
+      "finding": "No paper trade journal found. Before real capital, log every proposed, accepted, rejected, and closed paper trade."
+    }
+  ]
+}
