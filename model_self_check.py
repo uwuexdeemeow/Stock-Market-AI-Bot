@@ -138,6 +138,14 @@ def validate_ticker(ticker: str, verbose: bool = True):
     else:
         log(f"conf_buckets  - OK {len(saved.get('confidence_buckets', []))} buckets")
 
+    quality = saved.get("model_quality") or {}
+    if quality:
+        status = quality.get("approval_status", "unknown")
+        reason = quality.get("approval_reason", "")
+        log(f"live_quality  - {status.upper()} ({reason})")
+    else:
+        log("WARNING       - model_quality missing; run backtest.py to approve/reject for live use")
+
     log(f"result        - {'PASS' if passed else 'FAIL'}")
     return passed
 

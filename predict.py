@@ -21,11 +21,16 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 
-from settings import MODEL_DIR, SIGNAL_DIR, DEFAULT_FIXED_CONFIDENCE_THRESHOLD, RETURN_HORIZON_DAYS
+from settings import (
+    MODEL_DIR, SIGNAL_DIR, DEFAULT_FIXED_CONFIDENCE_THRESHOLD, RETURN_HORIZON_DAYS,
+    MARKET_REGIME_FILTER_ENABLED, MARKET_REGIME_VIX_MAX, MARKET_REGIME_SPY_MA200_REQUIRED,
+)
 from confidence_calibration import load_direction_calibrator, calibrate_p_up
+from model_quality import read_quality_report
 from model_self_check import validate_ticker, is_optional_feature
 from pipeline_shared import build_live_features_with_latest_news
 from social_sentiment import get_live_social_signal
+from trade_rules import load_trade_rule, passes_trade_rule
 from xgb_feature_engineering import build_xgb_matrix
 
 os.makedirs(SIGNAL_DIR, exist_ok=True)
@@ -122,6 +127,29 @@ def assign_signal_quality(confidence: float, bucket_report: list[dict]) -> str:
     return "MEDIUM"
 
 
+def live_approval_for_ticker(ticker: str, saved: dict) -> tuple[bool, str]:
+    report = read_quality_report()
+    if not report.empty and {"ticker", "approved_for_live"}.issubset(report.columns):
+        row = report[report["ticker"].astype(str).str.upper() == ticker.upper()]
+        if row.empty:
+            return False, "missing_from_model_quality_report"
+        approved = str(row.iloc[0].get("approved_for_live", "")).lower() in {"true", "1"}
+        reason = str(row.iloc[0].get("approval_reason", ""))
+        return approved, reason or ("approved" if approved else "rejected")
+    return bool(saved.get("approved_for_live", False)), str(saved.get("approval_reason", "not evaluated by backtest"))
+
+
+def fallback_confidence_is_usable(saved: dict) -> bool:
+    if not saved.get("threshold_used_fallback", True):
+        return True
+    for row in saved.get("confidence_buckets", []):
+        precision = row.get("precision")
+        n = int(row.get("n", 0) or 0)
+        if precision is not None and float(precision) >= 0.60 and n >= 20:
+            return True
+    return False
+
+
 def predict_ticker(ticker: str) -> dict:
     if not validate_ticker(ticker, verbose=True):
         raise RuntimeError(f"Self-check failed for {ticker}")
@@ -174,10 +202,43 @@ def predict_ticker(ticker: str) -> dict:
     signal = "LONG" if expected_return >= 0 else "SHORT"
     direction_vote = "LONG" if up_pct >= down_pct else "SHORT"
     signal_quality = assign_signal_quality(confidence, saved.get("confidence_buckets", []))
+    model_approved, approval_reason = live_approval_for_ticker(ticker, saved)
+    trade_rule = load_trade_rule(ticker)
 
     recent_accuracy, recent_n = compute_recent_accuracy(ticker)
-    actionable = confidence >= threshold
+    effective_threshold = max(threshold, float(trade_rule.confidence_threshold))
+    actionable = confidence >= effective_threshold
     suppressed_reason = None
+
+    if not model_approved:
+        actionable = False
+        suppressed_reason = f"model_not_approved: {approval_reason}"
+
+    passed_rule, rule_reason = passes_trade_rule(
+        {
+            "signal": signal,
+            "signal_quality": signal_quality,
+            "confidence": confidence,
+            "expected_return": expected_return,
+        },
+        trade_rule,
+        mode="long_only",
+    )
+    if not passed_rule:
+        actionable = False
+        suppressed_reason = suppressed_reason or rule_reason
+
+    if signal_quality == "LOW":
+        actionable = False
+        suppressed_reason = suppressed_reason or "signal_quality_low"
+
+    if expected_return <= 0:
+        actionable = False
+        suppressed_reason = suppressed_reason or "expected_return_not_positive"
+
+    if not fallback_confidence_is_usable(saved):
+        actionable = False
+        suppressed_reason = suppressed_reason or "fallback_confidence_not_validated"
 
     if recent_accuracy is not None and recent_n >= 5 and recent_accuracy < 0.50:
         actionable = False
@@ -186,6 +247,21 @@ def predict_ticker(ticker: str) -> dict:
     if not saved.get("sentiment_features_removed", False) and sentiment_health == "DEGRADED":
         actionable = False
         suppressed_reason = "degraded_sentiment_features"
+
+    # Block trades when the broad market regime is unfavorable (high VIX or SPY below 200d MA).
+    # This avoids taking new positions into a stressed or downtrending market.
+    if MARKET_REGIME_FILTER_ENABLED and actionable:
+        try:
+            vix_level = float(df["vix_level"].iloc[-1]) if "vix_level" in df.columns else 0.0
+            spy_ma200_dist = float(df["spy_dist_ma200"].iloc[-1]) if "spy_dist_ma200" in df.columns else 1.0
+            if vix_level >= MARKET_REGIME_VIX_MAX:
+                actionable = False
+                suppressed_reason = f"regime_vix_too_high: {vix_level:.1f}>={MARKET_REGIME_VIX_MAX}"
+            elif MARKET_REGIME_SPY_MA200_REQUIRED and spy_ma200_dist <= 0.0:
+                actionable = False
+                suppressed_reason = f"regime_spy_below_ma200: dist={spy_ma200_dist:.4f}"
+        except Exception:
+            pass  # If regime data is missing, don't block the trade
 
     # Live safety: shorts are disabled until validated separately.
     live_actionable = actionable and signal == "LONG"
@@ -203,7 +279,9 @@ def predict_ticker(ticker: str) -> dict:
         "signal_quality": signal_quality,
         "actionable": live_actionable,
         "confidence": round(confidence, 1),
-        "conf_threshold": round(threshold, 1),
+        "conf_threshold": round(effective_threshold, 1),
+        "model_conf_threshold": round(threshold, 1),
+        "rule_conf_threshold": round(float(trade_rule.confidence_threshold), 1),
         "up_pct": round(up_pct, 1),
         "down_pct": round(down_pct, 1),
         "expected_return": round(expected_return, 2),
@@ -220,6 +298,14 @@ def predict_ticker(ticker: str) -> dict:
         "sentiment_feature_count": len(sentiment_cols),
         "recent_accuracy": round(recent_accuracy, 3) if recent_accuracy is not None else None,
         "recent_accuracy_n": recent_n,
+        "model_approved": model_approved,
+        "approval_reason": approval_reason,
+        "trade_rule_min_expected_return": round(float(trade_rule.min_expected_return), 2),
+        "trade_rule_qualities": "|".join(trade_rule.allowed_qualities),
+        "trade_rule_exit_horizon_days": int(trade_rule.exit_horizon_days),
+        "trade_rule_stop_loss_pct": round(float(trade_rule.stop_loss_pct), 4),
+        "trade_rule_take_profit_pct": round(float(trade_rule.take_profit_pct), 4),
+        "trade_rule_max_position_pct": round(float(trade_rule.max_position_pct), 4),
         "suppressed_reason": suppressed_reason,
         "selected_mode": "xgboost_only",
         "selected_model_name": None,

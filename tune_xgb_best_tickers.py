@@ -33,6 +33,7 @@ import pandas as pd
 import xgboost as xgb
 from sklearn.preprocessing import StandardScaler
 
+from labels import triple_barrier
 from settings import (
     DATA_DIR,
     MODEL_DIR,
@@ -40,6 +41,9 @@ from settings import (
     RETURN_HORIZON_DAYS,
     RETURN_BINS,
     RETURN_BIN_LABELS,
+    PREDICTION_TARGET,
+    EXCESS_RETURN_MIN_PCT,
+    VOL_ADJUSTED_SHARPE_THRESHOLD,
     TRAIN_CALIBRATION_SPLIT,
     CALIBRATION_TEST_SPLIT,
     EMBARGO_DAYS,
@@ -79,6 +83,32 @@ TUNE_VAL_FRAC    = 0.15
 def make_direction_target(close: pd.Series) -> np.ndarray:
     fwd = close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS)
     return (fwd.fillna(0.0).values > 0).astype(np.int64)
+
+
+def make_direction_target_frame(df: pd.DataFrame) -> np.ndarray:
+    close = df["Close"]
+    stock_fwd = close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS).fillna(0.0)
+    bench_col = f"spy_ret{RETURN_HORIZON_DAYS}d"
+    spy_fwd = df[bench_col].shift(-RETURN_HORIZON_DAYS).fillna(0.0) if bench_col in df.columns else pd.Series(0.0, index=df.index)
+    hvol = df["hvol_20d"] if "hvol_20d" in df.columns else pd.Series(0.20, index=df.index)
+    if PREDICTION_TARGET == "triple_barrier":
+        labels = triple_barrier(
+            close,
+            high=df["High"] if "High" in df.columns else None,
+            low=df["Low"] if "Low" in df.columns else None,
+            max_hold=RETURN_HORIZON_DAYS,
+        ).fillna(0.0)
+        return (labels.values > 0).astype(np.int64)
+    if PREDICTION_TARGET == "excess_return":
+        return ((stock_fwd - spy_fwd).values > EXCESS_RETURN_MIN_PCT).astype(np.int64)
+    if PREDICTION_TARGET == "vol_adjusted":
+        vol_scaled = (hvol * np.sqrt(RETURN_HORIZON_DAYS)).clip(0.01, 1.0)
+        return (((stock_fwd - spy_fwd) / vol_scaled).values > VOL_ADJUSTED_SHARPE_THRESHOLD).astype(np.int64)
+    return (stock_fwd.values > 0.0).astype(np.int64)
+
+
+def make_future_return(close: pd.Series) -> np.ndarray:
+    return close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS).fillna(0.0).to_numpy(dtype=float)
 
 
 def compute_tune_splits(n_total: int) -> dict:
@@ -140,8 +170,9 @@ def load_ticker_data(ticker: str):
         df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
     X_all, _ = build_xgb_matrix(df, feature_cols_raw)
-    y_all    = make_direction_target(df["Close"])
-    return df, X_all, y_all, feature_cols_raw
+    y_all = make_direction_target_frame(df)
+    future_returns = make_future_return(df["Close"])
+    return df, X_all, y_all, future_returns, feature_cols_raw
 
 
 def fit_candidate(
@@ -165,8 +196,30 @@ def fit_candidate(
     return model
 
 
+def candidate_metrics(model, X_eval, y_eval, actual_returns, baseline: float) -> dict:
+    probs = model.predict_proba(X_eval)[:, 1]
+    pred = (probs >= 0.5).astype(int)
+    accuracy = float((pred == y_eval).mean() * 100.0)
+    confidence = np.maximum(probs, 1.0 - probs) * 100.0
+    mask = confidence >= 55.0
+    precision_55 = float((pred[mask] == y_eval[mask]).mean()) if mask.sum() else 0.0
+    coverage_55 = float(mask.mean()) if len(mask) else 0.0
+    spearman = pd.Series(probs).corr(pd.Series(actual_returns[: len(probs)]), method="spearman")
+    spearman = float(spearman) if pd.notna(spearman) else 0.0
+    edge = accuracy - baseline
+    selection_score = edge + (precision_55 - 0.50) * 20.0 + max(spearman, -0.25) * 10.0 + coverage_55
+    return {
+        "accuracy": accuracy,
+        "edge_vs_baseline": edge,
+        "precision_at_55": precision_55,
+        "coverage_at_55": coverage_55,
+        "return_spearman": spearman,
+        "selection_score": selection_score,
+    }
+
+
 def tune_ticker(ticker: str, verbose: bool = True) -> dict:
-    df, X_all, y_all, feature_cols_raw = load_ticker_data(ticker)
+    df, X_all, y_all, future_returns, feature_cols_raw = load_ticker_data(ticker)
     splits = compute_tune_splits(len(df))
 
     train_end   = splits["train_end"]
@@ -203,6 +256,8 @@ def tune_ticker(ticker: str, verbose: bool = True) -> dict:
     y_calib = y_all[calib_start:calib_end]
     y_val   = y_all[val_start:val_end]
     y_test  = y_all[test_start:]
+    ret_val = future_returns[val_start:val_end]
+    ret_test = future_returns[test_start:]
 
     baseline_val  = float(np.mean(y_val)  * 100.0) if len(y_val)  else 50.0
     baseline_test = float(np.mean(y_test) * 100.0) if len(y_test) else 50.0
@@ -218,7 +273,8 @@ def tune_ticker(ticker: str, verbose: bool = True) -> dict:
     if verbose:
         print(f"[{ticker}] searching {len(combos)} combinations on val split …")
 
-    best_val_acc = -1.0
+    best_score = -1e9
+    best_val_metrics = None
     best_params  = None
     results      = []
 
@@ -231,34 +287,46 @@ def tune_ticker(ticker: str, verbose: bool = True) -> dict:
             min_child_weight=min_child_weight,
         )
         model    = fit_candidate(X_train, y_train, X_calib, y_calib, params)
-        val_pred = model.predict(X_val)
-        val_acc  = float((val_pred == y_val).mean() * 100.0)
+        val_metrics = candidate_metrics(model, X_val, y_val, ret_val, baseline_val)
 
         results.append({
             "ticker":           ticker,
-            "val_accuracy":     round(val_acc, 4),
+            "val_accuracy":     round(val_metrics["accuracy"], 4),
             "baseline_val":     round(baseline_val, 4),
+            "val_edge_vs_baseline": round(val_metrics["edge_vs_baseline"], 4),
+            "val_precision_at_55": round(val_metrics["precision_at_55"], 4),
+            "val_coverage_at_55": round(val_metrics["coverage_at_55"], 4),
+            "val_return_spearman": round(val_metrics["return_spearman"], 4),
+            "selection_score": round(val_metrics["selection_score"], 4),
             **params,
         })
 
-        if val_acc > best_val_acc:
-            best_val_acc = val_acc
+        if val_metrics["selection_score"] > best_score:
+            best_score = val_metrics["selection_score"]
+            best_val_metrics = val_metrics
             best_params  = params
 
     # ── One-shot test evaluation with the winning params ─────────────────────
     # Test split plays NO role in selection — this is purely for reporting.
     best_model    = fit_candidate(X_train, y_train, X_calib, y_calib, best_params)
-    test_pred     = best_model.predict(X_test)
-    test_acc      = float((test_pred == y_test).mean() * 100.0)
+    test_metrics  = candidate_metrics(best_model, X_test, y_test, ret_test, baseline_test)
+    best_val_acc = float(best_val_metrics["accuracy"] if best_val_metrics else 0.0)
+    test_acc = float(test_metrics["accuracy"])
 
     output = {
         "ticker":            ticker,
         "best_val_accuracy": round(best_val_acc, 4),
         "test_accuracy":     round(test_acc, 4),
+        "selection_score": round(float(best_score), 4),
         "baseline_val":      round(baseline_val, 4),
         "baseline_test":     round(baseline_test, 4),
         "val_beats_baseline":  best_val_acc > baseline_val,
         "test_beats_baseline": test_acc > baseline_test,
+        "best_val_precision_at_55": round(float(best_val_metrics["precision_at_55"]), 4) if best_val_metrics else 0.0,
+        "best_val_return_spearman": round(float(best_val_metrics["return_spearman"]), 4) if best_val_metrics else 0.0,
+        "test_precision_at_55": round(float(test_metrics["precision_at_55"]), 4),
+        "test_coverage_at_55": round(float(test_metrics["coverage_at_55"]), 4),
+        "test_return_spearman": round(float(test_metrics["return_spearman"]), 4),
         "feature_cols_raw":  feature_cols_raw,
         "params":            best_params,
         # Map to train.py / settings.py param names for --apply.
@@ -273,7 +341,7 @@ def tune_ticker(ticker: str, verbose: bool = True) -> dict:
     out_dir = os.path.join(MODEL_DIR, "tuning")
     os.makedirs(out_dir, exist_ok=True)
 
-    results_df = pd.DataFrame(results).sort_values("val_accuracy", ascending=False)
+    results_df = pd.DataFrame(results).sort_values("selection_score", ascending=False)
     results_df.to_csv(os.path.join(out_dir, f"{ticker}_tuning_results.csv"), index=False)
 
     # Save as JSON (human-readable) and pickle (easy to load in train.py).
@@ -386,6 +454,9 @@ def main() -> None:
                 "test_accuracy":     result["test_accuracy"],
                 "baseline_test":     result["baseline_test"],
                 "test_beats_baseline": result["test_beats_baseline"],
+                "selection_score":   result["selection_score"],
+                "test_precision_at_55": result["test_precision_at_55"],
+                "test_return_spearman": result["test_return_spearman"],
                 **result["params"],
             })
 

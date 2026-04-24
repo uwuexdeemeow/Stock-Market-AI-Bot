@@ -70,3 +70,38 @@ def position_size_with_stop(
         return 0
     dollars_at_risk = equity * risk_per_trade
     return int(dollars_at_risk // stop_dist)
+
+
+def compute_position_size(
+    confidence: float,
+    expected_return: float,
+    signal_quality: str,
+    equity: float,
+    asset_vol_annual: float,
+    base_pct: float = 0.15,
+    max_pct: float = 0.30,
+) -> float:
+    """Blended position size: vol-target anchored, scaled by model confidence.
+
+    A high-vol stock gets a smaller slice of equity so every position
+    contributes roughly the same amount of risk to the portfolio.
+    HIGH-quality signals receive a small Kelly bonus on top.
+
+    Returns a fraction of total equity (e.g. 0.18 = 18% of portfolio).
+    """
+    # --- Confidence-based component (original logic) ---
+    conf_scale = max((confidence - 50.0) / 50.0, 0.1)   # 0.1 at 50%, 1.0 at 100%
+    ret_scale = min(max(abs(expected_return) / 4.0, 0.3), 1.0)
+    conf_pct = min(max_pct, max(base_pct, base_pct * conf_scale * ret_scale * 2.0))
+
+    # --- Vol-target component: size so position adds ~15% annual vol to portfolio ---
+    vol_pct = vol_target_size(equity, asset_vol_annual, max_weight=max_pct) / equity if equity > 0 else base_pct
+    vol_pct = max(base_pct * 0.5, min(max_pct, vol_pct))
+
+    # --- Fractional Kelly additive bonus for HIGH-quality signals only ---
+    # A 15% edge estimate (conservative) at 25% Kelly fraction gives a small bump.
+    kelly_bonus = fractional_kelly(edge=0.15, fraction=0.25) * max_pct * 0.2 if signal_quality == "HIGH" else 0.0
+
+    # Blend 50% vol-target + 50% confidence, then add Kelly bonus
+    size = 0.5 * vol_pct + 0.5 * conf_pct + kelly_bonus
+    return float(min(max_pct, max(base_pct * 0.5, size)))

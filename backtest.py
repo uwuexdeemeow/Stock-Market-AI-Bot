@@ -26,6 +26,14 @@ import yfinance as yf
 from sklearn.preprocessing import StandardScaler
 
 from confidence_calibration import fit_direction_calibrator, calibrate_p_up
+from labels import triple_barrier
+from model_quality import (
+    evaluate_model_quality,
+    read_quality_report,
+    update_scaler_metadata,
+    upsert_quality_report,
+)
+from trade_rules import load_trade_rule, passes_trade_rule, resolve_rule_exit
 from settings import (
     DATA_DIR,
     SIGNAL_DIR,
@@ -57,10 +65,16 @@ from settings import (
     VOL_ADJUSTED_SHARPE_THRESHOLD,
     MODEL_DIR,
     APPROVED_TICKERS,
+    MARKET_REGIME_FILTER_ENABLED,
+    MARKET_REGIME_VIX_MAX,
+    MARKET_REGIME_SPY_MA200_REQUIRED,
+    BORROW_COST_ANNUAL_DEFAULT,
+    BORROW_COSTS,
 )
 from xgb_feature_engineering import build_xgb_matrix
 from portfolio_manager import PortfolioRiskManager, ProposedTrade
 from execution_model import realistic_fill_price, commission as calc_commission, capacity_warning
+from risk_sizing import compute_position_size
 
 INITIAL_CAPITAL = 10_000.0
 BASE_POSITION_SIZE_PCT = 0.15
@@ -135,6 +149,15 @@ def make_direction_target(df: pd.DataFrame | pd.Series) -> np.ndarray:
         hvol = df["hvol_20d"] if "hvol_20d" in df.columns else pd.Series(0.20, index=close.index)
 
     stock_fwd = close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS).fillna(0.0)
+
+    if PREDICTION_TARGET == "triple_barrier" and not isinstance(df, pd.Series):
+        labels = triple_barrier(
+            df["Close"],
+            high=df["High"] if "High" in df.columns else None,
+            low=df["Low"] if "Low" in df.columns else None,
+            max_hold=RETURN_HORIZON_DAYS,
+        ).fillna(0.0)
+        return (labels.values > 0).astype(np.int64)
 
     if PREDICTION_TARGET == "excess_return":
         return ((stock_fwd - spy_fwd).values > EXCESS_RETURN_MIN_PCT).astype(np.int64)
@@ -261,13 +284,29 @@ def load_ticker_data(ticker: str):
 
 
 def build_benchmark(index: pd.DatetimeIndex) -> pd.Series:
+    local_spy = os.path.join(DATA_DIR, "SPY.parquet")
+    if os.path.exists(local_spy):
+        try:
+            spy_df = pd.read_parquet(local_spy)
+            spy_df.index = pd.DatetimeIndex(spy_df.index)
+            close = spy_df["Close"].reindex(index).ffill().bfill()
+            if not close.empty and float(close.iloc[0]) != 0.0:
+                return close / close.iloc[0]
+        except Exception:
+            pass
     start = index.min().strftime("%Y-%m-%d")
     end = (index.max() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-    spy = yf.download("SPY", start=start, end=end, progress=False, auto_adjust=True)
-    if isinstance(spy.columns, pd.MultiIndex):
-        spy.columns = spy.columns.get_level_values(0)
-    close = spy["Close"].reindex(index).ffill().bfill()
-    return close / close.iloc[0]
+    try:
+        spy = yf.download("SPY", start=start, end=end, progress=False, auto_adjust=True)
+        if isinstance(spy.columns, pd.MultiIndex):
+            spy.columns = spy.columns.get_level_values(0)
+        if not spy.empty and "Close" in spy.columns:
+            close = spy["Close"].reindex(index).ffill().bfill()
+            if not close.empty and float(close.iloc[0]) != 0.0:
+                return close / close.iloc[0]
+    except Exception:
+        pass
+    return pd.Series(index=index, data=1.0, dtype=float)
 
 
 def build_vix_series(index: pd.DatetimeIndex) -> pd.Series:
@@ -426,7 +465,7 @@ def compute_period_metrics(equity: pd.Series, benchmark: pd.Series, start: str, 
     return {"period": f"{start} to {end}", "total_return_pct": round(total_ret * 100, 2), "benchmark_return_pct": round(bench_ret * 100, 2), "alpha_pct": round((total_ret - bench_ret) * 100, 2), "sharpe_ratio_daily": round(sharpe, 3), "max_drawdown_pct": round(float(dd.min()) * 100, 2)}
 
 
-def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode: str, stress: float):
+def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode: str, stress: float, use_trade_rules: bool = True):
     manager = PortfolioRiskManager()
     cash = INITIAL_CAPITAL
     open_positions = []
@@ -438,6 +477,7 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
         hist.index = pd.DatetimeIndex(hist.index)
         price_history[ticker] = hist
         all_dates.update(hist.index)
+    trade_rules = {ticker: load_trade_rule(ticker) for ticker in predictions_by_ticker}
     all_dates = sorted(all_dates)
     vix = build_vix_series(pd.DatetimeIndex(all_dates))
     benchmark = build_benchmark(pd.DatetimeIndex(all_dates))
@@ -467,7 +507,7 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
                     gross = pos["shares"] * (pos["entry_price"] - exit_px)
                     cash_delta = pos["margin_reserved"] + gross - pos["commission_exit"]
                 cash += cash_delta
-                net = gross - pos["commission_entry"] - pos["commission_exit"]
+                net = gross - pos["commission_entry"] - pos["commission_exit"] - pos.get("borrow_cost", 0.0)
                 trade_rows.append({
                     "date": pos["signal_date"], "entry_date": pos["entry_date"], "exit_date": pos["exit_date"],
                     "ticker": pos["ticker"], "signal": pos["signal"], "signal_quality": pos["signal_quality"],
@@ -475,6 +515,7 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
                     "position_pct": round(pos["requested_position_pct"] * 100, 2), "regime_state": pos["regime_state"],
                     "entry_price": round(pos["entry_price"], 4), "exit_price": round(exit_px, 4),
                     "holding_days": int(pos["holding_days"]), "net_pnl": round(net, 2),
+                    "exit_reason": pos.get("exit_reason", "time_exit"),
                     "sector": SECTOR_MAP.get(pos["ticker"], "OTHER"),
                     "capacity_warning": bool(pos.get("capacity_warning", False)),
                 })
@@ -497,6 +538,16 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
             if str(row.get("signal_quality", "LOW")) == "LOW":
                 continue
             signal = str(row["signal"])
+            expected_return = float(row.get("expected_return", 0.0))
+            rule = trade_rules.get(ticker)
+            if use_trade_rules and rule is not None:
+                passed, _reason = passes_trade_rule(row, rule, mode=mode)
+                if not passed:
+                    continue
+            if signal == "LONG" and expected_return <= 0.0:
+                continue
+            if signal == "SHORT" and expected_return >= 0.0:
+                continue
             if mode == "long_only" and signal != "LONG":
                 continue
             if mode == "long_only_bear_cash":
@@ -504,13 +555,37 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
                     continue
                 if signal != "LONG":
                     continue
+            # Universal regime filter: block new entries when VIX is elevated or
+            # SPY is below its 200-day MA, regardless of backtest mode.
+            if MARKET_REGIME_FILTER_ENABLED:
+                vix_now = float(vix.get(dt, 20.0))
+                if vix_now >= MARKET_REGIME_VIX_MAX:
+                    continue
+                if MARKET_REGIME_SPY_MA200_REQUIRED and reg_state == "bear":
+                    continue
+            # Compute 3-month realized vol for this ticker to anchor vol-target sizing.
+            asset_vol = 0.20  # fallback: assume 20% annual vol if history is short
+            if ticker in price_history:
+                _closes = price_history[ticker]["Close"].dropna()
+                if len(_closes) >= 20:
+                    asset_vol = float(_closes.pct_change().tail(63).std() * np.sqrt(252))
+                    asset_vol = max(0.05, min(1.0, asset_vol))
+            requested_pct = compute_position_size(
+                float(row["confidence"]),
+                expected_return,
+                str(row["signal_quality"]),
+                current_equity,
+                asset_vol,
+            ) * reg_mult
+            if use_trade_rules and rule is not None:
+                requested_pct = min(requested_pct, float(rule.max_position_pct))
             candidates.append(ProposedTrade(
                 ticker=ticker,
                 date=dt,
                 signal=signal,
                 confidence=float(row["confidence"]),
-                expected_return=float(row["expected_return"]),
-                requested_position_pct=requested_position_pct(float(row["confidence"]), float(row["expected_return"]), str(row["signal_quality"])) * reg_mult,
+                expected_return=expected_return,
+                requested_position_pct=requested_pct,
             ))
         current_equity = mark_to_market(dt)
         eq_series = pd.Series(index=pd.DatetimeIndex(equity_index), data=equity_curve, dtype=float) if equity_curve else pd.Series(dtype=float)
@@ -519,30 +594,48 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
         for tr in approved:
             row = predictions_by_ticker[tr.ticker].loc[dt]
             entry = float(row["open_next"])
-            exit_px = float(row["exit_future_close"])
             hist = price_history[tr.ticker]
+            rule = trade_rules.get(tr.ticker, load_trade_rule(tr.ticker))
+            exit_date, exit_px, holding_days, exit_reason = (
+                resolve_rule_exit(hist, row, rule) if use_trade_rules else (
+                    pd.Timestamp(row["exit_date"]),
+                    float(row["exit_future_close"]),
+                    int(row["holding_days"]),
+                    "time_exit",
+                )
+            )
             adv_entry = float(hist["Volume"].loc[:pd.Timestamp(row["entry_date"])].tail(20).mean()) if "Volume" in hist.columns else 0.0
-            adv_exit = float(hist["Volume"].loc[:pd.Timestamp(row["exit_date"])].tail(20).mean()) if "Volume" in hist.columns else adv_entry
+            adv_exit = float(hist["Volume"].loc[:pd.Timestamp(exit_date)].tail(20).mean()) if "Volume" in hist.columns else adv_entry
+            # Realized vol used to scale bid-ask spread (volatile stocks pay wider spreads).
+            _hist_closes = hist["Close"].dropna()
+            fill_vol = float(_hist_closes.pct_change().tail(63).std() * np.sqrt(252)) if len(_hist_closes) >= 20 else 0.20
+            fill_vol = max(0.05, min(1.0, fill_vol))
             trade_value = current_equity * tr.requested_position_pct
             shares = trade_value / max(entry, 1e-9)
             if tr.signal == "LONG":
-                entry = realistic_fill_price(entry, shares, adv_entry, side="buy", base_slippage_pct=SLIPPAGE_BASE_PCT * stress)
-                exit_px = realistic_fill_price(exit_px, shares, adv_exit, side="sell", base_slippage_pct=SLIPPAGE_BASE_PCT * stress)
+                entry = realistic_fill_price(entry, shares, adv_entry, side="buy", base_slippage_pct=SLIPPAGE_BASE_PCT * stress, asset_vol=fill_vol)
+                exit_px = realistic_fill_price(exit_px, shares, adv_exit, side="sell", base_slippage_pct=SLIPPAGE_BASE_PCT * stress, asset_vol=fill_vol)
             else:
-                entry = realistic_fill_price(entry, shares, adv_entry, side="sell", base_slippage_pct=SLIPPAGE_BASE_PCT * stress)
-                exit_px = realistic_fill_price(exit_px, shares, adv_exit, side="buy", base_slippage_pct=SLIPPAGE_BASE_PCT * stress)
+                entry = realistic_fill_price(entry, shares, adv_entry, side="sell", base_slippage_pct=SLIPPAGE_BASE_PCT * stress, asset_vol=fill_vol)
+                exit_px = realistic_fill_price(exit_px, shares, adv_exit, side="buy", base_slippage_pct=SLIPPAGE_BASE_PCT * stress, asset_vol=fill_vol)
             commission_entry = calc_commission(int(round(shares)))
             commission_exit = calc_commission(int(round(shares)))
+            # Borrow cost charged upfront for shorts: annual rate × holding period.
+            # This is the fee paid to the broker for borrowing shares to sell short.
+            borrow_cost = 0.0
+            if tr.signal == "SHORT":
+                borrow_annual = BORROW_COSTS.get(tr.ticker, BORROW_COST_ANNUAL_DEFAULT)
+                borrow_cost = trade_value * borrow_annual * (int(holding_days) / 365.0)
             if tr.signal == "LONG":
                 cash -= shares * entry + commission_entry
                 margin_reserved = 0.0
             else:
-                cash -= trade_value + commission_entry
+                cash -= trade_value + commission_entry + borrow_cost
                 margin_reserved = trade_value
             open_positions.append({
                 "signal_date": dt,
                 "entry_date": pd.Timestamp(row["entry_date"]),
-                "exit_date": pd.Timestamp(row["exit_date"]),
+                "exit_date": pd.Timestamp(exit_date),
                 "ticker": tr.ticker,
                 "signal": tr.signal,
                 "signal_quality": str(row["signal_quality"]),
@@ -552,10 +645,12 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
                 "regime_state": reg_state,
                 "entry_price": entry,
                 "exit_price": exit_px,
-                "holding_days": int(row["holding_days"]),
+                "holding_days": int(holding_days),
+                "exit_reason": exit_reason,
                 "shares": shares,
                 "commission_entry": commission_entry,
                 "commission_exit": commission_exit,
+                "borrow_cost": borrow_cost,
                 "margin_reserved": margin_reserved,
                 "capacity_warning": bool(capacity_warning(shares, adv_entry)),
             })
@@ -612,11 +707,55 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
     return pd.DataFrame(trade_rows), equity, benchmark, metrics
 
 
+def default_backtest_tickers() -> list[str]:
+    available = {f.replace(".parquet", "") for f in os.listdir(DATA_DIR) if f.endswith(".parquet")}
+    report = read_quality_report()
+    if not report.empty and {"ticker", "approved_for_live"}.issubset(report.columns):
+        approved = report[report["approved_for_live"].astype(str).str.lower().isin({"true", "1"})]
+        tickers = [str(t).upper() for t in approved["ticker"].tolist() if str(t).upper() in available]
+        if tickers:
+            return tickers
+    return [t for t in APPROVED_TICKERS if t in available]
+
+
+def write_quality_outputs(tickers: list[str], trades_df: pd.DataFrame, metrics: dict, quality_source: str) -> pd.DataFrame:
+    rows = []
+    for ticker in tickers:
+        ticker_trades = (
+            trades_df[trades_df["ticker"].astype(str).str.upper() == ticker.upper()].copy()
+            if not trades_df.empty and "ticker" in trades_df.columns
+            else pd.DataFrame()
+        )
+        row = evaluate_model_quality(
+            ticker,
+            trades=ticker_trades,
+            extra_metrics={
+                "quality_source": quality_source,
+                "portfolio_sharpe": metrics.get("sharpe_ratio_daily"),
+                "portfolio_nw_tstat_vs_cash": metrics.get("nw_tstat_vs_cash"),
+                "portfolio_max_drawdown_pct": metrics.get("max_drawdown_pct"),
+                "portfolio_total_return_pct": metrics.get("total_return_pct"),
+            },
+        )
+        rows.append(row)
+        update_scaler_metadata(ticker, row)
+
+    report = upsert_quality_report(rows)
+    approved = report[report["approved_for_live"].astype(str).str.lower().isin({"true", "1"})].copy()
+    approved_path = os.path.join(SIGNAL_DIR, "approved_live_tickers.csv")
+    approved[["ticker", "approval_reason"]].to_csv(approved_path, index=False)
+    print("Saved ->", os.path.join(MODEL_DIR, "model_quality_report.csv"))
+    print("Saved ->", approved_path)
+    return report
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Strict walk-forward backtest aligned to train.py")
     parser.add_argument("--ticker", type=str, default=None)
     parser.add_argument("--tickers", nargs="*", default=None)
     parser.add_argument("--mode", type=str, default="long_short", choices=["long_short", "long_only", "long_only_bear_cash"])
+    parser.add_argument("--allow-shorts", action="store_true", help="Allow SHORT trades in validation. Default is long-only live safety.")
+    parser.add_argument("--ignore-trade-rules", action="store_true", help="Use raw confidence filters instead of optimized per-ticker trade rules.")
     parser.add_argument("--stress", type=float, default=1.0)
     args = parser.parse_args()
 
@@ -626,10 +765,7 @@ def main() -> None:
     elif args.ticker:
         tickers = [args.ticker.upper()]
     else:
-        # Default: only trade approved tickers (pruned to models with positive edge).
-        # Pass --tickers to override and test all available parquets.
-        available = {f.replace(".parquet", "") for f in os.listdir(DATA_DIR) if f.endswith(".parquet")}
-        tickers = [t for t in APPROVED_TICKERS if t in available]
+        tickers = default_backtest_tickers()
 
     predictions = {}
     for ticker in tickers:
@@ -659,14 +795,20 @@ def main() -> None:
             continue
         pred_out = os.path.join(SIGNAL_DIR, f"{ticker}_walkforward_predictions.csv")
         pdf.reset_index().to_csv(pred_out, index=False)
-        print("Saved →", pred_out)
+        print("Saved ->", pred_out)
 
     predictions = {k: v for k, v in predictions.items() if not v.empty}
     if not predictions:
         raise SystemExit("No walk-forward predictions generated")
 
-    trades_df, equity, benchmark, metrics = run_portfolio_backtest(predictions, args.mode, args.stress)
-    suffix = tickers[0] if args.ticker and len(tickers) == 1 else f"walkforward_{args.mode}_{len(predictions)}tickers"
+    effective_mode = args.mode if args.allow_shorts else "long_only"
+    trades_df, equity, benchmark, metrics = run_portfolio_backtest(
+        predictions,
+        effective_mode,
+        args.stress,
+        use_trade_rules=not args.ignore_trade_rules,
+    )
+    suffix = tickers[0] if args.ticker and len(tickers) == 1 else f"walkforward_{effective_mode}_{len(predictions)}tickers"
     trades_out = os.path.join(SIGNAL_DIR, f"{suffix}_trades.csv")
     equity_out = os.path.join(SIGNAL_DIR, f"{suffix}_equity.csv")
     metrics_out = os.path.join(SIGNAL_DIR, f"{suffix}_metrics.json")
@@ -676,10 +818,11 @@ def main() -> None:
     summarize_ticker_breakdown(trades_df).to_csv(breakdown_out, index=False)
     with open(metrics_out, "w") as f:
         json.dump(metrics, f, indent=2)
-    print("Saved →", trades_out)
-    print("Saved →", equity_out)
-    print("Saved →", metrics_out)
-    print("Saved →", breakdown_out)
+    quality_report = write_quality_outputs(list(predictions.keys()), trades_df, metrics, "backtest_walkforward")
+    print("Saved ->", trades_out)
+    print("Saved ->", equity_out)
+    print("Saved ->", metrics_out)
+    print("Saved ->", breakdown_out)
     print(metrics)
 
     # ── Kill-criteria gate ────────────────────────────────────────────────────
@@ -691,18 +834,18 @@ def main() -> None:
     print("\n" + "=" * 60)
     print("KILL-CRITERIA GATE")
     print("=" * 60)
-    print(f"  Sharpe        : {metrics['sharpe_ratio_daily']:.3f}  (need ≥ {thr['min_sharpe']})  "
-          f"{'✓ PASS' if res['sharpe_pass'] else '✗ FAIL'}")
-    print(f"  NW t-stat(0)  : {metrics['nw_tstat_vs_cash']:.3f}  (need ≥ {thr['min_nw_tstat']})  "
-          f"{'✓ PASS' if res['nw_tstat_pass'] else '✗ FAIL'}  [vs SPY: {metrics['nw_tstat_vs_spy']:.3f}]")
-    print(f"  Max drawdown  : {metrics['max_drawdown_pct']:.1f}%  (need ≥ {thr['max_drawdown']*100:.0f}%)  "
-          f"{'✓ PASS' if res['drawdown_pass'] else '✗ FAIL'}")
+    print(f"  Sharpe        : {metrics['sharpe_ratio_daily']:.3f}  (need >= {thr['min_sharpe']})  "
+          f"{'PASS' if res['sharpe_pass'] else 'FAIL'}")
+    print(f"  NW t-stat(0)  : {metrics['nw_tstat_vs_cash']:.3f}  (need >= {thr['min_nw_tstat']})  "
+          f"{'PASS' if res['nw_tstat_pass'] else 'FAIL'}  [vs SPY: {metrics['nw_tstat_vs_spy']:.3f}]")
+    print(f"  Max drawdown  : {metrics['max_drawdown_pct']:.1f}%  (need >= {thr['max_drawdown']*100:.0f}%)  "
+          f"{'PASS' if res['drawdown_pass'] else 'FAIL'}")
     print("-" * 60)
     if res["all_pass"]:
-        print("RESULT: ALL GATES PASSED — strategy may advance to paper trading")
+        print("RESULT: ALL GATES PASSED - strategy may advance to paper trading")
     else:
         failed = [k.replace("_pass", "") for k, v in res.items() if k != "all_pass" and not v]
-        print(f"RESULT: FAILED — gates not cleared: {', '.join(failed)}")
+        print(f"RESULT: FAILED - gates not cleared: {', '.join(failed)}")
         print("Strategy should NOT advance to paper trading.")
     print("=" * 60 + "\n")
 

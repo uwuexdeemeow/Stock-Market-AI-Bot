@@ -1,0 +1,26 @@
+{
+  "run_at": "2026-04-24T19:56:52.323513+00:00",
+  "train_start": "2022-01-01",
+  "train_end": "2024-01-01",
+  "results": [
+    {
+      "ticker": "AAPL",
+      "status": "pass",
+      "leaking_features": [],
+      "n_features_checked": 78,
+      "cutoff_date": "2023-05-25"
+    },
+    {
+      "ticker": "MSFT",
+      "status": "pass",
+      "leaking_features": [],
+      "n_features_checked": 78,
+      "cutoff_date": "2023-05-25"
+    },
+    {
+      "ticker": "SPY",
+      "status": "skip",
+      "reason": "no data"
+    }
+  ]
+}

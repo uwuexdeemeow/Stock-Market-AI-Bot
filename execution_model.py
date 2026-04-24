@@ -23,8 +23,21 @@ import pandas as pd
 from settings import COMMISSION_PER_SHARE, SLIPPAGE_BASE_PCT
 
 
-def bid_ask_spread_cost(mid: float, spread_bps: float = 5.0, side: str = "buy") -> float:
-    """Half-spread paid on every fill. 5 bps is a reasonable default for liquid US equities."""
+def bid_ask_spread_cost(
+    mid: float,
+    spread_bps: float = 5.0,
+    side: str = "buy",
+    asset_vol: float | None = None,
+) -> float:
+    """Half-spread paid on every fill.
+
+    When asset_vol is provided the spread is scaled by realized volatility:
+    a stock with 40% annual vol pays ~2x the spread of a 20%-vol stock.
+    Capped at 3x (very volatile/illiquid) and floored at 0.5x (blue-chip).
+    """
+    if asset_vol is not None and asset_vol > 0:
+        vol_mult = min(max(asset_vol / 0.20, 0.5), 3.0)
+        spread_bps = spread_bps * vol_mult
     half = mid * (spread_bps / 10_000) / 2
     return mid + half if side == "buy" else mid - half
 
@@ -44,9 +57,10 @@ def realistic_fill_price(
     side: str = "buy",
     spread_bps: float = 5.0,
     base_slippage_pct: float = SLIPPAGE_BASE_PCT,
+    asset_vol: float | None = None,
 ) -> float:
-    """Fill price with spread + sqrt-impact + baseline slippage."""
-    px = bid_ask_spread_cost(mid, spread_bps, side)
+    """Fill price with vol-scaled spread + sqrt-impact + baseline slippage."""
+    px = bid_ask_spread_cost(mid, spread_bps, side, asset_vol=asset_vol)
     impact_bps = sqrt_impact_bps(order_shares, adv_shares)
     slip = (base_slippage_pct + impact_bps / 10_000)
     return px * (1 + slip) if side == "buy" else px * (1 - slip)

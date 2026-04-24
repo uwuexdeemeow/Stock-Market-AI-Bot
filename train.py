@@ -21,16 +21,23 @@ import json
 import logging
 import os
 import pickle
+import subprocess
 import sys
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 import xgboost as xgb
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.preprocessing import StandardScaler
 
 from confidence_calibration import fit_direction_calibrator, save_direction_calibrator
+from labels import triple_barrier
+from model_quality import evaluate_model_quality, update_scaler_metadata, upsert_quality_report
 from settings import (
     DATA_DIR,
     MODEL_DIR,
@@ -74,6 +81,8 @@ log = logging.getLogger("train")
 
 N_RETURN_BINS = len(RETURN_BIN_LABELS)
 RETURN_BIN_CENTRES = np.array([-0.04, -0.02, 0.00, 0.02, 0.04], dtype=float)
+FEATURE_MIN_STD = 1e-9
+FEATURE_MAX_MISSING_RATE = 0.50
 
 
 def make_direction_target(df: pd.DataFrame | pd.Series) -> np.ndarray:
@@ -116,6 +125,15 @@ def make_direction_target(df: pd.DataFrame | pd.Series) -> np.ndarray:
 
     stock_fwd = close.pct_change(RETURN_HORIZON_DAYS).shift(-RETURN_HORIZON_DAYS).fillna(0.0)
 
+    if PREDICTION_TARGET == "triple_barrier" and not isinstance(df, pd.Series):
+        labels = triple_barrier(
+            df["Close"],
+            high=df["High"] if "High" in df.columns else None,
+            low=df["Low"] if "Low" in df.columns else None,
+            max_hold=RETURN_HORIZON_DAYS,
+        ).fillna(0.0)
+        return (labels.values > 0).astype(np.int64)
+
     if PREDICTION_TARGET == "excess_return":
         excess = stock_fwd - spy_fwd
         return (excess.values > EXCESS_RETURN_MIN_PCT).astype(np.int64)
@@ -129,6 +147,60 @@ def make_direction_target(df: pd.DataFrame | pd.Series) -> np.ndarray:
 
     # "direction" — original behaviour
     return (stock_fwd.values > DIRECTION_LABEL_THRESHOLD).astype(np.int64)
+
+
+def build_feature_audit(df: pd.DataFrame, feature_cols: list[str], y_dir: np.ndarray | None = None) -> tuple[dict, list[str]]:
+    rows = []
+    dropped: list[str] = []
+    target = pd.Series(y_dir, index=df.index) if y_dir is not None and len(y_dir) == len(df) else None
+
+    for col in feature_cols:
+        raw = pd.to_numeric(df[col], errors="coerce")
+        finite = raw.replace([np.inf, -np.inf], np.nan)
+        missing_rate = float(finite.isna().mean())
+        inf_count = int(np.isinf(raw.to_numpy(dtype=float, na_value=np.nan)).sum())
+        std = float(finite.fillna(0.0).std())
+        years = df.index.year if isinstance(df.index, pd.DatetimeIndex) else pd.Series(index=df.index, data=0)
+        yearly_means = finite.groupby(years).mean()
+        stability_ratio = 0.0
+        if len(yearly_means.dropna()) > 1:
+            stability_ratio = float(yearly_means.std() / (abs(yearly_means.mean()) + 1e-9))
+
+        corr_by_year: dict[str, float | None] = {}
+        if target is not None:
+            for year, values in finite.groupby(years):
+                aligned_target = target.loc[values.index]
+                if values.nunique(dropna=True) > 1 and aligned_target.nunique(dropna=True) > 1:
+                    corr = values.fillna(0.0).corr(aligned_target)
+                    corr_by_year[str(year)] = round(float(corr), 4) if pd.notna(corr) else None
+                else:
+                    corr_by_year[str(year)] = None
+
+        reason = None
+        if std <= FEATURE_MIN_STD:
+            reason = "near_zero_variance"
+        elif missing_rate > FEATURE_MAX_MISSING_RATE:
+            reason = f"missing_rate>{FEATURE_MAX_MISSING_RATE:.0%}"
+        if reason:
+            dropped.append(col)
+
+        rows.append({
+            "feature": col,
+            "missing_rate": round(missing_rate, 4),
+            "inf_count": inf_count,
+            "std": std,
+            "stability_ratio": round(stability_ratio, 4),
+            "target_corr_by_year": corr_by_year,
+            "dropped_reason": reason,
+        })
+
+    report = {
+        "feature_count_before": len(feature_cols),
+        "feature_count_after": len(feature_cols) - len(dropped),
+        "dropped_features": [{"feature": r["feature"], "reason": r["dropped_reason"]} for r in rows if r["dropped_reason"]],
+        "features": rows,
+    }
+    return report, dropped
 
 
 def make_return_target(close: pd.Series) -> np.ndarray:
@@ -304,6 +376,49 @@ def evaluate_return_model(ret_model, X_test: np.ndarray, actual_returns: np.ndar
     }
 
 
+def save_xgb_results_plot(
+    ticker: str,
+    probs: np.ndarray,
+    y_true: np.ndarray,
+    direction_accuracy: float,
+    baseline_up_rate: float,
+    rolling_window: int = 20,
+) -> str:
+    """Save a compact held-out performance chart for the XGBoost-only model."""
+    probs = np.asarray(probs, dtype=float)
+    y_true = np.asarray(y_true, dtype=int)
+    pred = (probs >= 0.5).astype(int)
+    correct_pct = (pred == y_true).astype(float) * 100.0
+
+    rolling = pd.Series(correct_pct).rolling(rolling_window, min_periods=1).mean()
+    plot_path = os.path.join(MODEL_DIR, f"{ticker}_xgb_only_results.png")
+
+    fig, axes = plt.subplots(1, 2, figsize=(16, 5), dpi=120)
+
+    axes[0].plot(np.arange(len(rolling)), rolling, color="#1f77b4", linewidth=2)
+    axes[0].axhline(50.0, color="#1f77b4", linestyle="--", linewidth=2)
+    axes[0].set_title(f"Rolling accuracy ({rolling_window})", fontsize=15)
+    axes[0].set_ylim(0, 100)
+    axes[0].set_xlim(0, max(1, len(rolling) - 1))
+    axes[0].set_yticks(np.arange(0, 101, 20))
+    axes[0].grid(False)
+
+    axes[1].bar(
+        ["XGB Dir Acc", "Baseline UP"],
+        [direction_accuracy, baseline_up_rate],
+        color="#1f77b4",
+    )
+    axes[1].set_title("Held-out accuracy", fontsize=15)
+    axes[1].set_ylim(0, 100)
+    axes[1].set_yticks(np.arange(0, 101, 20))
+    axes[1].grid(False)
+
+    fig.tight_layout()
+    fig.savefig(plot_path, bbox_inches="tight")
+    plt.close(fig)
+    return plot_path
+
+
 def walk_forward_summary(X_all: np.ndarray, y_all: np.ndarray, n_folds: int = 5) -> dict:
     """
     Diagnostic expanding-window CV over the FULL dataset (train + test period).
@@ -391,13 +506,22 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
     # distribution shift vs training data where values were non-zero.
     feature_cols_raw = [c for c in feature_cols_raw if not ("sent_" in c or "sentiment" in c)]
 
+    y_dir_all = make_direction_target(df)
+    y_ret_all = make_return_target(df["Close"])
+    future_returns = make_future_return(df["Close"])
+
+    feature_audit, dropped_features = build_feature_audit(df, feature_cols_raw, y_dir_all)
+    feature_audit_path = os.path.join(MODEL_DIR, f"{ticker}_feature_audit.json")
+    with open(feature_audit_path, "w") as f:
+        json.dump(feature_audit, f, indent=2)
+    if dropped_features:
+        log.info("[%s] Dropping %d weak features before training", ticker, len(dropped_features))
+        feature_cols_raw = [c for c in feature_cols_raw if c not in set(dropped_features)]
+
     for col in feature_cols_raw:
         df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
     X_all, xgb_feature_cols = build_xgb_matrix(df, feature_cols_raw)
-    y_dir_all = make_direction_target(df)
-    y_ret_all = make_return_target(df["Close"])
-    future_returns = make_future_return(df["Close"])
 
     splits = compute_split_indices(len(df))
     train_end = splits["train_end"]
@@ -422,7 +546,7 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
     y_dir_train_sparse = y_dir_all[train_idx]
     y_ret_train_sparse = y_ret_all[train_idx]
     log.info(
-        "[%s] Non-overlapping train rows: %d → %d (stride=%d)",
+        "[%s] Non-overlapping train rows: %d -> %d (stride=%d)",
         ticker, train_end, len(train_idx), stride,
     )
 
@@ -491,6 +615,13 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
     sweep = threshold_sweep(test_p_up, y_dir_all[test_start:])
     return_eval = evaluate_return_model(ret_model, X_test, future_returns[test_start:])
     wf = walk_forward_summary(X_all, y_dir_all)
+    plot_path = save_xgb_results_plot(
+        ticker,
+        test_p_up,
+        y_dir_all[test_start:],
+        dir_acc,
+        baseline_up_rate,
+    )
 
     dir_model.save_model(os.path.join(MODEL_DIR, f"{ticker}_xgb_dir.json"))
     ret_model.save_model(os.path.join(MODEL_DIR, f"{ticker}_xgb_ret.json"))
@@ -523,6 +654,10 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
         "confidence_buckets": buckets,
         "threshold_sweep": sweep,
         "return_model_eval": return_eval,
+        "results_plot": plot_path,
+        "feature_audit": feature_audit,
+        "feature_audit_path": feature_audit_path,
+        "prediction_target": PREDICTION_TARGET,
         "model_version": "xgb_complete_v5",
         "trained_at": datetime.now().isoformat(),
         "sentiment_features_removed": True,
@@ -544,10 +679,32 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
                 "confidence_buckets": buckets,
                 "threshold_sweep": sweep,
                 "return_model_eval": return_eval,
+                "results_plot": plot_path,
+                "feature_audit_path": feature_audit_path,
+                "feature_count_before_audit": feature_audit["feature_count_before"],
+                "feature_count_after_audit": feature_audit["feature_count_after"],
+                "dropped_feature_count": len(feature_audit["dropped_features"]),
+                "prediction_target": PREDICTION_TARGET,
             },
             f,
             indent=2,
         )
+
+    quality_row = evaluate_model_quality(
+        ticker,
+        train_summary={
+            "ticker": ticker,
+            "direction_accuracy": round(dir_acc, 2),
+            "baseline_up_rate": round(baseline_up_rate, 2),
+            "confidence_threshold": round(threshold, 1),
+            "threshold_used_fallback": threshold_used_fallback,
+            "return_model_eval": return_eval,
+        },
+        trades=pd.DataFrame(),
+        extra_metrics={"quality_source": "train_preliminary"},
+    )
+    update_scaler_metadata(ticker, quality_row)
+    upsert_quality_report([quality_row])
 
     log.info(
         "RESULTS %s: acc=%.2f%% baseline=%.2f%% threshold=%.1f%% fallback=%s",
@@ -555,6 +712,7 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
     )
     log.info("WF-CV %s: %s", ticker, wf)
     log.info("Return model %s: %s", ticker, return_eval)
+    log.info("Saved results plot %s", plot_path)
     log.info(
         "\n" + classification_report(y_dir_all[test_start:], y_pred, target_names=["DOWN", "UP"], zero_division=0)
     )
@@ -562,8 +720,21 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
 
 
 def main() -> None:
+    global PREDICTION_TARGET
+
     parser = argparse.ArgumentParser(description="XGBoost-only trainer")
     parser.add_argument("--ticker", type=str, default=None)
+    parser.add_argument(
+        "--target",
+        choices=["excess_return", "triple_barrier", "vol_adjusted", "direction"],
+        default=None,
+        help="Override settings.PREDICTION_TARGET for this training run.",
+    )
+    parser.add_argument(
+        "--skip-leakage-audit",
+        action="store_true",
+        help="Skip the pre-training leakage audit gate.",
+    )
     parser.add_argument(
         "--params-from-tuning", action="store_true",
         help=(
@@ -573,6 +744,19 @@ def main() -> None:
         ),
     )
     args = parser.parse_args()
+    if args.target:
+        PREDICTION_TARGET = args.target
+        log.info("Using prediction target override: %s", PREDICTION_TARGET)
+
+    if not args.skip_leakage_audit:
+        audit_cmd = [sys.executable, "leakage_audit.py"]
+        audit = subprocess.run(audit_cmd, cwd=os.path.dirname(os.path.abspath(__file__)), capture_output=True, text=True)
+        if audit.stdout:
+            log.info("Leakage audit output:\n%s", audit.stdout.strip())
+        if audit.stderr:
+            log.warning("Leakage audit warnings:\n%s", audit.stderr.strip())
+        if audit.returncode != 0:
+            raise SystemExit(f"Leakage audit failed with rc={audit.returncode}; training aborted.")
 
     tickers = (
         [args.ticker.upper()]

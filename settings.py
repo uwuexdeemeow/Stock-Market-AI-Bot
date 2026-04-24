@@ -237,10 +237,24 @@ BEAR_REGIME_MULT = 0.40
 HIGH_VIX_MULT = 0.70
 EXTREME_VIX_MULT = 0.40
 
+# Regime filter: block all new trades when market is unfavorable.
+# Set MARKET_REGIME_FILTER_ENABLED = False to disable during testing.
+MARKET_REGIME_FILTER_ENABLED = True
+MARKET_REGIME_VIX_MAX = 25.0        # Block trades when VIX >= this value
+MARKET_REGIME_SPY_MA200_REQUIRED = True  # Block trades when SPY is below its 200-day moving average
+
 SLIPPAGE_BASE_PCT = 0.0010
 COMMISSION_PER_SHARE = 0.005
-BID_ASK_SPREAD_BPS = 5.0
+BID_ASK_SPREAD_BPS = 5.0           # Base spread — scaled up by realized vol in execution_model
 CAPACITY_ADV_THRESHOLD = 0.05
+
+# Annual borrow rate for short positions (as a decimal, e.g. 0.005 = 0.5%).
+# Most liquid large-caps are 0.3–0.5%; hard-to-borrow names can be 5%+.
+BORROW_COST_ANNUAL_DEFAULT = 0.005
+BORROW_COSTS: dict[str, float] = {
+    # Add per-ticker overrides here when broker rates are known.
+    # e.g. "GME": 0.50,  # 50% annualized borrow for a hard-to-borrow name
+}
 
 MAX_GROSS_EXPOSURE = 1.00
 MAX_NET_EXPOSURE = 0.60
