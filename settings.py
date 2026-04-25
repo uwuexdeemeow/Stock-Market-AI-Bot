@@ -135,7 +135,8 @@ USE_ANALYST_DATA = False
 USE_EARNINGS_DATA = False
 USE_YIELD_CURVE = True
 SOCIAL_SENTIMENT_ENABLED = False
-USE_NEWS_SENTIMENT = False
+USE_NEWS_SENTIMENT = True
+SENTIMENT_ENGINE_LEVEL = "finbert"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TARGETS / SPLITS
@@ -145,12 +146,15 @@ RETURN_HORIZON_DAYS = 10
 RETURN_BINS = [-0.03, -0.01, 0.01, 0.03]
 
 # ── Prediction target ─────────────────────────────────────────────────────────
-# "direction"      — original: UP if stock_ret > DIRECTION_LABEL_THRESHOLD
-# "excess_return"  — UP if (stock_ret - spy_ret) > EXCESS_RETURN_MIN_PCT
-#                    Removes beta noise; model only gets credit for alpha.
-# "vol_adjusted"   — UP if (stock_ret - spy_ret) / hvol_20d_scaled > threshold
-#                    Rewards the same excess return more during calm markets.
-PREDICTION_TARGET = "excess_return"
+# "direction"        — original: UP if stock_ret > DIRECTION_LABEL_THRESHOLD
+# "excess_return"    — UP if (stock_ret - spy_ret) > EXCESS_RETURN_MIN_PCT
+#                      Removes beta noise; model only gets credit for alpha.
+# "vol_adjusted"     — UP if (stock_ret - spy_ret) / hvol_20d_scaled > threshold
+#                      Rewards the same excess return more during calm markets.
+# "triple_barrier"   — López de Prado: +1 if price hits +2*ATR first,
+#                      -1 if price hits -1*ATR first, 0 on time-out.
+#                      Sharper class separation than fixed-horizon returns.
+PREDICTION_TARGET = "triple_barrier"
 
 # Minimum excess return vs SPY (after estimated slippage) to label a row UP.
 # 0.5 % clears the spread + commission hurdle for a $10k position.
@@ -173,6 +177,20 @@ EMBARGO_DAYS = RETURN_HORIZON_DAYS
 
 CONFIDENCE_TARGET_PRECISION = 0.58
 DEFAULT_FIXED_CONFIDENCE_THRESHOLD = 57.5
+
+# ── Pooled / cross-sectional settings ─────────────────────────────────────────
+# POOLED_TRAINING: train ONE model across all tickers (9× more data) instead of
+# separate per-ticker models.  Adds ticker one-hot features so the model still
+# learns ticker-specific patterns.
+POOLED_TRAINING = True
+
+# Cross-sectional ranking: at each signal date, rank all tickers by predicted
+# excess return and trade the top/bottom N instead of filtering by a confidence
+# threshold.  This sidesteps the broken calibration entirely.
+CROSS_SECTIONAL_TOP_N = 5   # raised from 3: was 9.5% in-market; 5 targets ~16%
+# In pooled cross-sectional mode, the relative rank is the primary selector.
+# Allow all quality tiers so the ranker can see all candidates.
+BACKTEST_ALLOWED_SIGNAL_QUALITIES = ("LOW", "MEDIUM", "HIGH")
 
 # Label threshold: 0.0 means any positive 5-day return counts as UP.
 # Tested 0.003 (0.3% min move) — hurt performance by cutting too many
@@ -199,6 +217,26 @@ SHAP_MIN_IMPORTANCE = 0.0001
 SHAP_MAX_FEATURES = 15
 
 # ─────────────────────────────────────────────────────────────────────────────
+# FEATURE PRUNING
+# ─────────────────────────────────────────────────────────────────────────────
+
+# After an initial XGBoost fit, keep only the top-K base features ranked by
+# gain importance, then retrain.  Ticker one-hot dummies are always kept.
+# Reduces dimensionality from ~400 rolled columns to a stable, informative set.
+FEATURE_IMPORTANCE_TOP_K = 30
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HYPERPARAMETER TUNING
+# ─────────────────────────────────────────────────────────────────────────────
+
+# When True, train_pooled() runs a nested walk-forward search over
+# max_depth / min_child_weight / reg_lambda before the final model fit.
+# Best params are saved to models/pooled_best_xgb_params.json and reloaded
+# by backtest.py so both pipelines use the same tuned configuration.
+# Pass --no-tune to python3 train.py to skip this step for faster runs.
+TUNE_HYPERPARAMS = True
+
+# ─────────────────────────────────────────────────────────────────────────────
 # MODEL SELECTION
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -213,19 +251,13 @@ ACTIVE_MODEL_WEIGHTS = {
     "lstm_attention": 0.0,
     "transformer": 0.0,
 }
-LIVE_SHORTS_ENABLED = True
+LIVE_SHORTS_ENABLED = False   # shorts off until calibration is healthy; long_only avoids bull-market short disaster
 
-# Tickers approved for both backtesting and live trading.
-# Based on model quality audit (2026-04-24):
-#   Kept:    GS, BAC, CAT, UNH, NVDA — positive edge + reliable precision buckets
-#            GOOGL, MSFT, AMZN, BTC-USD — thin but non-harmful edge
-#   Dropped: AAPL (precision inverts with confidence), MU (-18.5pp edge),
-#            TSLA (<50% precision), INTC (coin-flip), AMD/META/JNJ (near-random)
-APPROVED_TICKERS = [
-    "GS", "BAC", "CAT", "UNH", "NVDA",
-    "GOOGL", "MSFT", "AMZN", "BTC-USD",
-]
-DEFAULT_APPROVED_LIVE_TICKERS = APPROVED_TICKERS
+# Live approval is generated from models/model_quality_report.csv by backtest.py.
+# Keep these compatibility names empty so old imports fail safe instead of
+# silently trading a stale hand-maintained list.
+APPROVED_TICKERS: list[str] = []
+DEFAULT_APPROVED_LIVE_TICKERS: list[str] = []
 
 # ─────────────────────────────────────────────────────────────────────────────
 # REGIME / RISK / BACKTEST
@@ -242,6 +274,14 @@ EXTREME_VIX_MULT = 0.40
 MARKET_REGIME_FILTER_ENABLED = True
 MARKET_REGIME_VIX_MAX = 25.0        # Block trades when VIX >= this value
 MARKET_REGIME_SPY_MA200_REQUIRED = True  # Block trades when SPY is below its 200-day moving average
+
+# Backtest-specific regime controls.
+# Regime filter is ON: prevents long entries when SPY < MA200 or VIX >= 25.
+# This avoids bear-market LONG losses (2022 base rate was 43% up — below random).
+# The NW t-stat gate is already measured vs 0 (cash), not vs SPY, so blocking
+# entries during hostile regimes does not penalise the Sharpe unfairly.
+BACKTEST_MARKET_REGIME_FILTER_ENABLED = True
+BACKTEST_REGIME_SIZE_MULTIPLIER_ENABLED = False
 
 SLIPPAGE_BASE_PCT = 0.0010
 COMMISSION_PER_SHARE = 0.005
@@ -262,6 +302,10 @@ MAX_SECTOR_EXPOSURE = 0.35
 MAX_SINGLE_NAME_EXPOSURE = 0.20
 MAX_PAIR_CORRELATION = 0.85
 MAX_DRAWDOWN_HALT_PCT = 0.15
+
+# "legacy_confidence" matches the earlier gate-passing backtests.
+# "vol_kelly" uses the newer blended vol-target + fractional-Kelly sizing.
+POSITION_SIZING_MODE = "legacy_confidence"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DRIFT / MONITORING

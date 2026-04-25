@@ -35,6 +35,7 @@ from xgb_feature_engineering import build_xgb_matrix
 
 os.makedirs(SIGNAL_DIR, exist_ok=True)
 RETURN_BIN_CENTRES = np.array([-0.04, -0.02, 0.00, 0.02, 0.04], dtype=float)
+NON_TRADABLE_SCALER_PREFIXES = {"pooled"}
 
 
 def load_xgb_models(ticker: str):
@@ -52,6 +53,18 @@ def load_xgb_models(ticker: str):
                 ret_model = xgb.XGBClassifier(); ret_model.load_model(ret_path)
             return dir_model, ret_model
     return None, None
+
+
+def discover_prediction_tickers() -> list[str]:
+    tickers = []
+    for filename in os.listdir(MODEL_DIR):
+        if not filename.endswith("_scaler.pkl"):
+            continue
+        ticker = filename.replace("_scaler.pkl", "").upper()
+        if ticker.lower() in NON_TRADABLE_SCALER_PREFIXES:
+            continue
+        tickers.append(ticker)
+    return sorted(tickers)
 
 
 def evaluate_sentiment_health(df: pd.DataFrame) -> tuple[str, float, list[str]]:
@@ -109,6 +122,11 @@ def compute_recent_accuracy(ticker: str, lookback_days: int = 20) -> tuple[float
 
 
 def assign_signal_quality(confidence: float, bucket_report: list[dict]) -> str:
+    # Minimum sample counts per quality tier — same as backtest.py MIN_BUCKET_N_*.
+    # Without an n-floor the pooled bucket_report's in-sample precision (0.67)
+    # falsely labels every live signal HIGH; n < threshold forces a downgrade.
+    MIN_N_HIGH = 30
+    MIN_N_MEDIUM = 15
     for row in bucket_report:
         try:
             lo, hi = row["bucket"].split("-")
@@ -117,9 +135,10 @@ def assign_signal_quality(confidence: float, bucket_report: list[dict]) -> str:
             continue
         if confidence >= lo and (confidence < hi or hi >= 100):
             precision = row.get("precision")
-            if precision is None:
-                return "MEDIUM"
-            if precision >= 0.65:
+            n = row.get("n", 0)
+            if precision is None or n < MIN_N_MEDIUM:
+                return "LOW"
+            if precision >= 0.65 and n >= MIN_N_HIGH:
                 return "HIGH"
             if precision >= 0.55:
                 return "MEDIUM"
@@ -161,7 +180,11 @@ def predict_ticker(ticker: str) -> dict:
     xgb_feature_cols = saved.get("xgb_feature_cols")
     threshold = float(saved.get("confidence_threshold", DEFAULT_FIXED_CONFIDENCE_THRESHOLD))
 
-    df = build_live_features_with_latest_news(ticker, feature_cols)
+    df = build_live_features_with_latest_news(
+        ticker,
+        feature_cols,
+        sentiment_zscore_stats=saved.get("sentiment_zscore_stats"),
+    )
     if df is None or df.empty:
         raise RuntimeError(f"Could not build live features for {ticker}")
 
@@ -330,9 +353,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Complete XGBoost-only predictor")
     parser.add_argument("--ticker", type=str, default=None)
     args = parser.parse_args()
-    tickers = [args.ticker.upper()] if args.ticker else sorted(
-        f.replace("_scaler.pkl", "") for f in os.listdir(MODEL_DIR) if f.endswith("_scaler.pkl")
-    )
+    tickers = [args.ticker.upper()] if args.ticker else discover_prediction_tickers()
     rows = []
     for ticker in tickers:
         try:

@@ -26,6 +26,7 @@ import yfinance as yf
 from sklearn.preprocessing import StandardScaler
 
 from confidence_calibration import fit_direction_calibrator, calibrate_p_up
+from calibration_stability import calibration_stability as check_calibration_stability
 from labels import (
     make_direction_target as shared_make_direction_target,
     make_forward_return_target,
@@ -72,17 +73,25 @@ from settings import (
     EXCESS_RETURN_MIN_PCT,
     VOL_ADJUSTED_SHARPE_THRESHOLD,
     MODEL_DIR,
-    APPROVED_TICKERS,
-    MARKET_REGIME_FILTER_ENABLED,
+    WATCHLIST,
+    BACKTEST_MARKET_REGIME_FILTER_ENABLED,
+    BACKTEST_REGIME_SIZE_MULTIPLIER_ENABLED,
     MARKET_REGIME_VIX_MAX,
     MARKET_REGIME_SPY_MA200_REQUIRED,
     BORROW_COST_ANNUAL_DEFAULT,
     BORROW_COSTS,
+    POSITION_SIZING_MODE,
+    POOLED_TRAINING,
+    CROSS_SECTIONAL_TOP_N,
+    BACKTEST_ALLOWED_SIGNAL_QUALITIES,
+    FEATURE_IMPORTANCE_TOP_K,
 )
 from xgb_feature_engineering import build_xgb_matrix
+from pipeline_shared import apply_sentiment_distribution_matching, fit_sentiment_zscore_stats
 from portfolio_manager import PortfolioRiskManager, ProposedTrade
 from execution_model import realistic_fill_price, commission as calc_commission, capacity_warning
 from risk_sizing import compute_position_size
+from experiment_ledger import append_experiment
 
 INITIAL_CAPITAL = 10_000.0
 BASE_POSITION_SIZE_PCT = 0.15
@@ -91,14 +100,9 @@ MAX_POSITION_SIZE_PCT = 0.30
 # Boosting the worst-performing bucket amplified losses. Reset to 1.0 until
 # signal quality is reliably calibrated out-of-sample.
 HIGH_SIGNAL_BOOST = 1.0
-# Lowered from 50: BAC's 65-70 bucket (p=0.83, n=18) and CAT's 60-65 (p=0.73, n=22)
-# were being silenced despite excellent precision. At n≥15 the estimate is noisy but
-# the lower bound of the 95% CI is still ~55%+ for these high-precision buckets.
 # Separate n floors for each quality tier.
-# HIGH needs more data to trust a 65%+ precision estimate (noisy at small n).
-# MEDIUM can accept smaller buckets since the precision bar is lower.
-MIN_BUCKET_N_HIGH = 30    # n<30 → can't be HIGH even if p≥0.65
-MIN_BUCKET_N_MEDIUM = 15  # n<15 → LOW regardless of precision
+MIN_BUCKET_N_HIGH = 30
+MIN_BUCKET_N_MEDIUM = 15
 RETURN_BIN_CENTRES = np.array([-0.04, -0.02, 0.00, 0.02, 0.04], dtype=float)
 N_RETURN_BINS = len(RETURN_BIN_CENTRES)
 
@@ -201,7 +205,18 @@ def compute_split_indices(n_total: int) -> dict:
     return {"train_end": train_end, "calib_start": calib_start, "calib_end": calib_end, "test_start": test_start}
 
 
-def build_models(X_train, y_dir_train, X_cal, y_dir_cal, y_ret_train, y_ret_cal):
+def build_models(
+    X_train, y_dir_train, X_cal, y_dir_cal, y_ret_train, y_ret_cal,
+    param_overrides: dict | None = None,
+):
+    """
+    Fit the direction classifier and return-bucket classifier.
+
+    param_overrides: optional dict of XGBoost hyperparameters that override
+    the settings.py defaults.  Used to apply tuned params saved by train.py's
+    nested CV search.  Accepted keys: max_depth, min_child_weight, reg_lambda
+    (and any other valid XGBClassifier keyword).
+    """
     common = dict(
         n_estimators=XGB_N_ESTIMATORS,
         max_depth=XGB_MAX_DEPTH,
@@ -216,7 +231,20 @@ def build_models(X_train, y_dir_train, X_cal, y_dir_cal, y_ret_train, y_ret_cal)
         early_stopping_rounds=XGB_EARLY_STOP_ROUNDS,
         random_state=42,
     )
-    dir_model = xgb.XGBClassifier(objective="binary:logistic", eval_metric="logloss", **common)
+    if param_overrides:
+        allowed = {"max_depth", "learning_rate", "subsample", "colsample_bytree",
+                   "min_child_weight", "reg_lambda", "reg_alpha", "gamma"}
+        applied = {k: v for k, v in param_overrides.items() if k in allowed}
+        common.update(applied)
+    # Mirror train.py: compute scale_pos_weight from actual label distribution
+    # so each walk-forward block corrects for any class imbalance automatically.
+    n_pos = max(int(np.sum(y_dir_train == 1)), 1)
+    n_neg = max(int(np.sum(y_dir_train == 0)), 1)
+    spw   = float(np.clip(n_neg / n_pos, 0.33, 3.0))
+    dir_model = xgb.XGBClassifier(
+        objective="binary:logistic", eval_metric="logloss",
+        scale_pos_weight=spw, **common
+    )
     dir_model.fit(X_train, y_dir_train, eval_set=[(X_cal, y_dir_cal)], verbose=False)
     ret_model = xgb.XGBClassifier(objective="multi:softprob", num_class=N_RETURN_BINS, eval_metric="mlogloss", **common)
     ret_model.fit(X_train, y_ret_train, eval_set=[(X_cal, y_ret_cal)], verbose=False)
@@ -281,8 +309,11 @@ def strip_sentiment(feature_cols: list[str]) -> list[str]:
     allowed_exact = {"obv_slope", "vwap_dist", "uptick_ratio", "variance_ratio"}
     return [
         c for c in feature_cols
-        if not any(k in c.lower() for k in risky_keywords)
-        and (c in allowed_exact or any(c.startswith(prefix) for prefix in allowed_prefixes))
+        if c.startswith("sent_z_")
+        or (
+            not any(k in c.lower() for k in risky_keywords)
+            and (c in allowed_exact or any(c.startswith(prefix) for prefix in allowed_prefixes))
+        )
     ]
 
 
@@ -306,6 +337,9 @@ def load_ticker_data(ticker: str):
     stock_fwd = stock_fwd_all.loc[df.index]
     y_dir = y_dir_full[valid_labels.to_numpy()]
     y_ret = make_return_bucket_target(df["Close"], horizon=RETURN_HORIZON_DAYS, stock_fwd=stock_fwd)
+    split_for_stats = compute_split_indices(len(df))
+    sent_stats = fit_sentiment_zscore_stats(df.iloc[:split_for_stats["train_end"]])
+    df, _ = apply_sentiment_distribution_matching(df, sent_stats)
     exclude = {"target", "Open", "High", "Low", "Close", "Volume", "ma5", "ma10", "ma20", "ma50", "ma200"}
     feature_cols = [c for c in df.columns if c not in exclude and pd.api.types.is_numeric_dtype(df[c])]
     feature_cols = strip_sentiment(feature_cols)
@@ -411,6 +445,524 @@ def historical_annual_vol(price_history: dict[str, pd.DataFrame], ticker: str, d
         return 0.20
     vol = float(closes.pct_change().tail(lookback).std() * np.sqrt(252))
     return max(0.05, min(1.0, vol))
+
+
+def _select_feature_cols_bt(df: pd.DataFrame) -> list[str]:
+    """Same feature-filter logic used in train.py — must stay in sync."""
+    exclude = {"target", "Open", "High", "Low", "Close", "Volume",
+               "ma5", "ma10", "ma20", "ma50", "ma200"}
+    risky = (
+        "sent", "social", "news", "iv_", "put_call", "option", "earn", "eps_",
+        "analyst", "recommend", "short_interest", "dark_pool", "dow_", "month_",
+        "opex", "calendar", "sector_ret", "ret_vs_sector", "gld_", "hyg_", "tnx_",
+        "tlt_", "eem_", "iwm_", "dia_", "uup_",
+    )
+    allowed_pfx = (
+        "ret_", "hvol_", "rsi_", "dist_ma", "ma_cross_", "macd", "atr_", "bb_",
+        "vol_ratio", "volume_chg_", "hl_range", "spread_proxy", "roc_", "drawdown_",
+        "weekly_", "monthly_", "tf_alignment", "spy_", "qqq_", "vix_", "regime",
+        "ret_vs_spy", "ret_vs_qqq", "breadth_", "pct_above_",
+    )
+    exact = {"obv_slope", "vwap_dist", "uptick_ratio", "variance_ratio"}
+    return [
+        c for c in df.columns
+        if c not in exclude and pd.api.types.is_numeric_dtype(df[c])
+        and (
+            c.startswith("sent_z_")
+            or (
+                not any(k in c.lower() for k in risky)
+                and (c in exact or any(c.startswith(p) for p in allowed_pfx))
+            )
+        )
+    ]
+
+
+def _get_pruned_feature_indices_bt(
+    importances: np.ndarray,
+    n_base_feats: int,
+    n_ticker_dummies: int,
+    top_k: int,
+) -> np.ndarray:
+    """
+    Backtest mirror of train._get_pruned_feature_indices.
+
+    At each walk-forward block we train a quick 100-tree model on all features,
+    read gain importances, and keep only the top-K base features plus all ticker
+    dummies.  The final block model is then retrained on just those columns.
+
+    This ensures each block's model is lower-variance (fewer, more informative
+    features) and consistent with what train.py produces for live trading.
+
+    Args
+    ----
+    importances      : feature_importances_ from the initial 100-tree model.
+    n_base_feats     : Base (non-dummy) feature count — set to n_base_feats from
+                       the ticker_data shape before dummies are appended.
+    n_ticker_dummies : Number of ticker one-hot columns (appended after base).
+    top_k            : How many base features to retain.
+
+    Returns
+    -------
+    Sorted array of integer column indices to keep.
+    """
+    base_imp  = importances[:n_base_feats]
+    top_k_idx = np.argsort(base_imp)[-min(top_k, n_base_feats):]
+    dummy_idx = np.arange(n_base_feats, n_base_feats + n_ticker_dummies)
+    return np.sort(np.unique(np.concatenate([top_k_idx, dummy_idx])))
+
+
+def _load_ticker_for_pooled(ticker: str, common_features: list[str]):
+    """
+    Load one ticker's data and return pre-computed XGB feature matrix + labels.
+
+    Rolling transforms are applied here (once per ticker per backtest run)
+    so the walk-forward loop can cheaply slice by row index.  Slicing is safe
+    because rolling windows only look backward.
+
+    Returns
+    -------
+    (dates_array, X_full, y_dir, y_ret, open_prices, close_prices)
+    or None on failure.
+    """
+    path = os.path.join(DATA_DIR, f"{ticker}.parquet")
+    df = pd.read_parquet(path).copy()
+    stock_fwd = make_forward_return_target(df["Close"], horizon=RETURN_HORIZON_DAYS)
+    spy_fwd   = make_spy_forward_return(df, horizon=RETURN_HORIZON_DAYS)
+    valid     = stock_fwd.notna() & spy_fwd.notna()
+    df        = df.loc[valid].copy()
+    stock_fwd = stock_fwd.loc[df.index]
+    spy_fwd   = spy_fwd.loc[df.index]
+    if len(df) < 100:
+        return None
+    split_for_stats = compute_split_indices(len(df))
+    sent_stats = fit_sentiment_zscore_stats(df.iloc[:split_for_stats["train_end"]])
+    df, _ = apply_sentiment_distribution_matching(df, sent_stats)
+
+    y_dir = shared_make_direction_target(
+        df,
+        prediction_target=PREDICTION_TARGET,
+        horizon=RETURN_HORIZON_DAYS,
+        stock_fwd=stock_fwd,
+        spy_fwd=spy_fwd,
+        direction_threshold=DIRECTION_LABEL_THRESHOLD,
+        excess_return_min_pct=EXCESS_RETURN_MIN_PCT,
+        vol_adjusted_sharpe_threshold=VOL_ADJUSTED_SHARPE_THRESHOLD,
+    )
+    y_ret = make_return_bucket_target(df["Close"], horizon=RETURN_HORIZON_DAYS, stock_fwd=stock_fwd)
+
+    for col in common_features:
+        if col not in df.columns:
+            df[col] = 0.0
+        else:
+            df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+    X, _ = build_xgb_matrix(df, common_features)
+    open_prices  = df["Open"].values  if "Open"  in df.columns else df["Close"].values
+    close_prices = df["Close"].values
+
+    return (
+        np.array(df.index, dtype="datetime64[ns]"),
+        X,
+        y_dir,
+        y_ret,
+        open_prices,
+        close_prices,
+    )
+
+
+def walk_forward_predictions_pooled(
+    tickers: list[str],
+    min_total_train_rows: int = 2000,
+    test_block: int = 126,
+) -> dict[str, pd.DataFrame]:
+    """
+    Cross-sectional pooled walk-forward.
+
+    At every test block the model is retrained on ALL tickers' historical data
+    combined, using only dates strictly before the embargo cutoff.  This gives
+    ~N× more training rows than per-ticker models (where N = number of tickers).
+
+    Ticker one-hot dummies let the model learn ticker-specific biases even when
+    the feature set is shared.
+
+    Returns
+    -------
+    dict mapping ticker → pd.DataFrame of OOS predictions (same schema as
+    walk_forward_predictions_for_ticker so run_portfolio_backtest can consume it
+    unchanged).
+    """
+    # ── 1. Determine common feature set across all tickers ────────────────────
+    feature_sets: list[set[str]] = []
+    valid_tickers: list[str] = []
+    for ticker in tickers:
+        path = os.path.join(DATA_DIR, f"{ticker}.parquet")
+        if not os.path.exists(path):
+            continue
+        df = pd.read_parquet(path)
+        cols = _select_feature_cols_bt(df)
+        if cols:
+            feature_sets.append(set(cols))
+            valid_tickers.append(ticker)
+    if not valid_tickers:
+        return {}
+    common_features = sorted(feature_sets[0].intersection(*feature_sets[1:]))
+    if not common_features:
+        return {}
+    print(f"[pooled-bt] Common features: {len(common_features)}  Tickers: {len(valid_tickers)}")
+
+    # ── 2. Preload all ticker data (rolling transforms applied once) ───────────
+    ticker_data: dict[str, tuple] = {}
+    for ticker in valid_tickers:
+        result = _load_ticker_for_pooled(ticker, common_features)
+        if result is not None:
+            ticker_data[ticker] = result
+    valid_tickers = [t for t in valid_tickers if t in ticker_data]
+    if len(valid_tickers) < 2:
+        return {}
+
+    ticker_classes = sorted(valid_tickers)
+    ticker_to_idx  = {t: i for i, t in enumerate(ticker_classes)}
+    n_tickers      = len(ticker_classes)
+    n_base_feats   = ticker_data[valid_tickers[0]][1].shape[1]
+
+    # ── 3. Build global date timeline ─────────────────────────────────────────
+    all_dates_set: set = set()
+    for dates, *_ in ticker_data.values():
+        all_dates_set.update(dates.tolist())
+    timeline = sorted(all_dates_set)   # all unique dates across all tickers
+
+    # Convert timeline to numpy datetime64[ns] so comparisons work uniformly
+    timeline_np = np.array(timeline, dtype="datetime64[ns]")
+
+    # Find the first date where total rows (across all tickers) >= min_total_train_rows
+    start_idx = None
+    for i, dt_np in enumerate(timeline_np):
+        total = sum(
+            int((ticker_data[t][0] <= dt_np).sum())
+            for t in valid_tickers
+        )
+        if total >= min_total_train_rows:
+            start_idx = i
+            break
+    if start_idx is None:
+        print("[pooled-bt] Not enough training data to start walk-forward")
+        return {}
+
+    # ── 4. Walk-forward loop ──────────────────────────────────────────────────
+    records: dict[str, list[dict]] = {t: [] for t in valid_tickers}
+    last_valid_idx = max(0, len(timeline) - RETURN_HORIZON_DAYS - 1)
+    step = start_idx
+    # Accumulate calibration raw probs and labels across blocks to run
+    # calibration_stability check after the loop.
+    _all_cal_probs_raw: list[float] = []
+    _all_cal_labels: list[int] = []
+
+    while step < last_valid_idx:
+        block_end = min(step + test_block, last_valid_idx)
+        oos_dates_np = timeline_np[step:block_end]
+        # Embargo: exclude RETURN_HORIZON_DAYS rows immediately before step
+        cutoff_idx  = max(0, step - RETURN_HORIZON_DAYS)
+        cutoff_date = timeline_np[cutoff_idx]
+
+        # Build pooled train + calib sets from all tickers up to cutoff
+        train_X_parts, train_y_dir_parts, train_y_ret_parts = [], [], []
+        calib_X_parts, calib_y_dir_parts, calib_y_ret_parts = [], [], []
+
+        for ticker in valid_tickers:
+            dates, X, y_dir, y_ret, _, _ = ticker_data[ticker]
+            # Rows strictly before cutoff = training candidates
+            train_rows = np.where(dates < cutoff_date)[0]
+            if len(train_rows) < 10:
+                continue
+            # Split: first 85% for training (strided), last 15% for calibration
+            calib_split = max(int(len(train_rows) * 0.85), len(train_rows) - 100)
+            calib_rows  = train_rows[calib_split:]
+            # Non-overlapping stride on the training portion
+            train_rows_strided = train_rows[:calib_split:max(1, RETURN_HORIZON_DAYS)]
+            if len(train_rows_strided) < 5:
+                continue
+
+            dummy = np.zeros((1, n_tickers), dtype=np.float64)
+            dummy[0, ticker_to_idx[ticker]] = 1.0
+
+            # Training rows with ticker dummy appended
+            tr_X = np.concatenate(
+                [X[train_rows_strided],
+                 np.repeat(dummy, len(train_rows_strided), axis=0)], axis=1
+            )
+            train_X_parts.append(tr_X)
+            train_y_dir_parts.append(y_dir[train_rows_strided])
+            train_y_ret_parts.append(y_ret[train_rows_strided])
+
+            if len(calib_rows) > 0:
+                cal_X = np.concatenate(
+                    [X[calib_rows],
+                     np.repeat(dummy, len(calib_rows), axis=0)], axis=1
+                )
+                calib_X_parts.append(cal_X)
+                calib_y_dir_parts.append(y_dir[calib_rows])
+                calib_y_ret_parts.append(y_ret[calib_rows])
+
+        if not train_X_parts or not calib_X_parts:
+            step = block_end
+            continue
+
+        X_train_raw = np.concatenate(train_X_parts, axis=0)
+        y_dir_train = np.concatenate(train_y_dir_parts)
+        y_ret_train = np.concatenate(train_y_ret_parts)
+        X_cal_raw   = np.concatenate(calib_X_parts, axis=0)
+        y_dir_cal   = np.concatenate(calib_y_dir_parts)
+        y_ret_cal   = np.concatenate(calib_y_ret_parts)
+
+        # ── Load tuned hyperparameters saved by train.py (if available) ────────
+        # train_pooled() persists the best params from nested CV to this file.
+        # The backtest reuses them so both pipelines share the same hyperparameter
+        # configuration — no per-block re-tuning needed.
+        _tuned_path = os.path.join(MODEL_DIR, "pooled_best_xgb_params.json")
+        _bt_param_overrides: dict | None = None
+        if os.path.exists(_tuned_path):
+            try:
+                with open(_tuned_path) as _f:
+                    _bt_param_overrides = json.load(_f).get("params")
+            except Exception:
+                pass
+
+        # ── Apply the fixed pruned feature set from train.py (if available) ────
+        # Per-block pruning via a fast 100-tree model is unstable: feature
+        # rankings differ each block (small samples → noisy importances) and can
+        # flip which columns are kept, producing inconsistent signals.
+        # Instead, load the same pruned column indices that train_pooled() selected
+        # on the full historical dataset.  This keeps the backtest aligned with
+        # live trading (same features the production model uses) without introducing
+        # block-by-block variance.
+        _meta_path = os.path.join(MODEL_DIR, "pooled_scaler.pkl")
+        block_keep_idx: np.ndarray | None = None
+        if os.path.exists(_meta_path):
+            try:
+                import pickle as _pickle
+                with open(_meta_path, "rb") as _mf:
+                    _meta = _pickle.load(_mf)
+                _raw_keep = _meta.get("feature_pruning_keep_idx")
+                if _raw_keep is not None:
+                    block_keep_idx = np.array(_raw_keep, dtype=int)
+                    n_current_cols = X_train_raw.shape[1]
+                    if block_keep_idx.size == 0 or int(block_keep_idx.max()) >= n_current_cols:
+                        print(
+                            "[pooled-bt] Ignoring stale pooled feature_pruning_keep_idx "
+                            f"(max={int(block_keep_idx.max()) if block_keep_idx.size else 'empty'}, "
+                            f"current_cols={n_current_cols}). Retrain pooled model to refresh metadata."
+                        )
+                        block_keep_idx = None
+            except Exception:
+                block_keep_idx = None
+
+        if block_keep_idx is not None:
+            # Slice raw matrices to the fixed pruned column set, then refit scaler.
+            X_train_raw_p = X_train_raw[:, block_keep_idx]
+            X_cal_raw_p   = X_cal_raw[:, block_keep_idx]
+            scaler  = StandardScaler()
+            X_train = scaler.fit_transform(X_train_raw_p)
+            X_cal   = scaler.transform(X_cal_raw_p)
+        else:
+            # No saved pruning info — fall back to all features.
+            scaler  = StandardScaler()
+            X_train = scaler.fit_transform(X_train_raw)
+            X_cal   = scaler.transform(X_cal_raw)
+
+        # ── Train block model with (optionally) tuned hyperparameters ────────
+        dir_model, ret_model = build_models(
+            X_train, y_dir_train, X_cal, y_dir_cal,
+            y_ret_train, y_ret_cal,
+            param_overrides=_bt_param_overrides,
+        )
+        cal_probs_raw = dir_model.predict_proba(X_cal)[:, 1]
+        _all_cal_probs_raw.extend(cal_probs_raw.tolist())
+        _all_cal_labels.extend(y_dir_cal.tolist())
+        calibrator    = fit_direction_calibrator(cal_probs_raw, y_dir_cal)
+        threshold, threshold_used_fallback = training_compute_dynamic_threshold(
+            calibrator,
+            target_precision=CONFIDENCE_TARGET_PRECISION,
+            default=DEFAULT_FIXED_CONFIDENCE_THRESHOLD,
+            raw_probs=cal_probs_raw,
+            y_true=y_dir_cal,
+        )
+        cal_probs = np.array([
+            float(calibrate_p_up(calibrator, float(p))) for p in cal_probs_raw
+        ], dtype=float)
+        bucket_report = confidence_buckets(cal_probs, y_dir_cal)
+
+        # OOS predictions for each ticker on each date in the block
+        for oos_dt_np in oos_dates_np:
+            for ticker in valid_tickers:
+                dates, X, y_dir, y_ret, open_prices, close_prices = ticker_data[ticker]
+                row_hits = np.where(dates == oos_dt_np)[0]
+                if len(row_hits) == 0:
+                    continue
+                j = int(row_hits[0])
+
+                dummy = np.zeros((1, n_tickers), dtype=np.float64)
+                dummy[0, ticker_to_idx[ticker]] = 1.0
+                X_row_full = np.concatenate([X[j:j+1], dummy], axis=1)
+                # If train.py saved a fixed pruned column set, apply the same
+                # slice here so the OOS row matches the training feature space.
+                if block_keep_idx is not None:
+                    X_row_full = X_row_full[:, block_keep_idx]
+                X_row = scaler.transform(X_row_full)
+
+                p_up_raw = float(dir_model.predict_proba(X_row)[0, 1])
+                p_up = float(calibrate_p_up(calibrator, p_up_raw))
+                p_down = 1.0 - p_up
+                confidence = min(max(max(p_up, p_down) * 100.0, 50.0), 99.0)
+                ret_probs = ret_model.predict_proba(X_row)[0, :N_RETURN_BINS]
+                expected_return = float((ret_probs * RETURN_BIN_CENTRES).sum()) * 100.0
+                direction_vote  = "LONG" if p_up >= p_down else "SHORT"
+                signal_quality  = assign_signal_quality(confidence, bucket_report,
+                                                        direction=direction_vote)
+
+                entry_j  = min(j + 1, len(dates) - 1)
+                exit_j   = min(entry_j + RETURN_HORIZON_DAYS, len(dates) - 1)
+                # Convert numpy datetime64 → Python Timestamp for DataFrame compat
+                oos_ts    = pd.Timestamp(oos_dt_np)
+                entry_ts  = pd.Timestamp(dates[entry_j])
+                exit_ts   = pd.Timestamp(dates[exit_j])
+
+                records[ticker].append({
+                    "date":              oos_ts,
+                    "entry_date":        entry_ts,
+                    "exit_date":         exit_ts,
+                    "ticker":            ticker,
+                    "sector":            SECTOR_MAP.get(ticker, "OTHER"),
+                    "open_next":         float(open_prices[entry_j]),
+                    "exit_future_close": float(close_prices[exit_j]),
+                    "holding_days":      int(exit_j - entry_j),
+                    "signal":            direction_vote,
+                    "direction_vote":    direction_vote,
+                    "confidence":        confidence,
+                    "conf_threshold":    threshold,
+                    "threshold_used_fallback": bool(threshold_used_fallback),
+                    "expected_return":   expected_return,
+                    "signal_quality":    signal_quality,
+                    # Cross-sectional ranking uses expected_return rather than threshold;
+                    # mark every row actionable so the ranker can see all candidates.
+                    "actionable":        True,
+                })
+
+        step = block_end
+
+    # Convert lists to DataFrames
+    result: dict[str, pd.DataFrame] = {}
+    for ticker, rows in records.items():
+        if rows:
+            df_out = pd.DataFrame(rows)
+            df_out["date"] = pd.to_datetime(df_out["date"])
+            result[ticker] = df_out.set_index("date")
+    print(f"[pooled-bt] Walk-forward complete. Tickers with predictions: "
+          f"{[t for t in result if not result[t].empty]}")
+
+    # ── Calibration stability diagnostic ─────────────────────────────────────
+    # Checks whether the isotonic calibration curve stays consistent across
+    # walk-forward blocks.  A high KS distance means the calibration is drifting
+    # (likely overfitting to each block's training distribution).
+    if len(_all_cal_probs_raw) >= 50:
+        _cal_stability = check_calibration_stability(
+            pd.Series(_all_cal_probs_raw),
+            pd.Series(_all_cal_labels),
+        )
+        _stable = _cal_stability.get("stable")
+        _max_ks = _cal_stability.get("max_ks")
+        _ks_str = f"{_max_ks:.4f}" if _max_ks is not None else "N/A"
+        print(
+            f"[pooled-bt] Calibration stability: stable={_stable}  "
+            f"max_KS={_ks_str}  "
+            f"valid_folds={_cal_stability.get('valid_folds')}  "
+            f"skipped_folds={_cal_stability.get('skipped_folds')}"
+        )
+        if _stable is False:
+            print(
+                "[pooled-bt] WARNING: calibration is unstable across walk-forward "
+                "blocks (max_KS > 0.10). Confidence thresholds may not generalise."
+            )
+
+    return result
+
+
+def apply_cross_sectional_ranking(
+    predictions_by_ticker: dict[str, pd.DataFrame],
+    top_n: int,
+    mode: str,
+) -> dict[str, pd.DataFrame]:
+    """
+    Replace confidence-threshold filtering with cross-sectional ranking.
+
+    At each date, rank all tickers by predicted `expected_return`.
+    Mark the top-N tickers LONG, the bottom-N SHORT (if mode != long_only).
+    Set `actionable=True` only for those ranked positions.
+
+    This sidesteps the broken isotonic calibration entirely — relative ranking
+    is far more robust than absolute probability thresholds on small samples.
+    """
+    # Collect all dates across all tickers
+    all_dates: set = set()
+    for pdf in predictions_by_ticker.values():
+        if not pdf.empty:
+            all_dates.update(pdf.index.tolist())
+
+    # Reset actionable to False first (pooled backtest set all to True)
+    updated: dict[str, pd.DataFrame] = {
+        t: pdf.copy() for t, pdf in predictions_by_ticker.items()
+    }
+    for pdf in updated.values():
+        pdf["actionable"] = False
+
+    for dt in sorted(all_dates):
+        # Collect (ticker, p_up, expected_return, direction_vote) for each ticker on this date.
+        # p_up is derived from confidence + direction_vote:
+        #   LONG  → p_up = confidence / 100   (p_up >= 0.5 means model leans UP)
+        #   SHORT → p_up = 1 - confidence/100  (p_up <  0.5 means model leans DOWN)
+        # We rank LONG candidates by p_up (highest UP-confidence first) and SHORT
+        # candidates by (1 - p_up) (highest DOWN-confidence first).
+        # This replaces the broken expected_return ranking: the return model's
+        # Spearman is consistently near zero or negative, so sorting by it
+        # produces random or inverted selection.
+        day_rows: list[tuple[str, float, float, str]] = []
+        for ticker, pdf in updated.items():
+            if dt not in pdf.index:
+                continue
+            row = pdf.loc[dt]
+            conf     = float(row.get("confidence", 50.0))
+            dir_vote = str(row.get("direction_vote", "LONG"))
+            exp_ret  = float(row.get("expected_return", 0.0))
+            # p_up: probability model assigns to the UP outcome
+            p_up = (conf / 100.0) if dir_vote == "LONG" else (1.0 - conf / 100.0)
+            day_rows.append((ticker, p_up, exp_ret, dir_vote))
+
+        if not day_rows:
+            continue
+
+        # Sort descending by p_up so the most-confident UP calls rank first.
+        day_rows.sort(key=lambda x: x[1], reverse=True)
+        longs  = [t for t, p, _, dv in day_rows if dv == "LONG"][:top_n]
+        # For shorts: most-confident DOWN = lowest p_up → reverse order
+        shorts = [t for t, p, _, dv in reversed(day_rows) if dv == "SHORT"][:top_n] if mode != "long_only" else []
+
+        # Assign signal_quality by rank position:
+        #   Rank 1 → HIGH  (most confident UP call)
+        #   Rank 2 → MEDIUM
+        #   Rank 3+ → LOW
+        # With BACKTEST_ALLOWED_SIGNAL_QUALITIES = ("HIGH","MEDIUM") only top-2 trade.
+        _quality_map = {0: "HIGH", 1: "MEDIUM"}
+        for rank, ticker in enumerate(longs):
+            quality = _quality_map.get(rank, "LOW")
+            updated[ticker].loc[dt, "actionable"] = True
+            updated[ticker].loc[dt, "signal"] = "LONG"
+            updated[ticker].loc[dt, "signal_quality"] = quality
+        for rank, ticker in enumerate(shorts):
+            quality = _quality_map.get(rank, "LOW")
+            updated[ticker].loc[dt, "actionable"] = True
+            updated[ticker].loc[dt, "signal"] = "SHORT"
+            updated[ticker].loc[dt, "signal_quality"] = quality
+
+    return updated
 
 
 def walk_forward_predictions_for_ticker(ticker: str, min_train_rows: int = 700, test_block: int = 126) -> pd.DataFrame:
@@ -595,7 +1147,14 @@ def build_trade_attribution_report(trades_df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=columns).sort_values(["group_type", "total_pnl"], ascending=[True, False])
 
 
-def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode: str, stress: float, use_trade_rules: bool = True):
+def run_portfolio_backtest(
+    predictions_by_ticker: dict[str, pd.DataFrame],
+    mode: str,
+    stress: float,
+    use_trade_rules: bool = True,
+    date_start: str | pd.Timestamp | None = None,
+    date_end: str | pd.Timestamp | None = None,
+):
     manager = PortfolioRiskManager()
     cash = INITIAL_CAPITAL
     open_positions = []
@@ -609,6 +1168,13 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
         all_dates.update(hist.index)
     trade_rules = {ticker: load_trade_rule(ticker) for ticker in predictions_by_ticker}
     all_dates = sorted(all_dates)
+    if date_start is not None:
+        start_ts = pd.Timestamp(date_start)
+        all_dates = [dt for dt in all_dates if pd.Timestamp(dt) >= start_ts]
+    if date_end is not None:
+        # Keep enough future bars to let horizon/stop exits close naturally.
+        end_ts = pd.Timestamp(date_end) + pd.offsets.BDay(RETURN_HORIZON_DAYS + 5)
+        all_dates = [dt for dt in all_dates if pd.Timestamp(dt) <= end_ts]
     vix = build_vix_series(pd.DatetimeIndex(all_dates))
     benchmarks = build_benchmarks(pd.DatetimeIndex(all_dates))
     benchmark = benchmarks["SPY"]
@@ -655,7 +1221,10 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
         open_positions = remaining
 
         reg_state = regime_state(spy_close, dt)
-        reg_mult = regime_size_multiplier(spy_close, float(vix.get(dt, 20.0)), dt)
+        reg_mult = (
+            regime_size_multiplier(spy_close, float(vix.get(dt, 20.0)), dt)
+            if BACKTEST_REGIME_SIZE_MULTIPLIER_ENABLED else 1.0
+        )
         current_equity = mark_to_market(dt)
         candidates = []
         for ticker, pdf in predictions_by_ticker.items():
@@ -664,10 +1233,8 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
             row = pdf.loc[dt]
             if not bool(row.get("actionable", False)):
                 continue
-            # Skip LOW-quality signals. MEDIUM threshold raised to 0.60 after
-            # OOS audit showed 55%-threshold MEDIUM signals had only 46.9% win
-            # rate — below random. Only HIGH (≥65%) and tight MEDIUM (60-65%) trade.
-            if str(row.get("signal_quality", "LOW")) == "LOW":
+            allowed_qualities = {str(q).upper() for q in BACKTEST_ALLOWED_SIGNAL_QUALITIES}
+            if str(row.get("signal_quality", "LOW")).upper() not in allowed_qualities:
                 continue
             signal = str(row["signal"])
             expected_return = float(row.get("expected_return", 0.0))
@@ -676,9 +1243,13 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
                 passed, _reason = passes_trade_rule(row, rule, mode=mode)
                 if not passed:
                     continue
-            if signal == "LONG" and expected_return <= 0.0:
+            # In cross-sectional mode the expected_return is a RELATIVE rank signal —
+            # "best of 10" is valid even if its absolute value is slightly negative.
+            # Only veto when it's deeply negative (< -1%), which implies the return
+            # model strongly disagrees with the direction vote.
+            if signal == "LONG" and expected_return < -1.0:
                 continue
-            if signal == "SHORT" and expected_return >= 0.0:
+            if signal == "SHORT" and expected_return > 1.0:
                 continue
             if mode == "long_only" and signal != "LONG":
                 continue
@@ -689,21 +1260,28 @@ def run_portfolio_backtest(predictions_by_ticker: dict[str, pd.DataFrame], mode:
                     continue
             # Universal regime filter: block new entries when VIX is elevated or
             # SPY is below its 200-day MA, regardless of backtest mode.
-            if MARKET_REGIME_FILTER_ENABLED:
+            if BACKTEST_MARKET_REGIME_FILTER_ENABLED:
                 vix_now = float(vix.get(dt, 20.0))
                 if vix_now >= MARKET_REGIME_VIX_MAX:
                     continue
                 if MARKET_REGIME_SPY_MA200_REQUIRED and reg_state == "bear":
                     continue
-            # Compute realized vol only from history known on this signal date.
-            asset_vol = historical_annual_vol(price_history, ticker, dt)
-            requested_pct = compute_position_size(
-                float(row["confidence"]),
-                expected_return,
-                str(row["signal_quality"]),
-                current_equity,
-                asset_vol,
-            ) * reg_mult
+            if POSITION_SIZING_MODE == "vol_kelly":
+                # Compute realized vol only from history known on this signal date.
+                asset_vol = historical_annual_vol(price_history, ticker, dt)
+                requested_pct = compute_position_size(
+                    float(row["confidence"]),
+                    expected_return,
+                    str(row["signal_quality"]),
+                    current_equity,
+                    asset_vol,
+                ) * reg_mult
+            else:
+                requested_pct = requested_position_pct(
+                    float(row["confidence"]),
+                    expected_return,
+                    str(row["signal_quality"]),
+                ) * reg_mult
             if use_trade_rules and rule is not None:
                 requested_pct = min(requested_pct, float(rule.max_position_pct))
             candidates.append(ProposedTrade(
@@ -842,7 +1420,10 @@ def default_backtest_tickers() -> list[str]:
         tickers = [str(t).upper() for t in approved["ticker"].tolist() if str(t).upper() in available]
         if tickers:
             return tickers
-    return [t for t in APPROVED_TICKERS if t in available]
+    # No manual live-approval fallback: if nothing is approved, the default
+    # research run uses the watchlist but still writes rejected/approved status
+    # from objective gates into model_quality_report.csv.
+    return [t for t in WATCHLIST if t in available]
 
 
 def write_quality_outputs(tickers: list[str], trades_df: pd.DataFrame, metrics: dict, quality_source: str) -> pd.DataFrame:
@@ -880,9 +1461,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Strict walk-forward backtest aligned to train.py")
     parser.add_argument("--ticker", type=str, default=None)
     parser.add_argument("--tickers", nargs="*", default=None)
-    parser.add_argument("--mode", type=str, default="long_short", choices=["long_short", "long_only", "long_only_bear_cash"])
-    parser.add_argument("--allow-shorts", action="store_true", help="Allow SHORT trades in validation. Default is long-only live safety.")
-    parser.add_argument("--ignore-trade-rules", action="store_true", help="Use raw confidence filters instead of optimized per-ticker trade rules.")
+    parser.add_argument("--mode", type=str, default="long_only", choices=["long_short", "long_only", "long_only_bear_cash"])
+    parser.add_argument("--allow-shorts", action="store_true", help="Backward-compatible alias for --mode long_short.")
+    parser.add_argument("--use-trade-rules", action="store_true", help="Apply optimized per-ticker trade rules. Off by default for pooled research backtests.")
+    parser.add_argument("--ignore-trade-rules", action="store_true", help="Deprecated; trade rules are ignored unless --use-trade-rules is passed.")
     parser.add_argument("--stress", type=float, default=1.0)
     args = parser.parse_args()
 
@@ -894,25 +1476,38 @@ def main() -> None:
     else:
         tickers = default_backtest_tickers()
 
-    predictions = {}
-    for ticker in tickers:
-        try:
-            # Skip tickers where the model is clearly harmful: accuracy more than
-            # 5pp below baseline. A small gap is tolerated because scale_pos_weight
-            # forces some DOWN predictions that reduce overall accuracy even when the
-            # UP signal quality is still usable.
-            summary_path = os.path.join(MODEL_DIR, f"{ticker}_train_summary.json")
-            if os.path.exists(summary_path):
-                with open(summary_path) as _f:
-                    _summary = json.load(_f)
-                _acc = _summary.get("direction_accuracy", 0)
-                _baseline = _summary.get("baseline_up_rate", 50)
-                if _acc < _baseline - 5.0:
-                    print(f"SKIP {ticker}: dir_acc={_acc:.1f}% vs baseline={_baseline:.1f}% (>5pp below, model harmful)")
-                    continue
-            predictions[ticker] = walk_forward_predictions_for_ticker(ticker)
-        except Exception as e:
-            print(f"ERROR - {ticker}: {e}")
+    # Compute effective_mode early so pooled path can use it for ranking.
+    # Keep the default long-only, but make an explicit --mode long_short do
+    # what it says. --allow-shorts remains for older runbooks/scripts.
+    effective_mode = "long_short" if args.allow_shorts else args.mode
+    use_trade_rules = bool(args.use_trade_rules and not args.ignore_trade_rules)
+    use_pooled = POOLED_TRAINING and len(tickers) > 1
+
+    if use_pooled:
+        # ── Pooled cross-sectional walk-forward ───────────────────────────────
+        print(f"[backtest] POOLED mode: training one model across {len(tickers)} tickers")
+        predictions = walk_forward_predictions_pooled(tickers)
+        # Apply cross-sectional ranking instead of confidence-threshold filtering
+        predictions = apply_cross_sectional_ranking(
+            predictions, top_n=CROSS_SECTIONAL_TOP_N, mode=effective_mode
+        )
+    else:
+        # ── Per-ticker walk-forward (original path) ───────────────────────────
+        predictions = {}
+        for ticker in tickers:
+            try:
+                summary_path = os.path.join(MODEL_DIR, f"{ticker}_train_summary.json")
+                if os.path.exists(summary_path):
+                    with open(summary_path) as _f:
+                        _summary = json.load(_f)
+                    _acc = _summary.get("direction_accuracy", 0)
+                    _baseline = _summary.get("baseline_up_rate", 50)
+                    if _acc < _baseline - 5.0:
+                        print(f"SKIP {ticker}: dir_acc={_acc:.1f}% vs baseline={_baseline:.1f}% (>5pp below, model harmful)")
+                        continue
+                predictions[ticker] = walk_forward_predictions_for_ticker(ticker)
+            except Exception as e:
+                print(f"ERROR - {ticker}: {e}")
 
     # Save raw per-ticker prediction DataFrames so we can diagnose whether
     # predictions continue through later years and whether they stop being
@@ -928,12 +1523,11 @@ def main() -> None:
     if not predictions:
         raise SystemExit("No walk-forward predictions generated")
 
-    effective_mode = args.mode if args.allow_shorts else "long_only"
     trades_df, equity, benchmarks, metrics = run_portfolio_backtest(
         predictions,
         effective_mode,
         args.stress,
-        use_trade_rules=not args.ignore_trade_rules,
+        use_trade_rules=use_trade_rules,
     )
     suffix = tickers[0] if args.ticker and len(tickers) == 1 else f"walkforward_{effective_mode}_{len(predictions)}tickers"
     trades_out = os.path.join(SIGNAL_DIR, f"{suffix}_trades.csv")
@@ -951,6 +1545,38 @@ def main() -> None:
     with open(metrics_out, "w") as f:
         json.dump(metrics, f, indent=2)
     quality_report = write_quality_outputs(list(predictions.keys()), trades_df, metrics, "backtest_walkforward")
+    append_experiment(
+        name="backtest_walkforward",
+        params={
+            "tickers": list(predictions.keys()),
+            "mode": effective_mode,
+            "stress": args.stress,
+            "use_trade_rules": use_trade_rules,
+            "allow_shorts": args.allow_shorts,
+            "horizon_days": RETURN_HORIZON_DAYS,
+        },
+        metrics={
+            "total_return_pct": metrics.get("total_return_pct"),
+            "alpha_pct": metrics.get("alpha_pct"),
+            "sharpe_ratio_daily": metrics.get("sharpe_ratio_daily"),
+            "nw_tstat_vs_cash": metrics.get("nw_tstat_vs_cash"),
+            "max_drawdown_pct": metrics.get("max_drawdown_pct"),
+            "trades": int(len(trades_df)),
+            "approved_models": int(
+                quality_report["approved_for_live"].astype(str).str.lower().isin({"true", "1"}).sum()
+            )
+            if "approved_for_live" in quality_report.columns
+            else 0,
+            "kill_all_pass": bool(metrics.get("kill_criteria", {}).get("results", {}).get("all_pass", False)),
+        },
+        artifacts={
+            "trades": trades_out,
+            "equity": equity_out,
+            "metrics": metrics_out,
+            "breakdown": breakdown_out,
+            "attribution": attribution_out,
+        },
+    )
     print("Saved ->", trades_out)
     print("Saved ->", equity_out)
     print("Saved ->", metrics_out)

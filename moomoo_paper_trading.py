@@ -23,7 +23,7 @@ import pandas as pd
 import yfinance as yf
 
 from risk_sizing import compute_position_size
-from settings import BORROW_COST_ANNUAL_DEFAULT, BORROW_COSTS
+from settings import BORROW_COST_ANNUAL_DEFAULT, BORROW_COSTS, POSITION_SIZING_MODE
 from trade_rules import load_trade_rule, passes_trade_rule
 
 SIGNAL_DIR = Path("signals")
@@ -86,7 +86,12 @@ def enrich_with_sizing(df: pd.DataFrame, equity: float) -> pd.DataFrame:
         asset_vol = _fetch_vol(ticker)
         price = float(row.get("price", 0.0)) or _fetch_price(ticker)
 
-        pct = compute_position_size(confidence, expected_return, signal_quality, equity, asset_vol)
+        if POSITION_SIZING_MODE == "vol_kelly":
+            pct = compute_position_size(confidence, expected_return, signal_quality, equity, asset_vol)
+        else:
+            conf_scale = max((confidence - 50.0) / 50.0, 0.1)
+            ret_scale = min(max(abs(expected_return) / 4.0, 0.3), 1.0)
+            pct = min(0.30, max(0.15, 0.15 * conf_scale * ret_scale * 2.0))
         rec_pcts.append(round(pct * 100, 2))
 
         shares = int((equity * pct) / price) if price > 0 else 0

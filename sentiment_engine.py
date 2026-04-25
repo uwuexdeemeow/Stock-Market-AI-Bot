@@ -710,29 +710,70 @@ def _fetch_finnhub_headlines(
     """Company news for [min(dates), max(dates)] (capped at today)."""
     import pandas as pd
 
-    if client is None:
-        return []
     try:
         dmin = pd.Timestamp(dates.min()).normalize()
         dmax = pd.Timestamp(dates.max()).normalize()
         today = pd.Timestamp.today().normalize()
         dmax = min(dmax, today)
-        start_d = dmin.strftime("%Y-%m-%d")
-        end_d = dmax.strftime("%Y-%m-%d")
-        news = client.company_news(ticker, _from=start_d, to=end_d)
-        time.sleep(0.4)
         out = []
-        for item in news[:200]:
-            try:
-                ts_utc = pd.to_datetime(
-                    item.get("datetime", 0), unit="s", utc=True
+
+        if client is not None:
+            payload = client.company_news(ticker, _from=dmin.strftime("%Y-%m-%d"), to=dmax.strftime("%Y-%m-%d"))[:1000]
+            time.sleep(0.4)
+        else:
+            key = _get_finnhub_api_key()
+            if not key:
+                return []
+            import requests
+
+            payload = []
+            cache_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "sentiment_cache")
+            os.makedirs(cache_dir, exist_ok=True)
+            chunk_start = dmin
+            while chunk_start <= dmax:
+                chunk_end = min(chunk_start + pd.Timedelta(days=89), dmax)
+                cache_path = os.path.join(
+                    cache_dir,
+                    f"{ticker.upper()}_{chunk_start.strftime('%Y%m%d')}_{chunk_end.strftime('%Y%m%d')}_finnhub.json",
                 )
+                if os.path.exists(cache_path):
+                    try:
+                        with open(cache_path, encoding="utf-8") as f:
+                            chunk_payload = json.load(f)
+                    except Exception:
+                        chunk_payload = []
+                else:
+                    resp = requests.get(
+                        "https://finnhub.io/api/v1/company-news",
+                        params={
+                            "symbol": ticker,
+                            "from": chunk_start.strftime("%Y-%m-%d"),
+                            "to": chunk_end.strftime("%Y-%m-%d"),
+                            "token": key,
+                        },
+                        headers=_rss_http_headers(),
+                        timeout=30,
+                    )
+                    resp.raise_for_status()
+                    chunk_payload = resp.json() or []
+                    with open(cache_path, "w", encoding="utf-8") as f:
+                        json.dump(chunk_payload, f)
+                    time.sleep(0.4)
+                payload.extend(chunk_payload)
+                chunk_start = chunk_end + pd.Timedelta(days=1)
+
+        seen_titles: set[str] = set()
+        for item in payload:
+            try:
+                ts_utc = pd.to_datetime(item.get("datetime", 0), unit="s", utc=True)
                 # Keep time-of-day (no .normalize()) so we can detect
                 # premarket vs after-hours headlines downstream.
                 ts = ts_utc.tz_convert("America/New_York").tz_localize(None)
-                title = item.get("headline", "").strip()
-                if title:
+                title = str(item.get("headline", "") or "").strip()
+                title_key = title.lower()
+                if title and title_key not in seen_titles:
                     out.append((ts, title))
+                    seen_titles.add(title_key)
             except Exception:
                 continue
         return out

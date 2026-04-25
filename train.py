@@ -43,6 +43,8 @@ from labels import (
     make_spy_forward_return,
 )
 from model_quality import evaluate_model_quality, update_scaler_metadata, upsert_quality_report
+from nested_cv import nested_walk_forward_search
+from pipeline_shared import apply_sentiment_distribution_matching, fit_sentiment_zscore_stats
 from settings import (
     DATA_DIR,
     MODEL_DIR,
@@ -69,6 +71,9 @@ from settings import (
     XGB_GAMMA,
     XGB_REG_ALPHA,
     XGB_REG_LAMBDA,
+    POOLED_TRAINING,
+    FEATURE_IMPORTANCE_TOP_K,
+    TUNE_HYPERPARAMS,
 )
 from xgb_feature_engineering import build_xgb_matrix
 
@@ -324,14 +329,28 @@ def build_models(X_train, y_dir_train, X_cal, y_dir_cal, y_ret_train, y_ret_cal,
         random_state=42,
     )
     if param_overrides:
-        allowed = {"max_depth", "learning_rate", "subsample", "colsample_bytree", "min_child_weight"}
+        allowed = {"max_depth", "learning_rate", "subsample", "colsample_bytree",
+                   "min_child_weight", "reg_lambda", "reg_alpha", "gamma"}
         applied = {k: v for k, v in param_overrides.items() if k in allowed}
         common.update(applied)
         log.info("build_models: applying tuned param overrides: %s", applied)
-    # Balance UP/DOWN classes so the model doesn't collapse to always predicting
-    # the majority class. If 55% of training labels are UP, scale_pos_weight=0.82
-    # tells XGBoost to weight DOWN cases more, forcing it to learn both directions.
-    dir_model = xgb.XGBClassifier(objective="binary:logistic", eval_metric="logloss", **common)
+
+    # Compute scale_pos_weight from the actual training labels.
+    # This tells XGBoost to weight the minority class up so it can't shortcut
+    # to majority-class prediction.  With triple-barrier symmetric barriers the
+    # split should be ~50/50, but if it drifts (e.g. 40% UP / 60% DOWN) this
+    # corrects for it automatically.
+    n_pos = max(int(np.sum(y_dir_train == 1)), 1)
+    n_neg = max(int(np.sum(y_dir_train == 0)), 1)
+    spw   = n_neg / n_pos   # DOWN count / UP count
+    # Cap at 3× to avoid extreme over-correction on very lopsided sets.
+    spw   = float(np.clip(spw, 0.33, 3.0))
+    log.info("build_models: scale_pos_weight=%.3f  (n_pos=%d, n_neg=%d)", spw, n_pos, n_neg)
+
+    dir_model = xgb.XGBClassifier(
+        objective="binary:logistic", eval_metric="logloss",
+        scale_pos_weight=spw, **common
+    )
     dir_model.fit(X_train, y_dir_train, sample_weight=sample_weight,
                   eval_set=[(X_cal, y_dir_cal)], verbose=False)
     ret_model = xgb.XGBClassifier(
@@ -544,29 +563,18 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
         log.error("Not enough labelled rows for %s: %s", ticker, len(df))
         return False
 
-    exclude = {"target", "Open", "High", "Low", "Close", "Volume", "ma5", "ma10", "ma20", "ma50", "ma200"}
-    feature_cols_raw = [c for c in df.columns if c not in exclude and pd.api.types.is_numeric_dtype(df[c])]
+    splits = compute_split_indices(len(df))
+    train_end = splits["train_end"]
+    calib_start = splits["calib_start"]
+    calib_end = splits["calib_end"]
+    test_start = splits["test_start"]
+    if train_end < 100 or calib_end <= calib_start or test_start >= len(df):
+        log.error("Invalid split for %s", ticker)
+        return False
 
-    # Conservative production feature set: keep point-in-time price, volume,
-    # volatility, trend, relative-strength, and regime features only.
-    risky_keywords = (
-        "sent", "social", "news", "iv_", "put_call", "option", "earn", "eps_",
-        "analyst", "recommend", "short_interest", "dark_pool", "dow_", "month_",
-        "opex", "calendar", "sector_ret", "ret_vs_sector", "gld_", "hyg_", "tnx_",
-        "tlt_", "eem_", "iwm_", "dia_", "uup_",
-    )
-    allowed_prefixes = (
-        "ret_", "hvol_", "rsi_", "dist_ma", "ma_cross_", "macd", "atr_", "bb_",
-        "vol_ratio", "volume_chg_", "hl_range", "spread_proxy", "roc_", "drawdown_",
-        "weekly_", "monthly_", "tf_alignment", "spy_", "qqq_", "vix_", "regime",
-        "ret_vs_spy", "ret_vs_qqq", "breadth_", "pct_above_",
-    )
-    allowed_exact = {"obv_slope", "vwap_dist", "uptick_ratio", "variance_ratio"}
-    feature_cols_raw = [
-        c for c in feature_cols_raw
-        if not any(k in c.lower() for k in risky_keywords)
-        and (c in allowed_exact or any(c.startswith(prefix) for prefix in allowed_prefixes))
-    ]
+    sentiment_zscore_stats = fit_sentiment_zscore_stats(df.iloc[:train_end])
+    df, sentiment_zscore_stats = apply_sentiment_distribution_matching(df, sentiment_zscore_stats)
+    feature_cols_raw = _select_feature_cols(df)
 
     feature_audit, dropped_features = build_feature_audit(df, feature_cols_raw, y_dir_all)
     feature_audit_path = os.path.join(MODEL_DIR, f"{ticker}_feature_audit.json")
@@ -580,15 +588,6 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
         df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
     X_all, xgb_feature_cols = build_xgb_matrix(df, feature_cols_raw)
-
-    splits = compute_split_indices(len(df))
-    train_end = splits["train_end"]
-    calib_start = splits["calib_start"]
-    calib_end = splits["calib_end"]
-    test_start = splits["test_start"]
-    if train_end < 100 or calib_end <= calib_start or test_start >= len(df):
-        log.error("Invalid split for %s", ticker)
-        return False
 
     # Non-overlapping subsample for training only.
     # With a 10-day return horizon, consecutive rows predict windows that share
@@ -622,6 +621,41 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
     age = train_end - train_idx          # how many rows ago each sample is
     sample_weight = np.exp(-np.log(2) / half_life * age)
     sample_weight = (sample_weight / sample_weight.mean()).astype(np.float32)
+
+    # ── Initial fit (all features) for importance ranking ─────────────────────
+    # A fast 100-tree pass to rank features by gain importance.  We don't need
+    # a converged model here — just stable relative rankings.
+    _init_dir = xgb.XGBClassifier(
+        n_estimators=100,
+        max_depth=XGB_MAX_DEPTH,
+        learning_rate=XGB_LEARNING_RATE,
+        subsample=XGB_SUBSAMPLE,
+        colsample_bytree=XGB_COLSAMPLE_BYTREE,
+        tree_method="hist",
+        random_state=42,
+        eval_metric="logloss",
+    )
+    _init_dir.fit(X_train, y_dir_train_sparse, sample_weight=sample_weight, verbose=False)
+
+    # Feature pruning: keep top-K by gain importance, drop the rest.
+    # Per-ticker models have no ticker-dummy columns (n_ticker_dummies=0).
+    keep_idx_ticker = _get_pruned_feature_indices(
+        _init_dir.feature_importances_,
+        n_base_feats=len(xgb_feature_cols),
+        n_ticker_dummies=0,
+        top_k=FEATURE_IMPORTANCE_TOP_K,
+    )
+    pruned_xgb_cols_ticker = [xgb_feature_cols[i] for i in keep_idx_ticker]
+    n_dropped_ticker = len(xgb_feature_cols) - len(pruned_xgb_cols_ticker)
+    if n_dropped_ticker > 0:
+        log.info(
+            "[%s] Feature pruning: %d → %d cols (%d dropped)",
+            ticker, len(xgb_feature_cols), len(pruned_xgb_cols_ticker), n_dropped_ticker,
+        )
+        X_train = X_train[:, keep_idx_ticker]
+        X_cal   = X_cal[:, keep_idx_ticker]
+        X_test  = X_test[:, keep_idx_ticker]
+        xgb_feature_cols = pruned_xgb_cols_ticker
 
     dir_model, ret_model = build_models(
         X_train,
@@ -718,7 +752,9 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
         "prediction_target": PREDICTION_TARGET,
         "model_version": "xgb_complete_v5",
         "trained_at": datetime.now().isoformat(),
-        "sentiment_features_removed": True,
+        "sentiment_features_removed": False,
+        "sentiment_features_distribution_matched": bool(sentiment_zscore_stats),
+        "sentiment_zscore_stats": sentiment_zscore_stats,
         "param_overrides": param_overrides or {},
     }
     with open(os.path.join(MODEL_DIR, f"{ticker}_scaler.pkl"), "wb") as f:
@@ -777,6 +813,501 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
     return True
 
 
+_RISKY_KEYWORDS = (
+    "social", "news", "iv_", "put_call", "option", "earn", "eps_",
+    "analyst", "recommend", "short_interest", "dark_pool", "dow_", "month_",
+    "opex", "calendar", "sector_ret", "ret_vs_sector", "gld_", "hyg_", "tnx_",
+    "tlt_", "eem_", "iwm_", "dia_", "uup_",
+)
+_ALLOWED_PREFIXES = (
+    "ret_", "hvol_", "rsi_", "dist_ma", "ma_cross_", "macd", "atr_", "bb_",
+    "vol_ratio", "volume_chg_", "hl_range", "spread_proxy", "roc_", "drawdown_",
+    "weekly_", "monthly_", "tf_alignment", "spy_", "qqq_", "vix_", "regime",
+    "ret_vs_spy", "ret_vs_qqq", "breadth_", "pct_above_",
+)
+_ALLOWED_EXACT = {"obv_slope", "vwap_dist", "uptick_ratio", "variance_ratio"}
+_EXCLUDE_COLS = {"target", "Open", "High", "Low", "Close", "Volume", "ma5", "ma10", "ma20", "ma50", "ma200"}
+
+
+def _get_pruned_feature_indices(
+    importances: np.ndarray,
+    n_base_feats: int,
+    n_ticker_dummies: int,
+    top_k: int,
+) -> np.ndarray:
+    """
+    Return sorted column indices to KEEP after gain-importance pruning.
+
+    How it works
+    ------------
+    XGBoost records how much each feature reduces the model's loss (called
+    "gain importance").  Features with near-zero gain contribute noise, not
+    signal.  We keep only the top-K base features plus ALL ticker dummy
+    columns (which encode the cross-sectional identity of each ticker —
+    they must never be dropped).
+
+    Args
+    ----
+    importances      : dir_model.feature_importances_ — shape (n_total_features,)
+                       where n_total_features = n_base_feats + n_ticker_dummies.
+    n_base_feats     : Number of non-dummy (rolling-transform) features.
+    n_ticker_dummies : Number of ticker one-hot columns appended after base features.
+    top_k            : How many of the top-ranked base features to keep.
+
+    Returns
+    -------
+    Sorted numpy array of integer column indices to retain.
+    """
+    # Rank ONLY the base features; ticker dummies are always kept.
+    base_importances = importances[:n_base_feats]
+    top_k_actual     = min(top_k, n_base_feats)   # can't keep more than we have
+    top_k_idx        = np.argsort(base_importances)[-top_k_actual:]
+
+    # Dummy columns sit at the very end: indices [n_base_feats, n_base_feats+n_ticker_dummies)
+    dummy_idx = np.arange(n_base_feats, n_base_feats + n_ticker_dummies)
+
+    # Combine and sort so column order is preserved (XGB requires consistent col order)
+    return np.sort(np.unique(np.concatenate([top_k_idx, dummy_idx])))
+
+
+def _select_feature_cols(df: pd.DataFrame) -> list[str]:
+    """Return the allowed numeric feature columns from a DataFrame."""
+    return [
+        c for c in df.columns
+        if c not in _EXCLUDE_COLS
+        and pd.api.types.is_numeric_dtype(df[c])
+        and (
+            c.startswith("sent_z_")
+            or (
+                not any(k in c.lower() for k in _RISKY_KEYWORDS)
+                and (c in _ALLOWED_EXACT or any(c.startswith(p) for p in _ALLOWED_PREFIXES))
+            )
+        )
+    ]
+
+
+def train_pooled(
+    tickers: list[str],
+    param_overrides: dict | None = None,
+    tune_hyperparams: bool = True,
+) -> bool:
+    """
+    Train ONE XGBoost model across ALL tickers (cross-sectional pooling).
+
+    Why this matters
+    ----------------
+    Per-ticker models train on ~258 effective rows each (after non-overlapping
+    stride on ~2,500 raw rows).  That is too few for XGBoost to generalise.
+    Pooling all tickers gives ~9× more data (2,300+ effective rows) while still
+    letting the model learn ticker-specific patterns via one-hot dummy features.
+
+    Saved artefacts
+    ---------------
+    - models/pooled_xgb_dir.json  — shared direction classifier
+    - models/pooled_xgb_ret.json  — shared return bucket classifier
+    - models/pooled_scaler.pkl    — scaler + metadata
+    - models/{ticker}_scaler.pkl  — per-ticker wrapper referencing pooled model
+    - models/{ticker}_xgb_dir.json  — copy of pooled dir model (for compatibility)
+    - models/{ticker}_xgb_ret.json  — copy of pooled ret model (for compatibility)
+    """
+    log.info("[pooled] Starting cross-sectional training on %d tickers", len(tickers))
+
+    # ── Step 1: find common raw feature set across all tickers ────────────────
+    per_ticker_info: dict[str, tuple[pd.DataFrame, list[str]]] = {}
+    feature_sets: list[set[str]] = []
+    pooled_sentiment_stats: dict[str, dict[str, dict[str, float]]] = {}
+
+    for ticker in tickers:
+        parquet_path = os.path.join(DATA_DIR, f"{ticker}.parquet")
+        if not os.path.exists(parquet_path):
+            log.warning("[pooled] No parquet for %s — skipping", ticker)
+            continue
+        df = pd.read_parquet(parquet_path).copy()
+        if len(df) < 250:
+            log.warning("[pooled] Too few rows for %s (%d) — skipping", ticker, len(df))
+            continue
+        split_for_stats = compute_split_indices(len(df))
+        sent_stats = fit_sentiment_zscore_stats(df.iloc[:split_for_stats["train_end"]])
+        df, sent_stats = apply_sentiment_distribution_matching(df, sent_stats)
+        pooled_sentiment_stats[ticker] = sent_stats
+        cols = _select_feature_cols(df)
+        if not cols:
+            log.warning("[pooled] No usable features for %s — skipping", ticker)
+            continue
+        per_ticker_info[ticker] = (df, cols)
+        feature_sets.append(set(cols))
+
+    if len(per_ticker_info) < 2:
+        log.error("[pooled] Need at least 2 tickers, got %d", len(per_ticker_info))
+        return False
+
+    common_features: list[str] = sorted(feature_sets[0].intersection(*feature_sets[1:]))
+    if not common_features:
+        log.error("[pooled] No features common across all tickers")
+        return False
+    log.info("[pooled] Common feature set: %d features across %d tickers",
+             len(common_features), len(per_ticker_info))
+
+    # ── Step 2: build per-ticker XGB feature matrices ────────────────────────
+    # Rolling transforms are applied PER-TICKER so that windows don't bleed
+    # across ticker boundaries.  We then concatenate the resulting matrices.
+    valid_tickers: list[str] = []
+    all_dates_list: list[np.ndarray] = []   # each entry: (n_ticker_rows,) timestamps
+    all_X_list: list[np.ndarray] = []       # each entry: (n_ticker_rows, n_xgb_features)
+    all_y_dir_list: list[np.ndarray] = []
+    all_y_ret_list: list[np.ndarray] = []
+    xgb_cols: list[str] | None = None
+
+    for ticker, (df_raw, _) in per_ticker_info.items():
+        df = df_raw.copy()
+        stock_fwd = make_forward_return_target(df["Close"], horizon=RETURN_HORIZON_DAYS)
+        spy_fwd = make_spy_forward_return(df, horizon=RETURN_HORIZON_DAYS)
+        valid_mask = stock_fwd.notna() & spy_fwd.notna()
+        df = df.loc[valid_mask].copy()
+        if len(df) < 100:
+            log.warning("[pooled] Too few valid rows for %s after label filter", ticker)
+            continue
+        stock_fwd = stock_fwd.loc[df.index]
+        spy_fwd   = spy_fwd.loc[df.index]
+
+        y_dir = shared_make_direction_target(
+            df,
+            prediction_target=PREDICTION_TARGET,
+            horizon=RETURN_HORIZON_DAYS,
+            stock_fwd=stock_fwd,
+            spy_fwd=spy_fwd,
+            direction_threshold=DIRECTION_LABEL_THRESHOLD,
+            excess_return_min_pct=EXCESS_RETURN_MIN_PCT,
+            vol_adjusted_sharpe_threshold=VOL_ADJUSTED_SHARPE_THRESHOLD,
+        )
+        y_ret = make_return_target(df["Close"], stock_fwd=stock_fwd)
+
+        # Ensure all common features exist (fill missing with 0)
+        for col in common_features:
+            if col not in df.columns:
+                df[col] = 0.0
+            else:
+                df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+        X, cols = build_xgb_matrix(df, common_features)
+        if xgb_cols is None:
+            xgb_cols = cols
+
+        dates_np = np.array(df.index, dtype="datetime64[ns]")
+        all_dates_list.append(dates_np)
+        all_X_list.append(X)
+        all_y_dir_list.append(y_dir)
+        all_y_ret_list.append(y_ret)
+        valid_tickers.append(ticker)
+
+    if not valid_tickers:
+        log.error("[pooled] No tickers survived after validation")
+        return False
+
+    # ── Step 3: append ticker one-hot columns ─────────────────────────────────
+    # Ticker dummies are NOT rolled; they are appended after rolling transforms.
+    n_base_xgb = len(xgb_cols)
+    ticker_classes = sorted(valid_tickers)
+    ticker_to_idx  = {t: i for i, t in enumerate(ticker_classes)}
+    n_tickers      = len(ticker_classes)
+    ticker_dummy_xgb_cols = [f"tkr__{t}" for t in ticker_classes]
+
+    all_X_with_dummy = []
+    for i, (ticker, X) in enumerate(zip(valid_tickers, all_X_list)):
+        dummy_block = np.zeros((len(X), n_tickers), dtype=np.float64)
+        dummy_block[:, ticker_to_idx[ticker]] = 1.0
+        all_X_with_dummy.append(np.concatenate([X, dummy_block], axis=1))
+
+    all_xgb_cols = xgb_cols + ticker_dummy_xgb_cols
+
+    # ── Step 4: concatenate and sort chronologically ───────────────────────────
+    all_dates  = np.concatenate(all_dates_list)
+    X_combined = np.concatenate(all_X_with_dummy, axis=0)
+    y_dir_comb = np.concatenate(all_y_dir_list)
+    y_ret_comb = np.concatenate(all_y_ret_list)
+    sort_order = np.argsort(all_dates, kind="stable")
+    all_dates  = all_dates[sort_order]
+    X_combined = X_combined[sort_order]
+    y_dir_comb = y_dir_comb[sort_order]
+    y_ret_comb = y_ret_comb[sort_order]
+
+    # ── Step 5: date-based train / calib / test split ─────────────────────────
+    # Row-count splits would leak ticker length differences into the cut points.
+    # Date-based splits apply the same calendar cutoffs to every ticker.
+    # Convert to pandas Timestamps for safe comparison across numpy/python datetime types
+    all_ts = pd.DatetimeIndex(all_dates)
+    unique_dates = sorted(all_ts.unique())
+    n_dates = len(unique_dates)
+    train_cutoff = unique_dates[int(n_dates * TRAIN_CALIBRATION_SPLIT)]
+    calib_cutoff = unique_dates[int(n_dates * CALIBRATION_TEST_SPLIT)]
+
+    train_mask = all_ts < train_cutoff
+    calib_mask = (all_ts >= train_cutoff) & (all_ts < calib_cutoff)
+    test_mask  = all_ts >= calib_cutoff
+
+    # Non-overlapping stride: sample every Nth unique DATE so all tickers' rows
+    # for the chosen dates are retained (preserves cross-sectional variation).
+    train_dates_sorted = sorted(set(all_ts[train_mask].tolist()))
+    stride_dates_set   = set(train_dates_sorted[::max(1, RETURN_HORIZON_DAYS)])
+    stride_mask = train_mask & np.array([d in stride_dates_set for d in all_ts])
+
+    X_train = X_combined[stride_mask]
+    y_dir_train = y_dir_comb[stride_mask]
+    y_ret_train = y_ret_comb[stride_mask]
+    X_cal   = X_combined[calib_mask]
+    y_dir_cal = y_dir_comb[calib_mask]
+    y_ret_cal = y_ret_comb[calib_mask]
+    X_test  = X_combined[test_mask]
+    y_dir_test = y_dir_comb[test_mask]
+    log.info("[pooled] Train rows: %d  Calib rows: %d  Test rows: %d",
+             len(X_train), len(X_cal), len(X_test))
+
+    if len(X_train) < 50 or len(X_cal) < 20:
+        log.error("[pooled] Not enough data for train/calib split")
+        return False
+
+    # ── Step 6: scale ─────────────────────────────────────────────────────────
+    scaler = StandardScaler()
+    X_train_sc = scaler.fit_transform(X_train)
+    X_cal_sc   = scaler.transform(X_cal)
+    X_test_sc  = scaler.transform(X_test)
+
+    # Exponential decay sample weights: rows from further in the past get
+    # lower weight (half-life = 504 trading days ≈ 2 years).
+    train_pos = np.where(stride_mask)[0].astype(float)
+    age = train_pos.max() - train_pos
+    half_life = 504.0
+    sample_weight = np.exp(-np.log(2) / half_life * age)
+    sample_weight = (sample_weight / sample_weight.mean()).astype(np.float32)
+
+    # ── Step 6a: nested walk-forward hyperparameter search (optional) ─────────
+    # Grid: max_depth × min_child_weight × reg_lambda (4×4×3 = 48 combos).
+    # Each combo is evaluated with inner_splits=3 rolling folds inside the
+    # training window.  The best combo for each outer fold is recorded.
+    # We pick the combo from the outer fold with the highest test accuracy.
+    # The tuned params are saved to models/pooled_best_xgb_params.json so
+    # backtest.py can reuse them without re-running the search.
+    best_params_override = param_overrides  # start from caller-supplied overrides
+    if tune_hyperparams and len(X_train_sc) >= 200:
+        log.info("[pooled] Running nested walk-forward CV hyperparameter search "
+                 "(%d train rows, 4 outer × 3 inner folds)...", len(X_train_sc))
+        tunable_grid = {
+            "max_depth":        [3, 4, 5, 6],
+            "min_child_weight": [1, 3, 5, 10],
+            "reg_lambda":       [0.1, 1.0, 10.0],
+        }
+        # Fixed params are not searched — they wrap around every tunable combo.
+        fixed_params = {
+            "n_estimators":     300,   # fast fixed count for search; final fit uses 500
+            "learning_rate":    XGB_LEARNING_RATE,
+            "subsample":        XGB_SUBSAMPLE,
+            "colsample_bytree": XGB_COLSAMPLE_BYTREE,
+            "gamma":            XGB_GAMMA,
+            "reg_alpha":        XGB_REG_ALPHA,
+            "objective":        "binary:logistic",
+            "eval_metric":      "logloss",
+            "tree_method":      "hist",
+            "random_state":     42,
+        }
+        try:
+            fold_results = nested_walk_forward_search(
+                pd.DataFrame(X_train_sc),
+                pd.Series(y_dir_train),
+                tunable_grid,
+                fixed_params=fixed_params,
+                outer_splits=4,
+                inner_splits=3,
+                embargo=RETURN_HORIZON_DAYS,
+            )
+            if fold_results:
+                # Take the tunable params from the outer fold with highest accuracy.
+                best_fold = max(fold_results, key=lambda r: r.score)
+                tuned = {k: best_fold.params[k] for k in tunable_grid}
+                log.info("[pooled] Nested CV best params: %s (fold %d score=%.4f)",
+                         tuned, best_fold.fold, best_fold.score)
+                # Log all fold results for transparency
+                for r in fold_results:
+                    log.info("[pooled]   fold %d: score=%.4f  params=%s",
+                             r.fold, r.score,
+                             {k: r.params[k] for k in tunable_grid})
+                # Merge: nested-CV params are the base; caller overrides (if any) win.
+                merged = dict(tuned)
+                if param_overrides:
+                    merged.update(param_overrides)
+                best_params_override = merged
+                # Persist so backtest.py can reuse the same config without re-tuning.
+                tuned_path = os.path.join(MODEL_DIR, "pooled_best_xgb_params.json")
+                with open(tuned_path, "w") as f:
+                    json.dump({
+                        "params": tuned,
+                        "fold_results": [
+                            {"fold": r.fold, "score": round(r.score, 4),
+                             "params": {k: r.params[k] for k in tunable_grid}}
+                            for r in fold_results
+                        ],
+                        "tuned_at": datetime.now().isoformat(),
+                    }, f, indent=2)
+                log.info("[pooled] Saved tuned params to %s", tuned_path)
+        except Exception as e:
+            log.warning("[pooled] Nested CV failed (%s) — using settings.py defaults", e)
+
+    # ── Step 6b: quick initial fit (all features) — only used for importance ──
+    # We use a fast 100-tree model here just to rank features by gain importance.
+    # A fully-converged model is NOT needed for ranking; 100 trees give stable
+    # relative scores at a fraction of the compute cost.
+    _init_dir = xgb.XGBClassifier(
+        n_estimators=100,
+        max_depth=(best_params_override or {}).get("max_depth", XGB_MAX_DEPTH),
+        learning_rate=XGB_LEARNING_RATE,
+        subsample=XGB_SUBSAMPLE,
+        colsample_bytree=XGB_COLSAMPLE_BYTREE,
+        tree_method="hist",
+        random_state=42,
+        eval_metric="logloss",
+    )
+    _init_dir.fit(X_train_sc, y_dir_train, sample_weight=sample_weight, verbose=False)
+    raw_importances = _init_dir.feature_importances_
+
+    # ── Step 6c: feature pruning — keep top-K base features + all dummies ────
+    # XGBoost with hundreds of rolled features is overparameterised relative to
+    # our ~1,990 training rows.  Dropping low-importance features reduces
+    # variance and stabilises calibration.  Ticker dummies are ALWAYS retained.
+    keep_idx = _get_pruned_feature_indices(
+        raw_importances,
+        n_base_feats=n_base_xgb,
+        n_ticker_dummies=n_tickers,
+        top_k=FEATURE_IMPORTANCE_TOP_K,
+    )
+    pruned_xgb_cols = [all_xgb_cols[i] for i in keep_idx]
+    n_dropped = len(all_xgb_cols) - len(pruned_xgb_cols)
+    n_pruned_base = int((keep_idx < n_base_xgb).sum())  # base cols kept (excl. dummies)
+    log.info(
+        "[pooled] Feature pruning: %d → %d cols  (%d base kept of %d, %d dropped, %d dummies always kept)",
+        len(all_xgb_cols), len(pruned_xgb_cols),
+        n_pruned_base, n_base_xgb, n_dropped, n_tickers,
+    )
+    # Slice all three data splits to the pruned column set.
+    X_train_sc = X_train_sc[:, keep_idx]
+    X_cal_sc   = X_cal_sc[:, keep_idx]
+    X_test_sc  = X_test_sc[:, keep_idx]
+    all_xgb_cols   = pruned_xgb_cols
+
+    # ── Step 6d: final model fit with pruned features + tuned (or default) params ─
+    dir_model, ret_model = build_models(
+        X_train_sc, y_dir_train, X_cal_sc, y_dir_cal,
+        y_ret_train, y_ret_cal,
+        sample_weight=sample_weight,
+        param_overrides=best_params_override,
+    )
+
+    cal_probs_raw = dir_model.predict_proba(X_cal_sc)[:, 1]
+    calibrator    = fit_direction_calibrator(cal_probs_raw, y_dir_cal)
+    threshold, fallback = compute_dynamic_threshold(
+        calibrator,
+        target_precision=CONFIDENCE_TARGET_PRECISION,
+        default=DEFAULT_FIXED_CONFIDENCE_THRESHOLD,
+        raw_probs=cal_probs_raw,
+        y_true=y_dir_cal,
+    )
+    log.info("[pooled] Confidence threshold: %.1f (fallback=%s)", threshold, fallback)
+
+    # ── Step 7: evaluate on test set ──────────────────────────────────────────
+    test_p_up_raw = dir_model.predict_proba(X_test_sc)[:, 1]
+    if calibrator is not None:
+        test_p_up = np.array(
+            [float(calibrator.predict([float(p)])[0]) for p in test_p_up_raw],
+            dtype=float,
+        )
+    else:
+        test_p_up = test_p_up_raw
+    dir_acc  = float(accuracy_score(y_dir_test, (test_p_up >= 0.5).astype(int)) * 100.0)
+    baseline = float(np.mean(y_dir_test) * 100.0)
+    buckets  = confidence_buckets(test_p_up, y_dir_test)
+    sweep    = threshold_sweep(test_p_up, y_dir_test)
+    log.info("[pooled] Test accuracy: %.2f%%  baseline: %.2f%%  threshold: %.1f%%",
+             dir_acc, baseline, threshold)
+
+    # ── Step 8: save pooled artefacts ─────────────────────────────────────────
+    dir_model.save_model(os.path.join(MODEL_DIR, "pooled_xgb_dir.json"))
+    ret_model.save_model(os.path.join(MODEL_DIR, "pooled_xgb_ret.json"))
+    cal_path = os.path.join(MODEL_DIR, "pooled_direction_calibrator.pkl")
+    save_direction_calibrator(calibrator, cal_path)
+
+    pooled_meta = {
+        "scaler": scaler,
+        "xgb_scaler": scaler,
+        "feature_cols": common_features,
+        "feature_cols_raw": common_features,
+        # xgb_feature_cols now reflects the PRUNED column list (base subset + dummies).
+        # Downstream code (predict.py, backtest.py) must use this exact list
+        # when calling build_xgb_matrix so the feature matrix matches the model.
+        "xgb_feature_cols": all_xgb_cols,
+        "ticker_dummy_cols": ticker_dummy_xgb_cols,
+        "ticker_classes": ticker_classes,
+        # After pruning, n_base_xgb_features is the count of KEPT base cols (no dummies).
+        "n_base_xgb_features": n_pruned_base,
+        "feature_pruning_top_k": FEATURE_IMPORTANCE_TOP_K,
+        "feature_pruning_keep_idx": keep_idx.tolist(),
+        "tune_hyperparams_used": tune_hyperparams,
+        "best_params_override": best_params_override or {},
+        "pooled": True,
+        "pooled_tickers": valid_tickers,
+        "return_horizon": RETURN_HORIZON_DAYS,
+        "return_bin_labels": RETURN_BIN_LABELS,
+        "n_return_bins": N_RETURN_BINS,
+        "ensemble_weights": {"xgboost": 1.0},
+        "model_accuracies": {"xgboost": dir_acc},
+        "ensemble_accuracy": dir_acc,
+        "baseline_up_rate": baseline,
+        "selected_mode": "xgboost_only",
+        "selected_model_name": None,
+        "confidence_threshold": threshold,
+        "threshold_used_fallback": fallback,
+        "confidence_calibrator": cal_path,
+        "xgb_model_format": "json",
+        "confidence_buckets": buckets,
+        "threshold_sweep": sweep,
+        "prediction_target": PREDICTION_TARGET,
+        "model_version": "xgb_pooled_v1",
+        "trained_at": datetime.now().isoformat(),
+        "sentiment_features_removed": False,
+        "sentiment_features_distribution_matched": bool(pooled_sentiment_stats),
+        "sentiment_zscore_stats_by_ticker": pooled_sentiment_stats,
+    }
+    with open(os.path.join(MODEL_DIR, "pooled_scaler.pkl"), "wb") as f:
+        pickle.dump(pooled_meta, f)
+
+    # ── Step 9: save per-ticker artefacts (compatibility with predict/backtest) -
+    for ticker in valid_tickers:
+        ticker_meta = dict(pooled_meta)
+        ticker_meta["ticker"] = ticker
+        ticker_meta["sentiment_zscore_stats"] = pooled_sentiment_stats.get(ticker, {})
+        with open(os.path.join(MODEL_DIR, f"{ticker}_scaler.pkl"), "wb") as f:
+            pickle.dump(ticker_meta, f)
+        dir_model.save_model(os.path.join(MODEL_DIR, f"{ticker}_xgb_dir.json"))
+        ret_model.save_model(os.path.join(MODEL_DIR, f"{ticker}_xgb_ret.json"))
+        save_direction_calibrator(calibrator, os.path.join(MODEL_DIR, f"{ticker}_direction_calibrator.pkl"))
+        with open(os.path.join(MODEL_DIR, f"{ticker}_train_summary.json"), "w") as f:
+            json.dump({
+                "ticker": ticker,
+                "direction_accuracy": round(dir_acc, 2),
+                "baseline_up_rate": round(baseline, 2),
+                "confidence_threshold": round(threshold, 1),
+                "threshold_used_fallback": fallback,
+                "calib_set_size": len(y_dir_cal),
+                "confidence_buckets": buckets,
+                "threshold_sweep": sweep,
+                "prediction_target": PREDICTION_TARGET,
+                "pooled": True,
+                "pooled_tickers": valid_tickers,
+            }, f, indent=2)
+        log.info("[pooled] Saved artefacts for %s", ticker)
+
+    log.info("[pooled] Done. %d tickers, %.2f%% acc vs %.2f%% baseline",
+             len(valid_tickers), dir_acc, baseline)
+    return True
+
+
 def main() -> None:
     global PREDICTION_TARGET
 
@@ -799,6 +1330,15 @@ def main() -> None:
             "Load best hyperparameters from models/tuning/{ticker}_best_xgb_params.json "
             "if available, instead of settings.py defaults. "
             "Use after running tune_xgb_best_tickers.py without --apply."
+        ),
+    )
+    parser.add_argument(
+        "--no-tune",
+        action="store_true",
+        help=(
+            "Skip nested walk-forward hyperparameter search (faster run). "
+            "The search adds ~5 minutes for a 10-ticker pooled model. "
+            "When omitted, TUNE_HYPERPARAMS from settings.py controls the default."
         ),
     )
     args = parser.parse_args()
@@ -824,18 +1364,33 @@ def main() -> None:
     if not tickers:
         raise SystemExit(f"No parquets found in {DATA_DIR}")
 
-    for ticker in tickers:
-        param_overrides = None
-        if args.params_from_tuning:
-            tuning_path = os.path.join(MODEL_DIR, "tuning", f"{ticker}_best_xgb_params.json")
-            if os.path.exists(tuning_path):
-                with open(tuning_path) as f:
-                    tuning = json.load(f)
-                param_overrides = tuning.get("params")
-                log.info("[%s] Loaded tuned params from %s: %s", ticker, tuning_path, param_overrides)
-            else:
-                log.info("[%s] No tuning file found at %s — using settings.py defaults", ticker, tuning_path)
-        train_ticker(ticker, param_overrides=param_overrides)
+    # ── Pooled training path ───────────────────────────────────────────────────
+    use_pooled = POOLED_TRAINING if not args.ticker else False  # single-ticker forces per-ticker
+    # TUNE_HYPERPARAMS (settings.py) is the default; --no-tune overrides it to False.
+    run_tune = TUNE_HYPERPARAMS and not args.no_tune
+    if use_pooled:
+        log.info(
+            "POOLED_TRAINING=True — training cross-sectional model on all tickers "
+            "(tune_hyperparams=%s)", run_tune,
+        )
+        success = train_pooled(tickers, tune_hyperparams=run_tune)
+        if not success:
+            log.warning("Pooled training failed; falling back to per-ticker training")
+            use_pooled = False
+
+    if not use_pooled:
+        for ticker in tickers:
+            param_overrides = None
+            if args.params_from_tuning:
+                tuning_path = os.path.join(MODEL_DIR, "tuning", f"{ticker}_best_xgb_params.json")
+                if os.path.exists(tuning_path):
+                    with open(tuning_path) as f:
+                        tuning = json.load(f)
+                    param_overrides = tuning.get("params")
+                    log.info("[%s] Loaded tuned params from %s: %s", ticker, tuning_path, param_overrides)
+                else:
+                    log.info("[%s] No tuning file found at %s — using settings.py defaults", ticker, tuning_path)
+            train_ticker(ticker, param_overrides=param_overrides)
 
 
 if __name__ == "__main__":

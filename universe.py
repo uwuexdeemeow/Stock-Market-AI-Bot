@@ -12,9 +12,9 @@ import pandas as pd
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
+SIGNAL_DIR = os.path.join(BASE_DIR, "signals")
 SP500_CACHE = os.path.join(DATA_DIR, "sp500_tickers.csv")
-APPROVED_LIVE = os.path.join(BASE_DIR, "approved_live_tickers.csv")
-DEFAULT_LIVE = ["AMZN", "MSFT", "TSLA", "GOOGL"]
+APPROVED_LIVE = os.path.join(SIGNAL_DIR, "approved_live_tickers.csv")
 
 
 @lru_cache(maxsize=1)
@@ -51,12 +51,16 @@ def sp500_universe() -> list[str]:
 
 @lru_cache(maxsize=1)
 def live_universe() -> list[str]:
-    """Return the tiny approved-for-live-trading list."""
+    """Return only tickers approved by the objective model-quality gate."""
     if not os.path.exists(APPROVED_LIVE):
-        return DEFAULT_LIVE[:]
+        return []
     with open(APPROVED_LIVE) as f:
-        tickers = [r[0].strip().upper() for r in csv.reader(f) if r and r[0].strip() and not r[0].startswith("#")]
-    return tickers or DEFAULT_LIVE[:]
+        tickers = [
+            r[0].strip().upper()
+            for r in csv.reader(f)
+            if r and r[0].strip() and not r[0].startswith("#") and r[0].strip().lower() != "ticker"
+        ]
+    return tickers
 
 
 if __name__ == "__main__":

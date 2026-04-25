@@ -1,0 +1,7 @@
+group_type,group,trades,win_rate,avg_pnl,median_pnl,total_pnl,avg_holding_days,avg_position_pct,profit_factor
+entry_year,2017,14,0.0,-94.73,-96.65,-1326.26,6.79,15.0,0.0
+exit_reason,stop_loss,14,0.0,-94.73,-96.65,-1326.26,6.79,15.0,0.0
+sector,XLK,14,0.0,-94.73,-96.65,-1326.26,6.79,15.0,0.0
+signal,LONG,14,0.0,-94.73,-96.65,-1326.26,6.79,15.0,0.0
+signal_quality,HIGH,14,0.0,-94.73,-96.65,-1326.26,6.79,15.0,0.0
+ticker,NVDA,14,0.0,-94.73,-96.65,-1326.26,6.79,15.0,0.0

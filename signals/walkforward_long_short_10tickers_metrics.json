@@ -1,35 +1,35 @@
 {
-  "total_return_pct": -13.26,
-  "annual_return_pct": -1.25,
+  "total_return_pct": -16.14,
+  "annual_return_pct": -1.55,
   "benchmark_return_pct": 319.66,
-  "alpha_pct": -332.92,
+  "alpha_pct": -335.8,
   "benchmark_comparisons": {
     "SPY": {
       "data_available": true,
       "benchmark_return_pct": 319.66,
-      "alpha_pct": -332.92,
-      "nw_tstat_vs_benchmark": -3.141
+      "alpha_pct": -335.8,
+      "nw_tstat_vs_benchmark": -3.224
     },
     "QQQ": {
       "data_available": true,
       "benchmark_return_pct": 601.29,
-      "alpha_pct": -614.56,
-      "nw_tstat_vs_benchmark": -3.508
+      "alpha_pct": -617.44,
+      "nw_tstat_vs_benchmark": -3.538
     },
     "IWM": {
       "data_available": true,
       "benchmark_return_pct": 169.15,
-      "alpha_pct": -182.41,
-      "nw_tstat_vs_benchmark": -1.886
+      "alpha_pct": -185.29,
+      "nw_tstat_vs_benchmark": -1.931
     }
   },
-  "sharpe_ratio_daily": -0.437,
-  "nw_tstat_vs_cash": -1.09,
-  "nw_tstat_vs_spy": -3.141,
-  "max_drawdown_pct": -14.5,
+  "sharpe_ratio_daily": -0.427,
+  "nw_tstat_vs_cash": -1.676,
+  "nw_tstat_vs_spy": -3.224,
+  "max_drawdown_pct": -16.75,
   "slippage_assumption_bps": 10.0,
   "execution_model": "spread_plus_sqrt_impact",
-  "mode": "long_only",
+  "mode": "long_short",
   "kill_criteria": {
     "thresholds": {
       "min_sharpe": 0.5,
@@ -53,11 +53,11 @@
   },
   "signal_quality": {
     "HIGH": {
-      "n": 14,
-      "win_rate": 0.0,
-      "avg_pnl": -94.7329,
-      "median_pnl": -96.645,
-      "total_pnl": -1326.26
+      "n": 0,
+      "win_rate": null,
+      "avg_pnl": null,
+      "median_pnl": null,
+      "total_pnl": 0.0
     },
     "MEDIUM": {
       "n": 0,
@@ -67,11 +67,11 @@
       "total_pnl": 0.0
     },
     "LOW": {
-      "n": 0,
-      "win_rate": null,
-      "avg_pnl": null,
-      "median_pnl": null,
-      "total_pnl": 0.0
+      "n": 29,
+      "win_rate": 0.1034,
+      "avg_pnl": -55.6662,
+      "median_pnl": -51.6,
+      "total_pnl": -1614.32
     }
   }
 }

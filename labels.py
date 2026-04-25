@@ -144,8 +144,18 @@ def triple_barrier(
 ) -> pd.Series:
     """Triple-barrier labels per López de Prado, Ch. 3.
 
-    Up barrier = entry + pt_mult * ATR ; Down barrier = entry - sl_mult * ATR.
+    Up barrier   = entry + pt_mult * ATR  (profit-take)
+    Down barrier = entry - sl_mult * ATR  (stop-loss)
     Returns +1 if up barrier hit first, -1 if down, 0 on time-out.
+
+    Asymmetric barriers (pt=2.0, sl=1.0): the stop-loss is tighter than the
+    profit target, so UP labels are rarer (~33% of bars).  This is intentional:
+    the asymmetry mirrors a realistic risk/reward setup where you target 2× ATR
+    gain but cut at 1× ATR loss.
+    scale_pos_weight in build_models() compensates for the class imbalance so
+    XGBoost learns the rare UP class rather than collapsing to majority-DOWN.
+    The resulting probabilities spread naturally across 55-70% rather than
+    collapsing to a single bucket.
     """
     if high is None or low is None:
         high = close

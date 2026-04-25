@@ -1,18 +1,39 @@
 {
-  "total_return_pct": 22.35,
-  "annual_return_pct": 1.8,
-  "benchmark_return_pct": 313.86,
-  "alpha_pct": -291.51,
-  "sharpe_ratio_daily": 0.293,
-  "nw_tstat_vs_spy": -2.38,
-  "max_drawdown_pct": -17.92,
+  "total_return_pct": 53.15,
+  "annual_return_pct": 3.84,
+  "benchmark_return_pct": 319.66,
+  "alpha_pct": -266.5,
+  "benchmark_comparisons": {
+    "SPY": {
+      "data_available": true,
+      "benchmark_return_pct": 319.66,
+      "alpha_pct": -266.5,
+      "nw_tstat_vs_benchmark": -1.738
+    },
+    "QQQ": {
+      "data_available": true,
+      "benchmark_return_pct": 601.29,
+      "alpha_pct": -548.14,
+      "nw_tstat_vs_benchmark": -2.29
+    },
+    "IWM": {
+      "data_available": true,
+      "benchmark_return_pct": 169.15,
+      "alpha_pct": -116.0,
+      "nw_tstat_vs_benchmark": -1.001
+    }
+  },
+  "sharpe_ratio_daily": 0.455,
+  "nw_tstat_vs_cash": 1.211,
+  "nw_tstat_vs_spy": -1.738,
+  "max_drawdown_pct": -15.42,
   "slippage_assumption_bps": 10.0,
   "execution_model": "spread_plus_sqrt_impact",
   "mode": "long_only",
   "kill_criteria": {
     "thresholds": {
-      "min_sharpe": 1.0,
-      "min_nw_tstat": 2.0,
+      "min_sharpe": 0.5,
+      "min_nw_tstat": 1.65,
       "max_drawdown": -0.25
     },
     "results": {
@@ -32,25 +53,25 @@
   },
   "signal_quality": {
     "HIGH": {
-      "n": 129,
-      "win_rate": 0.6124,
-      "avg_pnl": 17.3283,
-      "median_pnl": 18.25,
-      "total_pnl": 2235.35
+      "n": 31,
+      "win_rate": 0.5161,
+      "avg_pnl": 57.5916,
+      "median_pnl": 0.92,
+      "total_pnl": 1785.34
     },
     "MEDIUM": {
-      "n": 0,
-      "win_rate": null,
-      "avg_pnl": null,
-      "median_pnl": null,
-      "total_pnl": 0.0
+      "n": 16,
+      "win_rate": 0.5,
+      "avg_pnl": 104.0631,
+      "median_pnl": 4.99,
+      "total_pnl": 1665.01
     },
     "LOW": {
-      "n": 0,
-      "win_rate": null,
-      "avg_pnl": null,
-      "median_pnl": null,
-      "total_pnl": 0.0
+      "n": 21,
+      "win_rate": 0.6667,
+      "avg_pnl": 88.8062,
+      "median_pnl": 57.67,
+      "total_pnl": 1864.93
     }
   }
 }

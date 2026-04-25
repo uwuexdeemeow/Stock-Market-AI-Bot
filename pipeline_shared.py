@@ -14,6 +14,7 @@ from settings import (
     MULTI_MARKET, SECTOR_MAP,
     USE_MULTI_TIMEFRAME, USE_VIX_TERM, USE_OPTIONS_DATA,
     RETURN_HORIZON_DAYS, SOCIAL_SENTIMENT_ENABLED, USE_EARNINGS_DATA, USE_NEWS_SENTIMENT,
+    SENTIMENT_ENGINE_LEVEL,
 )
 from sentiment_engine import build_sentiment_feature_dataframe, SentimentEngine, score_todays_news
 from social_sentiment import build_social_sentiment_features, get_live_social_signal
@@ -263,9 +264,7 @@ CONSERVATIVE_FEATURE_EXACT = {
     "variance_ratio",
 }
 RISKY_FEATURE_KEYWORDS = (
-    "sent",
     "social",
-    "news",
     "iv_",
     "put_call",
     "option",
@@ -276,6 +275,59 @@ RISKY_FEATURE_KEYWORDS = (
     "short_interest",
     "dark_pool",
 )
+
+RAW_SENTIMENT_COLUMNS = (
+    "news_sentiment",
+    "sent_pos",
+    "sent_neg",
+    "sent_premarket",
+    "sent_afterhours",
+    "sentiment_disagreement",
+    "headline_volume",
+    "headline_vol_spike",
+    "sent_decay_1d",
+    "sent_decay_3d",
+    "sent_neg_decay",
+    "sent_pos_decay",
+    "sentiment_3d",
+    "sentiment_7d",
+    "sentiment_delta",
+    "sentiment_accel",
+)
+
+
+def sentiment_raw_columns(frame: pd.DataFrame) -> list[str]:
+    return [c for c in RAW_SENTIMENT_COLUMNS if c in frame.columns and pd.api.types.is_numeric_dtype(frame[c])]
+
+
+def fit_sentiment_zscore_stats(frame: pd.DataFrame, columns: list[str] | None = None) -> dict[str, dict[str, float]]:
+    stats: dict[str, dict[str, float]] = {}
+    for col in columns or sentiment_raw_columns(frame):
+        s = pd.to_numeric(frame[col], errors="coerce").replace([np.inf, -np.inf], np.nan).fillna(0.0)
+        mean = float(s.mean())
+        std = float(s.std(ddof=0))
+        if not np.isfinite(std) or std < 1e-6:
+            std = 1.0
+        stats[col] = {"mean": mean, "std": std}
+    return stats
+
+
+def apply_sentiment_distribution_matching(
+    frame: pd.DataFrame,
+    stats: dict[str, dict[str, float]] | None = None,
+) -> tuple[pd.DataFrame, dict[str, dict[str, float]]]:
+    out = frame.copy()
+    fitted = stats or fit_sentiment_zscore_stats(out)
+    for col, st in fitted.items():
+        if col not in out.columns:
+            out[col] = 0.0
+        s = pd.to_numeric(out[col], errors="coerce").replace([np.inf, -np.inf], np.nan).fillna(0.0)
+        mean = float(st.get("mean", 0.0))
+        std = float(st.get("std", 1.0)) or 1.0
+        if not np.isfinite(std) or abs(std) < 1e-6:
+            std = 1.0
+        out[f"sent_z_{col}"] = ((s - mean) / std).clip(-5.0, 5.0)
+    return out, fitted
 
 
 def add_relative_strength_features(frame: pd.DataFrame) -> pd.DataFrame:
@@ -301,6 +353,9 @@ def keep_conservative_feature_set(frame: pd.DataFrame) -> pd.DataFrame:
             keep.append(col)
             continue
         if any(k in col_l for k in RISKY_FEATURE_KEYWORDS):
+            continue
+        if col.startswith("sent_z_"):
+            keep.append(col)
             continue
         if col in CONSERVATIVE_FEATURE_EXACT or any(col.startswith(prefix) for prefix in CONSERVATIVE_FEATURE_PREFIXES):
             keep.append(col)
@@ -337,7 +392,7 @@ def apply_feature_lag(df: pd.DataFrame, keywords: list[str], lag_days: int = 5) 
 def build_sentiment_features(ticker: str, dates: pd.DatetimeIndex) -> pd.DataFrame:
     if not USE_NEWS_SENTIMENT:
         return pd.DataFrame(index=dates)
-    return build_sentiment_feature_dataframe(ticker, dates, finnhub_client=None, engine_level="finbert", sleep_rss=0.1, logger=None)
+    return build_sentiment_feature_dataframe(ticker, dates, finnhub_client=None, engine_level=SENTIMENT_ENGINE_LEVEL, sleep_rss=0.1, logger=None)
 
 def build_research_feature_frame(ticker: str, start: str, end: str) -> pd.DataFrame:
     df = fetch_price_data(ticker, start, end)
@@ -357,6 +412,11 @@ def build_research_feature_frame(ticker: str, start: str, end: str) -> pd.DataFr
         build_volume_features(df),
         build_market_breadth_features(dates, start, end),
     ]
+    if USE_NEWS_SENTIMENT:
+        try:
+            frames.append(build_sentiment_features(ticker, dates))
+        except Exception:
+            pass
     if SOCIAL_SENTIMENT_ENABLED:
         try:
             frames.append(build_social_sentiment_features(ticker, dates))
@@ -371,12 +431,20 @@ def build_research_feature_frame(ticker: str, start: str, end: str) -> pd.DataFr
     out = pd.concat([out, sector_strength], axis=1)
     out = out.loc[:, ~out.columns.duplicated()]
 
+    out, _ = apply_sentiment_distribution_matching(out)
+    raw_sent = out[sentiment_raw_columns(out)].copy()
     out = keep_conservative_feature_set(out)
+    if not raw_sent.empty:
+        out = pd.concat([out, raw_sent], axis=1)
     out = out.replace([np.inf, -np.inf], 0.0).fillna(0.0)
     out.dropna(subset=["Close", "target"], inplace=True)
     return out
 
-def build_live_features_with_latest_news(ticker: str, feature_cols: list[str]) -> pd.DataFrame | None:
+def build_live_features_with_latest_news(
+    ticker: str,
+    feature_cols: list[str],
+    sentiment_zscore_stats: dict[str, dict[str, float]] | None = None,
+) -> pd.DataFrame | None:
     end = datetime.utcnow().date()
     start = end - timedelta(days=270)
     start_str = start.isoformat()
@@ -398,73 +466,59 @@ def build_live_features_with_latest_news(ticker: str, feature_cols: list[str]) -
         build_volume_features(df),
         build_market_breadth_features(dates, start_str, end_str),
     ]
-    out = pd.concat([df] + frames, axis=1)
-    out = out.loc[:, ~out.columns.duplicated()]
-    sector_strength = build_sector_strength_features(ticker, out)
-    out = pd.concat([out, sector_strength], axis=1)
-    out = keep_conservative_feature_set(out.loc[:, ~out.columns.duplicated()])
-    missing_cols = [c for c in feature_cols if c not in out.columns]
-    if missing_cols:
-        out = pd.concat([out, pd.DataFrame(0.0, index=out.index, columns=missing_cols)], axis=1)
-    return out.replace([np.inf, -np.inf], 0.0).fillna(0.0)
 
-    try:
-        sent = build_sentiment_feature_dataframe(
-            ticker,
-            dates,
-            finnhub_client=None,
-            engine_level="finbert",
-            sleep_rss=0.1,
-            logger=None,
-        )
-        if sent is None or sent.empty:
-            sent = pd.DataFrame(index=dates)
-        else:
-            sent = sent.reindex(dates)
-
-        # Ensure live diagnostic/news columns always exist so the predictor can
-        # distinguish "no headlines fetched" from "headlines fetched but net score
-        # happened to be near zero".
-        for col in [
-            "news_sentiment",
-            "headline_volume",
-            "live_news_headline_count",
-            "live_news_breaking",
-            "live_news_score_abs",
-            "live_news_has_signal",
-        ]:
-            if col not in sent.columns:
-                sent[col] = 0.0
-
-        # Overwrite latest row with freshest same-day news signal.
+    diagnostic_frames: list[pd.DataFrame] = []
+    if USE_NEWS_SENTIMENT:
         try:
-            engine = SentimentEngine(level="finbert")
-            live_news = score_todays_news(ticker, engine) or {}
-            latest = dates[-1]
-            composite_score = float(live_news.get("composite_score", 0.0) or 0.0)
-            headline_count = float(live_news.get("headline_count", 0) or 0.0)
-            breaking_count = float(live_news.get("breaking_count", 0) or 0.0)
-            score_abs = float(live_news.get("avg_abs_score", 0.0) or 0.0)
-            has_signal = 1.0 if (headline_count > 0 or abs(composite_score) > 1e-9 or score_abs > 1e-9) else 0.0
+            sent = build_sentiment_feature_dataframe(
+                ticker,
+                dates,
+                finnhub_client=None,
+                engine_level=SENTIMENT_ENGINE_LEVEL,
+                sleep_rss=0.1,
+                logger=None,
+            )
+            if sent is None or sent.empty:
+                sent = pd.DataFrame(index=dates)
+            else:
+                sent = sent.reindex(dates)
 
-            sent.loc[latest, "news_sentiment"] = composite_score
-            sent.loc[latest, "headline_volume"] = headline_count
-            sent.loc[latest, "live_news_headline_count"] = headline_count
-            sent.loc[latest, "live_news_breaking"] = breaking_count
-            sent.loc[latest, "live_news_score_abs"] = score_abs
-            sent.loc[latest, "live_news_has_signal"] = has_signal
+            for col in [
+                "news_sentiment",
+                "headline_volume",
+                "live_news_headline_count",
+                "live_news_breaking",
+                "live_news_score_abs",
+                "live_news_has_signal",
+            ]:
+                if col not in sent.columns:
+                    sent[col] = 0.0
 
-            if headline_count > 0 and abs(composite_score) <= 1e-9 and score_abs <= 1e-9:
-                print(
-                    f"[{ticker}] Headlines were fetched but scored near-zero sentiment — "
-                    f"headline_count={int(headline_count)}; check date alignment and scorer output."
-                )
+            try:
+                engine = SentimentEngine(level=SENTIMENT_ENGINE_LEVEL)
+                live_news = score_todays_news(ticker, engine) or {}
+                latest = dates[-1]
+                composite_score = float(live_news.get("composite_score", 0.0) or 0.0)
+                headline_count = float(live_news.get("headline_count", 0) or 0.0)
+                breaking_count = float(live_news.get("breaking_count", 0) or 0.0)
+                score_abs = float(live_news.get("avg_abs_score", 0.0) or 0.0)
+                has_signal = 1.0 if (
+                    headline_count > 0 or abs(composite_score) > 1e-9 or score_abs > 1e-9
+                ) else 0.0
+
+                sent.loc[latest, "news_sentiment"] = composite_score
+                sent.loc[latest, "headline_volume"] = headline_count
+                sent.loc[latest, "live_news_headline_count"] = headline_count
+                sent.loc[latest, "live_news_breaking"] = breaking_count
+                sent.loc[latest, "live_news_score_abs"] = score_abs
+                sent.loc[latest, "live_news_has_signal"] = has_signal
+            except Exception as e:
+                print(f"[{ticker}] live news refresh failed: {e}")
+
+            diagnostic_frames.append(sent)
         except Exception as e:
-            print(f"[{ticker}] live news refresh failed: {e}")
+            print(f"[{ticker}] sentiment feature builder failed: {e}")
 
-        frames.append(sent)
-    except Exception as e:
-        print(f"[{ticker}] sentiment feature builder failed: {e}")
     if SOCIAL_SENTIMENT_ENABLED:
         try:
             social_df = build_social_sentiment_features(ticker, dates)
@@ -473,42 +527,30 @@ def build_live_features_with_latest_news(ticker: str, feature_cols: list[str]) -
                 latest = social_df.index[-1]
                 social_df.loc[latest, "social_combined"] = float(social_live.get("combined", 0.0))
                 social_df.loc[latest, "social_message_volume"] = float(social_live.get("message_volume", 0.0))
-            frames.append(social_df)
+            diagnostic_frames.append(social_df)
         except Exception:
             pass
+
     out = pd.concat([df] + frames, axis=1)
     out = out.loc[:, ~out.columns.duplicated()]
-
-    # Sector strength requires combined frame (sector_ret5d/20d + ret_5d/20d)
     sector_strength = build_sector_strength_features(ticker, out)
     out = pd.concat([out, sector_strength], axis=1)
-    out = out.loc[:, ~out.columns.duplicated()]
-
-    # Keep options-derived features aligned with training: neutral IV minus realized HV.
-    if "iv_atm" in out.columns and "hvol_20d" in out.columns:
-        out["iv_hv_spread"] = (out["iv_atm"] - out["hvol_20d"]).clip(-0.5, 0.5)
-
+    if diagnostic_frames:
+        diagnostics_all = pd.concat(diagnostic_frames, axis=1).reindex(out.index)
+        diagnostics_all = diagnostics_all.loc[:, ~diagnostics_all.columns.duplicated()]
+        out = pd.concat([out, diagnostics_all], axis=1)
+    out, _ = apply_sentiment_distribution_matching(out.loc[:, ~out.columns.duplicated()], sentiment_zscore_stats)
+    out = keep_conservative_feature_set(out)
+    if diagnostic_frames:
+        diagnostics = pd.concat(diagnostic_frames, axis=1).reindex(out.index)
+        diagnostics = diagnostics.loc[:, ~diagnostics.columns.duplicated()]
+        keep_diagnostics = [c for c in diagnostics.columns if c in feature_cols or c.startswith("live_")]
+        if "news_sentiment" in diagnostics.columns:
+            keep_diagnostics.append("news_sentiment")
+        keep_diagnostics = list(dict.fromkeys(keep_diagnostics))
+        if keep_diagnostics:
+            out = pd.concat([out, diagnostics[keep_diagnostics]], axis=1)
     missing_cols = [c for c in feature_cols if c not in out.columns]
     if missing_cols:
-        out = pd.concat(
-            [out, pd.DataFrame(0.0, index=out.index, columns=missing_cols)],
-            axis=1,
-        )
-    out = out.replace([np.inf, -np.inf], 0.0).fillna(0.0)
-
-    sentiment_cols = [c for c in out.columns if ("sent_" in c or "sentiment" in c)]
-    if sentiment_cols:
-        recent = out[sentiment_cols].tail(min(5, len(out))).fillna(0.0)
-        nonzero_ratio = float((recent.abs() > 1e-9).any(axis=1).mean()) if not recent.empty else 0.0
-        latest_headlines = float(out["live_news_headline_count"].iloc[-1]) if "live_news_headline_count" in out.columns else 0.0
-        latest_breaking = float(out["live_news_breaking"].iloc[-1]) if "live_news_breaking" in out.columns else 0.0
-        latest_score_abs = float(out["live_news_score_abs"].iloc[-1]) if "live_news_score_abs" in out.columns else 0.0
-        latest_has_signal = float(out["live_news_has_signal"].iloc[-1]) if "live_news_has_signal" in out.columns else 0.0
-
-        if nonzero_ratio < 0.20 and latest_has_signal <= 0.0 and latest_headlines <= 0.0 and latest_breaking <= 0.0:
-            print(
-                f"WARNING: [{ticker}] live sentiment features appear degraded at source "
-                f"(recent non-zero ratio={nonzero_ratio:.2f}, cols={len(sentiment_cols)}, "
-                f"headlines={int(latest_headlines)}, breaking={int(latest_breaking)}, score_abs={latest_score_abs:.4f})"
-            )
-    return out
+        out = pd.concat([out, pd.DataFrame(0.0, index=out.index, columns=missing_cols)], axis=1)
+    return out.replace([np.inf, -np.inf], 0.0).fillna(0.0)
