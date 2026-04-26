@@ -182,6 +182,7 @@ def main() -> None:
     parser.add_argument("--fold-years", type=int, default=1)
     parser.add_argument("--mode", type=str, default="long_only", choices=["long_short", "long_only", "long_only_bear_cash"])
     parser.add_argument("--allow-shorts", action="store_true")
+    parser.add_argument("--approved-only", action="store_true", help="Backtest only tickers currently approved for live trading.")
     parser.add_argument("--ignore-trade-rules", action="store_true")
     parser.add_argument("--stress", type=float, default=1.0)
     args = parser.parse_args()
@@ -191,7 +192,10 @@ def main() -> None:
     elif args.ticker:
         tickers = [args.ticker.upper()]
     else:
-        tickers = default_backtest_tickers()
+        tickers = default_backtest_tickers(approved_only=args.approved_only)
+
+    if not tickers:
+        raise SystemExit("No backtest tickers selected")
 
     mode = args.mode if args.allow_shorts else "long_only"
     run_rolling_purged_backtest(

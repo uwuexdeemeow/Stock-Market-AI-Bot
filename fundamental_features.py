@@ -306,30 +306,87 @@ def build_sector_strength_features(ticker: str, df: pd.DataFrame) -> pd.DataFram
 
     Requires these columns to already be in df (added by build_multi_market):
         ret_5d, ret_20d       — the ticker's 5-day and 20-day returns
-        sector_ret5d          — the sector ETF's 5-day return
-        sector_ret20d         — the sector ETF's 20-day return (added below)
+        sector_ret5d/20d/1d   — the sector ETF's returns at those horizons
+        sector_close          — raw sector ETF close prices (for ratio features)
         spy_ret5d             — SPY's 5-day return
 
     Returns columns:
-        ret_vs_sector_5d   — ticker 5d return minus sector ETF 5d return
-        ret_vs_sector_20d  — ticker 20d return minus sector ETF 20d return
-        sector_vs_spy_5d   — sector ETF 5d return minus SPY 5d return
-                             (positive = sector is a leader, negative = laggard)
+        ret_vs_sector_5d    — ticker 5d return minus sector ETF 5d return
+        ret_vs_sector_20d   — ticker 20d return minus sector ETF 20d return
+        ret_vs_sector_1d    — ticker 1d return minus sector ETF 1d return
+        sector_vs_spy_5d    — sector ETF 5d return minus SPY 5d return
+                              (positive = sector leading, negative = laggard)
+        sector_ratio_z20    — z-score of (stock price / sector ETF price) over
+                              last 20 days.  +2 means the stock is unusually
+                              strong vs its sector right now.
+        sector_ratio_z60    — same but using a 60-day window (slower-moving)
+        sector_rs_slope_5d  — 5-day % change in the stock/sector ratio.
+                              Positive = relative strength is IMPROVING.
+        sector_rs_above_ma20 — 1 if the stock/sector ratio is above its own
+                              20-day moving average (trending outperformance).
     """
     result = pd.DataFrame(index=df.index, data={
-        "ret_vs_sector_5d": 0.0,
-        "ret_vs_sector_20d": 0.0,
-        "sector_vs_spy_5d": 0.0,
+        "ret_vs_sector_5d":    0.0,
+        "ret_vs_sector_20d":   0.0,
+        "ret_vs_sector_1d":    0.0,
+        "sector_vs_spy_5d":    0.0,
+        "sector_ratio_z20":    0.0,
+        "sector_ratio_z60":    0.0,
+        "sector_rs_slope_5d":  0.0,
+        "sector_rs_above_ma20": 0.0,
     })
 
+    # ── Simple return-difference features ──────────────────────────────────────
     if "sector_ret5d" in df.columns and "ret_5d" in df.columns:
         result["ret_vs_sector_5d"] = (df["ret_5d"] - df["sector_ret5d"]).fillna(0.0).values
 
     if "sector_ret20d" in df.columns and "ret_20d" in df.columns:
         result["ret_vs_sector_20d"] = (df["ret_20d"] - df["sector_ret20d"]).fillna(0.0).values
 
+    # 1-day relative strength: is the stock beating its sector TODAY?
+    if "ret_1d" in df.columns and "sector_ret1d" in df.columns:
+        result["ret_vs_sector_1d"] = (df["ret_1d"] - df["sector_ret1d"]).fillna(0.0).values
+
     if "sector_ret5d" in df.columns and "spy_ret5d" in df.columns:
         result["sector_vs_spy_5d"] = (df["sector_ret5d"] - df["spy_ret5d"]).fillna(0.0).values
+
+    # ── Ratio z-score features ─────────────────────────────────────────────────
+    # These are the HIGH-LEVERAGE addition: instead of raw return differences,
+    # we z-score the stock/sector price ratio against its own recent history.
+    # This answers: "Is today's outperformance UNUSUAL compared to the last
+    # N days?" — much cleaner signal than an absolute return gap.
+    if "Close" in df.columns and "sector_close" in df.columns:
+        sector_close = pd.Series(df["sector_close"].values, index=df.index)
+        ticker_close = pd.Series(df["Close"].values, index=df.index)
+
+        # Price ratio: stock / sector ETF.  Rising ratio = stock outperforming.
+        ratio = (ticker_close / (sector_close + 1e-9)).replace([np.inf, -np.inf], np.nan)
+
+        # Z-score at two horizons — 20-day (tactical) and 60-day (strategic)
+        for window, col in [(20, "sector_ratio_z20"), (60, "sector_ratio_z60")]:
+            min_p = max(window // 2, 5)
+            roll_mean = ratio.rolling(window, min_periods=min_p).mean()
+            roll_std  = ratio.rolling(window, min_periods=min_p).std()
+            # Clip to ±4 sigma so outliers don't distort the model
+            result[col] = (
+                ((ratio - roll_mean) / (roll_std + 1e-9))
+                .clip(-4.0, 4.0)
+                .fillna(0.0)
+                .values
+            )
+
+        # 5-day momentum of the ratio: is relative strength improving or fading?
+        # Positive = stock strengthening vs sector (bullish for the stock)
+        result["sector_rs_slope_5d"] = (
+            ratio.pct_change(5).clip(-0.2, 0.2).fillna(0.0).values
+        )
+
+        # Binary: is the current stock/sector ratio above its own 20-day MA?
+        # Acts like a moving-average crossover signal, but for relative strength.
+        rs_ma20 = ratio.rolling(20, min_periods=5).mean()
+        result["sector_rs_above_ma20"] = (
+            (ratio > rs_ma20).astype(float).fillna(0.0).values
+        )
 
     return result
 

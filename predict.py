@@ -36,6 +36,62 @@ from xgb_feature_engineering import build_xgb_matrix
 os.makedirs(SIGNAL_DIR, exist_ok=True)
 RETURN_BIN_CENTRES = np.array([-0.04, -0.02, 0.00, 0.02, 0.04], dtype=float)
 NON_TRADABLE_SCALER_PREFIXES = {"pooled"}
+SUMMARY_COLUMNS = [
+    "ticker",
+    "signal",
+    "actionable",
+    "signal_quality",
+    "confidence",
+    "expected_return",
+    "price",
+    "sentiment",
+    "live_news_headlines",
+    "model_approved",
+    "suppressed_reason",
+]
+
+
+def build_live_xgb_matrix(df: pd.DataFrame, saved: dict, ticker: str) -> np.ndarray:
+    """Build the live XGBoost matrix in the same shape used during training."""
+    feature_cols = saved["feature_cols"]
+    feature_cols_raw = saved.get("feature_cols_raw", feature_cols)
+    xgb_feature_cols = saved.get("xgb_feature_cols")
+    keep_idx = saved.get("feature_pruning_keep_idx")
+    scaler = saved.get("xgb_scaler") or saved.get("scaler")
+
+    if scaler is None:
+        raise RuntimeError(f"No scaler found in saved metadata for {ticker}")
+
+    scaler_n = int(getattr(scaler, "n_features_in_", 0) or 0)
+    # Pooled model path: scaler was fit on full XGB features + ticker dummies,
+    # then models were trained on feature_pruning_keep_idx.
+    if saved.get("pooled") and keep_idx is not None and scaler_n:
+        base_mat, _ = build_xgb_matrix(df, feature_cols_raw, None)
+        dummy_cols = list(saved.get("ticker_dummy_cols") or [])
+        ticker_classes = [str(t).upper() for t in (saved.get("ticker_classes") or [])]
+        if dummy_cols:
+            dummies = np.zeros((base_mat.shape[0], len(dummy_cols)), dtype=np.float64)
+            try:
+                pos = ticker_classes.index(ticker.upper())
+                if pos < dummies.shape[1]:
+                    dummies[:, pos] = 1.0
+            except ValueError:
+                pass
+            full_mat = np.concatenate([base_mat, dummies], axis=1)
+        else:
+            full_mat = base_mat
+
+        if full_mat.shape[1] != scaler_n:
+            raise RuntimeError(
+                f"Live pooled feature shape mismatch for {ticker}: "
+                f"built {full_mat.shape[1]} columns, scaler expects {scaler_n}"
+            )
+        scaled = scaler.transform(full_mat)
+        keep = np.asarray(keep_idx, dtype=int)
+        return scaled[:, keep]
+
+    xgb_mat, _ = build_xgb_matrix(df, feature_cols_raw, xgb_feature_cols)
+    return scaler.transform(xgb_mat)
 
 
 def load_xgb_models(ticker: str):
@@ -169,21 +225,20 @@ def fallback_confidence_is_usable(saved: dict) -> bool:
     return False
 
 
-def predict_ticker(ticker: str) -> dict:
-    if not validate_ticker(ticker, verbose=True):
+def predict_ticker(ticker: str, verbose: bool = False) -> dict:
+    if not validate_ticker(ticker, verbose=verbose):
         raise RuntimeError(f"Self-check failed for {ticker}")
     with open(os.path.join(MODEL_DIR, f"{ticker}_scaler.pkl"), "rb") as f:
         saved = pickle.load(f)
 
     feature_cols = saved["feature_cols"]
-    xgb_scaler = saved.get("xgb_scaler") or saved.get("scaler")
-    xgb_feature_cols = saved.get("xgb_feature_cols")
     threshold = float(saved.get("confidence_threshold", DEFAULT_FIXED_CONFIDENCE_THRESHOLD))
 
     df = build_live_features_with_latest_news(
         ticker,
         feature_cols,
         sentiment_zscore_stats=saved.get("sentiment_zscore_stats"),
+        verbose=verbose,
     )
     if df is None or df.empty:
         raise RuntimeError(f"Could not build live features for {ticker}")
@@ -197,10 +252,7 @@ def predict_ticker(ticker: str) -> dict:
         raise RuntimeError(f"Critical live features missing: {critical[:10]}")
 
     sentiment_health, sentiment_nonzero_ratio, sentiment_cols = evaluate_sentiment_health(df)
-    xgb_mat, _ = build_xgb_matrix(df, saved.get("feature_cols_raw", feature_cols), xgb_feature_cols)
-    if xgb_scaler is None:
-        raise RuntimeError(f"No scaler found in saved metadata for {ticker}")
-    X_flat = xgb_scaler.transform(xgb_mat[[-1]])
+    X_flat = build_live_xgb_matrix(df, saved, ticker)[[-1]]
 
     dir_model, ret_model = load_xgb_models(ticker)
     if dir_model is None or ret_model is None:
@@ -222,8 +274,12 @@ def predict_ticker(ticker: str) -> dict:
         pad[:len(raw_ret)] = raw_ret
         raw_ret = pad
     expected_return = float((raw_ret[:nrb] * RETURN_BIN_CENTRES[:nrb]).sum()) * 100.0
-    signal = "LONG" if expected_return >= 0 else "SHORT"
+    # direction_vote comes from the direction model (p_up vs p_down) — the primary
+    # signal source.  signal follows direction_vote, NOT expected_return.
+    # expected_return is from a noisy return-bucket model; its sign was unreliable
+    # (skewed negative by triple-barrier asymmetry) and caused all outputs to be SHORT.
     direction_vote = "LONG" if up_pct >= down_pct else "SHORT"
+    signal = direction_vote
     signal_quality = assign_signal_quality(confidence, saved.get("confidence_buckets", []))
     model_approved, approval_reason = live_approval_for_ticker(ticker, saved)
     trade_rule = load_trade_rule(ticker)
@@ -250,10 +306,6 @@ def predict_ticker(ticker: str) -> dict:
     if not passed_rule:
         actionable = False
         suppressed_reason = suppressed_reason or rule_reason
-
-    if signal_quality == "LOW":
-        actionable = False
-        suppressed_reason = suppressed_reason or "signal_quality_low"
 
     if expected_return <= 0:
         actionable = False
@@ -349,15 +401,48 @@ def predict_ticker(ticker: str) -> dict:
     return result
 
 
+def _shorten(value, max_len: int = 54) -> str:
+    text = "" if value is None else str(value)
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 3] + "..."
+
+
+def print_prediction_summary(out: pd.DataFrame, out_path: str) -> None:
+    cols = [c for c in SUMMARY_COLUMNS if c in out.columns]
+    summary = out[cols].copy()
+    rename = {
+        "signal_quality": "quality",
+        "expected_return": "exp_ret_pct",
+        "live_news_headlines": "news",
+        "model_approved": "approved",
+        "suppressed_reason": "blocked_by",
+    }
+    summary = summary.rename(columns=rename)
+    for col in ("blocked_by",):
+        if col in summary.columns:
+            summary[col] = summary[col].map(_shorten)
+
+    print("\nLive Signals")
+    print(summary.to_string(index=False))
+
+    actionable_n = int(out["actionable"].sum()) if "actionable" in out.columns else 0
+    total_n = len(out)
+    approved_n = int(out["model_approved"].sum()) if "model_approved" in out.columns else 0
+    print(f"\nActionable: {actionable_n}/{total_n} | Model-approved: {approved_n}/{total_n}")
+    print(f"Saved: {out_path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Complete XGBoost-only predictor")
     parser.add_argument("--ticker", type=str, default=None)
+    parser.add_argument("--verbose", action="store_true", help="Show self-check and per-source news diagnostics")
     args = parser.parse_args()
     tickers = [args.ticker.upper()] if args.ticker else discover_prediction_tickers()
     rows = []
     for ticker in tickers:
         try:
-            rows.append(predict_ticker(ticker))
+            rows.append(predict_ticker(ticker, verbose=args.verbose))
         except Exception as e:
             print(f"ERROR - {ticker}: {e}")
     if not rows:
@@ -371,8 +456,7 @@ def main() -> None:
         out = out.sort_values(["actionable", "confidence"], ascending=[False, False])
     out_path = os.path.join(SIGNAL_DIR, "signals.csv")
     out.to_csv(out_path, index=False)
-    print(out.to_string(index=False))
-    print("Saved →", out_path)
+    print_prediction_summary(out, out_path)
 
 
 if __name__ == "__main__":

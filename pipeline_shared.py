@@ -14,9 +14,9 @@ from settings import (
     MULTI_MARKET, SECTOR_MAP,
     USE_MULTI_TIMEFRAME, USE_VIX_TERM, USE_OPTIONS_DATA,
     RETURN_HORIZON_DAYS, SOCIAL_SENTIMENT_ENABLED, USE_EARNINGS_DATA, USE_NEWS_SENTIMENT,
-    SENTIMENT_ENGINE_LEVEL,
+    SENTIMENT_ENGINE_LEVEL, LIVE_SENTIMENT_ENGINE_LEVEL,
 )
-from sentiment_engine import build_sentiment_feature_dataframe, SentimentEngine, score_todays_news
+from sentiment_engine import build_sentiment_feature_dataframe, get_sentiment_engine, score_todays_news
 from social_sentiment import build_social_sentiment_features, get_live_social_signal
 from fundamental_features import (
     build_pead_features,
@@ -174,6 +174,13 @@ def build_multi_market(ticker: str, dates: pd.DatetimeIndex, start: str, end: st
             # so make_direction_target can shift it forward to get the correct benchmark window.
             if name in ("spy", "sector") and RETURN_HORIZON_DAYS not in (5, 20):
                 result[f"{name}_ret{RETURN_HORIZON_DAYS}d"] = close.pct_change(RETURN_HORIZON_DAYS).fillna(0)
+            if name == "sector":
+                # Save raw sector ETF close so build_sector_strength_features()
+                # can compute price-ratio z-scores (how unusual is today's
+                # outperformance vs the past N days?).
+                # This column is intermediate — it is dropped by
+                # keep_conservative_feature_set() after the ratio features are built.
+                result["sector_close"] = close.values
             if name in ("spy", "qqq", "dia"):
                 ma20 = close.rolling(20).mean()
                 result[f"{name}_above_ma20"] = (close > ma20).astype(int).fillna(0)
@@ -256,6 +263,10 @@ CONSERVATIVE_FEATURE_PREFIXES = (
     "ret_vs_qqq",
     "breadth_",
     "pct_above_",
+    # Sector-relative momentum features (added: ratio z-scores, RS slope/MA)
+    "sector_vs_",      # sector_vs_spy_5d — sector leadership vs broad market
+    "sector_ratio_",   # sector_ratio_z20, sector_ratio_z60 — z-score of price/sector_ETF
+    "sector_rs_",      # sector_rs_slope_5d, sector_rs_above_ma20 — RS momentum
 )
 CONSERVATIVE_FEATURE_EXACT = {
     "obv_slope",
@@ -444,6 +455,7 @@ def build_live_features_with_latest_news(
     ticker: str,
     feature_cols: list[str],
     sentiment_zscore_stats: dict[str, dict[str, float]] | None = None,
+    verbose: bool = False,
 ) -> pd.DataFrame | None:
     end = datetime.utcnow().date()
     start = end - timedelta(days=270)
@@ -474,7 +486,7 @@ def build_live_features_with_latest_news(
                 ticker,
                 dates,
                 finnhub_client=None,
-                engine_level=SENTIMENT_ENGINE_LEVEL,
+                engine_level=LIVE_SENTIMENT_ENGINE_LEVEL,
                 sleep_rss=0.1,
                 logger=None,
             )
@@ -495,8 +507,8 @@ def build_live_features_with_latest_news(
                     sent[col] = 0.0
 
             try:
-                engine = SentimentEngine(level=SENTIMENT_ENGINE_LEVEL)
-                live_news = score_todays_news(ticker, engine) or {}
+                engine = get_sentiment_engine(LIVE_SENTIMENT_ENGINE_LEVEL)
+                live_news = score_todays_news(ticker, engine, verbose=verbose) or {}
                 latest = dates[-1]
                 composite_score = float(live_news.get("composite_score", 0.0) or 0.0)
                 headline_count = float(live_news.get("headline_count", 0) or 0.0)

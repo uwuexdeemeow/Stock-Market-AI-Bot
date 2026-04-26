@@ -50,7 +50,17 @@ class PortfolioRiskManager:
         candidates: List[ProposedTrade],
         price_history: Dict[str, pd.Series],
         equity_curve: pd.Series,
+        current_gross: float = 0.0,   # gross exposure already held in open positions
+        current_net: float = 0.0,     # net long/short exposure already held
+        open_tickers: set | None = None,  # tickers already held (no double-entries)
     ) -> List[ProposedTrade]:
+        """
+        Decide which proposed trades to approve for today.
+
+        current_gross / current_net must include ALL positions still open from
+        prior days so the exposure caps are enforced across the full portfolio,
+        not just today's new entries.
+        """
         approved: List[ProposedTrade] = []
 
         current_peak = equity_curve.cummax().iloc[-1] if not equity_curve.empty else 1.0
@@ -59,19 +69,21 @@ class PortfolioRiskManager:
         if drawdown <= -self.max_drawdown_halt_pct:
             return approved
 
-        soft_dd = 0.08
-        if drawdown < -soft_dd:
-            scale = max(0.0, (self.max_drawdown_halt_pct + drawdown) / (self.max_drawdown_halt_pct - soft_dd))
-            soft_gross = self.max_gross_exposure * scale
-            soft_net = self.max_net_exposure * scale
-        else:
-            soft_gross = self.max_gross_exposure
-            soft_net = self.max_net_exposure
+        # No soft-scaling: regime filter (VIX >= 25 or SPY < MA200) already
+        # blocks new entries during bad markets.  Soft-scaling here just creates
+        # a "zombie portfolio" that never quite halts but barely trades once the
+        # all-time equity peak is passed.  The hard halt above handles extreme
+        # drawdown protection.
+        soft_gross = self.max_gross_exposure
+        soft_net = self.max_net_exposure
 
         candidates = sorted(candidates, key=lambda x: (x.confidence, abs(x.expected_return)), reverse=True)
 
-        gross = 0.0
-        net = 0.0
+        # Start from existing portfolio exposure so new entries don't push us over the cap.
+        gross = current_gross
+        net = current_net
+        # Tickers already in portfolio — don't open a second position in same stock.
+        held_tickers: set = set(open_tickers) if open_tickers else set()
         sector_alloc: Dict[str, float] = {}
         chosen_tickers: List[str] = []
         returns_cache: Dict[str, pd.Series] = {}
@@ -84,11 +96,16 @@ class PortfolioRiskManager:
                 returns_cache[ticker] = pd.Series(dtype=float)
 
         for trade in candidates:
+            # Skip if we already hold this ticker (no doubling up on same name).
+            if trade.ticker in held_tickers:
+                continue
+
             weight = min(max(float(trade.requested_position_pct), 0.0), self.max_single_name_exposure)
             if weight <= 0:
                 continue
             signed = self._signed(trade.signal, weight)
 
+            # Enforce gross/net caps INCLUDING existing open positions.
             if gross + abs(weight) > soft_gross:
                 continue
             if abs(net + signed) > soft_net:
@@ -113,6 +130,7 @@ class PortfolioRiskManager:
 
             approved.append(trade)
             chosen_tickers.append(trade.ticker)
+            held_tickers.add(trade.ticker)   # mark as now held so it can't be entered again today
             gross += abs(weight)
             net += signed
             sector_alloc[sector] = sector_alloc.get(sector, 0.0) + abs(weight)

@@ -27,6 +27,34 @@ def _brier_score(probs: np.ndarray, y_true: np.ndarray) -> float:
     return float(np.mean((probs - y_true.astype(float)) ** 2))
 
 
+def _probability_spread_ok(
+    probs: np.ndarray,
+    min_range: float = 0.02,
+    min_std: float = 0.005,
+    min_unique_rounded: int = 3,
+) -> bool:
+    """
+    Reject near-constant calibrated outputs.
+
+    A flat calibrator can improve Brier score by predicting the base rate, but
+    it destroys ranking power.  Ranking power matters because the backtest and
+    live selector choose top-ranked names.
+    """
+    probs = np.asarray(probs, dtype=float).reshape(-1)
+    probs = probs[np.isfinite(probs)]
+    if len(probs) < 10:
+        return False
+
+    p_range = float(np.nanmax(probs) - np.nanmin(probs))
+    p_std = float(np.nanstd(probs))
+    unique_rounded = int(len(np.unique(np.round(probs, 4))))
+    return (
+        p_range >= min_range
+        and p_std >= min_std
+        and unique_rounded >= min_unique_rounded
+    )
+
+
 class _PlattCalibrator:
     """
     Thin wrapper around sklearn LogisticRegression that exposes a .predict()
@@ -45,8 +73,13 @@ class _PlattCalibrator:
         return self._model.predict_proba(arr)[:, 1]
 
 
-def _fit_platt(p_up_raw: np.ndarray, y_true: np.ndarray,
-               p_val: np.ndarray, y_val: np.ndarray):
+def _fit_platt(
+    p_up_raw: np.ndarray,
+    y_true: np.ndarray,
+    p_val: np.ndarray,
+    y_val: np.ndarray,
+    require_brier_improvement: bool = True,
+):
     """
     Try Platt scaling.  Returns a _PlattCalibrator if it improves Brier score
     on the validation slice, else None.
@@ -57,23 +90,41 @@ def _fit_platt(p_up_raw: np.ndarray, y_true: np.ndarray,
         lr = LogisticRegression(C=1.0, solver="lbfgs", max_iter=300)
         lr.fit(p_up_raw.reshape(-1, 1), y_true)
         p_val_platt = np.clip(lr.predict_proba(p_val.reshape(-1, 1))[:, 1], 0.0, 1.0)
-        if _brier_score(p_val_platt, y_val) < _brier_score(p_val, y_val):
+        spread_ok = _probability_spread_ok(p_val_platt)
+        brier_ok = (not require_brier_improvement) or _brier_score(p_val_platt, y_val) < _brier_score(p_val, y_val)
+        slope_ok = float(lr.coef_[0][0]) >= 0.0
+        ranks_raw = np.argsort(np.argsort(p_val))
+        ranks_cal = np.argsort(np.argsort(p_val_platt))
+        corr_raw = float(np.corrcoef(ranks_raw, y_val)[0, 1]) if y_val.std() > 0 else 0.0
+        corr_cal = float(np.corrcoef(ranks_cal, y_val)[0, 1]) if y_val.std() > 0 else 0.0
+        rank_ok = corr_cal >= 0 and corr_cal >= corr_raw - 0.05
+        if spread_ok and brier_ok and slope_ok and rank_ok:
             # Refit on all data
             lr_full = LogisticRegression(C=1.0, solver="lbfgs", max_iter=300)
             lr_full.fit(np.concatenate([p_up_raw, p_val]).reshape(-1, 1),
                         np.concatenate([y_true, y_val]))
-            return _PlattCalibrator(lr_full)
+            calibrator = _PlattCalibrator(lr_full)
+            full_cal = np.clip(calibrator.predict(np.concatenate([p_up_raw, p_val])), 0.0, 1.0)
+            full_slope_ok = float(lr_full.coef_[0][0]) >= 0.0
+            if full_slope_ok and _probability_spread_ok(full_cal):
+                return calibrator
     except Exception:
         pass
     return None
 
 
-def fit_direction_calibrator(p_up_raw: np.ndarray, y_true: np.ndarray):
+def fit_direction_calibrator(
+    p_up_raw: np.ndarray,
+    y_true: np.ndarray,
+    allow_isotonic: bool = True,
+    require_brier_improvement: bool = True,
+):
     """
     Fit a calibrator using a three-rung fallback ladder:
 
       1. Isotonic regression  — validated on held-out 20%, kept only if Brier
-                                 improves and rank correlation doesn't invert.
+                                 improves, rank correlation doesn't invert, and
+                                 outputs are not near-constant.
       2. Platt scaling        — logistic regression on raw probs, more stable
                                  on small calibration sets.
       3. None                 — caller uses raw XGB probs + data-driven threshold.
@@ -92,10 +143,16 @@ def fit_direction_calibrator(p_up_raw: np.ndarray, y_true: np.ndarray):
     y_train, y_val = y_true[:split],   y_true[split:]
 
     if len(np.unique(y_train)) < 2 or len(p_val) < 10:
-        return _fit_platt(p_up_raw, y_true, p_up_raw[-10:], y_true[-10:])
+        return _fit_platt(
+            p_up_raw,
+            y_true,
+            p_up_raw[-10:],
+            y_true[-10:],
+            require_brier_improvement=require_brier_improvement,
+        )
 
     # ── Rung 1: Isotonic ──────────────────────────────────────────────────────
-    if len(p_up_raw) >= 100:
+    if allow_isotonic and len(p_up_raw) >= 100:
         model = IsotonicRegression(y_min=0.0, y_max=1.0, out_of_bounds="clip")
         model.fit(p_train, y_train)
         p_val_cal = np.clip(model.predict(p_val), 0.0, 1.0)
@@ -106,14 +163,23 @@ def fit_direction_calibrator(p_up_raw: np.ndarray, y_true: np.ndarray):
         corr_raw  = float(np.corrcoef(ranks_raw, y_val)[0, 1]) if y_val.std() > 0 else 0.0
         corr_cal  = float(np.corrcoef(ranks_cal, y_val)[0, 1]) if y_val.std() > 0 else 0.0
         rank_ok   = corr_cal >= 0 and corr_cal >= corr_raw - 0.05
+        spread_ok = _probability_spread_ok(p_val_cal)
 
-        if brier_ok and rank_ok:
+        if brier_ok and rank_ok and spread_ok:
             model_full = IsotonicRegression(y_min=0.0, y_max=1.0, out_of_bounds="clip")
             model_full.fit(p_up_raw, y_true)
-            return model_full
+            full_cal = np.clip(model_full.predict(p_up_raw), 0.0, 1.0)
+            if _probability_spread_ok(full_cal):
+                return model_full
 
     # ── Rung 2: Platt scaling ─────────────────────────────────────────────────
-    platt = _fit_platt(p_train, y_train, p_val, y_val)
+    platt = _fit_platt(
+        p_train,
+        y_train,
+        p_val,
+        y_val,
+        require_brier_improvement=require_brier_improvement,
+    )
     if platt is not None:
         return platt
 

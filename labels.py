@@ -137,8 +137,8 @@ def triple_barrier(
     close: pd.Series,
     high: pd.Series | None = None,
     low: pd.Series | None = None,
-    pt_mult: float = 2.0,
-    sl_mult: float = 1.0,
+    pt_mult: float = 1.5,
+    sl_mult: float = 1.5,
     max_hold: int = 10,
     atr_window: int = 14,
 ) -> pd.Series:
@@ -148,14 +148,10 @@ def triple_barrier(
     Down barrier = entry - sl_mult * ATR  (stop-loss)
     Returns +1 if up barrier hit first, -1 if down, 0 on time-out.
 
-    Asymmetric barriers (pt=2.0, sl=1.0): the stop-loss is tighter than the
-    profit target, so UP labels are rarer (~33% of bars).  This is intentional:
-    the asymmetry mirrors a realistic risk/reward setup where you target 2× ATR
-    gain but cut at 1× ATR loss.
-    scale_pos_weight in build_models() compensates for the class imbalance so
-    XGBoost learns the rare UP class rather than collapsing to majority-DOWN.
-    The resulting probabilities spread naturally across 55-70% rather than
-    collapsing to a single bucket.
+    Symmetric barriers (pt=1.5, sl=1.5) avoid baking in a DOWN-class shortcut.
+    With the old +2×ATR / -1×ATR setup, UP labels were structurally rarer and
+    the classifier could lean on class imbalance instead of learning tradable
+    separation.
     """
     if high is None or low is None:
         high = close

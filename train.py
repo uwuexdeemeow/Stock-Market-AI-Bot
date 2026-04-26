@@ -1227,6 +1227,18 @@ def train_pooled(
     log.info("[pooled] Test accuracy: %.2f%%  baseline: %.2f%%  threshold: %.1f%%",
              dir_acc, baseline, threshold)
 
+    # ── Step 7b: save results plot (same chart as per-ticker training) ────────
+    # Reuses the existing save_xgb_results_plot() with ticker="pooled" so the
+    # image is written to models/pooled_xgb_only_results.png.
+    pooled_plot_path = save_xgb_results_plot(
+        "pooled",
+        test_p_up,
+        y_dir_test,
+        dir_acc,
+        baseline,
+    )
+    log.info("[pooled] Saved results plot %s", pooled_plot_path)
+
     # ── Step 8: save pooled artefacts ─────────────────────────────────────────
     dir_model.save_model(os.path.join(MODEL_DIR, "pooled_xgb_dir.json"))
     ret_model.save_model(os.path.join(MODEL_DIR, "pooled_xgb_ret.json"))
@@ -1267,6 +1279,7 @@ def train_pooled(
         "xgb_model_format": "json",
         "confidence_buckets": buckets,
         "threshold_sweep": sweep,
+        "results_plot": pooled_plot_path,
         "prediction_target": PREDICTION_TARGET,
         "model_version": "xgb_pooled_v1",
         "trained_at": datetime.now().isoformat(),

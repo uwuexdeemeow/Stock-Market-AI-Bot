@@ -19,7 +19,7 @@ class TradeRule:
     ticker: str
     confidence_threshold: float = 57.5
     min_expected_return: float = 0.25
-    allowed_qualities: tuple[str, ...] = ("MEDIUM", "HIGH")
+    allowed_qualities: tuple[str, ...] = ("LOW", "MEDIUM", "HIGH")
     exit_horizon_days: int = RETURN_HORIZON_DAYS
     stop_loss_pct: float = 0.06
     take_profit_pct: float = 0.08
@@ -68,14 +68,11 @@ def save_trade_rule(rule: TradeRule) -> str:
 
 def passes_trade_rule(row: pd.Series | dict, rule: TradeRule, mode: str = "long_only") -> tuple[bool, str | None]:
     signal = str(row.get("signal", "")).upper()
-    quality = str(row.get("signal_quality", "LOW")).upper()
     confidence = float(row.get("confidence", 0.0) or 0.0)
     expected_return = float(row.get("expected_return", 0.0) or 0.0)
 
     if confidence < rule.confidence_threshold:
         return False, "confidence_below_rule"
-    if quality not in {q.upper() for q in rule.allowed_qualities}:
-        return False, "quality_not_allowed"
     if signal == "LONG" and expected_return < rule.min_expected_return:
         return False, "expected_return_below_rule"
     if signal == "SHORT" and abs(expected_return) < rule.min_expected_return:
@@ -160,4 +157,3 @@ def append_rule_report(rows: Iterable[dict]) -> pd.DataFrame:
     out = out.sort_values(["approved_candidate", "score"], ascending=[False, False])
     out.to_csv(TRADE_RULE_REPORT, index=False)
     return out
-

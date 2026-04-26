@@ -138,10 +138,24 @@ class SentimentEngine:
         try:
             from finvader import finvader
             self._finvader_fn = finvader
+            # finvader imports cleanly even when NLTK's vader_lexicon is absent;
+            # in that case every scoring call fails and score() silently returns
+            # 0.0.  Self-test now so we can fall back to bundled vaderSentiment
+            # instead of producing all-zero sentiment for every ticker.
+            _ = float(self._finvader_fn(
+                "Company beats earnings and raises guidance",
+                use_sentibignomics=True,
+                use_henry=True,
+                indicator="compound",
+            ))
+            self.level        = "finvader"
             self.model        = "finvader"
             log.info("Sentiment engine: FinVADER loaded (fast, financial-aware)")
         except ImportError:
             log.warning("FinVADER not installed (pip install finvader). Falling back to VADER.")
+            self._load_vader_fallback()
+        except Exception as e:
+            log.warning(f"FinVADER unavailable ({e}). Falling back to VADER.")
             self._load_vader_fallback()
 
     def _load_finbert(self):
@@ -223,10 +237,16 @@ class SentimentEngine:
 
     def _load_vader_fallback(self):
         """Original VADER — fallback of last resort."""
+        requested_level = self.level
         from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
         self._vader = SentimentIntensityAnalyzer()
+        self.level  = "vader"
         self.model  = "vader"
-        log.warning("Sentiment engine: Using original VADER (lowest accuracy on financial text)")
+        msg = "Sentiment engine: Using original VADER (lowest accuracy on financial text)"
+        if requested_level == "vader":
+            log.info(msg)
+        else:
+            log.warning(msg)
 
     def score(self, text: str) -> float:
         """
@@ -239,11 +259,11 @@ class SentimentEngine:
             return 0.0
 
         try:
-            if self.model == "finvader":
+            if self.level == "finvader":
                 return self._score_finvader(text)
-            elif self.model == "finbert":
+            elif self.level == "finbert":
                 return self._score_finbert(text)
-            elif self.model == "gpt4":
+            elif self.level == "gpt4":
                 return self._score_gpt4(text)
             else:
                 return self._score_vader(text)
@@ -263,7 +283,7 @@ class SentimentEngine:
         if not texts:
             return []
 
-        if self.model == "finbert":
+        if self.level == "finbert":
             return self._score_finbert_batch(texts, batch_size=32)
 
         return [self.score(t) for t in texts]
@@ -289,7 +309,7 @@ class SentimentEngine:
         if not texts:
             return []
 
-        if self.model == "finbert":
+        if self.level == "finbert":
             return self._score_finbert_batch_detail(texts, batch_size=32)
 
         # Fallback for FinVADER / GPT: derive pos/neg from compound
@@ -333,12 +353,17 @@ class SentimentEngine:
         use_sentibignomics=True: activates the 7,300-term financial lexicon
         use_henry=True: activates the earnings-specific 189-term lexicon
         """
-        return float(self._finvader_fn(
-            text,
-            use_sentibignomics=True,
-            use_henry=True,
-            indicator="compound"
-        ))
+        try:
+            return float(self._finvader_fn(
+                text,
+                use_sentibignomics=True,
+                use_henry=True,
+                indicator="compound"
+            ))
+        except Exception:
+            if hasattr(self, "_vader"):
+                return self._score_vader(text)
+            raise
 
     def _score_finbert(self, text: str) -> float:
         """FinBERT scoring for a single headline."""
@@ -456,10 +481,16 @@ Headline: {text}"""
             "vader"   : "~56% on financial text (not recommended)",
         }
         return {
-            "model"    : self.model,
-            "accuracy" : accuracy_map.get(self.model, "unknown"),
+            "model"    : self.level,
+            "accuracy" : accuracy_map.get(self.level, "unknown"),
             "device"   : str(getattr(self, "_device", "cpu")),
         }
+
+
+@lru_cache(maxsize=4)
+def get_sentiment_engine(level: str = "finvader") -> SentimentEngine:
+    """Return a cached sentiment engine so FinBERT is not reloaded per ticker."""
+    return SentimentEngine(level=level)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -832,7 +863,7 @@ def build_sentiment_feature_dataframe(
     import pandas as pd
 
     lg = logger or log
-    engine = SentimentEngine(level=engine_level)
+    engine = get_sentiment_engine(engine_level)
     sources_data: dict[str, list] = {}
     weights: dict[str, float] = {}
 
@@ -1007,7 +1038,7 @@ def build_sentiment_feature_dataframe(
 # on this morning's news, not last week's stale headlines.
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fetch_premarket_news(ticker: str, max_age_hours: int = 16) -> list:
+def fetch_premarket_news(ticker: str, max_age_hours: int = 16, verbose: bool = False) -> list:
     """
     Fetch only RECENT headlines (published within the last `max_age_hours`).
 
@@ -1061,9 +1092,11 @@ def fetch_premarket_news(ticker: str, max_age_hours: int = 16) -> list:
                         kept += 1
                 except Exception:
                     continue
-            print(f"[{ticker}] {source_name} recent headlines: {kept}")
+            if verbose:
+                print(f"[{ticker}] {source_name} recent headlines: {kept}")
         except Exception as e:
-            print(f"[{ticker}] {source_name} fetch failed: {e}")
+            if verbose:
+                print(f"[{ticker}] {source_name} fetch failed: {e}")
 
     finnhub_key = _get_finnhub_api_key()
     if finnhub_key:
@@ -1099,11 +1132,14 @@ def fetch_premarket_news(ticker: str, max_age_hours: int = 16) -> list:
                     kept += 1
                 except Exception:
                     continue
-            print(f"[{ticker}] finnhub recent headlines: {kept}")
+            if verbose:
+                print(f"[{ticker}] finnhub recent headlines: {kept}")
         except Exception as e:
-            print(f"[{ticker}] finnhub fetch failed: {e}")
+            if verbose:
+                print(f"[{ticker}] finnhub fetch failed: {e}")
     else:
-        print(f"[{ticker}] finnhub skipped: FINNHUB_API_KEY not found")
+        if verbose:
+            print(f"[{ticker}] finnhub skipped: FINNHUB_API_KEY not found")
 
     # Deduplicate by title, keep newest occurrence.
     dedup_map: dict[str, datetime] = {}
@@ -1115,11 +1151,12 @@ def fetch_premarket_news(ticker: str, max_age_hours: int = 16) -> list:
     dedup = [(pub, title) for title, pub in dedup_map.items()]
     dedup.sort(key=lambda x: x[0], reverse=True)
 
-    print(f"[{ticker}] total recent headlines after dedupe: {len(dedup)}")
+    if verbose:
+        print(f"[{ticker}] total recent headlines after dedupe: {len(dedup)}")
     return dedup
 
 
-def score_todays_news(ticker: str, engine: SentimentEngine) -> dict:
+def score_todays_news(ticker: str, engine: SentimentEngine, verbose: bool = False) -> dict:
     """
     Fetch today's headlines and return a sentiment summary for the predictor.
 
@@ -1132,7 +1169,7 @@ def score_todays_news(ticker: str, engine: SentimentEngine) -> dict:
       breaking_count    : number of headlines in the last 2 hours
       avg_abs_score     : mean absolute headline sentiment score
     """
-    headlines = fetch_premarket_news(ticker, max_age_hours=16)
+    headlines = fetch_premarket_news(ticker, max_age_hours=16, verbose=verbose)
 
     if not headlines:
         return {

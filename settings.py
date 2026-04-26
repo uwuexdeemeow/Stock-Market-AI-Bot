@@ -21,6 +21,8 @@ WATCHLIST = [
     "AAPL", "MSFT", "NVDA", "AMD", "GOOGL", "META", "AMZN", "TSLA",
     "JPM", "GS", "BAC", "UNH", "JNJ", "ABBV", "XOM", "CVX",
     "CAT", "DE", "MU", "INTC", "BTC-USD",
+    # Added for larger training pool — diverse sectors, high liquidity
+    "LLY", "V", "MA", "HD", "COST", "PG", "BRK-B",
 ]
 
 TOP_N_STOCKS = 10
@@ -30,7 +32,7 @@ MIN_PRICE = 5.0
 # DATE RANGE
 # ─────────────────────────────────────────────────────────────────────────────
 
-TRAIN_START = "2015-01-01"
+TRAIN_START = "2010-01-01"
 TRAIN_END = datetime.today().strftime("%Y-%m-%d")
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -73,6 +75,14 @@ SECTOR_MAP = {
     "CVX": "XLE",
     "CAT": "XLI",
     "DE": "XLI",
+    # New tickers
+    "LLY":   "XLV",   # Healthcare
+    "V":     "XLF",   # Financials
+    "MA":    "XLF",   # Financials
+    "HD":    "XLY",   # Consumer Discretionary
+    "COST":  "XLP",   # Consumer Staples
+    "PG":    "XLP",   # Consumer Staples
+    "BRK-B": "XLF",   # Financials
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -137,12 +147,15 @@ USE_YIELD_CURVE = True
 SOCIAL_SENTIMENT_ENABLED = False
 USE_NEWS_SENTIMENT = True
 SENTIMENT_ENGINE_LEVEL = "finbert"
+# Live predictions avoid FinBERT/PyTorch crashes and FinVADER's NLTK lexicon
+# download dependency. Research/backfills still use SENTIMENT_ENGINE_LEVEL above.
+LIVE_SENTIMENT_ENGINE_LEVEL = "vader"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TARGETS / SPLITS
 # ─────────────────────────────────────────────────────────────────────────────
 
-RETURN_HORIZON_DAYS = 10
+RETURN_HORIZON_DAYS = int(os.environ.get("RETURN_HORIZON_DAYS", "20"))
 RETURN_BINS = [-0.03, -0.01, 0.01, 0.03]
 
 # ── Prediction target ─────────────────────────────────────────────────────────
@@ -151,8 +164,8 @@ RETURN_BINS = [-0.03, -0.01, 0.01, 0.03]
 #                      Removes beta noise; model only gets credit for alpha.
 # "vol_adjusted"     — UP if (stock_ret - spy_ret) / hvol_20d_scaled > threshold
 #                      Rewards the same excess return more during calm markets.
-# "triple_barrier"   — López de Prado: +1 if price hits +2*ATR first,
-#                      -1 if price hits -1*ATR first, 0 on time-out.
+# "triple_barrier"   — López de Prado: +1 if price hits +1.5*ATR first,
+#                      -1 if price hits -1.5*ATR first, 0 on time-out.
 #                      Sharper class separation than fixed-horizon returns.
 PREDICTION_TARGET = "triple_barrier"
 
@@ -187,10 +200,11 @@ POOLED_TRAINING = True
 # Cross-sectional ranking: at each signal date, rank all tickers by predicted
 # excess return and trade the top/bottom N instead of filtering by a confidence
 # threshold.  This sidesteps the broken calibration entirely.
-CROSS_SECTIONAL_TOP_N = 5   # raised from 3: was 9.5% in-market; 5 targets ~16%
-# In pooled cross-sectional mode, the relative rank is the primary selector.
-# Allow all quality tiers so the ranker can see all candidates.
-BACKTEST_ALLOWED_SIGNAL_QUALITIES = ("LOW", "MEDIUM", "HIGH")
+CROSS_SECTIONAL_TOP_N = 4   # top-ranked LONGs per day (rank0=HIGH, rank1=MEDIUM, rank2+=LOW)
+# signal_quality is assigned by rank inside apply_cross_sectional_ranking:
+#   rank 0 → HIGH, rank 1 → MEDIUM, rank 2 → LOW.
+# The quality label is for reporting only; the gate was removed (it was
+# redundant — top-N selection already controls which tickers enter the backtest).
 
 # Label threshold: 0.0 means any positive 5-day return counts as UP.
 # Tested 0.003 (0.3% min move) — hurt performance by cutting too many
@@ -234,7 +248,13 @@ FEATURE_IMPORTANCE_TOP_K = 30
 # Best params are saved to models/pooled_best_xgb_params.json and reloaded
 # by backtest.py so both pipelines use the same tuned configuration.
 # Pass --no-tune to python3 train.py to skip this step for faster runs.
-TUNE_HYPERPARAMS = True
+#
+# DISABLED: the nested CV produces near-random fold scores (~0.49 avg) because
+# the triple-barrier label set is too noisy for cross-validated accuracy to
+# distinguish hyperparams. Empirically, max_depth=6, min_child_weight=10,
+# reg_lambda=10.0 gives Sharpe ~0.938; the CV kept "selecting" depth=3 which
+# collapsed Sharpe to 0.296. Re-enable only after fixing the CV scoring metric.
+TUNE_HYPERPARAMS = False
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MODEL SELECTION
@@ -252,6 +272,30 @@ ACTIVE_MODEL_WEIGHTS = {
     "transformer": 0.0,
 }
 LIVE_SHORTS_ENABLED = False   # shorts off until calibration is healthy; long_only avoids bull-market short disaster
+
+# ── Cash / benchmark overlay ─────────────────────────────────────────────────
+# When the model has no approved single-name exposure, put part of idle capital
+# into a simple SPY/QQQ sleeve during broad-market uptrends.  This keeps the
+# portfolio from sitting fully idle in bull regimes while preserving cash in
+# hostile regimes.
+CASH_OVERLAY_ENABLED = True
+CASH_OVERLAY_MAX_ALLOC = 0.75
+CASH_OVERLAY_REQUIRE_SPY_MA200 = True
+CASH_OVERLAY_WEIGHTS = {"SPY": 0.60, "QQQ": 0.40}
+
+# Main benchmark used for alpha reporting. Individual SPY/QQQ/IWM comparisons
+# are still written under benchmark_comparisons.
+PRIMARY_BENCHMARK_WEIGHTS = {"SPY": 0.60, "QQQ": 0.40}
+
+# Ticker eligibility filter: prior walk-forward contribution determines whether
+# a ticker can enter the cross-sectional ranking.  Missing reports fail open so
+# the first research run can still generate model_quality_report.csv.
+TICKER_ELIGIBILITY_FILTER_ENABLED = True
+TICKER_ELIGIBILITY_MIN_TRADES = 20
+TICKER_ELIGIBILITY_MIN_TOTAL_PNL = 0.0
+TICKER_ELIGIBILITY_MIN_SHARPE = 0.25
+TICKER_ELIGIBILITY_MIN_PROFIT_FACTOR = 1.05
+TICKER_ELIGIBILITY_MAX_DRAWDOWN_PCT = -30.0
 
 # Live approval is generated from models/model_quality_report.csv by backtest.py.
 # Keep these compatibility names empty so old imports fail safe instead of
@@ -296,12 +340,12 @@ BORROW_COSTS: dict[str, float] = {
     # e.g. "GME": 0.50,  # 50% annualized borrow for a hard-to-borrow name
 }
 
-MAX_GROSS_EXPOSURE = 1.00
-MAX_NET_EXPOSURE = 0.60
-MAX_SECTOR_EXPOSURE = 0.35
-MAX_SINGLE_NAME_EXPOSURE = 0.20
+MAX_GROSS_EXPOSURE = 1.00          # max 5 concurrent positions at 20% each = 100% exposure
+MAX_NET_EXPOSURE = 0.80
+MAX_SECTOR_EXPOSURE = 0.40
+MAX_SINGLE_NAME_EXPOSURE = 0.20   # 20% per name; 5 names × 20% = 100% max exposure
 MAX_PAIR_CORRELATION = 0.85
-MAX_DRAWDOWN_HALT_PCT = 0.15
+MAX_DRAWDOWN_HALT_PCT = 0.99      # effectively disabled — regime filter handles protection; halt is a last resort
 
 # "legacy_confidence" matches the earlier gate-passing backtests.
 # "vol_kelly" uses the newer blended vol-target + fractional-Kelly sizing.

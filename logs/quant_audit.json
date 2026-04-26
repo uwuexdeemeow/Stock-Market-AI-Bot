@@ -1,104 +1,109 @@
 {
-  "generated_at": "2026-04-24T20:34:24+00:00",
+  "generated_at": "2026-04-25T16:40:05+00:00",
   "watchlist_size": 21,
   "files": [
     {
       "path": "train.py",
       "exists": true,
-      "size_bytes": 33051,
-      "modified_at": "2026-04-25T03:52:50"
+      "size_bytes": 60804,
+      "modified_at": "2026-04-25T22:44:25"
     },
     {
       "path": "backtest.py",
       "exists": true,
-      "size_bytes": 41903,
-      "modified_at": "2026-04-25T04:12:28"
+      "size_bytes": 76630,
+      "modified_at": "2026-04-25T23:39:25"
     },
     {
       "path": "predict.py",
       "exists": true,
-      "size_bytes": 15851,
-      "modified_at": "2026-04-25T03:58:34"
+      "size_bytes": 16278,
+      "modified_at": "2026-04-25T22:49:45"
     },
     {
       "path": "leakage_audit.py",
       "exists": true,
-      "size_bytes": 7063,
-      "modified_at": "2026-04-25T03:52:50"
+      "size_bytes": 6872,
+      "modified_at": "2026-04-25T11:15:25"
     },
     {
       "path": "optimize_trade_rules.py",
       "exists": true,
-      "size_bytes": 8140,
-      "modified_at": "2026-04-25T03:52:50"
+      "size_bytes": 7948,
+      "modified_at": "2026-04-25T11:15:25"
     },
     {
       "path": "model_quality.py",
       "exists": true,
-      "size_bytes": 7415,
-      "modified_at": "2026-04-25T03:52:50"
+      "size_bytes": 7514,
+      "modified_at": "2026-04-25T23:54:20"
     },
     {
       "path": "trade_rules.py",
       "exists": true,
-      "size_bytes": 6703,
-      "modified_at": "2026-04-25T03:52:50"
+      "size_bytes": 6540,
+      "modified_at": "2026-04-25T11:15:25"
     },
     {
       "path": "moomoo_paper_trading.py",
       "exists": true,
-      "size_bytes": 8141,
-      "modified_at": "2026-04-25T04:32:15"
+      "size_bytes": 8438,
+      "modified_at": "2026-04-25T16:16:12"
     },
     {
       "path": "paper_gauntlet.py",
       "exists": true,
       "size_bytes": 4088,
-      "modified_at": "2026-04-25T04:33:40"
+      "modified_at": "2026-04-25T11:15:25"
     }
   ],
   "model_quality": {
     "rows": 16,
-    "approved": 0,
-    "rejected": 16,
-    "approved_tickers": [],
+    "approved": 4,
+    "rejected": 12,
+    "approved_tickers": [
+      "MSFT",
+      "NVDA",
+      "GOOGL",
+      "META"
+    ],
     "top_rejections": [
-      {
-        "ticker": "META",
-        "approval_reason": "return_spearman -0.1565 <= 0.0000; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500"
-      },
       {
         "ticker": "BTC-USD",
         "approval_reason": "portfolio_sharpe 0.102 < 0.500; portfolio_nw_tstat 0.430 < 1.650"
       },
       {
-        "ticker": "AMZN",
-        "approval_reason": "walkforward_trades 7 < 10; portfolio_sharpe 0.102 < 0.500; portfolio_nw_tstat 0.430 < 1.650"
-      },
-      {
         "ticker": "UNH",
-        "approval_reason": "walkforward_trades 1 < 10; walkforward_sharpe 0.000 < 0.500; portfolio_sharpe 0.102 < 0.500; portfolio_nw_tstat 0.430 < 1.650"
+        "approval_reason": "walkforward_sharpe -0.577 < 0.500"
       },
       {
-        "ticker": "AAPL",
-        "approval_reason": "walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500"
+        "ticker": "CAT",
+        "approval_reason": "walkforward_sharpe -0.570 < 0.500"
       },
       {
-        "ticker": "NVDA",
-        "approval_reason": "walkforward_sharpe -3.104 < 0.500; portfolio_sharpe 0.102 < 0.500; portfolio_nw_tstat 0.430 < 1.650"
+        "ticker": "INTC",
+        "approval_reason": "walkforward_sharpe -0.027 < 0.500"
       },
       {
         "ticker": "AMD",
-        "approval_reason": "walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500; listed as weak until retrained and backtested"
+        "approval_reason": "walkforward_sharpe 0.459 < 0.500; max_drawdown -27.08% < -25.00%"
       },
       {
-        "ticker": "TSLA",
-        "approval_reason": "direction_edge 1.64pp < 2.00pp; return_spearman -0.0256 <= 0.0000; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500; listed as weak until retrained and backtested"
+        "ticker": "AMZN",
+        "approval_reason": "walkforward_trades 9 < 10"
+      },
+      {
+        "ticker": "MU",
+        "approval_reason": "walkforward_sharpe 0.004 < 0.500"
+      },
+      {
+        "ticker": "AAPL",
+        "approval_reason": "portfolio_sharpe 0.306 < 0.500; portfolio_nw_tstat 1.016 < 1.650"
       }
     ]
   },
   "trade_rules": {
-    "rule_files": 1,
+    "rule_files": 0,
     "report_rows": 1,
     "approved_rule_candidates": 1,
     "best_rules": [
@@ -130,7 +135,7 @@
   "signals": {
     "signals": 16,
     "actionable": 0,
-    "approved_live_tickers": 0,
+    "approved_live_tickers": 4,
     "suppressed_reasons": {
       "model_not_approved: walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500": 5,
       "model_not_approved: direction_edge 1.18pp < 2.00pp; return_spearman -0.0938 <= 0.0000; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500": 1,
@@ -143,10 +148,10 @@
     }
   },
   "backtest": {
-    "latest_trades_file": "signals\\walkforward_long_only_6tickers_trades.csv",
-    "latest_equity_file": "signals\\walkforward_long_only_6tickers_equity.csv",
-    "latest_trade_rows": 47,
-    "latest_equity_rows": 4132
+    "latest_trades_file": "signals/walkforward_long_only_7tickers_trades.csv",
+    "latest_equity_file": "signals/walkforward_long_only_7tickers_equity.csv",
+    "latest_trade_rows": 330,
+    "latest_equity_rows": 2844
   },
   "paper": {
     "filtered_live_rows": 0,
@@ -155,19 +160,9 @@
   },
   "findings": [
     {
-      "severity": "high",
-      "area": "model_selection",
-      "finding": "No ticker is currently approved for live trading. This is safe, but the system has no deployable edge yet."
-    },
-    {
-      "severity": "high",
-      "area": "live_signals",
-      "finding": "approved_live_tickers.csv has no approved tickers. Paper/live filters should produce no trades until the model gate improves."
-    },
-    {
       "severity": "medium",
       "area": "model_selection",
-      "finding": "10 tickers still have preliminary train-only quality rows. Re-run backtest.py for those tickers before live use."
+      "finding": "3 tickers still have preliminary train-only quality rows. Re-run backtest.py for those tickers before live use."
     },
     {
       "severity": "medium",

@@ -83,8 +83,19 @@ from settings import (
     POSITION_SIZING_MODE,
     POOLED_TRAINING,
     CROSS_SECTIONAL_TOP_N,
-    BACKTEST_ALLOWED_SIGNAL_QUALITIES,
     FEATURE_IMPORTANCE_TOP_K,
+    MAX_SINGLE_NAME_EXPOSURE,
+    CASH_OVERLAY_ENABLED,
+    CASH_OVERLAY_MAX_ALLOC,
+    CASH_OVERLAY_REQUIRE_SPY_MA200,
+    CASH_OVERLAY_WEIGHTS,
+    PRIMARY_BENCHMARK_WEIGHTS,
+    TICKER_ELIGIBILITY_FILTER_ENABLED,
+    TICKER_ELIGIBILITY_MIN_TRADES,
+    TICKER_ELIGIBILITY_MIN_TOTAL_PNL,
+    TICKER_ELIGIBILITY_MIN_SHARPE,
+    TICKER_ELIGIBILITY_MIN_PROFIT_FACTOR,
+    TICKER_ELIGIBILITY_MAX_DRAWDOWN_PCT,
 )
 from xgb_feature_engineering import build_xgb_matrix
 from pipeline_shared import apply_sentiment_distribution_matching, fit_sentiment_zscore_stats
@@ -96,13 +107,20 @@ from experiment_ledger import append_experiment
 INITIAL_CAPITAL = 10_000.0
 BASE_POSITION_SIZE_PCT = 0.15
 MAX_POSITION_SIZE_PCT = 0.30
-# Boost disabled: diagnostics showed HIGH win rate (54%) < LOW win rate (56%).
-# Boosting the worst-performing bucket amplified losses. Reset to 1.0 until
-# signal quality is reliably calibrated out-of-sample.
 HIGH_SIGNAL_BOOST = 1.0
-# Separate n floors for each quality tier.
 MIN_BUCKET_N_HIGH = 30
 MIN_BUCKET_N_MEDIUM = 15
+
+# ── ATR-based position sizing parameters ──────────────────────────────────────
+# Instead of a flat % per trade, we risk a fixed fraction of capital per trade.
+# Position size = RISK_BUDGET_PCT / (ATR_SL_MULT × atr_pct), capped at
+# MAX_SINGLE_NAME_EXPOSURE.  This means high-volatility stocks (e.g. MU, NVDA)
+# get smaller positions than low-volatility stocks (e.g. MSFT, UNH), so that
+# each trade risks roughly the same dollar amount.
+# ATR_SL_MULT = 1.5 reflects our -0.75×ATR stop plus a small slippage buffer.
+ATR_RISK_BUDGET_PCT = 0.008   # risk 0.8% of capital per trade
+ATR_SL_MULT         = 1.5     # multiplier covering -0.75×ATR stop + buffer
+ATR_MIN_POSITION    = 0.05    # floor: never go below 5% on any signal
 RETURN_BIN_CENTRES = np.array([-0.04, -0.02, 0.00, 0.02, 0.04], dtype=float)
 N_RETURN_BINS = len(RETURN_BIN_CENTRES)
 
@@ -236,11 +254,13 @@ def build_models(
                    "min_child_weight", "reg_lambda", "reg_alpha", "gamma"}
         applied = {k: v for k, v in param_overrides.items() if k in allowed}
         common.update(applied)
-    # Mirror train.py: compute scale_pos_weight from actual label distribution
-    # so each walk-forward block corrects for any class imbalance automatically.
+    # Mirror train.py: compute scale_pos_weight from actual label distribution.
+    # Clamp tightly (0.8–1.5) so early walk-forward blocks with small, imbalanced
+    # samples don't over-compensate and produce wildly skewed probability outputs.
+    # Wide clamp (0.33–3.0) let noisy early blocks flip the model's bias entirely.
     n_pos = max(int(np.sum(y_dir_train == 1)), 1)
     n_neg = max(int(np.sum(y_dir_train == 0)), 1)
-    spw   = float(np.clip(n_neg / n_pos, 0.33, 3.0))
+    spw   = float(np.clip(n_neg / n_pos, 0.8, 1.5))
     dir_model = xgb.XGBClassifier(
         objective="binary:logistic", eval_metric="logloss",
         scale_pos_weight=spw, **common
@@ -352,6 +372,14 @@ def load_ticker_data(ticker: str):
 BENCHMARK_SYMBOLS = ("SPY", "QQQ", "IWM")
 
 
+def _normalise_weights(weights: dict[str, float]) -> dict[str, float]:
+    clean = {str(k).upper(): float(v) for k, v in (weights or {}).items() if float(v) > 0}
+    total = sum(clean.values())
+    if total <= 0:
+        return {"SPY": 1.0}
+    return {k: v / total for k, v in clean.items()}
+
+
 def build_benchmark(index: pd.DatetimeIndex, symbol: str = "SPY") -> pd.Series:
     symbol = symbol.upper()
     local_path = os.path.join(DATA_DIR, f"{symbol}.parquet")
@@ -380,10 +408,50 @@ def build_benchmark(index: pd.DatetimeIndex, symbol: str = "SPY") -> pd.Series:
 
 
 def build_benchmarks(index: pd.DatetimeIndex) -> pd.DataFrame:
-    return pd.DataFrame(
+    benchmarks = pd.DataFrame(
         {symbol: build_benchmark(index, symbol=symbol) for symbol in BENCHMARK_SYMBOLS},
         index=index,
     ).ffill().bfill()
+    primary_weights = _normalise_weights(PRIMARY_BENCHMARK_WEIGHTS)
+    primary = pd.Series(index=benchmarks.index, data=0.0, dtype=float)
+    for symbol, weight in primary_weights.items():
+        if symbol not in benchmarks.columns:
+            benchmarks[symbol] = build_benchmark(index, symbol=symbol)
+        primary = primary.add(benchmarks[symbol].reindex(benchmarks.index).ffill().bfill() * weight, fill_value=0.0)
+    benchmarks["BLEND"] = primary
+    return benchmarks.ffill().bfill()
+
+
+def apply_cash_overlay(
+    equity: pd.Series,
+    benchmarks: pd.DataFrame,
+    gross_exposure: pd.Series,
+) -> tuple[pd.Series, pd.Series]:
+    """Add a SPY/QQQ sleeve on idle capital when the broad trend is supportive."""
+    if equity.empty or benchmarks.empty:
+        return equity, pd.Series(index=equity.index, data=0.0, dtype=float)
+
+    weights = _normalise_weights(CASH_OVERLAY_WEIGHTS)
+    blend = pd.Series(index=equity.index, data=0.0, dtype=float)
+    for symbol, weight in weights.items():
+        if symbol in benchmarks.columns:
+            blend = blend.add(benchmarks[symbol].reindex(equity.index).ffill().bfill() * weight, fill_value=0.0)
+
+    if blend.nunique(dropna=True) <= 1:
+        return equity, pd.Series(index=equity.index, data=0.0, dtype=float)
+
+    trend_ok = pd.Series(index=equity.index, data=True, dtype=bool)
+    if CASH_OVERLAY_REQUIRE_SPY_MA200 and "SPY" in benchmarks.columns:
+        spy = benchmarks["SPY"].reindex(equity.index).ffill().bfill()
+        trend_ok = spy > spy.rolling(200, min_periods=50).mean()
+
+    idle_fraction = (1.0 - gross_exposure.reindex(equity.index).ffill().fillna(0.0)).clip(0.0, 1.0)
+    overlay_alloc = (float(CASH_OVERLAY_MAX_ALLOC) * idle_fraction).where(trend_ok, 0.0).clip(0.0, 1.0)
+    base_ret = equity.pct_change().fillna(0.0)
+    blend_ret = blend.pct_change().fillna(0.0)
+    combined_ret = base_ret + overlay_alloc.shift(1).fillna(0.0) * blend_ret
+    overlay_equity = equity.iloc[0] * (1.0 + combined_ret).cumprod()
+    return overlay_equity.astype(float), overlay_alloc.astype(float)
 
 
 def build_vix_series(index: pd.DatetimeIndex) -> pd.Series:
@@ -431,6 +499,44 @@ def requested_position_pct(confidence: float, expected_return: float, signal_qua
     if signal_quality == "HIGH":
         size *= HIGH_SIGNAL_BOOST
     return min(MAX_POSITION_SIZE_PCT, size)
+
+
+def atr_position_pct(
+    price_history: dict[str, pd.DataFrame],
+    ticker: str,
+    dt,
+    atr_window: int = 20,
+) -> float:
+    """
+    Return a position size (as fraction of capital) that risks ATR_RISK_BUDGET_PCT
+    of capital per trade, using ATR_SL_MULT × ATR as the dollar-stop estimate.
+
+    position_pct = RISK_BUDGET / (ATR_SL_MULT × atr_pct)
+
+    High-volatility tickers (NVDA, MU) get smaller positions; calm tickers
+    (MSFT, UNH) get larger ones — but all are capped at MAX_SINGLE_NAME_EXPOSURE.
+    Only prices known BEFORE dt are used so there is no look-ahead.
+    """
+    fallback = MAX_SINGLE_NAME_EXPOSURE * 0.75   # conservative fallback if no data
+    if ticker not in price_history:
+        return fallback
+    hist = price_history[ticker]
+    if "Close" not in hist.columns:
+        return fallback
+    closes = hist["Close"].loc[:pd.Timestamp(dt)].dropna()
+    # Need at least atr_window+1 closes to compute ATR
+    if len(closes) < atr_window + 1:
+        return fallback
+    last_price = float(closes.iloc[-1])
+    if last_price <= 0:
+        return fallback
+    # ATR proxy: mean absolute close-to-close move over the last atr_window days
+    atr_dollar = float(np.mean(np.abs(np.diff(closes.values[-(atr_window + 1):]))))
+    if atr_dollar <= 0:
+        return fallback
+    atr_pct = atr_dollar / last_price
+    raw = ATR_RISK_BUDGET_PCT / (ATR_SL_MULT * atr_pct)
+    return float(np.clip(raw, ATR_MIN_POSITION, MAX_SINGLE_NAME_EXPOSURE))
 
 
 def historical_annual_vol(price_history: dict[str, pd.DataFrame], ticker: str, dt, lookback: int = 63) -> float:
@@ -652,9 +758,9 @@ def walk_forward_predictions_pooled(
     records: dict[str, list[dict]] = {t: [] for t in valid_tickers}
     last_valid_idx = max(0, len(timeline) - RETURN_HORIZON_DAYS - 1)
     step = start_idx
-    # Accumulate calibration raw probs and labels across blocks to run
+    # Accumulate calibrated probabilities and labels across blocks to run
     # calibration_stability check after the loop.
-    _all_cal_probs_raw: list[float] = []
+    _all_cal_probs: list[float] = []
     _all_cal_labels: list[int] = []
 
     while step < last_valid_idx:
@@ -667,6 +773,7 @@ def walk_forward_predictions_pooled(
         # Build pooled train + calib sets from all tickers up to cutoff
         train_X_parts, train_y_dir_parts, train_y_ret_parts = [], [], []
         calib_X_parts, calib_y_dir_parts, calib_y_ret_parts = [], [], []
+        calib_rows_by_ticker: dict[str, np.ndarray] = {}
 
         for ticker in valid_tickers:
             dates, X, y_dir, y_ret, _, _ = ticker_data[ticker]
@@ -695,6 +802,7 @@ def walk_forward_predictions_pooled(
             train_y_ret_parts.append(y_ret[train_rows_strided])
 
             if len(calib_rows) > 0:
+                calib_rows_by_ticker[ticker] = calib_rows
                 cal_X = np.concatenate(
                     [X[calib_rows],
                      np.repeat(dummy, len(calib_rows), axis=0)], axis=1
@@ -776,8 +884,6 @@ def walk_forward_predictions_pooled(
             param_overrides=_bt_param_overrides,
         )
         cal_probs_raw = dir_model.predict_proba(X_cal)[:, 1]
-        _all_cal_probs_raw.extend(cal_probs_raw.tolist())
-        _all_cal_labels.extend(y_dir_cal.tolist())
         calibrator    = fit_direction_calibrator(cal_probs_raw, y_dir_cal)
         threshold, threshold_used_fallback = training_compute_dynamic_threshold(
             calibrator,
@@ -789,7 +895,14 @@ def walk_forward_predictions_pooled(
         cal_probs = np.array([
             float(calibrate_p_up(calibrator, float(p))) for p in cal_probs_raw
         ], dtype=float)
-        bucket_report = confidence_buckets(cal_probs, y_dir_cal)
+        _all_cal_probs.extend(cal_probs.tolist())
+        _all_cal_labels.extend(y_dir_cal.tolist())
+        # Per-ticker confidence-bucket reports removed: assign_signal_quality() is
+        # no longer called here.  signal_quality is now set purely by rank position
+        # inside apply_cross_sectional_ranking() — rank 0 → HIGH, rank 1 → MEDIUM,
+        # rank 2+ → LOW.  Bucket reports were the only consumer of this computation,
+        # so the whole per-ticker calib loop is gone.  Calibration stability check
+        # still uses _all_cal_probs / _all_cal_labels accumulated above.
 
         # OOS predictions for each ticker on each date in the block
         for oos_dt_np in oos_dates_np:
@@ -816,11 +929,66 @@ def walk_forward_predictions_pooled(
                 ret_probs = ret_model.predict_proba(X_row)[0, :N_RETURN_BINS]
                 expected_return = float((ret_probs * RETURN_BIN_CENTRES).sum()) * 100.0
                 direction_vote  = "LONG" if p_up >= p_down else "SHORT"
-                signal_quality  = assign_signal_quality(confidence, bucket_report,
-                                                        direction=direction_vote)
+                # signal_quality is set to "UNRANKED" here and overridden by
+                # apply_cross_sectional_ranking() using rank position (0=HIGH,
+                # 1=MEDIUM, 2+=LOW).  Confidence-bucket bucketing removed — it
+                # was pure noise when probabilities collapse around 0.5.
+                signal_quality  = "UNRANKED"
 
                 entry_j  = min(j + 1, len(dates) - 1)
-                exit_j   = min(entry_j + RETURN_HORIZON_DAYS, len(dates) - 1)
+                # Time-based exit boundary (10 trading days out)
+                time_exit_j = min(entry_j + RETURN_HORIZON_DAYS, len(dates) - 1)
+
+                # ── Triple-barrier exit ───────────────────────────────────────
+                # The model was trained with triple-barrier labels:
+                #   UP   = price hits +2×ATR first  (profit target)
+                #   DOWN = price hits -1×ATR first  (stop-loss)
+                #   FLAT = neither hit in 10 days   (time exit)
+                # Without this matching exit logic, longs hold through crashes
+                # and the backtest dramatically understates real-world stop-losses.
+                #
+                # ATR = average absolute close-to-close move over 14 days.
+                # We use the close prices available in ticker_data (no High/Low).
+                atr_window = 14
+                if j >= atr_window:
+                    # |close[i] - close[i-1]| for the 14 days ending at j
+                    recent = close_prices[j - atr_window: j + 1]
+                    atr_price = float(np.mean(np.abs(np.diff(recent))))
+                else:
+                    # Not enough history — fall back to 2% of current close
+                    atr_price = float(close_prices[j]) * 0.02
+
+                entry_price  = float(open_prices[entry_j])   # enter at next-day open
+                stop_price   = entry_price - 0.75 * atr_price  # -0.75×ATR stop-loss (tighter; was -1×)
+                target_price = entry_price + 2.0 * atr_price   # +2×ATR profit target → 2.67:1 R:R
+
+                # Scan forward day-by-day to see if a barrier is touched first
+                actual_exit_j     = time_exit_j
+                actual_exit_price = float(close_prices[time_exit_j])
+                for k in range(entry_j + 1, time_exit_j + 1):
+                    c = float(close_prices[k])
+                    if direction_vote == "LONG":
+                        if c <= stop_price:
+                            # Stop-loss hit: exit at stop price (conservative)
+                            actual_exit_j     = k
+                            actual_exit_price = stop_price
+                            break
+                        if c >= target_price:
+                            # Profit target hit: exit at target price
+                            actual_exit_j     = k
+                            actual_exit_price = target_price
+                            break
+                    else:  # SHORT
+                        if c >= stop_price:
+                            actual_exit_j     = k
+                            actual_exit_price = stop_price
+                            break
+                        if c <= target_price:
+                            actual_exit_j     = k
+                            actual_exit_price = target_price
+                            break
+
+                exit_j   = actual_exit_j
                 # Convert numpy datetime64 → Python Timestamp for DataFrame compat
                 oos_ts    = pd.Timestamp(oos_dt_np)
                 entry_ts  = pd.Timestamp(dates[entry_j])
@@ -833,10 +1001,12 @@ def walk_forward_predictions_pooled(
                     "ticker":            ticker,
                     "sector":            SECTOR_MAP.get(ticker, "OTHER"),
                     "open_next":         float(open_prices[entry_j]),
-                    "exit_future_close": float(close_prices[exit_j]),
+                    "exit_future_close": actual_exit_price,
                     "holding_days":      int(exit_j - entry_j),
                     "signal":            direction_vote,
                     "direction_vote":    direction_vote,
+                    "p_up_raw":          p_up_raw,
+                    "p_up_calibrated":   p_up,
                     "confidence":        confidence,
                     "conf_threshold":    threshold,
                     "threshold_used_fallback": bool(threshold_used_fallback),
@@ -863,9 +1033,9 @@ def walk_forward_predictions_pooled(
     # Checks whether the isotonic calibration curve stays consistent across
     # walk-forward blocks.  A high KS distance means the calibration is drifting
     # (likely overfitting to each block's training distribution).
-    if len(_all_cal_probs_raw) >= 50:
+    if len(_all_cal_probs) >= 50:
         _cal_stability = check_calibration_stability(
-            pd.Series(_all_cal_probs_raw),
+            pd.Series(_all_cal_probs),
             pd.Series(_all_cal_labels),
         )
         _stable = _cal_stability.get("stable")
@@ -886,20 +1056,88 @@ def walk_forward_predictions_pooled(
     return result
 
 
+def load_ticker_eligibility(tickers: list[str]) -> tuple[set[str], dict[str, str]]:
+    """Return tickers allowed into ranking based on prior walk-forward evidence."""
+    def _metric(row: pd.Series, key: str, default: float = 0.0) -> float:
+        val = row.get(key, default)
+        try:
+            if pd.isna(val):
+                return default
+            return float(val)
+        except Exception:
+            return default
+
+    universe = {str(t).upper() for t in tickers}
+    report = read_quality_report()
+    if report.empty or "ticker" not in report.columns:
+        return universe, {t: "no_quality_report_fail_open" for t in universe}
+
+    report = report.copy()
+    report["ticker"] = report["ticker"].astype(str).str.upper()
+    latest = report.drop_duplicates("ticker", keep="first")
+    reasons: dict[str, str] = {}
+    eligible: set[str] = set()
+
+    for ticker in sorted(universe):
+        row = latest[latest["ticker"] == ticker]
+        if row.empty:
+            eligible.add(ticker)
+            reasons[ticker] = "missing_quality_row_fail_open"
+            continue
+
+        r = row.iloc[0]
+        trades = _metric(r, "walkforward_trades")
+        pnl = _metric(r, "walkforward_total_pnl")
+        sharpe = _metric(r, "walkforward_sharpe")
+        profit_factor = _metric(r, "walkforward_profit_factor")
+        dd = _metric(r, "walkforward_max_drawdown_pct")
+        failures = []
+        if trades < TICKER_ELIGIBILITY_MIN_TRADES:
+            failures.append(f"trades {trades:.0f}<{TICKER_ELIGIBILITY_MIN_TRADES}")
+        if pnl <= TICKER_ELIGIBILITY_MIN_TOTAL_PNL:
+            failures.append(f"pnl {pnl:.2f}<={TICKER_ELIGIBILITY_MIN_TOTAL_PNL:.2f}")
+        if sharpe < TICKER_ELIGIBILITY_MIN_SHARPE:
+            failures.append(f"sharpe {sharpe:.3f}<{TICKER_ELIGIBILITY_MIN_SHARPE:.3f}")
+        if profit_factor < TICKER_ELIGIBILITY_MIN_PROFIT_FACTOR:
+            failures.append(f"profit_factor {profit_factor:.3f}<{TICKER_ELIGIBILITY_MIN_PROFIT_FACTOR:.3f}")
+        if dd < TICKER_ELIGIBILITY_MAX_DRAWDOWN_PCT:
+            failures.append(f"drawdown {dd:.2f}%<{TICKER_ELIGIBILITY_MAX_DRAWDOWN_PCT:.2f}%")
+
+        if failures:
+            reasons[ticker] = "; ".join(failures)
+        else:
+            eligible.add(ticker)
+            reasons[ticker] = "eligible"
+
+    if not eligible:
+        return universe, {t: "eligibility_empty_fail_open" for t in universe}
+    return eligible, reasons
+
+
 def apply_cross_sectional_ranking(
     predictions_by_ticker: dict[str, pd.DataFrame],
     top_n: int,
     mode: str,
+    eligible_tickers: set[str] | None = None,
 ) -> dict[str, pd.DataFrame]:
     """
     Replace confidence-threshold filtering with cross-sectional ranking.
 
-    At each date, rank all tickers by predicted `expected_return`.
-    Mark the top-N tickers LONG, the bottom-N SHORT (if mode != long_only).
-    Set `actionable=True` only for those ranked positions.
+    At each date, rank all tickers by a NORMALISED score so the ranker picks
+    "which ticker is most above its own baseline today" rather than "which
+    ticker always has higher raw expected_return."
 
-    This sidesteps the broken isotonic calibration entirely — relative ranking
-    is far more robust than absolute probability thresholds on small samples.
+    Without normalisation the return model learns a static ticker-level bias
+    (e.g. MU always scores 0.57%, V always scores 0.64%) so the same 4 tickers
+    dominate every single day, rank Spearman → 0, and quality tiers become
+    meaningless.
+
+    Normalisation step:
+      z_exp_ret   = (exp_ret   - rolling_mean_exp_ret)   / rolling_std_exp_ret
+      z_dir_edge  = (dir_edge  - rolling_mean_dir_edge)  / rolling_std_dir_edge
+      rank_score  = z_exp_ret + 0.5 * z_dir_edge
+    Rolling window = 60 trading days (≈ 3 months).  Only applied once 20+
+    observations are available; before that the ticker is ranked at 0.
     """
     # Collect all dates across all tickers
     all_dates: set = set()
@@ -914,42 +1152,78 @@ def apply_cross_sectional_ranking(
     for pdf in updated.values():
         pdf["actionable"] = False
 
+    # Per-ticker rolling history buffers for normalisation
+    _NORM_WINDOW = 60   # days of history used to compute rolling mean/std
+    _NORM_MIN    = 20   # minimum observations before normalisation kicks in
+    ticker_exp_hist: dict[str, list[float]] = {t: [] for t in updated}
+    ticker_dir_hist: dict[str, list[float]] = {t: [] for t in updated}
+
     for dt in sorted(all_dates):
-        # Collect (ticker, p_up, expected_return, direction_vote) for each ticker on this date.
-        # p_up is derived from confidence + direction_vote:
-        #   LONG  → p_up = confidence / 100   (p_up >= 0.5 means model leans UP)
-        #   SHORT → p_up = 1 - confidence/100  (p_up <  0.5 means model leans DOWN)
-        # We rank LONG candidates by p_up (highest UP-confidence first) and SHORT
-        # candidates by (1 - p_up) (highest DOWN-confidence first).
-        # This replaces the broken expected_return ranking: the return model's
-        # Spearman is consistently near zero or negative, so sorting by it
-        # produces random or inverted selection.
-        day_rows: list[tuple[str, float, float, str]] = []
+        day_rows: list[tuple[str, float, str]] = []
+
         for ticker, pdf in updated.items():
+            if eligible_tickers is not None and ticker.upper() not in eligible_tickers:
+                continue
             if dt not in pdf.index:
                 continue
             row = pdf.loc[dt]
-            conf     = float(row.get("confidence", 50.0))
             dir_vote = str(row.get("direction_vote", "LONG"))
             exp_ret  = float(row.get("expected_return", 0.0))
-            # p_up: probability model assigns to the UP outcome
-            p_up = (conf / 100.0) if dir_vote == "LONG" else (1.0 - conf / 100.0)
-            day_rows.append((ticker, p_up, exp_ret, dir_vote))
+
+            # ── Use RAW p_up for direction — calibrated p_up is broken ─────────
+            # The isotonic calibrator maps every raw p_up value to < 0.5 because
+            # ~30% of triple-barrier rows are UP.  It interprets even a raw p_up
+            # of 0.68 as "only 49% likely UP" after shrinking toward the prior.
+            # direction_vote saved in the CSV is therefore always "SHORT" and
+            # useless for filtering.  Raw XGBoost probability > 0.5 means the
+            # model leans bullish — use that directly.
+            if "p_up_raw" in row and pd.notna(row.get("p_up_raw")):
+                p_up_raw = float(row.get("p_up_raw"))
+            else:
+                conf = float(row.get("confidence", 50.0)) / 100.0
+                p_up_raw = conf if dir_vote == "LONG" else 1.0 - conf
+            raw_direction = "LONG" if p_up_raw >= 0.5 else "SHORT"
+
+            # ── Ticker-normalised z-score of expected_return ─────────────────
+            # Z-score removes the static ticker-level bias in expected_return
+            # (e.g. MU always scores 0.57%, V always scores 0.64%) and turns the
+            # rank into a day-to-day relative signal within each ticker's own
+            # distribution.  Only applied once 20+ observations are available.
+            hist_e = ticker_exp_hist[ticker][-_NORM_WINDOW:]
+            hist_d = ticker_dir_hist[ticker][-_NORM_WINDOW:]
+            if len(hist_e) >= _NORM_MIN:
+                mean_e = float(np.mean(hist_e));  std_e = max(float(np.std(hist_e)), 1e-6)
+                mean_d = float(np.mean(hist_d));  std_d = max(float(np.std(hist_d)), 1e-6)
+                z_e = (exp_ret  - mean_e) / std_e
+                z_d = (p_up_raw - mean_d) / std_d
+            else:
+                z_e = 0.0
+                z_d = 0.0
+
+            rank_score = z_e + 0.5 * z_d
+
+            # Append AFTER computing score (no look-ahead)
+            ticker_exp_hist[ticker].append(exp_ret)
+            ticker_dir_hist[ticker].append(p_up_raw)
+
+            day_rows.append((ticker, rank_score, raw_direction))
 
         if not day_rows:
             continue
 
-        # Sort descending by p_up so the most-confident UP calls rank first.
+        # Sort descending by normalised score.
+        # Only include tickers with a POSITIVE z-score (above their own rolling
+        # average).  A negative z-score means the model thinks this ticker is
+        # below-average bullish today — "least bearish" is not a LONG signal.
+        # This prevents trading garbage during periods when all tickers look weak.
+        # Sort descending by z-score.  Filter by raw_direction so we only go
+        # LONG when the XGBoost model's raw output is > 0.5 (genuinely bullish).
+        # Calibrated p_up is broken for this purpose (always < 0.5 due to label
+        # prior), but raw p_up correctly captures which direction the model leans.
         day_rows.sort(key=lambda x: x[1], reverse=True)
-        longs  = [t for t, p, _, dv in day_rows if dv == "LONG"][:top_n]
-        # For shorts: most-confident DOWN = lowest p_up → reverse order
-        shorts = [t for t, p, _, dv in reversed(day_rows) if dv == "SHORT"][:top_n] if mode != "long_only" else []
+        longs  = [t for t, _, dv in day_rows if dv == "LONG"][:top_n]
+        shorts = [t for t, _, dv in reversed(day_rows) if dv == "SHORT"][:top_n] if mode != "long_only" else []
 
-        # Assign signal_quality by rank position:
-        #   Rank 1 → HIGH  (most confident UP call)
-        #   Rank 2 → MEDIUM
-        #   Rank 3+ → LOW
-        # With BACKTEST_ALLOWED_SIGNAL_QUALITIES = ("HIGH","MEDIUM") only top-2 trade.
         _quality_map = {0: "HIGH", 1: "MEDIUM"}
         for rank, ticker in enumerate(longs):
             quality = _quality_map.get(rank, "LOW")
@@ -1105,6 +1379,36 @@ def compute_benchmark_comparisons(equity: pd.Series, benchmarks: pd.DataFrame) -
     return rows
 
 
+def compute_rank_performance(trades_df: pd.DataFrame) -> dict:
+    """Measure whether higher expected-return ranks produced better realized PnL."""
+    if trades_df.empty or not {"date", "expected_return", "net_pnl"}.issubset(trades_df.columns):
+        return {"rank_spearman": None, "top_rank_avg_pnl": None, "bottom_rank_avg_pnl": None}
+
+    rows = []
+    df = trades_df.copy()
+    df["expected_return"] = pd.to_numeric(df["expected_return"], errors="coerce")
+    df["net_pnl"] = pd.to_numeric(df["net_pnl"], errors="coerce")
+    for _, day in df.dropna(subset=["expected_return", "net_pnl"]).groupby("date"):
+        if len(day) < 2:
+            continue
+        ranked = day.sort_values("expected_return", ascending=False).copy()
+        ranked["rank"] = np.arange(1, len(ranked) + 1)
+        rows.append(ranked[["rank", "net_pnl"]])
+    if not rows:
+        return {"rank_spearman": None, "top_rank_avg_pnl": None, "bottom_rank_avg_pnl": None}
+
+    ranked_all = pd.concat(rows, ignore_index=True)
+    spearman = ranked_all["rank"].corr(ranked_all["net_pnl"], method="spearman")
+    top = ranked_all[ranked_all["rank"] == 1]["net_pnl"]
+    bottom_rank = ranked_all["rank"].max()
+    bottom = ranked_all[ranked_all["rank"] == bottom_rank]["net_pnl"]
+    return {
+        "rank_spearman": round(float(spearman), 4) if pd.notna(spearman) else None,
+        "top_rank_avg_pnl": round(float(top.mean()), 2) if len(top) else None,
+        "bottom_rank_avg_pnl": round(float(bottom.mean()), 2) if len(bottom) else None,
+    }
+
+
 def build_trade_attribution_report(trades_df: pd.DataFrame) -> pd.DataFrame:
     columns = [
         "group_type", "group", "trades", "win_rate", "avg_pnl", "median_pnl",
@@ -1179,7 +1483,7 @@ def run_portfolio_backtest(
     benchmarks = build_benchmarks(pd.DatetimeIndex(all_dates))
     benchmark = benchmarks["SPY"]
     spy_close = benchmark * 100.0
-    equity_curve, equity_index = [], []
+    equity_curve, equity_index, gross_exposure_curve = [], [], []
 
     def mark_to_market(dt):
         total = cash
@@ -1233,9 +1537,10 @@ def run_portfolio_backtest(
             row = pdf.loc[dt]
             if not bool(row.get("actionable", False)):
                 continue
-            allowed_qualities = {str(q).upper() for q in BACKTEST_ALLOWED_SIGNAL_QUALITIES}
-            if str(row.get("signal_quality", "LOW")).upper() not in allowed_qualities:
-                continue
+            # Signal quality gate removed — apply_cross_sectional_ranking already
+            # limits candidates to top-N by expected_return.  Filtering here by
+            # confidence-bucket quality labels was redundant noise (probabilities
+            # collapse around 0.5 so bucket boundaries were arbitrary).
             signal = str(row["signal"])
             expected_return = float(row.get("expected_return", 0.0))
             rule = trade_rules.get(ticker)
@@ -1277,11 +1582,11 @@ def run_portfolio_backtest(
                     asset_vol,
                 ) * reg_mult
             else:
-                requested_pct = requested_position_pct(
-                    float(row["confidence"]),
-                    expected_return,
-                    str(row["signal_quality"]),
-                ) * reg_mult
+                # ATR-based risk sizing: risk ATR_RISK_BUDGET_PCT of capital per
+                # trade, using ATR_SL_MULT × 20-day ATR as the stop estimate.
+                # High-vol tickers (NVDA, MU) get smaller positions than calm
+                # tickers (MSFT, UNH), equalising dollar risk across the book.
+                requested_pct = atr_position_pct(price_history, ticker, dt) * reg_mult
             if use_trade_rules and rule is not None:
                 requested_pct = min(requested_pct, float(rule.max_position_pct))
             candidates.append(ProposedTrade(
@@ -1293,7 +1598,24 @@ def run_portfolio_backtest(
                 requested_position_pct=requested_pct,
             ))
         eq_series = pd.Series(index=pd.DatetimeIndex(equity_index), data=equity_curve, dtype=float) if equity_curve else pd.Series(dtype=float)
-        approved = manager.approve_day(candidates, {k: v["Close"] for k, v in price_history.items()}, eq_series)
+        # Compute the gross/net exposure already committed in open positions.
+        # This tells approve_day how much room is left under the cap before
+        # opening any new trades today.
+        open_gross = sum(abs(p["requested_position_pct"]) for p in open_positions)
+        open_net   = sum(
+            p["requested_position_pct"] if p.get("signal", "LONG") == "LONG"
+            else -p["requested_position_pct"]
+            for p in open_positions
+        )
+        open_ticker_set = {p["ticker"] for p in open_positions}
+        approved = manager.approve_day(
+            candidates,
+            {k: v["Close"] for k, v in price_history.items()},
+            eq_series,
+            current_gross=open_gross,
+            current_net=open_net,
+            open_tickers=open_ticker_set,
+        )
         eff_slip = SLIPPAGE_BASE_PCT * stress
         for tr in approved:
             row = predictions_by_ticker[tr.ticker].loc[dt]
@@ -1358,10 +1680,17 @@ def run_portfolio_backtest(
             })
         equity_index.append(dt)
         equity_curve.append(mark_to_market(dt))
+        gross_exposure_curve.append(sum(abs(float(p["requested_position_pct"])) for p in open_positions))
 
-    equity = pd.Series(index=pd.DatetimeIndex(equity_index), data=equity_curve, dtype=float)
-    benchmarks = build_benchmarks(equity.index)
-    benchmark = benchmarks["SPY"]
+    raw_equity = pd.Series(index=pd.DatetimeIndex(equity_index), data=equity_curve, dtype=float)
+    gross_exposure = pd.Series(index=pd.DatetimeIndex(equity_index), data=gross_exposure_curve, dtype=float)
+    benchmarks = build_benchmarks(raw_equity.index)
+    equity = raw_equity
+    overlay_alloc = pd.Series(index=raw_equity.index, data=0.0, dtype=float)
+    if CASH_OVERLAY_ENABLED:
+        equity, overlay_alloc = apply_cash_overlay(raw_equity, benchmarks, gross_exposure)
+
+    benchmark = benchmarks["BLEND"] if "BLEND" in benchmarks.columns else benchmarks["SPY"]
     daily_ret = equity.pct_change().fillna(0.0)
     dd = equity / equity.cummax() - 1.0
     total_ret = float(equity.iloc[-1] / equity.iloc[0] - 1.0) if len(equity) else 0.0
@@ -1375,11 +1704,19 @@ def run_portfolio_backtest(
     # positive drift, making the t-stat negative even when all trades are profitable.
     # The correct null hypothesis for a sparse trading strategy is:
     #   H0: mean daily return == 0  (is there any return above cash?)
-    # We still log the SPY-relative t-stat separately for information.
-    spy_daily = benchmark.pct_change().reindex(equity.index).fillna(0.0)
+    # We still log benchmark-relative t-stats separately for information.
+    primary_daily = benchmark.pct_change().reindex(equity.index).fillna(0.0)
+    spy_daily = benchmarks["SPY"].reindex(equity.index).ffill().bfill().pct_change().fillna(0.0)
     nw_tstat = _newey_west_tstat(daily_ret)          # vs 0 (cash) — primary gate
-    nw_tstat_vs_spy = _newey_west_tstat(daily_ret - spy_daily)  # informational only
+    nw_tstat_vs_primary = _newey_west_tstat(daily_ret - primary_daily)  # informational only
+    nw_tstat_vs_spy = _newey_west_tstat(daily_ret - spy_daily)          # informational only
     benchmark_comparisons = compute_benchmark_comparisons(equity, benchmarks)
+    raw_daily_ret = raw_equity.pct_change().fillna(0.0)
+    raw_total_ret = float(raw_equity.iloc[-1] / raw_equity.iloc[0] - 1.0) if len(raw_equity) else 0.0
+    raw_sharpe = float((raw_daily_ret.mean() / (raw_daily_ret.std() + 1e-12)) * np.sqrt(252)) if len(raw_daily_ret) else 0.0
+    avg_gross_exposure = float(gross_exposure.reindex(equity.index).fillna(0.0).mean()) if len(gross_exposure) else 0.0
+    in_market_pct = float((gross_exposure.reindex(equity.index).fillna(0.0) > 0).mean() * 100.0) if len(gross_exposure) else 0.0
+    rank_performance = compute_rank_performance(pd.DataFrame(trade_rows))
 
     # Evaluate every kill-criteria gate and record which passed / failed.
     gate_results = {
@@ -1394,9 +1731,22 @@ def run_portfolio_backtest(
         "annual_return_pct": round(ann_ret * 100, 2),
         "benchmark_return_pct": round(bench_ret * 100, 2),
         "alpha_pct": round((total_ret - bench_ret) * 100, 2),
+        "cagr_pct": round(ann_ret * 100, 2),
         "benchmark_comparisons": benchmark_comparisons,
+        "primary_benchmark": "BLEND",
+        "primary_benchmark_weights": _normalise_weights(PRIMARY_BENCHMARK_WEIGHTS),
+        "raw_strategy_total_return_pct": round(raw_total_ret * 100, 2),
+        "raw_strategy_sharpe_ratio_daily": round(raw_sharpe, 3),
+        "cash_overlay_enabled": bool(CASH_OVERLAY_ENABLED),
+        "cash_overlay_max_alloc": float(CASH_OVERLAY_MAX_ALLOC),
+        "cash_overlay_avg_alloc": round(float(overlay_alloc.mean()), 4) if len(overlay_alloc) else 0.0,
+        "cash_overlay_days_active": int((overlay_alloc > 0).sum()) if len(overlay_alloc) else 0,
+        "avg_gross_exposure_pct": round(avg_gross_exposure * 100.0, 2),
+        "in_market_pct": round(in_market_pct, 2),
+        "rank_performance": rank_performance,
         "sharpe_ratio_daily": round(sharpe, 3),
         "nw_tstat_vs_cash": round(nw_tstat, 3),
+        "nw_tstat_vs_primary_benchmark": round(nw_tstat_vs_primary, 3),
         "nw_tstat_vs_spy": round(nw_tstat_vs_spy, 3),
         "max_drawdown_pct": round(float(dd.min()) * 100, 2) if len(dd) else 0.0,
         "slippage_assumption_bps": round(SLIPPAGE_BASE_PCT * stress * 10_000, 1),
@@ -1412,17 +1762,19 @@ def run_portfolio_backtest(
     return pd.DataFrame(trade_rows), equity, benchmarks, metrics
 
 
-def default_backtest_tickers() -> list[str]:
+def default_backtest_tickers(approved_only: bool = False) -> list[str]:
     available = {f.replace(".parquet", "") for f in os.listdir(DATA_DIR) if f.endswith(".parquet")}
-    report = read_quality_report()
-    if not report.empty and {"ticker", "approved_for_live"}.issubset(report.columns):
-        approved = report[report["approved_for_live"].astype(str).str.lower().isin({"true", "1"})]
-        tickers = [str(t).upper() for t in approved["ticker"].tolist() if str(t).upper() in available]
-        if tickers:
-            return tickers
-    # No manual live-approval fallback: if nothing is approved, the default
-    # research run uses the watchlist but still writes rejected/approved status
-    # from objective gates into model_quality_report.csv.
+    if approved_only:
+        report = read_quality_report()
+        if not report.empty and {"ticker", "approved_for_live"}.issubset(report.columns):
+            approved = report[report["approved_for_live"].astype(str).str.lower().isin({"true", "1"})]
+            tickers = [str(t).upper() for t in approved["ticker"].tolist() if str(t).upper() in available]
+            if tickers:
+                return tickers
+        return []
+
+    # Research backtests should use the full available watchlist by default.
+    # The live-approved subset is opt-in via --approved-only.
     return [t for t in WATCHLIST if t in available]
 
 
@@ -1443,6 +1795,10 @@ def write_quality_outputs(tickers: list[str], trades_df: pd.DataFrame, metrics: 
                 "portfolio_nw_tstat_vs_cash": metrics.get("nw_tstat_vs_cash"),
                 "portfolio_max_drawdown_pct": metrics.get("max_drawdown_pct"),
                 "portfolio_total_return_pct": metrics.get("total_return_pct"),
+                "portfolio_cagr_pct": metrics.get("cagr_pct"),
+                "portfolio_avg_gross_exposure_pct": metrics.get("avg_gross_exposure_pct"),
+                "portfolio_in_market_pct": metrics.get("in_market_pct"),
+                "rank_spearman": (metrics.get("rank_performance") or {}).get("rank_spearman"),
             },
         )
         rows.append(row)
@@ -1463,6 +1819,8 @@ def main() -> None:
     parser.add_argument("--tickers", nargs="*", default=None)
     parser.add_argument("--mode", type=str, default="long_only", choices=["long_short", "long_only", "long_only_bear_cash"])
     parser.add_argument("--allow-shorts", action="store_true", help="Backward-compatible alias for --mode long_short.")
+    parser.add_argument("--approved-only", action="store_true", help="Backtest only tickers currently approved for live trading.")
+    parser.add_argument("--no-eligibility-filter", action="store_true", help="Disable prior walk-forward ticker eligibility filtering.")
     parser.add_argument("--use-trade-rules", action="store_true", help="Apply optimized per-ticker trade rules. Off by default for pooled research backtests.")
     parser.add_argument("--ignore-trade-rules", action="store_true", help="Deprecated; trade rules are ignored unless --use-trade-rules is passed.")
     parser.add_argument("--stress", type=float, default=1.0)
@@ -1474,7 +1832,10 @@ def main() -> None:
     elif args.ticker:
         tickers = [args.ticker.upper()]
     else:
-        tickers = default_backtest_tickers()
+        tickers = default_backtest_tickers(approved_only=args.approved_only)
+
+    if not tickers:
+        raise SystemExit("No backtest tickers selected")
 
     # Compute effective_mode early so pooled path can use it for ranking.
     # Keep the default long-only, but make an explicit --mode long_short do
@@ -1482,14 +1843,43 @@ def main() -> None:
     effective_mode = "long_short" if args.allow_shorts else args.mode
     use_trade_rules = bool(args.use_trade_rules and not args.ignore_trade_rules)
     use_pooled = POOLED_TRAINING and len(tickers) > 1
+    use_eligibility_filter = bool(TICKER_ELIGIBILITY_FILTER_ENABLED and not args.no_eligibility_filter)
+    eligible_tickers: set[str] | None = None
+    if use_eligibility_filter:
+        eligible_tickers, eligibility_reasons = load_ticker_eligibility(tickers)
+        excluded = [t for t in tickers if t.upper() not in eligible_tickers]
+        if excluded:
+            print(f"[eligibility] Excluding {len(excluded)} tickers from ranking/trading: {', '.join(excluded)}")
+            for t in excluded[:12]:
+                print(f"[eligibility] {t}: {eligibility_reasons.get(t.upper(), 'ineligible')}")
+        else:
+            print(f"[eligibility] All {len(tickers)} tickers eligible")
 
     if use_pooled:
         # ── Pooled cross-sectional walk-forward ───────────────────────────────
         print(f"[backtest] POOLED mode: training one model across {len(tickers)} tickers")
-        predictions = walk_forward_predictions_pooled(tickers)
+        # Static-model mode: train on first ~2 years, predict all remaining years.
+        # Rolling retrain (small test_block) degrades model quality because each
+        # block trains on less data than the full dataset.  The static model
+        # trained in train.py has 10x more data and better calibration.
+        # test_block=99999 means one block covers the entire OOS window.
+        # min_total_train_rows scales with ticker count so the model always has
+        # ~5 years of per-ticker history before OOS starts.
+        # 17 tickers × 1250 rows/ticker/year × 5 years ≈ 21 250 → floor at 20 000.
+        # This pushes OOS start to ~2015, matching our old 2015 TRAIN_START but
+        # giving the model 2010-2015 as a richer training window.
+        _min_train = max(20_000, len(tickers) * 1_250)
+        predictions = walk_forward_predictions_pooled(
+            tickers,
+            min_total_train_rows=_min_train,
+            test_block=99999,
+        )
         # Apply cross-sectional ranking instead of confidence-threshold filtering
         predictions = apply_cross_sectional_ranking(
-            predictions, top_n=CROSS_SECTIONAL_TOP_N, mode=effective_mode
+            predictions,
+            top_n=CROSS_SECTIONAL_TOP_N,
+            mode=effective_mode,
+            eligible_tickers=eligible_tickers if use_eligibility_filter else None,
         )
     else:
         # ── Per-ticker walk-forward (original path) ───────────────────────────
@@ -1505,6 +1895,9 @@ def main() -> None:
                     if _acc < _baseline - 5.0:
                         print(f"SKIP {ticker}: dir_acc={_acc:.1f}% vs baseline={_baseline:.1f}% (>5pp below, model harmful)")
                         continue
+                if eligible_tickers is not None and ticker.upper() not in eligible_tickers:
+                    print(f"SKIP {ticker}: ineligible by prior walk-forward contribution")
+                    continue
                 predictions[ticker] = walk_forward_predictions_for_ticker(ticker)
             except Exception as e:
                 print(f"ERROR - {ticker}: {e}")
@@ -1596,7 +1989,9 @@ def main() -> None:
     print(f"  Sharpe        : {metrics['sharpe_ratio_daily']:.3f}  (need >= {thr['min_sharpe']})  "
           f"{'PASS' if res['sharpe_pass'] else 'FAIL'}")
     print(f"  NW t-stat(0)  : {metrics['nw_tstat_vs_cash']:.3f}  (need >= {thr['min_nw_tstat']})  "
-          f"{'PASS' if res['nw_tstat_pass'] else 'FAIL'}  [vs SPY: {metrics['nw_tstat_vs_spy']:.3f}]")
+          f"{'PASS' if res['nw_tstat_pass'] else 'FAIL'}  "
+          f"[vs {metrics.get('primary_benchmark', 'benchmark')}: {metrics.get('nw_tstat_vs_primary_benchmark', 0.0):.3f}; "
+          f"vs SPY: {metrics['nw_tstat_vs_spy']:.3f}]")
     print(f"  Max drawdown  : {metrics['max_drawdown_pct']:.1f}%  (need >= {thr['max_drawdown']*100:.0f}%)  "
           f"{'PASS' if res['drawdown_pass'] else 'FAIL'}")
     print("-" * 60)

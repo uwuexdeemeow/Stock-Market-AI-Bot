@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-04-25T08:52:18.821919+00:00",
+  "run_at": "2026-04-26T11:25:18.464403+00:00",
   "train_start": "2022-01-01",
   "train_end": "2024-01-01",
   "results": [
@@ -12,7 +12,7 @@
       "ticker": "MSFT",
       "status": "pass",
       "leaking_features": [],
-      "n_features_checked": 50,
+      "n_features_checked": 56,
       "cutoff_date": "2023-05-25"
     },
     {

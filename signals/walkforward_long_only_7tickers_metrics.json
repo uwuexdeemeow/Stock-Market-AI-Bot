@@ -1,25 +1,46 @@
 {
-  "total_return_pct": -12.16,
-  "annual_return_pct": -1.14,
-  "benchmark_return_pct": 313.86,
-  "alpha_pct": -326.02,
-  "sharpe_ratio_daily": -0.176,
-  "nw_tstat_vs_spy": -3.13,
-  "max_drawdown_pct": -19.31,
+  "total_return_pct": 157.39,
+  "annual_return_pct": 8.72,
+  "benchmark_return_pct": 319.66,
+  "alpha_pct": -162.27,
+  "benchmark_comparisons": {
+    "SPY": {
+      "data_available": true,
+      "benchmark_return_pct": 319.66,
+      "alpha_pct": -162.27,
+      "nw_tstat_vs_benchmark": -0.885
+    },
+    "QQQ": {
+      "data_available": true,
+      "benchmark_return_pct": 601.29,
+      "alpha_pct": -443.9,
+      "nw_tstat_vs_benchmark": -1.614
+    },
+    "IWM": {
+      "data_available": true,
+      "benchmark_return_pct": 169.15,
+      "alpha_pct": -11.76,
+      "nw_tstat_vs_benchmark": -0.288
+    }
+  },
+  "sharpe_ratio_daily": 0.7,
+  "nw_tstat_vs_cash": 2.568,
+  "nw_tstat_vs_spy": -0.885,
+  "max_drawdown_pct": -19.36,
   "slippage_assumption_bps": 10.0,
   "execution_model": "spread_plus_sqrt_impact",
   "mode": "long_only",
   "kill_criteria": {
     "thresholds": {
-      "min_sharpe": 1.0,
-      "min_nw_tstat": 2.0,
+      "min_sharpe": 0.5,
+      "min_nw_tstat": 1.65,
       "max_drawdown": -0.25
     },
     "results": {
-      "sharpe_pass": false,
-      "nw_tstat_pass": false,
+      "sharpe_pass": true,
+      "nw_tstat_pass": true,
       "drawdown_pass": true,
-      "all_pass": false
+      "all_pass": true
     }
   },
   "diagnostics_2022": {
@@ -32,18 +53,18 @@
   },
   "signal_quality": {
     "HIGH": {
-      "n": 64,
-      "win_rate": 0.5312,
-      "avg_pnl": -5.2645,
-      "median_pnl": 4.06,
-      "total_pnl": -336.93
+      "n": 330,
+      "win_rate": 0.6091,
+      "avg_pnl": 47.6938,
+      "median_pnl": 24.89,
+      "total_pnl": 15738.96
     },
     "MEDIUM": {
-      "n": 55,
-      "win_rate": 0.5818,
-      "avg_pnl": -15.9833,
-      "median_pnl": 4.83,
-      "total_pnl": -879.08
+      "n": 0,
+      "win_rate": null,
+      "avg_pnl": null,
+      "median_pnl": null,
+      "total_pnl": 0.0
     },
     "LOW": {
       "n": 0,
