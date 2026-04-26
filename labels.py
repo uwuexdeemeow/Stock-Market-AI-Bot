@@ -29,6 +29,8 @@ from settings import (
     RETURN_BINS,
     RETURN_HORIZON_DAYS,
     VOL_ADJUSTED_SHARPE_THRESHOLD,
+    TRIPLE_BARRIER_PT_MULT,
+    TRIPLE_BARRIER_SL_MULT,
 )
 
 
@@ -91,6 +93,8 @@ def make_direction_target(
             close,
             high=df["High"] if "High" in df.columns else None,
             low=df["Low"] if "Low" in df.columns else None,
+            pt_mult=TRIPLE_BARRIER_PT_MULT,
+            sl_mult=TRIPLE_BARRIER_SL_MULT,
             max_hold=horizon,
         )
         return (labels.values > 0).astype(np.int64)

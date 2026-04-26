@@ -32,7 +32,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
 
@@ -41,7 +41,7 @@ from xgboost import XGBClassifier
 class FoldResult:
     # Which hyperparameter values won on this outer fold.
     params: dict
-    # Accuracy on the outer test fold (0–1).
+    # AUC-ROC on the outer test fold (0–1, 0.5 = random baseline).
     score: float
     # Which outer fold index (0-based).
     fold: int
@@ -132,21 +132,39 @@ def nested_walk_forward_search(
 
                 model = XGBClassifier(**full_params)
                 model.fit(X_train, y.iloc[tr[itr]], verbose=False)
-                pred  = model.predict(X_test)
-                inner_scores.append(accuracy_score(y.iloc[tr[ite]], pred))
+
+                # Use AUC-ROC instead of accuracy.
+                # Why: with ~30% UP labels (triple-barrier), accuracy is dominated
+                # by the majority class — a model that always predicts DOWN gets
+                # ~70% accuracy and beats a model with real signal.  AUC-ROC uses
+                # predicted probabilities (not a hard threshold), so it measures
+                # pure discriminative ability: can the model rank UP rows above
+                # DOWN rows?  Random baseline = 0.5 regardless of class balance.
+                y_te = y.iloc[tr[ite]]
+                if len(np.unique(y_te)) < 2:
+                    # Skip fold if only one class present (can't compute AUC)
+                    continue
+                proba = model.predict_proba(X_test)[:, 1]
+                inner_scores.append(roc_auc_score(y_te, proba))
 
             mean_score = float(np.mean(inner_scores)) if inner_scores else -np.inf
             if mean_score > best_score:
                 best_score  = mean_score
                 best_params = full_params   # store the FULL merged params
 
-        # Evaluate the winner on the outer test fold.
+        # Evaluate the winner on the outer test fold using AUC-ROC.
         scaler       = StandardScaler()
         X_train_out  = scaler.fit_transform(X.iloc[tr])
         X_test_out   = scaler.transform(X.iloc[te])
         model = XGBClassifier(**(best_params or {}))
         model.fit(X_train_out, y.iloc[tr], verbose=False)
-        outer_score = accuracy_score(y.iloc[te], model.predict(X_test_out))
+        y_te_out    = y.iloc[te]
+        outer_proba = model.predict_proba(X_test_out)[:, 1]
+        outer_score = (
+            roc_auc_score(y_te_out, outer_proba)
+            if len(np.unique(y_te_out)) >= 2
+            else 0.5
+        )
 
         results.append(FoldResult(params=best_params, score=float(outer_score), fold=k))
 

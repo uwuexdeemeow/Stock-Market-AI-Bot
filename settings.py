@@ -169,6 +169,13 @@ RETURN_BINS = [-0.03, -0.01, 0.01, 0.03]
 #                      Sharper class separation than fixed-horizon returns.
 PREDICTION_TARGET = "triple_barrier"
 
+# Triple-barrier barrier widths (multiplied by 14-day ATR).
+# Symmetric barriers avoid baking in a DOWN-class shortcut.
+# Wider barriers (2.0 vs old 1.5) mean only genuine strong moves get labeled UP,
+# giving the model sharper, less noisy training signal.
+TRIPLE_BARRIER_PT_MULT = 2.0   # profit-take barrier = entry + PT_MULT × ATR
+TRIPLE_BARRIER_SL_MULT = 2.0   # stop-loss barrier   = entry - SL_MULT × ATR
+
 # Minimum excess return vs SPY (after estimated slippage) to label a row UP.
 # 0.5 % clears the spread + commission hurdle for a $10k position.
 EXCESS_RETURN_MIN_PCT = 0.005
@@ -249,12 +256,11 @@ FEATURE_IMPORTANCE_TOP_K = 30
 # by backtest.py so both pipelines use the same tuned configuration.
 # Pass --no-tune to python3 train.py to skip this step for faster runs.
 #
-# DISABLED: the nested CV produces near-random fold scores (~0.49 avg) because
-# the triple-barrier label set is too noisy for cross-validated accuracy to
-# distinguish hyperparams. Empirically, max_depth=6, min_child_weight=10,
-# reg_lambda=10.0 gives Sharpe ~0.938; the CV kept "selecting" depth=3 which
-# collapsed Sharpe to 0.296. Re-enable only after fixing the CV scoring metric.
-TUNE_HYPERPARAMS = False
+# Fixed: switched nested CV scoring from accuracy_score → roc_auc_score so
+# class imbalance (~30% UP triple-barrier labels) no longer biases the search
+# toward majority-class-predicting models. Also tightened param grid to exclude
+# known-bad underregularised values (min_child_weight=1, reg_lambda=0.1).
+TUNE_HYPERPARAMS = True
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MODEL SELECTION
@@ -293,9 +299,12 @@ PRIMARY_BENCHMARK_WEIGHTS = {"SPY": 0.60, "QQQ": 0.40}
 TICKER_ELIGIBILITY_FILTER_ENABLED = True
 TICKER_ELIGIBILITY_MIN_TRADES = 20
 TICKER_ELIGIBILITY_MIN_TOTAL_PNL = 0.0
-TICKER_ELIGIBILITY_MIN_SHARPE = 0.25
-TICKER_ELIGIBILITY_MIN_PROFIT_FACTOR = 1.05
-TICKER_ELIGIBILITY_MAX_DRAWDOWN_PCT = -30.0
+# Tightened from 0.25 → 0.40: only keep tickers with consistent edge.
+# Chronic losers (red bars on per-ticker chart) drag pooled Sharpe down.
+TICKER_ELIGIBILITY_MIN_SHARPE = 0.40
+# Tightened from 1.05 → 1.15: profit factor must meaningfully exceed 1.0.
+TICKER_ELIGIBILITY_MIN_PROFIT_FACTOR = 1.15
+TICKER_ELIGIBILITY_MAX_DRAWDOWN_PCT = -25.0
 
 # Live approval is generated from models/model_quality_report.csv by backtest.py.
 # Keep these compatibility names empty so old imports fail safe instead of

@@ -458,6 +458,71 @@ def save_xgb_results_plot(
     return plot_path
 
 
+def save_pooled_ticker_plot(
+    ticker_labels: np.ndarray,
+    probs: np.ndarray,
+    y_true: np.ndarray,
+) -> str:
+    """
+    Save a grouped bar chart — one bar-pair per ticker — showing each ticker's
+    held-out direction accuracy vs its baseline UP rate.
+
+    A bar taller than its grey baseline means the model has positive edge on
+    that ticker.  Bars are coloured green when accuracy beats baseline, red
+    when it doesn't.
+
+    ticker_labels : 1-D array of ticker strings, one per test row
+    probs         : calibrated p_up for each test row
+    y_true        : true direction labels (0/1) for each test row
+    """
+    probs  = np.asarray(probs, dtype=float)
+    y_true = np.asarray(y_true, dtype=int)
+    preds  = (probs >= 0.5).astype(int)
+
+    # Compute per-ticker stats
+    unique_tickers = sorted(set(ticker_labels))
+    accs      = []
+    baselines = []
+    for t in unique_tickers:
+        mask = ticker_labels == t
+        if mask.sum() == 0:
+            accs.append(50.0)
+            baselines.append(50.0)
+            continue
+        acc  = float((preds[mask] == y_true[mask]).mean() * 100.0)
+        base = float(y_true[mask].mean() * 100.0)
+        accs.append(acc)
+        baselines.append(base)
+
+    n = len(unique_tickers)
+    x = np.arange(n)
+    width = 0.38
+
+    # Green bar = model beats baseline; red = model lags baseline
+    bar_colors = ["#2ca02c" if a >= b else "#d62728" for a, b in zip(accs, baselines)]
+
+    fig, ax = plt.subplots(figsize=(max(10, n * 0.85), 5), dpi=120)
+
+    ax.bar(x - width / 2, accs,      width, color=bar_colors, label="Model acc", zorder=3)
+    ax.bar(x + width / 2, baselines, width, color="#aec7e8",  label="Baseline",  zorder=3)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(unique_tickers, rotation=35, ha="right", fontsize=9)
+    ax.set_ylim(0, 100)
+    ax.set_yticks(np.arange(0, 101, 20))
+    ax.axhline(50.0, color="black", linestyle="--", linewidth=1, alpha=0.4)
+    ax.set_title("Held-out accuracy vs baseline — per ticker (pooled model)", fontsize=13)
+    ax.set_ylabel("Accuracy (%)")
+    ax.legend(fontsize=9)
+    ax.grid(False)
+
+    fig.tight_layout()
+    plot_path = os.path.join(MODEL_DIR, "pooled_ticker_accuracy.png")
+    fig.savefig(plot_path, bbox_inches="tight")
+    plt.close(fig)
+    return plot_path
+
+
 def walk_forward_summary(X_all: np.ndarray, y_all: np.ndarray, n_folds: int = 5) -> dict:
     """
     Diagnostic expanding-window CV over the FULL dataset (train + test period).
@@ -952,10 +1017,11 @@ def train_pooled(
     # Rolling transforms are applied PER-TICKER so that windows don't bleed
     # across ticker boundaries.  We then concatenate the resulting matrices.
     valid_tickers: list[str] = []
-    all_dates_list: list[np.ndarray] = []   # each entry: (n_ticker_rows,) timestamps
-    all_X_list: list[np.ndarray] = []       # each entry: (n_ticker_rows, n_xgb_features)
+    all_dates_list: list[np.ndarray] = []        # each entry: (n_ticker_rows,) timestamps
+    all_X_list: list[np.ndarray] = []            # each entry: (n_ticker_rows, n_xgb_features)
     all_y_dir_list: list[np.ndarray] = []
     all_y_ret_list: list[np.ndarray] = []
+    all_ticker_labels_list: list[np.ndarray] = []  # ticker name repeated for each row
     xgb_cols: list[str] | None = None
 
     for ticker, (df_raw, _) in per_ticker_info.items():
@@ -998,6 +1064,8 @@ def train_pooled(
         all_X_list.append(X)
         all_y_dir_list.append(y_dir)
         all_y_ret_list.append(y_ret)
+        # Track which ticker each row belongs to (needed for per-ticker plot).
+        all_ticker_labels_list.append(np.array([ticker] * len(X), dtype=object))
         valid_tickers.append(ticker)
 
     if not valid_tickers:
@@ -1021,15 +1089,17 @@ def train_pooled(
     all_xgb_cols = xgb_cols + ticker_dummy_xgb_cols
 
     # ── Step 4: concatenate and sort chronologically ───────────────────────────
-    all_dates  = np.concatenate(all_dates_list)
-    X_combined = np.concatenate(all_X_with_dummy, axis=0)
-    y_dir_comb = np.concatenate(all_y_dir_list)
-    y_ret_comb = np.concatenate(all_y_ret_list)
+    all_dates        = np.concatenate(all_dates_list)
+    X_combined       = np.concatenate(all_X_with_dummy, axis=0)
+    y_dir_comb       = np.concatenate(all_y_dir_list)
+    y_ret_comb       = np.concatenate(all_y_ret_list)
+    ticker_labels_all = np.concatenate(all_ticker_labels_list)  # ticker name per row
     sort_order = np.argsort(all_dates, kind="stable")
-    all_dates  = all_dates[sort_order]
-    X_combined = X_combined[sort_order]
-    y_dir_comb = y_dir_comb[sort_order]
-    y_ret_comb = y_ret_comb[sort_order]
+    all_dates         = all_dates[sort_order]
+    X_combined        = X_combined[sort_order]
+    y_dir_comb        = y_dir_comb[sort_order]
+    y_ret_comb        = y_ret_comb[sort_order]
+    ticker_labels_all = ticker_labels_all[sort_order]
 
     # ── Step 5: date-based train / calib / test split ─────────────────────────
     # Row-count splits would leak ticker length differences into the cut points.
@@ -1059,6 +1129,7 @@ def train_pooled(
     y_ret_cal = y_ret_comb[calib_mask]
     X_test  = X_combined[test_mask]
     y_dir_test = y_dir_comb[test_mask]
+    ticker_labels_test = ticker_labels_all[test_mask]  # ticker name for each test row
     log.info("[pooled] Train rows: %d  Calib rows: %d  Test rows: %d",
              len(X_train), len(X_cal), len(X_test))
 
@@ -1092,9 +1163,14 @@ def train_pooled(
         log.info("[pooled] Running nested walk-forward CV hyperparameter search "
                  "(%d train rows, 4 outer × 3 inner folds)...", len(X_train_sc))
         tunable_grid = {
-            "max_depth":        [3, 4, 5, 6],
-            "min_child_weight": [1, 3, 5, 10],
-            "reg_lambda":       [0.1, 1.0, 10.0],
+            # max_depth=3 is too shallow for 30 features; start at 4.
+            "max_depth":        [4, 5, 6],
+            # min_child_weight=1 allows tiny leaves → overfits on small folds.
+            # With ~2k training rows, keep ≥ 3 samples per leaf minimum.
+            "min_child_weight": [3, 5, 10],
+            # reg_lambda=0.1 is under-regularised at our data scale;
+            # empirically 10.0 works best, so search [1, 5, 10].
+            "reg_lambda":       [1.0, 5.0, 10.0],
         }
         # Fixed params are not searched — they wrap around every tunable combo.
         fixed_params = {
@@ -1239,6 +1315,14 @@ def train_pooled(
     )
     log.info("[pooled] Saved results plot %s", pooled_plot_path)
 
+    # Per-ticker grouped bar chart (model acc vs baseline, one pair per ticker)
+    ticker_plot_path = save_pooled_ticker_plot(
+        ticker_labels_test,
+        test_p_up,
+        y_dir_test,
+    )
+    log.info("[pooled] Saved per-ticker plot %s", ticker_plot_path)
+
     # ── Step 8: save pooled artefacts ─────────────────────────────────────────
     dir_model.save_model(os.path.join(MODEL_DIR, "pooled_xgb_dir.json"))
     ret_model.save_model(os.path.join(MODEL_DIR, "pooled_xgb_ret.json"))
@@ -1280,6 +1364,7 @@ def train_pooled(
         "confidence_buckets": buckets,
         "threshold_sweep": sweep,
         "results_plot": pooled_plot_path,
+        "ticker_accuracy_plot": ticker_plot_path,
         "prediction_target": PREDICTION_TARGET,
         "model_version": "xgb_pooled_v1",
         "trained_at": datetime.now().isoformat(),

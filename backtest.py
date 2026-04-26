@@ -1780,6 +1780,19 @@ def default_backtest_tickers(approved_only: bool = False) -> list[str]:
 
 def write_quality_outputs(tickers: list[str], trades_df: pd.DataFrame, metrics: dict, quality_source: str) -> pd.DataFrame:
     rows = []
+    tickers = [str(t).upper() for t in tickers]
+    if not tickers:
+        report = read_quality_report()
+        approved = (
+            report[report["approved_for_live"].astype(str).str.lower().isin({"true", "1"})].copy()
+            if not report.empty and "approved_for_live" in report.columns
+            else pd.DataFrame(columns=["ticker", "approval_reason"])
+        )
+        approved_path = os.path.join(SIGNAL_DIR, "approved_live_tickers.csv")
+        approved[["ticker", "approval_reason"]].to_csv(approved_path, index=False)
+        print("Saved ->", approved_path)
+        return report
+
     for ticker in tickers:
         ticker_trades = (
             trades_df[trades_df["ticker"].astype(str).str.upper() == ticker.upper()].copy()
@@ -1937,7 +1950,20 @@ def main() -> None:
     build_trade_attribution_report(trades_df).to_csv(attribution_out, index=False)
     with open(metrics_out, "w") as f:
         json.dump(metrics, f, indent=2)
-    quality_report = write_quality_outputs(list(predictions.keys()), trades_df, metrics, "backtest_walkforward")
+    quality_tickers = list(predictions.keys())
+    if use_eligibility_filter and eligible_tickers is not None:
+        # Do not overwrite excluded tickers with zero-trade rejection rows.  The
+        # eligibility filter intentionally prevents those names from entering the
+        # ranking, so a filtered portfolio run is not fresh evidence that they
+        # failed.  Use --no-eligibility-filter for a full universe re-evaluation.
+        quality_tickers = [t for t in quality_tickers if t.upper() in eligible_tickers]
+        skipped_quality = sorted(set(predictions.keys()) - set(quality_tickers))
+        if skipped_quality:
+            print(
+                "[quality] Preserving prior quality rows for eligibility-filtered tickers: "
+                + ", ".join(skipped_quality)
+            )
+    quality_report = write_quality_outputs(quality_tickers, trades_df, metrics, "backtest_walkforward")
     append_experiment(
         name="backtest_walkforward",
         params={

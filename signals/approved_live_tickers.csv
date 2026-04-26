@@ -1,2 +1,6 @@
 ticker,approval_reason
-AMD,all live-edge gates passed
+MU,all live-edge gates passed
+META,all live-edge gates passed
+MA,all live-edge gates passed
+UNH,all live-edge gates passed
+MSFT,all live-edge gates passed
