@@ -1,0 +1,290 @@
+{
+  "trades": 1365,
+  "total_return_pct": 114.23,
+  "annual_return_pct": 4.78,
+  "benchmark_return_pct": 1056.38,
+  "alpha_pct": -942.15,
+  "cagr_pct": 4.78,
+  "benchmark_comparisons": {
+    "SPY": {
+      "data_available": true,
+      "benchmark_return_pct": 739.29,
+      "alpha_pct": -625.06,
+      "nw_tstat_vs_benchmark": -3.189
+    },
+    "QQQ": {
+      "data_available": true,
+      "benchmark_return_pct": 1532.01,
+      "alpha_pct": -1417.78,
+      "nw_tstat_vs_benchmark": -4.031
+    },
+    "IWM": {
+      "data_available": true,
+      "benchmark_return_pct": 433.25,
+      "alpha_pct": -319.01,
+      "nw_tstat_vs_benchmark": -1.713
+    },
+    "BLEND": {
+      "data_available": true,
+      "benchmark_return_pct": 1056.38,
+      "alpha_pct": -942.15,
+      "nw_tstat_vs_benchmark": -3.737
+    }
+  },
+  "primary_benchmark": "BLEND",
+  "primary_benchmark_weights": {
+    "SPY": 0.6,
+    "QQQ": 0.4
+  },
+  "raw_strategy_total_return_pct": -29.91,
+  "raw_strategy_sharpe_ratio_daily": -0.326,
+  "cash_overlay_enabled": true,
+  "cash_overlay_max_alloc": 0.75,
+  "cash_overlay_avg_alloc": 0.4259,
+  "cash_overlay_days_active": 3375,
+  "single_name_crash_filter_enabled": true,
+  "single_name_distress_filter_enabled": true,
+  "single_name_crash_filter_skips": 62,
+  "single_name_crash_filter_skips_by_reason": {
+    "single_name_long_term_distress": 11,
+    "single_name_min_price": 51
+  },
+  "single_name_crash_filter_skips_by_ticker": {
+    "NVDA": 46,
+    "AMD": 5,
+    "FCX": 4,
+    "BMY": 2,
+    "TSLA": 2,
+    "WMB": 2,
+    "GE": 1
+  },
+  "conformal_trade_gate_enabled": false,
+  "conformal_alpha": 0.2,
+  "conformal_gate_skips": 0,
+  "edge_audit_enabled": true,
+  "regime_edge_gate_enabled": false,
+  "rank_decile_gate_enabled": false,
+  "edge_gate_min_trades": 30,
+  "edge_gate_min_profit_factor": 1.05,
+  "edge_gate_min_avg_pnl": 0.0,
+  "regime_edge_gate_skips": 0,
+  "rank_decile_gate_skips": 0,
+  "edge_audit": {
+    "enabled": true,
+    "groups": 210,
+    "best_groups": [
+      {
+        "group_type": "exit_reason",
+        "group": "stop_loss",
+        "trades": 493,
+        "total_pnl": 5559.44,
+        "profit_factor": 2.215
+      },
+      {
+        "group_type": "entry_year",
+        "group": "2019",
+        "trades": 147,
+        "total_pnl": 821.01,
+        "profit_factor": 1.523
+      },
+      {
+        "group_type": "confidence_decile",
+        "group": "C1",
+        "trades": 137,
+        "total_pnl": 689.91,
+        "profit_factor": 1.407
+      },
+      {
+        "group_type": "ticker",
+        "group": "TSLA",
+        "trades": 22,
+        "total_pnl": 356.68,
+        "profit_factor": 2.108
+      },
+      {
+        "group_type": "ticker",
+        "group": "SCHW",
+        "trades": 22,
+        "total_pnl": 353.75,
+        "profit_factor": 2.488
+      }
+    ],
+    "worst_groups": [
+      {
+        "group_type": "exit_reason",
+        "group": "take_profit",
+        "trades": 461,
+        "total_pnl": -7290.67,
+        "profit_factor": 0.368
+      },
+      {
+        "group_type": "regime_state",
+        "group": "bull",
+        "trades": 880,
+        "total_pnl": -2906.04,
+        "profit_factor": 0.779
+      },
+      {
+        "group_type": "holding_days_bucket",
+        "group": "4-5d",
+        "trades": 676,
+        "total_pnl": -1639.01,
+        "profit_factor": 0.818
+      },
+      {
+        "group_type": "signal_quality",
+        "group": "LOW",
+        "trades": 645,
+        "total_pnl": -1509.22,
+        "profit_factor": 0.839
+      },
+      {
+        "group_type": "exit_reason",
+        "group": "time_exit",
+        "trades": 411,
+        "total_pnl": -1259.56,
+        "profit_factor": 0.703
+      }
+    ]
+  },
+  "avg_gross_exposure_pct": 27.83,
+  "in_market_pct": 44.32,
+  "rank_performance": {
+    "rank_spearman": -0.0714,
+    "top_rank_avg_pnl": -1.39,
+    "bottom_rank_avg_pnl": -6.63
+  },
+  "sharpe_ratio_daily": 0.494,
+  "nw_tstat_vs_cash": 2.163,
+  "nw_tstat_vs_primary_benchmark": -3.737,
+  "nw_tstat_vs_spy": -3.189,
+  "max_drawdown_pct": -27.03,
+  "slippage_assumption_bps": 10.0,
+  "execution_model": "spread_plus_sqrt_impact",
+  "mode": "long_only",
+  "kill_criteria": {
+    "thresholds": {
+      "min_sharpe": 0.5,
+      "min_nw_tstat": 1.65,
+      "max_drawdown": -0.25,
+      "min_raw_stock_sharpe": 0.0,
+      "min_raw_stock_return": 0.0
+    },
+    "results": {
+      "sharpe_pass": false,
+      "nw_tstat_pass": true,
+      "drawdown_pass": false,
+      "raw_stock_sharpe_pass": false,
+      "raw_stock_return_pass": false,
+      "all_pass": false
+    }
+  },
+  "diagnostics_2022": {
+    "period": "2022-01-01 to 2022-12-31",
+    "total_return_pct": -11.19,
+    "benchmark_return_pct": -26.65,
+    "alpha_pct": 15.46,
+    "sharpe_ratio_daily": -1.326,
+    "max_drawdown_pct": -13.98
+  },
+  "signal_quality": {
+    "HIGH": {
+      "n": 431,
+      "win_rate": 0.4965,
+      "avg_pnl": -2.7312,
+      "median_pnl": -1.47,
+      "total_pnl": -1177.13
+    },
+    "MEDIUM": {
+      "n": 289,
+      "win_rate": 0.5363,
+      "avg_pnl": -1.0534,
+      "median_pnl": 6.98,
+      "total_pnl": -304.44
+    },
+    "LOW": {
+      "n": 645,
+      "win_rate": 0.5256,
+      "avg_pnl": -2.3399,
+      "median_pnl": 3.36,
+      "total_pnl": -1509.22
+    }
+  },
+  "factor_composite_top_n": 5,
+  "daily_rank_ic": {
+    "primary_score": "ranker_score",
+    "mean_ic": 0.0234,
+    "t_stat": 8.737,
+    "median_ic": 0.0249,
+    "std_ic": 0.1418,
+    "positive_day_rate": 0.5738,
+    "days": 2811,
+    "avg_names_per_day": 146.6,
+    "min_names_per_day": 5,
+    "forward_price_col": "horizon_future_close",
+    "by_score": {
+      "ranker_score": {
+        "score_column": "ranker_score",
+        "mean_ic": 0.0234,
+        "t_stat": 8.737,
+        "median_ic": 0.0249,
+        "std_ic": 0.1418,
+        "positive_day_rate": 0.5738,
+        "days": 2811,
+        "avg_names_per_day": 146.6,
+        "min_names_per_day": 146,
+        "max_names_per_day": 147
+      },
+      "rank_score": {
+        "score_column": "rank_score",
+        "mean_ic": null,
+        "t_stat": null,
+        "median_ic": null,
+        "std_ic": null,
+        "positive_day_rate": null,
+        "days": 0,
+        "avg_names_per_day": null,
+        "min_names_per_day": null,
+        "max_names_per_day": null
+      },
+      "expected_return": {
+        "score_column": "expected_return",
+        "mean_ic": 0.001,
+        "t_stat": 0.268,
+        "median_ic": 0.005,
+        "std_ic": 0.191,
+        "positive_day_rate": 0.5119,
+        "days": 2811,
+        "avg_names_per_day": 146.6,
+        "min_names_per_day": 146,
+        "max_names_per_day": 147
+      },
+      "p_up_raw": {
+        "score_column": "p_up_raw",
+        "mean_ic": 0.0031,
+        "t_stat": 0.855,
+        "median_ic": 0.0034,
+        "std_ic": 0.1922,
+        "positive_day_rate": 0.5062,
+        "days": 2811,
+        "avg_names_per_day": 146.6,
+        "min_names_per_day": 146,
+        "max_names_per_day": 147
+      },
+      "confidence": {
+        "score_column": "confidence",
+        "mean_ic": 0.0077,
+        "t_stat": 2.352,
+        "median_ic": 0.0034,
+        "std_ic": 0.1738,
+        "positive_day_rate": 0.5059,
+        "days": 2811,
+        "avg_names_per_day": 146.6,
+        "min_names_per_day": 146,
+        "max_names_per_day": 147
+      }
+    },
+    "source": "factor_composite_score"
+  },
+  "edge_audit_path": "/Users/amos/Code/Stock Market AI Bot/signals/factor_composite_benchmark_20260501_011657/factor_top5_long_only_147tickers_edge_audit.csv"
+}

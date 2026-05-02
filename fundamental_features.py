@@ -38,9 +38,19 @@ import pandas as pd
 import yfinance as yf
 
 try:
-    from settings import USE_EARNINGS_DATA
+    from settings import (
+        DATA_DIR,
+        FUNDAMENTAL_REPORT_LAG_DAYS,
+        SECTOR_MAP,
+        USE_EARNINGS_DATA,
+        USE_FUNDAMENTAL_ZSCORES,
+    )
 except Exception:
+    DATA_DIR = "data"
+    FUNDAMENTAL_REPORT_LAG_DAYS = 45
+    SECTOR_MAP = {}
     USE_EARNINGS_DATA = False
+    USE_FUNDAMENTAL_ZSCORES = False
 
 
 def _flatten_yf(df: pd.DataFrame) -> pd.DataFrame:
@@ -288,6 +298,210 @@ def build_volume_features(df: pd.DataFrame) -> pd.DataFrame:
     result["vol_trend_20_60"] = ((v20 / (v60 + 1e-9)) - 1.0).clip(-1, 1)
 
     return result.fillna(0.0)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3c. Point-in-time valuation fundamentals
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _statement_row(frame: pd.DataFrame, aliases: tuple[str, ...]) -> pd.Series:
+    if frame is None or frame.empty:
+        return pd.Series(dtype=float)
+    lookup = {str(idx).strip().lower(): idx for idx in frame.index}
+    for alias in aliases:
+        idx = lookup.get(alias.strip().lower())
+        if idx is not None:
+            return pd.to_numeric(frame.loc[idx], errors="coerce")
+    return pd.Series(dtype=float)
+
+
+def _normalise_statement_columns(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame is None or frame.empty:
+        return pd.DataFrame()
+    out = frame.copy()
+    out.columns = pd.to_datetime(out.columns, errors="coerce")
+    out = out.loc[:, out.columns.notna()]
+    return out.sort_index(axis=1)
+
+
+def _daily_known_series(values: pd.Series, dates: pd.DatetimeIndex, lag_days: int) -> pd.Series:
+    values = pd.to_numeric(values, errors="coerce").dropna()
+    if values.empty:
+        return pd.Series(np.nan, index=dates, dtype=float)
+    known = values.copy()
+    known.index = pd.DatetimeIndex(known.index) + pd.Timedelta(days=int(lag_days))
+    known = known[~known.index.duplicated(keep="last")].sort_index()
+    return known.reindex(dates, method="ffill")
+
+
+def build_point_in_time_valuation_features(ticker: str, df: pd.DataFrame) -> pd.DataFrame:
+    """Build valuation features using dated quarterly statements only.
+
+    Yahoo does not provide full historical filing timestamps for free, so this
+    uses fiscal quarter end + FUNDAMENTAL_REPORT_LAG_DAYS as a conservative
+    availability date. That avoids using today's yfinance ``info`` snapshot in
+    old backtest rows.
+    """
+    dates = pd.DatetimeIndex(df.index)
+    neutral = pd.DataFrame(index=dates, data={
+        "fund_pe_ttm": 0.0,
+        "fund_fcf_yield_ttm": 0.0,
+        "fund_has_valuation": 0.0,
+        "fund_pe_sector_z": 0.0,
+        "fund_fcf_yield_sector_z": 0.0,
+        "fund_value_combo_z": 0.0,
+    })
+    if not USE_FUNDAMENTAL_ZSCORES or ticker.upper().endswith("-USD"):
+        return neutral
+
+    try:
+        tk = yf.Ticker(ticker)
+        inc = _normalise_statement_columns(tk.quarterly_financials)
+        cf = _normalise_statement_columns(tk.quarterly_cashflow)
+        bs = _normalise_statement_columns(tk.quarterly_balance_sheet)
+        if inc.empty and cf.empty:
+            return neutral
+
+        eps_q = _statement_row(inc, ("Diluted EPS", "Basic EPS"))
+        if eps_q.empty:
+            net_income = _statement_row(inc, ("Net Income", "Net Income Common Stockholders"))
+            avg_shares = _statement_row(inc, ("Diluted Average Shares", "Basic Average Shares"))
+            eps_q = net_income / avg_shares.replace(0, np.nan)
+
+        fcf_q = _statement_row(cf, ("Free Cash Flow",))
+        if fcf_q.empty:
+            operating_cf = _statement_row(cf, (
+                "Operating Cash Flow",
+                "Cash Flow From Continuing Operating Activities",
+            ))
+            capex = _statement_row(cf, ("Capital Expenditure", "Capital Expenditures"))
+            fcf_q = operating_cf + capex
+
+        shares_q = _statement_row(inc, ("Diluted Average Shares", "Basic Average Shares"))
+        if shares_q.empty:
+            shares_q = _statement_row(bs, ("Ordinary Shares Number", "Share Issued"))
+
+        all_periods = sorted(set(eps_q.index.tolist()) | set(fcf_q.index.tolist()) | set(shares_q.index.tolist()))
+        if not all_periods:
+            return neutral
+        idx = pd.DatetimeIndex(all_periods)
+        eps_q = eps_q.reindex(idx).sort_index()
+        fcf_q = fcf_q.reindex(idx).sort_index()
+        shares_q = shares_q.reindex(idx).sort_index()
+
+        ttm_eps = eps_q.rolling(4, min_periods=4).sum()
+        ttm_fcf = fcf_q.rolling(4, min_periods=4).sum()
+
+        eps_daily = _daily_known_series(ttm_eps, dates, FUNDAMENTAL_REPORT_LAG_DAYS)
+        fcf_daily = _daily_known_series(ttm_fcf, dates, FUNDAMENTAL_REPORT_LAG_DAYS)
+        shares_daily = _daily_known_series(shares_q, dates, FUNDAMENTAL_REPORT_LAG_DAYS)
+
+        close = pd.to_numeric(df["Close"], errors="coerce").reindex(dates)
+        market_cap = close * shares_daily
+        pe = (close / eps_daily.replace(0, np.nan)).replace([np.inf, -np.inf], np.nan)
+        fcf_yield = (fcf_daily / market_cap.replace(0, np.nan)).replace([np.inf, -np.inf], np.nan)
+
+        has = pe.notna() | fcf_yield.notna()
+        neutral["fund_pe_ttm"] = pe.clip(lower=0.0, upper=200.0).fillna(0.0)
+        neutral["fund_fcf_yield_ttm"] = fcf_yield.clip(lower=-0.50, upper=0.50).fillna(0.0)
+        neutral["fund_has_valuation"] = has.astype(float)
+    except Exception:
+        return neutral
+
+    return neutral.replace([np.inf, -np.inf], 0.0).fillna(0.0)
+
+
+def apply_sector_fundamental_zscores(
+    tickers: list[str],
+    data_dir: str = DATA_DIR,
+    sector_map: dict[str, str] | None = None,
+) -> dict:
+    """Update built parquet files with within-sector valuation z-scores."""
+    sector_map = sector_map or SECTOR_MAP
+    frames = []
+    paths: dict[str, str] = {}
+    for ticker in tickers:
+        ticker = ticker.upper()
+        path = f"{data_dir}/{ticker}.parquet"
+        try:
+            df = pd.read_parquet(path)
+        except Exception:
+            continue
+        needed = {"fund_pe_ttm", "fund_fcf_yield_ttm", "fund_has_valuation"}
+        if not needed.issubset(df.columns):
+            continue
+        tmp = df[["fund_pe_ttm", "fund_fcf_yield_ttm", "fund_has_valuation"]].copy()
+        tmp["ticker"] = ticker
+        tmp["sector"] = sector_map.get(ticker, "OTHER")
+        tmp["date"] = pd.to_datetime(df.index)
+        frames.append(tmp.reset_index(drop=True))
+        paths[ticker] = path
+
+    if not frames:
+        return {"updated": 0, "reason": "no_fundamental_columns"}
+
+    panel = pd.concat(frames, ignore_index=True)
+    valid = panel["fund_has_valuation"].astype(float) > 0
+    panel["fund_pe_sector_z"] = 0.0
+    panel["fund_fcf_yield_sector_z"] = 0.0
+
+    def _zscore(s: pd.Series) -> pd.Series:
+        s = pd.to_numeric(s, errors="coerce")
+        if s.count() < 2:
+            return pd.Series(np.nan, index=s.index)
+        std = float(s.std(ddof=0))
+        if not np.isfinite(std) or std < 1e-9:
+            return pd.Series(0.0, index=s.index)
+        return (s - float(s.mean())) / std
+
+    for col, zcol in [
+        ("fund_pe_ttm", "fund_pe_sector_z"),
+        ("fund_fcf_yield_ttm", "fund_fcf_yield_sector_z"),
+    ]:
+        sector_z = panel.loc[valid].groupby(["date", "sector"], group_keys=False)[col].apply(_zscore)
+        market_z = panel.loc[valid].groupby("date", group_keys=False)[col].apply(_zscore)
+        z = sector_z.combine_first(market_z).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+        panel.loc[z.index, zcol] = z.clip(-5.0, 5.0)
+
+    panel["fund_value_combo_z"] = (
+        panel["fund_fcf_yield_sector_z"] - panel["fund_pe_sector_z"]
+    ).clip(-8.0, 8.0)
+
+    latest_stats: dict[str, dict[str, float]] = {}
+    latest_valid = panel[valid].sort_values("date").groupby("ticker").tail(1)
+    for sector, grp in latest_valid.groupby("sector"):
+        pe_std = float(grp["fund_pe_ttm"].std(ddof=0))
+        fcf_std = float(grp["fund_fcf_yield_ttm"].std(ddof=0))
+        if not np.isfinite(pe_std) or pe_std < 1e-9:
+            pe_std = 1.0
+        if not np.isfinite(fcf_std) or fcf_std < 1e-9:
+            fcf_std = 1.0
+        latest_stats[str(sector)] = {
+            "pe_mean": float(grp["fund_pe_ttm"].mean()),
+            "pe_std": pe_std,
+            "fcf_yield_mean": float(grp["fund_fcf_yield_ttm"].mean()),
+            "fcf_yield_std": fcf_std,
+        }
+
+    updated = 0
+    zcols = ["fund_pe_sector_z", "fund_fcf_yield_sector_z", "fund_value_combo_z"]
+    for ticker, path in paths.items():
+        df = pd.read_parquet(path)
+        sub = panel[panel["ticker"] == ticker].set_index("date")
+        for col in zcols:
+            df[col] = sub[col].reindex(pd.DatetimeIndex(df.index)).fillna(0.0).values
+        df.to_parquet(path, index=True)
+        updated += 1
+
+    try:
+        import json, os
+        os.makedirs(data_dir, exist_ok=True)
+        with open(f"{data_dir}/fundamental_sector_latest_stats.json", "w") as f:
+            json.dump(latest_stats, f, indent=2)
+    except Exception:
+        pass
+
+    return {"updated": updated, "latest_sector_stats": latest_stats}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

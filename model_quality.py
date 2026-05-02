@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from settings import MODEL_DIR
+from settings import DEFAULT_FIXED_CONFIDENCE_THRESHOLD, MODEL_DIR
 
 QUALITY_REPORT = os.path.join(MODEL_DIR, "model_quality_report.csv")
 
@@ -122,8 +122,11 @@ def evaluate_model_quality(
     return_eval = summary.get("return_model_eval", {}) or {}
     return_spearman_raw = return_eval.get("spearman_corr")
     return_spearman = None if return_spearman_raw is None else _safe_float(return_spearman_raw, 0.0)
+    confidence_diag = summary.get("confidence_diagnostics") or {}
 
     reasons: list[str] = []
+    if confidence_diag and not bool(confidence_diag.get("confidence_validated", False)):
+        reasons.append(f"confidence_not_validated: {confidence_diag.get('reason', 'unknown')}")
     if trade_metrics["walkforward_trades"] < MIN_WALKFORWARD_TRADES:
         reasons.append(f"walkforward_trades {trade_metrics['walkforward_trades']} < {MIN_WALKFORWARD_TRADES}")
     if trade_metrics["walkforward_total_pnl"] <= MIN_WALKFORWARD_TOTAL_PNL:
@@ -169,7 +172,12 @@ def evaluate_model_quality(
         "direction_edge_pp": direction_edge_pp,
         "return_spearman": round(return_spearman, 4) if return_spearman is not None else None,
         "threshold_used_fallback": bool(summary.get("threshold_used_fallback", True)),
-        "confidence_threshold": _safe_float(summary.get("confidence_threshold"), 57.5),
+        "confidence_threshold": _safe_float(
+            summary.get("confidence_threshold"),
+            DEFAULT_FIXED_CONFIDENCE_THRESHOLD,
+        ),
+        "confidence_validated": bool(confidence_diag.get("confidence_validated", False)),
+        "confidence_validation_reason": confidence_diag.get("reason"),
         "evaluated_at": datetime.now().isoformat(timespec="seconds"),
         **trade_metrics,
     }

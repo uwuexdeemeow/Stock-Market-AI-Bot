@@ -1,0 +1,47 @@
+{
+  "ablation": [
+    {
+      "combo": "h20-only",
+      "w20": 1.0,
+      "w5": 0.0,
+      "sharpe": 0.623,
+      "total_return_pct": 198.88,
+      "n_trades": 360
+    },
+    {
+      "combo": "80/20",
+      "w20": 0.8,
+      "w5": 0.2,
+      "sharpe": 0.625,
+      "total_return_pct": 202.07,
+      "n_trades": 375
+    },
+    {
+      "combo": "65/35 (default)",
+      "w20": 0.65,
+      "w5": 0.35,
+      "sharpe": 0.629,
+      "total_return_pct": 206.3,
+      "n_trades": 363
+    },
+    {
+      "combo": "50/50",
+      "w20": 0.5,
+      "w5": 0.5,
+      "sharpe": 0.736,
+      "total_return_pct": 277.33,
+      "n_trades": 396
+    }
+  ],
+  "best": {
+    "combo": "50/50",
+    "w20": 0.5,
+    "w5": 0.5,
+    "sharpe": 0.736,
+    "total_return_pct": 277.33,
+    "n_trades": 396
+  },
+  "run_at": "2026-04-27T17:20:26.847412",
+  "use_eligibility_filter": true,
+  "mode": "long_only"
+}

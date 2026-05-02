@@ -11,7 +11,7 @@ import pandas as pd
 import yfinance as yf
 
 from settings import (
-    MULTI_MARKET, SECTOR_MAP,
+    DATA_DIR, MULTI_MARKET, SECTOR_MAP,
     USE_MULTI_TIMEFRAME, USE_VIX_TERM, USE_OPTIONS_DATA,
     RETURN_HORIZON_DAYS, SOCIAL_SENTIMENT_ENABLED, USE_EARNINGS_DATA, USE_NEWS_SENTIMENT,
     SENTIMENT_ENGINE_LEVEL, LIVE_SENTIMENT_ENGINE_LEVEL,
@@ -24,6 +24,7 @@ from fundamental_features import (
     build_sector_strength_features,
     build_market_breadth_features,
     build_gap_features,
+    build_point_in_time_valuation_features,
     build_volume_features,
 )
 
@@ -132,11 +133,13 @@ def build_vix_features(dates: pd.DatetimeIndex, start: str, end: str) -> pd.Data
         return result
     try:
         vix = flatten_yf(yf.download("^VIX", start=start, end=end, progress=False, auto_adjust=True))["Close"]
-        vix = vix.reindex(dates, method="ffill").bfill()   # FIX: pandas deprecation
+        # Forward-fill only. Backfilling early rows would leak future VIX values
+        # into dates before VIX data existed for this ticker's frame.
+        vix = vix.reindex(dates, method="ffill")
         result["vix_level"] = vix.values
         result["vix_high"] = (vix > 25).astype(int).values
         result["vix_extreme"] = (vix > 35).astype(int).values
-        result["vix_spike"] = (vix.pct_change(1) > 0.15).astype(int).values
+        result["vix_spike"] = (vix.pct_change(1, fill_method=None) > 0.15).astype(int).values
         result["vix_percentile"] = vix.rolling(252, min_periods=20).rank(pct=True).values
         try:
             vix3m = flatten_yf(yf.download("^VIX3M", start=start, end=end, progress=False, auto_adjust=True))["Close"]
@@ -162,18 +165,22 @@ def build_multi_market(ticker: str, dates: pd.DatetimeIndex, start: str, end: st
 
     spy_close = None  # kept for regime feature below
     vix_close = None
+    closes: dict[str, pd.Series] = {}
 
     for name, sym in symbols.items():
         try:
             raw = flatten_yf(yf.download(sym, start=start, end=end, progress=False, auto_adjust=True))
+            # Forward-fill only. Do not bfill early rows with future index/ETF
+            # prices; missing early returns are handled as neutral below.
             close = raw["Close"].reindex(dates, method="ffill")
-            result[f"{name}_ret1d"] = close.pct_change(1).fillna(0)
-            result[f"{name}_ret5d"] = close.pct_change(5).fillna(0)
-            result[f"{name}_ret20d"] = close.pct_change(20).fillna(0)
+            closes[name] = close
+            result[f"{name}_ret1d"] = close.pct_change(1, fill_method=None).fillna(0)
+            result[f"{name}_ret5d"] = close.pct_change(5, fill_method=None).fillna(0)
+            result[f"{name}_ret20d"] = close.pct_change(20, fill_method=None).fillna(0)
             # Horizon-matched return for the target function — must equal RETURN_HORIZON_DAYS
             # so make_direction_target can shift it forward to get the correct benchmark window.
             if name in ("spy", "sector") and RETURN_HORIZON_DAYS not in (5, 20):
-                result[f"{name}_ret{RETURN_HORIZON_DAYS}d"] = close.pct_change(RETURN_HORIZON_DAYS).fillna(0)
+                result[f"{name}_ret{RETURN_HORIZON_DAYS}d"] = close.pct_change(RETURN_HORIZON_DAYS, fill_method=None).fillna(0)
             if name == "sector":
                 # Save raw sector ETF close so build_sector_strength_features()
                 # can compute price-ratio z-scores (how unusual is today's
@@ -182,23 +189,62 @@ def build_multi_market(ticker: str, dates: pd.DatetimeIndex, start: str, end: st
                 # keep_conservative_feature_set() after the ratio features are built.
                 result["sector_close"] = close.values
             if name in ("spy", "qqq", "dia"):
-                ma20 = close.rolling(20).mean()
-                result[f"{name}_above_ma20"] = (close > ma20).astype(int).fillna(0)
-                result[f"{name}_vol10"] = close.pct_change(1).rolling(10).std().fillna(0)
+                ma20 = close.rolling(20, min_periods=20).mean()
+                result[f"{name}_ma20_ready"] = ma20.notna().astype(float)
+                result[f"{name}_above_ma20"] = ((close > ma20) & ma20.notna()).astype(int)
+                result[f"{name}_vol10"] = close.pct_change(1, fill_method=None).rolling(10, min_periods=10).std().fillna(0)
             if name == "spy":
                 spy_close = close
-                ma200 = close.rolling(200, min_periods=50).mean()
-                result["spy_dist_ma200"] = ((close - ma200) / (ma200 + 1e-9)).clip(-0.3, 0.3).fillna(0)
-                ma50 = close.rolling(50, min_periods=20).mean()
-                result["spy_dist_ma50"] = ((close - ma50) / (ma50 + 1e-9)).clip(-0.2, 0.2).fillna(0)
+                ma200 = close.rolling(200, min_periods=200).mean()
+                ma200_proxy = ma200.fillna(close.expanding(min_periods=1).mean())
+                result["spy_ma200_ready"] = ma200.notna().astype(float)
+                result["spy_dist_ma200"] = ((close - ma200_proxy) / (ma200_proxy + 1e-9)).clip(-0.3, 0.3).fillna(0)
+                ma50 = close.rolling(50, min_periods=50).mean()
+                ma50_proxy = ma50.fillna(close.expanding(min_periods=1).mean())
+                result["spy_ma50_ready"] = ma50.notna().astype(float)
+                result["spy_dist_ma50"] = ((close - ma50_proxy) / (ma50_proxy + 1e-9)).clip(-0.2, 0.2).fillna(0)
             if name == "vix":
                 vix_close = close
             if name == "gld":
-                result["gld_risk_off"] = (close.pct_change(5) > 0.02).astype(int).fillna(0)
+                result["gld_risk_off"] = (close.pct_change(5, fill_method=None) > 0.02).astype(int).fillna(0)
             if name == "hyg":
-                result["credit_stress"] = (close.pct_change(5) < -0.02).astype(int).fillna(0)
+                result["credit_stress"] = (close.pct_change(5, fill_method=None) < -0.02).astype(int).fillna(0)
         except Exception:
             continue
+
+    # Derived macro features use relative spreads/z-scores rather than raw ETF
+    # returns. The raw tnx/hyg/uup/etc. columns stay excluded by the model
+    # selector; only these macro_* summaries are allowed downstream.
+    if {"tnx", "irx"}.issubset(closes):
+        slope = (closes["tnx"] - closes["irx"]).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+        result["macro_yield_curve_10y_3m"] = slope.clip(-10.0, 10.0).values
+        mean = slope.rolling(252, min_periods=40).mean()
+        std = slope.rolling(252, min_periods=40).std()
+        result["macro_yield_curve_10y_3m_z"] = ((slope - mean) / (std + 1e-9)).clip(-4.0, 4.0).fillna(0.0).values
+
+    if "uup" in closes:
+        uup_ret = closes["uup"].pct_change(20, fill_method=None).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+        mean = uup_ret.rolling(252, min_periods=40).mean()
+        std = uup_ret.rolling(252, min_periods=40).std()
+        result["macro_dxy_proxy_20d_z"] = ((uup_ret - mean) / (std + 1e-9)).clip(-4.0, 4.0).fillna(0.0).values
+
+    if {"hyg", "ief"}.issubset(closes):
+        credit = (
+            closes["hyg"].pct_change(20, fill_method=None) -
+            closes["ief"].pct_change(20, fill_method=None)
+        ).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+        result["macro_credit_spread_20d"] = credit.clip(-0.3, 0.3).values
+        mean = credit.rolling(252, min_periods=40).mean()
+        std = credit.rolling(252, min_periods=40).std()
+        result["macro_credit_spread_20d_z"] = ((credit - mean) / (std + 1e-9)).clip(-4.0, 4.0).fillna(0.0).values
+
+    if {"copper", "gld"}.issubset(closes):
+        ratio = (closes["copper"] / (closes["gld"] + 1e-9)).replace([np.inf, -np.inf], np.nan)
+        ratio_ret = ratio.pct_change(20, fill_method=None).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+        result["macro_copper_gold_20d"] = ratio_ret.clip(-0.3, 0.3).values
+        mean = ratio_ret.rolling(252, min_periods=40).mean()
+        std = ratio_ret.rolling(252, min_periods=40).std()
+        result["macro_copper_gold_20d_z"] = ((ratio_ret - mean) / (std + 1e-9)).clip(-4.0, 4.0).fillna(0.0).values
 
     # Regime label: combines SPY trend + VIX level into a single -1/0/+1 signal.
     # The model can condition all other features on this regime context.
@@ -219,7 +265,48 @@ def build_multi_market(ticker: str, dates: pd.DatetimeIndex, start: str, end: st
         result["regime"] = 0.0
         result["regime_strength"] = 0.0
 
-    return result.fillna(0)
+    return result.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+
+def build_literature_factor_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Classic equity anomaly factors, computed causally from trailing data."""
+    result = pd.DataFrame(index=df.index)
+    close = pd.to_numeric(df.get("Close"), errors="coerce")
+    volume = pd.to_numeric(df.get("Volume"), errors="coerce").fillna(0.0)
+    ret_1d = close.pct_change(1, fill_method=None)
+
+    # 12-1 momentum: prior 12-month return skipping the most recent month.
+    mom_12_1 = close.shift(21) / (close.shift(252) + 1e-9) - 1.0
+    result["factor_mom_12_1"] = mom_12_1.clip(-1.0, 5.0)
+
+    if "sector_close" in df.columns:
+        sector_close = pd.to_numeric(df["sector_close"], errors="coerce")
+        sector_mom_12_1 = sector_close.shift(21) / (sector_close.shift(252) + 1e-9) - 1.0
+        result["factor_resid_mom_sector_12_1"] = (mom_12_1 - sector_mom_12_1).clip(-2.0, 2.0)
+    else:
+        result["factor_resid_mom_sector_12_1"] = 0.0
+
+    if "spy_ret1d" in df.columns:
+        spy_ret = pd.to_numeric(df["spy_ret1d"], errors="coerce")
+        cov = ret_1d.rolling(252, min_periods=80).cov(spy_ret)
+        var = spy_ret.rolling(252, min_periods=80).var()
+        beta = (cov / (var + 1e-12)).replace([np.inf, -np.inf], np.nan)
+        residual = ret_1d - beta * spy_ret
+        result["factor_beta_252_spy"] = beta.clip(-3.0, 5.0)
+        result["factor_idio_vol_252_spy"] = (
+            residual.rolling(252, min_periods=80).std() * np.sqrt(252)
+        ).clip(0.0, 3.0)
+    else:
+        result["factor_beta_252_spy"] = 1.0
+        result["factor_idio_vol_252_spy"] = 0.0
+
+    dollar_vol = (close.abs() * volume).replace([np.inf, -np.inf], np.nan)
+    avg_dollar_vol_20d = dollar_vol.rolling(20, min_periods=5).mean()
+    result["factor_liquidity_dollar_vol_20d"] = np.log1p(avg_dollar_vol_20d).clip(0.0, 30.0)
+    amihud = (ret_1d.abs() / (dollar_vol + 1e-9)).rolling(20, min_periods=5).mean()
+    result["factor_illiquidity_amihud_20d"] = np.log1p(amihud * 1e9).clip(0.0, 30.0)
+
+    return result.replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
 def build_calendar_features(dates: pd.DatetimeIndex) -> pd.DataFrame:
     result = pd.DataFrame(index=dates)
@@ -230,7 +317,7 @@ def build_calendar_features(dates: pd.DatetimeIndex) -> pd.DataFrame:
     result["month_end"] = 0
     result["opex_week"] = 0
     for i, date in enumerate(dates):
-        month_dates = dates[dates.month == date.month]
+        month_dates = dates[(dates.year == date.year) & (dates.month == date.month)]
         if len(month_dates) >= 3 and date in month_dates[-3:]:
             result.iloc[i, result.columns.get_loc("month_end")] = 1
     return result
@@ -248,6 +335,9 @@ CONSERVATIVE_FEATURE_PREFIXES = (
     "bb_",
     "vol_ratio",
     "volume_chg_",
+    "vol_zscore_",
+    "vol_pct_vs_",
+    "vol_trend_",
     "hl_range",
     "spread_proxy",
     "roc_",
@@ -258,15 +348,20 @@ CONSERVATIVE_FEATURE_PREFIXES = (
     "spy_",
     "qqq_",
     "vix_",
+    "macro_",
     "regime",
     "ret_vs_spy",
     "ret_vs_qqq",
     "breadth_",
     "pct_above_",
+    "fund_",
+    "factor_",
+    "xs_rank_",
     # Sector-relative momentum features (added: ratio z-scores, RS slope/MA)
     "sector_vs_",      # sector_vs_spy_5d — sector leadership vs broad market
     "sector_ratio_",   # sector_ratio_z20, sector_ratio_z60 — z-score of price/sector_ETF
     "sector_rs_",      # sector_rs_slope_5d, sector_rs_above_ma20 — RS momentum
+    "alt_",            # alternative data: EPS revisions, analyst recs, short interest, institutional ownership
 )
 CONSERVATIVE_FEATURE_EXACT = {
     "obv_slope",
@@ -354,6 +449,33 @@ def add_relative_strength_features(frame: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def apply_live_fundamental_sector_zscores(ticker: str, frame: pd.DataFrame) -> pd.DataFrame:
+    """Apply latest cached sector valuation stats for live prediction frames."""
+    out = frame.copy()
+    for col in ["fund_pe_sector_z", "fund_fcf_yield_sector_z", "fund_value_combo_z"]:
+        if col not in out.columns:
+            out[col] = 0.0
+    if not {"fund_pe_ttm", "fund_fcf_yield_ttm"}.issubset(out.columns):
+        return out
+    try:
+        import json
+        stats_path = os.path.join(DATA_DIR, "fundamental_sector_latest_stats.json")
+        with open(stats_path) as f:
+            stats = json.load(f)
+        sector = SECTOR_MAP.get(ticker.upper(), "OTHER")
+        st = stats.get(sector) or stats.get("OTHER") or {}
+        pe_std = float(st.get("pe_std", 1.0)) or 1.0
+        fcf_std = float(st.get("fcf_yield_std", 1.0)) or 1.0
+        pe_z = (pd.to_numeric(out["fund_pe_ttm"], errors="coerce") - float(st.get("pe_mean", 0.0))) / pe_std
+        fcf_z = (pd.to_numeric(out["fund_fcf_yield_ttm"], errors="coerce") - float(st.get("fcf_yield_mean", 0.0))) / fcf_std
+        out["fund_pe_sector_z"] = pe_z.clip(-5.0, 5.0).fillna(0.0)
+        out["fund_fcf_yield_sector_z"] = fcf_z.clip(-5.0, 5.0).fillna(0.0)
+        out["fund_value_combo_z"] = (out["fund_fcf_yield_sector_z"] - out["fund_pe_sector_z"]).clip(-8.0, 8.0)
+    except Exception:
+        pass
+    return out
+
+
 def keep_conservative_feature_set(frame: pd.DataFrame) -> pd.DataFrame:
     """Keep only point-in-time price, volume, relative-strength, and regime features."""
     out = add_relative_strength_features(frame)
@@ -363,7 +485,9 @@ def keep_conservative_feature_set(frame: pd.DataFrame) -> pd.DataFrame:
         if col in CONSERVATIVE_BASE_COLUMNS:
             keep.append(col)
             continue
-        if any(k in col_l for k in RISKY_FEATURE_KEYWORDS):
+        # alt_ prefixed features are curated alternative data (EPS revisions,
+        # analyst recs, short interest) — skip the risky-keyword blocker for them.
+        if not col_l.startswith("alt_") and any(k in col_l for k in RISKY_FEATURE_KEYWORDS):
             continue
         if col.startswith("sent_z_"):
             keep.append(col)
@@ -421,6 +545,7 @@ def build_research_feature_frame(ticker: str, start: str, end: str) -> pd.DataFr
         mm_frame,
         build_gap_features(df),
         build_volume_features(df),
+        build_point_in_time_valuation_features(ticker, df),
         build_market_breadth_features(dates, start, end),
     ]
     if USE_NEWS_SENTIMENT:
@@ -435,6 +560,10 @@ def build_research_feature_frame(ticker: str, start: str, end: str) -> pd.DataFr
             pass
 
     out = pd.concat([df] + frames, axis=1)
+    out = out.loc[:, ~out.columns.duplicated()]
+
+    factors = build_literature_factor_features(out)
+    out = pd.concat([out, factors], axis=1)
     out = out.loc[:, ~out.columns.duplicated()]
 
     # Sector strength is derived from the combined frame (needs sector_ret5d/20d + ret_5d/20d)
@@ -476,6 +605,7 @@ def build_live_features_with_latest_news(
         mm_frame,
         build_gap_features(df),
         build_volume_features(df),
+        build_point_in_time_valuation_features(ticker, df),
         build_market_breadth_features(dates, start_str, end_str),
     ]
 
@@ -545,6 +675,10 @@ def build_live_features_with_latest_news(
 
     out = pd.concat([df] + frames, axis=1)
     out = out.loc[:, ~out.columns.duplicated()]
+    factors = build_literature_factor_features(out)
+    out = pd.concat([out, factors], axis=1)
+    out = out.loc[:, ~out.columns.duplicated()]
+    out = apply_live_fundamental_sector_zscores(ticker, out)
     sector_strength = build_sector_strength_features(ticker, out)
     out = pd.concat([out, sector_strength], axis=1)
     if diagnostic_frames:
@@ -564,5 +698,12 @@ def build_live_features_with_latest_news(
             out = pd.concat([out, diagnostics[keep_diagnostics]], axis=1)
     missing_cols = [c for c in feature_cols if c not in out.columns]
     if missing_cols:
-        out = pd.concat([out, pd.DataFrame(0.0, index=out.index, columns=missing_cols)], axis=1)
+        missing_frame = pd.DataFrame(0.0, index=out.index, columns=missing_cols)
+        # Live prediction is built one ticker at a time, so true same-date
+        # cross-sectional ranks are unavailable here. Use neutral percentile
+        # ranks instead of zeros; 0 would mean "worst in universe".
+        for col in missing_cols:
+            if col.startswith("xs_rank_"):
+                missing_frame[col] = 0.5
+        out = pd.concat([out, missing_frame], axis=1)
     return out.replace([np.inf, -np.inf], 0.0).fillna(0.0)

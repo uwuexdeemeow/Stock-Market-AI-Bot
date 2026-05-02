@@ -1,0 +1,14 @@
+{
+  "total_return_pct": 139.65,
+  "cagr_pct": 8.14,
+  "sharpe": 0.714,
+  "max_drawdown_pct": -24.92,
+  "benchmark_return_pct": 417.45,
+  "alpha_pct": -277.8,
+  "n_days_invested": 1312,
+  "n_days_cash": 1502,
+  "in_market_pct": 46.6,
+  "avg_allocation_pct": 39.1,
+  "threshold": 0.5,
+  "years": 11.2
+}

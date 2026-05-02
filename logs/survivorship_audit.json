@@ -1,0 +1,84 @@
+{
+  "generated_at": "2026-04-27T20:22:36.404037",
+  "purpose": "survivorship_bias_audit",
+  "build_results": [],
+  "profiles": [
+    {
+      "ticker": "SIVB",
+      "status": "missing",
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/SIVB.parquet"
+    },
+    {
+      "ticker": "FRC",
+      "alias_used": null,
+      "status": "available",
+      "rows": 3866,
+      "start": "2010-12-09",
+      "end": "2026-04-24",
+      "final_close": 0.0006,
+      "max_drawdown_pct": -100.0,
+      "peak_to_final_pct": -100.0,
+      "final_252d_return_pct": -76.0,
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/FRC.parquet"
+    },
+    {
+      "ticker": "BBBY",
+      "alias_used": null,
+      "status": "available",
+      "rows": 4102,
+      "start": "2010-01-04",
+      "end": "2026-04-24",
+      "final_close": 5.61,
+      "max_drawdown_pct": -96.99,
+      "peak_to_final_pct": -95.41,
+      "final_252d_return_pct": 36.83,
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/BBBY.parquet"
+    },
+    {
+      "ticker": "WE",
+      "status": "missing",
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/WE.parquet"
+    },
+    {
+      "ticker": "RIDE",
+      "status": "missing",
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/RIDE.parquet"
+    }
+  ],
+  "available_audit_tickers": [
+    "FRC",
+    "BBBY"
+  ],
+  "core_plus_available_audit_tickers": [
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "AMD",
+    "GOOGL",
+    "META",
+    "AMZN",
+    "TSLA",
+    "JPM",
+    "GS",
+    "BAC",
+    "UNH",
+    "JNJ",
+    "ABBV",
+    "XOM",
+    "CVX",
+    "CAT",
+    "DE",
+    "MU",
+    "INTC",
+    "BTC-USD",
+    "LLY",
+    "V",
+    "MA",
+    "HD",
+    "COST",
+    "PG",
+    "BRK-B",
+    "FRC",
+    "BBBY"
+  ]
+}

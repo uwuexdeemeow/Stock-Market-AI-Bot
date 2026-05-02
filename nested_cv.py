@@ -8,7 +8,7 @@ reg_lambda) by running a nested time-series cross-validation:
 
   Outer folds: sequential train/test splits across time (no lookahead).
   Inner folds: within each outer training window, try every param combo and
-               pick the one with the best average inner-fold accuracy.
+               pick the one with the best average inner-fold ROC-AUC.
 
 This is the standard way to avoid overfitting hyperparameters to the test set:
 the test set is ONLY touched in the outer evaluation, never during inner tuning.
@@ -47,7 +47,13 @@ class FoldResult:
     fold: int
 
 
-def _time_splits(n: int, n_splits: int, embargo: int) -> list[tuple[np.ndarray, np.ndarray]]:
+def _time_splits(
+    n: int,
+    n_splits: int,
+    embargo: int,
+    min_train_size: int = 50,
+    min_test_size: int = 500,
+) -> list[tuple[np.ndarray, np.ndarray]]:
     """
     Produce sequential train/test index pairs.
 
@@ -55,14 +61,35 @@ def _time_splits(n: int, n_splits: int, embargo: int) -> list[tuple[np.ndarray, 
     train_end+embargo..test_end for testing.  The embargo gap prevents
     forward leakage when return windows overlap.
     """
-    fold_size = n // (n_splits + 1)
+    if n_splits <= 0:
+        return []
+
+    available = n - min_train_size - embargo
+    if available <= 0:
+        return []
+
+    # Adapt the test size downward when the data set is too short to support
+    # the requested number of folds at the nominal floor. This avoids silently
+    # evaluating only one or two outer folds and then over-trusting the result.
+    effective_min_test = min(int(min_test_size), max(50, available // n_splits))
+    latest_train_end = max(min_train_size, n - embargo - effective_min_test)
+    if n_splits == 1:
+        train_ends = [latest_train_end]
+    else:
+        train_ends = np.linspace(min_train_size, latest_train_end, n_splits).astype(int).tolist()
+
     out = []
-    for k in range(n_splits):
-        train_end  = fold_size * (k + 1)
+    seen_train_ends: set[int] = set()
+    for train_end in train_ends:
+        if train_end in seen_train_ends:
+            continue
+        seen_train_ends.add(train_end)
         test_start = train_end + embargo
-        test_end   = min(test_start + fold_size, n)
-        if train_end < 50 or test_end <= test_start:
-            break
+        test_end   = min(test_start + effective_min_test, n)
+        if train_end < min_train_size:
+            continue
+        if test_end - test_start < max(50, effective_min_test):
+            continue
         out.append((np.arange(0, train_end), np.arange(test_start, test_end)))
     return out
 
@@ -75,6 +102,7 @@ def nested_walk_forward_search(
     outer_splits: int = 4,
     inner_splits: int = 3,
     embargo: int = 5,
+    min_test_size: int = 500,
 ) -> list[FoldResult]:
     """
     Nested walk-forward hyperparameter search.
@@ -100,11 +128,12 @@ def nested_walk_forward_search(
 
     Returns
     -------
-    List of FoldResult, one per outer fold.  Each stores the best param combo
-    found on that fold and the outer-fold test accuracy.
+    List of FoldResult, one per parameter combo per outer fold.  This lets the
+    caller average outer-fold ROC-AUC for every candidate instead of selecting
+    the combo that happened to win one lucky fold.
     """
     n = len(X)
-    outer = _time_splits(n, outer_splits, embargo)
+    outer = _time_splits(n, outer_splits, embargo, min_train_size=500, min_test_size=min_test_size)
 
     # Generate every combination of the tunable params.
     param_combos = [
@@ -114,9 +143,9 @@ def nested_walk_forward_search(
     results: list[FoldResult] = []
 
     for k, (tr, te) in enumerate(outer):
-        inner = _time_splits(len(tr), inner_splits, embargo)
-
-        best_params, best_score = None, -np.inf
+        inner = _time_splits(len(tr), inner_splits, embargo, min_train_size=500, min_test_size=min_test_size)
+        if not inner:
+            continue
 
         for tunable in param_combos:
             # Merge fixed + tunable params; tunable values override fixed if
@@ -147,25 +176,25 @@ def nested_walk_forward_search(
                 proba = model.predict_proba(X_test)[:, 1]
                 inner_scores.append(roc_auc_score(y_te, proba))
 
-            mean_score = float(np.mean(inner_scores)) if inner_scores else -np.inf
-            if mean_score > best_score:
-                best_score  = mean_score
-                best_params = full_params   # store the FULL merged params
+            if not inner_scores:
+                continue
 
-        # Evaluate the winner on the outer test fold using AUC-ROC.
-        scaler       = StandardScaler()
-        X_train_out  = scaler.fit_transform(X.iloc[tr])
-        X_test_out   = scaler.transform(X.iloc[te])
-        model = XGBClassifier(**(best_params or {}))
-        model.fit(X_train_out, y.iloc[tr], verbose=False)
-        y_te_out    = y.iloc[te]
-        outer_proba = model.predict_proba(X_test_out)[:, 1]
-        outer_score = (
-            roc_auc_score(y_te_out, outer_proba)
-            if len(np.unique(y_te_out)) >= 2
-            else 0.5
-        )
+            # Evaluate every candidate on this outer fold. The caller can then
+            # choose the parameter set with the best average outer AUC across
+            # all folds, avoiding the old "pick the luckiest fold" behavior.
+            scaler       = StandardScaler()
+            X_train_out  = scaler.fit_transform(X.iloc[tr])
+            X_test_out   = scaler.transform(X.iloc[te])
+            model = XGBClassifier(**full_params)
+            model.fit(X_train_out, y.iloc[tr], verbose=False)
+            y_te_out    = y.iloc[te]
+            outer_proba = model.predict_proba(X_test_out)[:, 1]
+            outer_score = (
+                roc_auc_score(y_te_out, outer_proba)
+                if len(np.unique(y_te_out)) >= 2
+                else 0.5
+            )
 
-        results.append(FoldResult(params=best_params, score=float(outer_score), fold=k))
+            results.append(FoldResult(params=full_params, score=float(outer_score), fold=k))
 
     return results

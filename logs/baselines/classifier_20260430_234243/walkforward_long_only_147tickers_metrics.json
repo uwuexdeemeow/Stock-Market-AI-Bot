@@ -1,0 +1,290 @@
+{
+  "trades": 983,
+  "total_return_pct": 155.16,
+  "annual_return_pct": 5.91,
+  "benchmark_return_pct": 1056.38,
+  "alpha_pct": -901.22,
+  "cagr_pct": 5.91,
+  "benchmark_comparisons": {
+    "SPY": {
+      "data_available": true,
+      "benchmark_return_pct": 739.29,
+      "alpha_pct": -584.13,
+      "nw_tstat_vs_benchmark": -2.862
+    },
+    "QQQ": {
+      "data_available": true,
+      "benchmark_return_pct": 1532.01,
+      "alpha_pct": -1376.85,
+      "nw_tstat_vs_benchmark": -3.825
+    },
+    "IWM": {
+      "data_available": true,
+      "benchmark_return_pct": 433.25,
+      "alpha_pct": -278.09,
+      "nw_tstat_vs_benchmark": -1.474
+    },
+    "BLEND": {
+      "data_available": true,
+      "benchmark_return_pct": 1056.38,
+      "alpha_pct": -901.22,
+      "nw_tstat_vs_benchmark": -3.473
+    }
+  },
+  "primary_benchmark": "BLEND",
+  "primary_benchmark_weights": {
+    "SPY": 0.6,
+    "QQQ": 0.4
+  },
+  "raw_strategy_total_return_pct": -23.25,
+  "raw_strategy_sharpe_ratio_daily": -0.218,
+  "cash_overlay_enabled": true,
+  "cash_overlay_max_alloc": 0.75,
+  "cash_overlay_avg_alloc": 0.4841,
+  "cash_overlay_days_active": 3375,
+  "single_name_crash_filter_enabled": true,
+  "single_name_distress_filter_enabled": true,
+  "single_name_crash_filter_skips": 38,
+  "single_name_crash_filter_skips_by_reason": {
+    "single_name_long_term_distress": 33,
+    "single_name_min_price": 5
+  },
+  "single_name_crash_filter_skips_by_ticker": {
+    "USB": 7,
+    "SCHW": 6,
+    "NVDA": 5,
+    "COF": 2,
+    "GE": 2,
+    "INTC": 2,
+    "NFLX": 2,
+    "BMY": 1,
+    "CI": 1,
+    "COP": 1,
+    "DD": 1,
+    "F": 1,
+    "FCX": 1,
+    "FDX": 1,
+    "MU": 1,
+    "ORCL": 1,
+    "OXY": 1,
+    "UPS": 1,
+    "VLO": 1
+  },
+  "conformal_trade_gate_enabled": false,
+  "conformal_alpha": 0.2,
+  "conformal_gate_skips": 0,
+  "edge_audit_enabled": true,
+  "regime_edge_gate_enabled": false,
+  "rank_decile_gate_enabled": false,
+  "edge_gate_min_trades": 30,
+  "edge_gate_min_profit_factor": 1.05,
+  "edge_gate_min_avg_pnl": 0.0,
+  "regime_edge_gate_skips": 0,
+  "rank_decile_gate_skips": 0,
+  "edge_audit": {
+    "enabled": true,
+    "groups": 209,
+    "best_groups": [
+      {
+        "group_type": "exit_reason",
+        "group": "take_profit",
+        "trades": 361,
+        "total_pnl": 11680.66,
+        "profit_factor": NaN
+      },
+      {
+        "group_type": "entry_year",
+        "group": "2021",
+        "trades": 96,
+        "total_pnl": 615.27,
+        "profit_factor": 1.347
+      },
+      {
+        "group_type": "sector",
+        "group": "XLE",
+        "trades": 71,
+        "total_pnl": 380.71,
+        "profit_factor": 1.295
+      },
+      {
+        "group_type": "entry_year",
+        "group": "2026",
+        "trades": 23,
+        "total_pnl": 367.13,
+        "profit_factor": 2.768
+      },
+      {
+        "group_type": "expected_return_decile",
+        "group": "E10",
+        "trades": 99,
+        "total_pnl": 351.34,
+        "profit_factor": 1.198
+      }
+    ],
+    "worst_groups": [
+      {
+        "group_type": "exit_reason",
+        "group": "stop_loss",
+        "trades": 288,
+        "total_pnl": -13042.93,
+        "profit_factor": 0.0
+      },
+      {
+        "group_type": "regime_state",
+        "group": "bull",
+        "trades": 590,
+        "total_pnl": -2665.41,
+        "profit_factor": 0.747
+      },
+      {
+        "group_type": "signal_quality",
+        "group": "MEDIUM",
+        "trades": 253,
+        "total_pnl": -1446.01,
+        "profit_factor": 0.703
+      },
+      {
+        "group_type": "holding_days_bucket",
+        "group": "1d",
+        "trades": 205,
+        "total_pnl": -1221.43,
+        "profit_factor": 0.702
+      },
+      {
+        "group_type": "entry_year",
+        "group": "2022",
+        "trades": 73,
+        "total_pnl": -1084.59,
+        "profit_factor": 0.497
+      }
+    ]
+  },
+  "avg_gross_exposure_pct": 20.29,
+  "in_market_pct": 37.6,
+  "rank_performance": {
+    "rank_spearman": -0.0007,
+    "top_rank_avg_pnl": -1.83,
+    "bottom_rank_avg_pnl": -6.83
+  },
+  "sharpe_ratio_daily": 0.571,
+  "nw_tstat_vs_cash": 2.574,
+  "nw_tstat_vs_primary_benchmark": -3.473,
+  "nw_tstat_vs_spy": -2.862,
+  "max_drawdown_pct": -21.91,
+  "slippage_assumption_bps": 10.0,
+  "execution_model": "spread_plus_sqrt_impact",
+  "mode": "long_only",
+  "kill_criteria": {
+    "thresholds": {
+      "min_sharpe": 0.5,
+      "min_nw_tstat": 1.65,
+      "max_drawdown": -0.25,
+      "min_raw_stock_sharpe": 0.0,
+      "min_raw_stock_return": 0.0
+    },
+    "results": {
+      "sharpe_pass": true,
+      "nw_tstat_pass": true,
+      "drawdown_pass": true,
+      "raw_stock_sharpe_pass": false,
+      "raw_stock_return_pass": false,
+      "all_pass": false
+    }
+  },
+  "diagnostics_2022": {
+    "period": "2022-01-01 to 2022-12-31",
+    "total_return_pct": -20.73,
+    "benchmark_return_pct": -26.65,
+    "alpha_pct": 5.92,
+    "sharpe_ratio_daily": -1.853,
+    "max_drawdown_pct": -21.53
+  },
+  "signal_quality": {
+    "HIGH": {
+      "n": 431,
+      "win_rate": 0.529,
+      "avg_pnl": -0.9476,
+      "median_pnl": 3.93,
+      "total_pnl": -408.4
+    },
+    "MEDIUM": {
+      "n": 253,
+      "win_rate": 0.498,
+      "avg_pnl": -5.7155,
+      "median_pnl": -1.11,
+      "total_pnl": -1446.01
+    },
+    "LOW": {
+      "n": 299,
+      "win_rate": 0.5184,
+      "avg_pnl": -1.5738,
+      "median_pnl": 5.66,
+      "total_pnl": -470.57
+    }
+  },
+  "daily_rank_ic": {
+    "primary_score": "expected_return",
+    "mean_ic": 0.001,
+    "t_stat": 0.268,
+    "median_ic": 0.005,
+    "std_ic": 0.191,
+    "positive_day_rate": 0.5119,
+    "days": 2811,
+    "avg_names_per_day": 146.6,
+    "min_names_per_day": 5,
+    "forward_price_col": "horizon_future_close",
+    "by_score": {
+      "ranker_score": {
+        "score_column": "ranker_score",
+        "mean_ic": null,
+        "t_stat": null,
+        "median_ic": null,
+        "std_ic": null,
+        "positive_day_rate": null,
+        "days": 0,
+        "avg_names_per_day": null,
+        "min_names_per_day": null,
+        "max_names_per_day": null
+      },
+      "expected_return": {
+        "score_column": "expected_return",
+        "mean_ic": 0.001,
+        "t_stat": 0.268,
+        "median_ic": 0.005,
+        "std_ic": 0.191,
+        "positive_day_rate": 0.5119,
+        "days": 2811,
+        "avg_names_per_day": 146.6,
+        "min_names_per_day": 146,
+        "max_names_per_day": 147
+      },
+      "p_up_raw": {
+        "score_column": "p_up_raw",
+        "mean_ic": 0.0031,
+        "t_stat": 0.855,
+        "median_ic": 0.0034,
+        "std_ic": 0.1922,
+        "positive_day_rate": 0.5062,
+        "days": 2811,
+        "avg_names_per_day": 146.6,
+        "min_names_per_day": 146,
+        "max_names_per_day": 147
+      },
+      "confidence": {
+        "score_column": "confidence",
+        "mean_ic": 0.0077,
+        "t_stat": 2.352,
+        "median_ic": 0.0034,
+        "std_ic": 0.1738,
+        "positive_day_rate": 0.5059,
+        "days": 2811,
+        "avg_names_per_day": 146.6,
+        "min_names_per_day": 146,
+        "max_names_per_day": 147
+      }
+    },
+    "source": "raw_pooled_predictions"
+  },
+  "daily_rank_ic_path": "/Users/amos/Code/Stock Market AI Bot/signals/walkforward_long_only_147tickers_daily_rank_ic.csv",
+  "edge_audit_path": "/Users/amos/Code/Stock Market AI Bot/signals/walkforward_long_only_147tickers_edge_audit.csv"
+}

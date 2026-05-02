@@ -1,18 +1,20 @@
 {
-  "run_at": "2026-04-26T11:39:12.333449+00:00",
+  "run_at": "2026-05-02T10:25:08.185900+00:00",
   "train_start": "2022-01-01",
   "train_end": "2024-01-01",
   "results": [
     {
       "ticker": "AAPL",
-      "status": "skip",
-      "reason": "no data"
+      "status": "pass",
+      "leaking_features": [],
+      "n_features_checked": 71,
+      "cutoff_date": "2023-05-25"
     },
     {
       "ticker": "MSFT",
       "status": "pass",
       "leaking_features": [],
-      "n_features_checked": 56,
+      "n_features_checked": 71,
       "cutoff_date": "2023-05-25"
     },
     {

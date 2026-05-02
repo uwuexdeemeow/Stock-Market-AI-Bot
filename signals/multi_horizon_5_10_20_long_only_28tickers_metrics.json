@@ -1,0 +1,103 @@
+{
+  "total_return_pct": 227.66,
+  "annual_return_pct": 7.55,
+  "benchmark_return_pct": 1064.26,
+  "alpha_pct": -836.59,
+  "cagr_pct": 7.55,
+  "benchmark_comparisons": {
+    "SPY": {
+      "data_available": true,
+      "benchmark_return_pct": 741.95,
+      "alpha_pct": -514.28,
+      "nw_tstat_vs_benchmark": -2.316
+    },
+    "QQQ": {
+      "data_available": true,
+      "benchmark_return_pct": 1547.72,
+      "alpha_pct": -1320.06,
+      "nw_tstat_vs_benchmark": -3.392
+    },
+    "IWM": {
+      "data_available": true,
+      "benchmark_return_pct": 438.58,
+      "alpha_pct": -210.92,
+      "nw_tstat_vs_benchmark": -1.156
+    },
+    "BLEND": {
+      "data_available": true,
+      "benchmark_return_pct": 1064.26,
+      "alpha_pct": -836.59,
+      "nw_tstat_vs_benchmark": -2.968
+    }
+  },
+  "primary_benchmark": "BLEND",
+  "primary_benchmark_weights": {
+    "SPY": 0.6,
+    "QQQ": 0.4
+  },
+  "raw_strategy_total_return_pct": 0.0,
+  "raw_strategy_sharpe_ratio_daily": 0.0,
+  "cash_overlay_enabled": true,
+  "cash_overlay_max_alloc": 0.75,
+  "cash_overlay_avg_alloc": 0.6073,
+  "cash_overlay_days_active": 4391,
+  "avg_gross_exposure_pct": 0.0,
+  "in_market_pct": 0.0,
+  "rank_performance": {
+    "rank_spearman": null,
+    "top_rank_avg_pnl": null,
+    "bottom_rank_avg_pnl": null
+  },
+  "sharpe_ratio_daily": 0.7,
+  "nw_tstat_vs_cash": 3.269,
+  "nw_tstat_vs_primary_benchmark": -2.968,
+  "nw_tstat_vs_spy": -2.316,
+  "max_drawdown_pct": -19.71,
+  "slippage_assumption_bps": 10.0,
+  "execution_model": "spread_plus_sqrt_impact",
+  "mode": "long_only",
+  "kill_criteria": {
+    "thresholds": {
+      "min_sharpe": 0.5,
+      "min_nw_tstat": 1.65,
+      "max_drawdown": -0.25
+    },
+    "results": {
+      "sharpe_pass": true,
+      "nw_tstat_pass": true,
+      "drawdown_pass": true,
+      "all_pass": true
+    }
+  },
+  "diagnostics_2022": {
+    "period": "2022-01-01 to 2022-12-31",
+    "total_return_pct": -19.12,
+    "benchmark_return_pct": -26.07,
+    "alpha_pct": 6.95,
+    "sharpe_ratio_daily": -1.891,
+    "max_drawdown_pct": -19.59
+  },
+  "signal_quality": {
+    "HIGH": {
+      "n": 0,
+      "win_rate": null,
+      "avg_pnl": null,
+      "median_pnl": null,
+      "total_pnl": 0.0
+    },
+    "MEDIUM": {
+      "n": 0,
+      "win_rate": null,
+      "avg_pnl": null,
+      "median_pnl": null,
+      "total_pnl": 0.0
+    },
+    "LOW": {
+      "n": 0,
+      "win_rate": null,
+      "avg_pnl": null,
+      "median_pnl": null,
+      "total_pnl": 0.0
+    }
+  }
+}

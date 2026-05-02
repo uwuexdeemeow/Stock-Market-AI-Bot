@@ -141,8 +141,8 @@ def triple_barrier(
     close: pd.Series,
     high: pd.Series | None = None,
     low: pd.Series | None = None,
-    pt_mult: float = 1.5,
-    sl_mult: float = 1.5,
+    pt_mult: float = TRIPLE_BARRIER_PT_MULT,
+    sl_mult: float = TRIPLE_BARRIER_SL_MULT,
     max_hold: int = 10,
     atr_window: int = 14,
 ) -> pd.Series:
@@ -152,10 +152,8 @@ def triple_barrier(
     Down barrier = entry - sl_mult * ATR  (stop-loss)
     Returns +1 if up barrier hit first, -1 if down, 0 on time-out.
 
-    Symmetric barriers (pt=1.5, sl=1.5) avoid baking in a DOWN-class shortcut.
-    With the old +2×ATR / -1×ATR setup, UP labels were structurally rarer and
-    the classifier could lean on class imbalance instead of learning tradable
-    separation.
+    The default multipliers come from settings.py so train.py, backtest.py, and
+    diagnostics share the same target definition.
     """
     if high is None or low is None:
         high = close

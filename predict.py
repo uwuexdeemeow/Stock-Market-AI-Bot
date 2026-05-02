@@ -24,11 +24,21 @@ import xgboost as xgb
 from settings import (
     MODEL_DIR, SIGNAL_DIR, DEFAULT_FIXED_CONFIDENCE_THRESHOLD, RETURN_HORIZON_DAYS,
     MARKET_REGIME_FILTER_ENABLED, MARKET_REGIME_VIX_MAX, MARKET_REGIME_SPY_MA200_REQUIRED,
+    MULTI_HORIZON_H20_WEIGHT, MULTI_HORIZON_H5_WEIGHT,
+    CONFORMAL_TRADE_GATE_ENABLED,
+    SINGLE_NAME_CRASH_FILTER_ENABLED, SINGLE_NAME_CRASH_MIN_PRICE,
+    SINGLE_NAME_CRASH_MAX_DRAWDOWN_20D, SINGLE_NAME_CRASH_MAX_DRAWDOWN_60D,
+    SINGLE_NAME_CRASH_MAX_DIST_MA200, SINGLE_NAME_DISTRESS_FILTER_ENABLED,
+    SINGLE_NAME_DISTRESS_MAX_DRAWDOWN_252D, SINGLE_NAME_DISTRESS_MAX_DIST_MA50,
+    SINGLE_NAME_DISTRESS_MAX_RET_20D,
+    SPY_TIMING_MODE, SPY_TIMING_BULL_THRESHOLD, SPY_TIMING_INSTRUMENTS,
+    SPY_TIMING_INVEST_PCT,
 )
 from confidence_calibration import load_direction_calibrator, calibrate_p_up
 from model_quality import read_quality_report
 from model_self_check import validate_ticker, is_optional_feature
 from pipeline_shared import build_live_features_with_latest_news
+from alternative_data_features import build_all_live_alternative_features
 from social_sentiment import get_live_social_signal
 from trade_rules import load_trade_rule, passes_trade_rule
 from xgb_feature_engineering import build_xgb_matrix
@@ -51,22 +61,37 @@ SUMMARY_COLUMNS = [
 ]
 
 
-def build_live_xgb_matrix(df: pd.DataFrame, saved: dict, ticker: str) -> np.ndarray:
+def build_live_xgb_matrix(
+    df: pd.DataFrame,
+    saved: dict,
+    ticker: str,
+    *,
+    keep_idx_key: str = "feature_pruning_keep_idx",
+) -> np.ndarray:
     """Build the live XGBoost matrix in the same shape used during training."""
     feature_cols = saved["feature_cols"]
     feature_cols_raw = saved.get("feature_cols_raw", feature_cols)
     xgb_feature_cols = saved.get("xgb_feature_cols")
-    keep_idx = saved.get("feature_pruning_keep_idx")
+    keep_idx = saved.get(keep_idx_key)
+    if keep_idx is None and keep_idx_key != "feature_pruning_keep_idx":
+        keep_idx = saved.get("feature_pruning_keep_idx")
     scaler = saved.get("xgb_scaler") or saved.get("scaler")
+    include_interactions = bool(saved.get("xgb_interaction_features_enabled", False))
 
     if scaler is None:
         raise RuntimeError(f"No scaler found in saved metadata for {ticker}")
 
     scaler_n = int(getattr(scaler, "n_features_in_", 0) or 0)
     # Pooled model path: scaler was fit on full XGB features + ticker dummies,
-    # then models were trained on feature_pruning_keep_idx.
+    # then models were trained on a pruned keep-index. h5 may have its own
+    # keep-index so sentiment can be active only for the short-horizon model.
     if saved.get("pooled") and keep_idx is not None and scaler_n:
-        base_mat, _ = build_xgb_matrix(df, feature_cols_raw, None)
+        base_mat, _ = build_xgb_matrix(
+            df,
+            feature_cols_raw,
+            None,
+            include_interactions=include_interactions,
+        )
         dummy_cols = list(saved.get("ticker_dummy_cols") or [])
         ticker_classes = [str(t).upper() for t in (saved.get("ticker_classes") or [])]
         if dummy_cols:
@@ -90,14 +115,19 @@ def build_live_xgb_matrix(df: pd.DataFrame, saved: dict, ticker: str) -> np.ndar
         keep = np.asarray(keep_idx, dtype=int)
         return scaled[:, keep]
 
-    xgb_mat, _ = build_xgb_matrix(df, feature_cols_raw, xgb_feature_cols)
+    xgb_mat, _ = build_xgb_matrix(
+        df,
+        feature_cols_raw,
+        xgb_feature_cols,
+        include_interactions=include_interactions,
+    )
     return scaler.transform(xgb_mat)
 
 
-def load_xgb_models(ticker: str):
+def load_xgb_models(ticker: str, artifact_suffix: str = ""):
     for ext in ("pkl", "json"):
-        dir_path = os.path.join(MODEL_DIR, f"{ticker}_xgb_dir.{ext}")
-        ret_path = os.path.join(MODEL_DIR, f"{ticker}_xgb_ret.{ext}")
+        dir_path = os.path.join(MODEL_DIR, f"{ticker}{artifact_suffix}_xgb_dir.{ext}")
+        ret_path = os.path.join(MODEL_DIR, f"{ticker}{artifact_suffix}_xgb_ret.{ext}")
         if os.path.exists(dir_path) and os.path.exists(ret_path):
             if ext == "pkl":
                 with open(dir_path, "rb") as f:
@@ -111,12 +141,39 @@ def load_xgb_models(ticker: str):
     return None, None
 
 
+def load_h5_model(saved: dict) -> xgb.XGBClassifier | None:
+    """
+    Load the secondary 5-day direction model for the multi-horizon ensemble.
+
+    The h5 model is saved pooled-only (not per-ticker) because it was trained
+    on the full cross-sectional dataset in train.py.  We first try the path
+    recorded in the saved metadata (h5_model_path), then fall back to the
+    default pooled artifact name.
+
+    Returns None silently when the h5 artifact doesn't exist yet — the caller
+    should degrade gracefully to h20-only prediction in that case.
+    """
+    # Try the path recorded in metadata first (set by train.py Step 8).
+    h5_path = saved.get("h5_model_path") or os.path.join(MODEL_DIR, "pooled_xgb_dir_h5.json")
+    if not os.path.exists(h5_path):
+        return None
+    try:
+        h5 = xgb.XGBClassifier()
+        h5.load_model(h5_path)
+        return h5
+    except Exception:
+        return None
+
+
 def discover_prediction_tickers() -> list[str]:
     tickers = []
     for filename in os.listdir(MODEL_DIR):
         if not filename.endswith("_scaler.pkl"):
             continue
-        ticker = filename.replace("_scaler.pkl", "").upper()
+        stem = filename.replace("_scaler.pkl", "")
+        if "_h" in stem and stem.rsplit("_h", 1)[-1].isdigit():
+            continue
+        ticker = stem.upper()
         if ticker.lower() in NON_TRADABLE_SCALER_PREFIXES:
             continue
         tickers.append(ticker)
@@ -178,18 +235,22 @@ def compute_recent_accuracy(ticker: str, lookback_days: int = 20) -> tuple[float
 
 
 def assign_signal_quality(confidence: float, bucket_report: list[dict]) -> str:
-    # Minimum sample counts per quality tier — same as backtest.py MIN_BUCKET_N_*.
-    # Without an n-floor the pooled bucket_report's in-sample precision (0.67)
-    # falsely labels every live signal HIGH; n < threshold forces a downgrade.
+    # Minimum sample counts per quality tier, matching the backtest bucket logic.
     MIN_N_HIGH = 30
     MIN_N_MEDIUM = 15
-    for row in bucket_report:
+    for i, row in enumerate(bucket_report):
         try:
-            lo, hi = row["bucket"].split("-")
-            lo = float(lo); hi = float(hi)
+            if "lo" in row and "hi" in row:
+                lo = float(row["lo"])
+                hi = float(row["hi"])
+            else:
+                lo_s, hi_s = row["bucket"].split("-")
+                lo = float(lo_s)
+                hi = float(hi_s)
         except Exception:
             continue
-        if confidence >= lo and (confidence < hi or hi >= 100):
+        is_last = i == len(bucket_report) - 1
+        if confidence >= lo and (confidence < hi or is_last):
             precision = row.get("precision")
             n = row.get("n", 0)
             if precision is None or n < MIN_N_MEDIUM:
@@ -200,6 +261,59 @@ def assign_signal_quality(confidence: float, bucket_report: list[dict]) -> str:
                 return "MEDIUM"
             return "LOW"
     return "MEDIUM"
+
+
+def single_name_crash_filter_reason(df: pd.DataFrame, signal: str) -> str | None:
+    """Live-side mirror of the backtest single-name crash/distress veto."""
+    if not SINGLE_NAME_CRASH_FILTER_ENABLED or signal != "LONG" or "Close" not in df.columns:
+        return None
+
+    close = pd.to_numeric(df["Close"], errors="coerce").dropna()
+    if len(close) < 60:
+        return None
+
+    px = float(close.iloc[-1])
+    if px < SINGLE_NAME_CRASH_MIN_PRICE:
+        return "single_name_min_price"
+
+    dd20 = px / max(float(close.tail(20).max()), 1e-9) - 1.0
+    dd60 = px / max(float(close.tail(60).max()), 1e-9) - 1.0
+    if dd20 <= SINGLE_NAME_CRASH_MAX_DRAWDOWN_20D:
+        return "single_name_20d_crash"
+    if dd60 <= SINGLE_NAME_CRASH_MAX_DRAWDOWN_60D:
+        return "single_name_60d_crash"
+
+    if len(close) >= 200:
+        ma200 = float(close.tail(200).mean())
+        dist_ma200 = px / max(ma200, 1e-9) - 1.0
+        if dist_ma200 <= SINGLE_NAME_CRASH_MAX_DIST_MA200:
+            return "single_name_ma200_crash"
+
+    if SINGLE_NAME_DISTRESS_FILTER_ENABLED and len(close) >= 252:
+        dd252 = px / max(float(close.tail(252).max()), 1e-9) - 1.0
+        ma50 = float(close.tail(50).mean())
+        dist_ma50 = px / max(ma50, 1e-9) - 1.0
+        ret20 = px / max(float(close.iloc[-21]), 1e-9) - 1.0
+        if (
+            dd252 <= SINGLE_NAME_DISTRESS_MAX_DRAWDOWN_252D
+            and dist_ma50 <= SINGLE_NAME_DISTRESS_MAX_DIST_MA50
+            and ret20 <= SINGLE_NAME_DISTRESS_MAX_RET_20D
+        ):
+            return "single_name_long_term_distress"
+
+    return None
+
+
+def conformal_prediction_info(p_up: float, qhat: float | None) -> dict:
+    if qhat is None or not np.isfinite(qhat):
+        return {"set_size": None, "singleton": True}
+    p = float(np.clip(p_up, 0.0, 1.0))
+    include_up = (1.0 - p) <= float(qhat)
+    include_down = p <= float(qhat)
+    set_size = int(include_up) + int(include_down)
+    pred_up = p >= 0.5
+    singleton = bool(set_size == 1 and ((pred_up and include_up) or ((not pred_up) and include_down)))
+    return {"set_size": int(set_size), "singleton": singleton}
 
 
 def live_approval_for_ticker(ticker: str, saved: dict) -> tuple[bool, str]:
@@ -215,14 +329,31 @@ def live_approval_for_ticker(ticker: str, saved: dict) -> tuple[bool, str]:
 
 
 def fallback_confidence_is_usable(saved: dict) -> bool:
+    diagnostics = saved.get("confidence_diagnostics")
+    if isinstance(diagnostics, dict):
+        return bool(diagnostics.get("confidence_validated", False))
     if not saved.get("threshold_used_fallback", True):
         return True
-    for row in saved.get("confidence_buckets", []):
+    bucket_rows = saved.get("confidence_buckets", [])
+    usable_precisions = []
+    for row in bucket_rows:
         precision = row.get("precision")
         n = int(row.get("n", 0) or 0)
         if precision is not None and float(precision) >= 0.60 and n >= 20:
-            return True
-    return False
+            usable_precisions.append(float(precision))
+    if not usable_precisions:
+        return False
+    # One lucky high bucket is not enough; require some monotonic relationship
+    # between confidence bucket order and observed precision.
+    ordered = [
+        float(row["precision"])
+        for row in bucket_rows
+        if row.get("precision") is not None and int(row.get("n", 0) or 0) >= 15
+    ]
+    if len(ordered) < 3:
+        return False
+    corr = pd.Series(range(len(ordered)), dtype=float).corr(pd.Series(ordered), method="spearman")
+    return bool(pd.notna(corr) and float(corr) >= 0.20)
 
 
 def predict_ticker(ticker: str, verbose: bool = False) -> dict:
@@ -253,6 +384,11 @@ def predict_ticker(ticker: str, verbose: bool = False) -> dict:
 
     sentiment_health, sentiment_nonzero_ratio, sentiment_cols = evaluate_sentiment_health(df)
     X_flat = build_live_xgb_matrix(df, saved, ticker)[[-1]]
+    X_h5_flat = (
+        build_live_xgb_matrix(df, saved, ticker, keep_idx_key="h5_feature_pruning_keep_idx")[[-1]]
+        if saved.get("h5_feature_pruning_keep_idx") is not None
+        else X_flat
+    )
 
     dir_model, ret_model = load_xgb_models(ticker)
     if dir_model is None or ret_model is None:
@@ -261,10 +397,26 @@ def predict_ticker(ticker: str, verbose: bool = False) -> dict:
     raw_dir = dir_model.predict_proba(X_flat)[0]
     raw_ret = ret_model.predict_proba(X_flat)[0]
 
+    # ── Multi-horizon ensemble blend ─────────────────────────────────────────
+    # Try to load the 5-day secondary model trained alongside the primary h20
+    # model.  Blending them gives p_up_raw — used for direction_vote and
+    # confidence.  Calibration is applied to the h20 component only.
+    p_up_h20 = float(raw_dir[1])
+    h5_model  = load_h5_model(saved)
+    if h5_model is not None:
+        p_up_h5  = float(h5_model.predict_proba(X_h5_flat)[0, 1])
+        p_up_raw = MULTI_HORIZON_H20_WEIGHT * p_up_h20 + MULTI_HORIZON_H5_WEIGHT * p_up_h5
+    else:
+        # h5 artifact not yet built — degrade gracefully to h20-only.
+        p_up_raw = p_up_h20
+
     calibrator = load_direction_calibrator(saved.get("confidence_calibrator"))
-    p_up = float(calibrate_p_up(calibrator, float(raw_dir[1]))) if calibrator is not None else float(raw_dir[1])
-    p_down = 1.0 - p_up
-    up_pct = p_up * 100.0
+    # Calibrate only h20; p_up_raw (blended) is used for direction + confidence.
+    p_up = float(calibrate_p_up(calibrator, p_up_h20)) if calibrator is not None else p_up_h20
+    # direction_vote and confidence come from the blended p_up_raw so both paths
+    # (backtest walk-forward and live predict) are consistent.
+    p_down = 1.0 - p_up_raw
+    up_pct = p_up_raw * 100.0
     down_pct = p_down * 100.0
     confidence = min(max(max(up_pct, down_pct), 50.0), 99.0)
 
@@ -274,13 +426,16 @@ def predict_ticker(ticker: str, verbose: bool = False) -> dict:
         pad[:len(raw_ret)] = raw_ret
         raw_ret = pad
     expected_return = float((raw_ret[:nrb] * RETURN_BIN_CENTRES[:nrb]).sum()) * 100.0
-    # direction_vote comes from the direction model (p_up vs p_down) — the primary
-    # signal source.  signal follows direction_vote, NOT expected_return.
-    # expected_return is from a noisy return-bucket model; its sign was unreliable
-    # (skewed negative by triple-barrier asymmetry) and caused all outputs to be SHORT.
-    direction_vote = "LONG" if up_pct >= down_pct else "SHORT"
+    # direction_vote comes from the blended ensemble probability, not calibrated
+    # h20 alone (calibrated h20 could collapse toward SHORT in imbalanced label runs).
+    direction_vote = "LONG" if p_up_raw >= 0.5 else "SHORT"
     signal = direction_vote
     signal_quality = assign_signal_quality(confidence, saved.get("confidence_buckets", []))
+    conformal_qhat = saved.get("conformal_qhat")
+    conformal_info = conformal_prediction_info(
+        p_up_raw,
+        float(conformal_qhat) if conformal_qhat is not None else None,
+    )
     model_approved, approval_reason = live_approval_for_ticker(ticker, saved)
     trade_rule = load_trade_rule(ticker)
 
@@ -311,6 +466,10 @@ def predict_ticker(ticker: str, verbose: bool = False) -> dict:
         actionable = False
         suppressed_reason = suppressed_reason or "expected_return_not_positive"
 
+    if CONFORMAL_TRADE_GATE_ENABLED and not bool(conformal_info["singleton"]):
+        actionable = False
+        suppressed_reason = suppressed_reason or "conformal_not_singleton"
+
     if not fallback_confidence_is_usable(saved):
         actionable = False
         suppressed_reason = suppressed_reason or "fallback_confidence_not_validated"
@@ -337,6 +496,11 @@ def predict_ticker(ticker: str, verbose: bool = False) -> dict:
                 suppressed_reason = f"regime_spy_below_ma200: dist={spy_ma200_dist:.4f}"
         except Exception:
             pass  # If regime data is missing, don't block the trade
+
+    crash_filter_reason = single_name_crash_filter_reason(df, signal)
+    if actionable and crash_filter_reason is not None:
+        actionable = False
+        suppressed_reason = crash_filter_reason
 
     # Live safety: shorts are disabled until validated separately.
     live_actionable = actionable and signal == "LONG"
@@ -371,6 +535,11 @@ def predict_ticker(ticker: str, verbose: bool = False) -> dict:
         "sentiment_health": sentiment_health,
         "sentiment_nonzero_ratio": round(sentiment_nonzero_ratio, 2),
         "sentiment_feature_count": len(sentiment_cols),
+        "single_name_crash_filter_reason": crash_filter_reason or "",
+        "conformal_qhat": round(float(conformal_qhat), 4) if conformal_qhat is not None else None,
+        "conformal_set_size": conformal_info["set_size"],
+        "conformal_singleton": conformal_info["singleton"],
+        "conformal_gate_enabled": bool(CONFORMAL_TRADE_GATE_ENABLED),
         "recent_accuracy": round(recent_accuracy, 3) if recent_accuracy is not None else None,
         "recent_accuracy_n": recent_n,
         "model_approved": model_approved,
@@ -397,6 +566,18 @@ def predict_ticker(ticker: str, verbose: bool = False) -> dict:
             result["social_combined"] = round(float(social.get("combined", 0.0)), 3)
     except Exception:
         pass
+
+    # ── Alternative data: EPS revisions, analyst recs, short interest ────────
+    # Fetches live snapshot data from yfinance and finnhub. These features
+    # enrich the prediction output so the user can see fundamental context
+    # alongside the model's technical signal.
+    try:
+        alt_feats = build_all_live_alternative_features(ticker)
+        if alt_feats:
+            for k, v in alt_feats.items():
+                result[k] = round(float(v), 4) if isinstance(v, (int, float)) else v
+    except Exception:
+        pass  # alt data is supplementary — never block prediction on failure
 
     return result
 
@@ -433,11 +614,139 @@ def print_prediction_summary(out: pd.DataFrame, out_path: str) -> None:
     print(f"Saved: {out_path}")
 
 
+def compute_spy_timing_signal(predictions: list[dict]) -> dict:
+    """Aggregate per-ticker predictions into a single SPY/QQQ timing signal.
+
+    PLAIN ENGLISH: The model can't pick stocks (rank_spearman ≈ 0) but CAN
+    time the market (NW t-stat 3.3 vs cash).  Instead of trading individual
+    stocks, we count how many tickers the model says "LONG" on.  If the
+    majority are bullish → buy SPY/QQQ.  If not → stay in cash.
+
+    This eliminates single-stock blowup risk and captures the timing edge
+    with one simple trade instead of juggling 10 positions.
+
+    Returns a dict with the timing signal and supporting diagnostics.
+    """
+    if not predictions:
+        return {
+            "signal": "STAY_CASH",
+            "market_timing_signal": "STAY_CASH",
+            "reason": "no_predictions",
+            "bull_fraction": 0.0,
+            "threshold": SPY_TIMING_BULL_THRESHOLD,
+            "instruments": SPY_TIMING_INSTRUMENTS,
+            "invest_pct": 0.0,
+            "target_spy_weight": 0.0,
+            "target_qqq_weight": 0.0,
+            "target_cash_weight": 1.0,
+            "single_name_signals_enabled": False,
+        }
+
+    # Count direction votes across all tickers
+    n_total = len(predictions)
+    n_long = sum(1 for p in predictions if p.get("direction_vote") == "LONG")
+    n_actionable_long = sum(
+        1 for p in predictions
+        if p.get("direction_vote") == "LONG" and p.get("actionable", False)
+    )
+    bull_fraction = n_long / n_total if n_total > 0 else 0.0
+
+    # Average confidence across LONG votes — higher = stronger conviction
+    long_confs = [
+        float(p.get("confidence", 50.0))
+        for p in predictions
+        if p.get("direction_vote") == "LONG"
+    ]
+    avg_long_conf = float(np.mean(long_confs)) if long_confs else 50.0
+
+    # Signal decision: majority rule with configurable threshold
+    is_bullish = bull_fraction >= SPY_TIMING_BULL_THRESHOLD
+
+    # Scale position size by conviction strength:
+    #   - Just above threshold (e.g. 51%) → invest at 60% of max
+    #   - Strong majority (e.g. 80%) → invest at 100% of max
+    if is_bullish:
+        # Linear scale from 60% to 100% of SPY_TIMING_INVEST_PCT
+        # as bull_fraction goes from threshold to 1.0
+        range_above = max(1.0 - SPY_TIMING_BULL_THRESHOLD, 0.01)
+        strength = min((bull_fraction - SPY_TIMING_BULL_THRESHOLD) / range_above, 1.0)
+        invest_scale = 0.60 + 0.40 * strength
+        invest_pct = SPY_TIMING_INVEST_PCT * invest_scale
+    else:
+        invest_pct = 0.0
+
+    signal = "BUY_SPY" if is_bullish else "STAY_CASH"
+    total_weight = sum(float(w) for w in SPY_TIMING_INSTRUMENTS.values() if float(w) > 0)
+    instrument_weights = {
+        str(sym).upper(): float(weight) / total_weight
+        for sym, weight in SPY_TIMING_INSTRUMENTS.items()
+        if float(weight) > 0 and total_weight > 0
+    }
+    target_weights = {
+        sym: round(float(invest_pct) * float(weight), 4)
+        for sym, weight in instrument_weights.items()
+    }
+    target_cash_weight = round(max(0.0, 1.0 - sum(target_weights.values())), 4)
+
+    return {
+        "signal": signal,
+        "market_timing_signal": signal,
+        "bull_fraction": round(bull_fraction, 3),
+        "threshold": SPY_TIMING_BULL_THRESHOLD,
+        "n_long": n_long,
+        "n_total": n_total,
+        "n_actionable_long": n_actionable_long,
+        "avg_long_confidence": round(avg_long_conf, 1),
+        "invest_pct": round(invest_pct, 3),
+        "instruments": instrument_weights,
+        "target_spy_weight": target_weights.get("SPY", 0.0),
+        "target_qqq_weight": target_weights.get("QQQ", 0.0),
+        "target_cash_weight": target_cash_weight,
+        "single_name_signals_enabled": False,
+        "paper_signal_type": "index_timing",
+        "reason": (
+            f"{n_long}/{n_total} tickers LONG ({bull_fraction:.0%}) "
+            f"{'≥' if is_bullish else '<'} {SPY_TIMING_BULL_THRESHOLD:.0%} threshold"
+        ),
+        "predicted_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+
+
+def print_spy_timing_summary(timing: dict, predictions: list[dict]) -> None:
+    """Print a clear, actionable SPY timing signal summary."""
+    signal = timing["signal"]
+    bull_pct = timing["bull_fraction"] * 100
+    invest_pct = timing["invest_pct"] * 100
+
+    print("\n" + "=" * 60)
+    if signal == "BUY_SPY":
+        print(f"  SIGNAL:  BUY SPY/QQQ")
+        print(f"  Invest:  {invest_pct:.0f}% of portfolio")
+        for instr, weight in timing["instruments"].items():
+            alloc = invest_pct * weight
+            print(f"    → {instr}: {alloc:.0f}% of portfolio ({weight:.0%} of invested)")
+    else:
+        print(f"  SIGNAL:  STAY IN CASH")
+        print(f"  Invest:  0% — wait for bullish conditions")
+    print(f"  {'─' * 56}")
+    print(f"  Bull tickers: {timing['n_long']}/{timing['n_total']} ({bull_pct:.0f}%)")
+    print(f"  Threshold:    {timing['threshold']:.0%}")
+    print(f"  Avg LONG conf: {timing['avg_long_confidence']:.1f}%")
+    print(f"  Reason:       {timing['reason']}")
+    print("=" * 60)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Complete XGBoost-only predictor")
     parser.add_argument("--ticker", type=str, default=None)
     parser.add_argument("--verbose", action="store_true", help="Show self-check and per-source news diagnostics")
+    parser.add_argument("--spy-timing", action="store_true",
+                        help="Output SPY/QQQ market-timing signal instead of per-stock picks")
     args = parser.parse_args()
+
+    # Force SPY timing mode from CLI flag or settings
+    use_spy_timing = args.spy_timing or SPY_TIMING_MODE
+
     tickers = [args.ticker.upper()] if args.ticker else discover_prediction_tickers()
     rows = []
     for ticker in tickers:
@@ -448,6 +757,20 @@ def main() -> None:
     if not rows:
         raise SystemExit("No predictions generated")
     out = pd.DataFrame(rows)
+
+    # ── SPY timing mode: aggregate predictions into one signal ───────────────
+    if use_spy_timing:
+        timing = compute_spy_timing_signal(rows)
+        print_spy_timing_summary(timing, rows)
+        # Save timing signal as a single-row CSV
+        timing_path = os.path.join(SIGNAL_DIR, "spy_timing_signal.csv")
+        pd.DataFrame([timing]).to_csv(timing_path, index=False)
+        print(f"Timing signal saved: {timing_path}")
+        # Still save the per-ticker detail for diagnostics
+        detail_path = os.path.join(SIGNAL_DIR, "spy_timing_ticker_detail.csv")
+        out.to_csv(detail_path, index=False)
+
+    # ── Standard per-ticker output ───────────────────────────────────────────
     if "signal_quality" in out.columns:
         quality_rank = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
         out["_signal_quality_rank"] = out["signal_quality"].map(quality_rank).fillna(1)
@@ -456,7 +779,25 @@ def main() -> None:
         out = out.sort_values(["actionable", "confidence"], ascending=[False, False])
     out_path = os.path.join(SIGNAL_DIR, "signals.csv")
     out.to_csv(out_path, index=False)
-    print_prediction_summary(out, out_path)
+    if not use_spy_timing:
+        print_prediction_summary(out, out_path)
+        # ── Alternative data context for actionable tickers ──────────────
+        # Show EPS revisions, analyst recs, short interest for stocks the
+        # model flagged as actionable.  Gives the human trader fundamental
+        # context alongside the purely-technical XGBoost signal.
+        _alt_cols = [c for c in out.columns if c.startswith("alt_")]
+        if _alt_cols:
+            _show = out[out["actionable"] == True] if "actionable" in out.columns else out  # noqa: E712
+            if not _show.empty:
+                _key_alt = [c for c in [
+                    "ticker", "alt_eps_revision_7d", "alt_eps_revision_30d",
+                    "alt_eps_surprise_pct", "alt_rec_mean", "alt_rec_buy_pct",
+                    "alt_rec_change_1m", "alt_short_ratio", "alt_short_pct_float",
+                    "alt_short_change_mom", "alt_institutional_pct", "alt_target_upside",
+                ] if c in _show.columns]
+                if len(_key_alt) > 1:
+                    print("\n── Alternative Data Context (actionable tickers) ──")
+                    print(_show[_key_alt].to_string(index=False))
 
 
 if __name__ == "__main__":

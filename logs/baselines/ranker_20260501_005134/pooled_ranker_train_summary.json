@@ -1,0 +1,37 @@
+{
+  "ranker_model_path": "/Users/amos/Code/Stock Market AI Bot/models/pooled_xgb_ranker.json",
+  "ranker_target": "forward_excess_return_5d",
+  "train_daily_rank_ic": {
+    "mean_ic": 0.0284,
+    "t_stat": 3.907,
+    "median_ic": 0.0437,
+    "std_ic": 0.1743,
+    "positive_day_rate": 0.5906,
+    "days": 574,
+    "avg_names_per_day": 146.9
+  },
+  "cal_daily_rank_ic": {
+    "mean_ic": 0.0112,
+    "t_stat": 1.281,
+    "median_ic": 0.017,
+    "std_ic": 0.2163,
+    "positive_day_rate": 0.5317,
+    "days": 615,
+    "avg_names_per_day": 149.0
+  },
+  "test_daily_rank_ic": {
+    "mean_ic": 0.0206,
+    "t_stat": 3.269,
+    "median_ic": 0.0248,
+    "std_ic": 0.1562,
+    "positive_day_rate": 0.5756,
+    "days": 615,
+    "avg_names_per_day": 149.0
+  },
+  "n_features": 64,
+  "n_base_features": 64,
+  "n_tickers": 149,
+  "train_rows": 84300,
+  "calib_rows": 91635,
+  "test_rows": 91631
+}

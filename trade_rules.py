@@ -9,7 +9,7 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
-from settings import MODEL_DIR, RETURN_HORIZON_DAYS
+from settings import DEFAULT_FIXED_CONFIDENCE_THRESHOLD, MODEL_DIR, RETURN_HORIZON_DAYS
 
 TRADE_RULE_REPORT = os.path.join(MODEL_DIR, "trade_rule_report.csv")
 
@@ -17,7 +17,7 @@ TRADE_RULE_REPORT = os.path.join(MODEL_DIR, "trade_rule_report.csv")
 @dataclass
 class TradeRule:
     ticker: str
-    confidence_threshold: float = 57.5
+    confidence_threshold: float = DEFAULT_FIXED_CONFIDENCE_THRESHOLD
     min_expected_return: float = 0.25
     allowed_qualities: tuple[str, ...] = ("LOW", "MEDIUM", "HIGH")
     exit_horizon_days: int = RETURN_HORIZON_DAYS
