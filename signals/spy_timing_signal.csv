@@ -1,0 +1,2 @@
+signal,market_timing_signal,bull_fraction,threshold,n_long,n_total,n_actionable_long,avg_long_confidence,invest_pct,instruments,target_spy_weight,target_qqq_weight,target_cash_weight,single_name_signals_enabled,single_name_paper_trading_enabled,paper_mode_strategy,paper_signal_type,reason,predicted_at
+STAY_CASH,STAY_CASH,0.0,0.5,0,1,0,50.0,0.0,"{'SPY': 0.6, 'QQQ': 0.4}",0.0,0.0,1.0,False,False,spy_qqq_timing,index_timing,0/1 tickers LONG (0%) < 50% threshold,2026-05-02 19:59

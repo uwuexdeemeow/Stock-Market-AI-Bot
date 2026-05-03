@@ -368,19 +368,29 @@ CONSERVATIVE_FEATURE_EXACT = {
     "vwap_dist",
     "uptick_ratio",
     "variance_ratio",
+    # PEAD earnings features — point-in-time safe (guarded by USE_EARNINGS_DATA)
+    "eps_surprise_pct",
+    "days_since_earnings",
+    "days_to_next_earnings",
 }
 RISKY_FEATURE_KEYWORDS = (
     "social",
     "iv_",
     "put_call",
     "option",
-    "earn",
-    "eps_",
     "analyst",
     "recommend",
     "short_interest",
     "dark_pool",
 )
+# Earnings features that are explicitly point-in-time safe (PEAD).
+# Previously blocked by "earn"/"eps_" risky keywords, now whitelisted
+# because USE_EARNINGS_DATA guards them at the source.
+EARNINGS_SAFE_COLUMNS = {
+    "eps_surprise_pct",
+    "days_since_earnings",
+    "days_to_next_earnings",
+}
 
 RAW_SENTIMENT_COLUMNS = (
     "news_sentiment",
@@ -547,6 +557,9 @@ def build_research_feature_frame(ticker: str, start: str, end: str) -> pd.DataFr
         build_volume_features(df),
         build_point_in_time_valuation_features(ticker, df),
         build_market_breadth_features(dates, start, end),
+        # Earnings-surprise features (PEAD): eps_surprise_pct, days_since/to
+        # earnings.  Returns neutral values when USE_EARNINGS_DATA=False.
+        build_earnings_features_context(ticker, dates),
     ]
     if USE_NEWS_SENTIMENT:
         try:
@@ -607,6 +620,9 @@ def build_live_features_with_latest_news(
         build_volume_features(df),
         build_point_in_time_valuation_features(ticker, df),
         build_market_breadth_features(dates, start_str, end_str),
+        # Earnings-surprise features (PEAD): eps_surprise_pct, days_since/to
+        # earnings.  Returns neutral values when USE_EARNINGS_DATA=False.
+        build_earnings_features_context(ticker, dates),
     ]
 
     diagnostic_frames: list[pd.DataFrame] = []

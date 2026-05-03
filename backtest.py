@@ -127,7 +127,6 @@ from settings import (
     REGIME_MIN_TRAIN_ROWS,
     EXCLUDE_MARKET_CONSTANTS,
     POOLED_RANKER_EXPERIMENT_ENABLED,
-    RANK_SCORE_MODE,
     SIMPLE_FACTOR_RANKING,
     SIMPLE_FACTOR_COLS,
     SIMPLE_FACTOR_WEIGHTS,
@@ -135,10 +134,32 @@ from settings import (
     SPY_TIMING_BULL_THRESHOLD,
     SPY_TIMING_INSTRUMENTS,
     SPY_TIMING_INVEST_PCT,
+    SPY_TIMING_SMOOTH_WINDOW,
+    SPY_TIMING_ENTER_THRESHOLD,
+    SPY_TIMING_EXIT_THRESHOLD,
+    SPY_TIMING_MIN_HOLD_DAYS,
+    SPY_TIMING_ETF_COST_BPS,
     MIN_TIMING_SHARPE,
     MAX_TIMING_DRAWDOWN_PCT,
     MIN_TIMING_NW_TSTAT_VS_CASH,
     MIN_TIMING_TRADES_OR_EXPOSURE_DAYS,
+    ETF_ROTATION_MODE,
+    ETF_ROTATION_ASSETS,
+    ETF_ROTATION_PRESETS,
+    ETF_ROTATION_DEFENSIVE_MIXES,
+    ETF_ROTATION_RISK_ON_ENTER,
+    ETF_ROTATION_RISK_ON_EXIT,
+    ETF_ROTATION_NEUTRAL_THRESHOLD,
+    ETF_ROTATION_MIN_HOLD_DAYS,
+    ETF_ROTATION_REBALANCE_BAND,
+    ETF_ROTATION_DEFAULT_VOL_TARGET,
+    ETF_ROTATION_MAX_GROSS_EXPOSURE,
+    MIN_ETF_ROTATION_ALPHA_VS_SPY_PCT,
+    MIN_ETF_ROTATION_ALPHA_VS_QQQ_PCT,
+    MIN_ETF_ROTATION_ALPHA_VS_BLEND_PCT,
+    MIN_ETF_ROTATION_NW_TSTAT_VS_BLEND,
+    PAPER_MODE_STRATEGY,
+    SINGLE_NAME_PAPER_TRADING_ENABLED,
     EDGE_AUDIT_ENABLED,
     REGIME_EDGE_GATE_ENABLED,
     RANK_DECILE_GATE_ENABLED,
@@ -160,6 +181,8 @@ MAX_POSITION_SIZE_PCT = 0.30
 HIGH_SIGNAL_BOOST = 1.0
 MIN_BUCKET_N_HIGH = 30
 MIN_BUCKET_N_MEDIUM = 15
+_ETF_PRICE_FRAME_CACHE: dict[tuple[tuple[str, ...], str, str], pd.DataFrame] = {}
+_ETF_VOTE_CACHE: dict[int, tuple[pd.Series, dict[pd.Timestamp, dict]]] = {}
 
 # ── ATR-based position sizing parameters ──────────────────────────────────────
 # Instead of a flat % per trade, we risk a fixed fraction of capital per trade.
@@ -207,6 +230,7 @@ def print_model_summary(
         print(f"Raw stock return: {metrics.get('raw_strategy_total_return_pct', 0):.2f}%")
         print(f"Raw stock Sharpe: {metrics.get('raw_strategy_sharpe_ratio_daily', 0):.3f}")
         print(f"Overlay avg alloc: {metrics.get('cash_overlay_avg_alloc', 0):.2%}")
+        print(f"Overlay contrib : {metrics.get('overlay_contribution_pct', 0):.2f}%")
     print(f"NW t-stat       : {metrics.get('nw_tstat_vs_cash', 0):.3f}")
     print(f"Max drawdown    : {metrics.get('max_drawdown_pct', 0):.2f}%")
     rank_perf = metrics.get("rank_performance", {}) or {}
@@ -1891,11 +1915,10 @@ def apply_cross_sectional_ranking(
     dominate every single day, rank Spearman → 0, and quality tiers become
     meaningless.
 
-    Normalisation step (uses RANK_SCORE_MODE from settings):
-      z_dir_edge  = (p_up_raw  - rolling_mean_p_up_raw)  / rolling_std_p_up_raw
-      rank_score  = z_dir_edge   (default: p_up_raw only; IC=+0.024, t=6.0)
-    The old formula blended expected_return (IC=-0.006) at weight 1.0 with
-    p_up_raw at weight 0.5 — giving most weight to the destructive signal.
+    Normalisation step:
+      z_exp_ret   = (exp_ret   - rolling_mean_exp_ret)   / rolling_std_exp_ret
+      z_dir_edge  = (dir_edge  - rolling_mean_dir_edge)  / rolling_std_dir_edge
+      rank_score  = z_exp_ret + 0.5 * z_dir_edge
     Rolling window = 60 trading days (≈ 3 months).  Only applied once 20+
     observations are available; before that the ticker is ranked at 0.
     """
@@ -3104,6 +3127,7 @@ def run_portfolio_backtest(
     raw_daily_ret = raw_equity.pct_change().fillna(0.0)
     raw_total_ret = float(raw_equity.iloc[-1] / raw_equity.iloc[0] - 1.0) if len(raw_equity) else 0.0
     raw_sharpe = float((raw_daily_ret.mean() / (raw_daily_ret.std() + 1e-12)) * np.sqrt(252)) if len(raw_daily_ret) else 0.0
+    overlay_contribution = total_ret - raw_total_ret
     avg_gross_exposure = float(gross_exposure.reindex(equity.index).fillna(0.0).mean()) if len(gross_exposure) else 0.0
     in_market_pct = float((gross_exposure.reindex(equity.index).fillna(0.0) > 0).mean() * 100.0) if len(gross_exposure) else 0.0
     trades_for_metrics = pd.DataFrame(trade_rows)
@@ -3119,6 +3143,7 @@ def run_portfolio_backtest(
         "raw_stock_return_pass": bool(raw_total_ret >= KILL_CRITERIA["min_raw_stock_return"]),
     }
     gate_results["all_pass"] = all(gate_results.values())
+    raw_stock_gates_pass = bool(gate_results["raw_stock_sharpe_pass"] and gate_results["raw_stock_return_pass"])
 
     metrics = {
         "trades": int(len(trade_rows)),
@@ -3132,10 +3157,32 @@ def run_portfolio_backtest(
         "primary_benchmark_weights": _normalise_weights(PRIMARY_BENCHMARK_WEIGHTS),
         "raw_strategy_total_return_pct": round(raw_total_ret * 100, 2),
         "raw_strategy_sharpe_ratio_daily": round(raw_sharpe, 3),
+        "raw_stock_gates_pass": raw_stock_gates_pass,
+        "paper_mode_strategy": PAPER_MODE_STRATEGY,
+        "single_name_paper_trading_enabled": bool(SINGLE_NAME_PAPER_TRADING_ENABLED and raw_stock_gates_pass),
         "cash_overlay_enabled": bool(CASH_OVERLAY_ENABLED),
         "cash_overlay_max_alloc": float(CASH_OVERLAY_MAX_ALLOC),
         "cash_overlay_avg_alloc": round(float(overlay_alloc.mean()), 4) if len(overlay_alloc) else 0.0,
         "cash_overlay_days_active": int((overlay_alloc > 0).sum()) if len(overlay_alloc) else 0,
+        "overlay_contribution_pct": round(overlay_contribution * 100, 2),
+        "stock_sleeve_metrics": {
+            "total_return_pct": round(raw_total_ret * 100, 2),
+            "sharpe_ratio_daily": round(raw_sharpe, 3),
+            "gates_pass": raw_stock_gates_pass,
+            "paper_ready": raw_stock_gates_pass,
+        },
+        "cash_overlay_metrics": {
+            "enabled": bool(CASH_OVERLAY_ENABLED),
+            "avg_alloc": round(float(overlay_alloc.mean()), 4) if len(overlay_alloc) else 0.0,
+            "days_active": int((overlay_alloc > 0).sum()) if len(overlay_alloc) else 0,
+            "contribution_pct": round(overlay_contribution * 100, 2),
+        },
+        "combined_portfolio_metrics": {
+            "total_return_pct": round(total_ret * 100, 2),
+            "sharpe_ratio_daily": round(sharpe, 3),
+            "max_drawdown_pct": round(float(dd.min()) * 100, 2) if len(dd) else 0.0,
+            "alpha_pct": round((total_ret - bench_ret) * 100, 2),
+        },
         "single_name_crash_filter_enabled": bool(SINGLE_NAME_CRASH_FILTER_ENABLED),
         "single_name_distress_filter_enabled": bool(SINGLE_NAME_DISTRESS_FILTER_ENABLED),
         "single_name_crash_filter_skips": int(single_name_crash_filter_skips),
@@ -3247,6 +3294,9 @@ def run_spy_timing_backtest(
     threshold: float = SPY_TIMING_BULL_THRESHOLD,
     invest_pct: float = SPY_TIMING_INVEST_PCT,
     instruments: dict[str, float] | None = None,
+    output_prefix: str = "spy_timing",
+    write_outputs: bool = True,
+    quiet: bool = False,
 ) -> dict:
     """Backtest the SPY/QQQ timing strategy using walk-forward predictions.
 
@@ -3277,7 +3327,8 @@ def run_spy_timing_backtest(
                 date_votes[dt]["n_long"] += 1
 
     if not date_votes:
-        print("[spy-timing] No predictions to build timing signal from")
+        if not quiet:
+            print("[spy-timing] No predictions to build timing signal from")
         return {}
 
     timeline = sorted(date_votes.keys())
@@ -3299,13 +3350,27 @@ def run_spy_timing_backtest(
                 raw.columns = raw.columns.get_level_values(0)
             bench_prices[sym] = raw["Close"]
         except Exception as e:
-            print(f"[spy-timing] WARNING: could not download {sym}: {e}")
+            if not quiet:
+                print(f"[spy-timing] WARNING: could not download {sym}: {e}")
 
     if not bench_prices:
-        print("[spy-timing] No benchmark prices downloaded")
+        if not quiet:
+            print("[spy-timing] No benchmark prices downloaded")
         return {}
 
     # ── 3. Simulate the strategy ─────────────────────────────────────────────
+    # Smoothing: rolling average of bull_fraction reduces daily whipsaw.
+    # Hysteresis: separate enter/exit thresholds create a dead zone so small
+    #   fluctuations don't trigger trades.
+    # Min hold: once invested, hold at least N days before considering exit.
+    smooth_w = SPY_TIMING_SMOOTH_WINDOW
+    enter_thr = SPY_TIMING_ENTER_THRESHOLD
+    exit_thr = SPY_TIMING_EXIT_THRESHOLD
+    min_hold = SPY_TIMING_MIN_HOLD_DAYS
+
+    # Smooth the bull_fraction series with a rolling average.
+    smoothed_bf = bull_fractions.rolling(window=smooth_w, min_periods=1).mean()
+
     equity = INITIAL_CAPITAL
     equity_curve = []
     signals_log = []
@@ -3313,27 +3378,47 @@ def run_spy_timing_backtest(
     n_cash = 0
     prev_weights = {sym: 0.0 for sym in benchmark_symbols}
     total_turnover = 0.0
+    is_invested = False          # current position state
+    days_since_last_rebal = 999  # force first rebalance immediately
 
     for dt in timeline:
-        bf = float(bull_fractions.get(dt, 0.0))
-        is_bullish = bf >= threshold
-        # Linear scaling of position size by bull_fraction strength
-        if is_bullish:
-            range_above = max(1.0 - threshold, 0.01)
-            strength = min((bf - threshold) / range_above, 1.0)
-            scale = 0.60 + 0.40 * strength
-            day_invest = invest_pct * scale
+        bf_raw = float(bull_fractions.get(dt, 0.0))
+        bf = float(smoothed_bf.get(dt, bf_raw))
+        days_since_last_rebal += 1
+
+        # Only evaluate signal at rebalance points (every min_hold days).
+        # Between rebalances, hold the current position regardless of signal.
+        # This dramatically reduces turnover while still capturing regime shifts.
+        if days_since_last_rebal >= max(min_hold, 1):
+            # Hysteresis logic at rebalance point:
+            if not is_invested:
+                if bf >= enter_thr:
+                    is_invested = True
+                    days_since_last_rebal = 0
+            else:
+                if bf <= exit_thr:
+                    is_invested = False
+                    days_since_last_rebal = 0
+
+        # Fixed allocation when invested — binary in/out.
+        if is_invested:
+            day_invest = invest_pct
         else:
             day_invest = 0.0
 
         current_weights = {sym: 0.0 for sym in benchmark_symbols}
         for sym, weight in instruments.items():
             current_weights[sym] = day_invest * float(weight)
-        total_turnover += sum(
+        day_turnover = sum(
             abs(float(current_weights.get(sym, 0.0)) - float(prev_weights.get(sym, 0.0)))
             for sym in benchmark_symbols
         )
+        total_turnover += day_turnover
         prev_weights = current_weights
+
+        # Transaction cost: deducted from equity each day based on turnover.
+        # SPY/QQQ ETFs have ~1-2bps round-trip cost, much lower than stocks.
+        cost = day_turnover * SPY_TIMING_ETF_COST_BPS / 10_000.0
 
         # Compute blended benchmark return for this day
         day_ret = 0.0
@@ -3345,20 +3430,23 @@ def run_spy_timing_backtest(
                     if idx + 1 < len(px):
                         day_ret += weight * (float(px.iloc[idx + 1]) / float(px.iloc[idx]) - 1.0)
 
-        # Apply position-sized return
-        portfolio_ret = day_invest * day_ret
+        # Apply position-sized return minus transaction cost
+        portfolio_ret = day_invest * day_ret - cost
         equity *= (1.0 + portfolio_ret)
         equity_curve.append({"date": dt, "equity": equity, "bull_fraction": bf,
+                             "bull_fraction_raw": bf_raw,
                              "invested": day_invest, "day_ret": day_ret,
                              "strategy_ret": portfolio_ret})
         signals_log.append({
-            "date": dt, "bull_fraction": round(bf, 3),
-            "signal": "BUY_SPY" if is_bullish else "STAY_CASH",
+            "date": dt, "bull_fraction_raw": round(bf_raw, 3),
+            "bull_fraction_smoothed": round(bf, 3),
+            "signal": "BUY_SPY" if is_invested else "STAY_CASH",
             "invest_pct": round(day_invest, 3),
             "n_long": date_votes[dt]["n_long"],
             "n_total": date_votes[dt]["n_total"],
+            "days_held": days_since_last_rebal if is_invested else 0,
         })
-        if is_bullish:
+        if is_invested:
             n_invested += 1
         else:
             n_cash += 1
@@ -3436,7 +3524,8 @@ def run_spy_timing_backtest(
 
     # This is a cost diagnostic only; the legacy timing equity curve is left
     # unchanged so reporting upgrades are directly comparable to the baseline.
-    estimated_cost_pct = total_turnover * (SLIPPAGE_BASE_PCT * 100.0)
+    # Use the ETF-specific cost (1.5bps default), not the stock slippage (10bps).
+    estimated_cost_pct = total_turnover * (SPY_TIMING_ETF_COST_BPS / 100.0)
     avg_daily_turnover_pct = (total_turnover / max(n_days, 1)) * 100.0
 
     timing_gate_results = {
@@ -3484,36 +3573,456 @@ def run_spy_timing_backtest(
     }
 
     # ── 5. Print results ─────────────────────────────────────────────────────
-    print(f"\nSPY TIMING BACKTEST")
-    print("-" * 48)
-    print(f"Period          : {timeline[0].date()} to {timeline[-1].date()} ({metrics['years']:.1f} years)")
-    print(f"Total return    : {total_return:.2f}%")
-    print(f"CAGR            : {cagr:.2f}%")
-    print(f"Benchmark (B&H) : {bh_return:.2f}%")
-    print(f"Alpha           : {total_return - bh_return:+.2f}%")
-    print(f"Sharpe          : {sharpe:.3f}")
-    print(f"Sortino         : {sortino:.3f}")
-    print(f"NW t-stat(0)    : {nw_tstat:.3f}")
-    print(f"Max drawdown    : {max_dd:.2f}%")
-    print(f"In market       : {in_market_pct:.0f}% of days")
-    print(f"Avg allocation  : {avg_invest:.0f}%")
-    print(f"Turnover        : {metrics['turnover_pct']:.2f}% total")
-    print(f"Est. cost       : {metrics['estimated_cost_pct']:.4f}% of capital")
-    print(f"Threshold       : {threshold:.0%} bull fraction")
-    print(f"Timing gates    : {'PASS' if timing_gate_results['all_pass'] else 'FAIL'}")
-    print("-" * 48)
+    if not quiet:
+        print(f"\nSPY TIMING BACKTEST")
+        print("-" * 48)
+        print(f"Period          : {timeline[0].date()} to {timeline[-1].date()} ({metrics['years']:.1f} years)")
+        print(f"Total return    : {total_return:.2f}%")
+        print(f"CAGR            : {cagr:.2f}%")
+        print(f"Benchmark (B&H) : {bh_return:.2f}%")
+        print(f"Alpha           : {total_return - bh_return:+.2f}%")
+        print(f"Sharpe          : {sharpe:.3f}")
+        print(f"Sortino         : {sortino:.3f}")
+        print(f"NW t-stat(0)    : {nw_tstat:.3f}")
+        print(f"Max drawdown    : {max_dd:.2f}%")
+        print(f"In market       : {in_market_pct:.0f}% of days")
+        print(f"Avg allocation  : {avg_invest:.0f}%")
+        print(f"Turnover        : {metrics['turnover_pct']:.2f}% total")
+        print(f"Est. cost       : {metrics['estimated_cost_pct']:.4f}% of capital")
+        print(f"Threshold       : {threshold:.0%} bull fraction")
+        print(f"Timing gates    : {'PASS' if timing_gate_results['all_pass'] else 'FAIL'}")
+        print("-" * 48)
 
-    # Save outputs
-    eq_out = os.path.join(SIGNAL_DIR, "spy_timing_equity.csv")
-    sig_out = os.path.join(SIGNAL_DIR, "spy_timing_signals.csv")
-    met_out = os.path.join(SIGNAL_DIR, "spy_timing_metrics.json")
-    eq_df.to_csv(eq_out)
-    signals_df.to_csv(sig_out, index=False)
-    with open(met_out, "w") as f:
-        json.dump(metrics, f, indent=2)
-    print(f"Equity file     : {eq_out}")
-    print(f"Signals file    : {sig_out}")
-    print(f"Metrics file    : {met_out}")
+    if write_outputs:
+        eq_out = os.path.join(SIGNAL_DIR, f"{output_prefix}_equity.csv")
+        sig_out = os.path.join(SIGNAL_DIR, f"{output_prefix}_signals.csv")
+        met_out = os.path.join(SIGNAL_DIR, f"{output_prefix}_metrics.json")
+        eq_df.to_csv(eq_out)
+        signals_df.to_csv(sig_out, index=False)
+        with open(met_out, "w") as f:
+            json.dump(metrics, f, indent=2)
+        if not quiet:
+            print(f"Equity file     : {eq_out}")
+            print(f"Signals file    : {sig_out}")
+            print(f"Metrics file    : {met_out}")
+
+    return metrics
+
+
+def _build_daily_vote_fraction(raw_predictions: dict[str, pd.DataFrame]) -> tuple[pd.Series, dict[pd.Timestamp, dict]]:
+    cache_key = id(raw_predictions)
+    if cache_key in _ETF_VOTE_CACHE:
+        cached_bf, cached_votes = _ETF_VOTE_CACHE[cache_key]
+        return cached_bf.copy(), {k: dict(v) for k, v in cached_votes.items()}
+
+    long_parts: list[pd.Series] = []
+    total_parts: list[pd.Series] = []
+    for _ticker, pdf in raw_predictions.items():
+        if pdf is None or pdf.empty or "direction_vote" not in pdf.columns:
+            continue
+        idx = pd.DatetimeIndex(pdf.index)
+        direction = pdf["direction_vote"].astype(str)
+        long_parts.append(pd.Series((direction == "LONG").astype(int).to_numpy(), index=idx))
+        total_parts.append(pd.Series(1, index=idx))
+    if not long_parts:
+        return pd.Series(dtype=float), {}
+    n_long = pd.concat(long_parts).groupby(level=0).sum().sort_index()
+    n_total = pd.concat(total_parts).groupby(level=0).sum().reindex(n_long.index).fillna(0).astype(int)
+    bull_fractions = (n_long / n_total.clip(lower=1)).astype(float).sort_index()
+    date_votes = {
+        dt: {"n_long": int(n_long.loc[dt]), "n_total": int(n_total.loc[dt])}
+        for dt in bull_fractions.index
+    }
+    _ETF_VOTE_CACHE[cache_key] = (bull_fractions.copy(), {k: dict(v) for k, v in date_votes.items()})
+    return bull_fractions, date_votes
+
+
+def _load_etf_price_frame(index: pd.DatetimeIndex, symbols: tuple[str, ...] | list[str]) -> pd.DataFrame:
+    if index.empty:
+        return pd.DataFrame()
+    clean_symbols = tuple(sorted({str(sym).upper() for sym in symbols}))
+    cache_key = (clean_symbols, str(index.min().date()), str(index.max().date()))
+    if cache_key in _ETF_PRICE_FRAME_CACHE:
+        return _ETF_PRICE_FRAME_CACHE[cache_key].copy()
+    frame = pd.DataFrame(index=index)
+    missing: list[str] = []
+    for symbol in clean_symbols:
+        local_path = os.path.join(DATA_DIR, f"{symbol}.parquet")
+        if os.path.exists(local_path):
+            try:
+                bench_df = pd.read_parquet(local_path)
+                bench_df.index = pd.DatetimeIndex(bench_df.index)
+                close = bench_df["Close"].reindex(index).ffill().bfill()
+                if not close.empty and float(close.iloc[0]) != 0.0:
+                    frame[symbol] = close / close.iloc[0]
+                    continue
+            except Exception:
+                pass
+        missing.append(symbol)
+
+    if missing:
+        start = index.min().strftime("%Y-%m-%d")
+        end = (index.max() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+        try:
+            raw = yf.download(
+                missing,
+                start=start,
+                end=end,
+                progress=False,
+                auto_adjust=True,
+                group_by="ticker",
+                threads=False,
+                timeout=20,
+            )
+        except Exception:
+            raw = pd.DataFrame()
+        for symbol in missing:
+            close = pd.Series(index=index, data=np.nan, dtype=float)
+            try:
+                if isinstance(raw.columns, pd.MultiIndex):
+                    if symbol in raw.columns.get_level_values(0):
+                        close = raw[(symbol, "Close")]
+                    elif "Close" in raw.columns.get_level_values(0):
+                        close = raw["Close"][symbol]
+                elif "Close" in raw.columns:
+                    close = raw["Close"]
+            except Exception:
+                close = pd.Series(index=index, data=np.nan, dtype=float)
+            close = close.reindex(index).ffill().bfill()
+            first_close = float(close.iloc[0]) if not close.empty and pd.notna(close.iloc[0]) else 0.0
+            if close.empty or close.isna().all() or not np.isfinite(first_close) or first_close == 0.0:
+                frame[symbol] = 1.0
+            else:
+                frame[symbol] = close / first_close
+    frame = frame.ffill().bfill()
+    _ETF_PRICE_FRAME_CACHE[cache_key] = frame.copy()
+    return frame
+
+
+def _portfolio_stats_from_equity(equity: pd.Series) -> dict:
+    if equity.empty:
+        return {"total_return_pct": 0.0, "cagr_pct": 0.0, "sharpe": 0.0, "sortino": 0.0, "max_drawdown_pct": 0.0}
+    daily = equity.pct_change().dropna()
+    years = max(len(equity) / 252.0, 0.01)
+    total_ret = float(equity.iloc[-1] / equity.iloc[0] - 1.0)
+    cagr = (float(equity.iloc[-1] / equity.iloc[0]) ** (1.0 / years) - 1.0) if equity.iloc[0] else 0.0
+    sharpe = float(daily.mean() / (daily.std() + 1e-9) * np.sqrt(252)) if len(daily) else 0.0
+    downside = daily[daily < 0]
+    sortino = float(daily.mean() / (downside.std() + 1e-9) * np.sqrt(252)) if len(downside) else 0.0
+    dd = equity / equity.cummax() - 1.0
+    return {
+        "total_return_pct": round(total_ret * 100.0, 2),
+        "cagr_pct": round(cagr * 100.0, 2),
+        "sharpe": round(sharpe, 3),
+        "sortino": round(sortino, 3),
+        "max_drawdown_pct": round(float(dd.min()) * 100.0, 2),
+    }
+
+
+def _target_weights_for_regime(
+    regime: str,
+    preset: dict,
+    *,
+    defensive_mix: dict[str, float] | None,
+    realized_vol: float,
+    vol_target: float,
+) -> dict[str, float]:
+    if regime == "risk_off" and defensive_mix:
+        base = {str(k).upper(): float(v) for k, v in defensive_mix.items() if float(v) > 0}
+    else:
+        base = {str(k).upper(): float(v) for k, v in preset.get(regime, {}).items() if float(v) > 0}
+    if not base:
+        return {}
+
+    max_gross = float(preset.get("max_gross", 1.0))
+    if regime != "risk_on":
+        max_gross = min(max_gross, 1.0)
+    else:
+        max_gross = min(max_gross, float(ETF_ROTATION_MAX_GROSS_EXPOSURE))
+
+    gross = sum(abs(v) for v in base.values())
+    if gross <= 0:
+        return {}
+    cap_scale = min(1.0, max_gross / gross)
+    vol_scale = 1.0
+    if realized_vol > 0 and vol_target > 0 and regime in {"risk_on", "neutral"}:
+        vol_scale = min(1.0, float(vol_target) / float(realized_vol))
+    scale = cap_scale * vol_scale
+    return {sym: round(weight * scale, 6) for sym, weight in base.items()}
+
+
+def _classify_etf_regime(
+    *,
+    bull_fraction: float,
+    prev_regime: str,
+    days_in_regime: int,
+    spy_trend_ok: bool,
+    qqq_trend_ok: bool,
+    realized_vol: float,
+    vol_target: float,
+    enter_threshold: float,
+    exit_threshold: float,
+    neutral_threshold: float,
+    min_hold_days: int,
+) -> str:
+    high_vol = bool(realized_vol > max(0.20, float(vol_target) * 1.75))
+    if not spy_trend_ok or bull_fraction < exit_threshold:
+        desired = "risk_off"
+    elif bull_fraction >= enter_threshold and qqq_trend_ok and not high_vol:
+        desired = "risk_on"
+    elif bull_fraction >= neutral_threshold and spy_trend_ok:
+        desired = "neutral"
+    else:
+        desired = "risk_off"
+
+    if prev_regime == "risk_on" and spy_trend_ok and bull_fraction >= exit_threshold and days_in_regime < min_hold_days:
+        return "risk_on"
+    if prev_regime != desired and days_in_regime < min_hold_days and prev_regime in {"risk_on", "neutral", "risk_off"}:
+        if desired != "risk_off" or spy_trend_ok:
+            return prev_regime
+    return desired
+
+
+def run_etf_rotation_backtest(
+    raw_predictions: dict[str, pd.DataFrame],
+    *,
+    preset_name: str = "limited_leverage",
+    preset: dict | None = None,
+    enter_threshold: float = ETF_ROTATION_RISK_ON_ENTER,
+    exit_threshold: float = ETF_ROTATION_RISK_ON_EXIT,
+    neutral_threshold: float = ETF_ROTATION_NEUTRAL_THRESHOLD,
+    vol_target: float = ETF_ROTATION_DEFAULT_VOL_TARGET,
+    defensive_mix_name: str = "bil_ief_gld",
+    defensive_mix: dict[str, float] | None = None,
+    output_prefix: str = "etf_rotation",
+    write_outputs: bool = True,
+    quiet: bool = False,
+) -> dict:
+    """Backtest benchmark-relative ETF rotation from the model's market votes."""
+    bull_fractions, date_votes = _build_daily_vote_fraction(raw_predictions)
+    if bull_fractions.empty:
+        if not quiet:
+            print("[etf-rotation] No predictions to build rotation signal from")
+        return {}
+
+    preset = preset or ETF_ROTATION_PRESETS.get(preset_name) or ETF_ROTATION_PRESETS["limited_leverage"]
+    defensive_mix = defensive_mix or ETF_ROTATION_DEFENSIVE_MIXES.get(defensive_mix_name) or ETF_ROTATION_DEFENSIVE_MIXES["bil_ief_gld"]
+    timeline = pd.DatetimeIndex(sorted(bull_fractions.index.unique()))
+    symbols = tuple(sorted(set(ETF_ROTATION_ASSETS) | {"SPY", "QQQ"}))
+    prices = _load_etf_price_frame(timeline, symbols)
+    if prices.empty or prices.nunique(dropna=True).max() <= 1:
+        if not quiet:
+            print("[etf-rotation] No usable ETF price data")
+        return {}
+
+    daily_asset_rets = prices.pct_change().shift(-1).fillna(0.0)
+    spy_ma200 = prices["SPY"].rolling(200, min_periods=50).mean()
+    qqq_ma100 = prices["QQQ"].rolling(100, min_periods=40).mean()
+    qqq_realized_vol = prices["QQQ"].pct_change().rolling(20, min_periods=10).std().mul(np.sqrt(252)).fillna(0.0)
+    symbols_list = list(symbols)
+    symbol_idx = {sym: i for i, sym in enumerate(symbols_list)}
+    bf_values = bull_fractions.reindex(timeline).fillna(0.0).to_numpy(dtype=float)
+    ret_values = daily_asset_rets[symbols_list].reindex(timeline).fillna(0.0).to_numpy(dtype=float)
+    spy_values = prices["SPY"].reindex(timeline).ffill().bfill().to_numpy(dtype=float)
+    qqq_values = prices["QQQ"].reindex(timeline).ffill().bfill().to_numpy(dtype=float)
+    spy_ma_values = spy_ma200.reindex(timeline).ffill().bfill().to_numpy(dtype=float)
+    qqq_ma_values = qqq_ma100.reindex(timeline).ffill().bfill().to_numpy(dtype=float)
+    vol_values = qqq_realized_vol.reindex(timeline).fillna(0.0).to_numpy(dtype=float)
+
+    equity = INITIAL_CAPITAL
+    equity_rows: list[dict] = []
+    signal_rows: list[dict] = []
+    prev_weights = np.zeros(len(symbols_list), dtype=float)
+    current_weights = np.zeros(len(symbols_list), dtype=float)
+    prev_regime = "risk_off"
+    days_in_regime = 999
+    total_turnover = 0.0
+    rebalances = 0
+
+    for i, dt in enumerate(timeline):
+        bf = float(bf_values[i])
+        realized_vol = float(vol_values[i])
+        spy_trend_ok = bool(spy_values[i] >= spy_ma_values[i])
+        qqq_trend_ok = bool(qqq_values[i] >= qqq_ma_values[i])
+        regime = _classify_etf_regime(
+            bull_fraction=bf,
+            prev_regime=prev_regime,
+            days_in_regime=days_in_regime,
+            spy_trend_ok=spy_trend_ok,
+            qqq_trend_ok=qqq_trend_ok,
+            realized_vol=realized_vol,
+            vol_target=vol_target,
+            enter_threshold=enter_threshold,
+            exit_threshold=exit_threshold,
+            neutral_threshold=neutral_threshold,
+            min_hold_days=ETF_ROTATION_MIN_HOLD_DAYS,
+        )
+        if regime != prev_regime:
+            days_in_regime = 0
+        else:
+            days_in_regime += 1
+        prev_regime = regime
+
+        desired_weights = np.zeros(len(symbols_list), dtype=float)
+        for sym, weight in _target_weights_for_regime(
+            regime,
+            preset,
+            defensive_mix=defensive_mix,
+            realized_vol=realized_vol,
+            vol_target=vol_target,
+        ).items():
+            if sym in symbol_idx:
+                desired_weights[symbol_idx[sym]] = float(weight)
+
+        weight_delta = float(np.abs(desired_weights - current_weights).sum())
+        if weight_delta >= ETF_ROTATION_REBALANCE_BAND or not equity_rows:
+            current_weights = desired_weights
+            rebalances += 1
+        turnover = float(np.abs(current_weights - prev_weights).sum())
+        total_turnover += turnover
+        cost = turnover * SLIPPAGE_BASE_PCT
+        prev_weights = current_weights.copy()
+
+        gross = float(np.abs(current_weights).sum())
+        invested_ret = float(np.dot(current_weights, ret_values[i]))
+        strategy_ret = invested_ret - cost
+        equity *= (1.0 + strategy_ret)
+        cash_weight = max(0.0, 1.0 - float(current_weights.sum()))
+
+        row = {
+            "date": dt,
+            "equity": equity,
+            "strategy_ret": strategy_ret,
+            "bull_fraction": bf,
+            "regime": regime,
+            "gross_exposure": gross,
+            "cash_weight": cash_weight,
+            "realized_vol": realized_vol,
+            "spy_trend_ok": spy_trend_ok,
+            "qqq_trend_ok": qqq_trend_ok,
+            "turnover": turnover,
+            "cost": cost,
+        }
+        for sym, j in symbol_idx.items():
+            row[f"weight_{sym.lower()}"] = float(current_weights[j])
+        equity_rows.append(row)
+        signal_rows.append({
+            "date": dt,
+            "regime": regime,
+            "bull_fraction": round(bf, 3),
+            "n_long": date_votes[dt]["n_long"],
+            "n_total": date_votes[dt]["n_total"],
+            "gross_exposure": round(gross, 4),
+            "target_spy_weight": round(float(current_weights[symbol_idx.get("SPY", 0)]), 4) if "SPY" in symbol_idx else 0.0,
+            "target_qqq_weight": round(float(current_weights[symbol_idx.get("QQQ", 0)]), 4) if "QQQ" in symbol_idx else 0.0,
+            "target_bil_weight": round(float(current_weights[symbol_idx.get("BIL", 0)]), 4) if "BIL" in symbol_idx else 0.0,
+            "target_ief_weight": round(float(current_weights[symbol_idx.get("IEF", 0)]), 4) if "IEF" in symbol_idx else 0.0,
+            "target_gld_weight": round(float(current_weights[symbol_idx.get("GLD", 0)]), 4) if "GLD" in symbol_idx else 0.0,
+            "target_cash_weight": round(cash_weight, 4),
+        })
+
+    eq_df = pd.DataFrame(equity_rows).set_index("date")
+    signals_df = pd.DataFrame(signal_rows)
+    equity_curve = eq_df["equity"].astype(float)
+    stats = _portfolio_stats_from_equity(equity_curve)
+    benchmarks = pd.DataFrame(
+        {
+            "SPY": prices["SPY"],
+            "QQQ": prices["QQQ"],
+            "BLEND": prices["SPY"] * 0.60 + prices["QQQ"] * 0.40,
+        },
+        index=timeline,
+    ).ffill().bfill()
+    benchmark_comparisons = compute_benchmark_comparisons(equity_curve, benchmarks)
+    benchmark_stats = {
+        symbol: _portfolio_stats_from_equity((INITIAL_CAPITAL * benchmarks[symbol] / benchmarks[symbol].iloc[0]).astype(float))
+        for symbol in benchmarks.columns
+    }
+    best_benchmark_sharpe = max(float(v.get("sharpe", 0.0)) for v in benchmark_stats.values())
+    qqq_drawdown = float(benchmark_stats.get("QQQ", {}).get("max_drawdown_pct", 0.0))
+    daily_ret = equity_curve.pct_change().fillna(0.0)
+    blend_daily = benchmarks["BLEND"].pct_change().fillna(0.0)
+    nw_vs_blend = _newey_west_tstat(daily_ret - blend_daily)
+
+    alpha_spy = float(benchmark_comparisons.get("SPY", {}).get("alpha_pct", -9999.0))
+    alpha_qqq = float(benchmark_comparisons.get("QQQ", {}).get("alpha_pct", -9999.0))
+    alpha_blend = float(benchmark_comparisons.get("BLEND", {}).get("alpha_pct", -9999.0))
+    gate_results = {
+        "alpha_vs_spy_pass": bool(alpha_spy > MIN_ETF_ROTATION_ALPHA_VS_SPY_PCT),
+        "alpha_vs_qqq_pass": bool(alpha_qqq > MIN_ETF_ROTATION_ALPHA_VS_QQQ_PCT),
+        "alpha_vs_blend_pass": bool(alpha_blend > MIN_ETF_ROTATION_ALPHA_VS_BLEND_PCT),
+        "sharpe_vs_best_benchmark_pass": bool(float(stats["sharpe"]) >= best_benchmark_sharpe),
+        "drawdown_vs_qqq_pass": bool(float(stats["max_drawdown_pct"]) >= qqq_drawdown),
+        "nw_tstat_vs_blend_pass": bool(nw_vs_blend > MIN_ETF_ROTATION_NW_TSTAT_VS_BLEND),
+    }
+    gate_results["all_pass"] = all(gate_results.values())
+    metrics = {
+        **stats,
+        "period_start": str(timeline[0].date()),
+        "period_end": str(timeline[-1].date()),
+        "years": round(max(len(equity_curve) / 252.0, 0.01), 1),
+        "preset": preset_name,
+        "defensive_mix": defensive_mix_name,
+        "enter_threshold": float(enter_threshold),
+        "exit_threshold": float(exit_threshold),
+        "neutral_threshold": float(neutral_threshold),
+        "vol_target": float(vol_target),
+        "max_gross_exposure_allowed": float(min(float(preset.get("max_gross", 1.0)), ETF_ROTATION_MAX_GROSS_EXPOSURE)),
+        "max_gross_exposure_used": round(float(eq_df["gross_exposure"].max()), 3),
+        "avg_gross_exposure": round(float(eq_df["gross_exposure"].mean()), 3),
+        "turnover_pct": round(total_turnover * 100.0, 2),
+        "avg_daily_turnover_pct": round(total_turnover / max(len(eq_df), 1) * 100.0, 3),
+        "estimated_cost_pct": round(total_turnover * SLIPPAGE_BASE_PCT * 100.0, 4),
+        "rebalances": int(rebalances),
+        "regime_counts": {str(k): int(v) for k, v in eq_df["regime"].value_counts().to_dict().items()},
+        "benchmark_comparisons": benchmark_comparisons,
+        "benchmark_stats": benchmark_stats,
+        "best_benchmark_sharpe": round(best_benchmark_sharpe, 3),
+        "nw_tstat_vs_blend": round(nw_vs_blend, 3),
+        "etf_rotation_gate_thresholds": {
+            "min_alpha_vs_spy_pct": MIN_ETF_ROTATION_ALPHA_VS_SPY_PCT,
+            "min_alpha_vs_qqq_pct": MIN_ETF_ROTATION_ALPHA_VS_QQQ_PCT,
+            "min_alpha_vs_blend_pct": MIN_ETF_ROTATION_ALPHA_VS_BLEND_PCT,
+            "min_nw_tstat_vs_blend": MIN_ETF_ROTATION_NW_TSTAT_VS_BLEND,
+            "sharpe_must_match_best_benchmark": True,
+            "drawdown_must_be_no_worse_than_qqq": True,
+        },
+        "etf_rotation_gate_results": gate_results,
+        "paper_ready": bool(gate_results["all_pass"]),
+        "single_name_signals_enabled": False,
+        "single_name_paper_trading_enabled": False,
+    }
+
+    if not quiet:
+        print("\nETF ROTATION BACKTEST")
+        print("-" * 48)
+        print(f"Period          : {metrics['period_start']} to {metrics['period_end']} ({metrics['years']:.1f} years)")
+        print(f"Preset          : {preset_name} / defensive={defensive_mix_name}")
+        print(f"Total return    : {metrics['total_return_pct']:.2f}%")
+        print(f"CAGR            : {metrics['cagr_pct']:.2f}%")
+        print(f"Sharpe          : {metrics['sharpe']:.3f} (best benchmark {best_benchmark_sharpe:.3f})")
+        print(f"Max drawdown    : {metrics['max_drawdown_pct']:.2f}% (QQQ {qqq_drawdown:.2f}%)")
+        print(f"Alpha vs SPY    : {alpha_spy:+.2f}%")
+        print(f"Alpha vs QQQ    : {alpha_qqq:+.2f}%")
+        print(f"Alpha vs BLEND  : {alpha_blend:+.2f}%")
+        print(f"NW t-stat blend : {nw_vs_blend:.3f}")
+        print(f"Max gross used  : {metrics['max_gross_exposure_used']:.2f}x")
+        print(f"Turnover        : {metrics['turnover_pct']:.2f}% total")
+        print(f"ETF gates       : {'PASS' if gate_results['all_pass'] else 'FAIL'}")
+        print("-" * 48)
+
+    if write_outputs:
+        eq_out = os.path.join(SIGNAL_DIR, f"{output_prefix}_equity.csv")
+        sig_out = os.path.join(SIGNAL_DIR, f"{output_prefix}_signals.csv")
+        met_out = os.path.join(SIGNAL_DIR, f"{output_prefix}_metrics.json")
+        eq_df.to_csv(eq_out)
+        signals_df.to_csv(sig_out, index=False)
+        with open(met_out, "w") as f:
+            json.dump(metrics, f, indent=2)
+        if not quiet:
+            print(f"Equity file     : {eq_out}")
+            print(f"Signals file    : {sig_out}")
+            print(f"Metrics file    : {met_out}")
 
     return metrics
 
@@ -3533,6 +4042,8 @@ def main() -> None:
     parser.add_argument("--stress", type=float, default=1.0)
     parser.add_argument("--spy-timing", action="store_true",
                         help="Run SPY/QQQ market-timing backtest using walk-forward direction votes.")
+    parser.add_argument("--etf-rotation", action="store_true",
+                        help="Run benchmark-relative ETF rotation using walk-forward direction votes.")
     parser.add_argument(
         "--ablate-blend",
         action="store_true",
@@ -3658,6 +4169,9 @@ def main() -> None:
     if args.spy_timing:
         spy_source = raw_pooled_predictions if raw_pooled_predictions is not None else predictions
         run_spy_timing_backtest(spy_source)
+    if args.etf_rotation or ETF_ROTATION_MODE:
+        etf_source = raw_pooled_predictions if raw_pooled_predictions is not None else predictions
+        run_etf_rotation_backtest(etf_source)
 
     trades_df, equity, benchmarks, metrics = run_portfolio_backtest(
         predictions,

@@ -1,0 +1,69 @@
+{
+  "total_return_pct": 45.44,
+  "cagr_pct": 3.41,
+  "sharpe": 0.309,
+  "sortino": 0.299,
+  "nw_tstat_vs_cash": 1.201,
+  "max_drawdown_pct": -24.97,
+  "benchmark_return_pct": 417.45,
+  "primary_benchmark_return_pct": 417.45,
+  "benchmark_comparisons": {
+    "SPY": {
+      "data_available": true,
+      "benchmark_return_pct": 312.2,
+      "alpha_pct": -266.76
+    },
+    "QQQ": {
+      "data_available": true,
+      "benchmark_return_pct": 575.32,
+      "alpha_pct": -529.88
+    },
+    "BLEND": {
+      "data_available": true,
+      "benchmark_return_pct": 417.45,
+      "alpha_pct": -372.0,
+      "weights": {
+        "SPY": 0.6,
+        "QQQ": 0.4
+      }
+    },
+    "ACTIVE_INSTRUMENTS": {
+      "data_available": true,
+      "benchmark_return_pct": 417.45,
+      "alpha_pct": -372.0,
+      "weights": {
+        "SPY": 0.6,
+        "QQQ": 0.4
+      }
+    }
+  },
+  "alpha_pct": -372.0,
+  "n_days_invested": 1267,
+  "n_days_cash": 1547,
+  "in_market_pct": 45.0,
+  "avg_allocation_pct": 42.8,
+  "turnover_pct": 67355.0,
+  "avg_daily_turnover_pct": 23.936,
+  "estimated_cost_pct": 67.355,
+  "threshold": 0.5,
+  "invest_pct": 0.95,
+  "instruments": {
+    "SPY": 0.6,
+    "QQQ": 0.4
+  },
+  "years": 11.2,
+  "timing_gate_thresholds": {
+    "min_timing_sharpe": 0.7,
+    "max_timing_drawdown_pct": -20.0,
+    "min_timing_nw_tstat_vs_cash": 2.0,
+    "min_timing_exposure_days": 100
+  },
+  "timing_gate_results": {
+    "sharpe_pass": false,
+    "drawdown_pass": false,
+    "nw_tstat_pass": false,
+    "exposure_days_pass": true,
+    "all_pass": false
+  },
+  "paper_ready": false
+}

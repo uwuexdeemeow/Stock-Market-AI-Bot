@@ -479,13 +479,6 @@ TUNE_HYPERPARAMS = True
 # until backtest/live support proves out.
 POOLED_RANKER_EXPERIMENT_ENABLED = os.environ.get("POOLED_RANKER_EXPERIMENT_ENABLED", "0") == "1"
 
-# Which signal drives cross-sectional stock ranking in backtest/predict.
-# Options: "p_up_raw" (default), "expected_return", "composite"
-#   - p_up_raw:        IC=+0.024, t=6.0  — direction probability (RECOMMENDED)
-#   - expected_return:  IC=-0.006, t=-1.5 — return bucket model (legacy, broken)
-#   - composite:        0.3*z_expected_return + 0.7*z_p_up_raw (hedge)
-RANK_SCORE_MODE = os.environ.get("RANK_SCORE_MODE", "composite").strip().lower()
-
 # Simple factor composite ranker: bypass XGBoost entirely for cross-sectional
 # ranking and instead use a fixed-weight average of volatility/beta factors
 # that have proven OOS rank IC.  The factor_baseline_diagnostic.py showed:
@@ -656,6 +649,23 @@ SPY_TIMING_BULL_THRESHOLD = float(os.environ.get("SPY_TIMING_BULL_THRESHOLD", "0
 SPY_TIMING_INSTRUMENTS = {"SPY": 0.60, "QQQ": 0.40}
 # Position size when fully invested (fraction of equity).
 SPY_TIMING_INVEST_PCT = float(os.environ.get("SPY_TIMING_INVEST_PCT", "0.95"))
+# ── Smoothing: reduces whipsaw from daily signal flips ─────────────────────
+# Rolling average window for bull_fraction — smooths 1-day noise.
+# At 5, the signal reflects the past week's model consensus, not today's alone.
+SPY_TIMING_SMOOTH_WINDOW = int(os.environ.get("SPY_TIMING_SMOOTH_WINDOW", "1"))
+# Hysteresis: separate entry/exit thresholds to avoid flipping on noise.
+# Enter when smoothed bull_fraction ≥ ENTER_THRESHOLD, exit when ≤ EXIT_THRESHOLD.
+# Set both to 0.50 for no hysteresis (pure majority rule).
+SPY_TIMING_ENTER_THRESHOLD = float(os.environ.get("SPY_TIMING_ENTER_THRESHOLD", "0.50"))
+SPY_TIMING_EXIT_THRESHOLD = float(os.environ.get("SPY_TIMING_EXIT_THRESHOLD", "0.50"))
+# Minimum holding period (trading days).  Once invested, hold at least this many
+# days before considering an exit.  Set to 0 for no constraint.
+SPY_TIMING_MIN_HOLD_DAYS = int(os.environ.get("SPY_TIMING_MIN_HOLD_DAYS", "5"))
+# Transaction cost per unit of turnover for ETFs.  SPY/QQQ have ~1-2 cent
+# spreads on $500+ prices, so round-trip cost is ~1-2bps.  This is used to
+# compute after-cost returns in the backtest.  Stock-level slippage (10bps)
+# would overstate costs 10x for liquid ETFs.
+SPY_TIMING_ETF_COST_BPS = float(os.environ.get("SPY_TIMING_ETF_COST_BPS", "1.5"))
 # Paper-readiness gates for the timing-only strategy.  These are separate from
 # the stock-sleeve kill criteria so an index-timing product can be evaluated
 # without pretending the single-name ranker has edge.
@@ -663,6 +673,56 @@ MIN_TIMING_SHARPE = float(os.environ.get("MIN_TIMING_SHARPE", "0.70"))
 MAX_TIMING_DRAWDOWN_PCT = float(os.environ.get("MAX_TIMING_DRAWDOWN_PCT", "-20.0"))
 MIN_TIMING_NW_TSTAT_VS_CASH = float(os.environ.get("MIN_TIMING_NW_TSTAT_VS_CASH", "2.0"))
 MIN_TIMING_TRADES_OR_EXPOSURE_DAYS = int(os.environ.get("MIN_TIMING_TRADES_OR_EXPOSURE_DAYS", "100"))
+
+# ── Benchmark-beating ETF rotation mode ──────────────────────────────────────
+# This is a stricter index-allocation product than SPY_TIMING_MODE.  The goal is
+# not just to beat cash, but to beat buy-and-hold SPY, QQQ, and the configured
+# 60/40 SPY/QQQ benchmark with explicit benchmark-relative gates.
+ETF_ROTATION_MODE = os.environ.get("ETF_ROTATION_MODE", "0").strip().lower() in {"1", "true", "yes", "on"}
+ETF_ROTATION_ASSETS = ("SPY", "QQQ", "TQQQ", "BIL", "IEF", "GLD")
+ETF_ROTATION_MAX_GROSS_EXPOSURE = float(os.environ.get("ETF_ROTATION_MAX_GROSS_EXPOSURE", "1.25"))
+ETF_ROTATION_RISK_ON_ENTER = float(os.environ.get("ETF_ROTATION_RISK_ON_ENTER", "0.55"))
+ETF_ROTATION_RISK_ON_EXIT = float(os.environ.get("ETF_ROTATION_RISK_ON_EXIT", "0.45"))
+ETF_ROTATION_NEUTRAL_THRESHOLD = float(os.environ.get("ETF_ROTATION_NEUTRAL_THRESHOLD", "0.50"))
+ETF_ROTATION_MIN_HOLD_DAYS = int(os.environ.get("ETF_ROTATION_MIN_HOLD_DAYS", "5"))
+ETF_ROTATION_REBALANCE_BAND = float(os.environ.get("ETF_ROTATION_REBALANCE_BAND", "0.10"))
+ETF_ROTATION_DEFAULT_VOL_TARGET = float(os.environ.get("ETF_ROTATION_DEFAULT_VOL_TARGET", "0.12"))
+ETF_ROTATION_VOL_TARGETS = (0.10, 0.12, 0.15)
+ETF_ROTATION_PRESETS = {
+    "conservative_unlevered": {
+        "risk_on": {"SPY": 0.55, "QQQ": 0.45},
+        "neutral": {"SPY": 0.45, "QQQ": 0.20, "BIL": 0.35},
+        "risk_off": {"BIL": 1.00},
+        "max_gross": 1.00,
+    },
+    "limited_leverage": {
+        "risk_on": {"SPY": 0.50, "QQQ": 0.75},
+        "neutral": {"SPY": 0.55, "QQQ": 0.25, "BIL": 0.20},
+        "risk_off": {"BIL": 1.00},
+        "max_gross": ETF_ROTATION_MAX_GROSS_EXPOSURE,
+    },
+    "defensive_trend": {
+        "risk_on": {"SPY": 0.60, "QQQ": 0.50, "GLD": 0.10},
+        "neutral": {"SPY": 0.45, "IEF": 0.35, "GLD": 0.20},
+        "risk_off": {"BIL": 0.50, "IEF": 0.35, "GLD": 0.15},
+        "max_gross": 1.20,
+    },
+}
+ETF_ROTATION_DEFENSIVE_MIXES = {
+    "bil_only": {"BIL": 1.00},
+    "bil_ief": {"BIL": 0.60, "IEF": 0.40},
+    "bil_ief_gld": {"BIL": 0.50, "IEF": 0.35, "GLD": 0.15},
+}
+MIN_ETF_ROTATION_ALPHA_VS_SPY_PCT = float(os.environ.get("MIN_ETF_ROTATION_ALPHA_VS_SPY_PCT", "0.0"))
+MIN_ETF_ROTATION_ALPHA_VS_QQQ_PCT = float(os.environ.get("MIN_ETF_ROTATION_ALPHA_VS_QQQ_PCT", "0.0"))
+MIN_ETF_ROTATION_ALPHA_VS_BLEND_PCT = float(os.environ.get("MIN_ETF_ROTATION_ALPHA_VS_BLEND_PCT", "0.0"))
+MIN_ETF_ROTATION_NW_TSTAT_VS_BLEND = float(os.environ.get("MIN_ETF_ROTATION_NW_TSTAT_VS_BLEND", "0.0"))
+
+# Paper trading defaults to the index-timing product. Single-name paper trades
+# must be explicitly enabled and still pass raw stock-sleeve gates in the latest
+# backtest metrics.
+PAPER_MODE_STRATEGY = os.environ.get("PAPER_MODE_STRATEGY", "core_satellite_alpha").strip().lower()
+SINGLE_NAME_PAPER_TRADING_ENABLED = os.environ.get("SINGLE_NAME_PAPER_TRADING_ENABLED", "0").strip().lower() in {"1", "true", "yes", "on"}
 
 SINGLE_NAME_CRASH_FILTER_ENABLED = True
 SINGLE_NAME_CRASH_MIN_PRICE = 2.0

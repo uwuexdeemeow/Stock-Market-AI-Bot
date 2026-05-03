@@ -1,0 +1,35 @@
+{
+  "account_equity": 1035125.3,
+  "buy_value": 1292718.35,
+  "core_preset": "qqq_trend_switch_overlay70_core55",
+  "current_gross_exposure": 0.3206,
+  "current_regime": "risk_on",
+  "freshness_issues": [],
+  "freshness_ok": true,
+  "gates_all_pass": true,
+  "generated_at": "2026-05-03T08:00:09.295227+00:00",
+  "guard_reasons": [
+    "first_rebalance",
+    "drift_orders_6_max_55.00%"
+  ],
+  "market_open": false,
+  "market_status": "US market closed: weekend (2026-05-03 04:00 EDT)",
+  "max_drift_abs": 0.55,
+  "order_count": 6,
+  "paper_ready": true,
+  "position_values": {
+    "AMZN": 159882.97,
+    "GOOGL": 172017.74
+  },
+  "positions": {
+    "AMZN": 596,
+    "GOOGL": 446
+  },
+  "score_source": "regime_adaptive",
+  "sell_value": 331900.71,
+  "signal_predicted_at": "2026-05-03 15:59",
+  "skipped_orders": 0,
+  "strategy": "core_satellite_alpha",
+  "submit_allowed": true,
+  "target_gross_exposure": 1.25
+}

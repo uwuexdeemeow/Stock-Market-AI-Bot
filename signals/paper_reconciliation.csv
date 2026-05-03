@@ -1,0 +1,53 @@
+ticker,action,reason,price,target_weight,target_value,current_shares,target_shares,delta_shares,order_value,submitted,broker_response,broker_order_id,broker_code,broker_qty,broker_trd_side,broker_order_type,broker_order_status,submitted_at,strategy,broker_updated_time,broker_dealt_qty,broker_dealt_avg_price,broker_requested_qty,fill_status,filled_value,unfilled_qty,reconciled_at
+AMZN,SELL,rebalance_to_target,268.26,0.0,0.0,596,0,-596,159882.97,True,"      code stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.AMZN     Amazon     SELL     MARKET   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",2819964,US.AMZN,596.0,SELL,MARKET,CANCELLED_ALL,2026-05-02T19:25:59.950435+00:00,core_satellite_alpha,2026-05-02 20:01:00,0.0,0.0,596.0,cancelled,0.0,596.0,2026-05-03T06:30:26.829675+00:00
+GOOGL,SELL,rebalance_to_target,385.69,0.0,0.0,446,0,-446,172017.74,True,"       code  stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.GOOGL  Alphabet-A     SELL     MARKET   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",2819965,US.GOOGL,446.0,SELL,MARKET,CANCELLED_ALL,2026-05-02T19:25:59.950435+00:00,core_satellite_alpha,2026-05-02 20:01:00,0.0,0.0,446.0,cancelled,0.0,446.0,2026-05-03T06:30:26.829891+00:00
+GE,BUY,rebalance_to_target,286.51,0.030377,31444.0,0,109,109,31229.59,True,"    code    stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.GE  GE Aerospace      BUY     MARKET   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",2819966,US.GE,109.0,BUY,MARKET,CANCELLED_ALL,2026-05-02T19:25:59.950435+00:00,core_satellite_alpha,2026-05-02 20:01:00,0.0,0.0,109.0,cancelled,0.0,109.0,2026-05-03T06:30:26.830074+00:00
+HSY,BUY,rebalance_to_target,182.34,0.008056,8338.97,0,45,45,8205.3,True,"     code stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.HSY    Hershey      BUY     MARKET   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",2819967,US.HSY,45.0,BUY,MARKET,CANCELLED_ALL,2026-05-02T19:25:59.950435+00:00,core_satellite_alpha,2026-05-02 20:01:00,0.0,0.0,45.0,cancelled,0.0,45.0,2026-05-03T06:30:26.830240+00:00
+JNJ,BUY,rebalance_to_target,227.19,0.038494,39846.11,0,175,175,39758.25,True,"     code         stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.JNJ  Johnson & Johnson      BUY     MARKET   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",2819968,US.JNJ,175.0,BUY,MARKET,CANCELLED_ALL,2026-05-02T19:25:59.950435+00:00,core_satellite_alpha,2026-05-02 20:01:00,0.0,0.0,175.0,cancelled,0.0,175.0,2026-05-03T06:30:26.830415+00:00
+MRK,BUY,rebalance_to_target,112.16,0.036465,37745.84,0,336,336,37685.76,True,"     code  stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.MRK  Merck & Co      BUY     MARKET   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",2819969,US.MRK,336.0,BUY,MARKET,CANCELLED_ALL,2026-05-02T19:25:59.950435+00:00,core_satellite_alpha,2026-05-02 20:01:00,0.0,0.0,336.0,cancelled,0.0,336.0,2026-05-03T06:30:26.830591+00:00
+OXY,BUY,rebalance_to_target,58.71,0.025304,26192.81,0,446,446,26184.66,True,"     code            stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.OXY  Occidental Petroleum      BUY     MARKET   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",2819970,US.OXY,446.0,BUY,MARKET,CANCELLED_ALL,2026-05-02T19:25:59.950435+00:00,core_satellite_alpha,2026-05-02 20:01:00,0.0,0.0,446.0,cancelled,0.0,446.0,2026-05-03T06:30:26.830756+00:00
+QQQ,BUY,rebalance_to_target,674.15,1.0,1035125.3,0,1535,1535,1034820.29,True,"     code         stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.QQQ  Invesco QQQ Trust      BUY     MARKET   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",2819971,US.QQQ,1535.0,BUY,MARKET,CANCELLED_ALL,2026-05-02T19:25:59.950435+00:00,core_satellite_alpha,2026-05-02 20:01:00,0.0,0.0,1535.0,cancelled,0.0,1535.0,2026-05-03T06:30:26.830908+00:00
+RTX,BUY,rebalance_to_target,173.99,0.034436,35645.57,0,204,204,35493.96,True,"     code stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.RTX   RTX Corp      BUY     MARKET   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",2819972,US.RTX,204.0,BUY,MARKET,CANCELLED_ALL,2026-05-02T19:25:59.950435+00:00,core_satellite_alpha,2026-05-02 20:01:00,0.0,0.0,204.0,cancelled,0.0,204.0,2026-05-03T06:30:26.831062+00:00
+SCHW,BUY,rebalance_to_target,91.54,0.025304,26192.81,0,286,286,26180.44,True,"      code      stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.SCHW  Charles Schwab      BUY     MARKET   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",2819973,US.SCHW,286.0,BUY,MARKET,CANCELLED_ALL,2026-05-02T19:25:59.950435+00:00,core_satellite_alpha,2026-05-02 20:01:00,0.0,0.0,286.0,cancelled,0.0,286.0,2026-05-03T06:30:26.831216+00:00
+T,BUY,rebalance_to_target,26.12,0.002983,3087.78,0,118,118,3082.16,True,"   code stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.T       AT&T      BUY     MARKET   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",2819974,US.T,118.0,BUY,MARKET,CANCELLED_ALL,2026-05-02T19:25:59.950435+00:00,core_satellite_alpha,2026-05-02 20:01:00,0.0,0.0,118.0,cancelled,0.0,118.0,2026-05-03T06:30:26.831368+00:00
+VZ,BUY,rebalance_to_target,48.11,0.016173,16741.08,0,347,347,16694.17,True,"    code stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.VZ    Verizon      BUY     MARKET   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",2819975,US.VZ,347.0,BUY,MARKET,CANCELLED_ALL,2026-05-02T19:25:59.950435+00:00,core_satellite_alpha,2026-05-02 20:01:00,0.0,0.0,347.0,cancelled,0.0,347.0,2026-05-03T06:30:26.831529+00:00
+XOM,BUY,rebalance_to_target,152.75,0.032407,33545.31,0,219,219,33452.25,True,"     code   stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.XOM  Exxon Mobil      BUY     MARKET   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",2819976,US.XOM,219.0,BUY,MARKET,CANCELLED_ALL,2026-05-02T19:25:59.950435+00:00,core_satellite_alpha,2026-05-02 20:01:00,0.0,0.0,219.0,cancelled,0.0,219.0,2026-05-03T06:30:26.831682+00:00

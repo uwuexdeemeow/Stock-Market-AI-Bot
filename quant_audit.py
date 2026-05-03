@@ -8,7 +8,7 @@ from typing import Any
 
 import pandas as pd
 
-from settings import BASE_DIR, LOG_DIR, MODEL_DIR, SIGNAL_DIR, WATCHLIST
+from settings import BASE_DIR, LOG_DIR, MODEL_DIR, PAPER_MODE_STRATEGY, SIGNAL_DIR, WATCHLIST
 
 
 ROOT = Path(BASE_DIR)
@@ -24,6 +24,15 @@ def _read_csv(path: Path) -> pd.DataFrame:
         return pd.read_csv(path)
     except Exception:
         return pd.DataFrame()
+
+
+def _read_json(path: Path | None) -> dict[str, Any]:
+    if path is None or not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
 
 
 def _file_status(paths: list[Path]) -> list[dict[str, Any]]:
@@ -68,11 +77,15 @@ def _quality_section(findings: list[dict[str, str]]) -> dict[str, Any]:
     approved = quality[approved_mask].copy()
     rejected = quality[~approved_mask].copy()
     if approved.empty:
+        severity = "high" if PAPER_MODE_STRATEGY == "single_name" else "low"
         findings.append(
             {
-                "severity": "high",
+                "severity": severity,
                 "area": "model_selection",
-                "finding": "No ticker is currently approved for live trading. This is safe, but the system has no deployable edge yet.",
+                "finding": (
+                    "No single-name ticker is approved for live trading. This blocks single-name paper/live trading; "
+                    f"current PAPER_MODE_STRATEGY={PAPER_MODE_STRATEGY}."
+                ),
             }
         )
 
@@ -138,14 +151,18 @@ def _signals_section(findings: list[dict[str, str]]) -> dict[str, Any]:
         actionable = int(signals["actionable"].astype(str).str.lower().isin({"true", "1", "yes"}).sum())
     approved_count = int(len(approved_live)) if "ticker" in approved_live.columns else 0
     if approved_count == 0:
+        severity = "high" if PAPER_MODE_STRATEGY == "single_name" else "low"
         findings.append(
             {
-                "severity": "high",
+                "severity": severity,
                 "area": "live_signals",
-                "finding": "approved_live_tickers.csv has no approved tickers. Paper/live filters should produce no trades until the model gate improves.",
+                "finding": (
+                    "approved_live_tickers.csv has no approved single-name tickers. "
+                    f"This is expected while PAPER_MODE_STRATEGY={PAPER_MODE_STRATEGY}."
+                ),
             }
         )
-    if actionable > 0 and approved_count == 0:
+    if actionable > 0 and approved_count == 0 and PAPER_MODE_STRATEGY == "single_name":
         findings.append(
             {
                 "severity": "high",
@@ -186,6 +203,11 @@ def _paper_section(findings: list[dict[str, str]]) -> dict[str, Any]:
     filtered = _read_csv(SIGNALS / "signals_live_filtered.csv")
     paper_trades = _read_csv(SIGNALS / "paper_trades.csv")
     paper_equity = _read_csv(SIGNALS / "paper_equity.csv")
+    core_signal = _read_csv(SIGNALS / "core_satellite_alpha_signal.csv")
+    status_path = SIGNALS / "paper_daily_status.json"
+    paper_status = _read_json(status_path)
+    gauntlet_path = _latest_matching(LOGS, "paper_gauntlet_*.json")
+    gauntlet = _read_json(gauntlet_path)
     if paper_trades.empty:
         findings.append(
             {
@@ -194,10 +216,38 @@ def _paper_section(findings: list[dict[str, str]]) -> dict[str, Any]:
                 "finding": "No paper trade journal found. Before real capital, log every proposed, accepted, rejected, and closed paper trade.",
             }
         )
+    if not core_signal.empty and bool(core_signal.iloc[0].get("paper_ready", False)) and not paper_status:
+        findings.append(
+            {
+                "severity": "medium",
+                "area": "paper_trading",
+                "finding": "Core-satellite signal is paper-ready but no paper_daily_status.json exists. Run moomoo_paper_trading.py --status.",
+            }
+        )
+    if gauntlet and not bool(gauntlet.get("approved_for_real_capital", False)):
+        findings.append(
+            {
+                "severity": "medium",
+                "area": "paper_trading",
+                "finding": f"Paper gauntlet blocks real-capital promotion: {gauntlet.get('reason', 'unknown reason')}",
+            }
+        )
     return {
         "filtered_live_rows": int(len(filtered)),
         "paper_trade_rows": int(len(paper_trades)),
         "paper_equity_rows": int(len(paper_equity)),
+        "paper_gauntlet_file": str(gauntlet_path.relative_to(ROOT)) if gauntlet_path else None,
+        "paper_gauntlet_status": gauntlet.get("status"),
+        "approved_for_real_capital": gauntlet.get("approved_for_real_capital"),
+        "paper_gauntlet_reason": gauntlet.get("reason"),
+        "core_satellite_paper_ready": bool(core_signal.iloc[0].get("paper_ready", False)) if not core_signal.empty else False,
+        "current_regime": paper_status.get("current_regime"),
+        "account_equity": paper_status.get("account_equity"),
+        "current_gross_exposure": paper_status.get("current_gross_exposure"),
+        "target_gross_exposure": paper_status.get("target_gross_exposure"),
+        "max_drift_abs": paper_status.get("max_drift_abs"),
+        "submit_allowed": paper_status.get("submit_allowed"),
+        "guard_reasons": paper_status.get("guard_reasons", []),
     }
 
 

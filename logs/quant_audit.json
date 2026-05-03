@@ -1,24 +1,24 @@
 {
-  "generated_at": "2026-04-25T16:40:05+00:00",
-  "watchlist_size": 21,
+  "generated_at": "2026-05-03T08:00:18+00:00",
+  "watchlist_size": 147,
   "files": [
     {
       "path": "train.py",
       "exists": true,
-      "size_bytes": 60804,
-      "modified_at": "2026-04-25T22:44:25"
+      "size_bytes": 116498,
+      "modified_at": "2026-04-30T21:52:38"
     },
     {
       "path": "backtest.py",
       "exists": true,
-      "size_bytes": 76630,
-      "modified_at": "2026-04-25T23:39:25"
+      "size_bytes": 215067,
+      "modified_at": "2026-05-03T00:57:43"
     },
     {
       "path": "predict.py",
       "exists": true,
-      "size_bytes": 16278,
-      "modified_at": "2026-04-25T22:49:45"
+      "size_bytes": 42646,
+      "modified_at": "2026-05-02T23:39:58"
     },
     {
       "path": "leakage_audit.py",
@@ -35,70 +35,65 @@
     {
       "path": "model_quality.py",
       "exists": true,
-      "size_bytes": 7514,
-      "modified_at": "2026-04-25T23:54:20"
+      "size_bytes": 10598,
+      "modified_at": "2026-04-27T16:23:11"
     },
     {
       "path": "trade_rules.py",
       "exists": true,
-      "size_bytes": 6540,
-      "modified_at": "2026-04-25T11:15:25"
+      "size_bytes": 6441,
+      "modified_at": "2026-04-27T16:18:52"
     },
     {
       "path": "moomoo_paper_trading.py",
       "exists": true,
-      "size_bytes": 8438,
-      "modified_at": "2026-04-25T16:16:12"
+      "size_bytes": 50272,
+      "modified_at": "2026-05-03T15:11:52"
     },
     {
       "path": "paper_gauntlet.py",
       "exists": true,
-      "size_bytes": 4088,
-      "modified_at": "2026-04-25T11:15:25"
+      "size_bytes": 10546,
+      "modified_at": "2026-05-03T15:26:43"
     }
   ],
   "model_quality": {
-    "rows": 16,
-    "approved": 4,
-    "rejected": 12,
-    "approved_tickers": [
-      "MSFT",
-      "NVDA",
-      "GOOGL",
-      "META"
-    ],
+    "rows": 150,
+    "approved": 0,
+    "rejected": 150,
+    "approved_tickers": [],
     "top_rejections": [
       {
-        "ticker": "BTC-USD",
-        "approval_reason": "portfolio_sharpe 0.102 < 0.500; portfolio_nw_tstat 0.430 < 1.650"
+        "ticker": "CSCO",
+        "approval_reason": "confidence_not_validated: confidence_not_correlated_with_correctness; bucket_precision_not_monotonic; walkforward_trades 3 < 10; avg_win_loss_ratio 0.000 < 1.000"
       },
       {
-        "ticker": "UNH",
-        "approval_reason": "walkforward_sharpe -0.577 < 0.500"
+        "ticker": "BKNG",
+        "approval_reason": "confidence_not_validated: confidence_not_correlated_with_correctness; bucket_precision_not_monotonic; walkforward_trades 2 < 10; avg_win_loss_ratio 0.000 < 1.000"
       },
       {
-        "ticker": "CAT",
-        "approval_reason": "walkforward_sharpe -0.570 < 0.500"
+        "ticker": "ABBV",
+        "approval_reason": "confidence_not_validated: confidence_not_correlated_with_correctness; bucket_precision_not_monotonic; walkforward_trades 3 < 10; avg_win_loss_ratio 0.000 < 1.000"
       },
       {
-        "ticker": "INTC",
-        "approval_reason": "walkforward_sharpe -0.027 < 0.500"
+        "ticker": "IBM",
+        "approval_reason": "confidence_not_validated: confidence_not_correlated_with_correctness; bucket_precision_not_monotonic; walkforward_trades 3 < 10; avg_win_loss_ratio 0.000 < 1.000"
       },
       {
-        "ticker": "AMD",
-        "approval_reason": "walkforward_sharpe 0.459 < 0.500; max_drawdown -27.08% < -25.00%"
+        "ticker": "SCHW",
+        "approval_reason": "confidence_not_validated: confidence_not_correlated_with_correctness; bucket_precision_not_monotonic; walkforward_trades 2 < 10; avg_win_loss_ratio 0.000 < 1.000"
       },
       {
-        "ticker": "AMZN",
-        "approval_reason": "walkforward_trades 9 < 10"
+        "ticker": "C",
+        "approval_reason": "confidence_not_validated: confidence_not_correlated_with_correctness; bucket_precision_not_monotonic; walkforward_trades 2 < 10; avg_win_loss_ratio 0.000 < 1.000"
       },
       {
-        "ticker": "MU",
-        "approval_reason": "walkforward_sharpe 0.004 < 0.500"
+        "ticker": "OMC",
+        "approval_reason": "confidence_not_validated: confidence_not_correlated_with_correctness; bucket_precision_not_monotonic; walkforward_trades 2 < 10; avg_win_loss_ratio 0.000 < 1.000"
       },
       {
-        "ticker": "AAPL",
-        "approval_reason": "portfolio_sharpe 0.306 < 0.500; portfolio_nw_tstat 1.016 < 1.650"
+        "ticker": "ETN",
+        "approval_reason": "confidence_not_validated: confidence_not_correlated_with_correctness; bucket_precision_not_monotonic; walkforward_trades 1 < 10; walkforward_sharpe 0.000 < 0.500; avg_win_loss_ratio 0.000 < 1.000"
       }
     ]
   },
@@ -133,41 +128,54 @@
     ]
   },
   "signals": {
-    "signals": 16,
+    "signals": 1,
     "actionable": 0,
-    "approved_live_tickers": 4,
+    "approved_live_tickers": 0,
     "suppressed_reasons": {
-      "model_not_approved: walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500": 5,
-      "model_not_approved: direction_edge 1.18pp < 2.00pp; return_spearman -0.0938 <= 0.0000; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500": 1,
-      "model_not_approved: direction_edge -8.20pp < 2.00pp; return_spearman -0.0841 <= 0.0000; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500; listed as weak until retrained and backtested": 1,
-      "model_not_approved: direction_edge -0.47pp < 2.00pp; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500": 1,
-      "model_not_approved: direction_edge 1.64pp < 2.00pp; return_spearman -0.0256 <= 0.0000; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500; listed as weak until retrained and backtested": 1,
-      "model_not_approved: direction_edge -2.11pp < 2.00pp; return_spearman -0.0681 <= 0.0000; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500; listed as weak until retrained and backtested": 1,
-      "model_not_approved: direction_edge -12.42pp < 2.00pp; return_spearman -0.0017 <= 0.0000; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500; listed as weak until retrained and backtested": 1,
-      "model_not_approved: direction_edge 0.00pp < 2.00pp; walkforward_trades 0 < 10; walkforward_sharpe 0.000 < 0.500": 1
+      "model_not_approved: confidence_not_validated: confidence_not_correlated_with_correctness; bucket_precision_not_monotonic; walkforward_trades 7 < 10; walkforward_total_pnl -79.24 <= 0.00; walkforward_sharpe -1.531 < 0.500; profit_factor 0.463 < 1.100": 1
     }
   },
   "backtest": {
-    "latest_trades_file": "signals/walkforward_long_only_7tickers_trades.csv",
-    "latest_equity_file": "signals/walkforward_long_only_7tickers_equity.csv",
-    "latest_trade_rows": 330,
-    "latest_equity_rows": 2844
+    "latest_trades_file": "signals/core_satellite_alpha_trades.csv",
+    "latest_equity_file": "signals/paper_equity.csv",
+    "latest_trade_rows": 411,
+    "latest_equity_rows": 1
   },
   "paper": {
     "filtered_live_rows": 0,
-    "paper_trade_rows": 0,
-    "paper_equity_rows": 0
+    "paper_trade_rows": 13,
+    "paper_equity_rows": 1,
+    "paper_gauntlet_file": "logs/paper_gauntlet_20260503.json",
+    "paper_gauntlet_status": "failed",
+    "approved_for_real_capital": false,
+    "paper_gauntlet_reason": "paper_equity_days 1 < 20; no submitted paper orders found; max_drift_abs 0.550 > 0.150",
+    "core_satellite_paper_ready": true,
+    "current_regime": "risk_on",
+    "account_equity": 1035125.3,
+    "current_gross_exposure": 0.3206,
+    "target_gross_exposure": 1.25,
+    "max_drift_abs": 0.55,
+    "submit_allowed": true,
+    "guard_reasons": [
+      "first_rebalance",
+      "drift_orders_6_max_55.00%"
+    ]
   },
   "findings": [
     {
       "severity": "medium",
-      "area": "model_selection",
-      "finding": "3 tickers still have preliminary train-only quality rows. Re-run backtest.py for those tickers before live use."
+      "area": "paper_trading",
+      "finding": "Paper gauntlet blocks real-capital promotion: paper_equity_days 1 < 20; no submitted paper orders found; max_drift_abs 0.550 > 0.150"
     },
     {
-      "severity": "medium",
-      "area": "paper_trading",
-      "finding": "No paper trade journal found. Before real capital, log every proposed, accepted, rejected, and closed paper trade."
+      "severity": "low",
+      "area": "model_selection",
+      "finding": "No single-name ticker is approved for live trading. This blocks single-name paper/live trading; current PAPER_MODE_STRATEGY=core_satellite_alpha."
+    },
+    {
+      "severity": "low",
+      "area": "live_signals",
+      "finding": "approved_live_tickers.csv has no approved single-name tickers. This is expected while PAPER_MODE_STRATEGY=core_satellite_alpha."
     }
   ]
 }

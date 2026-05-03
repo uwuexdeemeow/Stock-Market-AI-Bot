@@ -13,6 +13,7 @@ Fixes:
 """
 
 import argparse
+import json
 import os
 import pickle
 from datetime import datetime
@@ -20,6 +21,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import xgboost as xgb
+import yfinance as yf
 
 from settings import (
     MODEL_DIR, SIGNAL_DIR, DEFAULT_FIXED_CONFIDENCE_THRESHOLD, RETURN_HORIZON_DAYS,
@@ -32,7 +34,13 @@ from settings import (
     SINGLE_NAME_DISTRESS_MAX_DRAWDOWN_252D, SINGLE_NAME_DISTRESS_MAX_DIST_MA50,
     SINGLE_NAME_DISTRESS_MAX_RET_20D,
     SPY_TIMING_MODE, SPY_TIMING_BULL_THRESHOLD, SPY_TIMING_INSTRUMENTS,
-    SPY_TIMING_INVEST_PCT,
+    SPY_TIMING_INVEST_PCT, SPY_TIMING_ENTER_THRESHOLD, SPY_TIMING_EXIT_THRESHOLD,
+    SPY_TIMING_SMOOTH_WINDOW, SPY_TIMING_MIN_HOLD_DAYS,
+    PAPER_MODE_STRATEGY, SINGLE_NAME_PAPER_TRADING_ENABLED,
+    ETF_ROTATION_MODE, ETF_ROTATION_PRESETS, ETF_ROTATION_DEFENSIVE_MIXES,
+    ETF_ROTATION_RISK_ON_ENTER, ETF_ROTATION_RISK_ON_EXIT,
+    ETF_ROTATION_NEUTRAL_THRESHOLD, ETF_ROTATION_DEFAULT_VOL_TARGET,
+    ETF_ROTATION_MAX_GROSS_EXPOSURE,
 )
 from confidence_calibration import load_direction_calibrator, calibrate_p_up
 from model_quality import read_quality_report
@@ -640,6 +648,8 @@ def compute_spy_timing_signal(predictions: list[dict]) -> dict:
             "target_qqq_weight": 0.0,
             "target_cash_weight": 1.0,
             "single_name_signals_enabled": False,
+            "single_name_paper_trading_enabled": False,
+            "paper_mode_strategy": PAPER_MODE_STRATEGY,
         }
 
     # Count direction votes across all tickers
@@ -659,17 +669,33 @@ def compute_spy_timing_signal(predictions: list[dict]) -> dict:
     ]
     avg_long_conf = float(np.mean(long_confs)) if long_confs else 50.0
 
-    # Signal decision: majority rule with configurable threshold
-    is_bullish = bull_fraction >= SPY_TIMING_BULL_THRESHOLD
+    # Signal decision: hysteresis thresholds to reduce whipsaw.
+    # Use ENTER threshold for fresh signals, EXIT threshold for closing.
+    # Live state (was_invested_yesterday) is loaded from prior signal file.
+    prior_signal_path = os.path.join(SIGNAL_DIR, "spy_timing_signal.csv")
+    was_invested = False
+    if os.path.exists(prior_signal_path):
+        try:
+            prev = pd.read_csv(prior_signal_path)
+            if not prev.empty and "signal" in prev.columns:
+                was_invested = str(prev["signal"].iloc[-1]).strip() == "BUY_SPY"
+        except Exception:
+            pass
+
+    # Hysteresis: if currently invested, only exit below exit_threshold.
+    # If not invested, only enter above enter_threshold.
+    if was_invested:
+        is_bullish = bull_fraction > SPY_TIMING_EXIT_THRESHOLD
+    else:
+        is_bullish = bull_fraction >= SPY_TIMING_ENTER_THRESHOLD
 
     # Scale position size by conviction strength:
-    #   - Just above threshold (e.g. 51%) → invest at 60% of max
+    #   - Just above enter threshold (e.g. 56%) → invest at 60% of max
     #   - Strong majority (e.g. 80%) → invest at 100% of max
     if is_bullish:
-        # Linear scale from 60% to 100% of SPY_TIMING_INVEST_PCT
-        # as bull_fraction goes from threshold to 1.0
-        range_above = max(1.0 - SPY_TIMING_BULL_THRESHOLD, 0.01)
-        strength = min((bull_fraction - SPY_TIMING_BULL_THRESHOLD) / range_above, 1.0)
+        range_above = max(1.0 - SPY_TIMING_ENTER_THRESHOLD, 0.01)
+        strength = min((bull_fraction - SPY_TIMING_ENTER_THRESHOLD) / range_above, 1.0)
+        strength = max(strength, 0.0)
         invest_scale = 0.60 + 0.40 * strength
         invest_pct = SPY_TIMING_INVEST_PCT * invest_scale
     else:
@@ -703,6 +729,8 @@ def compute_spy_timing_signal(predictions: list[dict]) -> dict:
         "target_qqq_weight": target_weights.get("QQQ", 0.0),
         "target_cash_weight": target_cash_weight,
         "single_name_signals_enabled": False,
+        "single_name_paper_trading_enabled": False,
+        "paper_mode_strategy": PAPER_MODE_STRATEGY,
         "paper_signal_type": "index_timing",
         "reason": (
             f"{n_long}/{n_total} tickers LONG ({bull_fraction:.0%}) "
@@ -736,16 +764,158 @@ def print_spy_timing_summary(timing: dict, predictions: list[dict]) -> None:
     print("=" * 60)
 
 
+def _latest_etf_market_state() -> dict:
+    try:
+        raw = yf.download(
+            ["SPY", "QQQ"],
+            period="320d",
+            progress=False,
+            auto_adjust=True,
+            group_by="ticker",
+            threads=False,
+            timeout=15,
+        )
+    except Exception:
+        raw = pd.DataFrame()
+
+    def _close(symbol: str) -> pd.Series:
+        if raw.empty:
+            return pd.Series(dtype=float)
+        try:
+            if isinstance(raw.columns, pd.MultiIndex):
+                return raw[(symbol, "Close")].dropna()
+            if "Close" in raw.columns:
+                return raw["Close"].dropna()
+        except Exception:
+            return pd.Series(dtype=float)
+        return pd.Series(dtype=float)
+
+    spy = _close("SPY")
+    qqq = _close("QQQ")
+    spy_ma200 = float(spy.rolling(200, min_periods=50).mean().iloc[-1]) if len(spy) else np.nan
+    qqq_ma100 = float(qqq.rolling(100, min_periods=40).mean().iloc[-1]) if len(qqq) else np.nan
+    qqq_vol = float(qqq.pct_change().rolling(20, min_periods=10).std().iloc[-1] * np.sqrt(252)) if len(qqq) else 0.0
+    spy_last = float(spy.iloc[-1]) if len(spy) else np.nan
+    qqq_last = float(qqq.iloc[-1]) if len(qqq) else np.nan
+    return {
+        "spy_trend_ok": bool(np.isfinite(spy_last) and np.isfinite(spy_ma200) and spy_last >= spy_ma200),
+        "qqq_trend_ok": bool(np.isfinite(qqq_last) and np.isfinite(qqq_ma100) and qqq_last >= qqq_ma100),
+        "qqq_realized_vol": qqq_vol if np.isfinite(qqq_vol) else 0.0,
+        "spy_last": spy_last,
+        "qqq_last": qqq_last,
+    }
+
+
+def _etf_rotation_paper_ready() -> bool:
+    path = os.path.join(SIGNAL_DIR, "etf_rotation_metrics.json")
+    try:
+        with open(path) as f:
+            metrics = json.load(f)
+        return bool(metrics.get("paper_ready", False))
+    except Exception:
+        return False
+
+
+def compute_etf_rotation_signal(predictions: list[dict]) -> dict:
+    n_total = len(predictions)
+    n_long = sum(1 for p in predictions if p.get("direction_vote") == "LONG")
+    bull_fraction = n_long / n_total if n_total else 0.0
+    market = _latest_etf_market_state()
+    high_vol = bool(market["qqq_realized_vol"] > max(0.20, ETF_ROTATION_DEFAULT_VOL_TARGET * 1.75))
+
+    if not market["spy_trend_ok"] or bull_fraction < ETF_ROTATION_RISK_ON_EXIT:
+        regime = "risk_off"
+    elif bull_fraction >= ETF_ROTATION_RISK_ON_ENTER and market["qqq_trend_ok"] and not high_vol:
+        regime = "risk_on"
+    elif bull_fraction >= ETF_ROTATION_NEUTRAL_THRESHOLD and market["spy_trend_ok"]:
+        regime = "neutral"
+    else:
+        regime = "risk_off"
+
+    preset_name = "limited_leverage"
+    defensive_mix_name = "bil_ief_gld"
+    preset = ETF_ROTATION_PRESETS[preset_name]
+    base = (
+        ETF_ROTATION_DEFENSIVE_MIXES[defensive_mix_name]
+        if regime == "risk_off"
+        else preset.get(regime, {})
+    )
+    max_gross = min(float(preset.get("max_gross", 1.0)), ETF_ROTATION_MAX_GROSS_EXPOSURE)
+    if regime != "risk_on":
+        max_gross = min(max_gross, 1.0)
+    gross = sum(abs(float(v)) for v in base.values())
+    cap_scale = min(1.0, max_gross / gross) if gross > 0 else 0.0
+    vol_scale = 1.0
+    if regime in {"risk_on", "neutral"} and market["qqq_realized_vol"] > 0:
+        vol_scale = min(1.0, ETF_ROTATION_DEFAULT_VOL_TARGET / market["qqq_realized_vol"])
+    target = {
+        str(sym).upper(): round(float(weight) * cap_scale * vol_scale, 4)
+        for sym, weight in base.items()
+    }
+    cash_weight = round(max(0.0, 1.0 - sum(target.values())), 4)
+    gross_exposure = round(sum(abs(v) for v in target.values()), 4)
+    paper_ready = _etf_rotation_paper_ready()
+
+    return {
+        "paper_signal_type": "etf_rotation",
+        "market_timing_signal": regime.upper(),
+        "regime": regime,
+        "preset": preset_name,
+        "defensive_mix": defensive_mix_name,
+        "bull_fraction": round(bull_fraction, 3),
+        "n_long": n_long,
+        "n_total": n_total,
+        "risk_on_enter_threshold": ETF_ROTATION_RISK_ON_ENTER,
+        "risk_on_exit_threshold": ETF_ROTATION_RISK_ON_EXIT,
+        "neutral_threshold": ETF_ROTATION_NEUTRAL_THRESHOLD,
+        "vol_target": ETF_ROTATION_DEFAULT_VOL_TARGET,
+        "qqq_realized_vol": round(float(market["qqq_realized_vol"]), 4),
+        "spy_trend_ok": market["spy_trend_ok"],
+        "qqq_trend_ok": market["qqq_trend_ok"],
+        "target_spy_weight": target.get("SPY", 0.0),
+        "target_qqq_weight": target.get("QQQ", 0.0),
+        "target_bil_weight": target.get("BIL", 0.0),
+        "target_ief_weight": target.get("IEF", 0.0),
+        "target_gld_weight": target.get("GLD", 0.0),
+        "target_cash_weight": cash_weight,
+        "gross_exposure": gross_exposure,
+        "max_gross_exposure": ETF_ROTATION_MAX_GROSS_EXPOSURE,
+        "single_name_signals_enabled": False,
+        "single_name_paper_trading_enabled": False,
+        "paper_ready": paper_ready,
+        "paper_mode_strategy": PAPER_MODE_STRATEGY,
+        "reason": "ETF rotation gates pass" if paper_ready else "ETF rotation gates have not passed",
+        "predicted_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+
+
+def print_etf_rotation_summary(signal: dict) -> None:
+    print("\n" + "=" * 60)
+    print("  ETF ROTATION ALLOCATION")
+    print(f"  Regime:       {signal['regime']}")
+    print(f"  Paper ready:  {'YES' if signal['paper_ready'] else 'NO'}")
+    print(f"  Bull tickers: {signal['n_long']}/{signal['n_total']} ({signal['bull_fraction']:.0%})")
+    print(f"  Gross exp:    {signal['gross_exposure']:.0%}")
+    for symbol in ("spy", "qqq", "bil", "ief", "gld", "cash"):
+        key = f"target_{symbol}_weight"
+        print(f"  {symbol.upper():<4} target: {float(signal.get(key, 0.0)):.0%}")
+    print(f"  Reason:       {signal['reason']}")
+    print("=" * 60)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Complete XGBoost-only predictor")
     parser.add_argument("--ticker", type=str, default=None)
     parser.add_argument("--verbose", action="store_true", help="Show self-check and per-source news diagnostics")
     parser.add_argument("--spy-timing", action="store_true",
                         help="Output SPY/QQQ market-timing signal instead of per-stock picks")
+    parser.add_argument("--etf-rotation", action="store_true",
+                        help="Output benchmark-relative ETF rotation allocation instead of per-stock picks")
     args = parser.parse_args()
 
     # Force SPY timing mode from CLI flag or settings
     use_spy_timing = args.spy_timing or SPY_TIMING_MODE
+    use_etf_rotation = args.etf_rotation or ETF_ROTATION_MODE
 
     tickers = [args.ticker.upper()] if args.ticker else discover_prediction_tickers()
     rows = []
@@ -759,7 +929,15 @@ def main() -> None:
     out = pd.DataFrame(rows)
 
     # ── SPY timing mode: aggregate predictions into one signal ───────────────
-    if use_spy_timing:
+    if use_etf_rotation:
+        rotation = compute_etf_rotation_signal(rows)
+        print_etf_rotation_summary(rotation)
+        rotation_path = os.path.join(SIGNAL_DIR, "etf_rotation_signal.csv")
+        pd.DataFrame([rotation]).to_csv(rotation_path, index=False)
+        print(f"ETF rotation signal saved: {rotation_path}")
+        detail_path = os.path.join(SIGNAL_DIR, "etf_rotation_ticker_detail.csv")
+        out.to_csv(detail_path, index=False)
+    elif use_spy_timing:
         timing = compute_spy_timing_signal(rows)
         print_spy_timing_summary(timing, rows)
         # Save timing signal as a single-row CSV
@@ -779,7 +957,7 @@ def main() -> None:
         out = out.sort_values(["actionable", "confidence"], ascending=[False, False])
     out_path = os.path.join(SIGNAL_DIR, "signals.csv")
     out.to_csv(out_path, index=False)
-    if not use_spy_timing:
+    if not use_spy_timing and not use_etf_rotation:
         print_prediction_summary(out, out_path)
         # ── Alternative data context for actionable tickers ──────────────
         # Show EPS revisions, analyst recs, short interest for stocks the

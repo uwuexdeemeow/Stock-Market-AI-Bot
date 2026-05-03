@@ -1,0 +1,7 @@
+ticker,action,reason,price,target_weight,target_value,current_shares,target_shares,delta_shares,limit_price,order_value,current_value,current_weight,drift_abs,drift_threshold,drift_ok
+AMAT,BUY,rebalance_to_target,389.08,0.233333,241528.89,0,620,620,389.4691,241229.59,0.0,0.0,0.233333,0.01,True
+AMZN,SELL,rebalance_to_target,268.26,0.0,0.0,596,0,-596,267.9917,159882.97,159882.97,0.154458,0.154458,0.01,True
+C,BUY,rebalance_to_target,127.44,0.138866,143743.71,0,1127,1127,127.5674,143624.88,0.0,0.0,0.138866,0.01,True
+GOOGL,SELL,rebalance_to_target,385.69,0.0,0.0,446,0,-446,385.3043,172017.74,172017.74,0.166181,0.166181,0.01,True
+MU,BUY,rebalance_to_target,542.21,0.3278,339314.07,0,625,625,542.7522,338881.26,0.0,0.0,0.3278,0.01,True
+QQQ,BUY,rebalance_to_target,674.15,0.55,569318.91,0,844,844,674.8242,568982.62,0.0,0.0,0.55,0.03,True
