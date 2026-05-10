@@ -1,0 +1,5 @@
+ticker,action,reason,price,target_weight,target_value,current_shares,target_shares,delta_shares,raw_limit_price,limit_price,order_value,current_value,current_weight,drift_abs,drift_threshold,drift_ok
+CAT,BUY,rebalance_to_target,889.67,0.111093,125415.23,0,140,140,890.559653,890.56,124553.8,0.0,0.0,0.111093,0.01,True
+INTC,BUY,rebalance_to_target,99.62,0.186667,210732.31,0,2115,2115,99.719623,99.72,210696.31,0.0,0.0,0.186667,0.01,True
+MU,SKIP,below_drift_threshold,703.24,0.26224,296048.26,423,420,-3,702.53676,702.53,2109.72,297470.52,0.2635,0.00126,0.01,False
+QQQ,SKIP,below_drift_threshold,705.12,0.44,496725.26,673,704,31,705.82512,705.83,21858.72,474545.76,0.420353,0.019647,0.03,False

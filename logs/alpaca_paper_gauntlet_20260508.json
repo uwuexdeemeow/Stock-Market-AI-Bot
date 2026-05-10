@@ -1,0 +1,78 @@
+{
+  "status": "failed",
+  "approved_for_real_capital": false,
+  "reason": "trading_days 1 < 20 minimum",
+  "generated_at": "2026-05-08T14:29:49+00:00",
+  "strategy": "core_satellite_tqqq",
+  "trading_days": 1,
+  "paper_trades": 5,
+  "submitted_orders": 5,
+  "filled_orders": 5,
+  "cancelled_orders": 0,
+  "partial_orders": 0,
+  "fill_rate": 1.0,
+  "cancel_rate": 0.0,
+  "equity_data_available": true,
+  "total_return_pct": 0.0,
+  "sharpe": 0.0,
+  "max_drawdown_pct": 0.0,
+  "signal_freshness": {
+    "fresh": true,
+    "signal_age_hours": 2.4,
+    "predicted_at": "2026-05-08 20:04",
+    "current_regime": "risk_on",
+    "tqqq_weight_config": 0.2,
+    "reason": "signal is fresh"
+  },
+  "live_account": {
+    "connected": true,
+    "equity": 101324.91,
+    "cash": -1987.15,
+    "invested": 103312.06,
+    "market_open": true,
+    "n_positions": 5,
+    "positions": {
+      "AMAT": {
+        "quantity": 45,
+        "avg_price": 424.81,
+        "value": 19116.63,
+        "weight": 0.1887
+      },
+      "C": {
+        "quantity": 86,
+        "avg_price": 130.43,
+        "value": 11216.8,
+        "weight": 0.1107
+      },
+      "MU": {
+        "quantity": 40,
+        "avg_price": 688.68,
+        "value": 27547.2,
+        "weight": 0.2719
+      },
+      "QQQ": {
+        "quantity": 50,
+        "avg_price": 701.6,
+        "value": 35080.18,
+        "weight": 0.3462
+      },
+      "TQQQ": {
+        "quantity": 123,
+        "avg_price": 73.38,
+        "value": 9026.34,
+        "weight": 0.0891
+      }
+    },
+    "max_drift": 0.0097,
+    "gross_exposure": 1.0065
+  },
+  "thresholds": {
+    "min_trading_days": 20,
+    "min_sharpe": 0.5,
+    "max_drawdown_pct": -15.0,
+    "min_fill_rate": 0.95,
+    "max_cancel_rate": 0.05,
+    "max_drift": 0.15,
+    "max_signal_age_hours": 48.0
+  }
+}

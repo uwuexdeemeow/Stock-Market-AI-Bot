@@ -1,0 +1,45 @@
+{
+  "generated_at": "2026-05-04T13:05:29.467390",
+  "purpose": "factor_decay_monitor",
+  "as_of": "2026-04-17",
+  "selected_score_source": "regime_adaptive",
+  "rows": [
+    {
+      "lookback_days": 60,
+      "daily_ic_mean": -0.07858,
+      "daily_ic_positive_rate": 0.3488,
+      "top_bucket_excess_return_pct": 0.5379,
+      "observations": 6321,
+      "overlay_periods": 4,
+      "overlay_return_sum_pct": 3.2257,
+      "overlay_hit_rate": 0.75,
+      "overlay_alpha_sum_pct": 3.2257,
+      "top_selected_ticker": "GM",
+      "top_selected_count": 3,
+      "as_of": "2026-04-17",
+      "rank_ic_warning": true,
+      "overlay_alpha_warning": false,
+      "warning": true
+    },
+    {
+      "lookback_days": 120,
+      "daily_ic_mean": -0.06079,
+      "daily_ic_positive_rate": 0.3171,
+      "top_bucket_excess_return_pct": 0.7189,
+      "observations": 12054,
+      "overlay_periods": 8,
+      "overlay_return_sum_pct": 9.198,
+      "overlay_hit_rate": 0.625,
+      "overlay_alpha_sum_pct": 9.198,
+      "top_selected_ticker": "COF",
+      "top_selected_count": 6,
+      "as_of": "2026-04-17",
+      "rank_ic_warning": true,
+      "overlay_alpha_warning": false,
+      "warning": true
+    }
+  ],
+  "warning": true,
+  "real_capital_block": false,
+  "reason": "factor decay monitor has no real-capital blocking warning"
+}

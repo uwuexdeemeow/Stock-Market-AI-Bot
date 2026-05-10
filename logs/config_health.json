@@ -1,0 +1,46 @@
+{
+  "generated_at": "2026-05-09T10:46:35+00:00",
+  "ok": true,
+  "package_checks": [
+    {
+      "package": "yfinance",
+      "required": "==0.2.40",
+      "installed": "0.2.40",
+      "ok": true,
+      "issue": ""
+    },
+    {
+      "package": "websockets",
+      "required": ">=9,<11",
+      "installed": "10.4",
+      "ok": true,
+      "issue": ""
+    },
+    {
+      "package": "alpaca-trade-api",
+      "required": "==3.2.0",
+      "installed": "3.2.0",
+      "ok": true,
+      "issue": ""
+    },
+    {
+      "package": "moomoo-api",
+      "required": ">=10",
+      "installed": "10.3.6308",
+      "ok": true,
+      "issue": ""
+    }
+  ],
+  "pip_check": {
+    "ok": true,
+    "stdout": "No broken requirements found.",
+    "stderr": "",
+    "returncode": 0
+  },
+  "env_checks": {
+    "paper_mode_strategy": "core_satellite_alpha",
+    "paper_signal_timezone": "Asia/Singapore",
+    "moomoo_unlock_pwd_set": false,
+    "alpaca_api_key_set": true
+  }
+}

@@ -11,7 +11,12 @@ import sys
 from datetime import datetime
 
 import pandas as pd
-import yfinance as yf
+
+# Add project root to path for multi-source data provider
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+from data_provider import download_single as _dp_download
 
 from settings import (
     WATCHLIST,
@@ -83,8 +88,7 @@ def score_price_momentum(close: pd.Series) -> float:
 
 def score_market_regime() -> float:
     try:
-        spy = yf.download("SPY", period="3mo", progress=False, auto_adjust=True)
-        spy = flatten_yf(spy)
+        spy = flatten_yf(_dp_download("SPY", period="3mo"))
         if spy.empty or len(spy) < 50:
             return 1.0
         close = spy["Close"]
@@ -124,8 +128,8 @@ def model_status(ticker: str) -> str:
 
 def scan_ticker(ticker: str) -> dict | None:
     try:
-        df = yf.download(ticker, period="3mo", progress=False, auto_adjust=True)
-        df = flatten_yf(df)
+        df = flatten_yf(_dp_download(ticker, period="3mo"))
+
         if df.empty or len(df) < 20:
             return None
 

@@ -1,60 +1,84 @@
 {
-  "generated_at": "2026-05-03T08:00:18+00:00",
+  "generated_at": "2026-05-08T14:30:26+00:00",
   "watchlist_size": 147,
   "files": [
     {
       "path": "train.py",
       "exists": true,
-      "size_bytes": 116498,
-      "modified_at": "2026-04-30T21:52:38"
+      "size_bytes": 157,
+      "modified_at": "2026-05-08T18:54:15"
     },
     {
       "path": "backtest.py",
       "exists": true,
-      "size_bytes": 215067,
-      "modified_at": "2026-05-03T00:57:43"
+      "size_bytes": 215272,
+      "modified_at": "2026-05-08T21:11:34"
     },
     {
       "path": "predict.py",
-      "exists": true,
-      "size_bytes": 42646,
-      "modified_at": "2026-05-02T23:39:58"
+      "exists": false,
+      "size_bytes": 0,
+      "modified_at": null
     },
     {
       "path": "leakage_audit.py",
-      "exists": true,
-      "size_bytes": 6872,
-      "modified_at": "2026-04-25T11:15:25"
+      "exists": false,
+      "size_bytes": 0,
+      "modified_at": null
     },
     {
       "path": "optimize_trade_rules.py",
-      "exists": true,
-      "size_bytes": 7948,
-      "modified_at": "2026-04-25T11:15:25"
+      "exists": false,
+      "size_bytes": 0,
+      "modified_at": null
     },
     {
       "path": "model_quality.py",
       "exists": true,
-      "size_bytes": 10598,
-      "modified_at": "2026-04-27T16:23:11"
+      "size_bytes": 165,
+      "modified_at": "2026-05-08T18:54:15"
     },
     {
       "path": "trade_rules.py",
       "exists": true,
-      "size_bytes": 6441,
-      "modified_at": "2026-04-27T16:18:52"
+      "size_bytes": 723,
+      "modified_at": "2026-05-08T18:52:00"
     },
     {
       "path": "moomoo_paper_trading.py",
       "exists": true,
-      "size_bytes": 50272,
-      "modified_at": "2026-05-03T15:11:52"
+      "size_bytes": 75641,
+      "modified_at": "2026-05-08T22:15:08"
     },
     {
       "path": "paper_gauntlet.py",
       "exists": true,
-      "size_bytes": 10546,
-      "modified_at": "2026-05-03T15:26:43"
+      "size_bytes": 20120,
+      "modified_at": "2026-05-08T21:02:31"
+    },
+    {
+      "path": "core_satellite_survivorship_audit.py",
+      "exists": true,
+      "size_bytes": 7894,
+      "modified_at": "2026-05-04T12:54:02"
+    },
+    {
+      "path": "core_satellite_execution_stress.py",
+      "exists": true,
+      "size_bytes": 5458,
+      "modified_at": "2026-05-04T03:06:31"
+    },
+    {
+      "path": "core_satellite_drawdown_throttle.py",
+      "exists": true,
+      "size_bytes": 12955,
+      "modified_at": "2026-05-04T12:52:01"
+    },
+    {
+      "path": "factor_decay_monitor.py",
+      "exists": true,
+      "size_bytes": 9599,
+      "modified_at": "2026-05-04T12:52:55"
     }
   ],
   "model_quality": {
@@ -136,36 +160,168 @@
     }
   },
   "backtest": {
-    "latest_trades_file": "signals/core_satellite_alpha_trades.csv",
+    "latest_trades_file": "signals/paper_trades.csv",
     "latest_equity_file": "signals/paper_equity.csv",
-    "latest_trade_rows": 411,
-    "latest_equity_rows": 1
+    "latest_trade_rows": 10,
+    "latest_equity_rows": 3
   },
   "paper": {
     "filtered_live_rows": 0,
-    "paper_trade_rows": 13,
-    "paper_equity_rows": 1,
-    "paper_gauntlet_file": "logs/paper_gauntlet_20260503.json",
+    "paper_trade_rows": 10,
+    "paper_equity_rows": 3,
+    "paper_gauntlet_file": "logs/paper_gauntlet_20260508.json",
     "paper_gauntlet_status": "failed",
     "approved_for_real_capital": false,
-    "paper_gauntlet_reason": "paper_equity_days 1 < 20; no submitted paper orders found; max_drift_abs 0.550 > 0.150",
+    "paper_gauntlet_reason": "paper_equity_days 3 < 20; fill_rate 0.600 < 0.950; max_drift_abs 0.187 > 0.150",
+    "paper_benchmark_comparisons": {
+      "data_available": false,
+      "reason": "paper_equity_days_less_than_20"
+    },
     "core_satellite_paper_ready": true,
     "current_regime": "risk_on",
-    "account_equity": 1035125.3,
-    "current_gross_exposure": 0.3206,
-    "target_gross_exposure": 1.25,
-    "max_drift_abs": 0.55,
+    "account_equity": 1132651.21,
+    "current_gross_exposure": 0.6844,
+    "target_gross_exposure": 1.0,
+    "max_drift_abs": 0.186667,
     "submit_allowed": true,
     "guard_reasons": [
-      "first_rebalance",
-      "drift_orders_6_max_55.00%"
+      "drift_orders_2_max_18.67%"
     ]
+  },
+  "survivorship_bias": {
+    "report_file": "logs/core_satellite_survivorship_audit.json",
+    "status": "pass_with_warning",
+    "available_audit_tickers": [
+      "FRC",
+      "BBBY",
+      "SHLD",
+      "HTZ",
+      "CRC"
+    ],
+    "missing_audit_tickers": [
+      "CHK",
+      "DO",
+      "FTR",
+      "JCP",
+      "MDR",
+      "RIDE",
+      "SIVB",
+      "TUP",
+      "WE",
+      "WIN",
+      "WLL",
+      "WPG"
+    ],
+    "audit_rebalance_selections": 51,
+    "total_return_delta_pct": -3776.86,
+    "max_drawdown_delta_pct": -3.14,
+    "stressed_paper_ready": true,
+    "survivorship_adjusted_score": 0.575,
+    "failed_name_stressed_return_pct": 5109.66
+  },
+  "execution_stress": {
+    "report_file": "logs/core_satellite_execution_stress.json",
+    "status": "pass",
+    "scenarios": 5,
+    "failed_scenarios": 0,
+    "worst_drawdown_pct": -36.25,
+    "worst_alpha_vs_blend_pct": 5954.09
+  },
+  "drawdown_throttle": {
+    "report_file": "logs/core_satellite_drawdown_throttle.json",
+    "status": "no_promotion_candidate",
+    "best_promotion_candidate": null,
+    "tested_rules": [
+      "normal",
+      "soft_throttle_15",
+      "hard_throttle_20"
+    ]
+  },
+  "factor_decay": {
+    "report_file": "logs/factor_decay_monitor.json",
+    "status": "warning",
+    "warning": true,
+    "real_capital_block": false,
+    "reason": "factor decay monitor has no real-capital blocking warning",
+    "rows": [
+      {
+        "lookback_days": 60,
+        "daily_ic_mean": -0.07858,
+        "daily_ic_positive_rate": 0.3488,
+        "top_bucket_excess_return_pct": 0.5379,
+        "observations": 6321,
+        "overlay_periods": 4,
+        "overlay_return_sum_pct": 3.2257,
+        "overlay_hit_rate": 0.75,
+        "overlay_alpha_sum_pct": 3.2257,
+        "top_selected_ticker": "GM",
+        "top_selected_count": 3,
+        "as_of": "2026-04-17",
+        "rank_ic_warning": true,
+        "overlay_alpha_warning": false,
+        "warning": true
+      },
+      {
+        "lookback_days": 120,
+        "daily_ic_mean": -0.06079,
+        "daily_ic_positive_rate": 0.3171,
+        "top_bucket_excess_return_pct": 0.7189,
+        "observations": 12054,
+        "overlay_periods": 8,
+        "overlay_return_sum_pct": 9.198,
+        "overlay_hit_rate": 0.625,
+        "overlay_alpha_sum_pct": 9.198,
+        "top_selected_ticker": "COF",
+        "top_selected_count": 6,
+        "as_of": "2026-04-17",
+        "rank_ic_warning": true,
+        "overlay_alpha_warning": false,
+        "warning": true
+      }
+    ]
+  },
+  "robust_mode": {
+    "status": "available",
+    "primary_return_pct": 9231.78,
+    "primary_sharpe": 1.245,
+    "primary_max_drawdown_pct": -30.02,
+    "robust_return_pct": 6435.75,
+    "robust_sharpe": 1.273,
+    "robust_max_drawdown_pct": -30.02,
+    "return_delta_pct": -2796.03,
+    "sharpe_delta": 0.028,
+    "max_drawdown_delta_pct": 0.0
+  },
+  "summary": {
+    "primary_strategy_ok": true,
+    "real_capital_blocked_reason": "paper_equity_days 3 < 20; fill_rate 0.600 < 0.950; max_drift_abs 0.187 > 0.150",
+    "largest_remaining_risk": "repo_integrity"
   },
   "findings": [
     {
+      "severity": "high",
+      "area": "repo_integrity",
+      "finding": "Missing production files: predict.py, leakage_audit.py, optimize_trade_rules.py"
+    },
+    {
       "severity": "medium",
       "area": "paper_trading",
-      "finding": "Paper gauntlet blocks real-capital promotion: paper_equity_days 1 < 20; no submitted paper orders found; max_drift_abs 0.550 > 0.150"
+      "finding": "Paper gauntlet blocks real-capital promotion: paper_equity_days 3 < 20; fill_rate 0.600 < 0.950; max_drift_abs 0.187 > 0.150"
+    },
+    {
+      "severity": "medium",
+      "area": "survivorship_bias",
+      "finding": "Failed-name stress is material: 51 failed-name selections, total-return delta -3776.86 pct points, max-DD delta -3.14 pct points. Strategy still passes, but alpha is survivor-sensitive."
+    },
+    {
+      "severity": "medium",
+      "area": "execution_stress",
+      "finding": "Execution stress passes, but worst stressed drawdown is -36.25%."
+    },
+    {
+      "severity": "medium",
+      "area": "factor_decay",
+      "finding": "Factor decay warning present: recent rank IC is weak/negative, though recent overlay alpha is not blocking."
     },
     {
       "severity": "low",

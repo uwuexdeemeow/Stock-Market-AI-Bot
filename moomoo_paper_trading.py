@@ -59,6 +59,40 @@ DEFAULT_LIMIT_OFFSET_BPS = 10.0
 DEFAULT_MAX_SIGNAL_AGE_HOURS = 24.0
 DEFAULT_MAX_FACTOR_AGE_TRADING_DAYS = 5
 DEFAULT_SYNC_AFTER_SUBMIT_LOOKBACK_DAYS = 3
+DEFAULT_MAX_SUBMIT_GROSS_EXPOSURE = 1.00
+DEFAULT_SIGNAL_TIMEZONE = os.environ.get("PAPER_SIGNAL_TIMEZONE", os.environ.get("TZ", "Asia/Singapore"))
+MAX_MISSING_PRICE_SUBMIT_ROWS = int(os.environ.get("PAPER_MAX_MISSING_PRICE_SUBMIT_ROWS", "0"))
+ACTIVE_FILL_STATUSES = {"open", "partial", "partially_filled", "unknown", "submitted", "pending", "queued"}
+
+
+
+def _round_us_limit_price(price: float, action: str) -> float:
+    """Return a Moomoo-valid US limit price.
+
+    Moomoo rejects US stock/ETF limit prices with too many decimal places.
+    For normal US names above $1, the valid minimum tick is usually $0.01.
+    We round BUY prices up and SELL prices down so the protective limit offset
+    remains conservative after rounding.
+    """
+    try:
+        value = float(price)
+    except Exception:
+        return 0.0
+    if not np.isfinite(value) or value <= 0:
+        return 0.0
+
+    # US listed stocks/ETFs are normally quoted in cents. For rare sub-$1
+    # instruments, allow 4 decimals. Your current universe is all >$1.
+    decimals = 4 if value < 1.0 else 2
+    scale = 10 ** decimals
+    action = str(action).upper().strip()
+    if action == "BUY":
+        rounded = np.ceil(value * scale) / scale
+    elif action == "SELL":
+        rounded = np.floor(value * scale) / scale
+    else:
+        rounded = round(value, decimals)
+    return float(f"{rounded:.{decimals}f}")
 
 
 def _normalise_ticker(ticker: str) -> str:
@@ -134,6 +168,65 @@ def us_regular_market_is_open(now: datetime | None = None) -> tuple[bool, str]:
     return True, f"US market open ({ts.strftime('%Y-%m-%d %H:%M %Z')})"
 
 
+def _signal_timezone():
+    try:
+        return ZoneInfo(str(DEFAULT_SIGNAL_TIMEZONE))
+    except Exception:
+        return datetime.now().astimezone().tzinfo or timezone.utc
+
+
+def parse_signal_timestamp(value: object) -> pd.Timestamp:
+    ts = pd.to_datetime(value, errors="coerce")
+    if pd.isna(ts):
+        return pd.NaT
+    out = pd.Timestamp(ts)
+    if out.tzinfo is None:
+        out = out.tz_localize(_signal_timezone())
+    return out.tz_convert("UTC")
+
+
+def current_signal_open_orders(signal: pd.Series | dict, trades_path: Path | None = None) -> pd.DataFrame:
+    """Return active local paper orders submitted for the current signal."""
+    path = Path(trades_path or (SIGNAL_DIR / "paper_trades.csv"))
+    if not path.exists():
+        return pd.DataFrame()
+    try:
+        trades = pd.read_csv(path)
+    except Exception:
+        return pd.DataFrame()
+    if trades.empty or "submitted_at" not in trades.columns:
+        return pd.DataFrame()
+    signal_ts = parse_signal_timestamp(signal.get("predicted_at", ""))
+    if pd.isna(signal_ts):
+        return pd.DataFrame()
+    submitted_ts = pd.to_datetime(trades["submitted_at"], errors="coerce", utc=True)
+    current = trades[submitted_ts >= signal_ts].copy()
+    if current.empty:
+        return current
+    if "submitted" in current.columns:
+        current = current[current["submitted"].astype(str).str.lower().isin(["true", "1", "yes"])]
+    statuses = (
+        current.get("fill_status", pd.Series("unknown", index=current.index))
+        .fillna("unknown")
+        .astype(str)
+        .str.lower()
+        .str.strip()
+    )
+    return current[statuses.isin(ACTIVE_FILL_STATUSES)].copy()
+
+
+def latest_completed_us_trading_day(now: datetime | None = None) -> pd.Timestamp:
+    eastern = ZoneInfo("America/New_York")
+    ts = (now or datetime.now(timezone.utc)).astimezone(eastern)
+    current_day = pd.Timestamp(ts.date())
+    if ts.weekday() >= 5:
+        return current_day - pd.tseries.offsets.BDay(1)
+    close_ts = ts.replace(hour=16, minute=0, second=0, microsecond=0)
+    if ts < close_ts:
+        return current_day - pd.tseries.offsets.BDay(1)
+    return current_day
+
+
 def validate_signal_freshness(
     signal: pd.Series,
     *,
@@ -142,11 +235,11 @@ def validate_signal_freshness(
 ) -> tuple[bool, list[str]]:
     issues: list[str] = []
     predicted_at = signal.get("predicted_at", "")
-    predicted_ts = pd.to_datetime(predicted_at, errors="coerce")
+    predicted_ts = parse_signal_timestamp(predicted_at)
     if pd.isna(predicted_ts):
         issues.append("missing_predicted_at")
     else:
-        age_hours = (pd.Timestamp.now() - pd.Timestamp(predicted_ts)).total_seconds() / 3600.0
+        age_hours = (pd.Timestamp.now(tz=timezone.utc) - predicted_ts).total_seconds() / 3600.0
         if age_hours > float(max_signal_age_hours):
             issues.append(f"signal_age_{age_hours:.1f}h_gt_{float(max_signal_age_hours):.1f}h")
 
@@ -155,7 +248,8 @@ def validate_signal_freshness(
     if pd.isna(factor_ts):
         issues.append("missing_latest_factor_date")
     else:
-        age_days = len(pd.bdate_range(pd.Timestamp(factor_ts) + pd.tseries.offsets.BDay(1), pd.Timestamp.now().normalize()))
+        completed_us_day = latest_completed_us_trading_day()
+        age_days = len(pd.bdate_range(pd.Timestamp(factor_ts) + pd.tseries.offsets.BDay(1), completed_us_day))
         if age_days > int(max_factor_age_trading_days):
             issues.append(f"factor_age_{age_days}_bdays_gt_{int(max_factor_age_trading_days)}")
     return not issues, issues
@@ -267,9 +361,15 @@ def load_approved_tickers() -> set[str]:
 
 
 def _fetch_vol(ticker: str) -> float:
-    """3-month realized annual vol for ticker. Returns 0.20 on failure."""
+    """
+    3-month realized annual vol for ticker. Returns 0.20 on failure.
+
+    PLAIN ENGLISH: Uses the multi-source data_provider so it works even
+    when yfinance is down.  Falls back to yahooquery then Stooq.
+    """
     try:
-        hist = yf.download(ticker, period="6mo", auto_adjust=True, progress=False)
+        from data_provider import download_single, flatten_yf
+        hist = flatten_yf(download_single(ticker, period="6mo"))
         closes = hist["Close"].dropna()
         if len(closes) >= 20:
             vol = float(closes.pct_change().tail(63).std() * np.sqrt(252))
@@ -280,24 +380,29 @@ def _fetch_vol(ticker: str) -> float:
 
 
 def _fetch_price(ticker: str) -> float:
-    """Latest close price. Returns 0.0 on failure."""
-    try:
-        hist = yf.download(ticker, period="5d", auto_adjust=True, progress=False)
-        if not hist.empty:
-            if isinstance(hist.columns, pd.MultiIndex):
-                close = hist[("Close", ticker)] if ("Close", ticker) in hist.columns else hist["Close"].iloc[:, 0]
-            else:
-                close = hist["Close"]
-            close = close.dropna()
-            if not close.empty:
-                return float(close.iloc[-1])
-    except Exception:
-        pass
+    """
+    Latest close price. Returns 0.0 on failure.
+
+    PLAIN ENGLISH: First checks local parquet cache (no network needed).
+    If that fails, uses the multi-source data_provider which tries
+    yfinance → yahooquery → Stooq automatically.
+    """
+    # Try local parquet first (fastest, no network)
     try:
         local_path = Path(DATA_DIR) / f"{_normalise_ticker(ticker)}.parquet"
         if local_path.exists():
             df = pd.read_parquet(local_path, columns=["Close"])
             close = pd.to_numeric(df["Close"], errors="coerce").dropna()
+            if not close.empty:
+                return float(close.iloc[-1])
+    except Exception:
+        pass
+    # Fall back to multi-source download
+    try:
+        from data_provider import download_single, flatten_yf
+        hist = flatten_yf(download_single(ticker, period="5d"))
+        if not hist.empty:
+            close = hist["Close"].dropna()
             if not close.empty:
                 return float(close.iloc[-1])
     except Exception:
@@ -338,6 +443,87 @@ def core_satellite_target_weights(row: pd.Series) -> dict[str, float]:
     return {ticker: weight for ticker, weight in weights.items() if abs(weight) > 1e-9}
 
 
+
+def target_gross_exposure(target_weights: dict[str, float]) -> float:
+    """Absolute target exposure implied by the generated portfolio weights."""
+    return float(sum(abs(float(w)) for w in target_weights.values()))
+
+
+def scale_target_weights_to_gross(
+    target_weights: dict[str, float],
+    *,
+    max_gross_exposure: float,
+) -> tuple[dict[str, float], float, bool]:
+    """
+    Scale target weights down proportionally when the model emits more gross
+    exposure than the broker/account should submit.
+
+    Example: QQQ 55% + satellites 70% = 125% gross. With max_gross_exposure=1.0,
+    every target weight is multiplied by 0.8 so the submitted plan is 100% gross.
+    """
+    gross = target_gross_exposure(target_weights)
+    max_gross = float(max_gross_exposure)
+    if gross <= 0 or max_gross <= 0 or gross <= max_gross + 1e-9:
+        return dict(target_weights), 1.0, False
+    scale = max_gross / gross
+    scaled = {ticker: float(weight) * scale for ticker, weight in target_weights.items()}
+    return scaled, scale, True
+
+
+def _safe_order_id(value: object) -> str:
+    """Return a clean broker order id, or '' for missing/NaN values."""
+    if value is None:
+        return ""
+    try:
+        if pd.isna(value):
+            return ""
+    except Exception:
+        pass
+    text = str(value).strip()
+    if not text or text.lower() in {"nan", "none", "nat", "null"}:
+        return ""
+    if "." in text and text.replace(".", "", 1).isdigit():
+        text = text.split(".", 1)[0]
+    return text
+
+
+def _extract_order_id_from_response(response: object) -> str:
+    """Best-effort parser for order_id/order_id_ex from a stringified broker response."""
+    import re
+
+    text = str(response or "")
+    for pattern in (r"order_id[_ex]*\s+([0-9]{4,})", r"order_id['\"]?\s*[:=]\s*['\"]?([0-9]{4,})"):
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            return match.group(1)
+    return ""
+
+
+# Helper functions for compact display/logging of broker responses
+def _summarise_broker_response(value: object, *, max_len: int = 160) -> str:
+    """Compact noisy Moomoo responses for readable terminal/CSV logs."""
+    text = str(value or "").replace("\n", " ").strip()
+    while "  " in text:
+        text = text.replace("  ", " ")
+    if text in {"", "None", "nan", "NaN"}:
+        return ""
+    # Moomoo successful place_order responses are often full DataFrame strings.
+    # The order ID/status columns are stored separately, so keep the response short.
+    if "rows x" in text or "stock_name" in text or "order_status" in text:
+        return "accepted_by_moomoo"
+    if len(text) > max_len:
+        return text[: max_len - 3] + "..."
+    return text
+
+
+def _clean_for_display(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
+    """Return a compact display frame without huge broker response blobs."""
+    view = df[[c for c in cols if c in df.columns]].copy()
+    for col in ("broker_response", "broker_reject_reason", "unlock_message"):
+        if col in view.columns:
+            view[col] = view[col].map(_summarise_broker_response)
+    return view
+
 def connect_moomoo_trade_context():
     try:
         from moomoo import OpenSecTradeContext
@@ -349,6 +535,24 @@ def connect_moomoo_trade_context():
     market = os.environ.get("MOOMOO_MARKET", "US").strip().upper() or "US"
     firm = os.environ.get("MOOMOO_SECURITY_FIRM", "FUTUINC").strip().upper() or "FUTUINC"
     return OpenSecTradeContext(filter_trdmarket=market, host=host, port=port, security_firm=firm)
+
+
+def maybe_unlock_moomoo_trade(ctx) -> tuple[bool, str]:
+    """Optionally unlock trading when MOOMOO_UNLOCK_PWD is provided.
+
+    Simulated trading often works without this, but some OpenD/account setups still
+    reject place_order until the trade context is unlocked. We do not hard-code a
+    password; set MOOMOO_UNLOCK_PWD in your shell only if your Moomoo OpenD asks
+    for trade unlock.
+    """
+    pwd = os.environ.get("MOOMOO_UNLOCK_PWD", "").strip()
+    if not pwd:
+        return False, "MOOMOO_UNLOCK_PWD not set; skipped trade unlock"
+    try:
+        ret, data = ctx.unlock_trade(pwd)
+    except Exception as exc:
+        return False, f"unlock_trade_exception: {exc!r}"
+    return bool(ret == 0), str(data)
 
 
 def _moomoo_constant(name: str, attr: str, fallback: str) -> str:
@@ -382,23 +586,42 @@ def fetch_moomoo_equity(ctx, fallback_equity: float | None = None) -> float:
     raise RuntimeError(f"Could not infer account equity from Moomoo columns: {list(data.columns)}")
 
 
-def fetch_moomoo_positions(ctx) -> dict[str, int]:
+def fetch_moomoo_positions_and_prices(ctx) -> tuple[dict[str, int], dict[str, float]]:
     trd_env = _moomoo_constant("TrdEnv", "SIMULATE", "SIMULATE")
     ret, data = ctx.position_list_query(trd_env=trd_env, refresh_cache=True)
     if ret != 0:
         raise RuntimeError(f"Moomoo position_list_query failed: {data}")
     if data is None or len(data) == 0:
-        return {}
+        return {}, {}
     code_col = "code" if "code" in data.columns else "stock_code" if "stock_code" in data.columns else None
     qty_col = "qty" if "qty" in data.columns else "quantity" if "quantity" in data.columns else None
     if code_col is None or qty_col is None:
         raise RuntimeError(f"Could not parse Moomoo positions columns: {list(data.columns)}")
     positions: dict[str, int] = {}
+    prices: dict[str, float] = {}
     for _, row in data.iterrows():
         ticker = _plain_ticker_from_code(row[code_col])
         qty = int(float(row[qty_col] or 0))
         if qty != 0:
             positions[ticker] = positions.get(ticker, 0) + qty
+            for price_col in ("nominal_price", "last_price", "latest_price", "market_price", "price"):
+                if price_col in data.columns and pd.notna(row.get(price_col)):
+                    price = float(row.get(price_col) or 0.0)
+                    if price > 0:
+                        prices[ticker] = price
+                        break
+            if ticker not in prices:
+                for value_col in ("market_val", "market_value", "val", "position_market_value"):
+                    if value_col in data.columns and pd.notna(row.get(value_col)):
+                        value = float(row.get(value_col) or 0.0)
+                        if value > 0:
+                            prices[ticker] = value / abs(qty)
+                            break
+    return positions, prices
+
+
+def fetch_moomoo_positions(ctx) -> dict[str, int]:
+    positions, _prices = fetch_moomoo_positions_and_prices(ctx)
     return positions
 
 
@@ -443,11 +666,12 @@ def build_core_satellite_orders(
         else:
             action = "BUY" if delta > 0 else "SELL"
             reason = "rebalance_to_target"
-        limit_price = 0.0
+        raw_limit_price = 0.0
         if action == "BUY":
-            limit_price = price * (1.0 + float(limit_offset_bps) / 10_000.0)
+            raw_limit_price = price * (1.0 + float(limit_offset_bps) / 10_000.0)
         elif action == "SELL":
-            limit_price = price * (1.0 - float(limit_offset_bps) / 10_000.0)
+            raw_limit_price = price * (1.0 - float(limit_offset_bps) / 10_000.0)
+        limit_price = _round_us_limit_price(raw_limit_price, action)
         rows.append({
             "ticker": ticker,
             "action": action,
@@ -458,7 +682,8 @@ def build_core_satellite_orders(
             "current_shares": current,
             "target_shares": target_shares,
             "delta_shares": delta,
-            "limit_price": round(limit_price, 4),
+            "raw_limit_price": round(raw_limit_price, 6),
+            "limit_price": limit_price,
             "order_value": round(order_value, 2),
         })
     return pd.DataFrame(rows)
@@ -562,6 +787,104 @@ def print_order_summary(orders: pd.DataFrame, *, equity: float, guard_reasons: l
     print(f"  Market hours:   {'OPEN' if market_open else 'CLOSED'} - {market_reason}")
 
 
+def evaluate_broker_submit_preflight(
+    *,
+    signal: pd.Series,
+    orders: pd.DataFrame,
+    freshness_ok: bool,
+    freshness_issues: list[str],
+    submit_allowed: bool,
+    allow_stale_signal: bool,
+    allow_closed_market_submit: bool,
+    allow_leverage_submit: bool,
+    allow_submit_with_open_orders: bool,
+    max_submit_gross_exposure: float,
+) -> tuple[bool, list[str]]:
+    blockers: list[str] = []
+    if not bool(signal.get("paper_ready", False)):
+        blockers.append("strategy paper_ready is false")
+    if not bool(signal.get("gates_all_pass", False)):
+        blockers.append("strategy gates_all_pass is false")
+    if not freshness_ok and not allow_stale_signal:
+        blockers.append(f"stale signal/data: {', '.join(freshness_issues)}")
+    if not submit_allowed:
+        blockers.append("rebalance guard did not allow submission")
+
+    target_gross = float(orders["target_weight"].abs().sum()) if "target_weight" in orders.columns else 0.0
+    if target_gross > float(max_submit_gross_exposure) + 1e-9 and not allow_leverage_submit:
+        blockers.append(
+            f"target gross {target_gross:.3f} exceeds max submit gross {float(max_submit_gross_exposure):.3f}"
+        )
+
+    missing_price = orders[
+        orders.get("reason", pd.Series("", index=orders.index)).astype(str).eq("missing_price")
+    ]
+    if len(missing_price) > MAX_MISSING_PRICE_SUBMIT_ROWS:
+        blockers.append(f"missing prices for {len(missing_price)} order rows")
+
+    market_open, market_reason = us_regular_market_is_open()
+    if not market_open and not allow_closed_market_submit:
+        blockers.append(market_reason)
+    open_orders = current_signal_open_orders(signal)
+    if len(open_orders) > 0 and not allow_submit_with_open_orders:
+        tickers = ",".join(open_orders.get("ticker", pd.Series(dtype=str)).astype(str).str.upper().head(8).tolist())
+        blockers.append(f"current signal already has {len(open_orders)} open paper orders: {tickers}")
+    return not blockers, blockers
+
+
+def build_submit_readiness_report(
+    *,
+    signal: pd.Series,
+    orders: pd.DataFrame,
+    freshness_ok: bool,
+    freshness_issues: list[str],
+    submit_allowed: bool,
+    max_submit_gross_exposure: float = DEFAULT_MAX_SUBMIT_GROSS_EXPOSURE,
+    allow_submit_with_open_orders: bool = False,
+) -> dict:
+    market_open, market_reason = us_regular_market_is_open()
+    executable = orders[orders["action"].isin(["BUY", "SELL"])] if not orders.empty else pd.DataFrame()
+    missing_price = orders[
+        orders.get("reason", pd.Series("", index=orders.index)).astype(str).eq("missing_price")
+    ] if not orders.empty else pd.DataFrame()
+    target_gross = float(orders["target_weight"].abs().sum()) if "target_weight" in orders.columns else 0.0
+    open_orders = current_signal_open_orders(signal)
+    blockers: list[str] = []
+    warnings: list[str] = []
+    if not bool(signal.get("paper_ready", False)):
+        blockers.append("strategy paper_ready is false")
+    if not bool(signal.get("gates_all_pass", False)):
+        blockers.append("strategy gates_all_pass is false")
+    if not freshness_ok:
+        blockers.append(f"stale signal/data: {', '.join(freshness_issues)}")
+    if not submit_allowed:
+        blockers.append("rebalance guard did not allow submission")
+    if target_gross > float(max_submit_gross_exposure) + 1e-9:
+        blockers.append(f"target gross {target_gross:.3f} exceeds max submit gross {float(max_submit_gross_exposure):.3f}")
+    if len(missing_price) > MAX_MISSING_PRICE_SUBMIT_ROWS:
+        blockers.append(f"missing prices for {len(missing_price)} order rows")
+    if not market_open:
+        blockers.append(market_reason)
+    if len(open_orders) > 0 and not allow_submit_with_open_orders:
+        tickers = ",".join(open_orders.get("ticker", pd.Series(dtype=str)).astype(str).str.upper().head(8).tolist())
+        blockers.append(f"current signal already has {len(open_orders)} open paper orders: {tickers}")
+    if executable.empty:
+        warnings.append("no executable BUY/SELL rows")
+    return {
+        "can_submit_during_regular_market": not blockers and not executable.empty,
+        "blockers": blockers,
+        "warnings": warnings,
+        "market_open": bool(market_open),
+        "market_status": market_reason,
+        "executable_orders": int(len(executable)),
+        "buy_value": round(float(executable.loc[executable["action"] == "BUY", "order_value"].sum()), 2) if not executable.empty else 0.0,
+        "sell_value": round(float(executable.loc[executable["action"] == "SELL", "order_value"].sum()), 2) if not executable.empty else 0.0,
+        "target_gross_exposure": round(float(target_gross), 6),
+        "missing_price_rows": int(len(missing_price)),
+        "current_signal_open_orders": int(len(open_orders)),
+    }
+
+
 def write_paper_status(
     *,
     signal: pd.Series,
@@ -582,6 +905,13 @@ def write_paper_status(
     target_gross = float(orders["target_weight"].abs().sum()) if "target_weight" in orders.columns else 0.0
     executable = orders[orders["action"].isin(["BUY", "SELL"])]
     skipped = orders[orders["action"] == "SKIP"]
+    submit_readiness = build_submit_readiness_report(
+        signal=signal,
+        orders=orders,
+        freshness_ok=freshness_ok,
+        freshness_issues=freshness_issues,
+        submit_allowed=submit_allowed,
+    )
     status = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "strategy": "core_satellite_alpha",
@@ -607,6 +937,7 @@ def write_paper_status(
         "guard_reasons": guard_reasons,
         "positions": current_positions,
         "position_values": position_values,
+        "submit_readiness": submit_readiness,
     }
     PAPER_STATUS_FILE.write_text(json.dumps(status, indent=2, sort_keys=True), encoding="utf-8")
 
@@ -630,37 +961,182 @@ def write_paper_status(
     return status
 
 
-def submit_core_satellite_orders(orders: pd.DataFrame) -> pd.DataFrame:
+def _submit_single_order(row: pd.Series, ctx, unlock_ok: bool, unlock_msg: str) -> dict:
+    """
+    Submit one order to Moomoo and return the result dict.
+
+    PLAIN ENGLISH: Takes a single order row (BUY or SELL), sends it to
+    Moomoo's paper trading API, and captures the broker's response
+    (accepted, rejected, order ID, etc.).
+    """
     from moomoo import OrderType, TrdEnv, TrdSide
 
+    side = TrdSide.BUY if row["action"] == "BUY" else TrdSide.SELL
+    qty = int(abs(row["delta_shares"]))
+    limit_price = float(row.get("limit_price", 0.0) or 0.0)
+    moomoo_code = _moomoo_code(row["ticker"])
+    out = row.to_dict()
+    out.update({
+        "submitted": False,
+        "broker_response": "",
+        "broker_reject_reason": "",
+        "broker_order_id": "",
+        "broker_ret": np.nan,
+        "broker_code": moomoo_code,
+        "broker_requested_qty": qty,
+        "broker_requested_price": limit_price,
+        "unlock_attempted": bool(os.environ.get("MOOMOO_UNLOCK_PWD", "").strip()),
+        "unlock_ok": bool(unlock_ok),
+        "unlock_message": unlock_msg,
+    })
+    if qty <= 0:
+        out["broker_reject_reason"] = "zero_quantity"
+        return out
+    if limit_price <= 0:
+        out["broker_reject_reason"] = "missing_limit_price"
+        return out
+    # Final broker-safety normalization. Never send 4-decimal prices
+    # for normal US stocks/ETFs because Moomoo rejects them as invalid.
+    valid_limit_price = _round_us_limit_price(limit_price, str(row["action"]))
+    out["broker_requested_price_raw"] = limit_price
+    out["broker_requested_price"] = valid_limit_price
+    limit_price = valid_limit_price
+    try:
+        ret, data = ctx.place_order(
+            price=limit_price,
+            qty=qty,
+            code=moomoo_code,
+            trd_side=side,
+            order_type=OrderType.NORMAL,
+            trd_env=TrdEnv.SIMULATE,
+            remark="core_satellite_alpha",
+        )
+    except Exception as exc:
+        out["broker_response"] = repr(exc)
+        out["broker_reject_reason"] = "place_order_exception"
+        return out
+
+    out["broker_ret"] = ret
+    out["submitted"] = bool(ret == 0)
+    out["broker_response"] = str(data)
+    if ret != 0:
+        out["broker_reject_reason"] = str(data)
+    if ret == 0 and hasattr(data, "iloc") and len(data) > 0:
+        for col in ("order_id", "order_id_ex", "code", "qty", "trd_side", "order_type", "order_status"):
+            if col in data.columns:
+                out[f"broker_{col}"] = data.iloc[0][col]
+        out["broker_order_id"] = _safe_order_id(out.get("broker_order_id")) or _safe_order_id(out.get("broker_order_id_ex"))
+        if "order_status" in data.columns:
+            out["broker_order_status"] = data.iloc[0]["order_status"]
+    if not out.get("broker_order_id"):
+        out["broker_order_id"] = _extract_order_id_from_response(out.get("broker_response", ""))
+    if bool(out.get("submitted")) and not out.get("broker_order_id"):
+        out["broker_reject_reason"] = "accepted_but_no_order_id_in_response"
+    return out
+
+
+# How long to wait for sell proceeds before placing buy orders (seconds).
+# Moomoo paper accounts sometimes delay releasing buying power after sells fill.
+SELL_SETTLE_WAIT_SECONDS = 30
+SELL_SETTLE_MAX_POLLS = 6        # 6 polls × 10s = 60s max wait
+SELL_SETTLE_POLL_INTERVAL = 10   # seconds between status checks
+
+
+def _wait_for_sells_to_fill(ctx, sell_order_ids: list[str], max_polls: int = SELL_SETTLE_MAX_POLLS) -> bool:
+    """
+    Poll Moomoo until all sell orders have filled, or timeout.
+
+    PLAIN ENGLISH: After submitting sell orders, we need to wait for them
+    to actually fill before placing buy orders.  Otherwise the buying power
+    from the sells hasn't been released yet and the buys will fail.
+
+    Returns True if all sells filled, False if timed out.
+    """
+    import time
+    from moomoo import TrdEnv
+
+    if not sell_order_ids:
+        return True
+
+    print(f"\n  Waiting for {len(sell_order_ids)} sell order(s) to fill before placing buys...")
+
+    for poll in range(max_polls):
+        time.sleep(SELL_SETTLE_POLL_INTERVAL)
+        try:
+            ret, data = ctx.order_list_query(trd_env=TrdEnv.SIMULATE, refresh_cache=True)
+        except Exception:
+            continue
+
+        if ret != 0 or not hasattr(data, "empty") or data.empty:
+            continue
+
+        # Check if our sell orders are filled
+        if "order_id" in data.columns:
+            data["order_id"] = data["order_id"].astype(str)
+            our_sells = data[data["order_id"].isin(sell_order_ids)]
+            if not our_sells.empty and "order_status" in our_sells.columns:
+                statuses = our_sells["order_status"].astype(str).str.upper().str.replace(" ", "").str.replace("_", "")
+                all_filled = all(
+                    any(done in s for done in ("FILLEDALL", "ALLFILLED", "DEALTALL", "ALLDEALT"))
+                    for s in statuses
+                )
+                pending = len(statuses) - sum(
+                    any(done in s for done in ("FILLEDALL", "ALLFILLED", "DEALTALL", "ALLDEALT"))
+                    for s in statuses
+                )
+                print(f"    Poll {poll+1}/{max_polls}: {len(statuses)-pending}/{len(statuses)} sells filled")
+                if all_filled:
+                    print(f"  All sells filled. Waiting {SELL_SETTLE_WAIT_SECONDS}s for buying power to settle...")
+                    time.sleep(SELL_SETTLE_WAIT_SECONDS)
+                    return True
+
+    print(f"  ⚠ Timeout waiting for sells to fill. Proceeding with buys anyway.")
+    return False
+
+
+def submit_core_satellite_orders(orders: pd.DataFrame) -> pd.DataFrame:
+    """
+    Submit orders to Moomoo paper trading: sells first, wait for fills, then buys.
+
+    PLAIN ENGLISH: This is the main order submission function.  It works in
+    three phases to avoid the buying-power problem where buys get cancelled
+    because sell proceeds haven't settled yet:
+
+    Phase 1: Submit all SELL orders
+    Phase 2: Wait for sells to fill (up to 60 seconds)
+    Phase 3: Submit all BUY orders (now with buying power available)
+    """
     submitted_rows: list[dict] = []
     ctx = connect_moomoo_trade_context()
+    unlock_ok, unlock_msg = maybe_unlock_moomoo_trade(ctx)
     try:
         executable = orders[orders["action"].isin(["BUY", "SELL"])].copy()
         sells = executable[executable["action"] == "SELL"]
         buys = executable[executable["action"] == "BUY"]
-        for _, row in pd.concat([sells, buys], ignore_index=True).iterrows():
-            side = TrdSide.BUY if row["action"] == "BUY" else TrdSide.SELL
-            qty = int(abs(row["delta_shares"]))
-            limit_price = float(row.get("limit_price", 0.0) or 0.0)
-            if limit_price <= 0:
-                raise RuntimeError(f"Missing limit price for {row['ticker']} {row['action']} order")
-            ret, data = ctx.place_order(
-                price=limit_price,
-                qty=qty,
-                code=_moomoo_code(row["ticker"]),
-                trd_side=side,
-                order_type=OrderType.NORMAL,
-                trd_env=TrdEnv.SIMULATE,
-                remark="core_satellite_alpha",
-            )
-            out = row.to_dict()
-            out["submitted"] = bool(ret == 0)
-            out["broker_response"] = str(data)
-            if ret == 0 and hasattr(data, "iloc") and len(data) > 0:
-                for col in ("order_id", "order_id_ex", "code", "qty", "trd_side", "order_type", "order_status"):
-                    if col in data.columns:
-                        out[f"broker_{col}"] = data.iloc[0][col]
+
+        # ── Phase 1: Submit all SELL orders first ──────────────────────
+        # PLAIN ENGLISH: We sell first to free up buying power.
+        sell_order_ids: list[str] = []
+        if not sells.empty:
+            print(f"\n  Phase 1: Submitting {len(sells)} SELL order(s)...")
+        for _, row in sells.iterrows():
+            out = _submit_single_order(row, ctx, unlock_ok, unlock_msg)
+            submitted_rows.append(out)
+            if out.get("broker_order_id"):
+                sell_order_ids.append(str(out["broker_order_id"]))
+
+        # ── Phase 2: Wait for sells to fill before placing buys ───────
+        # PLAIN ENGLISH: Moomoo paper accounts sometimes take a moment to
+        # release buying power after sells fill.  If we place buys too fast,
+        # they sit unfilled all day and get auto-cancelled at market close.
+        if sell_order_ids and not buys.empty:
+            _wait_for_sells_to_fill(ctx, sell_order_ids)
+
+        # ── Phase 3: Submit all BUY orders ────────────────────────────
+        if not buys.empty:
+            print(f"\n  Phase 3: Submitting {len(buys)} BUY order(s)...")
+        for _, row in buys.iterrows():
+            out = _submit_single_order(row, ctx, unlock_ok, unlock_msg)
             submitted_rows.append(out)
     finally:
         try:
@@ -670,8 +1146,51 @@ def submit_core_satellite_orders(orders: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(submitted_rows)
 
 
+def print_submission_summary(submitted: pd.DataFrame) -> None:
+    if submitted.empty:
+        print("\nNo rows returned from the submit function.")
+        return
+
+    submitted = submitted.copy()
+    id_series = submitted.get("broker_order_id", pd.Series("", index=submitted.index)).map(_safe_order_id)
+    accepted = submitted[submitted.get("submitted", pd.Series(False, index=submitted.index)).astype(bool)]
+    with_ids = submitted[id_series.ne("")]
+    rejected = submitted[~submitted.index.isin(with_ids.index)]
+
+    print("\nSubmission result")
+    print("-" * 72)
+    print(f"Planned executable orders : {len(submitted)}")
+    print(f"Accepted by Moomoo        : {len(accepted)}")
+    print(f"Logged with broker IDs    : {len(with_ids)}")
+    print(f"Rejected / no broker ID   : {len(rejected)}")
+
+    cols = [
+        "ticker",
+        "action",
+        "broker_code",
+        "broker_requested_qty",
+        "broker_requested_price",
+        "submitted",
+        "broker_order_id",
+        "broker_order_status",
+        "broker_ret",
+        "broker_reject_reason",
+    ]
+    view = _clean_for_display(submitted, cols)
+    if not view.empty:
+        print("\nOrder submission table:")
+        print(view.to_string(index=False))
+
+    if not rejected.empty:
+        reject_cols = ["ticker", "action", "broker_ret", "broker_reject_reason", "broker_response"]
+        reject_view = _clean_for_display(rejected, reject_cols)
+        print("\nRejected / no-ID rows:")
+        print(reject_view.to_string(index=False))
+        print("\nRejected rows are saved separately in signals/paper_trade_rejections.csv.")
+
 def _order_status_bucket(status: object, dealt_qty: object, qty: object) -> str:
     status_text = str(status or "").upper()
+    compact_status = status_text.replace("_", "").replace("-", "").replace(" ", "")
     try:
         dealt = float(dealt_qty or 0.0)
         requested = float(qty or 0.0)
@@ -680,13 +1199,113 @@ def _order_status_bucket(status: object, dealt_qty: object, qty: object) -> str:
         requested = 0.0
     if requested > 0 and dealt >= requested:
         return "filled"
+    if any(key in compact_status for key in ("FILLEDALL", "ALLFILLED", "DEALTALL", "ALLDEALT", "TRADEDALL", "ALLTRADED")):
+        return "filled"
     if dealt > 0:
         return "partial"
-    if any(key in status_text for key in ("CANCEL", "FAILED", "DISABLED", "DELETED", "REJECT")):
+    if any(key in compact_status for key in ("FILLED", "DEALT", "TRADED")):
+        return "filled"
+    if any(key in compact_status for key in ("CANCEL", "FAILED", "DISABLED", "DELETED", "REJECT", "INVALID")):
         return "cancelled"
-    if any(key in status_text for key in ("SUBMIT", "WAIT", "QUEUE")):
+    if any(key in compact_status for key in ("SUBMIT", "WAIT", "QUEUE", "PENDING", "UNSUBMITTED")):
         return "open"
     return "unknown"
+
+
+def _broker_action_matches(action: object, broker_side: object) -> bool:
+    action_text = str(action or "").upper().strip()
+    side_text = str(broker_side or "").upper().strip()
+    if action_text == "BUY":
+        return "BUY" in side_text or side_text in {"B", "LONG"}
+    if action_text == "SELL":
+        return "SELL" in side_text or side_text in {"S", "SHORT"}
+    return False
+
+
+def _broker_row_ticker(row: pd.Series | dict) -> str:
+    for col in ("code", "stock_code", "symbol", "ticker"):
+        value = row.get(col, "") if hasattr(row, "get") else ""
+        if str(value or "").strip():
+            return _plain_ticker_from_code(str(value))
+    return ""
+
+
+def _float_close(left: object, right: object, *, tolerance: float = 1e-6) -> bool:
+    try:
+        return abs(float(left or 0.0) - float(right or 0.0)) <= tolerance
+    except Exception:
+        return False
+
+
+def _broker_order_time(row: pd.Series | dict) -> pd.Timestamp | None:
+    for col in ("updated_time", "created_time", "submitted_time", "create_time"):
+        value = row.get(col, "") if hasattr(row, "get") else ""
+        if str(value or "").strip():
+            ts = pd.to_datetime(value, errors="coerce", utc=True)
+            if not pd.isna(ts):
+                return pd.Timestamp(ts)
+    return None
+
+
+def _find_broker_order_match(trade: pd.Series, orders: pd.DataFrame) -> tuple[pd.Series | None, str]:
+    """Fallback match for broker rows when the local order id is missing or stale."""
+    if orders.empty:
+        return None, ""
+    order_id = _safe_order_id(trade.get("broker_order_id", "")) or _extract_order_id_from_response(trade.get("broker_response", ""))
+    if order_id and "order_id" in orders.columns:
+        matches = orders[orders["order_id"].astype(str).map(_safe_order_id).eq(order_id)]
+        if not matches.empty:
+            return matches.iloc[0], "order_id"
+
+    ticker = str(trade.get("ticker", "") or "").upper().strip()
+    try:
+        requested_qty = abs(float(trade.get("broker_qty", trade.get("delta_shares", 0.0)) or 0.0))
+    except Exception:
+        requested_qty = 0.0
+    candidates: list[tuple[float, int]] = []
+    submitted_at = pd.to_datetime(trade.get("submitted_at", ""), errors="coerce", utc=True)
+    for idx, broker in orders.iterrows():
+        if ticker and _broker_row_ticker(broker) != ticker:
+            continue
+        if not _broker_action_matches(trade.get("action", ""), broker.get("trd_side", broker.get("side", ""))):
+            continue
+        try:
+            broker_qty = abs(float(broker.get("qty", 0.0) or 0.0))
+        except Exception:
+            broker_qty = 0.0
+        if requested_qty > 0 and not _float_close(requested_qty, broker_qty, tolerance=max(1e-6, requested_qty * 0.001)):
+            continue
+        score = 0.0
+        broker_time = _broker_order_time(broker)
+        if not pd.isna(submitted_at) and broker_time is not None:
+            score = abs((broker_time - submitted_at).total_seconds())
+        candidates.append((score, int(idx)))
+    if not candidates:
+        return None, ""
+    _, best_idx = min(candidates, key=lambda item: item[0])
+    return orders.loc[best_idx], "ticker_side_qty"
+
+
+def execution_slippage(row: pd.Series | dict) -> tuple[float, float]:
+    """Return adverse execution slippage in bps and dollars versus plan price."""
+    try:
+        reference = float(row.get("price", 0.0) or 0.0)
+        fill_price = float(row.get("broker_dealt_avg_price", 0.0) or 0.0)
+        quantity = float(row.get("broker_dealt_qty", row.get("delta_shares", 0.0)) or 0.0)
+    except Exception:
+        return np.nan, np.nan
+    if reference <= 0 or fill_price <= 0 or quantity == 0:
+        return np.nan, np.nan
+    action = str(row.get("action", "")).upper().strip()
+    if action == "BUY":
+        per_share = fill_price - reference
+    elif action == "SELL":
+        per_share = reference - fill_price
+    else:
+        return np.nan, np.nan
+    bps = per_share / reference * 10_000.0
+    dollars = per_share * abs(quantity)
+    return float(bps), float(dollars)
 
 
 def fetch_moomoo_order_history(ctx, *, start: str, end: str) -> pd.DataFrame:
@@ -734,7 +1353,7 @@ def reconcile_paper_trades(*, lookback_days: int = 14) -> pd.DataFrame:
             end=end_dt.strftime("%Y-%m-%d"),
         )
         equity = fetch_moomoo_equity(ctx, fallback_equity=None)
-        positions = fetch_moomoo_positions(ctx)
+        positions, broker_position_prices = fetch_moomoo_positions_and_prices(ctx)
     finally:
         try:
             ctx.close()
@@ -747,15 +1366,17 @@ def reconcile_paper_trades(*, lookback_days: int = 14) -> pd.DataFrame:
         trades.to_csv(SIGNAL_DIR / "paper_trades.csv", index=False)
         return trades
 
-    order_lookup = orders.set_index(orders["order_id"].astype(str), drop=False)
     updated_rows: list[dict] = []
     for _, row in trades.iterrows():
         out = row.to_dict()
-        order_id = str(row.get("broker_order_id", "")).split(".")[0]
-        if order_id and order_id in order_lookup.index:
-            broker = order_lookup.loc[order_id]
-            if isinstance(broker, pd.DataFrame):
-                broker = broker.iloc[0]
+        order_id = _safe_order_id(row.get("broker_order_id", "")) or _extract_order_id_from_response(row.get("broker_response", ""))
+        if order_id:
+            out["broker_order_id"] = order_id
+        broker, match_type = _find_broker_order_match(row, orders)
+        if broker is not None:
+            if match_type != "order_id" and _safe_order_id(broker.get("order_id", "")):
+                out["broker_order_id"] = _safe_order_id(broker.get("order_id", ""))
+            out["reconcile_match_type"] = match_type
             qty = broker.get("qty", row.get("broker_qty", row.get("delta_shares", 0)))
             dealt_qty = broker.get("dealt_qty", 0.0)
             avg_price = broker.get("dealt_avg_price", 0.0)
@@ -772,8 +1393,16 @@ def reconcile_paper_trades(*, lookback_days: int = 14) -> pd.DataFrame:
                 out["unfilled_qty"] = max(float(qty or 0.0) - float(dealt_qty or 0.0), 0.0)
             except Exception:
                 out["unfilled_qty"] = np.nan
+            slip_bps, slip_dollars = execution_slippage(out)
+            out["execution_slippage_bps"] = slip_bps
+            out["execution_slippage_dollars"] = slip_dollars
         else:
-            out["fill_status"] = out.get("fill_status", "missing_broker_order")
+            existing = str(out.get("fill_status", "") or "").strip().lower()
+            out["reconcile_match_type"] = "missing_order_id" if not order_id else "missing_broker_order"
+            if not order_id:
+                out["fill_status"] = "not_submitted_or_missing_order_id"
+            elif existing in {"", "nan", "none"}:
+                out["fill_status"] = "missing_broker_order"
         out["reconciled_at"] = datetime.now(timezone.utc).isoformat()
         updated_rows.append(out)
 
@@ -788,7 +1417,11 @@ def reconcile_paper_trades(*, lookback_days: int = 14) -> pd.DataFrame:
         max_factor_age_trading_days=DEFAULT_MAX_FACTOR_AGE_TRADING_DAYS,
     )
     current_tickers = sorted(set(positions) | set(core_satellite_target_weights(signal)))
-    prices = _fetch_prices(current_tickers)
+    tickers_to_price = sorted(set(current_tickers) - set(broker_position_prices))
+    prices = _fetch_prices(tickers_to_price)
+    for ticker, price in broker_position_prices.items():
+        if float(price or 0.0) > 0:
+            prices[ticker] = float(price)
     dummy_orders = build_core_satellite_orders(
         equity=equity,
         target_weights=core_satellite_target_weights(signal),
@@ -824,6 +1457,7 @@ def print_reconciliation_summary(reconciled: pd.DataFrame) -> None:
     print(f"Reconciled paper trades -> {SIGNAL_DIR / 'paper_trades.csv'}")
     print(f"Snapshot copy -> {PAPER_RECONCILIATION_FILE}")
     print(f"Fill status counts: {counts}")
+
     cols = [
         "ticker",
         "action",
@@ -831,12 +1465,16 @@ def print_reconciliation_summary(reconciled: pd.DataFrame) -> None:
         "broker_order_status",
         "broker_dealt_qty",
         "broker_dealt_avg_price",
+        "execution_slippage_bps",
+        "execution_slippage_dollars",
         "fill_status",
+        "reconcile_match_type",
         "unfilled_qty",
     ]
-    cols = [c for c in cols if c in reconciled.columns]
-    if cols:
-        print("\n" + reconciled[cols].tail(20).to_string(index=False))
+    view = _clean_for_display(reconciled.tail(20), cols)
+    if not view.empty:
+        print("\nRecent reconciled orders:")
+        print(view.to_string(index=False))
 
 
 def run_core_satellite_submission(
@@ -844,7 +1482,6 @@ def run_core_satellite_submission(
     equity_override: float | None,
     min_trade_value: float,
     submit: bool,
-    yes: bool,
     force: bool,
     etf_drift_threshold: float,
     overlay_drift_threshold: float,
@@ -856,6 +1493,10 @@ def run_core_satellite_submission(
     max_factor_age_trading_days: int = DEFAULT_MAX_FACTOR_AGE_TRADING_DAYS,
     sync_after_submit: bool = True,
     sync_after_submit_lookback_days: int = DEFAULT_SYNC_AFTER_SUBMIT_LOOKBACK_DAYS,
+    max_submit_gross_exposure: float = DEFAULT_MAX_SUBMIT_GROSS_EXPOSURE,
+    allow_leverage_submit: bool = False,
+    allow_submit_with_open_orders: bool = False,
+    reset_paper_log: bool = False,
 ) -> None:
     signal = load_core_satellite_signal()
     freshness_ok, freshness_issues = validate_signal_freshness(
@@ -863,7 +1504,17 @@ def run_core_satellite_submission(
         max_signal_age_hours=max_signal_age_hours,
         max_factor_age_trading_days=max_factor_age_trading_days,
     )
-    target_weights = core_satellite_target_weights(signal)
+    raw_target_weights = core_satellite_target_weights(signal)
+    raw_target_gross = target_gross_exposure(raw_target_weights)
+    if allow_leverage_submit:
+        target_weights = raw_target_weights
+        target_scale = 1.0
+        target_scaled = False
+    else:
+        target_weights, target_scale, target_scaled = scale_target_weights_to_gross(
+            raw_target_weights,
+            max_gross_exposure=max_submit_gross_exposure,
+        )
     state = load_paper_state()
 
     ctx = connect_moomoo_trade_context()
@@ -871,13 +1522,17 @@ def run_core_satellite_submission(
         equity = fetch_moomoo_equity(ctx, fallback_equity=equity_override)
         if equity_override and equity_override > 0:
             equity = float(equity_override)
-        current_positions = fetch_moomoo_positions(ctx)
+        current_positions, broker_position_prices = fetch_moomoo_positions_and_prices(ctx)
     finally:
         try:
             ctx.close()
         except Exception:
             pass
-    prices = _fetch_prices(sorted(set(target_weights) | set(current_positions)))
+    tickers_to_price = sorted((set(target_weights) | set(current_positions)) - set(broker_position_prices))
+    prices = _fetch_prices(tickers_to_price)
+    for ticker, price in broker_position_prices.items():
+        if float(price or 0.0) > 0:
+            prices[ticker] = float(price)
 
     orders = build_core_satellite_orders(
         equity=equity,
@@ -899,6 +1554,11 @@ def run_core_satellite_submission(
     orders.to_csv(plan_path, index=False)
     print(f"Saved core-satellite order plan -> {plan_path}")
     print(f"Account equity used: ${equity:,.2f}")
+    print(f"Raw target gross: {raw_target_gross:.2f}x")
+    if target_scaled:
+        print(f"Scaled target weights by {target_scale:.4f} to respect max submit gross {float(max_submit_gross_exposure):.2f}x")
+    elif allow_leverage_submit and raw_target_gross > float(max_submit_gross_exposure) + 1e-9:
+        print(f"Leverage allowed: submitting raw target gross {raw_target_gross:.2f}x")
 
     display_cols = [
         "ticker",
@@ -944,30 +1604,88 @@ def run_core_satellite_submission(
     if not submit:
         print("\nPreview only. Re-run with `--submit` to send these orders to Moomoo simulated trading.")
         return
-    if not submit_allowed:
-        print("\nBlocked: rebalance guard did not allow submission. Use --force to override deliberately.")
-        return
-    if not yes:
-        print("\nBlocked: add `--yes` with `--submit` to confirm broker order submission.")
-        return
-    if not freshness_ok and not allow_stale_signal:
-        print(f"\nBlocked: stale signal/data ({', '.join(freshness_issues)}).")
-        print("Run `python3 core_satellite_alpha.py` and refresh data if needed, or use --allow-stale-signal deliberately.")
-        return
-    market_open, market_reason = us_regular_market_is_open()
-    if not market_open and not allow_closed_market_submit:
-        print(f"\nBlocked: {market_reason}. Orders are likely to cancel outside regular hours.")
-        print("Re-run during regular US market hours, or use --allow-closed-market-submit deliberately.")
+
+    preflight_ok, preflight_blockers = evaluate_broker_submit_preflight(
+        signal=signal,
+        orders=orders,
+        freshness_ok=freshness_ok,
+        freshness_issues=freshness_issues,
+        submit_allowed=submit_allowed,
+        allow_stale_signal=allow_stale_signal,
+        allow_closed_market_submit=allow_closed_market_submit,
+        allow_leverage_submit=allow_leverage_submit,
+        allow_submit_with_open_orders=allow_submit_with_open_orders,
+        max_submit_gross_exposure=max_submit_gross_exposure,
+    )
+    if not preflight_ok:
+        print("\nBlocked: broker submit preflight failed.")
+        for blocker in preflight_blockers:
+            print(f"  - {blocker}")
+        print("Refresh data/signals or use the explicit override flag for the specific blocker.")
         return
 
     submitted = submit_core_satellite_orders(orders)
+    batch_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     submitted["submitted_at"] = datetime.now(timezone.utc).isoformat()
+    submitted["submission_batch_id"] = batch_id
     submitted["strategy"] = "core_satellite_alpha"
+    submitted["raw_target_gross_exposure"] = round(float(raw_target_gross), 6)
+    submitted["submitted_target_gross_exposure"] = round(float(target_gross_exposure(target_weights)), 6)
+    submitted["target_weight_scale"] = round(float(target_scale), 8)
     out_path = SIGNAL_DIR / "paper_trades.csv"
-    if out_path.exists():
+    reject_path = SIGNAL_DIR / "paper_trade_rejections.csv"
+
+    # Keep the main broker log clean. paper_trades.csv should contain only
+    # accepted Moomoo orders with real broker_order_id values, because --sync
+    # can only reconcile rows that exist in Moomoo order history. Failed
+    # attempts are still useful, so preserve them separately.
+    batch_rows = submitted.copy()
+    broker_id_series = (
+        batch_rows.get("broker_order_id", pd.Series("", index=batch_rows.index))
+        .astype(str)
+        .str.strip()
+    )
+    valid_id_mask = broker_id_series.ne("") & broker_id_series.str.lower().ne("nan")
+    accepted_mask = batch_rows.get("submitted", pd.Series(False, index=batch_rows.index)).astype(bool)
+    broker_logged_batch = batch_rows[accepted_mask & valid_id_mask].copy()
+    broker_rejected_batch = batch_rows[~(accepted_mask & valid_id_mask)].copy()
+
+    archive_dir = SIGNAL_DIR / "archive"
+    if reset_paper_log:
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        if out_path.exists():
+            archive_path = archive_dir / f"paper_trades_before_{batch_id}.csv"
+            out_path.replace(archive_path)
+            print(f"Archived old paper trade log -> {archive_path}")
+        if reject_path.exists():
+            reject_archive_path = archive_dir / f"paper_trade_rejections_before_{batch_id}.csv"
+            reject_path.replace(reject_archive_path)
+            print(f"Archived old paper rejection log -> {reject_archive_path}")
+
+    if out_path.exists() and not broker_logged_batch.empty:
         prior = pd.read_csv(out_path)
-        submitted = pd.concat([prior, submitted], ignore_index=True)
-    submitted.to_csv(out_path, index=False)
+        broker_logged = pd.concat([prior, broker_logged_batch], ignore_index=True)
+    else:
+        broker_logged = broker_logged_batch
+
+    if not broker_logged.empty:
+        broker_logged.to_csv(out_path, index=False)
+        print(f"Logged accepted broker orders -> {out_path}")
+    elif not out_path.exists():
+        # Create a CSV with the expected columns so --sync has a clear file state.
+        broker_logged.to_csv(out_path, index=False)
+        print(f"Created empty broker order log -> {out_path}")
+
+    if not broker_rejected_batch.empty:
+        if reject_path.exists():
+            prior_rejects = pd.read_csv(reject_path)
+            broker_rejections = pd.concat([prior_rejects, broker_rejected_batch], ignore_index=True)
+        else:
+            broker_rejections = broker_rejected_batch
+        broker_rejections.to_csv(reject_path, index=False)
+        print(f"Logged rejected/no-ID rows -> {reject_path}")
+
+    print_submission_summary(batch_rows)
     new_state = {
         **state,
         "last_rebalance_at": datetime.now(timezone.utc).isoformat(),
@@ -979,7 +1697,10 @@ def run_core_satellite_submission(
         "last_order_plan": str(plan_path),
     }
     save_paper_state(new_state)
-    print(f"\nSubmitted {len(executable)} Moomoo simulated orders. Logged -> {out_path}")
+    print(f"\nAccepted broker orders in this batch: {len(broker_logged_batch)} / {len(batch_rows)}")
+    print(f"Accepted order log -> {out_path}")
+    if not broker_rejected_batch.empty:
+        print(f"Rejected/no-ID log -> {reject_path}")
     print(f"Updated paper state -> {PAPER_STATE_FILE}")
     if sync_after_submit:
         print("\nSyncing submitted orders against Moomoo order history...")
@@ -1084,14 +1805,9 @@ def main() -> None:
         help="Submit generated paper orders to Moomoo simulated trading. Without this flag, only preview orders.",
     )
     parser.add_argument(
-        "--yes",
-        action="store_true",
-        help="Required with --submit to confirm broker order submission.",
-    )
-    parser.add_argument(
         "--force",
         action="store_true",
-        help="Override rebalance guard. Still requires --submit --yes.",
+        help="Override rebalance guard. Still requires --submit.",
     )
     parser.add_argument(
         "--allow-closed-market-submit",
@@ -1166,6 +1882,27 @@ def main() -> None:
         default=None,
         help="Override account equity for sizing. By default, core-satellite uses Moomoo account equity.",
     )
+    parser.add_argument(
+        "--max-submit-gross-exposure",
+        type=float,
+        default=DEFAULT_MAX_SUBMIT_GROSS_EXPOSURE,
+        help="Broker-safety cap for submitted target gross exposure. Default 1.00 means no leverage.",
+    )
+    parser.add_argument(
+        "--allow-leverage-submit",
+        action="store_true",
+        help="Submit raw target weights even if gross exposure is above --max-submit-gross-exposure.",
+    )
+    parser.add_argument(
+        "--allow-submit-with-open-orders",
+        action="store_true",
+        help="Allow a new submit even when current-signal paper orders are still open. Usually not recommended.",
+    )
+    parser.add_argument(
+        "--reset-paper-log",
+        action="store_true",
+        help="Archive the old signals/paper_trades.csv before logging this submit attempt.",
+    )
     args = parser.parse_args()
 
     if args.sync:
@@ -1178,7 +1915,6 @@ def main() -> None:
             equity_override=args.equity,
             min_trade_value=float(args.min_trade_value),
             submit=bool(args.submit),
-            yes=bool(args.yes),
             force=bool(args.force),
             etf_drift_threshold=float(args.etf_drift_threshold),
             overlay_drift_threshold=float(args.overlay_drift_threshold),
@@ -1190,6 +1926,10 @@ def main() -> None:
             max_factor_age_trading_days=int(args.max_factor_age_trading_days),
             sync_after_submit=not bool(args.no_sync_after_submit),
             sync_after_submit_lookback_days=int(args.lookback_days or DEFAULT_SYNC_AFTER_SUBMIT_LOOKBACK_DAYS),
+            max_submit_gross_exposure=float(args.max_submit_gross_exposure),
+            allow_leverage_submit=bool(args.allow_leverage_submit),
+            allow_submit_with_open_orders=bool(args.allow_submit_with_open_orders),
+            reset_paper_log=bool(args.reset_paper_log),
         )
         return
 

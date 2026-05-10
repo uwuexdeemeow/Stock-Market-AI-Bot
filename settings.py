@@ -90,6 +90,18 @@ SURVIVORSHIP_AUDIT_TICKERS = {
     "BBBY": ["BBBY", "BBBYQ"],      # Bed Bath & Beyond
     "WE":   ["WE", "WEWKQ"],        # WeWork
     "RIDE": ["RIDE", "RIDEQ"],      # Lordstown Motors
+    "SHLD": ["SHLD", "SHLDQ"],      # Sears Holdings
+    "JCP":  ["JCP", "JCPNQ"],       # J.C. Penney
+    "HTZ":  ["HTZ", "HTZGQ"],       # Hertz pre-2021 bankruptcy line
+    "CHK":  ["CHK", "CHKAQ"],       # Chesapeake Energy pre-2021 line
+    "WLL":  ["WLL", "WLLAW"],       # Whiting Petroleum pre-bankruptcy line
+    "CRC":  ["CRC", "CRCQQ"],       # California Resources pre-bankruptcy line
+    "DO":   ["DO", "DOFSQ"],        # Diamond Offshore
+    "MDR":  ["MDR", "MDRIQ"],       # McDermott International
+    "FTR":  ["FTR", "FTRCQ"],       # Frontier Communications pre-bankruptcy line
+    "WIN":  ["WIN", "WINMQ"],       # Windstream Holdings
+    "WPG":  ["WPG", "WPGGQ"],       # Washington Prime Group
+    "TUP":  ["TUP", "TUPBQ"],       # Tupperware Brands
 }
 
 # Crashed/delisted tickers that are included in training data ONLY.
@@ -99,11 +111,50 @@ SURVIVORSHIP_AUDIT_TICKERS = {
 # (SIVB, WE, RIDE are missing; see logs/survivorship_audit.json).
 SURVIVORSHIP_TRAINING_TICKERS: list[str] = ["FRC", "BBBY"]
 
-UNIVERSE_MODE = os.environ.get("STOCK_UNIVERSE_MODE", "broad").strip().lower()
+# Lean universe (~60 names): keeps every ticker that has been picked as an
+# overlay stock, plus enough per sector for cross-sectional ranking to work
+# (minimum 5 per GICS sector).  Cuts research.py runtime by ~55% vs broad.
+#
+# PLAIN ENGLISH: The strategy picks ~3 overlay stocks each rebalance, and they
+# come from several sectors.  Cross-sectional ranking needs peers to compare
+# against, so we keep at least 5 per sector — but don't need 18.
+# Sectors that NEVER produce picks (XLV, XLE, XLU, XLRE) are trimmed to 5
+# so their ranking context exists but doesn't waste download time.
+LEAN_WATCHLIST = [
+    # ─ XLK Technology (top source of overlay picks — keep strongest 10) ────
+    "AAPL", "MSFT", "NVDA", "AMD", "GOOGL", "META", "INTC", "MU",
+    "AVGO", "AMAT",
+    # ─ XLY Consumer Discretionary (TSLA picked) ───────────────────────────
+    "AMZN", "TSLA", "HD", "COST", "BKNG",
+    # ─ XLF Financials (C picked) ──────────────────────────────────────────
+    "JPM", "GS", "BAC", "V", "MA", "C",
+    # ─ XLV Healthcare (no picks, keep 5 for ranking context) ──────────────
+    "UNH", "JNJ", "ABBV", "LLY", "MRK",
+    # ─ XLE Energy (no picks, keep 5 for ranking context) ──────────────────
+    "XOM", "CVX", "COP", "EOG", "SLB",
+    # ─ XLI Industrials (CAT picked) ───────────────────────────────────────
+    "CAT", "DE", "HON", "GE", "RTX",
+    # ─ XLP Consumer Staples (HSY picked) ──────────────────────────────────
+    "PG", "KO", "PEP", "WMT", "HSY",
+    # ─ XLU Utilities (no picks, keep 5 for ranking context) ───────────────
+    "NEE", "DUK", "SO", "AEP", "EXC",
+    # ─ XLRE Real Estate (no picks, keep 5 for ranking context) ────────────
+    "PLD", "AMT", "EQIX", "CCI", "PSA",
+    # ─ XLB Materials (FCX, NEM, IFF picked) ───────────────────────────────
+    "LIN", "FCX", "NEM", "APD", "IFF", "SHW",
+    # ─ XLC Communication Services (CHTR, LYV picked) ─────────────────────
+    "NFLX", "CMCSA", "DIS", "CHTR", "LYV",
+]
+
+UNIVERSE_MODE = os.environ.get("STOCK_UNIVERSE_MODE", "lean").strip().lower()
 if UNIVERSE_MODE == "broad":
     # 147-name cross-sectional universe with 10-18 names per GICS sector.
     # Required for cross-sectional rank features to have real dispersion.
     WATCHLIST = list(BROAD_WATCHLIST)
+elif UNIVERSE_MODE == "lean":
+    # ~60-name universe — keeps all overlay-picked tickers + 5 per sector
+    # for ranking.  Much faster research.py runs.
+    WATCHLIST = list(LEAN_WATCHLIST)
 elif UNIVERSE_MODE == "expanded":
     WATCHLIST = CORE_WATCHLIST + PHASE3_EXPANSION_WATCHLIST
 elif UNIVERSE_MODE == "candidate":
@@ -193,6 +244,18 @@ SECTOR_MAP = {
     "BBBY": "XLY",    # Consumer Discretionary
     "WE":   "XLY",    # Consumer Discretionary
     "RIDE": "XLY",    # Consumer Discretionary
+    "SHLD": "XLY",    # Consumer Discretionary
+    "JCP":  "XLY",    # Consumer Discretionary
+    "HTZ":  "XLI",    # Industrials
+    "CHK":  "XLE",    # Energy
+    "WLL":  "XLE",    # Energy
+    "CRC":  "XLE",    # Energy
+    "DO":   "XLE",    # Energy
+    "MDR":  "XLE",    # Energy
+    "FTR":  "XLC",    # Communication Services
+    "WIN":  "XLC",    # Communication Services
+    "WPG":  "XLRE",   # Real Estate
+    "TUP":  "XLY",    # Consumer Discretionary
     # ── BROAD_WATCHLIST additions (146 names) ────────────────────────────
     # XLK Technology
     "CRM":  "XLK", "ORCL": "XLK", "ADBE": "XLK", "AVGO": "XLK",

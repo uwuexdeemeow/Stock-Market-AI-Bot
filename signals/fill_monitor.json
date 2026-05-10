@@ -1,0 +1,29 @@
+{
+  "checked_at": "2026-05-09T12:03:40+00:00",
+  "lookback_days": 7,
+  "total_checked": 10,
+  "filled": 8,
+  "cancelled": 2,
+  "partial": 0,
+  "unknown": 0,
+  "not_submitted": 0,
+  "problems": [
+    {
+      "ticker": "CAT",
+      "action": "BUY",
+      "status": "cancelled",
+      "shares": 139,
+      "limit_price": 890.56,
+      "reason": "Order was cancelled/rejected by broker"
+    },
+    {
+      "ticker": "INTC",
+      "action": "BUY",
+      "status": "cancelled",
+      "shares": 2100,
+      "limit_price": 99.72,
+      "reason": "Order was cancelled/rejected by broker"
+    }
+  ],
+  "fill_rate": 80.0
+}

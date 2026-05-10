@@ -16,12 +16,18 @@ import argparse
 import json
 import os
 import pickle
+import sys
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 import xgboost as xgb
-import yfinance as yf
+
+# Multi-source data provider (yfinance → yahooquery → Stooq fallback)
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+from data_provider import download_prices as _dp_download_prices
 
 from settings import (
     MODEL_DIR, SIGNAL_DIR, DEFAULT_FIXED_CONFIDENCE_THRESHOLD, RETURN_HORIZON_DAYS,
@@ -766,15 +772,7 @@ def print_spy_timing_summary(timing: dict, predictions: list[dict]) -> None:
 
 def _latest_etf_market_state() -> dict:
     try:
-        raw = yf.download(
-            ["SPY", "QQQ"],
-            period="320d",
-            progress=False,
-            auto_adjust=True,
-            group_by="ticker",
-            threads=False,
-            timeout=15,
-        )
+        raw = _dp_download_prices(["SPY", "QQQ"], period="320d")
     except Exception:
         raw = pd.DataFrame()
 

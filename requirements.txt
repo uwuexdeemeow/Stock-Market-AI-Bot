@@ -16,7 +16,8 @@ accelerate==1.13.0
 safetensors==0.7.0
 
 # Market data
-yfinance==1.2.2
+yfinance==0.2.40
+websockets>=9,<11
 finnhub-python==2.4.27
 
 # NLP / Sentiment
@@ -37,6 +38,7 @@ httpx==0.28.1
 
 # Broker
 moomoo_api==10.3.6308
+alpaca-trade-api==3.2.0
 
 # Utilities
 python-dotenv==1.2.2

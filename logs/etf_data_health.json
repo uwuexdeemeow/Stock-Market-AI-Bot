@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-05-10T02:58:10+00:00",
+  "ok": true,
+  "refresh": true,
+  "results": [
+    {
+      "symbol": "SPY",
+      "ok": true,
+      "issues": [],
+      "rows": 8376,
+      "latest_date": "2026-05-08",
+      "age_business_days": 0,
+      "refreshed": false
+    }
+  ]
+}

@@ -38,6 +38,14 @@ FACTOR_FAMILY_ALLOWLIST = (
     "dist_",
     "ret_",
     "sector_",
+    # Phase 2: added families for newly allowed features
+    "vwap_",
+    "vol_",
+    "uptick_",
+    "macd_",
+    "bb_",
+    "rsi_",
+    "hvol_",
 )
 FACTOR_NAME_ALLOWLIST = (
     "beta",
@@ -55,6 +63,16 @@ FACTOR_NAME_ALLOWLIST = (
     "sector_rs_slope",
     "factor_mom",
     "factor_resid_mom",
+    # --- Phase 2: added high-IC features that were previously excluded ---
+    # These all have |t-stat| > 5 in the IC shortlist, meaning they
+    # reliably predict forward sector-excess returns.
+    "vwap_dist",        # VWAP distance — price vs volume-weighted average (t≈5.8)
+    "vol_trend",        # Volume trend ratio 20d/60d (t≈5.8)
+    "uptick_ratio",     # Uptick ratio — % of up-ticks (t≈5.8)
+    "macd_hist",        # MACD histogram — momentum oscillator (t≈5.9)
+    "bb_pos",           # Bollinger Band position — mean reversion (t≈5.5)
+    "rsi_",             # RSI — relative strength index (t≈5.4)
+    "hvol_",            # Historical volatility — vol features (useful for risk)
 )
 
 
@@ -122,8 +140,21 @@ def load_prediction_scores() -> pd.DataFrame:
     return panel[["date", "ticker", "ml_score"]].dropna(subset=["ml_score"])
 
 
-def load_factor_panel(specs: list[dict]) -> pd.DataFrame:
-    requested = sorted({s["feature"] for s in specs} | {"factor_beta_252_spy"})
+def load_factor_panel(specs: list[dict], *, require_forward_returns: bool = True) -> pd.DataFrame:
+    requested = sorted(
+        {s["feature"] for s in specs}
+        | {
+            "days_to_next_earnings",
+            "days_since_earnings",
+            "factor_beta_252_spy",
+            "factor_idio_vol_252_spy",
+            "hvol_20d",
+            "xs_rank_sector_factor_idio_vol_252_spy",
+            "xs_rank_market_factor_idio_vol_252_spy",
+            "xs_rank_sector_hvol_20d",
+            "xs_rank_market_hvol_20d",
+        }
+    )
     frames: list[pd.DataFrame] = []
     for ticker in WATCHLIST:
         path = Path(DATA_DIR) / f"{ticker.upper()}.parquet"
@@ -145,15 +176,21 @@ def load_factor_panel(specs: list[dict]) -> pd.DataFrame:
         for hold_days in (10, 20):
             sub[f"exit_price_{hold_days}d"] = df["Close"].shift(-hold_days)
             sub[f"forward_return_{hold_days}d"] = sub[f"exit_price_{hold_days}d"] / sub["entry_price"] - 1.0
+        for hold_days in (HORIZON_DAYS, 10, 20):
+            delayed_entry = df["Open"].shift(-2)
+            delayed_exit = df["Close"].shift(-(hold_days + 1))
+            sub[f"forward_return_delay1_{hold_days}d"] = delayed_exit / delayed_entry - 1.0
         frames.append(sub.reset_index(drop=True))
     if not frames:
         raise SystemExit("No factor panel data found. Run research.py to build data/*.parquet first.")
 
     panel = pd.concat(frames, ignore_index=True)
     panel["date"] = pd.to_datetime(panel["date"], errors="coerce")
-    panel = panel.dropna(subset=["date", "entry_price", "exit_price", "forward_return"])
-    panel = panel[np.isfinite(panel["forward_return"])]
-    panel = panel[(panel["entry_price"] > 0) & (panel["exit_price"] > 0)]
+    panel = panel.dropna(subset=["date"])
+    if require_forward_returns:
+        panel = panel.dropna(subset=["entry_price", "exit_price", "forward_return"])
+        panel = panel[np.isfinite(panel["forward_return"])]
+        panel = panel[(panel["entry_price"] > 0) & (panel["exit_price"] > 0)]
     return panel.sort_values(["date", "ticker"]).reset_index(drop=True)
 
 

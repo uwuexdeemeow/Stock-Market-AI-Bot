@@ -1,0 +1,4 @@
+scenario,universe_size,audit_tickers,audit_rebalance_selections,audit_selection_counts_json,total_return_pct,cagr_pct,sharpe,max_drawdown_pct,alpha_vs_spy_pct,alpha_vs_qqq_pct,alpha_vs_blend_pct,turnover_pct,estimated_cost_pct,paper_ready
+base_watchlist,147.0,"FRC,BBBY,SHLD,HTZ,CRC",0.0,"{""BBBY"": 0, ""CRC"": 0, ""FRC"": 0, ""HTZ"": 0, ""SHLD"": 0}",8886.52,31.76,1.269,-30.38,8151.05,7369.72,7838.52,10256.26,20.5125,True
+watchlist_plus_failed_audit_tickers,152.0,"FRC,BBBY,SHLD,HTZ,CRC",51.0,"{""BBBY"": 8, ""CRC"": 1, ""FRC"": 2, ""HTZ"": 39, ""SHLD"": 1}",5109.66,27.43,1.146,-33.52,4374.18,3592.86,4061.65,10261.16,20.5223,True
+delta_stressed_minus_base,,,,,-3776.86,-4.33,-0.123,-3.14,-3776.87,-3776.86,-3776.87,4.9,0.0098,

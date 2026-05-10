@@ -1,0 +1,11 @@
+{
+  "last_account_equity": 1121068.27,
+  "last_guard_reasons": [
+    "drift_orders_5_max_18.67%"
+  ],
+  "last_order_count": 5,
+  "last_order_plan": "signals/core_satellite_alpha_orders.csv",
+  "last_rebalance_at": "2026-05-08T13:35:35.847431+00:00",
+  "last_regime": "risk_on",
+  "last_signal_predicted_at": "2026-05-08T21:17+08:00"
+}

@@ -1,0 +1,51 @@
+{
+  "signal": {
+    "source": "/Users/amos/Code/Stock Market AI Bot/signals/core_satellite_alpha_signal.csv",
+    "exists": true,
+    "snapshot": "/Users/amos/Code/Stock Market AI Bot/logs/paper_snapshots/20260509T104638Z/core_satellite_alpha_signal.csv",
+    "sha256": "beb68c3cd62c21bf9038e906c8f396c437e63306f52d3f46542ca166fbe1c70b",
+    "bytes": 1051
+  },
+  "orders": {
+    "source": "/Users/amos/Code/Stock Market AI Bot/signals/core_satellite_alpha_orders.csv",
+    "exists": true,
+    "snapshot": "/Users/amos/Code/Stock Market AI Bot/logs/paper_snapshots/20260509T104638Z/core_satellite_alpha_orders.csv",
+    "sha256": "087b1222203176b53ad003a58cdf0e9416853e2ae1107f8e60f4a57f12ea6346",
+    "bytes": 696
+  },
+  "status": {
+    "source": "/Users/amos/Code/Stock Market AI Bot/signals/paper_daily_status.json",
+    "exists": true,
+    "snapshot": "/Users/amos/Code/Stock Market AI Bot/logs/paper_snapshots/20260509T104638Z/paper_daily_status.json",
+    "sha256": "530102f35289f4c61a851834855a2fa2fcb027e113237501ed49e20d153d0113",
+    "bytes": 1351
+  },
+  "health": {
+    "source": "/Users/amos/Code/Stock Market AI Bot/signals/paper_health.json",
+    "exists": true,
+    "snapshot": "/Users/amos/Code/Stock Market AI Bot/logs/paper_snapshots/20260509T104638Z/paper_health.json",
+    "sha256": "11ebbf94a6b16523043f69f585af1a20bfd8ea7e58bcaf2383e5dfd1beae34bc",
+    "bytes": 7474
+  },
+  "trades": {
+    "source": "/Users/amos/Code/Stock Market AI Bot/signals/paper_trades.csv",
+    "exists": true,
+    "snapshot": "/Users/amos/Code/Stock Market AI Bot/logs/paper_snapshots/20260509T104638Z/paper_trades.csv",
+    "sha256": "b8e97c9fce4f63d15896299a8c104be765c0c946b7f452ba7d29c52c0b123ea0",
+    "bytes": 8067
+  },
+  "reconciliation": {
+    "source": "/Users/amos/Code/Stock Market AI Bot/signals/paper_reconciliation.csv",
+    "exists": true,
+    "snapshot": "/Users/amos/Code/Stock Market AI Bot/logs/paper_snapshots/20260509T104638Z/paper_reconciliation.csv",
+    "sha256": "b8e97c9fce4f63d15896299a8c104be765c0c946b7f452ba7d29c52c0b123ea0",
+    "bytes": 8067
+  },
+  "equity": {
+    "source": "/Users/amos/Code/Stock Market AI Bot/signals/paper_equity.csv",
+    "exists": true,
+    "snapshot": "/Users/amos/Code/Stock Market AI Bot/logs/paper_snapshots/20260509T104638Z/paper_equity.csv",
+    "sha256": "7e79e8e74be433aa068e26d8e1649764868980bb1fa24d5b50fff8494c3e6200",
+    "bytes": 516
+  }
+}

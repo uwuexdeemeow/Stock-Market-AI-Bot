@@ -1,0 +1,306 @@
+{
+  "generated_at": "2026-05-09T10:44:12+00:00",
+  "strategy": "core_satellite_alpha",
+  "paper_ready": true,
+  "gates_all_pass": true,
+  "freshness_ok": true,
+  "freshness_issues": [],
+  "paper_equity_days": 3,
+  "paper_equity_rows": 3,
+  "paper_trades": 10,
+  "submitted_orders": 10,
+  "fill_status_counts": {
+    "filled": 8,
+    "open": 2
+  },
+  "current_signal_fill_status_counts": {
+    "filled": 3,
+    "open": 2
+  },
+  "current_signal_open_orders": 2,
+  "current_order_lifecycle": [
+    {
+      "ticker": "AMAT",
+      "action": "SELL",
+      "broker_order_id": "2827917",
+      "fill_status": "filled",
+      "broker_order_status": "FILLED_ALL",
+      "requested_qty": 490.0,
+      "filled_qty": 490.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-05-08T13:35:35.830494+00:00",
+      "broker_updated_time": "2026-05-08 09:35:51"
+    },
+    {
+      "ticker": "C",
+      "action": "SELL",
+      "broker_order_id": "2827918",
+      "fill_status": "filled",
+      "broker_order_status": "FILLED_ALL",
+      "requested_qty": 914.0,
+      "filled_qty": 914.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-05-08T13:35:35.830494+00:00",
+      "broker_updated_time": "2026-05-08 09:35:51"
+    },
+    {
+      "ticker": "MU",
+      "action": "SELL",
+      "broker_order_id": "2827919",
+      "fill_status": "filled",
+      "broker_order_status": "FILLED_ALL",
+      "requested_qty": 40.0,
+      "filled_qty": 40.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-05-08T13:35:35.830494+00:00",
+      "broker_updated_time": "2026-05-08 09:35:39"
+    },
+    {
+      "ticker": "CAT",
+      "action": "BUY",
+      "broker_order_id": "2827920",
+      "fill_status": "open",
+      "broker_order_status": "SUBMITTED",
+      "requested_qty": 139.0,
+      "filled_qty": 0.0,
+      "unfilled_qty": 139.0,
+      "submitted_at": "2026-05-08T13:35:35.830494+00:00",
+      "broker_updated_time": "2026-05-08 09:35:35"
+    },
+    {
+      "ticker": "INTC",
+      "action": "BUY",
+      "broker_order_id": "2827921",
+      "fill_status": "open",
+      "broker_order_status": "SUBMITTED",
+      "requested_qty": 2100.0,
+      "filled_qty": 0.0,
+      "unfilled_qty": 2100.0,
+      "submitted_at": "2026-05-08T13:35:35.830494+00:00",
+      "broker_updated_time": "2026-05-08 09:35:35"
+    }
+  ],
+  "stale_open_order_alerts": [
+    {
+      "ticker": "CAT",
+      "action": "BUY",
+      "fill_status": "open",
+      "age_minutes": 1268.6,
+      "unfilled_qty": 139.0,
+      "broker_order_id": "2827920",
+      "threshold_minutes": 60.0
+    },
+    {
+      "ticker": "INTC",
+      "action": "BUY",
+      "fill_status": "open",
+      "age_minutes": 1268.6,
+      "unfilled_qty": 2100.0,
+      "broker_order_id": "2827921",
+      "threshold_minutes": 60.0
+    }
+  ],
+  "drift_breakdown": [
+    {
+      "ticker": "INTC",
+      "action": "BUY",
+      "reason": "rebalance_to_target",
+      "current_weight": 0.0,
+      "target_weight": 0.186667,
+      "drift_abs": 0.186667,
+      "order_value": 210895.55
+    },
+    {
+      "ticker": "CAT",
+      "action": "BUY",
+      "reason": "rebalance_to_target",
+      "current_weight": 0.0,
+      "target_weight": 0.111093,
+      "drift_abs": 0.111093,
+      "order_value": 125443.47
+    },
+    {
+      "ticker": "QQQ",
+      "action": "SKIP",
+      "reason": "below_drift_threshold",
+      "current_weight": 0.420144,
+      "target_weight": 0.44,
+      "drift_abs": 0.019856,
+      "order_value": 21872.98
+    },
+    {
+      "ticker": "MU",
+      "action": "SKIP",
+      "reason": "below_drift_threshold",
+      "current_weight": 0.265042,
+      "target_weight": 0.26224,
+      "drift_abs": 0.002802,
+      "order_value": 3540.85
+    }
+  ],
+  "current_signal_paper_trades": 5,
+  "fill_stats_scope": "current_signal",
+  "filled_orders": 3,
+  "fill_rate": 0.6,
+  "cancel_rate": 0.0,
+  "account_equity": 1130220.61,
+  "current_gross_exposure": 0.6852,
+  "target_gross_exposure": 1.0,
+  "max_drift_abs": 0.186667,
+  "gauntlet_status": "failed",
+  "approved_for_real_capital": false,
+  "gauntlet_reason": "paper_equity_days 3 < 20; fill_rate 0.600 < 0.950; max_drift_abs 0.187 > 0.150",
+  "slippage": {
+    "filled_orders_with_slippage": 8,
+    "avg_slippage_bps": -0.409,
+    "median_slippage_bps": -0.222,
+    "worst_slippage_bps": 5.779,
+    "total_slippage_dollars": 45.47
+  },
+  "slippage_warning": false,
+  "equity_risk": {
+    "paper_return_pct": 9.187,
+    "paper_drawdown_pct": 0.0,
+    "paper_drawdown_warning": false
+  },
+  "concentration": {
+    "ticker_weights": {
+      "MU": 0.265042,
+      "QQQ": 0.420132
+    },
+    "core_ticker_weights": {
+      "QQQ": 0.420132
+    },
+    "overlay_ticker_weights": {
+      "MU": 0.265042
+    },
+    "sector_weights": {
+      "OTHER": 0.420132,
+      "XLK": 0.265042
+    },
+    "overlay_sector_weights": {
+      "XLK": 0.265042
+    },
+    "max_ticker_weight": 0.420132,
+    "max_ticker": "QQQ",
+    "max_core_ticker_weight": 0.420132,
+    "max_core_ticker": "QQQ",
+    "max_overlay_ticker_weight": 0.265042,
+    "max_overlay_ticker": "MU",
+    "max_sector_weight": 0.420132,
+    "max_sector": "OTHER",
+    "max_overlay_sector_weight": 0.265042,
+    "max_overlay_sector": "XLK",
+    "ticker_concentration_warning": false,
+    "core_ticker_concentration_warning": false,
+    "overlay_ticker_concentration_warning": false,
+    "sector_concentration_warning": false,
+    "overlay_sector_concentration_warning": false
+  },
+  "open_position_attribution": {
+    "data_available": true,
+    "core_open_pnl": 20068.86,
+    "overlay_open_pnl": 52000.24,
+    "total_open_position_pnl": 72069.1,
+    "by_ticker": {
+      "MU": {
+        "sleeve": "overlay",
+        "shares": 423.0,
+        "fill_price": 585.238,
+        "current_price": 708.17,
+        "open_pnl": 52000.24
+      },
+      "QQQ": {
+        "sleeve": "core",
+        "shares": 673.0,
+        "fill_price": 675.74,
+        "current_price": 705.56,
+        "open_pnl": 20068.86
+      }
+    },
+    "skipped_unpriced_tickers": []
+  },
+  "factor_data": {
+    "latest_data_date": "2026-05-01",
+    "age_trading_days": 5,
+    "missing_or_unreadable_count": 0,
+    "missing_or_unreadable_sample": []
+  },
+  "readiness_flags": {
+    "strategy_ready": true,
+    "signal_fresh": true,
+    "broker_synced": true,
+    "account_aligned": false,
+    "slippage_ok": true,
+    "drawdown_ok": true,
+    "concentration_ok": true,
+    "real_capital_allowed": false
+  },
+  "go_live_scorecard": {
+    "passed": 6,
+    "total": 10,
+    "ready": false,
+    "criteria": [
+      {
+        "name": "strategy_ready",
+        "passed": true,
+        "actual": true,
+        "target": true
+      },
+      {
+        "name": "signal_fresh",
+        "passed": true,
+        "actual": true,
+        "target": true
+      },
+      {
+        "name": "no_current_signal_open_orders",
+        "passed": false,
+        "actual": 2,
+        "target": 0
+      },
+      {
+        "name": "broker_synced",
+        "passed": true,
+        "actual": true,
+        "target": true
+      },
+      {
+        "name": "paper_equity_days",
+        "passed": false,
+        "actual": 3,
+        "target": 20
+      },
+      {
+        "name": "fill_rate",
+        "passed": false,
+        "actual": 0.6,
+        "target": 0.95
+      },
+      {
+        "name": "max_drift_abs",
+        "passed": false,
+        "actual": 0.186667,
+        "target": 0.15
+      },
+      {
+        "name": "avg_slippage_bps",
+        "passed": true,
+        "actual": -0.409,
+        "target": 10.0
+      },
+      {
+        "name": "drawdown_ok",
+        "passed": true,
+        "actual": true,
+        "target": true
+      },
+      {
+        "name": "concentration_ok",
+        "passed": true,
+        "actual": true,
+        "target": true
+      }
+    ]
+  }
+}

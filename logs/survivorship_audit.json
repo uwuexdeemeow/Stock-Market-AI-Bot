@@ -1,7 +1,217 @@
 {
-  "generated_at": "2026-04-27T20:22:36.404037",
+  "generated_at": "2026-05-04T02:47:40.416947",
   "purpose": "survivorship_bias_audit",
-  "build_results": [],
+  "build_results": [
+    {
+      "ticker": "SIVB",
+      "aliases": [
+        "SIVB",
+        "SIVBQ"
+      ],
+      "status": "unavailable",
+      "errors": [
+        "SIVB: rows=0",
+        "SIVBQ: rows=0"
+      ]
+    },
+    {
+      "ticker": "FRC",
+      "alias_used": null,
+      "status": "exists",
+      "rows": 3866,
+      "start": "2010-12-09",
+      "end": "2026-04-24",
+      "final_close": 0.0006,
+      "max_drawdown_pct": -100.0,
+      "peak_to_final_pct": -100.0,
+      "final_252d_return_pct": -76.0,
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/FRC.parquet"
+    },
+    {
+      "ticker": "BBBY",
+      "alias_used": null,
+      "status": "exists",
+      "rows": 4102,
+      "start": "2010-01-04",
+      "end": "2026-04-24",
+      "final_close": 5.61,
+      "max_drawdown_pct": -96.99,
+      "peak_to_final_pct": -95.41,
+      "final_252d_return_pct": 36.83,
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/BBBY.parquet"
+    },
+    {
+      "ticker": "WE",
+      "aliases": [
+        "WE",
+        "WEWKQ"
+      ],
+      "status": "unavailable",
+      "errors": [
+        "WE: rows=0",
+        "WEWKQ: rows=0"
+      ]
+    },
+    {
+      "ticker": "RIDE",
+      "aliases": [
+        "RIDE",
+        "RIDEQ"
+      ],
+      "status": "unavailable",
+      "errors": [
+        "RIDE: rows=0",
+        "RIDEQ: rows=0"
+      ]
+    },
+    {
+      "ticker": "SHLD",
+      "alias_used": "SHLD",
+      "status": "ok",
+      "rows": 660,
+      "start": "2023-09-14",
+      "end": "2026-05-01",
+      "final_close": 67.92,
+      "max_drawdown_pct": -15.06,
+      "peak_to_final_pct": -12.95,
+      "final_252d_return_pct": 31.73,
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/SHLD.parquet"
+    },
+    {
+      "ticker": "JCP",
+      "aliases": [
+        "JCP",
+        "JCPNQ"
+      ],
+      "status": "unavailable",
+      "errors": [
+        "JCP: rows=0",
+        "JCPNQ: rows=0"
+      ]
+    },
+    {
+      "ticker": "HTZ",
+      "alias_used": "HTZ",
+      "status": "ok",
+      "rows": 1214,
+      "start": "2021-07-01",
+      "end": "2026-05-01",
+      "final_close": 6.14,
+      "max_drawdown_pct": -92.53,
+      "peak_to_final_pct": -82.49,
+      "final_252d_return_pct": -9.97,
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/HTZ.parquet"
+    },
+    {
+      "ticker": "CHK",
+      "aliases": [
+        "CHK",
+        "CHKAQ"
+      ],
+      "status": "unavailable",
+      "errors": [
+        "CHK: rows=0",
+        "CHKAQ: rows=0"
+      ]
+    },
+    {
+      "ticker": "WLL",
+      "aliases": [
+        "WLL",
+        "WLLAW"
+      ],
+      "status": "unavailable",
+      "errors": [
+        "WLL: rows=0",
+        "WLLAW: rows=0"
+      ]
+    },
+    {
+      "ticker": "CRC",
+      "alias_used": "CRC",
+      "status": "ok",
+      "rows": 1383,
+      "start": "2020-10-28",
+      "end": "2026-05-01",
+      "final_close": 68.37,
+      "max_drawdown_pct": -44.75,
+      "peak_to_final_pct": -1.23,
+      "final_252d_return_pct": 104.56,
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/CRC.parquet"
+    },
+    {
+      "ticker": "DO",
+      "aliases": [
+        "DO",
+        "DOFSQ"
+      ],
+      "status": "unavailable",
+      "errors": [
+        "DO: rows=0",
+        "DOFSQ: rows=0"
+      ]
+    },
+    {
+      "ticker": "MDR",
+      "aliases": [
+        "MDR",
+        "MDRIQ"
+      ],
+      "status": "unavailable",
+      "errors": [
+        "MDR: rows=0",
+        "MDRIQ: rows=0"
+      ]
+    },
+    {
+      "ticker": "FTR",
+      "aliases": [
+        "FTR",
+        "FTRCQ"
+      ],
+      "status": "unavailable",
+      "errors": [
+        "FTR: rows=0",
+        "FTRCQ: rows=0"
+      ]
+    },
+    {
+      "ticker": "WIN",
+      "aliases": [
+        "WIN",
+        "WINMQ"
+      ],
+      "status": "unavailable",
+      "errors": [
+        "WIN: rows=0",
+        "WINMQ: rows=0"
+      ]
+    },
+    {
+      "ticker": "WPG",
+      "aliases": [
+        "WPG",
+        "WPGGQ"
+      ],
+      "status": "unavailable",
+      "errors": [
+        "WPG: rows=0",
+        "WPGGQ: rows=0"
+      ]
+    },
+    {
+      "ticker": "TUP",
+      "aliases": [
+        "TUP",
+        "TUPBQ"
+      ],
+      "status": "unavailable",
+      "errors": [
+        "TUP: rows=0",
+        "TUPBQ: rows=0"
+      ]
+    }
+  ],
   "profiles": [
     {
       "ticker": "SIVB",
@@ -43,11 +253,98 @@
       "ticker": "RIDE",
       "status": "missing",
       "path": "/Users/amos/Code/Stock Market AI Bot/data/RIDE.parquet"
+    },
+    {
+      "ticker": "SHLD",
+      "alias_used": null,
+      "status": "available",
+      "rows": 660,
+      "start": "2023-09-14",
+      "end": "2026-05-01",
+      "final_close": 67.92,
+      "max_drawdown_pct": -15.06,
+      "peak_to_final_pct": -12.95,
+      "final_252d_return_pct": 31.73,
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/SHLD.parquet"
+    },
+    {
+      "ticker": "JCP",
+      "status": "missing",
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/JCP.parquet"
+    },
+    {
+      "ticker": "HTZ",
+      "alias_used": null,
+      "status": "available",
+      "rows": 1214,
+      "start": "2021-07-01",
+      "end": "2026-05-01",
+      "final_close": 6.14,
+      "max_drawdown_pct": -92.53,
+      "peak_to_final_pct": -82.49,
+      "final_252d_return_pct": -9.97,
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/HTZ.parquet"
+    },
+    {
+      "ticker": "CHK",
+      "status": "missing",
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/CHK.parquet"
+    },
+    {
+      "ticker": "WLL",
+      "status": "missing",
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/WLL.parquet"
+    },
+    {
+      "ticker": "CRC",
+      "alias_used": null,
+      "status": "available",
+      "rows": 1383,
+      "start": "2020-10-28",
+      "end": "2026-05-01",
+      "final_close": 68.37,
+      "max_drawdown_pct": -44.75,
+      "peak_to_final_pct": -1.23,
+      "final_252d_return_pct": 104.56,
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/CRC.parquet"
+    },
+    {
+      "ticker": "DO",
+      "status": "missing",
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/DO.parquet"
+    },
+    {
+      "ticker": "MDR",
+      "status": "missing",
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/MDR.parquet"
+    },
+    {
+      "ticker": "FTR",
+      "status": "missing",
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/FTR.parquet"
+    },
+    {
+      "ticker": "WIN",
+      "status": "missing",
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/WIN.parquet"
+    },
+    {
+      "ticker": "WPG",
+      "status": "missing",
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/WPG.parquet"
+    },
+    {
+      "ticker": "TUP",
+      "status": "missing",
+      "path": "/Users/amos/Code/Stock Market AI Bot/data/TUP.parquet"
     }
   ],
   "available_audit_tickers": [
     "FRC",
-    "BBBY"
+    "BBBY",
+    "SHLD",
+    "HTZ",
+    "CRC"
   ],
   "core_plus_available_audit_tickers": [
     "AAPL",
@@ -79,6 +376,9 @@
     "PG",
     "BRK-B",
     "FRC",
-    "BBBY"
+    "BBBY",
+    "SHLD",
+    "HTZ",
+    "CRC"
   ]
 }

@@ -1,0 +1,10 @@
+scenario,entry_delay_days,extra_turnover_cost_bps,total_return_pct,cagr_pct,sharpe,max_drawdown_pct,alpha_vs_spy_pct,alpha_vs_qqq_pct,alpha_vs_blend_pct,holdout_alpha_vs_qqq_pct,holdout_alpha_vs_blend_pct,turnover_pct,estimated_cost_pct,paper_ready
+base_selected,0,0.0,8886.49,31.76,1.269,-30.38,8151.02,7369.7,7838.49,219.7,245.47,10256.26,20.5125,True
+delay_1d,1,0.0,9090.28,31.94,1.251,-36.02,8348.33,7542.56,8026.02,238.46,265.27,10256.26,20.5125,True
+extra_10bps,0,10.0,8012.6,30.94,1.242,-30.48,7277.12,6495.8,6964.59,210.61,236.38,10256.26,30.7688,True
+delay_1d_extra_10bps,1,10.0,8198.0,31.12,1.225,-36.11,7456.05,6650.27,7133.74,228.96,255.77,10256.26,30.7688,True
+delay_1d_extra_25bps,1,25.0,7018.35,29.89,1.186,-36.25,6276.4,5470.62,5954.09,215.05,241.87,10256.26,46.1532,True
+delta_delay_1d_minus_base,1,0.0,203.79,0.18,-0.018,-5.64,197.31,172.86,187.53,18.76,19.8,0.0,0.0,True
+delta_extra_10bps_minus_base,0,10.0,-873.89,-0.82,-0.027,-0.1,-873.9,-873.9,-873.9,-9.09,-9.09,0.0,10.2563,True
+delta_delay_1d_extra_10bps_minus_base,1,10.0,-688.49,-0.64,-0.044,-5.73,-694.97,-719.43,-704.75,9.26,10.3,0.0,10.2563,True
+delta_delay_1d_extra_25bps_minus_base,1,25.0,-1868.14,-1.87,-0.083,-5.87,-1874.62,-1899.08,-1884.4,-4.65,-3.6,0.0,25.6407,True

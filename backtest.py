@@ -183,6 +183,7 @@ MIN_BUCKET_N_HIGH = 30
 MIN_BUCKET_N_MEDIUM = 15
 _ETF_PRICE_FRAME_CACHE: dict[tuple[tuple[str, ...], str, str], pd.DataFrame] = {}
 _ETF_VOTE_CACHE: dict[int, tuple[pd.Series, dict[pd.Timestamp, dict]]] = {}
+_ETF_DOWNLOAD_FAILED_SYMBOLS: set[str] = set()
 
 # ── ATR-based position sizing parameters ──────────────────────────────────────
 # Instead of a flat % per trade, we risk a fixed fraction of capital per trade.
@@ -3658,7 +3659,10 @@ def _load_etf_price_frame(index: pd.DatetimeIndex, symbols: tuple[str, ...] | li
                     continue
             except Exception:
                 pass
-        missing.append(symbol)
+        if symbol in _ETF_DOWNLOAD_FAILED_SYMBOLS:
+            frame[symbol] = 1.0
+        else:
+            missing.append(symbol)
 
     if missing:
         start = index.min().strftime("%Y-%m-%d")
@@ -3691,6 +3695,7 @@ def _load_etf_price_frame(index: pd.DatetimeIndex, symbols: tuple[str, ...] | li
             close = close.reindex(index).ffill().bfill()
             first_close = float(close.iloc[0]) if not close.empty and pd.notna(close.iloc[0]) else 0.0
             if close.empty or close.isna().all() or not np.isfinite(first_close) or first_close == 0.0:
+                _ETF_DOWNLOAD_FAILED_SYMBOLS.add(symbol)
                 frame[symbol] = 1.0
             else:
                 frame[symbol] = close / first_close
