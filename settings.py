@@ -364,7 +364,7 @@ USE_NEWS_SENTIMENT = True
 # Point-in-time valuation features from dated yfinance quarterly statements.
 # Values are exposed after a conservative reporting lag, then z-scored within
 # sector by research.py after all selected tickers are built.
-USE_FUNDAMENTAL_ZSCORES = os.environ.get("USE_FUNDAMENTAL_ZSCORES", "0").strip().lower() in {"1", "true", "yes", "on"}
+USE_FUNDAMENTAL_ZSCORES = os.environ.get("USE_FUNDAMENTAL_ZSCORES", "1").strip().lower() in {"1", "true", "yes", "on"}
 FUNDAMENTAL_REPORT_LAG_DAYS = int(os.environ.get("FUNDAMENTAL_REPORT_LAG_DAYS", "45"))
 # Experimental: give the h5 short-horizon model its own sentiment-protected
 # feature set. Initial A/B worsened the core baseline, so it is opt-in.

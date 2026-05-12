@@ -58,7 +58,7 @@ except Exception:
     FUNDAMENTAL_REPORT_LAG_DAYS = 45
     SECTOR_MAP = {}
     USE_EARNINGS_DATA = False
-    USE_FUNDAMENTAL_ZSCORES = False
+    USE_FUNDAMENTAL_ZSCORES = True
 
 
 def _flatten_yf(df: pd.DataFrame) -> pd.DataFrame:
