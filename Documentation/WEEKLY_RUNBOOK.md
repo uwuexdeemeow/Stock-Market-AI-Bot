@@ -15,17 +15,17 @@ in the right order, handles errors gracefully, and sends notifications if
 anything breaks:
 
 ```bash
-python3 daily_run.py              # run everything (14 steps)
+python3 daily_run.py              # run everything (16 steps)
 python3 daily_run.py --dry-run    # preview what would run without executing
 python3 daily_run.py --moomoo     # only run Moomoo steps
 python3 daily_run.py --alpaca     # only run Alpaca steps
-python3 daily_run.py --stress     # also run stress tests (18 steps)
+python3 daily_run.py --stress     # also run stress tests (20 steps)
 python3 daily_run.py --report     # also run side-by-side performance report
 python3 daily_run.py --skip-refresh  # skip data download (use existing data)
 python3 daily_run.py --force      # run even on weekends/holidays
 ```
 
-### What daily_run.py does (14 steps, in order):
+### What daily_run.py does (16 steps, in order):
 
 | # | Step | Script | What it does |
 |---|------|--------|-------------|
@@ -35,14 +35,16 @@ python3 daily_run.py --force      # run even on weekends/holidays
 | 4 | moomoo_signal | `core_satellite_alpha.py` | Generate core-satellite signal for Moomoo |
 | 5 | moomoo_submit | `moomoo_paper_trading.py --submit` | Submit orders to Moomoo (sells first, wait, then buys) |
 | 6 | moomoo_status | `moomoo_paper_trading.py --status` | Sync equity/positions and save daily status |
-| 7 | moomoo_health | `paper_health.py` | Build deep health summary (slippage, concentration, risk) |
-| 8 | moomoo_gauntlet | `paper_gauntlet.py` | Run Moomoo paper gauntlet health check |
-| 9 | moomoo_daily_check | `daily_paper_check.py --skip-status --skip-sync` | Read-only verdict (status/sync already done) |
-| 10 | alpaca_signal | `core_satellite_tqqq.py` | Generate TQQQ-enhanced signal for Alpaca |
-| 11 | alpaca_submit | `alpaca_paper_trading.py --submit` | Submit orders to Alpaca (auto-snapshots equity) |
-| 12 | alpaca_reconcile | `alpaca_paper_trading.py --reconcile` | Reconcile Alpaca order fills |
-| 13 | alpaca_gauntlet | `alpaca_paper_gauntlet.py` | Run Alpaca paper gauntlet health check |
-| 14 | regime_monitor | `regime_monitor.py` | Detect regime changes and alert (risk_on/neutral/risk_off) |
+| 7 | moomoo_execution_guard | `moomoo_paper_trading.py --execution-guard` | Repair Moomoo core ETF stop-limit protection |
+| 8 | moomoo_health | `paper_health.py` | Build deep health summary (slippage, concentration, risk) |
+| 9 | moomoo_gauntlet | `paper_gauntlet.py` | Run Moomoo paper gauntlet health check |
+| 10 | moomoo_daily_check | `daily_paper_check.py --skip-status --skip-sync` | Read-only verdict (status/sync already done) |
+| 11 | alpaca_signal | `core_satellite_tqqq.py` | Generate TQQQ-enhanced signal for Alpaca |
+| 12 | alpaca_submit | `alpaca_paper_trading.py --submit` | Submit orders to Alpaca (auto-snapshots equity) |
+| 13 | alpaca_reconcile | `alpaca_paper_trading.py --reconcile` | Reconcile Alpaca order fills |
+| 14 | alpaca_execution_guard | `execution_guard.py --once` | Repair ETF stops, cancel stale Alpaca orders, check P&L |
+| 15 | alpaca_gauntlet | `alpaca_paper_gauntlet.py` | Run Alpaca paper gauntlet health check |
+| 16 | regime_monitor | `regime_monitor.py` | Detect regime changes and alert (risk_on/neutral/risk_off) |
 
 ### Built-in safety features:
 - **Weekend/holiday guard**: Automatically skips on weekends and US market holidays (use `--force` to override)
@@ -51,6 +53,8 @@ python3 daily_run.py --force      # run even on weekends/holidays
 - **Failure notifications**: macOS notification banner if any step fails; optional email alerts via SMTP env vars
 - **Regime change alerts**: macOS notification when market regime switches (e.g. risk_on to risk_off)
 - **Fill verification**: Checks yesterday's orders before submitting new ones
+- **Moomoo ETF protection**: STOP_LIMIT protection is repaired for SPY/QQQ/TQQQ when supported by Moomoo paper trading
+- **Alpaca ETF protection**: Broker-side trailing stops are repaired for SPY/QQQ/TQQQ, so basic protection survives laptop sleep/offline time
 
 ---
 
@@ -97,6 +101,12 @@ python3 daily_paper_check.py --after-fill
 
 # Alpaca reconciliation
 python3 alpaca_paper_trading.py --reconcile
+
+# Moomoo safety guard
+python3 moomoo_paper_trading.py --execution-guard
+
+# Alpaca safety guard
+python3 execution_guard.py --once
 ```
 
 Do not use `--submit` unless the broker is connected and you intend to send
@@ -332,5 +342,8 @@ Do not move to real capital until **all** of these are true for **both** strateg
 | `signals/regime_history.json` | Current/previous regime per strategy |
 | `signals/regime_changes_log.csv` | Log of all regime transitions |
 | `signals/fill_monitor.json` | Latest fill verification report |
+| `signals/moomoo_execution_guard_state.json` | Moomoo guard high-water mark state |
+| `signals/guard_intraday_state.json` | Execution guard daily alert/debounce state |
+| `logs/execution_guard.log` | Execution guard activity and safety actions |
 | `logs/daily_run_YYYYMMDD.json` | Daily pipeline run log |
 | `data/*.parquet` | Factor panel and ETF price data |

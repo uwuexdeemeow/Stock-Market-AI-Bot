@@ -31,7 +31,79 @@ from alpha_factor_backtest import (
     subperiod_metrics,
 )
 from backtest import INITIAL_CAPITAL, _load_etf_price_frame
+from feature_health import enrich_feature_specs
+from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
 from settings import SIGNAL_DIR, SLIPPAGE_BASE_PCT
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FEATURE QUALITY GATE — only use features graded A/B/C from diagnostics
+# ─────────────────────────────────────────────────────────────────────────────
+# PLAIN ENGLISH: If the feature quality diagnostic has been run (it produces
+# signals/feature_quality_report.json), we load its grades and EXCLUDE features
+# rated D or F from the scoring pipeline.  These are features with:
+#   - IC too close to zero (no predictive power)
+#   - Unstable IC across time (works some years, not others)
+#   - Only works in bull markets (regime-dependent)
+#
+# If the diagnostic hasn't been run yet, we use ALL features (no filtering).
+# Run: python3 feature_quality_diagnostic.py --top 48
+# This produces the report that this gate reads.
+
+FEATURE_QUALITY_MIN_GRADE = "C"  # drop D and F features
+_QUALITY_GRADE_ORDER = {"A": 5, "B": 4, "C": 3, "D": 2, "F": 1}
+
+
+def _load_feature_quality_filter() -> set[str] | None:
+    """Load feature quality report and return set of features to KEEP.
+
+    Returns None if no report exists (use all features).
+    Returns set of feature names that passed quality gate (grade >= C).
+    """
+    report_path = Path(SIGNAL_DIR) / "feature_quality_report.json"
+    if not report_path.exists():
+        return None  # no report → use all features (no filtering)
+
+    try:
+        with open(report_path) as f:
+            report = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    min_grade_val = _QUALITY_GRADE_ORDER.get(FEATURE_QUALITY_MIN_GRADE, 3)
+    keep_features = set()
+    seen_features = set()
+    dropped_features = []
+
+    for feat_info in report.get("features", []):
+        seen_features.add(str(feat_info["feature"]))
+        grade = feat_info.get("grade", "C")
+        grade_val = _QUALITY_GRADE_ORDER.get(grade, 3)
+        if grade_val >= min_grade_val:
+            keep_features.add(feat_info["feature"])
+        else:
+            dropped_features.append((feat_info["feature"], grade))
+
+    shortlist_path = Path("logs/feature_ic_shortlist.csv")
+    if shortlist_path.exists():
+        try:
+            shortlist = pd.read_csv(shortlist_path)
+            if "feature" in shortlist.columns:
+                keep_features.update(str(f) for f in shortlist["feature"].dropna().unique() if str(f) not in seen_features)
+        except (OSError, pd.errors.EmptyDataError):
+            pass
+
+    if dropped_features:
+        print(f"  Feature quality gate: keeping {len(keep_features)} features, "
+              f"dropping {len(dropped_features)} (grade < {FEATURE_QUALITY_MIN_GRADE})")
+        for feat, grade in dropped_features[:5]:
+            print(f"    DROPPED: {feat[:50]} (grade={grade})")
+        if len(dropped_features) > 5:
+            print(f"    ... and {len(dropped_features) - 5} more")
+    else:
+        print(f"  Feature quality gate: all {len(keep_features)} features pass")
+
+    return keep_features if keep_features else None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -62,50 +134,21 @@ def _fetch_live_sentiment(tickers: list[str], timeout_per_ticker: float = 5.0) -
     import sys
     sys.path.insert(0, str(Path(__file__).parent / "Stock picking scripts"))
     try:
-        from sentiment_engine import get_sentiment_engine, SENTIMENT_RSS_SOURCES, headline_mentions_ticker
+        from sentiment_engine import get_sentiment_engine, score_todays_news
     except ImportError:
         # If sentiment engine not available, return empty (no veto)
         return {}
-
-    # Local RSS fetch with SSL workaround (macOS Python often lacks certs)
-    def _safe_fetch_rss(url: str, ticker: str) -> list[str]:
-        """Fetch RSS headlines with SSL verification disabled for reliability."""
-        import feedparser
-        import requests
-        import warnings
-        warnings.filterwarnings("ignore", message="Unverified HTTPS")
-        filled = url.format(ticker=ticker, ticker_lower=ticker.lower())
-        try:
-            resp = requests.get(
-                filled,
-                headers={"User-Agent": "Mozilla/5.0 (Macintosh) AppleWebKit/537.36"},
-                timeout=10,
-                verify=False,
-            )
-            resp.raise_for_status()
-            feed = feedparser.parse(resp.content)
-            return [e.get("title", "").strip() for e in feed.entries[:15] if e.get("title", "").strip()]
-        except Exception:
-            return []
 
     engine = get_sentiment_engine("finvader")  # fast, no GPU needed
     results: dict[str, float] = {}
 
     for ticker in tickers:
-        all_headlines: list[str] = []
         try:
-            for src in SENTIMENT_RSS_SOURCES[:3]:  # limit to top 3 sources for speed
-                headlines = _safe_fetch_rss(src["url"], ticker)
-                if src.get("filter_headlines"):
-                    headlines = [h for h in headlines if headline_mentions_ticker(ticker, h)]
-                all_headlines.extend(headlines[:10])  # max 10 per source
+            live_news = score_todays_news(ticker, engine, verbose=False)
+            results[ticker] = float(live_news.get("composite_score", 0.0) or 0.0)
         except Exception:
-            pass  # network errors → skip this ticker, no veto
-
-        if all_headlines:
-            scores = engine.score_batch(all_headlines[:20])  # max 20 headlines total
-            results[ticker] = float(np.mean(scores)) if scores else 0.0
-        else:
+            # Network/provider errors degrade to neutral for the veto. The
+            # predictor's sentiment health gate handles complete outages.
             results[ticker] = 0.0  # no news = no veto
 
     return results
@@ -413,29 +456,66 @@ CORE_OVERLAY_COMBOS = (
     (0.75, 0.25),
     (0.75, 0.50),
 )
-SCORE_SOURCES = ("factor_walkforward", "regime_adaptive", "regime_adaptive_low_vol", "regime_adaptive_consensus")
-# PLAIN ENGLISH: "top3" picks 3 best stocks, "top5" picks 5.  More stocks
-# means less concentration risk but potentially weaker alpha (diluted by
-# lower-ranked picks).  Grid search tests both and cost-stress will catch
-# if extra turnover from 5 names hurts net returns.
-SHAPES = ("top3", "top5")
-WEIGHTING_MODES = ("sticky_score", "risk_parity", "sticky_risk_parity")
+# ── REDUCED SEARCH SPACE (anti-overfitting) ────────────────────────────────
+# PLAIN ENGLISH: We deliberately keep the grid SMALL to avoid
+# fitting noise.  Each dimension must represent a genuinely different economic
+# hypothesis, not a minor numerical tweak.  Parameters that have one correct
+# answer (like "don't trade into earnings") are FIXED, not searched.
+#
+# Old grid: 6,336 configs → massive selection bias.  A random config that
+# happens to work 2010-2026 is NOT the same as a robust strategy.
+# New grid: a few hundred configs → each config is a meaningfully different bet.
+#
+# Dimensions that vary (each represents a real economic question):
+#   - score_source: "do raw factors work, or does regime-conditioning help?"
+#   - shape: "diversify across 5, 10, or 15 overlay names?"
+#   - weighting: "score-only or score × inverse-vol across overlay?"
+#   - max_per_sector: "allow sector bets or force diversification?"
+#   - overlay_gross: "small overlay or moderate overlay?"
+#   - holding_days: "10-day alpha or 20-day lower-turnover alpha?"
+#   - cost_stress: validation only — "does the same config survive 2x/3x/5x costs?"
+#
+# Fixed (not searched — one obvious correct answer):
+#   - earnings_blackout = 5 days (safety, not tunable)
+#   - exit_rank_floor = 0.80 (well-validated, not worth searching)
+
+SCORE_SOURCES = ("factor_walkforward", "regime_adaptive")
+# PLAIN ENGLISH: test whether wider baskets reduce concentration risk without
+# diluting alpha too much.  top3 is intentionally no longer searched.
+SHAPES = ("top5", "top10", "top15")
+# PLAIN ENGLISH: "sticky_score" weights by model confidence. "sticky_vol_score"
+# preserves the score tilt but scales down high-volatility names before applying
+# the existing sticky blend and single-name cap.
+WEIGHTING_MODES = ("sticky_score", "sticky_vol_score")
 EXIT_RANK_FLOORS = (0.80,)
 ADAPTIVE_EXIT_MODES = ("fixed",)
 # PLAIN ENGLISH: max_per_sector controls how many stocks from the same
 # sector can be in the overlay at once.  (2) = up to 2 tech stocks,
 # (1) = force cross-sector diversification (one per sector max).
-# Grid search tests both and picks whichever gives better risk-adjusted return.
+# Genuine question: does concentration in winning sectors help or hurt?
 MAX_PER_SECTOR_OPTIONS = (1, 2)
-EARNINGS_BLACKOUT_DAY_OPTIONS = (0, 5)
+# FIXED: Don't trade into earnings — this is a safety rule, not a parameter.
+EARNINGS_BLACKOUT_DAY_OPTIONS = (5,)
+# Search only the cost stresses we actually care about for robustness.
 COST_STRESS_MULTIPLIERS = (2.0, 3.0, 5.0)
+COST_STRESS_VALIDATION = COST_STRESS_MULTIPLIERS
+# 10 days captures faster alpha; 20 days checks whether lower turnover helps.
 HOLDING_DAY_OPTIONS = (10, 20)
+# Keep overlay sizing coarse: small and moderate sleeves only.
+OVERLAY_GROSS_OPTIONS = (0.25, 0.50)
 # PLAIN ENGLISH: Drawdown circuit breaker.  If portfolio equity drops more than
 # this % from its all-time peak, we cut ALL exposure to zero (100% cash) until
 # equity recovers above the re-entry threshold.  This protects against catastrophic
 # losses during market crashes.
 # (0.0) = disabled (no circuit breaker), (0.25) = go to cash if down 25% from peak.
 # Grid search tests both to see if the protection is worth the missed recovery.
+# PLAIN ENGLISH: Regime confirmation cooldown.  When SPY or QQQ crosses
+# above/below its moving average, we require this many CONSECUTIVE days on
+# the new side before flipping the regime indicator.  This prevents whipsaw:
+# a single noisy day touching the MA line shouldn't trigger a full rebalance.
+# 3 days is a good balance — fast enough to react to real regime changes,
+# slow enough to ignore 1-2 day noise.  Set to 1 for no confirmation (old behavior).
+REGIME_CONFIRM_DAYS = 3
 DRAWDOWN_CIRCUIT_BREAKER_OPTIONS = (0.0,)  # DD breaker hurts regime-switching configs (redundant), disabled from grid
 # PLAIN ENGLISH: Portfolio volatility targeting.  We track how volatile our
 # portfolio returns have been recently (rolling 20-day annualized stdev).
@@ -471,6 +551,20 @@ ROBUST_COST_STRESSES = (2.0, 3.0, 5.0)
 PERIODS_PER_YEAR = 252.0 / HORIZON_DAYS
 _PANEL_DAY_CACHE: dict[int, dict[pd.Timestamp, pd.DataFrame]] = {}
 _ETF_PRICE_CACHE: dict[tuple[tuple[pd.Timestamp, ...], tuple[str, ...]], pd.DataFrame] = {}
+
+
+def _regime_preset_with_overlay_gross(regime_preset: dict, overlay_gross: float) -> dict:
+    """Return a copy of a regime preset with the same overlay gross in each regime."""
+    adjusted: dict = {}
+    for key, value in regime_preset.items():
+        if key in {"risk_on", "neutral", "risk_off"} and isinstance(value, dict):
+            regime = dict(value)
+            regime["core_weights"] = dict(regime.get("core_weights", {}))
+            regime["overlay_gross"] = float(overlay_gross)
+            adjusted[key] = regime
+        else:
+            adjusted[key] = value
+    return adjusted
 
 
 def _panel_day_map(panel: pd.DataFrame) -> dict[pd.Timestamp, pd.DataFrame]:
@@ -609,6 +703,57 @@ def _load_regime_indicators(rebalance_dates: pd.DatetimeIndex, exit_dates: pd.Da
         # Fixed threshold — original behavior
         out["high_vol"] = out["qqq_realized_vol"] > high_vol_threshold
 
+    # ── Regime confirmation cooldown ──────────────────────────────────────
+    # PLAIN ENGLISH: Without this, a single day where QQQ dips below its
+    # moving average flips the regime from "risk_on" to "neutral" or
+    # "risk_off," triggering unnecessary rebalancing and trading costs.
+    # The confirmation buffer requires N consecutive days of the new signal
+    # before the indicator actually flips.  This prevents whipsaw — rapid
+    # back-and-forth regime flips caused by noise around the MA line.
+    #
+    # Example: if REGIME_CONFIRM_DAYS=3 and QQQ drops below its MA for
+    # 1 day then bounces back, the trend still shows "ok."  Only after
+    # 3 consecutive days below does it flip to "not ok."
+    confirm_days = int(config.get("regime_confirm_days", REGIME_CONFIRM_DAYS))
+    if confirm_days > 1:
+        for col in ("spy_trend_ok", "qqq_trend_ok"):
+            raw = out[col].astype(float)
+            # Rolling minimum over confirm_days: only True if ALL recent
+            # days agree.  For False→True transitions, use rolling max
+            # (only flip back to True if ALL recent days are True).
+            # This creates hysteresis: slow to flip in either direction.
+            confirmed_off = raw.rolling(confirm_days, min_periods=1).min()  # all 0 → flip off
+            confirmed_on = raw.rolling(confirm_days, min_periods=1).max()   # all 1 → flip on
+            # Start with previous confirmed state, update only when
+            # confirmed_off or confirmed_on gives a unanimous signal.
+            prev = raw.iloc[0] if len(raw) > 0 else True
+            confirmed = []
+            for off_val, on_val in zip(confirmed_off, confirmed_on):
+                if off_val == 0.0:
+                    # N consecutive days below MA → confirmed downtrend
+                    prev = False
+                elif on_val == 1.0:
+                    # N consecutive days above MA → confirmed uptrend
+                    prev = True
+                # else: mixed signals → hold previous state (no flip)
+                confirmed.append(prev)
+            out[col] = confirmed
+
+        # Also smooth the high_vol flag — require N consecutive high-vol
+        # days before declaring vol regime shift
+        raw_vol = out["high_vol"].astype(float)
+        confirmed_high = raw_vol.rolling(confirm_days, min_periods=1).min()
+        confirmed_low = (1.0 - raw_vol).rolling(confirm_days, min_periods=1).min()
+        prev_vol = bool(raw_vol.iloc[0]) if len(raw_vol) > 0 else False
+        confirmed_vol = []
+        for hi, lo in zip(confirmed_high, confirmed_low):
+            if hi == 1.0:
+                prev_vol = True
+            elif lo == 1.0:
+                prev_vol = False
+            confirmed_vol.append(prev_vol)
+        out["high_vol"] = confirmed_vol
+
     return out.ffill().bfill()
 
 
@@ -622,7 +767,8 @@ def _resolve_allocation(dt: pd.Timestamp, config: dict, regime_indicators: pd.Da
             regime = "neutral"
         else:
             regime = "risk_off"
-        preset = REGIME_PRESETS[regime_mode][regime]
+        regime_preset = config.get("regime_preset") or REGIME_PRESETS[regime_mode]
+        preset = regime_preset[regime]
         return (
             regime,
             dict(preset["core_weights"]),
@@ -631,7 +777,8 @@ def _resolve_allocation(dt: pd.Timestamp, config: dict, regime_indicators: pd.Da
         )
     forced_regime = str(config.get("current_regime", "") or "")
     if regime_mode in REGIME_PRESETS and forced_regime in REGIME_PRESETS[regime_mode]:
-        preset = REGIME_PRESETS[regime_mode][forced_regime]
+        regime_preset = config.get("regime_preset") or REGIME_PRESETS[regime_mode]
+        preset = regime_preset[forced_regime]
         return (
             forced_regime,
             dict(preset["core_weights"]),
@@ -646,6 +793,18 @@ def _resolve_allocation(dt: pd.Timestamp, config: dict, regime_indicators: pd.Da
     )
 
 
+def _core_tickers_for_config(config: dict) -> list[str]:
+    tickers = {"SPY", "QQQ"}
+    if isinstance(config.get("core_weights"), dict):
+        tickers.update(str(k).upper() for k in config["core_weights"])
+    regime_preset = config.get("regime_preset")
+    if isinstance(regime_preset, dict):
+        for regime in ("risk_on", "neutral", "risk_off"):
+            weights = regime_preset.get(regime, {}).get("core_weights", {})
+            tickers.update(str(k).upper() for k in weights)
+    return sorted(t for t in tickers if t)
+
+
 def _top_count(n_names: int, shape: str) -> int:
     if shape == "top3":
         return 3
@@ -653,6 +812,8 @@ def _top_count(n_names: int, shape: str) -> int:
         return 5
     if shape == "top10":
         return 10
+    if shape == "top15":
+        return 15
     return max(1, int(np.ceil(n_names * 0.10)))
 
 
@@ -860,7 +1021,7 @@ def _overlay_weights(
     *,
     max_single_name_weight: float = MAX_SINGLE_NAME_WEIGHT,
 ) -> pd.Series:
-    if selected.empty:
+    if selected.empty or float(overlay_gross) <= 0.0:
         return pd.Series(dtype=float)
     if weighting == "score":
         raw = (selected["_rank_score"] - selected["_rank_score"].min() + 0.01).clip(lower=0.01)
@@ -915,10 +1076,14 @@ def _sticky_overlay_weights(
     sticky_blend: float = 0.65,
 ) -> pd.Series:
     # PLAIN ENGLISH: Map the "sticky_X" wrapper name to the base weighting method.
-    # "sticky_score" → base "score", "sticky_risk_parity" → base "risk_parity".
+    # "sticky_score" → base "score", "sticky_vol_score" → score × inverse-vol.
     # The stickiness logic below blends the new weights with previous weights to
     # reduce unnecessary turnover (and thus trading costs).
-    STICKY_MAP = {"sticky_score": "score", "sticky_risk_parity": "risk_parity"}
+    STICKY_MAP = {
+        "sticky_score": "score",
+        "sticky_vol_score": "vol_score",
+        "sticky_risk_parity": "risk_parity",
+    }
     is_sticky = weighting in STICKY_MAP
     current_weighting = STICKY_MAP.get(weighting, weighting)
     current = _overlay_weights(
@@ -972,7 +1137,8 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
     entry_dates = pd.DatetimeIndex([pd.Timestamp(dt) + pd.tseries.offsets.BDay(entry_delay_days) for dt in rebalance_dates])
     exit_dates = pd.DatetimeIndex([pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days + entry_delay_days) for dt in rebalance_dates])
     price_index = pd.DatetimeIndex(sorted(set(rebalance_dates) | set(entry_dates) | set(exit_dates)))
-    etf_prices = _cached_etf_prices(price_index, ["SPY", "QQQ"])
+    etf_tickers = _core_tickers_for_config(config)
+    etf_prices = _cached_etf_prices(price_index, etf_tickers)
     regime_indicators = None
     if str(config.get("regime_mode", "static")) in REGIME_PRESETS:
         regime_indicators = _load_regime_indicators(rebalance_dates, exit_dates, config)
@@ -1026,7 +1192,7 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
             price_index = pd.DatetimeIndex(sorted(
                 set(rebalance_dates) | set(entry_dates) | set(exit_dates)
             ))
-            etf_prices = _cached_etf_prices(price_index, ["SPY", "QQQ"])
+            etf_prices = _cached_etf_prices(price_index, etf_tickers)
             # Reload regime indicators with expanded date range
             regime_indicators = _load_regime_indicators(rebalance_dates, exit_dates, config)
     day_map = _panel_day_map(panel)
@@ -1106,6 +1272,9 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
                 core_gross *= vol_scale
                 overlay_gross *= vol_scale
 
+        if "feature_health_overlay_allowed" in day.columns and not bool(day["feature_health_overlay_allowed"].iloc[0]):
+            overlay_gross = 0.0
+
         # PLAIN ENGLISH: If score blending is enabled, we mix risk_on and
         # risk_off scores based on how "risk_on" the market really is (0-1).
         # This avoids the jarring overnight flip from all-momentum to all-defensive.
@@ -1137,7 +1306,7 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
         aligned = pd.concat([prev_overlay.rename("prev"), overlay.rename("now")], axis=1).fillna(0.0)
         turnover = float((aligned["now"] - aligned["prev"]).abs().sum())
         extra_cost = turnover * float(config.get("extra_turnover_cost_bps", 0.0)) / 10_000.0
-        cost = turnover * SLIPPAGE_BASE_PCT * float(config.get("cost_stress", 1.0)) + extra_cost
+        cost = turnover * SLIPPAGE_BASE_PCT * float(config.get("cost_stress", COST_STRESS_MULTIPLIERS[0])) + extra_cost
         total_turnover += turnover
         total_cost += cost
 
@@ -1179,9 +1348,14 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
             norm_w = overlay.abs() / max(float(overlay.abs().sum()), 1e-9)
             effective_overlay_names = float(1.0 / max(float((norm_w ** 2).sum()), 1e-9))
 
-        spy_ret = float(etf_prices.loc[exit_dt, "SPY"] / etf_prices.loc[entry_dt, "SPY"] - 1.0)
-        qqq_ret = float(etf_prices.loc[exit_dt, "QQQ"] / etf_prices.loc[entry_dt, "QQQ"] - 1.0)
-        core_ret = core_gross * (float(core_weights["SPY"]) * spy_ret + float(core_weights["QQQ"]) * qqq_ret)
+        core_component_ret = 0.0
+        for ticker, weight in core_weights.items():
+            ticker = str(ticker).upper()
+            if ticker not in etf_prices.columns:
+                continue
+            etf_ret = float(etf_prices.loc[exit_dt, ticker] / etf_prices.loc[entry_dt, ticker] - 1.0)
+            core_component_ret += float(weight) * etf_ret
+        core_ret = core_gross * core_component_ret
         strategy_ret = core_ret + factor_ret - cost
         equity *= 1.0 + strategy_ret
         # Track returns for vol targeting (add BEFORE updating peak)
@@ -1203,8 +1377,10 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
             "entry_delay_days": entry_delay_days,
             "extra_turnover_cost_bps": float(config.get("extra_turnover_cost_bps", 0.0)),
             "n_overlay_positions": int(len(overlay)),
-            "core_spy_weight": float(core_weights["SPY"]),
-            "core_qqq_weight": float(core_weights["QQQ"]),
+            "core_spy_weight": float(core_weights.get("SPY", 0.0)),
+            "core_qqq_weight": float(core_weights.get("QQQ", 0.0)),
+            "core_tqqq_weight": float(core_weights.get("TQQQ", 0.0)),
+            "core_weights_json": json.dumps({str(k): round(float(v), 6) for k, v in core_weights.items()}, sort_keys=True),
             "core_gross": core_gross,
             "overlay_gross": overlay_gross,
             "gross_exposure": core_gross + float(overlay.abs().sum()),
@@ -1269,10 +1445,23 @@ def evaluate(panel: pd.DataFrame, config: dict) -> tuple[dict, pd.Series, pd.Dat
         "holdout_2023_2026": holdout,
         "yearly_alpha_pct": {str(k): round(float(v), 2) for k, v in yearly_alpha.items()},
     }
+    metrics["cost_stress"] = float(config.get("cost_stress", COST_STRESS_MULTIPLIERS[0]))
     gates = gate_metrics(metrics, bench_stats, subs, yearly_alpha)
     gates.update(_core_robust_gate_overrides(metrics, holdout, yearly_alpha))
+    health = dict(getattr(panel, "attrs", {}).get("feature_health_summary") or {"feature_health_gate_pass": True})
+    gates["feature_health_gate_pass"] = bool(health.get("feature_health_gate_pass", True))
     gates["all_pass"] = all(v for k, v in gates.items() if k.endswith("_pass"))
     metrics["core_satellite_gate_results"] = gates
+    metrics.update({
+        "feature_health_gate_pass": bool(health.get("feature_health_gate_pass", True)),
+        "feature_health_gate_reasons": health.get("feature_health_gate_reasons", []),
+        "raw_feature_count": int(health.get("raw_feature_count", 0) or 0),
+        "active_cluster_count": int(health.get("active_cluster_count", 0) or 0),
+        "effective_cluster_count": int(health.get("effective_cluster_count", 0) or 0),
+        "quarantined_features": health.get("quarantined_features", []),
+        "watchlist_features": health.get("watchlist_features", []),
+        "max_cluster_weight": float(health.get("max_cluster_weight", 0.0) or 0.0),
+    })
     metrics["paper_ready"] = False
     return metrics, equity, trades
 
@@ -1316,21 +1505,24 @@ def _scale_paper_targets_to_gross(
     *,
     target_spy: float,
     target_qqq: float,
+    target_tqqq: float = 0.0,
     overlay: pd.Series,
     max_gross: float = PAPER_MAX_GROSS_EXPOSURE,
-) -> tuple[float, float, pd.Series, float, float, bool]:
+) -> tuple[float, float, float, pd.Series, float, float, bool]:
     """
     Convert a research allocation into a broker-safe paper allocation.
 
     Backtests may intentionally test 1.25x gross exposure, but paper order
     submission should default to <= 1.00x gross so Moomoo does not reject/cancel
     buy orders because of insufficient buying power.
+
+    Returns: (target_spy, target_qqq, target_tqqq, overlay, raw_gross, scale, scaled)
     """
-    raw_gross = float(abs(target_spy) + abs(target_qqq) + float(overlay.abs().sum()))
+    raw_gross = float(abs(target_spy) + abs(target_qqq) + abs(target_tqqq) + float(overlay.abs().sum()))
     if raw_gross <= 0 or raw_gross <= float(max_gross) + 1e-9:
-        return target_spy, target_qqq, overlay.copy(), raw_gross, 1.0, False
+        return target_spy, target_qqq, target_tqqq, overlay.copy(), raw_gross, 1.0, False
     scale = float(max_gross) / raw_gross
-    return target_spy * scale, target_qqq * scale, overlay * scale, raw_gross, scale, True
+    return target_spy * scale, target_qqq * scale, target_tqqq * scale, overlay * scale, raw_gross, scale, True
 
 
 def _paper_signal_timestamp() -> str:
@@ -1357,6 +1549,11 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
                 raise
             print(f"Warning: using last known regime {metrics.get('current_regime')} because regime indicator refresh failed: {exc}")
     current_regime, core_weights, core_gross, overlay_gross = _resolve_allocation(latest_date, metrics, regime_indicators)
+    feature_health_gate_pass = bool(metrics.get("feature_health_gate_pass", True))
+    feature_health_reason = ""
+    if not feature_health_gate_pass:
+        overlay_gross = 0.0
+        feature_health_reason = "feature_health_gate_failed"
     score_col = _score_col_for_regime(str(metrics["score_source"]), current_regime)
     day = panel[panel["date"] == latest_date]
     selected = _select_sticky_holdings(
@@ -1394,16 +1591,20 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         pd.Series(dtype=float),
         max_single_name_weight=float(metrics.get("max_single_name_weight", MAX_SINGLE_NAME_WEIGHT)),
     )
-    raw_target_spy = core_gross * float(core_weights["SPY"])
-    raw_target_qqq = core_gross * float(core_weights["QQQ"])
+    raw_target_spy = core_gross * float(core_weights.get("SPY", 0.0))
+    raw_target_qqq = core_gross * float(core_weights.get("QQQ", 0.0))
+    # TQQQ weight comes from the unified grid — 0.0 when the winning config
+    # has no TQQQ, positive when the data decided TQQQ helps.
+    raw_target_tqqq = core_gross * float(core_weights.get("TQQQ", 0.0))
     raw_gross = core_gross + float(overlay.abs().sum())
-    target_spy, target_qqq, paper_overlay, raw_paper_gross, paper_scale, paper_scaled = _scale_paper_targets_to_gross(
+    target_spy, target_qqq, target_tqqq, paper_overlay, raw_paper_gross, paper_scale, paper_scaled = _scale_paper_targets_to_gross(
         target_spy=raw_target_spy,
         target_qqq=raw_target_qqq,
+        target_tqqq=raw_target_tqqq,
         overlay=overlay,
         max_gross=PAPER_MAX_GROSS_EXPOSURE,
     )
-    gross = abs(target_spy) + abs(target_qqq) + float(paper_overlay.abs().sum())
+    gross = abs(target_spy) + abs(target_qqq) + abs(target_tqqq) + float(paper_overlay.abs().sum())
     row = {
         "paper_signal_type": "core_satellite_alpha",
         "paper_ready": bool(metrics.get("paper_ready", False)),
@@ -1413,6 +1614,7 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         "score_source": metrics["score_source"],
         "target_spy_weight": round(target_spy, 4),
         "target_qqq_weight": round(target_qqq, 4),
+        "target_tqqq_weight": round(target_tqqq, 4),
         "target_cash_weight": round(1.0 - gross, 4),
         "gross_exposure": round(gross, 4),
         "max_gross_exposure": MAX_GROSS_EXPOSURE,
@@ -1436,9 +1638,19 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         "ml_overlay_enabled": bool(metrics["score_source"] == "factor_plus_model"),
         "factor_overlay_enabled": True,
         "latest_factor_date": str(latest_date.date()),
-        "cost_stress": float(metrics.get("cost_stress", 1.0)),
+        "cost_stress": float(metrics.get("cost_stress", COST_STRESS_MULTIPLIERS[0])),
         "gates_all_pass": bool(metrics.get("core_satellite_gate_results", {}).get("all_pass", False)),
-        "reason": "hardened core-satellite gates pass" if metrics.get("paper_ready") else "hardened core-satellite gates have not passed",
+        "reason": (
+            "hardened core-satellite gates pass"
+            if metrics.get("paper_ready")
+            else (feature_health_reason or "hardened core-satellite gates have not passed")
+        ),
+        "feature_health_gate_pass": feature_health_gate_pass,
+        "active_cluster_count": int(metrics.get("active_cluster_count", 0) or 0),
+        "effective_cluster_count": int(metrics.get("effective_cluster_count", 0) or 0),
+        "max_cluster_weight": round(float(metrics.get("max_cluster_weight", 0.0) or 0.0), 6),
+        "quarantined_features": ",".join(str(x) for x in metrics.get("quarantined_features", [])),
+        "watchlist_features": ",".join(str(x) for x in metrics.get("watchlist_features", [])),
         "predicted_at": _paper_signal_timestamp(),
         "sentiment_veto_enabled": SENTIMENT_VETO_ENABLED,
         "sentiment_scores_json": json.dumps(
@@ -1480,15 +1692,27 @@ def print_run_summary(grid: pd.DataFrame, metrics: dict, signal_path: Path) -> N
         print(f"Vol target:    {float(vt)*100:.0f}%")
     print(f"Regime counts: {metrics.get('regime_counts', {})}")
 
-    print("\nPerformance")
+    print("\nPerformance (backtest — expect significant degradation live)")
+    cagr = float(metrics.get("cagr_pct", 0) or 0)
     print(f"  Total return: {_fmt_pct(metrics.get('total_return_pct'))}")
     print(f"  CAGR:         {_fmt_pct(metrics.get('cagr_pct'))}")
+    if cagr > 30:
+        print(f"    ⚠ CAGR > 30% is likely overstated. Realistic live expectation: 15-25%")
     print(f"  Sharpe:       {_fmt_num(metrics.get('sharpe'))}")
     print(f"  Max DD:       {_fmt_pct(metrics.get('max_drawdown_pct'))}")
     print(f"  Turnover:     {_fmt_pct(metrics.get('turnover_pct'))}")
     print(f"  Est. costs:   {_fmt_pct(metrics.get('estimated_cost_pct'))}")
     print(f"  Max name wt:  {_fmt_pct(float(metrics.get('max_single_name_weight', 0.0)) * 100.0)}")
     print(f"  Eff. names:   {_fmt_num(metrics.get('avg_effective_overlay_names'))}")
+    # Robustness score from grid selection
+    rob_score = metrics.get("robustness_score", None)
+    if rob_score is not None:
+        print(f"  Robustness:   {float(rob_score):.3f}")
+        print(
+            f"    penalties: DD={float(metrics.get('drawdown_penalty', 0.0)):.3f}, "
+            f"turnover={float(metrics.get('turnover_penalty', 0.0)):.3f}, "
+            f"instability={float(metrics.get('instability_penalty', 0.0)):.3f}"
+        )
 
     print("\nBenchmark Alpha")
     for symbol in ("SPY", "QQQ", "BLEND"):
@@ -1560,336 +1784,285 @@ def print_run_summary(grid: pd.DataFrame, metrics: dict, signal_path: Path) -> N
     print(f"  signal:  {signal_path}")
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# NESTED WALK-FORWARD VALIDATION
+# ══════════════════════════════════════════════════════════════════════════════
+# PLAIN ENGLISH: This is the MOST IMPORTANT part for avoiding overfitting.
+#
+# Normal grid search: fit parameters on ALL data 2010-2026, pick best config.
+# Problem: the "best" config on the full sample is OVERFIT to that sample.
+# A 6,336-config search over 16 years of data will ALWAYS find something
+# that looks amazing — even on random noise.
+#
+# Nested walk-forward fixes this by separating parameter tuning from evaluation:
+#
+#   OUTER LOOP (true out-of-sample evaluation — NEVER seen during tuning):
+#     For each test year (e.g., 2015, 2016, ..., 2025):
+#       - Training window = all data BEFORE the test year
+#       - The grid search runs on the training window only
+#       - The winning config is then evaluated on the test year
+#       - The test year result is TRULY out-of-sample
+#
+#   The final OOS metrics are the AVERAGE across all test years.
+#   This tells you what performance you'd have gotten IF you had been running
+#   this system live since 2015, re-tuning parameters annually.
+#
+# Why this matters:
+#   - A strategy with 35,000% backtest return but 8% OOS return is USELESS
+#   - A strategy with 300% backtest return but 15% OOS CAGR is GOLD
+#   - Nested walk-forward reveals the difference
+#
+# The primary metric we report is: OOS Sharpe (average across all test folds)
+# Secondary: OOS CAGR, OOS max DD, stability (variance across folds)
+
+
+def run_nested_walkforward(panel: pd.DataFrame, min_train_years: int = 4) -> dict:
+    """Run the proper core-alpha nested walk-forward validator.
+
+    This wrapper exists for backwards compatibility with the signal script.
+    The real implementation lives in core_satellite_nested_walkforward.py and
+    uses inner train/validation folds inside each outer train period before
+    evaluating the selected config once on the unseen outer test year.
+    """
+    from core_satellite_nested_walkforward import run_nested_walkforward as _proper_nested_walkforward
+    from core_satellite_nested_walkforward import write_outputs as _write_nested_outputs
+
+    result = _proper_nested_walkforward(panel, strategy="core-alpha", min_train_years=min_train_years)
+    _write_nested_outputs(result, output_prefix="core_satellite_alpha_walkforward")
+    return result
+
+
+LIVE_CONFIG_PATH = Path(SIGNAL_DIR) / "core_satellite_live_configs.json"
+
+
+def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
+    if not LIVE_CONFIG_PATH.exists():
+        raise SystemExit(
+            f"Missing approved live config file: {LIVE_CONFIG_PATH}. "
+            "Run `python3 nested_walkforward.py --strategy both` first."
+        )
+    try:
+        payload = json.loads(LIVE_CONFIG_PATH.read_text())
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"Invalid approved live config file {LIVE_CONFIG_PATH}: {exc}") from exc
+
+    approvals = payload.get("approvals", {})
+    approval = approvals.get(strategy, {})
+    if not bool(approval.get("approved", False)):
+        reasons = approval.get("reasons", ["not approved"])
+        # Return rejection info instead of raising — let caller write the rejection signal first
+        return {
+            "approved": False,
+            "reasons": reasons,
+            "approval": approval,
+        }
+    approved = payload.get("approved_live_configs", {}).get(strategy)
+    config = approved.get("config") if isinstance(approved, dict) else None
+    if not isinstance(config, dict):
+        raise SystemExit(f"Approved live config for {strategy} is missing from {LIVE_CONFIG_PATH}.")
+    return {
+        "config": config,
+        "approval": approval,
+        "approved_config_family": approved.get("approved_config_family"),
+        "source_metrics": approved.get("source_metrics", {}),
+        "source_json": payload.get("source_json"),
+        "created_at": payload.get("created_at"),
+    }
+
+
+def _write_rejection_signal(reasons: list[str]) -> None:
+    """Overwrite the signal file with paper_ready=False so stale approvals can't persist."""
+    signal_path = Path(SIGNAL_DIR) / "core_satellite_alpha_signal.csv"
+    reason_str = "nested_walkforward_rejected: " + "; ".join(reasons)
+    if signal_path.exists():
+        try:
+            df = pd.read_csv(signal_path)
+            df["paper_ready"] = False
+            df["gates_all_pass"] = False
+            df["reason"] = reason_str
+            df.to_csv(signal_path, index=False)
+            return
+        except Exception:
+            pass
+    pd.DataFrame([{
+        "paper_signal_type": "core_satellite_alpha",
+        "paper_ready": False,
+        "gates_all_pass": False,
+        "reason": reason_str,
+        "predicted_at": datetime.now().isoformat(),
+    }]).to_csv(signal_path, index=False)
+
+
+def _generate_signal_from_approved_config(
+    *,
+    panel: pd.DataFrame,
+    signal_panel: pd.DataFrame,
+    specs: list[dict],
+    freshness: dict,
+) -> tuple[pd.DataFrame, dict, Path]:
+    live = _load_approved_live_config("core-alpha")
+    if live.get("approved") == False:
+        reasons = live.get("reasons", ["not approved"])
+        _write_rejection_signal(reasons)
+        rejection_metrics = {
+            "paper_ready": False,
+            "nested_walkforward_rejected": True,
+            "nested_walkforward_rejection_reasons": reasons,
+        }
+        with open(Path(SIGNAL_DIR) / "core_satellite_alpha_metrics.json", "w") as f:
+            json.dump(rejection_metrics, f, indent=2)
+        raise SystemExit(
+            f"Nested walk-forward has not approved a live core-alpha config: {reasons}. "
+            "Run `python3 nested_walkforward.py --strategy both` and inspect the OOS report."
+        )
+    selected_config = dict(live["config"])
+    selected_config["live_config_source"] = "nested_walkforward"
+    selected_config["live_config_source_json"] = live.get("source_json")
+
+    best_metrics, best_equity, best_trades = evaluate(panel, selected_config)
+    best_metrics["selected_features"] = specs
+    best_metrics["grid_rows"] = 0
+    best_metrics["best_config_source"] = "nested_walkforward_approved_live_config"
+    best_metrics["full_sample_grid_used_for_selection"] = False
+    best_metrics["walkforward_approval"] = {
+        "approved_config_family": live.get("approved_config_family"),
+        "approval": live.get("approval", {}),
+        "source_metrics": live.get("source_metrics", {}),
+        "source_json": live.get("source_json"),
+        "created_at": live.get("created_at"),
+    }
+    source_metrics = live.get("source_metrics", {}) or {}
+    approval = live.get("approval", {}) or {}
+    best_metrics["robust_cost_stress_pass"] = bool(
+        source_metrics.get("cost_stress_approval_pass", approval.get("approved", False))
+    )
+    best_metrics["core_satellite_gate_results"]["cost_stress_approval_pass"] = bool(
+        best_metrics["robust_cost_stress_pass"]
+    )
+    best_metrics["paper_ready"] = bool(
+        best_metrics["core_satellite_gate_results"]["all_pass"]
+        and best_metrics["robust_cost_stress_pass"]
+    )
+    best_metrics["core_satellite_gate_results"]["all_pass"] = bool(best_metrics["paper_ready"])
+
+    if not freshness["fresh"]:
+        best_metrics["paper_ready"] = False
+        best_metrics["core_satellite_gate_results"]["all_pass"] = False
+        best_metrics["factor_data_stale"] = True
+        best_metrics["factor_data_freshness"] = freshness
+        print("  ⚠ gates_all_pass forced to False because factor data is stale")
+
+    pd.DataFrame({"equity": best_equity}).to_csv(Path(SIGNAL_DIR) / "core_satellite_alpha_equity.csv")
+    best_trades.to_csv(Path(SIGNAL_DIR) / "core_satellite_alpha_trades.csv", index=False)
+    signal_path = write_paper_signal(signal_panel, best_metrics)
+    with open(Path(SIGNAL_DIR) / "core_satellite_alpha_metrics.json", "w") as f:
+        json.dump(best_metrics, f, indent=2)
+
+    row = {
+        "paper_ready": best_metrics.get("paper_ready"),
+        "core_preset": best_metrics.get("core_preset"),
+        "regime_mode": best_metrics.get("regime_mode"),
+        "holding_days": best_metrics.get("holding_days"),
+        "overlay_gross": best_metrics.get("overlay_gross"),
+        "score_source": best_metrics.get("score_source"),
+        "shape": best_metrics.get("shape"),
+        "weighting": best_metrics.get("weighting"),
+        "max_per_sector": best_metrics.get("max_per_sector"),
+        "sharpe": best_metrics.get("sharpe"),
+        "max_drawdown_pct": best_metrics.get("max_drawdown_pct"),
+        "full_sample_grid_used_for_selection": False,
+    }
+    return pd.DataFrame([row]), best_metrics, signal_path
+
+
 def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description="Core-satellite alpha signal generator")
     parser.add_argument("--ignore-stale", action="store_true",
                         help="Override stale data block — generate signal even if factor data is very old")
+    parser.add_argument("--walkforward", action="store_true",
+                        help="Run proper nested core-alpha validation before generating the signal. "
+                             "For normal validation of both signal generators, prefer nested_walkforward.py.")
+    parser.add_argument("--no-walkforward", action="store_true",
+                        help="Legacy no-op. Nested validation is skipped by default; use --walkforward to run it.")
+    parser.add_argument("--min-train-years", type=int, default=4,
+                        help="Minimum training years before first test fold (default: 4)")
     args = parser.parse_args()
 
     Path(SIGNAL_DIR).mkdir(parents=True, exist_ok=True)
+
+    # ── FEATURE QUALITY FILTER ────────────────────────────────────────────────
+    # PLAIN ENGLISH: If the feature quality diagnostic has been run, load its
+    # results and DROP features graded D/F.  This removes noise features that
+    # have no reliable predictive power — using them just adds noise to the
+    # scoring pipeline and makes it easier to overfit.
+    quality_filter = _load_feature_quality_filter()
     specs = load_feature_specs()
+    if quality_filter is not None:
+        original_count = len(specs)
+        specs = [s for s in specs if s["feature"] in quality_filter]
+        if len(specs) < original_count:
+            print(f"  Feature filter applied: {original_count} → {len(specs)} specs")
+        specs, _feature_health_profile = enrich_feature_specs(specs)
     ml_scores = load_prediction_scores()
+
+    # Backtest/training panel: requires forward returns, so its newest usable row
+    # naturally lags the raw data by the forward-return horizon. Keep this panel
+    # for grid/backtest/walk-forward evaluation only.
     panel = _ensure_robust_score_columns(attach_scores(load_factor_panel(specs), specs, ml_scores))
+    print(f"  Backtest panel: {len(panel)} rows, {panel['ticker'].nunique()} tickers, "
+          f"{panel['date'].nunique()} dates, latest={pd.Timestamp(panel['date'].max()).date()}")
+
+    # Live signal panel: does NOT require future returns, so it includes the
+    # freshest feature rows. Use this panel for freshness checks and final signals.
+    signal_panel = _ensure_robust_score_columns(
+        attach_scores(load_factor_panel(specs, require_forward_returns=False), specs, ml_scores)
+    )
+    print(f"  Live signal panel: {len(signal_panel)} rows, {signal_panel['ticker'].nunique()} tickers, "
+          f"{signal_panel['date'].nunique()} dates, latest={pd.Timestamp(signal_panel['date'].max()).date()}")
+
+    # ── OPTIONAL: NESTED WALK-FORWARD VALIDATION ────────────────────────────
+    # PLAIN ENGLISH: Daily signal generation should stay fast and focused.
+    # Run `python3 nested_walkforward.py --strategy both` as the research trust
+    # gate for both live signal generators.  This flag remains useful when you
+    # want a one-off core-alpha validation before generating today's signal.
+    if args.walkforward:
+        print("\n  Running nested walk-forward validation (--walkforward)...")
+        print("  (This tests TRUE out-of-sample performance, year by year)")
+        print("  (For both strategies, run: python3 nested_walkforward.py --strategy both)")
+        wf_results = run_nested_walkforward(panel, min_train_years=args.min_train_years)
+
+        print("\n  Now generating today's signal from nested-approved live config...")
+    else:
+        print("\n  Skipping nested validation for daily signal generation.")
+        print("  Trust check lives in: python3 nested_walkforward.py --strategy both")
 
     # ── Data freshness gate ────────────────────────────────────────────
-    # PLAIN ENGLISH: Before running hundreds of grid search configs, check if
-    # the factor data is fresh.  If it's too old, refuse to generate a signal
-    # because stale data leads to stale stock picks → bad trades.
-    freshness = check_factor_freshness(panel, ignore_stale=args.ignore_stale)
+    # PLAIN ENGLISH: Before generating the signal, check if the factor data
+    # is fresh.  If it's too old, refuse to generate a signal because stale
+    # data leads to stale stock picks → bad trades.
+    freshness = check_factor_freshness(signal_panel, ignore_stale=args.ignore_stale)
     print(f"\n  {freshness['message']}")
     if freshness["blocked"]:
         raise SystemExit(f"Aborting: {freshness['message']}")
     # We'll pass this flag down so write_paper_signal can set gates_all_pass=False
     _FACTOR_DATA_FRESH = freshness["fresh"]
 
-    candidate_configs: list[dict] = []
-    for core_preset, core_weights in CORE_PRESETS.items():
-        for score_source in SCORE_SOURCES:
-            for shape in SHAPES:
-                for weighting in WEIGHTING_MODES:
-                    for exit_rank_floor in EXIT_RANK_FLOORS:
-                        for adaptive_exit_mode in ADAPTIVE_EXIT_MODES:
-                            for max_per_sector in MAX_PER_SECTOR_OPTIONS:
-                                for core_gross, overlay_gross in CORE_OVERLAY_COMBOS:
-                                    for earnings_blackout_days in EARNINGS_BLACKOUT_DAY_OPTIONS:
-                                        for cost_stress in COST_STRESS_MULTIPLIERS:
-                                            for holding_days in HOLDING_DAY_OPTIONS:
-                                                for dd_breaker in DRAWDOWN_CIRCUIT_BREAKER_OPTIONS:
-                                                    for vt in VOL_TARGET_OPTIONS:
-                                                        if core_gross + overlay_gross > MAX_GROSS_EXPOSURE + 1e-9:
-                                                            continue
-                                                        candidate_configs.append({
-                                                            "core_preset": core_preset,
-                                                            "regime_mode": "static",
-                                                            "core_weights": core_weights,
-                                                            "score_source": score_source,
-                                                            "shape": shape,
-                                                            "weighting": weighting,
-                                                            "exit_rank_floor": float(exit_rank_floor),
-                                                            "adaptive_exit_mode": str(adaptive_exit_mode),
-                                                            "max_per_sector": int(max_per_sector),
-                                                            "earnings_blackout_days": int(earnings_blackout_days),
-                                                            "core_gross": float(core_gross),
-                                                            "overlay_gross": float(overlay_gross),
-                                                            "max_gross_exposure": MAX_GROSS_EXPOSURE,
-                                                            "max_single_name_weight": MAX_SINGLE_NAME_WEIGHT,
-                                                            "cost_stress": float(cost_stress),
-                                                            "holding_days": int(holding_days),
-                                                            "drawdown_circuit_breaker": float(dd_breaker),
-                                                            "vol_target": float(vt),
-                                                        })
-
-    # PLAIN ENGLISH: Skip presets that historically never compete.  They still
-    # exist in REGIME_PRESETS for research/manual runs, but the grid search
-    # ignores them to avoid wasting compute on configs that max at Sharpe ~1.2.
-    GRID_SKIP_PRESETS = {"qqq_heavy_25_75", "qqq_tilt_40_60", "qqq_trend_switch", "qqq_trend_switch_fast_core110_overlay15"}
-    for regime_name, regime_preset in REGIME_PRESETS.items():
-        if regime_name in GRID_SKIP_PRESETS:
-            continue
-        risk_on = regime_preset["risk_on"]
-        for score_source in SCORE_SOURCES:
-            for shape in SHAPES:
-                for weighting in WEIGHTING_MODES:
-                    for exit_rank_floor in EXIT_RANK_FLOORS:
-                        for adaptive_exit_mode in ADAPTIVE_EXIT_MODES:
-                            for max_per_sector in MAX_PER_SECTOR_OPTIONS:
-                                for earnings_blackout_days in EARNINGS_BLACKOUT_DAY_OPTIONS:
-                                    for cost_stress in COST_STRESS_MULTIPLIERS:
-                                        for holding_days in HOLDING_DAY_OPTIONS:
-                                            for dd_breaker in DRAWDOWN_CIRCUIT_BREAKER_OPTIONS:
-                                                for vt in VOL_TARGET_OPTIONS:
-                                                    candidate_configs.append({
-                                                        "core_preset": regime_name,
-                                                        "regime_mode": regime_name,
-                                                        "regime_ma_window": int(regime_preset["ma_window"]),
-                                                        "regime_high_vol": float(regime_preset["high_vol"]),
-                                                        # Pass through adaptive vol mode if set in preset
-                                                        "high_vol_mode": str(regime_preset.get("high_vol_mode", "fixed")),
-                                                        # Pass through score blend and early rebalance from preset
-                                                        "score_blend": bool(regime_preset.get("score_blend", False)),
-                                                        "early_rebalance_on_regime_change": bool(regime_preset.get("early_rebalance_on_regime_change", False)),
-                                                        "core_weights": dict(risk_on["core_weights"]),
-                                                        "score_source": score_source,
-                                                        "shape": shape,
-                                                        "weighting": weighting,
-                                                        "exit_rank_floor": float(exit_rank_floor),
-                                                        "adaptive_exit_mode": str(adaptive_exit_mode),
-                                                        "max_per_sector": int(max_per_sector),
-                                                        "earnings_blackout_days": int(earnings_blackout_days),
-                                                        "core_gross": float(risk_on["core_gross"]),
-                                                        "overlay_gross": float(risk_on["overlay_gross"]),
-                                                        "max_gross_exposure": MAX_GROSS_EXPOSURE,
-                                                        "max_single_name_weight": MAX_SINGLE_NAME_WEIGHT,
-                                                        "cost_stress": float(cost_stress),
-                                                        "holding_days": int(holding_days),
-                                                        "drawdown_circuit_breaker": float(dd_breaker),
-                                                        "vol_target": float(vt),
-                                                    })
-
-    rows: list[dict] = []
-    for config in candidate_configs:
-        metrics, equity, trades = evaluate(panel, config)
-        comps = metrics["benchmark_comparisons"]
-        gates = metrics["core_satellite_gate_results"]
-        core_weights = config["core_weights"]
-        rows.append({
-            "core_preset": config["core_preset"],
-            "regime_mode": config.get("regime_mode", "static"),
-            "regime_ma_window": config.get("regime_ma_window", np.nan),
-            "regime_high_vol": config.get("regime_high_vol", np.nan),
-            "high_vol_mode": config.get("high_vol_mode", "fixed"),
-            "regime_counts": json.dumps(metrics.get("regime_counts", {}), sort_keys=True),
-            "core_spy_weight": core_weights["SPY"],
-            "core_qqq_weight": core_weights["QQQ"],
-            "score_source": config["score_source"],
-            "shape": config["shape"],
-            "weighting": config["weighting"],
-            "exit_rank_floor": float(config["exit_rank_floor"]),
-            "adaptive_exit_mode": str(config.get("adaptive_exit_mode", "fixed")),
-            "max_per_sector": int(config["max_per_sector"]),
-            "earnings_blackout_days": int(config.get("earnings_blackout_days", 0)),
-            "core_gross": float(config["core_gross"]),
-            "overlay_gross": float(config["overlay_gross"]),
-            "cost_stress": float(config["cost_stress"]),
-            "holding_days": int(config["holding_days"]),
-            "score_blend": bool(config.get("score_blend", False)),
-            "early_rebalance": bool(config.get("early_rebalance_on_regime_change", False)),
-            "drawdown_circuit_breaker": float(config.get("drawdown_circuit_breaker", 0.0)),
-            "vol_target": float(config.get("vol_target", 0.0)),
-            "max_gross_exposure": MAX_GROSS_EXPOSURE,
-            "max_single_name_weight": float(config.get("max_single_name_weight", MAX_SINGLE_NAME_WEIGHT)),
-            "total_return_pct": metrics["total_return_pct"],
-            "cagr_pct": metrics["cagr_pct"],
-            "sharpe": metrics["sharpe"],
-            "max_drawdown_pct": metrics["max_drawdown_pct"],
-            "alpha_vs_spy_pct": comps["SPY"]["alpha_pct"],
-            "alpha_vs_qqq_pct": comps["QQQ"]["alpha_pct"],
-            "alpha_vs_blend_pct": comps["BLEND"]["alpha_pct"],
-            "nw_tstat_vs_blend": comps["BLEND"]["nw_tstat_vs_benchmark"],
-            "turnover_pct": metrics["turnover_pct"],
-            "estimated_cost_pct": metrics["estimated_cost_pct"],
-            "avg_gross_exposure": metrics["avg_gross_exposure"],
-            "avg_overlay_positions": metrics["avg_overlay_positions"],
-            "max_single_name_weight_realized": metrics["max_single_name_weight"],
-            "avg_effective_overlay_names": metrics["avg_effective_overlay_names"],
-            "max_sector_overlay_weight": metrics["max_sector_overlay_weight"],
-            "top_ticker_overlay_contributor": metrics["top_ticker_overlay_contributor"],
-            "top_ticker_overlay_contribution_share": metrics["top_ticker_overlay_contribution_share"],
-            "holdout_alpha_vs_qqq_pct": metrics["holdout_2023_2026"].get("alpha_vs_qqq_pct", np.nan),
-            "holdout_alpha_vs_blend_pct": metrics["holdout_2023_2026"].get("alpha_vs_blend_pct", np.nan),
-            "subperiod_stability_pass": gates["subperiod_stability_pass"],
-            "year_alpha_concentration_pass": gates["year_alpha_concentration_pass"],
-            "single_name_weight_cap_pass": gates["single_name_weight_cap_pass"],
-            "top_ticker_contribution_pass": gates["top_ticker_contribution_pass"],
-            "holdout_2023_2026_vs_qqq_pass": gates["holdout_2023_2026_vs_qqq_pass"],
-            "holdout_2023_2026_vs_blend_pass": gates["holdout_2023_2026_vs_blend_pass"],
-            "paper_ready": gates["all_pass"],
-        })
-
-    grid = pd.DataFrame(rows)
-    robust_key_cols = [
-        "core_preset",
-        "regime_mode",
-        "regime_ma_window",
-        "regime_high_vol",
-        "core_spy_weight",
-        "core_qqq_weight",
-        "score_source",
-        "shape",
-        "weighting",
-        "exit_rank_floor",
-        "adaptive_exit_mode",
-        "max_per_sector",
-        "earnings_blackout_days",
-        "core_gross",
-        "overlay_gross",
-        "holding_days",
-        "vol_target",
-        "max_single_name_weight",
-    ]
-    stress = (
-        grid.groupby(robust_key_cols, dropna=False)
-        .agg(
-            stress_cost_levels=("cost_stress", lambda s: ",".join(str(float(v)) for v in sorted(set(s)))),
-            stress_min_alpha_vs_spy_pct=("alpha_vs_spy_pct", "min"),
-            stress_min_alpha_vs_qqq_pct=("alpha_vs_qqq_pct", "min"),
-            stress_min_alpha_vs_blend_pct=("alpha_vs_blend_pct", "min"),
-            stress_min_holdout_alpha_vs_qqq_pct=("holdout_alpha_vs_qqq_pct", "min"),
-            stress_min_holdout_alpha_vs_blend_pct=("holdout_alpha_vs_blend_pct", "min"),
-            stress_all_gates_pass=("paper_ready", "all"),
-        )
-        .reset_index()
+    print(f"\n  Loading approved live config from nested walk-forward: {LIVE_CONFIG_PATH}")
+    summary_grid, best_metrics, signal_path = _generate_signal_from_approved_config(
+        panel=panel,
+        signal_panel=signal_panel,
+        specs=specs,
+        freshness=freshness,
     )
-    required_costs = {float(v) for v in ROBUST_COST_STRESSES}
-    stress["stress_has_required_costs"] = stress["stress_cost_levels"].apply(
-        lambda value: required_costs.issubset({float(v) for v in str(value).split(",") if v})
-    )
-    stress["robust_cost_stress_pass"] = (
-        stress["stress_has_required_costs"]
-        & stress["stress_all_gates_pass"]
-        & (stress["stress_min_alpha_vs_spy_pct"] > 0)
-        & (stress["stress_min_alpha_vs_qqq_pct"] > 0)
-        & (stress["stress_min_alpha_vs_blend_pct"] > 0)
-        & (stress["stress_min_holdout_alpha_vs_qqq_pct"] > 0)
-        & (stress["stress_min_holdout_alpha_vs_blend_pct"] > 0)
-    )
-    grid = grid.merge(
-        stress[robust_key_cols + [
-            "stress_cost_levels",
-            "stress_min_alpha_vs_spy_pct",
-            "stress_min_alpha_vs_qqq_pct",
-            "stress_min_alpha_vs_blend_pct",
-            "stress_min_holdout_alpha_vs_qqq_pct",
-            "stress_min_holdout_alpha_vs_blend_pct",
-            "robust_cost_stress_pass",
-        ]],
-        on=robust_key_cols,
-        how="left",
-    )
-    grid = grid.sort_values(
-        ["paper_ready", "robust_cost_stress_pass", "alpha_vs_blend_pct", "sharpe", "max_drawdown_pct"],
-        ascending=[False, False, False, False, False],
-    ).reset_index(drop=True)
-    grid_path = Path(SIGNAL_DIR) / "core_satellite_alpha_grid.csv"
-    grid.to_csv(grid_path, index=False)
-    if grid.empty:
-        raise SystemExit("No core-satellite configs evaluated.")
+    print_run_summary(summary_grid, best_metrics, signal_path)
 
-    hardened = grid[
-        (grid["score_source"].isin(["factor_walkforward", "regime_adaptive", "regime_adaptive_low_vol", "regime_adaptive_consensus"]))
-        & (grid["cost_stress"] == 2.0)
-        & (grid["robust_cost_stress_pass"])
-    ]
-    hardened_pass = hardened[hardened["paper_ready"]]
-    if not hardened_pass.empty:
-        selected = hardened_pass.iloc[0]
-        selection_reason = "best_hardened_walkforward_passing_row"
-    elif not hardened.empty:
-        selected = hardened.iloc[0]
-        selection_reason = "best_hardened_walkforward_row"
-    else:
-        selected = grid.iloc[0]
-        selection_reason = "best_available_row"
 
-    selected_config = {
-        "core_preset": str(selected["core_preset"]),
-        "regime_mode": str(selected.get("regime_mode", "static")),
-        "core_weights": {"SPY": float(selected["core_spy_weight"]), "QQQ": float(selected["core_qqq_weight"])},
-        "score_source": str(selected["score_source"]),
-        "shape": str(selected["shape"]),
-        "weighting": str(selected["weighting"]),
-        "exit_rank_floor": float(selected["exit_rank_floor"]),
-        "adaptive_exit_mode": str(selected.get("adaptive_exit_mode", "fixed")),
-        "max_per_sector": int(selected["max_per_sector"]),
-        "earnings_blackout_days": int(selected.get("earnings_blackout_days", 0)),
-        "core_gross": float(selected["core_gross"]),
-        "overlay_gross": float(selected["overlay_gross"]),
-        "max_gross_exposure": MAX_GROSS_EXPOSURE,
-        "max_single_name_weight": float(selected.get("max_single_name_weight", MAX_SINGLE_NAME_WEIGHT)),
-        "cost_stress": float(selected["cost_stress"]),
-        "holding_days": int(selected["holding_days"]),
-        "score_blend": bool(selected.get("score_blend", False)),
-        "early_rebalance_on_regime_change": bool(selected.get("early_rebalance", False)),
-        "drawdown_circuit_breaker": float(selected.get("drawdown_circuit_breaker", 0.0)),
-        "vol_target": float(selected.get("vol_target", 0.0)),
-            }
-    if str(selected_config["regime_mode"]) in REGIME_PRESETS:
-        preset = REGIME_PRESETS[str(selected_config["regime_mode"])]
-        selected_config["regime_ma_window"] = int(preset["ma_window"])
-        selected_config["regime_high_vol"] = float(preset["high_vol"])
-        # Pass through adaptive vol mode if the preset uses it
-        selected_config["high_vol_mode"] = str(preset.get("high_vol_mode", "fixed"))
-    # ── Save winning config to JSON for easy inspection / auto-loading ─────
-    # PLAIN ENGLISH: Save the best config parameters to a standalone JSON file.
-    # This makes it easy to see what config won without digging through the
-    # full metrics JSON, and could be loaded by other tools or scheduled jobs.
-    winning_config_path = Path(SIGNAL_DIR) / "core_satellite_alpha_winning_config.json"
-    winning_config_data = {
-        **selected_config,
-        "selection_reason": selection_reason,
-        "grid_sharpe": float(selected.get("sharpe", 0)),
-        "grid_return_pct": float(selected.get("total_return_pct", 0)),
-        "grid_max_dd_pct": float(selected.get("max_drawdown_pct", 0)),
-        "grid_holdout_pct": float(selected.get("holdout_return_pct", 0)),
-        "selected_at": datetime.now().isoformat(),
-    }
-    with open(winning_config_path, "w") as f:
-        json.dump(winning_config_data, f, indent=2, default=str)
-
-    best_metrics, best_equity, best_trades = evaluate(panel, selected_config)
-    best_metrics["selected_features"] = specs
-    best_metrics["grid_rows"] = int(len(grid))
-    best_metrics["best_config_source"] = selection_reason
-    best_metrics["robust_cost_stress_pass"] = bool(selected.get("robust_cost_stress_pass", False))
-    best_metrics["robust_cost_stress_summary"] = {
-        "cost_levels": str(selected.get("stress_cost_levels", "")),
-        "min_alpha_vs_spy_pct": float(selected.get("stress_min_alpha_vs_spy_pct", np.nan)),
-        "min_alpha_vs_qqq_pct": float(selected.get("stress_min_alpha_vs_qqq_pct", np.nan)),
-        "min_alpha_vs_blend_pct": float(selected.get("stress_min_alpha_vs_blend_pct", np.nan)),
-        "min_holdout_alpha_vs_qqq_pct": float(selected.get("stress_min_holdout_alpha_vs_qqq_pct", np.nan)),
-        "min_holdout_alpha_vs_blend_pct": float(selected.get("stress_min_holdout_alpha_vs_blend_pct", np.nan)),
-    }
-    best_metrics["paper_ready"] = bool(best_metrics["core_satellite_gate_results"]["all_pass"])
-
-    # If factor data is stale, override paper_ready to False — don't trade on old data
-    if not _FACTOR_DATA_FRESH:
-        best_metrics["paper_ready"] = False
-        best_metrics["core_satellite_gate_results"]["all_pass"] = False
-        best_metrics["factor_data_stale"] = True
-        best_metrics["factor_data_freshness"] = freshness
-        print(f"  ⚠ gates_all_pass forced to False because factor data is stale")
-
-    pd.DataFrame({"equity": best_equity}).to_csv(Path(SIGNAL_DIR) / "core_satellite_alpha_equity.csv")
-    best_trades.to_csv(Path(SIGNAL_DIR) / "core_satellite_alpha_trades.csv", index=False)
-    signal_panel = _ensure_robust_score_columns(
-        attach_scores(load_factor_panel(specs, require_forward_returns=False), specs, ml_scores)
-    )
-    signal_path = write_paper_signal(signal_panel, best_metrics)
-    with open(Path(SIGNAL_DIR) / "core_satellite_alpha_metrics.json", "w") as f:
-        json.dump(best_metrics, f, indent=2)
-
-    print_run_summary(grid, best_metrics, signal_path)
+# ── DEAD CODE REMOVED ─────────────────────────────────────────────────────
+# The old --grid-only code path (full-sample grid search on all data) was
+# removed.  It trained and tested on the same data → overfitting.  Use
+# core_satellite_nested_walkforward.py instead — it does the same grid
+# search but with proper train/test splits so results are trustworthy.
 
 
 if __name__ == "__main__":

@@ -62,6 +62,29 @@ DEFAULT_SYNC_AFTER_SUBMIT_LOOKBACK_DAYS = 3
 DEFAULT_MAX_SUBMIT_GROSS_EXPOSURE = 1.00
 DEFAULT_SIGNAL_TIMEZONE = os.environ.get("PAPER_SIGNAL_TIMEZONE", os.environ.get("TZ", "Asia/Singapore"))
 MAX_MISSING_PRICE_SUBMIT_ROWS = int(os.environ.get("PAPER_MAX_MISSING_PRICE_SUBMIT_ROWS", "0"))
+
+# Stop-loss and drawdown-halt config
+# PLAIN ENGLISH: After buying overlay stocks, we place a limit sell order at
+# (purchase price - 8%) so the position automatically exits if it falls that far.
+# MooOrderType.TRAILING_STOP is not reliably supported in simulate mode, so we
+# use a static limit-sell at the stop price instead.
+MOOMOO_TRAILING_STOP_PCT = float(os.environ.get("MOOMOO_TRAILING_STOP_PCT", "0.08"))
+MOOMOO_CORE_STOP_ENABLED = os.environ.get("MOOMOO_CORE_STOP", "1").strip().lower() in {"1", "true", "yes", "on"}
+MOOMOO_CORE_STOP_TICKERS = {
+    item.strip().upper()
+    for item in os.environ.get("MOOMOO_CORE_STOP_TICKERS", "SPY,QQQ,TQQQ").split(",")
+    if item.strip()
+}
+MOOMOO_CORE_STOP_PCT = float(os.environ.get("MOOMOO_CORE_STOP_PCT", "0.05"))
+MOOMOO_TQQQ_STOP_PCT = float(os.environ.get("MOOMOO_TQQQ_STOP_PCT", "0.10"))
+MOOMOO_CORE_STOP_LIMIT_BUFFER_PCT = float(os.environ.get("MOOMOO_CORE_STOP_LIMIT_BUFFER_PCT", "0.005"))
+MOOMOO_CORE_STOP_REPLACE_BPS = float(os.environ.get("MOOMOO_CORE_STOP_REPLACE_BPS", "25"))
+MOOMOO_CORE_STOP_REMARK_PREFIX = os.environ.get("MOOMOO_CORE_STOP_REMARK_PREFIX", "core_etf_stop")
+MOOMOO_GUARD_STATE_FILE = SIGNAL_DIR / "moomoo_execution_guard_state.json"
+# If the total account value drops more than this from its all-time high, halt
+# all new order submissions until the account recovers.
+MOOMOO_DD_HALT_PCT = float(os.environ.get("MOOMOO_DD_HALT_PCT", "0.12"))
+MOOMOO_EQUITY_FILE = SIGNAL_DIR / "moomoo_paper_equity.csv"
 ACTIVE_FILL_STATUSES = {"open", "partial", "partially_filled", "unknown", "submitted", "pending", "queued"}
 
 
@@ -564,6 +587,328 @@ def _moomoo_constant(name: str, attr: str, fallback: str) -> str:
         return fallback
 
 
+def _moomoo_ret_ok() -> object:
+    try:
+        module = __import__("moomoo", fromlist=["RET_OK"])
+        return getattr(module, "RET_OK")
+    except Exception:
+        return 0
+
+
+def _moomoo_order_value(row: pd.Series | dict, *names: str, default: object = "") -> object:
+    for name in names:
+        value = row.get(name, default) if hasattr(row, "get") else default
+        if str(value or "").strip() and str(value).lower() != "nan":
+            return value
+    return default
+
+
+def _moomoo_order_id(row: pd.Series | dict) -> str:
+    return _safe_order_id(_moomoo_order_value(row, "order_id", "order_id_ex", default=""))
+
+
+def _moomoo_order_qty(row: pd.Series | dict) -> float:
+    try:
+        return float(_moomoo_order_value(row, "qty", "quantity", default=0.0) or 0.0)
+    except Exception:
+        return 0.0
+
+
+def _moomoo_order_price(row: pd.Series | dict) -> float:
+    try:
+        return float(_moomoo_order_value(row, "aux_price", "price", default=0.0) or 0.0)
+    except Exception:
+        return 0.0
+
+
+def _moomoo_core_stop_pct(ticker: str) -> float:
+    return MOOMOO_TQQQ_STOP_PCT if _normalise_ticker(ticker) == "TQQQ" else MOOMOO_CORE_STOP_PCT
+
+
+def _moomoo_core_stop_remark(ticker: str, stop_pct: float) -> str:
+    safe_ticker = _normalise_ticker(ticker)
+    return f"{MOOMOO_CORE_STOP_REMARK_PREFIX}_{safe_ticker}_{stop_pct * 100:.2f}pct"
+
+
+def _is_moomoo_core_stop_order(row: pd.Series | dict, tickers: set[str] | None = None) -> bool:
+    watch = MOOMOO_CORE_STOP_TICKERS if tickers is None else {_normalise_ticker(t) for t in tickers}
+    ticker = _broker_row_ticker(row)
+    side = str(_moomoo_order_value(row, "trd_side", "side", default="")).upper()
+    remark = str(_moomoo_order_value(row, "remark", default=""))
+    return ticker in watch and "SELL" in side and remark.startswith(MOOMOO_CORE_STOP_REMARK_PREFIX)
+
+
+def _query_moomoo_open_orders(ctx) -> pd.DataFrame:
+    from moomoo import TrdEnv
+
+    ret, data = ctx.order_list_query(trd_env=TrdEnv.SIMULATE, refresh_cache=True)
+    if ret != _moomoo_ret_ok() or data is None or not hasattr(data, "empty") or data.empty:
+        return pd.DataFrame()
+    return data.copy()
+
+
+def _cancel_moomoo_order(ctx, order_id: str) -> tuple[bool, str]:
+    from moomoo import ModifyOrderOp, TrdEnv
+
+    try:
+        ret, data = ctx.modify_order(ModifyOrderOp.CANCEL, str(order_id), 0, 0, trd_env=TrdEnv.SIMULATE)
+    except Exception as exc:
+        return False, repr(exc)
+    return bool(ret == _moomoo_ret_ok()), str(data)
+
+
+def _submit_moomoo_core_stop_order(ctx, ticker: str, qty: int, reference_price: float) -> tuple[bool, str, dict]:
+    """Submit a Moomoo static stop-limit sell for one core ETF position.
+
+    PLAIN ENGLISH: This is not a trailing stop. It is a broker-side conditional
+    stop-limit order. If Moomoo paper rejects STOP_LIMIT, we log the rejection
+    and do NOT fall back to a normal sell limit, because a normal sell limit
+    below market can execute immediately.
+    """
+    from moomoo import OrderType, TrdEnv, TrdSide
+
+    stop_pct = _moomoo_core_stop_pct(ticker)
+    trigger_price = _round_us_limit_price(float(reference_price) * (1.0 - stop_pct), "SELL")
+    limit_price = _round_us_limit_price(trigger_price * (1.0 - MOOMOO_CORE_STOP_LIMIT_BUFFER_PCT), "SELL")
+    details = {
+        "ticker": _normalise_ticker(ticker),
+        "qty": int(qty),
+        "reference_price": round(float(reference_price), 4),
+        "trigger_price": trigger_price,
+        "limit_price": limit_price,
+        "stop_pct": stop_pct,
+    }
+    if int(qty) <= 0 or trigger_price <= 0 or limit_price <= 0:
+        return False, "invalid_stop_inputs", details
+
+    kwargs = {
+        "price": limit_price,
+        "qty": int(qty),
+        "code": _moomoo_code(ticker),
+        "trd_side": TrdSide.SELL,
+        "order_type": OrderType.STOP_LIMIT,
+        "trd_env": TrdEnv.SIMULATE,
+        "aux_price": trigger_price,
+        "remark": _moomoo_core_stop_remark(ticker, stop_pct),
+    }
+    try:
+        module = __import__("moomoo", fromlist=["TimeInForce"])
+        time_in_force = getattr(getattr(module, "TimeInForce"), "GTC", None)
+        if time_in_force is not None:
+            kwargs["time_in_force"] = time_in_force
+    except Exception:
+        pass
+
+    try:
+        ret, data = ctx.place_order(**kwargs)
+    except Exception as exc:
+        return False, repr(exc), details
+    if ret != _moomoo_ret_ok():
+        return False, str(data), details
+    order_id = ""
+    if hasattr(data, "iloc") and len(data) > 0:
+        order_id = _safe_order_id(data.iloc[0].get("order_id", "")) or _safe_order_id(data.iloc[0].get("order_id_ex", ""))
+    details["order_id"] = order_id
+    return True, str(data), details
+
+
+def _load_moomoo_guard_state() -> dict:
+    if not MOOMOO_GUARD_STATE_FILE.exists():
+        return {}
+    try:
+        state = json.loads(MOOMOO_GUARD_STATE_FILE.read_text(encoding="utf-8"))
+        return state if isinstance(state, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_moomoo_guard_state(state: dict) -> None:
+    MOOMOO_GUARD_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    MOOMOO_GUARD_STATE_FILE.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def cancel_moomoo_core_etf_stops(
+    ctx,
+    *,
+    tickers: set[str] | None = None,
+    dry_run: bool = False,
+    logger=print,
+) -> list[dict]:
+    watch = MOOMOO_CORE_STOP_TICKERS if tickers is None else {_normalise_ticker(t) for t in tickers}
+    open_orders = _query_moomoo_open_orders(ctx)
+    actions: list[dict] = []
+    if open_orders.empty:
+        return actions
+    for _, order in open_orders.iterrows():
+        if not _is_moomoo_core_stop_order(order, watch):
+            continue
+        oid = _moomoo_order_id(order)
+        ticker = _broker_row_ticker(order)
+        if dry_run:
+            ok, response = True, "dry_run"
+        else:
+            ok, response = _cancel_moomoo_order(ctx, oid)
+        status = "dry_run" if dry_run else "cancelled" if ok else "failed"
+        row = {"action": "cancel_stop", "ticker": ticker, "order_id": oid, "status": status, "response": response}
+        actions.append(row)
+        logger(f"{status}: Moomoo core ETF stop {ticker} order={oid[:12]}")
+    return actions
+
+
+def repair_moomoo_core_etf_stops(
+    ctx,
+    *,
+    tickers: set[str] | None = None,
+    dry_run: bool = False,
+    replace: bool = False,
+    use_high_water: bool = True,
+    logger=print,
+) -> dict:
+    result = {"checked": [], "cancelled": [], "submitted": [], "skipped": [], "errors": []}
+    if not MOOMOO_CORE_STOP_ENABLED:
+        result["skipped"].append({"reason": "disabled"})
+        logger("Moomoo core ETF stop guard disabled")
+        return result
+
+    watch = MOOMOO_CORE_STOP_TICKERS if tickers is None else {_normalise_ticker(t) for t in tickers}
+    state = _load_moomoo_guard_state()
+    hwm = state.setdefault("core_etf_hwm", {})
+    positions, position_prices = fetch_moomoo_positions_and_prices(ctx)
+    open_orders = _query_moomoo_open_orders(ctx)
+
+    for ticker in sorted(watch):
+        qty = int(positions.get(ticker, 0) or 0)
+        ticker_stops = pd.DataFrame()
+        if not open_orders.empty:
+            mask = open_orders.apply(lambda row: _is_moomoo_core_stop_order(row, {ticker}), axis=1)
+            ticker_stops = open_orders[mask].copy()
+        result["checked"].append({"ticker": ticker, "position_qty": qty, "stop_count": int(len(ticker_stops))})
+
+        if qty <= 0:
+            hwm.pop(ticker, None)
+            for _, stop in ticker_stops.iterrows():
+                oid = _moomoo_order_id(stop)
+                if dry_run:
+                    ok, response = True, "dry_run"
+                else:
+                    ok, response = _cancel_moomoo_order(ctx, oid)
+                status = "dry_run" if dry_run else "cancelled" if ok else "failed"
+                result["cancelled"].append({"ticker": ticker, "order_id": oid, "status": status, "reason": "no_position"})
+                if not ok:
+                    result["errors"].append({"ticker": ticker, "order_id": oid, "error": response})
+                logger(f"{status}: stale Moomoo core ETF stop {ticker} order={oid[:12]} (no position)")
+            continue
+
+        current_price = float(position_prices.get(ticker, 0.0) or 0.0)
+        if current_price <= 0:
+            current_price = _fetch_price(ticker)
+        if current_price <= 0:
+            result["errors"].append({"ticker": ticker, "error": "missing_price"})
+            logger(f"failed: missing price for Moomoo core ETF stop {ticker}")
+            continue
+
+        previous_hwm = float(hwm.get(ticker, 0.0) or 0.0)
+        reference_price = max(previous_hwm, current_price) if use_high_water else current_price
+        stop_pct = _moomoo_core_stop_pct(ticker)
+        candidate_trigger = _round_us_limit_price(reference_price * (1.0 - stop_pct), "SELL")
+        if candidate_trigger >= current_price:
+            logger(
+                f"warning: Moomoo {ticker} high-water stop trigger ${candidate_trigger:.2f} "
+                f"is at/above current price ${current_price:.2f}; resetting stop reference to current price"
+            )
+            reference_price = current_price
+            candidate_trigger = _round_us_limit_price(reference_price * (1.0 - stop_pct), "SELL")
+        hwm[ticker] = round(reference_price, 4)
+        desired_trigger = _round_us_limit_price(reference_price * (1.0 - stop_pct), "SELL")
+        replace_threshold = 1.0 + (MOOMOO_CORE_STOP_REPLACE_BPS / 10_000.0)
+        existing_qty = float(ticker_stops["qty"].astype(float).sum()) if not ticker_stops.empty and "qty" in ticker_stops.columns else 0.0
+        existing_trigger = max((_moomoo_order_price(row) for _, row in ticker_stops.iterrows()), default=0.0)
+        qty_matches = abs(existing_qty - float(qty)) < 1e-6
+        stop_fresh = existing_trigger > 0 and desired_trigger <= existing_trigger * replace_threshold
+
+        if not ticker_stops.empty and qty_matches and stop_fresh and not replace:
+            result["skipped"].append({"ticker": ticker, "reason": "already_protected", "trigger_price": existing_trigger})
+            logger(f"protected: Moomoo {ticker} qty={qty} trigger=${existing_trigger:.2f}")
+            continue
+
+        cancel_failed = False
+        for _, stop in ticker_stops.iterrows():
+            oid = _moomoo_order_id(stop)
+            if dry_run:
+                ok, response = True, "dry_run"
+            else:
+                ok, response = _cancel_moomoo_order(ctx, oid)
+            status = "dry_run" if dry_run else "cancelled" if ok else "failed"
+            result["cancelled"].append({"ticker": ticker, "order_id": oid, "status": status, "reason": "replace"})
+            logger(f"{status}: outdated Moomoo core ETF stop {ticker} order={oid[:12]}")
+            if not ok:
+                cancel_failed = True
+                result["errors"].append({"ticker": ticker, "order_id": oid, "error": response})
+        if cancel_failed:
+            logger(f"skipped: replacement Moomoo core ETF stop for {ticker} because cancel failed")
+            continue
+
+        if dry_run:
+            ok, response, details = True, "dry_run", {
+                "ticker": ticker,
+                "qty": qty,
+                "reference_price": round(reference_price, 4),
+                "trigger_price": desired_trigger,
+                "limit_price": _round_us_limit_price(desired_trigger * (1.0 - MOOMOO_CORE_STOP_LIMIT_BUFFER_PCT), "SELL"),
+                "stop_pct": stop_pct,
+                "order_id": "DRY_RUN",
+            }
+        else:
+            ok, response, details = _submit_moomoo_core_stop_order(ctx, ticker, qty, reference_price)
+        if ok:
+            result["submitted"].append(details)
+            logger(f"submitted: Moomoo core ETF stop {ticker} qty={qty} trigger=${details['trigger_price']:.2f}")
+        else:
+            details["error"] = response
+            result["errors"].append(details)
+            logger(f"failed: submit Moomoo core ETF stop {ticker}: {response}")
+
+    _save_moomoo_guard_state(state)
+    return result
+
+
+def run_moomoo_execution_guard(*, dry_run: bool = False, replace: bool = False) -> dict:
+    """
+    Run the laptop-side Moomoo ETF protection guard once.
+
+    PLAIN ENGLISH: This refreshes core ETF stop-limit orders while the laptop is
+    awake. The broker-side STOP_LIMIT orders remain at Moomoo after the script
+    exits, but they are static, so this guard can move them up when prices rise.
+    """
+    ctx = connect_moomoo_trade_context()
+    try:
+        _unlock_ok, _unlock_msg = maybe_unlock_moomoo_trade(ctx)
+        result = repair_moomoo_core_etf_stops(
+            ctx,
+            dry_run=dry_run,
+            replace=replace,
+            use_high_water=True,
+            logger=lambda msg: print(f"  {msg}"),
+        )
+    finally:
+        try:
+            ctx.close()
+        except Exception:
+            pass
+    print(
+        "Moomoo execution guard: "
+        f"checked={len(result['checked'])} "
+        f"submitted={len(result['submitted'])} "
+        f"cancelled={len(result['cancelled'])} "
+        f"errors={len(result['errors'])}"
+    )
+    if result["errors"]:
+        print("Moomoo guard errors:")
+        for row in result["errors"]:
+            print(f"  - {row}")
+    return result
+
+
 def fetch_moomoo_equity(ctx, fallback_equity: float | None = None) -> float:
     trd_env = _moomoo_constant("TrdEnv", "SIMULATE", "SIMULATE")
     ret, data = ctx.accinfo_query(trd_env=trd_env, currency="USD")
@@ -584,6 +929,49 @@ def fetch_moomoo_equity(ctx, fallback_equity: float | None = None) -> float:
     if fallback_equity and fallback_equity > 0:
         return float(fallback_equity)
     raise RuntimeError(f"Could not infer account equity from Moomoo columns: {list(data.columns)}")
+
+
+def _check_moomoo_drawdown(ctx, halt_pct: float = MOOMOO_DD_HALT_PCT) -> tuple[bool, float]:
+    """
+    Check whether the Moomoo account has hit the portfolio drawdown halt threshold.
+
+    PLAIN ENGLISH: Reads the account's current total equity from Moomoo, then
+    looks at the all-time high equity stored in our local CSV log.  If today's
+    value is more than halt_pct (e.g. 12%) below that peak, we return is_halted=True
+    and the caller should skip all new order submissions.
+
+    Returns (is_halted: bool, current_drawdown: float).
+    Drawdown is negative when the account is below peak (e.g. -0.10 = down 10%).
+    """
+    try:
+        current_equity = fetch_moomoo_equity(ctx)
+    except Exception:
+        return False, 0.0
+
+    # Log this equity snapshot so we can track the running peak
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    new_row = {"date": today_str, "equity": round(current_equity, 2)}
+    if MOOMOO_EQUITY_FILE.exists():
+        try:
+            eq_df = pd.read_csv(MOOMOO_EQUITY_FILE)
+            eq_df = eq_df[eq_df.get("date", pd.Series(dtype=str)).astype(str) != today_str].copy()
+            eq_df = pd.concat([eq_df, pd.DataFrame([new_row])], ignore_index=True)
+        except Exception:
+            eq_df = pd.DataFrame([new_row])
+    else:
+        eq_df = pd.DataFrame([new_row])
+    try:
+        eq_df.to_csv(MOOMOO_EQUITY_FILE, index=False)
+    except Exception:
+        pass
+
+    if eq_df.empty or "equity" not in eq_df.columns:
+        return False, 0.0
+    peak = float(eq_df["equity"].max())
+    if peak <= 0:
+        return False, 0.0
+    drawdown = (current_equity - peak) / peak
+    return drawdown < -halt_pct, drawdown
 
 
 def fetch_moomoo_positions_and_prices(ctx) -> tuple[dict[str, int], dict[str, float]]:
@@ -653,7 +1041,9 @@ def build_core_satellite_orders(
             })
             continue
         target_value = float(equity) * float(target_weights.get(ticker, 0.0))
-        target_shares = int(np.floor(target_value / price)) if target_value >= 0 else int(np.ceil(target_value / price))
+        # Round to nearest share to minimize drift from target weight.
+        # Floor/ceil systematically under-allocates.
+        target_shares = round(target_value / price)
         current = int(current_positions.get(ticker, 0))
         delta = target_shares - current
         order_value = abs(delta) * price
@@ -1110,9 +1500,40 @@ def submit_core_satellite_orders(orders: pd.DataFrame) -> pd.DataFrame:
     ctx = connect_moomoo_trade_context()
     unlock_ok, unlock_msg = maybe_unlock_moomoo_trade(ctx)
     try:
+        # ── Portfolio drawdown halt check ─────────────────────────────────
+        # PLAIN ENGLISH: If the account has dropped too far from its peak value,
+        # stop all new orders immediately.  This mirrors the same protection in
+        # alpaca_paper_trading.py.  The halt lifts when equity recovers above the
+        # threshold on a subsequent run.
+        dd_halted, current_dd = _check_moomoo_drawdown(ctx)
+        if dd_halted:
+            print(f"\n  🛑 PORTFOLIO DRAWDOWN HALT: account is {current_dd*100:.1f}% below peak")
+            print(f"     Threshold: {MOOMOO_DD_HALT_PCT*100:.0f}%")
+            print(f"     No new orders until drawdown recovers.")
+            return pd.DataFrame(submitted_rows)
+        elif current_dd < -0.05:
+            print(f"  ⚠  Moomoo drawdown: {current_dd*100:.1f}% from peak "
+                  f"(halt at {MOOMOO_DD_HALT_PCT*100:.0f}%)")
+
         executable = orders[orders["action"].isin(["BUY", "SELL"])].copy()
         sells = executable[executable["action"] == "SELL"]
         buys = executable[executable["action"] == "BUY"]
+        core_order_tickers = {
+            _normalise_ticker(ticker)
+            for ticker in executable.get("ticker", pd.Series(dtype=str)).astype(str)
+            if _normalise_ticker(ticker) in MOOMOO_CORE_STOP_TICKERS
+        }
+        if MOOMOO_CORE_STOP_ENABLED and core_order_tickers:
+            print(f"\n  Clearing Moomoo core ETF stops before rebalance: {', '.join(sorted(core_order_tickers))}")
+            cancel_actions = cancel_moomoo_core_etf_stops(
+                ctx,
+                tickers=core_order_tickers,
+                logger=lambda msg: print(f"    {msg}"),
+            )
+            if any(row.get("status") == "failed" for row in cancel_actions):
+                print("  ✗ Could not cancel all affected Moomoo core ETF stops. Aborting rebalance.")
+                print("     Existing stop orders may reserve shares and cause sell orders to fail.")
+                return pd.DataFrame(submitted_rows)
 
         # ── Phase 1: Submit all SELL orders first ──────────────────────
         # PLAIN ENGLISH: We sell first to free up buying power.
@@ -1138,6 +1559,57 @@ def submit_core_satellite_orders(orders: pd.DataFrame) -> pd.DataFrame:
         for _, row in buys.iterrows():
             out = _submit_single_order(row, ctx, unlock_ok, unlock_msg)
             submitted_rows.append(out)
+
+        # ── Phase 4: Submit stop-loss orders for overlay stocks ────────
+        # PLAIN ENGLISH: After buying individual stocks, place a limit SELL
+        # order at (purchase price - 8%).  If the stock falls to that price,
+        # the order fills and limits the loss.
+        #
+        # We use MooOrderType.NORMAL (limit sell) instead of TRAILING_STOP
+        # because Moomoo's simulate environment does not reliably support
+        # TRAILING_STOP order types — they fail silently.  A static limit-sell
+        # at the stop price is simpler and fires reliably in simulate mode.
+        # ETFs (SPY, QQQ, TQQQ) are excluded — regime switching handles those.
+        ETF_SKIP = {"SPY", "QQQ", "TQQQ", "BIL", "IEF", "GLD"}
+        overlay_buys = buys[~buys["ticker"].isin(ETF_SKIP)]
+        if not overlay_buys.empty:
+            from moomoo import OrderType as MooOrderType, TrdEnv, TrdSide
+            print(f"\n  Phase 4: Placing stop-loss orders ({MOOMOO_TRAILING_STOP_PCT*100:.0f}%) "
+                  f"on {len(overlay_buys)} overlay stocks...")
+            for _, row in overlay_buys.iterrows():
+                try:
+                    qty = int(abs(row["delta_shares"]))
+                    limit_price = float(row.get("limit_price", 0.0) or 0.0)
+                    stop_price = round(limit_price * (1.0 - MOOMOO_TRAILING_STOP_PCT), 2)
+                    if qty > 0 and stop_price > 0:
+                        ret, data = ctx.place_order(
+                            price=stop_price,
+                            qty=qty,
+                            code=_moomoo_code(row["ticker"]),
+                            trd_side=TrdSide.SELL,
+                            order_type=MooOrderType.NORMAL,
+                            trd_env=TrdEnv.SIMULATE,
+                            remark=f"stop_loss_{MOOMOO_TRAILING_STOP_PCT*100:.0f}pct",
+                        )
+                        if ret == 0:
+                            print(f"    ✓ STOP SELL {row['ticker']} qty={qty} "
+                                  f"at ${stop_price:.2f} ({MOOMOO_TRAILING_STOP_PCT*100:.0f}% below ${limit_price:.2f})")
+                        else:
+                            print(f"    ✗ STOP SELL {row['ticker']}: {data}")
+                except Exception as exc:
+                    print(f"    ✗ STOP SELL {row['ticker']} FAILED: {exc}")
+
+        # ── Phase 5: Repair durable core ETF stop-limit protection ──────
+        # PLAIN ENGLISH: Moomoo paper does not reliably support trailing stops.
+        # We use conditional STOP_LIMIT sell orders for core ETFs when the API
+        # accepts them, and never fall back to a plain sell limit below market.
+        if MOOMOO_CORE_STOP_ENABLED:
+            print("\n  Phase 5: Repairing Moomoo core ETF stop-limit protection...")
+            repair_moomoo_core_etf_stops(
+                ctx,
+                tickers=MOOMOO_CORE_STOP_TICKERS,
+                logger=lambda msg: print(f"    {msg}"),
+            )
     finally:
         try:
             ctx.close()
@@ -1600,6 +2072,9 @@ def run_core_satellite_submission(
     executable = orders[orders["action"].isin(["BUY", "SELL"])]
     if executable.empty:
         print("\nNo orders needed; account is already at target or below minimum trade size.")
+        if submit and MOOMOO_CORE_STOP_ENABLED:
+            print("Checking Moomoo core ETF stop-limit protection...")
+            run_moomoo_execution_guard(dry_run=False, replace=False)
         return
     if not submit:
         print("\nPreview only. Re-run with `--submit` to send these orders to Moomoo simulated trading.")
@@ -1830,6 +2305,21 @@ def main() -> None:
         help="Reconcile submitted paper orders against Moomoo simulated order history.",
     )
     parser.add_argument(
+        "--execution-guard",
+        action="store_true",
+        help="Run Moomoo ETF protection guard once: repair core ETF stop-limit orders.",
+    )
+    parser.add_argument(
+        "--guard-dry-run",
+        action="store_true",
+        help="With --execution-guard, show stop changes without submitting/cancelling orders.",
+    )
+    parser.add_argument(
+        "--replace-protection",
+        action="store_true",
+        help="With --execution-guard, cancel/recreate matching core ETF protection even if it looks fresh.",
+    )
+    parser.add_argument(
         "--lookback-days",
         type=int,
         default=14,
@@ -1904,6 +2394,13 @@ def main() -> None:
         help="Archive the old signals/paper_trades.csv before logging this submit attempt.",
     )
     args = parser.parse_args()
+
+    if args.execution_guard:
+        run_moomoo_execution_guard(
+            dry_run=bool(args.guard_dry_run),
+            replace=bool(args.replace_protection),
+        )
+        return
 
     if args.sync:
         reconciled = reconcile_paper_trades(lookback_days=int(args.lookback_days))

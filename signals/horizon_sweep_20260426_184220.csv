@@ -1,2 +1,0 @@
-horizon_days,train_exit_code,exit_code,metrics_path,trades_path,equity_path,total_return_pct,alpha_pct,benchmark_return_pct,sharpe_ratio_daily,nw_tstat_vs_cash,max_drawdown_pct,cash_overlay_avg_alloc,kill_all_pass
-10,,0,/Users/amos/Code/Stock Market AI Bot/signals/MSFT_metrics_h10_20260426_184220.json,/Users/amos/Code/Stock Market AI Bot/signals/MSFT_trades_h10_20260426_184220.csv,/Users/amos/Code/Stock Market AI Bot/signals/MSFT_equity_h10_20260426_184220.csv,368.55,-695.71,1064.26,0.966,4.073,-18.0,0.5691,True

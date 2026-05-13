@@ -51,9 +51,11 @@ from core_satellite_alpha import (
     REGIME_PRESETS,
     SCORE_SOURCES,
     SHAPES,
+    WEIGHTING_MODES,
     MAX_PER_SECTOR_OPTIONS,
     EARNINGS_BLACKOUT_DAY_OPTIONS,
     HOLDING_DAY_OPTIONS,
+    OVERLAY_GROSS_OPTIONS,
     _cached_etf_prices,
     _ensure_robust_score_columns,
     _load_regime_indicators,
@@ -65,6 +67,7 @@ from core_satellite_alpha import (
     _sticky_overlay_weights,
     _compute_regime_strength,
     _blended_score_col,
+    _regime_preset_with_overlay_gross,
     check_factor_freshness,
     MAX_SINGLE_NAME_WEIGHT,
     COST_STRESS_MULTIPLIERS,
@@ -75,12 +78,54 @@ from core_satellite_alpha import (
     VOL_TARGET_MIN_SCALE,
     SENTIMENT_VETO_ENABLED,
     _apply_sentiment_veto,
+    _load_feature_quality_filter,
 )
+from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
 from settings import SIGNAL_DIR, SLIPPAGE_BASE_PCT
 
 # Paper-trading safety: cap gross exposure at 1.0x for broker submissions
 # (no leverage on paper accounts unless explicitly allowed)
 PAPER_MAX_GROSS_EXPOSURE = 1.00
+
+# ── TQQQ fast circuit breaker ───────────────────────────────────────────────
+# PLAIN ENGLISH: TQQQ is 3x leveraged, so it can fall 70% in a crash before the
+# 100-day-MA regime detector fires (roughly 20 trading days of lag).  This fast
+# circuit breaker checks whether TQQQ has already dropped more than the threshold
+# from its recent high.  If so, the signal immediately sets TQQQ weight to 0 —
+# no waiting for the regime to flip.
+#
+# TQQQ_FAST_DD_THRESHOLD: if TQQQ is down more than this from its N-day high,
+#   force TQQQ weight to 0 in the signal.  Default -15% (e.g. -0.15).
+# TQQQ_FAST_DD_LOOKBACK: how many recent trading days to look back for the high.
+import os as _os
+TQQQ_FAST_DD_THRESHOLD = float(_os.environ.get("TQQQ_FAST_DD_THRESHOLD", "-0.15"))
+TQQQ_FAST_DD_LOOKBACK = int(_os.environ.get("TQQQ_FAST_DD_LOOKBACK", "5"))
+
+
+def _tqqq_drawdown_ok(prices: "pd.Series", threshold: float = TQQQ_FAST_DD_THRESHOLD, lookback: int = TQQQ_FAST_DD_LOOKBACK) -> tuple[bool, float]:
+    """
+    Return (is_ok, drawdown_from_high) for TQQQ's recent price action.
+
+    PLAIN ENGLISH: Looks at the last `lookback` closing prices for TQQQ.
+    Finds the highest price in that window.  If today's price is more than
+    `threshold` below that high (e.g. -15%), returns is_ok=False — meaning
+    the fast circuit breaker should fire and TQQQ weight should be set to 0.
+
+    Returns (True, drawdown) if within threshold (safe to hold TQQQ).
+    Returns (False, drawdown) if circuit breaker should fire.
+    Drawdown is a negative number, e.g. -0.18 means 18% below recent high.
+    """
+    prices = prices.dropna()
+    if len(prices) < 2:
+        return True, 0.0
+    window = prices.iloc[-lookback:] if len(prices) >= lookback else prices
+    recent_high = float(window.max())
+    current = float(prices.iloc[-1])
+    if recent_high <= 0:
+        return True, 0.0
+    drawdown = (current - recent_high) / recent_high
+    return drawdown > threshold, drawdown
+
 
 # ── TQQQ-specific presets ───────────────────────────────────────────────────
 # These mirror the winning config (qqq_trend_switch_overlay70_core55) but
@@ -234,6 +279,11 @@ def run_tqqq_backtest(
     preset_name: str = "tqqq_enhanced",
     score_source: str = "regime_adaptive",
     shape: str = "top5",
+    weighting: str = "sticky_score",
+    overlay_gross: float | None = None,
+    regime_ma_window: int | None = None,
+    regime_high_vol: float | None = None,
+    high_vol_mode: str | None = None,
     max_per_sector: int = 2,
     earnings_blackout_days: int = 0,
     drawdown_circuit_breaker: float = 0.0,
@@ -257,6 +307,14 @@ def run_tqqq_backtest(
     # "tqqq_enhanced_adaptive" = cash buffer + percentile vol detection.
     presets = build_tqqq_presets(tqqq_weight)
     preset = presets[preset_name]
+    if overlay_gross is not None:
+        preset = _regime_preset_with_overlay_gross(preset, float(overlay_gross))
+    if regime_ma_window is not None:
+        preset["ma_window"] = int(regime_ma_window)
+    if regime_high_vol is not None:
+        preset["high_vol"] = float(regime_high_vol)
+    if high_vol_mode is not None:
+        preset["high_vol_mode"] = str(high_vol_mode)
 
     config = {
         "core_preset": preset_name,
@@ -268,7 +326,7 @@ def run_tqqq_backtest(
         # These were hardcoded before — now they're grid-searchable parameters
         "score_source": score_source,
         "shape": shape,
-        "weighting": "sticky_score",
+        "weighting": weighting,
         "exit_rank_floor": 0.80,
         "adaptive_exit_mode": "fixed",
         "max_per_sector": max_per_sector,
@@ -479,6 +537,7 @@ def run_tqqq_backtest(
             "core_ret": core_ret,
             "factor_ret": factor_ret,
             "cost": cost,
+            "turnover": turnover,
             "strategy_ret": strategy_ret,
             "n_overlay": len(overlay),
             "tqqq_weight_used": float(core_weights.get("TQQQ", 0.0)),
@@ -565,23 +624,44 @@ def _scale_paper_targets(
     return scaled_etf, overlay * scale, raw_gross, scale, True
 
 
-def _load_winning_tqqq_config() -> dict | None:
-    """
-    Load the winning TQQQ config from the grid search JSON file.
+LIVE_CONFIG_PATH = Path(SIGNAL_DIR) / "core_satellite_live_configs.json"
 
-    PLAIN ENGLISH: After a grid search, we save the best configuration to a
-    JSON file.  This function loads it so the live signal generator uses the
-    proven-best parameters instead of hardcoded defaults.  Returns None if
-    no saved config exists (falls back to defaults).
+
+def _load_approved_tqqq_config() -> dict:
     """
-    config_path = Path(SIGNAL_DIR) / "core_satellite_tqqq_winning_config.json"
-    if config_path.exists():
-        try:
-            with open(config_path) as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError):
-            return None
-    return None
+    Load the nested-walk-forward-approved TQQQ config.
+
+    Live signals must come from nested walk-forward approval, not from the
+    full-sample grid search. Missing or unapproved config fails closed.
+    """
+    if not LIVE_CONFIG_PATH.exists():
+        raise SystemExit(
+            f"Missing approved live config file: {LIVE_CONFIG_PATH}. "
+            "Run `python3 nested_walkforward.py --strategy both` first."
+        )
+    try:
+        payload = json.loads(LIVE_CONFIG_PATH.read_text())
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"Invalid approved live config file {LIVE_CONFIG_PATH}: {exc}") from exc
+
+    approval = payload.get("approvals", {}).get("tqqq", {})
+    if not bool(approval.get("approved", False)):
+        reasons = approval.get("reasons", ["not approved"])
+        raise SystemExit(
+            f"Nested walk-forward has not approved a live TQQQ config: {reasons}. "
+            "Run `python3 nested_walkforward.py --strategy both` and inspect the OOS report."
+        )
+    approved = payload.get("approved_live_configs", {}).get("tqqq", {})
+    config = approved.get("config") if isinstance(approved, dict) else None
+    if not isinstance(config, dict):
+        raise SystemExit(f"Approved live TQQQ config is missing from {LIVE_CONFIG_PATH}.")
+    return {
+        **config,
+        "approved_config_family": approved.get("approved_config_family"),
+        "source_metrics": approved.get("source_metrics", {}),
+        "approval": approval,
+        "source_json": payload.get("source_json"),
+    }
 
 
 def write_tqqq_signal(panel: pd.DataFrame, tqqq_weight: float = 0.20, factor_freshness: dict | None = None) -> Path:
@@ -596,36 +676,32 @@ def write_tqqq_signal(panel: pd.DataFrame, tqqq_weight: float = 0.20, factor_fre
     The signal format matches core_satellite_alpha_signal.csv but adds
     target_tqqq_weight for the TQQQ allocation.
 
-    If a winning config JSON exists from a prior grid search, we use those
-    parameters.  Otherwise falls back to hardcoded defaults.
+    The config is loaded from signals/core_satellite_live_configs.json, which
+    is written by nested_walkforward.py after the config family is approved.
     """
-    # ── Try loading the grid-search-winning config ────────────────────────
-    # PLAIN ENGLISH: If a grid search was run before, we saved the winning
-    # combo to a JSON file.  Load it and use those parameters for live signal.
-    saved = _load_winning_tqqq_config()
-    if saved is not None:
-        # Override tqqq_weight and other params from the saved winner
-        tqqq_weight = float(saved.get("tqqq_weight", tqqq_weight))
-        score_source = str(saved.get("score_source", "regime_adaptive"))
-        shape = str(saved.get("shape", "top3"))
-        max_per_sector = int(saved.get("max_per_sector", 2))
-        earnings_blackout_days = int(saved.get("earnings_blackout_days", 0))
-        holding_days = int(saved.get("holding_days", HORIZON_DAYS))
-        preset_name = str(saved.get("preset", "tqqq_enhanced"))
-        print(f"  ✓ Loaded winning config: preset={preset_name}, TQQQ={tqqq_weight*100:.0f}%, "
-              f"score={score_source}, shape={shape}, hd={holding_days}")
-    else:
-        # Defaults (same as before)
-        score_source = "regime_adaptive"
-        shape = "top5"
-        max_per_sector = 2
-        earnings_blackout_days = 0
-        holding_days = HORIZON_DAYS
-        preset_name = "tqqq_enhanced"
+    saved = _load_approved_tqqq_config()
+    tqqq_weight = float(saved.get("tqqq_weight", tqqq_weight))
+    score_source = str(saved.get("score_source", "regime_adaptive"))
+    shape = str(saved.get("shape", "top3"))
+    weighting = str(saved.get("weighting", "sticky_score"))
+    max_per_sector = int(saved.get("max_per_sector", 2))
+    earnings_blackout_days = int(saved.get("earnings_blackout_days", 0))
+    holding_days = int(saved.get("holding_days", HORIZON_DAYS))
+    overlay_gross = float(saved.get("overlay_gross", 0.50))
+    preset_name = str(saved.get("core_preset", "tqqq_enhanced"))
+    regime_ma_window = int(saved.get("regime_ma_window", 100))
+    regime_high_vol = float(saved.get("regime_high_vol", 0.30))
+    high_vol_mode = str(saved.get("high_vol_mode", "fixed"))
+    print(f"  ✓ Loaded nested-approved config: preset={preset_name}, TQQQ={tqqq_weight*100:.0f}%, "
+          f"overlay={overlay_gross:.0%}, score={score_source}, shape={shape}, hd={holding_days}")
 
     # Build TQQQ preset and register it for regime resolution
     presets = build_tqqq_presets(tqqq_weight)
     preset = presets[preset_name] if preset_name in presets else presets["tqqq_enhanced"]
+    preset = _regime_preset_with_overlay_gross(preset, overlay_gross)
+    preset["ma_window"] = regime_ma_window
+    preset["high_vol"] = regime_high_vol
+    preset["high_vol_mode"] = high_vol_mode
     REGIME_PRESETS[preset_name] = preset
 
     # Config matching the winning backtest settings
@@ -634,10 +710,11 @@ def write_tqqq_signal(panel: pd.DataFrame, tqqq_weight: float = 0.20, factor_fre
         "regime_mode": preset_name,
         "regime_ma_window": int(preset["ma_window"]),
         "regime_high_vol": float(preset["high_vol"]),
+        "high_vol_mode": str(preset.get("high_vol_mode", "fixed")),
         "core_weights": dict(preset["risk_on"]["core_weights"]),
         "score_source": score_source,
         "shape": shape,
-        "weighting": "sticky_score",
+        "weighting": weighting,
         "exit_rank_floor": 0.80,
         "adaptive_exit_mode": "fixed",
         "max_per_sector": max_per_sector,
@@ -647,6 +724,10 @@ def write_tqqq_signal(panel: pd.DataFrame, tqqq_weight: float = 0.20, factor_fre
         "max_gross_exposure": MAX_GROSS_EXPOSURE,
         "max_single_name_weight": MAX_SINGLE_NAME_WEIGHT,
         "holding_days": holding_days,
+        "live_config_source": "nested_walkforward",
+        "approved_config_family": saved.get("approved_config_family"),
+        "walkforward_source_json": saved.get("source_json"),
+        "walkforward_source_metrics": saved.get("source_metrics", {}),
     }
 
     # Get latest date and resolve regime
@@ -714,16 +795,46 @@ def write_tqqq_signal(panel: pd.DataFrame, tqqq_weight: float = 0.20, factor_fre
     # Compute final gross exposure after scaling
     gross = sum(abs(v) for v in scaled_etf.values()) + float(paper_overlay.abs().sum())
 
+    # ── TQQQ fast circuit breaker ─────────────────────────────────────────
+    # PLAIN ENGLISH: Before writing the signal, check whether TQQQ has already
+    # dropped more than TQQQ_FAST_DD_THRESHOLD from its recent high.  If so,
+    # override the TQQQ weight to 0 right now — don't wait 20 days for the
+    # regime detector to catch up.  The regime-switching flag will still say
+    # "risk_on", but TQQQ specifically gets zeroed out.
+    tqqq_cb_active = False
+    tqqq_cb_drawdown = 0.0
+    if scaled_etf.get("TQQQ", 0.0) > 0:
+        try:
+            lookback_dates = pd.bdate_range(
+                end=latest_date, periods=TQQQ_FAST_DD_LOOKBACK + 1
+            )
+            tqqq_prices_df = _load_etf_prices_with_tqqq(lookback_dates)
+            if "TQQQ" in tqqq_prices_df.columns:
+                tqqq_ok, tqqq_cb_drawdown = _tqqq_drawdown_ok(tqqq_prices_df["TQQQ"])
+                if not tqqq_ok:
+                    tqqq_cb_active = True
+                    scaled_etf["TQQQ"] = 0.0
+                    # Redistribute the freed TQQQ weight to QQQ (keeping gross the same)
+                    scaled_etf["QQQ"] = scaled_etf.get("QQQ", 0.0) + (tqqq_weight * core_gross * paper_scale)
+                    gross = sum(abs(v) for v in scaled_etf.values()) + float(paper_overlay.abs().sum())
+                    print(f"  🛑 TQQQ fast circuit breaker FIRED: "
+                          f"{tqqq_cb_drawdown*100:.1f}% drawdown from {TQQQ_FAST_DD_LOOKBACK}-day high "
+                          f"(threshold {TQQQ_FAST_DD_THRESHOLD*100:.0f}%). TQQQ weight → 0.")
+        except Exception as exc:
+            print(f"  ⚠ TQQQ fast circuit breaker check failed (proceeding with signal): {exc}")
+
     # Build signal row — same format as core_satellite_alpha_signal.csv
     # but with target_tqqq_weight added
     row = {
         "paper_signal_type": "core_satellite_tqqq",
         "paper_ready": True if (factor_freshness is None or factor_freshness.get("fresh", True)) else False,
-        "core_preset": "tqqq_enhanced",
-        "regime_mode": "tqqq_enhanced",
+        "core_preset": config["core_preset"],
+        "regime_mode": config["regime_mode"],
         "current_regime": current_regime,
         "score_source": config["score_source"],
         "tqqq_weight_config": tqqq_weight,
+        "tqqq_circuit_breaker_active": tqqq_cb_active,
+        "tqqq_circuit_breaker_drawdown": round(tqqq_cb_drawdown, 4),
         "target_spy_weight": round(scaled_etf.get("SPY", 0.0), 4),
         "target_qqq_weight": round(scaled_etf.get("QQQ", 0.0), 4),
         "target_tqqq_weight": round(scaled_etf.get("TQQQ", 0.0), 4),
@@ -739,6 +850,9 @@ def write_tqqq_signal(panel: pd.DataFrame, tqqq_weight: float = 0.20, factor_fre
         "core_gross": round(sum(abs(v) for v in scaled_etf.values()), 4),
         "raw_core_gross": round(core_gross, 4),
         "max_single_name_weight": round(float(config["max_single_name_weight"]), 4),
+        "robust_cost_stress_pass": bool(
+            saved.get("source_metrics", {}).get("cost_stress_approval_pass", saved.get("approval", {}).get("approved", False))
+        ),
         "adaptive_exit_mode": str(config["adaptive_exit_mode"]),
         "earnings_blackout_days": int(config["earnings_blackout_days"]),
         "holding_days": int(config["holding_days"]),
@@ -792,49 +906,71 @@ def main():
 
     # Load factor panel (same as core-satellite)
     print("Loading factor panel and computing scores...")
+
+    # ── FEATURE QUALITY FILTER ────────────────────────────────────────────────
+    # PLAIN ENGLISH: Same filter as core-satellite alpha — if the feature quality
+    # diagnostic has been run, drop grade D/F features to reduce noise.
+    quality_filter = _load_feature_quality_filter()
     specs = load_feature_specs()
+    if quality_filter is not None:
+        original_count = len(specs)
+        specs = [s for s in specs if s["feature"] in quality_filter]
+        if len(specs) < original_count:
+            print(f"  Feature filter applied: {original_count} → {len(specs)} specs")
+    scores = load_prediction_scores()
+
+    # Backtest/training panel: requires forward returns. It naturally lags the
+    # newest raw data by the forward-return horizon, so it is correct for grid /
+    # backtest but wrong for live freshness checks.
     panel = _ensure_robust_score_columns(
-        attach_scores(load_factor_panel(specs), specs, load_prediction_scores())
+        attach_scores(load_factor_panel(specs), specs, scores)
     )
-    print(f"  Panel: {len(panel)} rows, {panel['ticker'].nunique()} tickers, "
-          f"{panel['date'].nunique()} dates")
+    print(f"  Backtest panel: {len(panel)} rows, {panel['ticker'].nunique()} tickers, "
+          f"{panel['date'].nunique()} dates, latest={pd.Timestamp(panel['date'].max()).date()}")
+
+    # Live signal panel: does not require future returns, so it includes the
+    # freshest feature rows and should be used for signal freshness + generation.
+    signal_panel = _ensure_robust_score_columns(
+        attach_scores(load_factor_panel(specs, require_forward_returns=False), specs, scores)
+    )
+    print(f"  Live signal panel: {len(signal_panel)} rows, {signal_panel['ticker'].nunique()} tickers, "
+          f"{signal_panel['date'].nunique()} dates, latest={pd.Timestamp(signal_panel['date'].max()).date()}")
 
     # ── Data freshness gate ────────────────────────────────────────────
-    # PLAIN ENGLISH: Check if the factor data is fresh before generating signals
-    # or running backtests.  Stale data → stale stock picks → bad trades.
-    freshness = check_factor_freshness(panel, ignore_stale=args.ignore_stale)
+    # PLAIN ENGLISH: Check live feature freshness, not the backtest-label panel.
+    freshness = check_factor_freshness(signal_panel, ignore_stale=args.ignore_stale)
     print(f"\n  {freshness['message']}")
     if freshness["blocked"]:
         raise SystemExit(f"Aborting: {freshness['message']}")
 
     if args.grid:
-        # ── EXPANDED Grid search ────────────────────────────────────────
-        # PLAIN ENGLISH: We now test the SAME dimensions as the alpha grid
-        # search: score sources, shapes, sector caps, holding days, earnings
-        # blackout — PLUS the TQQQ-specific dimensions (tqqq_weight, preset).
-        # This finds the best combo of all parameters, not just TQQQ weight.
-        tqqq_weights = [0.00, 0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50]
+        # ── REDUCED Grid search ─────────────────────────────────────────
+        # Keep only coarse, economically distinct choices to limit selection bias.
+        tqqq_weights = [0.00, 0.10, 0.20, 0.30]
         cost_stresses = list(COST_STRESS_MULTIPLIERS)
+        overlay_grosses = list(OVERLAY_GROSS_OPTIONS)
         preset_variants = ["tqqq_enhanced", "tqqq_enhanced_cashbuffer", "tqqq_enhanced_adaptive"]
         # DD breaker disabled — redundant with regime switching (same finding as alpha)
         dd_breaker_options = [0.0]
 
         # Count total configs to estimate runtime
         n_configs = (
-            len(preset_variants) * len(tqqq_weights) * len(SCORE_SOURCES)
-            * len(SHAPES) * len(MAX_PER_SECTOR_OPTIONS)
+            len(preset_variants) * len(tqqq_weights) * len(overlay_grosses) * len(SCORE_SOURCES)
+            * len(SHAPES) * len(WEIGHTING_MODES) * len(MAX_PER_SECTOR_OPTIONS)
             * len(EARNINGS_BLACKOUT_DAY_OPTIONS) * len(HOLDING_DAY_OPTIONS)
             * len(cost_stresses) * len(dd_breaker_options)
         )
-        print(f"\nExpanded grid search: {n_configs} configs")
+        print(f"\nReduced grid search: {n_configs} configs")
         print(f"  {len(preset_variants)} presets × {len(tqqq_weights)} TQQQ weights"
+              f" × {len(overlay_grosses)} overlay levels"
               f" × {len(SCORE_SOURCES)} score sources × {len(SHAPES)} shapes"
+              f" × {len(WEIGHTING_MODES)} weighting modes"
               f" × {len(MAX_PER_SECTOR_OPTIONS)} sector caps"
               f" × {len(EARNINGS_BLACKOUT_DAY_OPTIONS)} blackout options"
               f" × {len(HOLDING_DAY_OPTIONS)} holding days"
-              f" × {len(cost_stresses)} cost levels"
+              f" × {len(cost_stresses)} cost validation levels"
               f" × {len(dd_breaker_options)} DD breaker options")
-        print(f"\n{'#':>5} {'Preset':<30} {'TQQQ%':>5} {'Score':>12} {'Shp':>4} {'Sec':>3} "
+        print(f"\n{'#':>5} {'Preset':<30} {'TQQQ%':>5} {'Ov%':>4} {'Score':>12} {'Shp':>5} {'Wgt':>15} {'Sec':>3} "
               f"{'BO':>2} {'HD':>3} {'Cost':>5} | {'Return%':>10} {'Sharpe':>8} "
               f"{'MaxDD%':>8} {'Holdout%':>9}")
         print("-" * 130)
@@ -843,116 +979,199 @@ def main():
         config_num = 0
         for pv in preset_variants:
             for tw in tqqq_weights:
-                for ss in SCORE_SOURCES:
-                    for shp in SHAPES:
-                        for mps in MAX_PER_SECTOR_OPTIONS:
-                            for ebd in EARNINGS_BLACKOUT_DAY_OPTIONS:
-                                for hd in HOLDING_DAY_OPTIONS:
-                                    for ddb in dd_breaker_options:
-                                        for cs in cost_stresses:
-                                            config_num += 1
-                                            try:
-                                                metrics, eq, trades = run_tqqq_backtest(
-                                                    panel,
-                                                    tqqq_weight=tw,
-                                                    cost_stress=cs,
-                                                    holding_days=hd,
-                                                    preset_name=pv,
-                                                    score_source=ss,
-                                                    shape=shp,
-                                                    max_per_sector=mps,
-                                                    earnings_blackout_days=ebd,
-                                                    drawdown_circuit_breaker=ddb,
-                                                    quiet=True,
-                                                )
-                                            except Exception as e:
-                                                if not args.ignore_stale:
-                                                    print(f"  SKIP {config_num}: {e}")
-                                                continue
-                                            holdout_ret = metrics.get("holdout_2023_2026", {}).get("strategy_return_pct", 0)
+                for og in overlay_grosses:
+                    for ss in SCORE_SOURCES:
+                        for shp in SHAPES:
+                            for weighting in WEIGHTING_MODES:
+                                for mps in MAX_PER_SECTOR_OPTIONS:
+                                    for ebd in EARNINGS_BLACKOUT_DAY_OPTIONS:
+                                        for hd in HOLDING_DAY_OPTIONS:
+                                            for ddb in dd_breaker_options:
+                                                for cs in cost_stresses:
+                                                    config_num += 1
+                                                    try:
+                                                        metrics, eq, trades = run_tqqq_backtest(
+                                                            panel,
+                                                            tqqq_weight=tw,
+                                                            cost_stress=cs,
+                                                            holding_days=hd,
+                                                            preset_name=pv,
+                                                            score_source=ss,
+                                                            shape=shp,
+                                                            weighting=weighting,
+                                                            overlay_gross=og,
+                                                            max_per_sector=mps,
+                                                            earnings_blackout_days=ebd,
+                                                            drawdown_circuit_breaker=ddb,
+                                                            quiet=True,
+                                                        )
+                                                    except Exception as e:
+                                                        if not args.ignore_stale:
+                                                            print(f"  SKIP {config_num}: {e}")
+                                                        continue
+                                                    holdout_ret = metrics.get("holdout_2023_2026", {}).get("strategy_return_pct", 0)
+                                                    holdout = metrics.get("holdout_2023_2026", {})
+                                                    comps = metrics.get("benchmark_comparisons", {})
 
-                                            # Print progress every 100 configs, or always for cost_stress=2.0 and dd=0
-                                            if (cs == 2.0 and ddb == 0.0) or config_num % 200 == 0:
-                                                print(f"{config_num:>5} {pv:<30} {tw*100:>5.0f}% {ss:>12} {shp:>4} "
-                                                      f"{mps:>3} {ebd:>2} {hd:>3} dd={ddb:.0%} {cs:>5.1f} | "
-                                                      f"{metrics['total_return_pct']:>10.1f} "
-                                                      f"{metrics['sharpe']:>8.3f} "
-                                                      f"{metrics['max_drawdown_pct']:>8.1f} "
-                                                      f"{holdout_ret:>9.1f}")
+                                                    # Print progress every 100 configs, or always for cost_stress=2.0 and dd=0
+                                                    if (cs == 2.0 and ddb == 0.0) or config_num % 200 == 0:
+                                                        print(
+                                                            f"{config_num:>5} {pv:<30} {tw*100:>5.0f}% {og*100:>4.0f} "
+                                                            f"{ss:>12} {shp:>5} {weighting:>15} "
+                                                            f"{mps:>3} {ebd:>2} {hd:>3} dd={ddb:.0%} {cs:>5.1f} | "
+                                                            f"{metrics['total_return_pct']:>10.1f} "
+                                                            f"{metrics['sharpe']:>8.3f} "
+                                                            f"{metrics['max_drawdown_pct']:>8.1f} "
+                                                            f"{holdout_ret:>9.1f}"
+                                                        )
 
-                                            grid_rows.append({
-                                                "preset": pv,
-                                                "tqqq_weight": tw,
-                                                "score_source": ss,
-                                                "shape": shp,
-                                                "max_per_sector": mps,
-                                                "earnings_blackout_days": ebd,
-                                                "holding_days": hd,
-                                                "drawdown_circuit_breaker": ddb,
-                                                "cost_stress": cs,
-                                                "total_return_pct": metrics["total_return_pct"],
-                                                "cagr_pct": metrics["cagr_pct"],
-                                                "sharpe": metrics["sharpe"],
-                                                "max_drawdown_pct": metrics["max_drawdown_pct"],
-                                                "holdout_return_pct": holdout_ret,
-                                                "turnover_pct": metrics.get("turnover_pct", 0),
-                                                **{f"alpha_vs_{k.lower()}": v.get("alpha_pct", 0)
-                                               for k, v in metrics.get("benchmark_comparisons", {}).items()},
-                                        })
+                                                    grid_rows.append({
+                                                        "core_preset": pv,
+                                                        "tqqq_weight": tw,
+                                                        "overlay_gross": og,
+                                                        "score_source": ss,
+                                                        "shape": shp,
+                                                        "weighting": weighting,
+                                                        "max_per_sector": mps,
+                                                        "earnings_blackout_days": ebd,
+                                                        "holding_days": hd,
+                                                        "drawdown_circuit_breaker": ddb,
+                                                        "cost_stress": cs,
+                                                        "total_return_pct": metrics["total_return_pct"],
+                                                        "cagr_pct": metrics["cagr_pct"],
+                                                        "sharpe": metrics["sharpe"],
+                                                        "max_drawdown_pct": metrics["max_drawdown_pct"],
+                                                        "holdout_return_pct": holdout_ret,
+                                                        "holdout_alpha_vs_qqq_pct": holdout.get("alpha_vs_qqq_pct", 0),
+                                                        "holdout_alpha_vs_blend_pct": holdout.get("alpha_vs_blend_pct", 0),
+                                                        "turnover_pct": metrics.get("turnover_pct", 0),
+                                                        "alpha_vs_spy_pct": comps.get("SPY", {}).get("alpha_pct", 0),
+                                                        "alpha_vs_qqq_pct": comps.get("QQQ", {}).get("alpha_pct", 0),
+                                                        "alpha_vs_blend_pct": comps.get("BLEND", {}).get("alpha_pct", 0),
+                                                        "tqqq_stress_row_gate_pass": bool(metrics["max_drawdown_pct"] > -50.0),
+                                                    })
 
         grid_df = pd.DataFrame(grid_rows)
         grid_path = Path(SIGNAL_DIR) / "core_satellite_tqqq_grid.csv"
+        robust_key_cols = [
+            "core_preset",
+            "tqqq_weight",
+            "overlay_gross",
+            "score_source",
+            "shape",
+            "weighting",
+            "max_per_sector",
+            "earnings_blackout_days",
+            "holding_days",
+            "drawdown_circuit_breaker",
+        ]
+        grid_df = add_cost_stress_approval_columns(
+            grid_df,
+            key_cols=robust_key_cols,
+            required_costs=COST_STRESS_MULTIPLIERS,
+            row_gate_col="tqqq_stress_row_gate_pass",
+        )
+
+        # ── Auto-select winning config using ROBUSTNESS SCORE ─────────────
+        # PLAIN ENGLISH: Select in Sharpe units and subtract explicit penalties.
+        # No CAGR, total return, or holdout return bonus is part of this score.
+        robustness_cols = grid_df.apply(
+            lambda row: pd.Series(robustness_score_components(row)),
+            axis=1,
+        )
+        grid_df = pd.concat([grid_df, robustness_cols], axis=1)
+        grid_df["paper_ready"] = (
+            grid_df["tqqq_stress_row_gate_pass"].astype(bool)
+            & grid_df["robust_cost_stress_pass"].astype(bool)
+        )
         grid_df.to_csv(grid_path, index=False)
         print(f"\nGrid saved → {grid_path}  ({len(grid_df)} rows)")
+        print(
+            "Cost-stress gate: "
+            f"{int(grid_df['robust_cost_stress_pass'].sum())} rows pass grouped checks "
+            f"at levels {COST_STRESS_MULTIPLIERS}"
+        )
 
-        # ── Auto-select winning config and save to JSON ───────────────────
-        # PLAIN ENGLISH: Pick the best config from the grid (highest Sharpe at
-        # cost_stress=2.0 with drawdown < -50%) and save it so the live signal
-        # generator can load it automatically instead of using hardcoded defaults.
-        hardened = grid_df[
-            (grid_df["cost_stress"] == 2.0)
-            & (grid_df["max_drawdown_pct"] > -50.0)  # reject configs with >50% DD
-        ]
+        base_grid = grid_df[grid_df["cost_stress"].astype(float) == float(COST_STRESS_MULTIPLIERS[0])].copy()
+        if base_grid.empty:
+            raise SystemExit(f"No TQQQ base cost-stress rows found at {COST_STRESS_MULTIPLIERS[0]}x.")
+        base_grid = base_grid.sort_values(
+            ["paper_ready", "robust_cost_stress_pass", "robustness_score"],
+            ascending=[False, False, False],
+        )
+        hardened = base_grid[base_grid["paper_ready"]]
         if hardened.empty:
-            # Fallback: just use cost_stress=2.0 without DD filter
-            hardened = grid_df[grid_df["cost_stress"] == 2.0]
+            hardened = base_grid[base_grid["robust_cost_stress_pass"]]
+        if hardened.empty:
+            hardened = base_grid
 
         if not hardened.empty:
-            winner = hardened.nlargest(1, "sharpe").iloc[0]
+            winner = hardened.iloc[0]
             winning_config = {
-                "preset": str(winner["preset"]),
+                "core_preset": str(winner["core_preset"]),
                 "tqqq_weight": float(winner["tqqq_weight"]),
+                "overlay_gross": float(winner["overlay_gross"]),
                 "score_source": str(winner["score_source"]),
                 "shape": str(winner["shape"]),
+                "weighting": str(winner["weighting"]),
                 "max_per_sector": int(winner["max_per_sector"]),
                 "earnings_blackout_days": int(winner.get("earnings_blackout_days", 0)),
                 "holding_days": int(winner["holding_days"]),
                 "drawdown_circuit_breaker": float(winner.get("drawdown_circuit_breaker", 0.0)),
                 # Record the metrics so we know what we're targeting
                 "grid_sharpe": float(winner["sharpe"]),
+                "grid_robustness_score": float(winner.get("robustness_score", 0)),
+                "grid_drawdown_penalty": float(winner.get("drawdown_penalty", 0)),
+                "grid_turnover_penalty": float(winner.get("turnover_penalty", 0)),
+                "grid_instability_penalty": float(winner.get("instability_penalty", 0)),
                 "grid_return_pct": float(winner["total_return_pct"]),
                 "grid_max_dd_pct": float(winner["max_drawdown_pct"]),
                 "grid_holdout_pct": float(winner.get("holdout_return_pct", 0)),
-                "selection_method": "best_sharpe_dd_under_50pct",
+                "base_cost_stress": float(winner.get("cost_stress", COST_STRESS_MULTIPLIERS[0])),
+                "robust_cost_stress_pass": bool(winner.get("robust_cost_stress_pass", False)),
+                "robust_cost_stress_summary": {
+                    "cost_levels": str(winner.get("stress_cost_levels", "")),
+                    "has_required_costs": bool(winner.get("stress_has_required_costs", False)),
+                    "all_gates_pass": bool(winner.get("stress_all_gates_pass", False)),
+                    "min_alpha_vs_spy_pct": float(winner.get("stress_min_alpha_vs_spy_pct", 0)),
+                    "min_alpha_vs_qqq_pct": float(winner.get("stress_min_alpha_vs_qqq_pct", 0)),
+                    "min_alpha_vs_blend_pct": float(winner.get("stress_min_alpha_vs_blend_pct", 0)),
+                    "min_holdout_alpha_vs_qqq_pct": float(winner.get("stress_min_holdout_alpha_vs_qqq_pct", 0)),
+                    "min_holdout_alpha_vs_blend_pct": float(winner.get("stress_min_holdout_alpha_vs_blend_pct", 0)),
+                },
+                "selection_method": "best_base_cost_robustness_score_cost_stress_gate",
                 "selected_at": datetime.now().isoformat(),
             }
             config_path = Path(SIGNAL_DIR) / "core_satellite_tqqq_winning_config.json"
             with open(config_path, "w") as f:
                 json.dump(winning_config, f, indent=2)
             print(f"\n✓ Winning config saved → {config_path}")
-            print(f"  Preset={winning_config['preset']}, TQQQ={winning_config['tqqq_weight']*100:.0f}%, "
+            print(f"  Preset={winning_config['core_preset']}, TQQQ={winning_config['tqqq_weight']*100:.0f}%, "
+                  f"Overlay={winning_config['overlay_gross']*100:.0f}%, "
                   f"Score={winning_config['score_source']}, Shape={winning_config['shape']}, "
+                  f"Weighting={winning_config['weighting']}, "
                   f"HD={winning_config['holding_days']}")
             print(f"  Sharpe={winning_config['grid_sharpe']:.3f}, "
+                  f"Robust={winning_config['grid_robustness_score']:.3f}, "
                   f"Return={winning_config['grid_return_pct']:.0f}%, "
                   f"MaxDD={winning_config['grid_max_dd_pct']:.1f}%")
+            print(f"  Penalties: DD={winning_config['grid_drawdown_penalty']:.3f}, "
+                  f"turnover={winning_config['grid_turnover_penalty']:.3f}, "
+                  f"instability={winning_config['grid_instability_penalty']:.3f}")
+            print(
+                "  Cost stress approval: "
+                f"{'PASS' if winning_config['robust_cost_stress_pass'] else 'FAIL'} "
+                f"levels={winning_config['robust_cost_stress_summary']['cost_levels']}"
+            )
 
         # Show best by Sharpe at base cost stress
         print("\nTop 10 by Sharpe (at cost_stress=2.0):")
         top = grid_df[grid_df["cost_stress"] == 2.0].nlargest(10, "sharpe")
         for _, r in top.iterrows():
-            print(f"  {r['preset']:<30} TQQQ={r['tqqq_weight']*100:.0f}%  "
+            print(f"  {r['core_preset']:<30} TQQQ={r['tqqq_weight']*100:.0f}%  "
+                  f"Ov={r['overlay_gross']*100:.0f}%  "
                   f"score={r['score_source']:<25} shape={r['shape']}  "
+                  f"weighting={r['weighting']}  "
                   f"sec={r['max_per_sector']:.0f}  hd={r['holding_days']:.0f}  "
                   f"Return={r['total_return_pct']:.0f}%  "
                   f"Sharpe={r['sharpe']:.3f}  MaxDD={r['max_drawdown_pct']:.1f}%")
@@ -961,8 +1180,10 @@ def main():
         print("\nTop 10 by Total Return (at cost_stress=2.0):")
         top_ret = grid_df[grid_df["cost_stress"] == 2.0].nlargest(10, "total_return_pct")
         for _, r in top_ret.iterrows():
-            print(f"  {r['preset']:<30} TQQQ={r['tqqq_weight']*100:.0f}%  "
+            print(f"  {r['core_preset']:<30} TQQQ={r['tqqq_weight']*100:.0f}%  "
+                  f"Ov={r['overlay_gross']*100:.0f}%  "
                   f"score={r['score_source']:<25} shape={r['shape']}  "
+                  f"weighting={r['weighting']}  "
                   f"sec={r['max_per_sector']:.0f}  hd={r['holding_days']:.0f}  "
                   f"Return={r['total_return_pct']:.0f}%  "
                   f"Sharpe={r['sharpe']:.3f}  MaxDD={r['max_drawdown_pct']:.1f}%")
@@ -1057,7 +1278,7 @@ def main():
     else:
         # ── Default: generate live signal for Alpaca paper trading ─────
         print(f"\nGenerating TQQQ-enhanced live signal (TQQQ weight={args.tqqq_weight*100:.0f}%)...")
-        signal_path = write_tqqq_signal(panel, tqqq_weight=args.tqqq_weight, factor_freshness=freshness)
+        signal_path = write_tqqq_signal(signal_panel, tqqq_weight=args.tqqq_weight, factor_freshness=freshness)
         # Read back and display what was written
         sig = pd.read_csv(signal_path).iloc[0]
         print(f"\n{'='*60}")

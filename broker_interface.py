@@ -12,7 +12,7 @@ from typing import Literal
 
 
 Side = Literal["buy", "sell"]
-OrderType = Literal["market", "limit"]
+OrderType = Literal["market", "limit", "trailing_stop"]
 
 
 @dataclass
@@ -22,6 +22,7 @@ class Order:
     quantity: int
     type: OrderType = "market"
     limit_price: float | None = None
+    trail_percent: float | None = None  # for trailing_stop orders (e.g., 0.06 = 6%)
     client_id: str | None = None
 
 
@@ -89,6 +90,31 @@ class DryRunBroker(Broker):
     def get_positions(self) -> list[Position]:
         return [Position(ticker=p.ticker, quantity=p.quantity, avg_price=p.avg_price) for p in self._positions.values() if p.quantity != 0]
 
+    def _apply_position_fill(self, ticker: str, signed_qty: int, price: float) -> None:
+        prev = self._positions.get(ticker, Position(ticker=ticker, quantity=0, avg_price=0.0))
+        new_qty = prev.quantity + signed_qty
+
+        if new_qty == 0:
+            self._positions.pop(ticker, None)
+            return
+
+        if prev.quantity == 0:
+            self._positions[ticker] = Position(ticker=ticker, quantity=new_qty, avg_price=price)
+            return
+
+        if (prev.quantity > 0) == (signed_qty > 0):
+            prev_abs = abs(prev.quantity)
+            fill_abs = abs(signed_qty)
+            total_cost = prev.avg_price * prev_abs + price * fill_abs
+            self._positions[ticker] = Position(ticker=ticker, quantity=new_qty, avg_price=total_cost / abs(new_qty))
+            return
+
+        if (prev.quantity > 0) == (new_qty > 0):
+            self._positions[ticker] = Position(ticker=ticker, quantity=new_qty, avg_price=prev.avg_price)
+            return
+
+        self._positions[ticker] = Position(ticker=ticker, quantity=new_qty, avg_price=price)
+
     def place_order(self, order: Order) -> str:
         if int(order.quantity) <= 0:
             raise ValueError("Order quantity must be positive")
@@ -105,17 +131,7 @@ class DryRunBroker(Broker):
         fee = self._commission(qty)
         self._cash -= signed * px + fee
 
-        prev = self._positions.get(ticker, Position(ticker=ticker, quantity=0, avg_price=0.0))
-        new_qty = prev.quantity + signed
-        if new_qty == 0:
-            self._positions.pop(ticker, None)
-        elif prev.quantity == 0 or (prev.quantity > 0) != (new_qty > 0):
-            self._positions[ticker] = Position(ticker=ticker, quantity=new_qty, avg_price=px)
-        elif signed > 0:
-            total_cost = prev.avg_price * prev.quantity + px * qty
-            self._positions[ticker] = Position(ticker=ticker, quantity=new_qty, avg_price=total_cost / new_qty)
-        else:
-            self._positions[ticker] = Position(ticker=ticker, quantity=new_qty, avg_price=prev.avg_price)
+        self._apply_position_fill(ticker, signed, px)
 
         self._fills.append((self._now_iso(), Fill(order_id=oid, ticker=ticker, side=order.side, quantity=qty, price=px, commission=fee)))
         return oid

@@ -1,2 +1,0 @@
-fold,start,end,tickers,trades,total_return_pct,alpha_pct,sharpe_ratio_daily,nw_tstat_vs_cash,max_drawdown_pct,kill_all_pass,status
-1,2024-01-01,2024-12-31,1,24,7.88,7.88,0.669,0.823,-7.99,False,complete

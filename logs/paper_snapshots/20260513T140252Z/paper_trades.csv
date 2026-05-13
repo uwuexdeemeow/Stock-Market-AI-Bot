@@ -1,0 +1,101 @@
+ticker,action,reason,price,target_weight,target_value,current_shares,target_shares,delta_shares,limit_price,order_value,current_value,current_weight,drift_abs,drift_threshold,drift_ok,submitted,broker_response,broker_reject_reason,broker_order_id,submitted_at,submission_batch_id,strategy,raw_target_gross_exposure,submitted_target_gross_exposure,target_weight_scale,fill_status,reconciled_at,broker_ret,broker_code,broker_requested_qty,broker_requested_price,unlock_attempted,unlock_ok,unlock_message,raw_limit_price,broker_requested_price_raw,broker_qty,broker_trd_side,broker_order_type,broker_order_status,broker_updated_time,broker_dealt_qty,broker_dealt_avg_price,filled_value,unfilled_qty,execution_slippage_bps,execution_slippage_dollars,reconcile_match_type
+GOOGL,SELL,rebalance_to_target,382.695,0.0,0.0,446,0,-446,382.31,170681.97,170681.97,0.164928,0.164928,0.01,True,True,"       code  stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.GOOGL  Alphabet-A     SELL     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2821460,2026-05-04T14:57:29.027307+00:00,20260504T145729Z,core_satellite_alpha,1.0,1.0,1.0,filled,2026-05-13T14:02:54.002782+00:00,0.0,US.GOOGL,446.0,382.31,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,382.312312,382.31,446.0,SELL,NORMAL,FILLED_ALL,2026-05-04 10:57:30,446.0,382.69,170679.74,0.0,0.130652347169298,2.229999999997972,missing_broker_order
+AMAT,BUY,rebalance_to_target,393.44,0.186667,193178.85,0,490,490,393.84,192785.6,0.0,0.0,0.186667,0.01,True,True,"      code         stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.AMAT  Applied Materials      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2821461,2026-05-04T14:57:29.027307+00:00,20260504T145729Z,core_satellite_alpha,1.0,1.0,1.0,filled,2026-05-13T14:02:54.004055+00:00,0.0,US.AMAT,490.0,393.84,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,393.833442,393.84,490.0,BUY,NORMAL,FILLED_ALL,2026-05-04 10:57:39,490.0,393.48,192805.2,0.0,1.01667344449015,19.600000000010027,missing_broker_order
+C,BUY,rebalance_to_target,125.685,0.111093,114968.46,0,914,914,125.82,114876.09,0.0,0.0,0.111093,0.01,True,True,"   code stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.C  Citigroup      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2821462,2026-05-04T14:57:29.027307+00:00,20260504T145729Z,core_satellite_alpha,1.0,1.0,1.0,filled,2026-05-13T14:02:54.005263+00:00,0.0,US.C,914.0,125.82,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,125.810683,125.82,914.0,BUY,NORMAL,FILLED_ALL,2026-05-04 10:57:45,914.0,125.714,114902.6,0.0,2.307355690814048,26.505999999996675,missing_broker_order
+MU,BUY,rebalance_to_target,584.9,0.26224,271388.2,0,463,463,585.49,270808.71,0.0,0.0,0.26224,0.01,True,True,"    code         stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.MU  Micron Technology      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2821463,2026-05-04T14:57:29.027307+00:00,20260504T145729Z,core_satellite_alpha,1.0,1.0,1.0,filled,2026-05-13T14:02:54.006363+00:00,0.0,US.MU,463.0,585.49,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,585.484924,585.49,463.0,BUY,NORMAL,FILLED_ALL,2026-05-04 10:57:30,463.0,585.238,270965.19,0.0,5.778765600958781,156.49400000003664,missing_broker_order
+QQQ,BUY,rebalance_to_target,675.7789,0.44,455349.33,0,673,673,676.46,454799.18,0.0,0.0,0.44,0.03,True,True,"     code         stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.QQQ  Invesco QQQ Trust      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2821464,2026-05-04T14:57:29.027307+00:00,20260504T145729Z,core_satellite_alpha,1.0,1.0,1.0,filled,2026-05-13T14:02:54.007401+00:00,0.0,US.QQQ,673.0,676.46,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,676.454648,676.46,673.0,BUY,NORMAL,FILLED_ALL,2026-05-04 10:57:33,673.0,675.74,454773.02,0.0,-0.5756320595391832,-26.179700000008324,missing_broker_order
+AMAT,SELL,rebalance_to_target,424.86,0.0,0.0,490,0,-490,424.43,208181.4,208181.4,0.185699,0.185699,0.01,True,True,"      code         stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.AMAT  Applied Materials     SELL     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2827917,2026-05-08T13:35:35.830494+00:00,20260508T133535Z,core_satellite_alpha,1.0,1.0,1.0,filled,2026-05-13T14:02:54.007957+00:00,0.0,US.AMAT,490.0,424.43,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,424.43514,424.43,490.0,SELL,NORMAL,FILLED_ALL,2026-05-08 09:35:51,490.0,424.98,208240.2,0.0,-2.824459822059138,-58.80000000000223,order_id
+C,SELL,rebalance_to_target,130.55,0.0,0.0,914,0,-914,130.41,119322.7,119322.7,0.106437,0.106437,0.01,True,True,"   code stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.C  Citigroup     SELL     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2827918,2026-05-08T13:35:35.830494+00:00,20260508T133535Z,core_satellite_alpha,1.0,1.0,1.0,filled,2026-05-13T14:02:54.008495+00:00,0.0,US.C,914.0,130.41,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,130.41945,130.41,914.0,SELL,NORMAL,FILLED_ALL,2026-05-08 09:35:51,914.0,130.62,119386.68,0.0,-5.361930294905643,-63.979999999993765,order_id
+MU,SELL,rebalance_to_target,694.53,0.26224,293988.94,463,423,-40,693.83,27781.2,321567.39,0.28684,0.0246,0.01,True,True,"    code         stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.MU  Micron Technology     SELL     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2827919,2026-05-08T13:35:35.830494+00:00,20260508T133535Z,core_satellite_alpha,1.0,1.0,1.0,filled,2026-05-13T14:02:54.009021+00:00,0.0,US.MU,40.0,693.83,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,693.83547,693.83,40.0,SELL,NORMAL,FILLED_ALL,2026-05-08 09:35:39,40.0,694.79,27791.6,0.0,-3.743538796020199,-10.399999999999636,order_id
+CAT,BUY,rebalance_to_target,889.67,0.111093,124542.84,0,139,139,890.56,123664.13,0.0,0.0,0.111093,0.01,True,True,"     code   stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.CAT  Caterpillar      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2827920,2026-05-08T13:35:35.830494+00:00,20260508T133535Z,core_satellite_alpha,1.0,1.0,1.0,cancelled,2026-05-13T14:02:54.009585+00:00,0.0,US.CAT,139.0,890.56,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,890.559653,890.56,139.0,BUY,NORMAL,CANCELLED_ALL,2026-05-08 20:01:00,0.0,0.0,0.0,139.0,,,order_id
+INTC,BUY,rebalance_to_target,99.62,0.186667,209266.45,0,2100,2100,99.72,209202.01,0.0,0.0,0.186667,0.01,True,True,"      code stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.INTC      Intel      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2827921,2026-05-08T13:35:35.830494+00:00,20260508T133535Z,core_satellite_alpha,1.0,1.0,1.0,cancelled,2026-05-13T14:02:54.010106+00:00,0.0,US.INTC,2100.0,99.72,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,99.719623,99.72,2100.0,BUY,NORMAL,CANCELLED_ALL,2026-05-08 20:01:00,0.0,0.0,0.0,2100.0,,,order_id
+MU,SELL,rebalance_to_target,789.98,0.04916,57529.88,423,72,-351,789.19,277282.98,334161.54,0.285545,0.236385,0.01,True,True,"    code         stock_name trd_side order_type  ... trail_value trail_spread  currency  jp_acc_type
+0  US.MU  Micron Technology     SELL     NORMAL  ...         N/A          N/A       USD          N/A
+
+[1 rows x 23 columns]",,2831396,2026-05-11T14:49:59.558789+00:00,20260511T144959Z,core_satellite_alpha,0.999999,0.999999,1.0,filled,2026-05-13T14:02:54.010622+00:00,0.0,US.MU,351.0,789.19,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,789.19002,789.19,351.0,SELL,NORMAL,FILLED_ALL,2026-05-11 10:49:24,351.0,789.54,277128.54,0.0,5.569761259779419,154.44000000001915,order_id
+C,BUY,rebalance_to_target,125.55,0.166338,194658.35,0,1550,1550,125.68,194602.5,0.0,0.0,0.166338,0.01,True,True,"   code stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.C  Citigroup      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2831401,2026-05-11T14:49:59.558789+00:00,20260511T144959Z,core_satellite_alpha,0.999999,0.999999,1.0,filled,2026-05-13T14:02:54.011133+00:00,0.0,US.C,1550.0,125.68,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,125.675553,125.68,1550.0,BUY,NORMAL,FILLED_ALL,2026-05-11 15:53:18,1550.0,125.68,194804.0,0.0,10.354440461968114,201.50000000001498,order_id
+CAT,BUY,rebalance_to_target,897.45,0.086998,101810.09,0,113,113,898.35,101411.85,0.0,0.0,0.086998,0.01,True,True,"     code   stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.CAT  Caterpillar      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2831402,2026-05-11T14:49:59.558789+00:00,20260511T144959Z,core_satellite_alpha,0.999999,0.999999,1.0,cancelled,2026-05-13T14:02:54.011644+00:00,0.0,US.CAT,113.0,898.35,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,898.347462,898.35,113.0,BUY,NORMAL,CANCELLED_ALL,2026-05-11 20:01:00,0.0,0.0,0.0,113.0,,,order_id
+FCX,BUY,rebalance_to_target,61.65,0.060905,71274.56,0,1156,1156,61.72,71267.4,0.0,0.0,0.060905,0.01,True,True,"     code        stock_name trd_side order_type  ... trail_value trail_spread  currency  jp_acc_type
+0  US.FCX  Freeport-McMoRan      BUY     NORMAL  ...         N/A          N/A       USD          N/A
+
+[1 rows x 23 columns]",,2831403,2026-05-11T14:49:59.558789+00:00,20260511T144959Z,core_satellite_alpha,0.999999,0.999999,1.0,cancelled,2026-05-13T14:02:54.012117+00:00,0.0,US.FCX,1156.0,61.72,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,61.711652,61.72,1156.0,BUY,NORMAL,CANCELLED_ALL,2026-05-11 20:01:00,0.0,0.0,0.0,1156.0,,,order_id
+INTC,BUY,rebalance_to_target,124.92,0.036598,42829.1,0,342,342,125.05,42722.64,0.0,0.0,0.036598,0.01,True,True,"      code stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.INTC      Intel      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2831404,2026-05-11T14:49:59.558789+00:00,20260511T144959Z,core_satellite_alpha,0.999999,0.999999,1.0,cancelled,2026-05-13T14:02:54.012588+00:00,0.0,US.INTC,342.0,125.05,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,125.044918,125.05,342.0,BUY,NORMAL,CANCELLED_ALL,2026-05-11 20:01:00,0.0,0.0,0.0,342.0,,,order_id
+QQQ,BUY,rebalance_to_target,712.08,0.6,702154.72,673,986,313,712.8,222881.04,479229.84,0.409508,0.190492,0.03,True,True,"     code         stock_name trd_side order_type  ... trail_value trail_spread  currency  jp_acc_type
+0  US.QQQ  Invesco QQQ Trust      BUY     NORMAL  ...         N/A          N/A       USD          N/A
+
+[1 rows x 23 columns]",,2831405,2026-05-11T14:49:59.558789+00:00,20260511T144959Z,core_satellite_alpha,0.999999,0.999999,1.0,filled,2026-05-13T14:02:54.013062+00:00,0.0,US.QQQ,313.0,712.8,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,712.79208,712.8,313.0,BUY,NORMAL,FILLED_ALL,2026-05-11 10:50:00,313.0,712.17,222909.21,0.0,1.2639029322536535,28.16999999997438,order_id
+C,SELL,rebalance_to_target,125.19,0.045701,53232.28,1550,425,-1125,125.06,140838.75,194044.5,0.166591,0.12089,0.01,True,True,"   code stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.C  Citigroup     SELL     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2837155,2026-05-13T14:00:51.183783+00:00,20260513T140051Z,core_satellite_alpha,1.0,1.0,1.0,filled,2026-05-13T14:02:54.013540+00:00,0.0,US.C,1125.0,125.06,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,125.06481,125.06,1125.0,SELL,NORMAL,FILLED_ALL,2026-05-13 10:00:12,1125.0,125.27,140928.75,0.0,-6.390286764118404,-89.99999999999808,order_id
+CAT,BUY,rebalance_to_target,912.14,0.055202,64298.99,0,70,70,913.06,63849.8,0.0,0.0,0.055202,0.01,True,True,"     code   stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.CAT  Caterpillar      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2837157,2026-05-13T14:00:51.183783+00:00,20260513T140051Z,core_satellite_alpha,1.0,1.0,1.0,filled,2026-05-13T14:02:54.014007+00:00,0.0,US.CAT,70.0,913.06,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,913.052155,913.06,70.0,BUY,NORMAL,FILLED_ALL,2026-05-13 10:01:00,70.0,904.86,63340.2,0.0,-79.81230951389011,-509.5999999999981,order_id
+FCX,BUY,rebalance_to_target,66.03,0.050451,58765.05,0,890,890,66.1,58766.7,0.0,0.0,0.050451,0.01,True,True,"     code        stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.FCX  Freeport-McMoRan      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2837158,2026-05-13T14:00:51.183783+00:00,20260513T140051Z,core_satellite_alpha,1.0,1.0,1.0,open,2026-05-13T14:02:54.014487+00:00,0.0,US.FCX,890.0,66.1,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,66.096029,66.1,890.0,BUY,NORMAL,SUBMITTED,2026-05-13 10:00:49,0.0,0.0,0.0,890.0,,,order_id
+GE,BUY,rebalance_to_target,297.45,0.017197,20030.97,0,67,67,297.75,19929.15,0.0,0.0,0.017197,0.01,True,True,"    code    stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.GE  GE Aerospace      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2837159,2026-05-13T14:00:51.183783+00:00,20260513T140051Z,core_satellite_alpha,1.0,1.0,1.0,filled,2026-05-13T14:02:54.014957+00:00,0.0,US.GE,67.0,297.75,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,297.747462,297.75,67.0,BUY,NORMAL,FILLED_ALL,2026-05-13 10:00:57,67.0,294.12,19706.04,0.0,-111.95158850226875,-223.10999999999893,order_id
+GS,BUY,rebalance_to_target,945.9,0.04095,47698.34,0,50,50,946.85,47295.0,0.0,0.0,0.04095,0.01,True,True,"    code     stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.GS  Goldman Sachs      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2837160,2026-05-13T14:00:51.183783+00:00,20260513T140051Z,core_satellite_alpha,1.0,1.0,1.0,filled,2026-05-13T14:02:54.015426+00:00,0.0,US.GS,50.0,946.85,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,946.845924,946.85,50.0,BUY,NORMAL,FILLED_ALL,2026-05-13 10:01:00,50.0,936.25,46812.5,0.0,-102.01924093455943,-482.49999999999886,order_id
+INTC,BUY,rebalance_to_target,120.61,0.069454,80899.64,0,671,671,120.74,80929.31,0.0,0.0,0.069454,0.01,True,True,"      code stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.INTC      Intel      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2837161,2026-05-13T14:00:51.183783+00:00,20260513T140051Z,core_satellite_alpha,1.0,1.0,1.0,filled,2026-05-13T14:02:54.015892+00:00,0.0,US.INTC,671.0,120.74,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,120.730611,120.74,671.0,BUY,NORMAL,FILLED_ALL,2026-05-13 10:00:57,671.0,118.471,79494.04,0.0,-177.34847856728263,-1435.2689999999973,order_id
+MU,BUY,rebalance_to_target,795.33,0.074204,86432.42,72,109,37,796.13,29427.21,57263.76,0.049162,0.025042,0.01,True,True,"    code         stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.MU  Micron Technology      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2837162,2026-05-13T14:00:51.183783+00:00,20260513T140051Z,core_satellite_alpha,1.0,1.0,1.0,filled,2026-05-13T14:02:54.016359+00:00,0.0,US.MU,37.0,796.13,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,796.12533,796.13,37.0,BUY,NORMAL,FILLED_ALL,2026-05-13 10:00:57,37.0,794.49,29396.13,0.0,-10.561653653200958,-31.080000000001178,order_id
+NEM,BUY,rebalance_to_target,119.69,0.031449,36631.62,0,306,306,119.81,36625.14,0.0,0.0,0.031449,0.01,True,True,"     code stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.NEM    Newmont      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2837163,2026-05-13T14:00:51.183783+00:00,20260513T140051Z,core_satellite_alpha,1.0,1.0,1.0,filled,2026-05-13T14:02:54.016826+00:00,0.0,US.NEM,306.0,119.81,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,119.809692,119.81,306.0,BUY,NORMAL,FILLED_ALL,2026-05-13 10:01:00,306.0,118.47,36251.82,0.0,-101.92998579664122,-373.31999999999965,order_id
+TSLA,BUY,rebalance_to_target,433.45,0.012447,14498.2,0,33,33,433.89,14303.85,0.0,0.0,0.012447,0.01,True,True,"      code stock_name trd_side order_type order_status  ... trail_type  trail_value  trail_spread currency jp_acc_type
+0  US.TSLA      Tesla      BUY     NORMAL   SUBMITTING  ...        N/A          N/A           N/A      USD         N/A
+
+[1 rows x 23 columns]",,2837164,2026-05-13T14:00:51.183783+00:00,20260513T140051Z,core_satellite_alpha,1.0,1.0,1.0,open,2026-05-13T14:02:54.017294+00:00,0.0,US.TSLA,33.0,433.89,False,False,MOOMOO_UNLOCK_PWD not set; skipped trade unlock,433.883462,433.89,33.0,BUY,NORMAL,SUBMITTED,2026-05-13 10:00:50,0.0,0.0,0.0,33.0,,,order_id

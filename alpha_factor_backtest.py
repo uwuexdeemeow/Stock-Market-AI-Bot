@@ -3,8 +3,9 @@ alpha_factor_backtest.py — benchmark-relative direct factor research harness.
 
 This is intentionally separate from paper trading. It tests simple
 cross-sectional factor portfolios directly before giving the ML model any
-credit. The objective is alpha vs SPY, QQQ, and 60/40 SPY/QQQ after estimated
-turnover costs, not return vs cash.
+credit. The selection objective is robustness: Sharpe minus drawdown, turnover,
+and instability penalties. Benchmark alpha is still reported as a gate/context
+metric, but massive return or CAGR is not the optimizer target.
 """
 from __future__ import annotations
 
@@ -15,6 +16,10 @@ import numpy as np
 import pandas as pd
 
 from backtest import INITIAL_CAPITAL, _load_etf_price_frame, _newey_west_tstat
+from feature_health import (
+    enrich_feature_specs,
+)
+from robustness_scoring import robustness_score_components
 from settings import DATA_DIR, SECTOR_MAP, SIGNAL_DIR, SLIPPAGE_BASE_PCT, WATCHLIST
 
 
@@ -76,10 +81,10 @@ FACTOR_NAME_ALLOWLIST = (
 )
 
 
-def load_feature_specs(max_specs: int = 24) -> list[dict]:
+def load_feature_specs(max_specs: int = 48) -> list[dict]:
     path = Path("logs/feature_ic_shortlist.csv")
     if not path.exists():
-        return [
+        fallback = [
             {"feature": "xs_rank_sector_factor_illiquidity_amihud_20d", "preferred_direction": "high_is_good"},
             {"feature": "xs_rank_sector_factor_liquidity_dollar_vol_20d", "preferred_direction": "low_is_good"},
             {"feature": "xs_rank_sector_ret_5d", "preferred_direction": "low_is_good"},
@@ -87,6 +92,8 @@ def load_feature_specs(max_specs: int = 24) -> list[dict]:
             {"feature": "dist_ma5", "preferred_direction": "low_is_good"},
             {"feature": "ret_vs_sector_5d", "preferred_direction": "low_is_good"},
         ]
+        enriched, _profile = enrich_feature_specs(fallback)
+        return enriched
     df = pd.read_csv(path)
     df = df[(df.get("target") == "sector_excess") & (df.get("horizon") == HORIZON_DAYS)].copy()
     if df.empty:
@@ -99,22 +106,18 @@ def load_feature_specs(max_specs: int = 24) -> list[dict]:
     df = df.sort_values("abs_t_stat", ascending=False)
 
     specs: list[dict] = []
-    used_roots: set[str] = set()
     for row in df.to_dict("records"):
         feature = str(row["feature"])
-        root = feature.replace("xs_rank_market_", "").replace("xs_rank_sector_", "")
-        if root in used_roots and len(specs) >= 6:
-            continue
         specs.append({
             "feature": feature,
             "preferred_direction": str(row.get("preferred_direction", "high_is_good")),
             "t_stat": float(row.get("t_stat", 0.0) or 0.0),
             "mean_ic": float(row.get("mean_ic", 0.0) or 0.0),
         })
-        used_roots.add(root)
         if len(specs) >= max_specs:
             break
-    return specs
+    enriched, _profile = enrich_feature_specs(specs)
+    return enriched
 
 
 def load_prediction_scores() -> pd.DataFrame:
@@ -195,10 +198,9 @@ def load_factor_panel(specs: list[dict], *, require_forward_returns: bool = True
 
 
 def attach_scores(panel: pd.DataFrame, specs: list[dict], ml_scores: pd.DataFrame) -> pd.DataFrame:
+    specs, profile = enrich_feature_specs(specs, write_outputs=False)
     out = panel.copy()
     score_cols: list[str] = []
-    raw_rank_cols: list[str] = []
-    raw_rank_by_feature: dict[str, str] = {}
     score_by_feature: dict[str, str] = {}
     for spec in specs:
         col = spec["feature"]
@@ -208,8 +210,6 @@ def attach_scores(panel: pd.DataFrame, specs: list[dict], ml_scores: pd.DataFram
         rank = raw.groupby(out["date"]).rank(pct=True)
         raw_rank_col = f"_raw_rank_{col}"
         out[raw_rank_col] = rank
-        raw_rank_cols.append(raw_rank_col)
-        raw_rank_by_feature[col] = raw_rank_col
         oriented = 1.0 - rank if spec.get("preferred_direction") == "low_is_good" else rank
         score_col = f"_score_{col}"
         out[score_col] = oriented
@@ -217,8 +217,72 @@ def attach_scores(panel: pd.DataFrame, specs: list[dict], ml_scores: pd.DataFram
         score_by_feature[col] = score_col
     if not score_cols:
         raise SystemExit("None of the selected factor columns are available in data/*.parquet.")
-    out["factor_score"] = out[score_cols].mean(axis=1, skipna=True)
+
+    cluster_rows = {c["cluster_id"]: c for c in profile.get("clusters", [])}
+    feature_rows = {r["feature"]: r for r in profile.get("features", [])}
+    cluster_score_cols: list[str] = []
+    cluster_weight_raw: dict[str, float] = {}
+    cluster_features: dict[str, list[str]] = {}
+    cluster_score_by_id: dict[str, str] = {}
+    for cluster_id, cluster in cluster_rows.items():
+        contributing = [
+            feature
+            for feature in cluster.get("contributing_features", [])
+            if feature in score_by_feature
+        ]
+        if not contributing:
+            continue
+        cluster_col = f"_cluster_score_{cluster_id}"
+        out[cluster_col] = out[[score_by_feature[f] for f in contributing]].mean(axis=1, skipna=True)
+        cluster_score_cols.append(cluster_col)
+        cluster_score_by_id[cluster_id] = cluster_col
+        cluster_features[cluster_id] = contributing
+        cluster_weight_raw[cluster_id] = float(cluster.get("raw_weight", 0.0) or 0.0)
+
+    total_cluster_weight = sum(w for w in cluster_weight_raw.values() if w > 0)
+    if cluster_score_cols and total_cluster_weight > 0:
+        out["factor_score"] = 0.0
+        for cluster_id, cluster_col in cluster_score_by_id.items():
+            weight = cluster_weight_raw.get(cluster_id, 0.0) / total_cluster_weight
+            out["factor_score"] = out["factor_score"] + pd.to_numeric(out[cluster_col], errors="coerce").fillna(0.5) * weight
+    else:
+        out["factor_score"] = 0.5
+
     out = out.dropna(subset=["factor_score"])
+
+    normalized_cluster_weights = {
+        cid: (weight / total_cluster_weight if total_cluster_weight > 0 else 0.0)
+        for cid, weight in cluster_weight_raw.items()
+    }
+    feature_health_summary = dict(profile.get("summary", {}))
+    feature_health_summary.update({
+        "active_cluster_count": int(len(cluster_score_cols)),
+        "effective_cluster_count": int(len(cluster_score_cols)),
+        "max_cluster_weight": round(max(normalized_cluster_weights.values(), default=0.0), 6),
+    })
+    feature_health_summary["feature_health_gate_pass"] = bool(
+        feature_health_summary["active_cluster_count"] >= 6
+        and feature_health_summary["max_cluster_weight"] <= 0.25 + 1e-12
+    )
+    reasons: list[str] = []
+    if feature_health_summary["active_cluster_count"] < 6:
+        reasons.append(f"active_cluster_count {feature_health_summary['active_cluster_count']} < 6")
+    if feature_health_summary["max_cluster_weight"] > 0.25 + 1e-12:
+        reasons.append(f"max_cluster_weight {feature_health_summary['max_cluster_weight']:.3f} > 0.25")
+    feature_health_summary["feature_health_gate_reasons"] = reasons
+    feature_health_summary["quarantined_features"] = [
+        r["feature"] for r in feature_rows.values() if r.get("health_state") == "quarantined"
+    ]
+    feature_health_summary["watchlist_features"] = [
+        r["feature"] for r in feature_rows.values() if r.get("health_state") == "watchlist"
+    ]
+    out["feature_health_overlay_allowed"] = bool(feature_health_summary["feature_health_gate_pass"])
+    out["feature_health_active_cluster_count"] = int(feature_health_summary["active_cluster_count"])
+    out["feature_health_max_cluster_weight"] = float(feature_health_summary["max_cluster_weight"])
+    out.attrs["feature_health_summary"] = feature_health_summary
+    out.attrs["feature_health_cluster_score_cols"] = cluster_score_cols
+    out.attrs["feature_health_cluster_features"] = cluster_features
+    out.attrs["feature_health_cluster_weights"] = normalized_cluster_weights
 
     if not ml_scores.empty:
         out = out.merge(ml_scores, on=["date", "ticker"], how="left")
@@ -229,28 +293,39 @@ def attach_scores(panel: pd.DataFrame, specs: list[dict], ml_scores: pd.DataFram
         0.75 * out["factor_score"] + 0.25 * out["ml_score"],
         out["factor_score"],
     )
-    out = attach_walkforward_factor_score(out, specs, raw_rank_cols)
-    out = attach_regime_factor_scores(out, raw_rank_by_feature, score_by_feature)
+    out = attach_walkforward_factor_score(out, specs, cluster_score_cols)
+    out = attach_regime_factor_scores(out, specs, cluster_score_by_id, cluster_features)
     out["beta"] = pd.to_numeric(out.get("factor_beta_252_spy", 1.0), errors="coerce").fillna(1.0).clip(0.1, 3.0)
+    out.attrs["feature_health_summary"] = feature_health_summary
+    out.attrs["feature_health_cluster_score_cols"] = cluster_score_cols
+    out.attrs["feature_health_cluster_features"] = cluster_features
+    out.attrs["feature_health_cluster_weights"] = normalized_cluster_weights
     return out
 
 
 def attach_regime_factor_scores(
     panel: pd.DataFrame,
-    raw_rank_by_feature: dict[str, str],
-    score_by_feature: dict[str, str],
+    specs: list[dict],
+    cluster_score_by_id: dict[str, str],
+    cluster_features: dict[str, list[str]],
 ) -> pd.DataFrame:
     """Add simple regime-specific factor composites for core-satellite research."""
     out = panel.copy()
+    all_features_by_cluster = {cid: set(features) for cid, features in cluster_features.items()}
+    for spec in specs:
+        cid = str(spec.get("cluster_id") or "")
+        if cid in all_features_by_cluster:
+            all_features_by_cluster[cid].add(str(spec.get("feature", "")))
     momentum_cols = [
-        raw_col
-        for feature, raw_col in raw_rank_by_feature.items()
-        if "factor_mom" in feature or "factor_resid_mom" in feature
+        cluster_score_by_id[cid]
+        for cid, features in all_features_by_cluster.items()
+        if cid in cluster_score_by_id and any("factor_mom" in f or "factor_resid_mom" in f for f in features)
     ]
     reversal_cols = [
-        score_col
-        for feature, score_col in score_by_feature.items()
-        if any(key in feature for key in ("ret_1d", "ret_3d", "ret_5d", "ret_10d", "dist_ma", "liquidity", "illiquidity"))
+        cluster_score_by_id[cid]
+        for cid, features in all_features_by_cluster.items()
+        if cid in cluster_score_by_id
+        and any(key in f for f in features for key in ("ret_1d", "ret_3d", "ret_5d", "ret_10d", "dist_ma", "liquidity", "illiquidity"))
     ]
 
     risk_on_parts: list[pd.Series] = []
@@ -278,20 +353,20 @@ def attach_regime_factor_scores(
 def attach_walkforward_factor_score(
     panel: pd.DataFrame,
     specs: list[dict],
-    raw_rank_cols: list[str],
+    cluster_score_cols: list[str],
     *,
     lookback_days: int = 504,
     min_periods: int = 126,
     top_k: int = 8,
 ) -> pd.DataFrame:
-    """Add a factor score whose feature orientation is learned from past IC only."""
-    if not raw_rank_cols:
+    """Add a walk-forward score that selects clusters, not raw features."""
+    if not cluster_score_cols:
         panel["factor_walkforward_score"] = panel["factor_score"]
         return panel
 
     dates = pd.DatetimeIndex(sorted(panel["date"].unique()))
-    ic_by_feature: dict[str, pd.Series] = {}
-    for raw_col in raw_rank_cols:
+    ic_by_cluster: dict[str, pd.Series] = {}
+    for raw_col in cluster_score_cols:
         daily_ic = (
             panel[["date", raw_col, "forward_return"]]
             .dropna()
@@ -299,9 +374,9 @@ def attach_walkforward_factor_score(
             .apply(lambda g: g[raw_col].corr(g["forward_return"], method="spearman") if g[raw_col].nunique() > 1 else np.nan)
         )
         daily_ic = daily_ic.reindex(dates).astype(float)
-        ic_by_feature[raw_col] = daily_ic.rolling(lookback_days, min_periods=min_periods).mean().shift(HORIZON_DAYS)
+        ic_by_cluster[raw_col] = daily_ic.rolling(lookback_days, min_periods=min_periods).mean().shift(HORIZON_DAYS)
 
-    ic_frame = pd.DataFrame(ic_by_feature, index=dates)
+    ic_frame = pd.DataFrame(ic_by_cluster, index=dates)
     global_ic = {
         raw_col: float(
             panel[[raw_col, "forward_return"]]
@@ -309,7 +384,7 @@ def attach_walkforward_factor_score(
             .corr(method="spearman")
             .iloc[0, 1]
         )
-        for raw_col in raw_rank_cols
+        for raw_col in cluster_score_cols
         if panel[raw_col].notna().any()
     }
 
@@ -457,6 +532,8 @@ def run_one(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd.DataFrame,
     for dt in rebalance_dates:
         day = panel[panel["date"] == dt]
         weights = build_weights(day, config["shape"], config["exposure"], config["weighting"], config["sector_mode"], score_col)
+        if "feature_health_overlay_allowed" in day.columns and not bool(day["feature_health_overlay_allowed"].iloc[0]):
+            weights = pd.Series(dtype=float)
         aligned = pd.concat([prev.rename("prev"), weights.rename("now")], axis=1).fillna(0.0)
         turnover = float((aligned["now"] - aligned["prev"]).abs().sum())
         cost = turnover * SLIPPAGE_BASE_PCT
@@ -579,8 +656,20 @@ def evaluate_config(panel: pd.DataFrame, config: dict) -> tuple[dict, pd.Series,
         "yearly_alpha_pct": {str(k): round(float(v), 2) for k, v in yearly_alpha.items()},
     }
     gates = gate_metrics(metrics, bench_stats, subs, yearly_alpha)
+    health = dict(getattr(panel, "attrs", {}).get("feature_health_summary") or {"feature_health_gate_pass": True})
+    gates["feature_health_gate_pass"] = bool(health.get("feature_health_gate_pass", True))
     gates["all_pass"] = all(v for k, v in gates.items() if k.endswith("_pass"))
     metrics["alpha_factor_gate_results"] = gates
+    metrics.update({
+        "feature_health_gate_pass": bool(health.get("feature_health_gate_pass", True)),
+        "feature_health_gate_reasons": health.get("feature_health_gate_reasons", []),
+        "raw_feature_count": int(health.get("raw_feature_count", 0) or 0),
+        "active_cluster_count": int(health.get("active_cluster_count", 0) or 0),
+        "effective_cluster_count": int(health.get("effective_cluster_count", 0) or 0),
+        "quarantined_features": health.get("quarantined_features", []),
+        "watchlist_features": health.get("watchlist_features", []),
+        "max_cluster_weight": float(health.get("max_cluster_weight", 0.0) or 0.0),
+    })
     metrics["paper_ready"] = False
     return metrics, equity, trades
 
@@ -611,6 +700,7 @@ def main() -> None:
                         metrics, equity, trades = evaluate_config(panel, config)
                         comps = metrics["benchmark_comparisons"]
                         gates = metrics["alpha_factor_gate_results"]
+                        score_components = robustness_score_components({**metrics, **gates})
                         rows.append({
                             **config,
                             "total_return_pct": metrics["total_return_pct"],
@@ -624,14 +714,21 @@ def main() -> None:
                             "turnover_pct": metrics["turnover_pct"],
                             "estimated_cost_pct": metrics["estimated_cost_pct"],
                             "avg_gross_exposure": metrics["avg_gross_exposure"],
+                            "feature_health_gate_pass": gates.get("feature_health_gate_pass", True),
+                            "active_cluster_count": metrics.get("active_cluster_count", 0),
+                            "effective_cluster_count": metrics.get("effective_cluster_count", 0),
+                            "max_cluster_weight": metrics.get("max_cluster_weight", 0.0),
+                            "feature_health_gate_reasons": "; ".join(metrics.get("feature_health_gate_reasons", [])),
                             "subperiod_stability_pass": gates["subperiod_stability_pass"],
                             "paper_ready": gates["all_pass"],
+                            **score_components,
                         })
-                        if best is None or comps["BLEND"]["alpha_pct"] > best[0]["benchmark_comparisons"]["BLEND"]["alpha_pct"]:
-                            best = (metrics, equity, trades)
+                        score_rank = (bool(gates["all_pass"]), float(score_components["robustness_score"]))
+                        if best is None or score_rank > best[4]:
+                            best = (metrics, equity, trades, score_components, score_rank)
 
     grid = pd.DataFrame(rows).sort_values(
-        ["paper_ready", "alpha_vs_blend_pct", "sharpe", "max_drawdown_pct"],
+        ["paper_ready", "robustness_score", "sharpe", "max_drawdown_pct"],
         ascending=[False, False, False, False],
     ).reset_index(drop=True)
     grid_path = Path(SIGNAL_DIR) / "alpha_factor_grid.csv"
@@ -639,7 +736,7 @@ def main() -> None:
 
     if best is None:
         raise SystemExit("No alpha factor configs evaluated.")
-    best_metrics, best_equity, best_trades = best
+    best_metrics, best_equity, best_trades, best_score_components, _best_score_rank = best
     best_factor = grid[grid["score_source"] == "factor_only"].head(1)
     best_factor_ml = grid[grid["score_source"] == "factor_plus_model"].head(1)
     ml_value_add = {
@@ -662,7 +759,8 @@ def main() -> None:
         )
     best_metrics["selected_features"] = specs
     best_metrics["grid_rows"] = int(len(grid))
-    best_metrics["best_config_source"] = "highest_alpha_vs_blend_after_cost"
+    best_metrics["best_config_source"] = "best_robustness_score_after_cost"
+    best_metrics.update(best_score_components)
     best_metrics["ml_value_add"] = ml_value_add
     best_metrics["paper_ready"] = bool(best_metrics["alpha_factor_gate_results"]["all_pass"])
 

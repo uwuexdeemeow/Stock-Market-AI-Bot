@@ -24,11 +24,13 @@ SIGNALS = Path(SIGNAL_DIR)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TQQQ SIGNAL FILE TESTS
+# UNIFIED SIGNAL FILE TESTS
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Required columns that must exist in every TQQQ signal
-TQQQ_REQUIRED_COLUMNS = [
+# Required columns in the unified core-satellite signal (includes TQQQ when
+# the nested walkforward grid search determines it helps).  Both Moomoo and
+# Alpaca read this same signal file.
+UNIFIED_REQUIRED_COLUMNS = [
     "paper_signal_type",
     "paper_ready",
     "current_regime",
@@ -43,29 +45,19 @@ TQQQ_REQUIRED_COLUMNS = [
     "gates_all_pass",
 ]
 
-# Required columns for core-satellite signal
-CORE_SAT_REQUIRED_COLUMNS = [
-    "paper_signal_type",
-    "paper_ready",
-    "current_regime",
-    "target_spy_weight",
-    "target_qqq_weight",
-    "gross_exposure",
-    "overlay_tickers",
-    "overlay_weights_json",
-    "predicted_at",
-    "gates_all_pass",
-]
+# Legacy alias for backward compat in any external tests
+TQQQ_REQUIRED_COLUMNS = UNIFIED_REQUIRED_COLUMNS
+CORE_SAT_REQUIRED_COLUMNS = UNIFIED_REQUIRED_COLUMNS
 
 
-class TestTQQQSignalFile:
-    """Validate the TQQQ signal CSV that Alpaca reads."""
+class TestUnifiedSignalFile:
+    """Validate the unified signal CSV that both Moomoo and Alpaca read."""
 
     @pytest.fixture
     def signal_path(self):
-        path = SIGNALS / "core_satellite_tqqq_signal.csv"
+        path = SIGNALS / "core_satellite_alpha_signal.csv"
         if not path.exists():
-            pytest.skip("TQQQ signal file not generated yet")
+            pytest.skip("Unified signal file not generated yet")
         return path
 
     @pytest.fixture
@@ -77,12 +69,12 @@ class TestTQQQSignalFile:
     def test_required_columns_present(self, signal_path):
         """All required columns must exist in the signal CSV."""
         df = pd.read_csv(signal_path)
-        missing = [c for c in TQQQ_REQUIRED_COLUMNS if c not in df.columns]
+        missing = [c for c in UNIFIED_REQUIRED_COLUMNS if c not in df.columns]
         assert not missing, f"Missing required columns: {missing}"
 
     def test_signal_type_correct(self, signal):
-        """Signal type should identify this as TQQQ strategy."""
-        assert signal["paper_signal_type"] == "core_satellite_tqqq"
+        """Signal type should identify this as the unified core-satellite strategy."""
+        assert signal["paper_signal_type"] == "core_satellite_alpha"
 
     def test_paper_ready_is_true(self, signal):
         """Signal should be paper-ready."""
@@ -91,6 +83,11 @@ class TestTQQQSignalFile:
     def test_gates_all_pass(self, signal):
         """Gates should all pass."""
         assert bool(signal["gates_all_pass"]) is True
+
+    def test_tqqq_weight_non_negative(self, signal):
+        """TQQQ weight should be 0 or positive (never negative)."""
+        tqqq = float(signal.get("target_tqqq_weight", 0.0) or 0.0)
+        assert tqqq >= 0.0, f"TQQQ weight is negative: {tqqq}"
 
     def test_regime_is_valid(self, signal):
         """Regime must be one of the three valid values."""
@@ -221,29 +218,22 @@ class TestCoreSatelliteSignalFile:
 class TestSignalConsistency:
     """Cross-check that both signals are internally consistent."""
 
-    def test_tqqq_weight_config_matches_allocation(self):
-        """The tqqq_weight_config should match the actual TQQQ allocation ratio."""
-        path = SIGNALS / "core_satellite_tqqq_signal.csv"
+    def test_tqqq_weight_consistent_with_regime(self):
+        """During non-risk_on regimes, TQQQ weight should be 0."""
+        path = SIGNALS / "core_satellite_alpha_signal.csv"
         if not path.exists():
-            pytest.skip("TQQQ signal not generated")
+            pytest.skip("Signal not generated")
 
         sig = pd.read_csv(path).iloc[0]
-        config_weight = float(sig.get("tqqq_weight_config", 0.0))
         regime = str(sig["current_regime"])
+        tqqq_w = float(sig.get("target_tqqq_weight", 0.0) or 0.0)
 
-        # During risk_on, TQQQ should be approximately config_weight of core
-        if regime == "risk_on":
-            tqqq_w = float(sig["target_tqqq_weight"])
-            qqq_w = float(sig["target_qqq_weight"])
-            core_total = tqqq_w + qqq_w
-            if core_total > 1e-6:
-                actual_ratio = tqqq_w / core_total
-                assert abs(actual_ratio - config_weight) < 0.02, \
-                    f"TQQQ ratio {actual_ratio:.3f} != config {config_weight:.3f}"
+        # TQQQ is only held during risk_on regime; should be 0 in neutral/risk_off
+        if regime in ("neutral", "risk_off"):
+            assert tqqq_w == 0.0, \
+                f"TQQQ weight should be 0 in {regime} regime, got {tqqq_w}"
 
-    def test_both_signals_exist(self):
-        """Both signal files should exist (both strategies active)."""
-        tqqq_exists = (SIGNALS / "core_satellite_tqqq_signal.csv").exists()
-        core_exists = (SIGNALS / "core_satellite_alpha_signal.csv").exists()
-        assert tqqq_exists, "TQQQ signal missing — run: python core_satellite_tqqq.py"
-        assert core_exists, "Core-satellite signal missing — run: python core_satellite_alpha.py"
+    def test_unified_signal_exists(self):
+        """The unified signal file should exist."""
+        path = SIGNALS / "core_satellite_alpha_signal.csv"
+        assert path.exists(), "Signal missing — run: python3 core_satellite_alpha.py"

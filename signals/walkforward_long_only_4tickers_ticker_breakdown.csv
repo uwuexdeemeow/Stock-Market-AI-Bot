@@ -1,5 +1,0 @@
-ticker,trades,win_rate,avg_pnl,median_pnl,total_pnl,long_trades,short_trades
-MSFT,115,0.7652,38.971,36.87,4481.67,115,0
-NVDA,54,0.6111,17.5496,32.36,947.68,54,0
-GOOGL,35,0.5143,-11.7111,2.89,-409.89,35,0
-META,29,0.4828,-30.7541,-4.32,-891.87,29,0

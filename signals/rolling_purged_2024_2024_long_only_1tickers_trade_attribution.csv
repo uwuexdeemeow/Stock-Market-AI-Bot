@@ -1,7 +1,0 @@
-group_type,group,trades,win_rate,avg_pnl,median_pnl,total_pnl,avg_holding_days,avg_position_pct,profit_factor
-entry_year,2024,24,0.7083,32.84,37.58,788.07,10.0,22.72,2.442
-exit_reason,time_exit,24,0.7083,32.84,37.58,788.07,10.0,22.72,2.442
-sector,XLY,24,0.7083,32.84,37.58,788.07,10.0,22.72,2.442
-signal,LONG,24,0.7083,32.84,37.58,788.07,10.0,22.72,2.442
-signal_quality,HIGH,24,0.7083,32.84,37.58,788.07,10.0,22.72,2.442
-ticker,AMZN,24,0.7083,32.84,37.58,788.07,10.0,22.72,2.442

@@ -47,6 +47,7 @@ from settings import (
     ETF_ROTATION_RISK_ON_ENTER, ETF_ROTATION_RISK_ON_EXIT,
     ETF_ROTATION_NEUTRAL_THRESHOLD, ETF_ROTATION_DEFAULT_VOL_TARGET,
     ETF_ROTATION_MAX_GROSS_EXPOSURE,
+    SOCIAL_SENTIMENT_SAFETY_ENABLED,
 )
 from confidence_calibration import load_direction_calibrator, calibrate_p_up
 from model_quality import read_quality_report
@@ -208,6 +209,34 @@ def evaluate_sentiment_health(df: pd.DataFrame) -> tuple[str, float, list[str]]:
     latest_breaking = float(df["live_news_breaking"].iloc[-1]) if "live_news_breaking" in df.columns else 0.0
     latest_score_abs = float(df["live_news_score_abs"].iloc[-1]) if "live_news_score_abs" in df.columns else 0.0
     latest_has_signal = float(df["live_news_has_signal"].iloc[-1]) if "live_news_has_signal" in df.columns else 0.0
+    provider_cols = {
+        "sentiment_primary_available",
+        "sentiment_fallback_available",
+        "sentiment_fresh_headline_count",
+    }
+    has_provider_diagnostics = bool(provider_cols.intersection(df.columns))
+    primary_available = (
+        float(df["sentiment_primary_available"].iloc[-1])
+        if "sentiment_primary_available" in df.columns
+        else 0.0
+    )
+    fallback_available = (
+        float(df["sentiment_fallback_available"].iloc[-1])
+        if "sentiment_fallback_available" in df.columns
+        else 0.0
+    )
+    fresh_count = (
+        float(df["sentiment_fresh_headline_count"].iloc[-1])
+        if "sentiment_fresh_headline_count" in df.columns
+        else latest_headlines
+    )
+
+    if has_provider_diagnostics:
+        if primary_available > 0.0 and fresh_count > 0.0:
+            return "FULL", max(nonzero_ratio, 1.0), cols
+        if fallback_available > 0.0 and fresh_count > 0.0:
+            return "PARTIAL", max(nonzero_ratio, 0.2), cols
+        return "DEGRADED", nonzero_ratio, cols
 
     # If headlines were fetched today, do not treat a near-zero composite score as a
     # degraded feed. That can happen when the news mix is balanced/neutral.
@@ -223,6 +252,107 @@ def evaluate_sentiment_health(df: pd.DataFrame) -> tuple[str, float, list[str]]:
     if nonzero_ratio < 0.50:
         return "PARTIAL", nonzero_ratio, cols
     return "FULL", nonzero_ratio, cols
+
+
+# ── OOD (Out-of-Distribution) Detection ──────────────────────────────────────
+# PLAIN ENGLISH: The model was trained on historical data with certain feature
+# ranges.  If live features are wildly outside those ranges, the model is
+# making predictions in territory it's never seen — like asking someone who
+# only studied addition to solve calculus.  We flag these cases so the
+# prediction can be suppressed or discounted.
+#
+# How it works:
+#   1. The StandardScaler saved during training stores the mean and standard
+#      deviation of each feature column from the training set.
+#   2. At prediction time, we check each live feature value: how many
+#      standard deviations away from the training mean is it?
+#   3. If more than OOD_ZSCORE_THRESHOLD (default: 5) stdevs away, that
+#      feature is "out of distribution."
+#   4. If more than OOD_MAX_FRACTION (default: 15%) of features are OOD,
+#      the whole prediction is flagged as unreliable.
+
+OOD_ZSCORE_THRESHOLD = 5.0    # feature z-score beyond this = out of distribution
+OOD_MAX_FRACTION = 0.15       # if >15% of features are OOD, flag the prediction
+
+
+def detect_ood_features(
+    X_live: np.ndarray,
+    saved: dict,
+    *,
+    zscore_threshold: float = OOD_ZSCORE_THRESHOLD,
+) -> dict:
+    """Check if live feature values are outside the training distribution.
+
+    PLAIN ENGLISH: Compare each live feature to what the model saw during
+    training.  If a feature's value is more than 5 standard deviations from
+    the training mean, it's flagged as "out of distribution" (OOD).
+
+    Args:
+        X_live: 1-row numpy array of live feature values (already transformed
+                by build_live_xgb_matrix, so BEFORE scaling).
+        saved: the model metadata dict (contains the scaler with training stats).
+        zscore_threshold: how many stdevs away counts as OOD.
+
+    Returns a dict with:
+        ood_fraction: fraction of features that are OOD (0.0 to 1.0)
+        ood_count: number of OOD features
+        n_features: total features checked
+        ood_features: list of (index, zscore) for the worst OOD features
+        is_ood: True if ood_fraction > OOD_MAX_FRACTION
+    """
+    scaler = saved.get("xgb_scaler") or saved.get("scaler")
+    if scaler is None or not hasattr(scaler, "mean_") or not hasattr(scaler, "scale_"):
+        # No training distribution info available — can't check
+        return {
+            "ood_fraction": 0.0,
+            "ood_count": 0,
+            "n_features": 0,
+            "ood_features": [],
+            "is_ood": False,
+        }
+
+    train_mean = scaler.mean_
+    train_scale = scaler.scale_
+
+    # X_live shape might be (1, N) — flatten to 1D
+    x = X_live.flatten()
+
+    # Only check features up to the scaler's width (extras might be dummies/interactions)
+    n_check = min(len(x), len(train_mean))
+    if n_check == 0:
+        return {
+            "ood_fraction": 0.0,
+            "ood_count": 0,
+            "n_features": 0,
+            "ood_features": [],
+            "is_ood": False,
+        }
+
+    # Compute z-scores relative to training distribution
+    # Avoid division by zero for constant features (scale_ == 0)
+    safe_scale = np.where(train_scale[:n_check] > 1e-12, train_scale[:n_check], 1.0)
+    z_scores = np.abs((x[:n_check] - train_mean[:n_check]) / safe_scale)
+
+    # Find OOD features
+    ood_mask = z_scores > zscore_threshold
+    ood_count = int(ood_mask.sum())
+    ood_fraction = ood_count / n_check
+
+    # Top 5 worst OOD features (for diagnostics)
+    worst_indices = np.argsort(z_scores)[-5:][::-1]
+    ood_features = [
+        {"index": int(idx), "zscore": round(float(z_scores[idx]), 1)}
+        for idx in worst_indices
+        if z_scores[idx] > zscore_threshold
+    ]
+
+    return {
+        "ood_fraction": round(ood_fraction, 3),
+        "ood_count": ood_count,
+        "n_features": n_check,
+        "ood_features": ood_features,
+        "is_ood": ood_fraction > OOD_MAX_FRACTION,
+    }
 
 
 def compute_recent_accuracy(ticker: str, lookback_days: int = 20) -> tuple[float | None, int]:
@@ -404,6 +534,12 @@ def predict_ticker(ticker: str, verbose: bool = False) -> dict:
         else X_flat
     )
 
+    # ── OOD (out-of-distribution) check ────────────────────────────────────
+    # Before predicting, check if live features look like anything the model
+    # saw during training.  If too many features are wildly out of range,
+    # the prediction is unreliable and should be suppressed.
+    ood_info = detect_ood_features(X_flat, saved)
+
     dir_model, ret_model = load_xgb_models(ticker)
     if dir_model is None or ret_model is None:
         raise RuntimeError(f"No XGBoost models loaded for {ticker}")
@@ -496,6 +632,14 @@ def predict_ticker(ticker: str, verbose: bool = False) -> dict:
         actionable = False
         suppressed_reason = "degraded_sentiment_features"
 
+    # ── OOD gate: suppress prediction if features are out of training distribution
+    if ood_info["is_ood"]:
+        actionable = False
+        suppressed_reason = (
+            f"ood_features: {ood_info['ood_count']}/{ood_info['n_features']} "
+            f"({ood_info['ood_fraction']:.0%}) features >5σ from training"
+        )
+
     # Block trades when the broad market regime is unfavorable (high VIX or SPY below 200d MA).
     # This avoids taking new positions into a stressed or downtrending market.
     if MARKET_REGIME_FILTER_ENABLED and actionable:
@@ -524,6 +668,11 @@ def predict_ticker(ticker: str, verbose: bool = False) -> dict:
     price = float(df["Close"].iloc[-1]) if "Close" in df.columns else 0.0
     rsi = float(df["rsi_14"].iloc[-1]) if "rsi_14" in df.columns else 50.0
     sentiment = float(df["news_sentiment"].iloc[-1]) if "news_sentiment" in df.columns else 0.0
+    sentiment_provider_status = (
+        str(df["sentiment_provider_status_json"].iloc[-1])
+        if "sentiment_provider_status_json" in df.columns
+        else "[]"
+    )
 
     result = {
         "ticker": ticker,
@@ -546,6 +695,10 @@ def predict_ticker(ticker: str, verbose: bool = False) -> dict:
         "live_news_breaking": int(df["live_news_breaking"].iloc[-1]) if "live_news_breaking" in df.columns else 0,
         "live_news_score_abs": round(float(df["live_news_score_abs"].iloc[-1]), 4) if "live_news_score_abs" in df.columns else 0.0,
         "live_news_has_signal": bool(float(df["live_news_has_signal"].iloc[-1])) if "live_news_has_signal" in df.columns else False,
+        "sentiment_provider_status_json": sentiment_provider_status,
+        "sentiment_primary_available": bool(float(df["sentiment_primary_available"].iloc[-1])) if "sentiment_primary_available" in df.columns else False,
+        "sentiment_fallback_available": bool(float(df["sentiment_fallback_available"].iloc[-1])) if "sentiment_fallback_available" in df.columns else False,
+        "sentiment_fresh_headline_count": int(float(df["sentiment_fresh_headline_count"].iloc[-1])) if "sentiment_fresh_headline_count" in df.columns else 0,
         "sentiment_health": sentiment_health,
         "sentiment_nonzero_ratio": round(sentiment_nonzero_ratio, 2),
         "sentiment_feature_count": len(sentiment_cols),
@@ -568,18 +721,22 @@ def predict_ticker(ticker: str, verbose: bool = False) -> dict:
         "selected_mode": "xgboost_only",
         "selected_model_name": None,
         "feature_health": sentiment_health,
+        "ood_fraction": ood_info["ood_fraction"],
+        "ood_count": ood_info["ood_count"],
+        "ood_is_flagged": ood_info["is_ood"],
         "models_used": "xgboost_only",
         "model_version": saved.get("model_version", "unknown"),
         "predicted_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "live_short_enabled": False,
     }
 
-    try:
-        social = get_live_social_signal(ticker)
-        if social.get("social_available"):
-            result["social_combined"] = round(float(social.get("combined", 0.0)), 3)
-    except Exception:
-        pass
+    if SOCIAL_SENTIMENT_SAFETY_ENABLED:
+        try:
+            social = get_live_social_signal(ticker)
+            if social.get("social_available"):
+                result["social_combined"] = round(float(social.get("combined", 0.0)), 3)
+        except Exception:
+            pass
 
     # ── Alternative data: EPS revisions, analyst recs, short interest ────────
     # Fetches live snapshot data from yfinance and finnhub. These features

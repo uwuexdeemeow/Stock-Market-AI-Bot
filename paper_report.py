@@ -34,10 +34,10 @@ MOOMOO_EQUITY = SIGNALS / "paper_equity.csv"
 MOOMOO_TRADES = SIGNALS / "paper_trades.csv"
 MOOMOO_STATUS = SIGNALS / "paper_daily_status.json"
 
-# Alpaca (TQQQ-enhanced)
+# Alpaca (unified core-satellite — same signal as Moomoo, includes TQQQ when approved)
 ALPACA_EQUITY = SIGNALS / "alpaca_paper_equity.csv"
 ALPACA_TRADES = SIGNALS / "alpaca_paper_log.csv"
-ALPACA_SIGNAL = SIGNALS / "core_satellite_tqqq_signal.csv"
+ALPACA_SIGNAL = SIGNALS / "core_satellite_alpha_signal.csv"
 
 
 # ─────────────────────────────────────────────────────────────────────────────

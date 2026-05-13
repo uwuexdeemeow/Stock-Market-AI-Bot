@@ -4,6 +4,7 @@ pipeline_shared.py — Single source of truth for research/live feature engineer
 from __future__ import annotations
 
 import os
+import json
 from datetime import datetime, timedelta
 
 import sys
@@ -20,7 +21,8 @@ from data_provider import download_single as _dp_download_single, download_price
 from settings import (
     DATA_DIR, MULTI_MARKET, SECTOR_MAP,
     USE_MULTI_TIMEFRAME, USE_VIX_TERM, USE_OPTIONS_DATA,
-    RETURN_HORIZON_DAYS, SOCIAL_SENTIMENT_ENABLED, USE_EARNINGS_DATA, USE_NEWS_SENTIMENT,
+    RETURN_HORIZON_DAYS, SOCIAL_SENTIMENT_ALPHA_ENABLED, SOCIAL_SENTIMENT_SAFETY_ENABLED,
+    SOCIAL_SENTIMENT_ENABLED, USE_EARNINGS_DATA, USE_NEWS_SENTIMENT,
     SENTIMENT_ENGINE_LEVEL, LIVE_SENTIMENT_ENGINE_LEVEL,
 )
 from sentiment_engine import build_sentiment_feature_dataframe, get_sentiment_engine, score_todays_news
@@ -383,8 +385,23 @@ CONSERVATIVE_FEATURE_EXACT = {
     "eps_surprise_pct",
     "days_since_earnings",
     "days_to_next_earnings",
+    # Options IV features — real data from Tradier (neutral defaults for backtest)
+    "iv_atm",
+    "iv_rank_proxy",
+    "iv_hv_spread",
+    "iv_skew",
+    "put_call_ratio",
+    # Intraday features — VWAP and volume profile from Alpaca minute bars
+    "vwap_dist_5d",
+    "volume_am_ratio",
+    "volume_last_hour",
+    "intraday_range_pct",
+    "close_position",
 }
 RISKY_FEATURE_KEYWORDS = (
+    # Social sentiment is live safety-only by default. It is intentionally
+    # filtered from model feature frames unless SOCIAL_SENTIMENT_ALPHA_ENABLED
+    # is explicitly enabled after separate validation.
     "social",
     "iv_",
     "put_call",
@@ -518,11 +535,33 @@ def keep_conservative_feature_set(frame: pd.DataFrame) -> pd.DataFrame:
     return out.loc[:, keep]
 
 def build_options_features_context(ticker: str, dates: pd.DatetimeIndex, live: bool = False) -> pd.DataFrame:
-    """Return neutral options features until point-in-time options history is available."""
+    """Build options features -- real data from Tradier if live, else neutral defaults.
+
+    PLAIN ENGLISH: For backtesting (live=False), we don't have historical
+    options data so we return neutral defaults.  For live predictions
+    (live=True), we call Tradier's API to get real implied volatility,
+    put/call ratio, and IV skew.  The iv_rank_proxy column from
+    build_iv_rank_features() is ALSO computed from historical vol, but
+    these real IV features are much more informative when available.
+    """
     result = pd.DataFrame(index=dates)
     result["iv_atm"] = 0.25
     result["put_call_ratio"] = 1.0
     result["iv_skew"] = 0.0
+
+    if live:
+        try:
+            from options_iv_provider import fetch_live_iv_features
+            iv_data = fetch_live_iv_features(ticker)
+            if iv_data.get("iv_has_real_data", 0) > 0:
+                result["iv_atm"] = float(iv_data["iv_atm"])
+                result["put_call_ratio"] = float(iv_data["put_call_ratio"])
+                result["iv_skew"] = float(iv_data["iv_skew"])
+        except ImportError:
+            pass  # Tradier not installed/configured -- use defaults
+        except Exception:
+            pass  # API error -- use defaults
+
     return result
 
 
@@ -577,7 +616,7 @@ def build_research_feature_frame(ticker: str, start: str, end: str) -> pd.DataFr
             frames.append(build_sentiment_features(ticker, dates))
         except Exception:
             pass
-    if SOCIAL_SENTIMENT_ENABLED:
+    if SOCIAL_SENTIMENT_ALPHA_ENABLED:
         try:
             frames.append(build_social_sentiment_features(ticker, dates))
         except Exception:
@@ -659,9 +698,14 @@ def build_live_features_with_latest_news(
                 "live_news_breaking",
                 "live_news_score_abs",
                 "live_news_has_signal",
+                "sentiment_primary_available",
+                "sentiment_fallback_available",
+                "sentiment_fresh_headline_count",
             ]:
                 if col not in sent.columns:
                     sent[col] = 0.0
+            if "sentiment_provider_status_json" not in sent.columns:
+                sent["sentiment_provider_status_json"] = ""
 
             try:
                 engine = get_sentiment_engine(LIVE_SENTIMENT_ENGINE_LEVEL)
@@ -671,8 +715,11 @@ def build_live_features_with_latest_news(
                 headline_count = float(live_news.get("headline_count", 0) or 0.0)
                 breaking_count = float(live_news.get("breaking_count", 0) or 0.0)
                 score_abs = float(live_news.get("avg_abs_score", 0.0) or 0.0)
+                primary_available = 1.0 if live_news.get("primary_available") else 0.0
+                fallback_available = 1.0 if live_news.get("fallback_available") else 0.0
+                fresh_count = float(live_news.get("fresh_headline_count", headline_count) or 0.0)
                 has_signal = 1.0 if (
-                    headline_count > 0 or abs(composite_score) > 1e-9 or score_abs > 1e-9
+                    fresh_count > 0 or headline_count > 0 or abs(composite_score) > 1e-9 or score_abs > 1e-9
                 ) else 0.0
 
                 sent.loc[latest, "news_sentiment"] = composite_score
@@ -681,6 +728,13 @@ def build_live_features_with_latest_news(
                 sent.loc[latest, "live_news_breaking"] = breaking_count
                 sent.loc[latest, "live_news_score_abs"] = score_abs
                 sent.loc[latest, "live_news_has_signal"] = has_signal
+                sent.loc[latest, "sentiment_primary_available"] = primary_available
+                sent.loc[latest, "sentiment_fallback_available"] = fallback_available
+                sent.loc[latest, "sentiment_fresh_headline_count"] = fresh_count
+                sent.loc[latest, "sentiment_provider_status_json"] = json.dumps(
+                    live_news.get("provider_status", []),
+                    sort_keys=True,
+                )
             except Exception as e:
                 print(f"[{ticker}] live news refresh failed: {e}")
 
@@ -688,17 +742,91 @@ def build_live_features_with_latest_news(
         except Exception as e:
             print(f"[{ticker}] sentiment feature builder failed: {e}")
 
-    if SOCIAL_SENTIMENT_ENABLED:
+    if SOCIAL_SENTIMENT_ALPHA_ENABLED:
         try:
             social_df = build_social_sentiment_features(ticker, dates)
             social_live = get_live_social_signal(ticker)
             if not social_df.empty and social_live.get("social_available"):
                 latest = social_df.index[-1]
+                social_fresh_count = max(
+                    float(social_live.get("message_volume", 0.0) or 0.0),
+                    float(social_live.get("x_tweets", 0.0) or 0.0),
+                )
                 social_df.loc[latest, "social_combined"] = float(social_live.get("combined", 0.0))
                 social_df.loc[latest, "social_message_volume"] = float(social_live.get("message_volume", 0.0))
+                social_df.loc[latest, "sentiment_fallback_available"] = 1.0
+                social_df.loc[latest, "sentiment_fresh_headline_count"] = max(
+                    float(social_df.get("sentiment_fresh_headline_count", pd.Series(0.0, index=social_df.index)).loc[latest]),
+                    social_fresh_count,
+                )
+                if diagnostic_frames:
+                    base = diagnostic_frames[0]
+                    base.loc[latest, "sentiment_fallback_available"] = max(
+                        float(base.get("sentiment_fallback_available", pd.Series(0.0, index=base.index)).loc[latest]),
+                        1.0,
+                    )
+                    base.loc[latest, "sentiment_fresh_headline_count"] = max(
+                        float(base.get("sentiment_fresh_headline_count", pd.Series(0.0, index=base.index)).loc[latest]),
+                        social_fresh_count,
+                    )
             diagnostic_frames.append(social_df)
         except Exception:
             pass
+    elif SOCIAL_SENTIMENT_SAFETY_ENABLED:
+        try:
+            social_live = get_live_social_signal(ticker)
+            if social_live.get("social_available"):
+                latest = dates[-1]
+                social_fresh_count = max(
+                    float(social_live.get("message_volume", 0.0) or 0.0),
+                    float(social_live.get("x_tweets", 0.0) or 0.0),
+                )
+                if diagnostic_frames:
+                    base = diagnostic_frames[0]
+                else:
+                    base = pd.DataFrame(index=dates, data={
+                        "sentiment_primary_available": 0.0,
+                        "sentiment_fallback_available": 0.0,
+                        "sentiment_fresh_headline_count": 0.0,
+                        "sentiment_provider_status_json": "",
+                    })
+                    diagnostic_frames.append(base)
+                base.loc[latest, "sentiment_fallback_available"] = max(
+                    float(base.get("sentiment_fallback_available", pd.Series(0.0, index=base.index)).loc[latest]),
+                    1.0,
+                )
+                base.loc[latest, "sentiment_fresh_headline_count"] = max(
+                    float(base.get("sentiment_fresh_headline_count", pd.Series(0.0, index=base.index)).loc[latest]),
+                    social_fresh_count,
+                )
+        except Exception:
+            pass
+
+    # ── Options IV features (real data from Tradier if available) ───────────
+    # For live predictions, fetch real implied volatility, put/call ratio,
+    # and IV skew from the options market.  For backtesting, these stay at
+    # neutral defaults (iv_atm=0.25, put_call_ratio=1.0, iv_skew=0.0).
+    frames.append(build_options_features_context(ticker, dates, live=True))
+
+    # ── Intraday features (VWAP, volume profile from Alpaca) ─────────────
+    # These capture institutional flow patterns that daily OHLCV misses:
+    # where the stock closed relative to VWAP, whether volume was
+    # front-loaded (smart money) or back-loaded (retail/MOC), and how
+    # volatile the intraday price action was.
+    try:
+        from intraday_features import fetch_intraday_features
+        intraday = fetch_intraday_features(ticker)
+        if intraday.get("has_intraday_data", 0) > 0:
+            intraday_df = pd.DataFrame(index=dates)
+            for col, val in intraday.items():
+                if col != "has_intraday_data":
+                    intraday_df[col] = 0.0
+                    intraday_df.iloc[-1, intraday_df.columns.get_loc(col)] = float(val)
+            frames.append(intraday_df)
+    except ImportError:
+        pass  # Alpaca not configured -- skip
+    except Exception:
+        pass  # API error -- skip
 
     out = pd.concat([df] + frames, axis=1)
     out = out.loc[:, ~out.columns.duplicated()]
@@ -720,6 +848,14 @@ def build_live_features_with_latest_news(
         keep_diagnostics = [c for c in diagnostics.columns if c in feature_cols or c.startswith("live_")]
         if "news_sentiment" in diagnostics.columns:
             keep_diagnostics.append("news_sentiment")
+        for col in [
+            "sentiment_provider_status_json",
+            "sentiment_primary_available",
+            "sentiment_fallback_available",
+            "sentiment_fresh_headline_count",
+        ]:
+            if col in diagnostics.columns:
+                keep_diagnostics.append(col)
         keep_diagnostics = list(dict.fromkeys(keep_diagnostics))
         if keep_diagnostics:
             out = pd.concat([out, diagnostics[keep_diagnostics]], axis=1)

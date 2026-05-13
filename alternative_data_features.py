@@ -58,6 +58,16 @@ except ImportError:
     FINNHUB_API_KEY = ""
 
 
+def _finite_float(value, default: float | None = None) -> float | None:
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return default
+    if not np.isfinite(out):
+        return default
+    return out
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Live EPS revision features (snapshot → features for today's prediction)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -91,16 +101,16 @@ def build_live_eps_revision_features(ticker: str) -> dict[str, float]:
             # Use current quarter (row "0q") for revision signals
             if "0q" in eps_trend.index:
                 row = eps_trend.loc["0q"]
-                current = float(row.get("current", 0.0) or 0.0)
-                if current != 0.0:
+                current = _finite_float(row.get("current"))
+                if current is not None and current != 0.0:
                     # Revision = (current - past) / |past|
                     # Positive means estimates have been raised
                     for period, col in [
                         ("7d", "7daysAgo"), ("30d", "30daysAgo"),
                         ("60d", "60daysAgo"), ("90d", "90daysAgo"),
                     ]:
-                        past = float(row.get(col, 0.0) or 0.0)
-                        if past != 0.0:
+                        past = _finite_float(row.get(col))
+                        if past is not None and past != 0.0:
                             revision = (current - past) / abs(past)
                             result[f"alt_eps_revision_{period}"] = float(
                                 np.clip(revision, -1.0, 1.0)
@@ -110,13 +120,13 @@ def build_live_eps_revision_features(ticker: str) -> dict[str, float]:
         # Earnings estimate: number of analysts covering
         ee = tk.earnings_estimate
         if ee is not None and not ee.empty and "0q" in ee.index:
-            n = float(ee.loc["0q"].get("numberOfAnalysts", 0) or 0)
+            n = _finite_float(ee.loc["0q"].get("numberOfAnalysts"), 0.0)
             result["alt_n_analysts"] = min(n, 60.0)
 
             # Year-ago EPS vs current estimate → surprise proxy
-            year_ago = float(ee.loc["0q"].get("yearAgoEps", 0) or 0)
-            avg_est = float(ee.loc["0q"].get("avg", 0) or 0)
-            if year_ago != 0.0 and avg_est != 0.0:
+            year_ago = _finite_float(ee.loc["0q"].get("yearAgoEps"))
+            avg_est = _finite_float(ee.loc["0q"].get("avg"))
+            if year_ago is not None and avg_est is not None and year_ago != 0.0 and avg_est != 0.0:
                 result["alt_eps_surprise_pct"] = float(
                     np.clip((avg_est - year_ago) / abs(year_ago), -2.0, 5.0)
                 )
@@ -277,6 +287,86 @@ def build_live_short_interest_features(ticker: str) -> dict[str, float]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 3b. Live insider TRANSACTION features (buy/sell activity, not just ownership)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def build_live_insider_transaction_features(ticker: str) -> dict[str, float]:
+    """Extract insider buy/sell activity from yfinance's insider_transactions.
+
+    PLAIN ENGLISH:
+    - "Insider buying" = company executives (CEO, CFO, directors) purchasing
+      shares with their own money.  This is a strong bullish signal because
+      insiders know the business better than anyone.
+    - "Insider selling" = executives selling shares.  Less informative because
+      they sell for many reasons (taxes, diversification, estate planning),
+      but HEAVY selling is bearish.
+    - We look at the last 90 days and count:
+        • net_insider_buys_90d:  #buys - #sells (positive = insiders buying)
+        • insider_buy_value_90d: total $ bought / total $ traded (0-1 ratio)
+        • insider_activity_90d:  total transactions in 90d (0 = no activity)
+    - "Purchase" in the Text column means buying, "Sale" means selling,
+      "Stock Gift" and other types are ignored.
+
+    Returns a dict of feature_name → value.
+    """
+    import yfinance as yf
+    result = {
+        "alt_net_insider_buys_90d": 0.0,    # positive = net buying
+        "alt_insider_buy_ratio_90d": 0.5,   # fraction of $ value that is buys
+        "alt_insider_activity_90d": 0.0,    # total transaction count
+        "alt_has_insider_data": 0.0,        # 1.0 if we got any data
+    }
+
+    try:
+        tk = yf.Ticker(ticker)
+        txns = tk.insider_transactions
+
+        # yfinance returns a DataFrame with columns:
+        #   Shares, Value, URL, Text, Insider, Position, Transaction, Start Date, Ownership
+        # The "Text" column contains "Sale at price...", "Purchase at price...", "Stock Gift..."
+        if txns is None or txns.empty or "Text" not in txns.columns:
+            return result
+
+        # Filter to last 90 days
+        cutoff = datetime.now() - timedelta(days=90)
+        if "Start Date" in txns.columns:
+            txns = txns.copy()
+            txns["_date"] = pd.to_datetime(txns["Start Date"], errors="coerce")
+            txns = txns.dropna(subset=["_date"])
+            txns = txns[txns["_date"] >= pd.Timestamp(cutoff)]
+
+        if txns.empty:
+            return result
+
+        result["alt_has_insider_data"] = 1.0
+
+        # Classify transactions by Text field
+        text_lower = txns["Text"].fillna("").str.lower()
+        is_buy = text_lower.str.contains("purchase", na=False)
+        is_sell = text_lower.str.contains("sale", na=False)
+
+        n_buys = int(is_buy.sum())
+        n_sells = int(is_sell.sum())
+        result["alt_net_insider_buys_90d"] = float(np.clip(n_buys - n_sells, -20, 20))
+        result["alt_insider_activity_90d"] = float(min(n_buys + n_sells, 50))
+
+        # Dollar-weighted buy ratio: what fraction of $ traded is purchases?
+        values = pd.to_numeric(txns["Value"], errors="coerce").fillna(0.0).abs()
+        buy_value = float(values[is_buy].sum())
+        sell_value = float(values[is_sell].sum())
+        total_value = buy_value + sell_value
+        if total_value > 0:
+            result["alt_insider_buy_ratio_90d"] = float(
+                np.clip(buy_value / total_value, 0.0, 1.0)
+            )
+
+    except Exception:
+        pass
+
+    return result
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 4. Historical recommendation trends from Finnhub (free tier, dated)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -398,6 +488,7 @@ def build_all_live_alternative_features(ticker: str) -> dict[str, float]:
     features.update(build_live_eps_revision_features(ticker))
     features.update(build_live_recommendation_features(ticker))
     features.update(build_live_short_interest_features(ticker))
+    features.update(build_live_insider_transaction_features(ticker))
     return features
 
 
@@ -419,6 +510,11 @@ if __name__ == "__main__":
     print(f"\n--- Live Short Interest ({ticker}) ---")
     si = build_live_short_interest_features(ticker)
     for k, v in si.items():
+        print(f"  {k}: {v}")
+
+    print(f"\n--- Live Insider Transactions ({ticker}) ---")
+    insider = build_live_insider_transaction_features(ticker)
+    for k, v in insider.items():
         print(f"  {k}: {v}")
 
     print(f"\n--- Finnhub Recommendation History ({ticker}) ---")

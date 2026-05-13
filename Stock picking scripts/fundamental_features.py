@@ -416,7 +416,64 @@ def build_point_in_time_valuation_features(ticker: str, df: pd.DataFrame) -> pd.
     except Exception:
         return neutral
 
+    # ── Coverage tracking ─────────────────────────────────────────────────
+    # Log how many days actually have fundamental data vs total days.
+    # This helps diagnose "all zeros" issues — if coverage is 0%, the
+    # yfinance quarterly_financials call returned empty for this ticker.
+    total_days = len(neutral)
+    has_data_days = int(neutral["fund_has_valuation"].sum())
+    coverage_pct = (has_data_days / total_days * 100.0) if total_days > 0 else 0.0
+    if coverage_pct == 0.0 and total_days > 100:
+        import logging
+        logging.getLogger(__name__).debug(
+            "fundamental_features: %s has 0%% coverage (%d days) — "
+            "yfinance quarterly_financials likely returned empty.",
+            ticker, total_days,
+        )
+    # Attach coverage metadata as an attribute so callers can inspect it
+    neutral.attrs["fund_coverage_pct"] = round(coverage_pct, 1)
+    neutral.attrs["fund_has_data_days"] = has_data_days
+
     return neutral.replace([np.inf, -np.inf], 0.0).fillna(0.0)
+
+
+def fundamental_coverage_report(
+    tickers: list[str],
+    data_dir: str | None = None,
+) -> pd.DataFrame:
+    """Scan parquet files and report fundamental data coverage per ticker.
+
+    PLAIN ENGLISH: This checks every ticker's data file and counts what
+    fraction of trading days have non-zero fundamental data.  Tickers with
+    0% coverage have no usable fundamental features — they get neutral
+    defaults (zeros) which add noise rather than signal.
+
+    Returns a DataFrame with columns: ticker, sector, total_days,
+    has_data_days, coverage_pct.  Sorted worst-to-best so you can quickly
+    see which tickers are missing data.
+    """
+    data_dir = data_dir or DATA_DIR
+    rows = []
+    for ticker in tickers:
+        path = os.path.join(data_dir, f"{ticker.upper()}.parquet")
+        try:
+            df = pd.read_parquet(path, columns=["fund_has_valuation"])
+            total = len(df)
+            has_data = int(df["fund_has_valuation"].sum())
+            cov = (has_data / total * 100.0) if total > 0 else 0.0
+        except Exception:
+            total = 0
+            has_data = 0
+            cov = 0.0
+        rows.append({
+            "ticker": ticker.upper(),
+            "sector": SECTOR_MAP.get(ticker.upper(), "OTHER"),
+            "total_days": total,
+            "has_data_days": has_data,
+            "coverage_pct": round(cov, 1),
+        })
+    result = pd.DataFrame(rows).sort_values("coverage_pct")
+    return result
 
 
 def apply_sector_fundamental_zscores(
@@ -671,7 +728,9 @@ def build_market_breadth_features(dates: pd.DatetimeIndex, start: str, end: str)
 
         def _get(sym: str) -> pd.Series | None:
             if sym in close.columns:
-                return close[sym].reindex(dates, method="ffill").bfill()
+                # Forward-fill only. Backfilling would expose a later ETF price
+                # to dates before that price was available.
+                return close[sym].reindex(dates, method="ffill")
             return None
 
         rsp = _get("RSP")

@@ -1,0 +1,61 @@
+{
+  "account_equity": 1164234.82,
+  "buy_value": 102337.55,
+  "core_preset": "nested_qqq_trend_switch_overlay70_core55_cashbuffer_h10_ov0.50_ma100_volfixed0.30_tqqq0.00",
+  "current_gross_exposure": 0.9041,
+  "current_regime": "risk_on",
+  "freshness_issues": [],
+  "freshness_ok": true,
+  "gates_all_pass": true,
+  "generated_at": "2026-05-13T14:02:54.061161+00:00",
+  "guard_reasons": [
+    "drift_orders_3_max_5.05%"
+  ],
+  "market_open": true,
+  "market_status": "US market open (2026-05-13 10:02 EDT)",
+  "max_drift_abs": 0.050451,
+  "order_count": 3,
+  "paper_ready": true,
+  "position_values": {
+    "C": 53316.25,
+    "CAT": 63274.4,
+    "GE": 19723.12,
+    "GS": 46925.5,
+    "INTC": 79188.07,
+    "MU": 56952.0,
+    "NEM": 36262.53,
+    "QQQ": 696899.87
+  },
+  "positions": {
+    "C": 425,
+    "CAT": 70,
+    "GE": 67,
+    "GS": 50,
+    "INTC": 671,
+    "MU": 72,
+    "NEM": 306,
+    "QQQ": 986
+  },
+  "score_source": "regime_adaptive",
+  "sell_value": 0.0,
+  "signal_predicted_at": "2026-05-13T21:59+08:00",
+  "skipped_orders": 8,
+  "strategy": "core_satellite_alpha",
+  "submit_allowed": true,
+  "submit_readiness": {
+    "blockers": [
+      "current signal already has 2 open paper orders: FCX,TSLA"
+    ],
+    "buy_value": 102337.55,
+    "can_submit_during_regular_market": false,
+    "current_signal_open_orders": 2,
+    "executable_orders": 3,
+    "market_open": true,
+    "market_status": "US market open (2026-05-13 10:02 EDT)",
+    "missing_price_rows": 0,
+    "sell_value": 0.0,
+    "target_gross_exposure": 1.0,
+    "warnings": []
+  },
+  "target_gross_exposure": 1.0
+}

@@ -39,9 +39,11 @@ SIGNALS = Path(SIGNAL_DIR)
 REGIME_HISTORY_PATH = SIGNALS / "regime_history.json"
 
 # Signal files for each strategy
+# Both brokers now read the same unified signal file.  Two entries kept so
+# regime_history.json preserves per-broker tracking if they ever diverge.
 SIGNAL_FILES = {
     "moomoo_core_satellite": SIGNALS / "core_satellite_alpha_signal.csv",
-    "alpaca_tqqq_enhanced": SIGNALS / "core_satellite_tqqq_signal.csv",
+    "alpaca_core_satellite": SIGNALS / "core_satellite_alpha_signal.csv",
 }
 
 

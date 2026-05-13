@@ -1,4 +1,0 @@
-horizon_days,exit_code,metrics_path,total_return_pct,alpha_pct,benchmark_return_pct,sharpe_ratio_daily,nw_tstat_vs_cash,max_drawdown_pct,cash_overlay_avg_alloc,kill_all_pass
-10,0,/Users/amos/Code/Stock Market AI Bot/signals/walkforward_long_only_16tickers_metrics.json,374.44,-689.81,1064.26,0.874,4.172,-18.59,0.4508,True
-15,0,/Users/amos/Code/Stock Market AI Bot/signals/walkforward_long_only_16tickers_metrics.json,424.07,-640.19,1064.26,0.856,4.216,-17.44,0.4088,True
-20,0,/Users/amos/Code/Stock Market AI Bot/signals/walkforward_long_only_16tickers_metrics.json,467.89,-596.37,1064.26,0.903,4.395,-21.01,0.411,True

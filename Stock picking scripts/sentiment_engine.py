@@ -606,6 +606,10 @@ def _align_pub_to_trading_day(pub, trading_idx: "pd.DatetimeIndex"):
         session = "premarket" if hour < _MARKET_OPEN_HOUR else "regular"
 
     if cal_date > trading_idx[-1]:
+        # After-hours news on the final indexed trading day gets pushed to the
+        # next calendar day. Keep it on the last session instead of dropping it.
+        if session == "afterhours" and (cal_date - trading_idx[-1]).days <= 3:
+            return trading_idx[-1], session
         return None
     if cal_date < trading_idx[0]:
         return trading_idx[0], session
@@ -1038,21 +1042,57 @@ def build_sentiment_feature_dataframe(
 # on this morning's news, not last week's stale headlines.
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fetch_premarket_news(ticker: str, max_age_hours: int = 16, verbose: bool = False) -> list:
+def _empty_provider_result(name: str, provider_type: str, is_primary: bool, error: str = "") -> dict:
+    return {
+        "name": name,
+        "provider_type": provider_type,
+        "is_primary": bool(is_primary),
+        "ok": False,
+        "error": error,
+        "fresh_count": 0,
+        "headlines": [],
+    }
+
+
+def _provider_status(result: dict) -> dict:
+    return {
+        "name": str(result.get("name", "")),
+        "provider_type": str(result.get("provider_type", "")),
+        "is_primary": bool(result.get("is_primary", False)),
+        "ok": bool(result.get("ok", False)),
+        "fresh_count": int(result.get("fresh_count", 0) or 0),
+        "error": str(result.get("error", ""))[:160],
+    }
+
+
+def _dedupe_recent_headlines(headlines: list) -> list:
+    """Deduplicate headline tuples by title, keeping the newest occurrence."""
+    dedup_map: dict[str, object] = {}
+    for pub, title in headlines:
+        prev = dedup_map.get(title)
+        if prev is None or pub > prev:
+            dedup_map[title] = pub
+    dedup = [(pub, title) for title, pub in dedup_map.items()]
+    dedup.sort(key=lambda x: x[0], reverse=True)
+    return dedup
+
+
+def fetch_premarket_news_by_provider(
+    ticker: str,
+    max_age_hours: int = 16,
+    verbose: bool = False,
+) -> list[dict]:
     """
-    Fetch only RECENT headlines (published within the last `max_age_hours`).
+    Fetch recent headlines grouped by provider with health metadata.
 
-    Uses the stronger RSS helper with browser-like headers and also attempts
-    Finnhub live company news when an API key is available.
-
-    Returns:
-      List of (published_datetime, headline_text) tuples, newest first.
+    Finnhub is marked primary. RSS providers are fallback sources, so an outage
+    in Finnhub can be distinguished from a complete news outage.
     """
     from datetime import datetime, timedelta, timezone
     import pandas as pd
 
     cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
-    recent_headlines: list[tuple[datetime, str]] = []
+    provider_results: list[dict] = []
 
     rss_sources = [
         ("yahoo_finance", "https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker}&region=US&lang=en-US"),
@@ -1069,8 +1109,10 @@ def fetch_premarket_news(ticker: str, max_age_hours: int = 16, verbose: bool = F
         )
 
     for source_name, url in rss_sources:
+        result = _empty_provider_result(source_name, "rss", False)
         try:
             fetched = _fetch_rss_headlines(url, ticker)
+            recent_headlines: list[tuple[datetime, str]] = []
             kept = 0
             for pub, title in fetched:
                 try:
@@ -1092,13 +1134,21 @@ def fetch_premarket_news(ticker: str, max_age_hours: int = 16, verbose: bool = F
                         kept += 1
                 except Exception:
                     continue
+            result.update({
+                "ok": True,
+                "fresh_count": kept,
+                "headlines": _dedupe_recent_headlines(recent_headlines),
+            })
             if verbose:
                 print(f"[{ticker}] {source_name} recent headlines: {kept}")
         except Exception as e:
+            result["error"] = str(e)
             if verbose:
                 print(f"[{ticker}] {source_name} fetch failed: {e}")
+        provider_results.append(result)
 
     finnhub_key = _get_finnhub_api_key()
+    finnhub_result = _empty_provider_result("finnhub", "finnhub_api", True)
     if finnhub_key:
         try:
             import requests
@@ -1117,6 +1167,7 @@ def fetch_premarket_news(ticker: str, max_age_hours: int = 16, verbose: bool = F
             payload = resp.json() or []
 
             kept = 0
+            recent_headlines: list[tuple[datetime, str]] = []
             for item in payload[:100]:
                 try:
                     ts = pd.to_datetime(item.get("datetime", 0), unit="s", utc=True)
@@ -1132,24 +1183,42 @@ def fetch_premarket_news(ticker: str, max_age_hours: int = 16, verbose: bool = F
                     kept += 1
                 except Exception:
                     continue
+            finnhub_result.update({
+                "ok": True,
+                "fresh_count": kept,
+                "headlines": _dedupe_recent_headlines(recent_headlines),
+            })
             if verbose:
                 print(f"[{ticker}] finnhub recent headlines: {kept}")
         except Exception as e:
+            finnhub_result["error"] = str(e)
             if verbose:
                 print(f"[{ticker}] finnhub fetch failed: {e}")
     else:
+        finnhub_result["error"] = "FINNHUB_API_KEY not found"
         if verbose:
             print(f"[{ticker}] finnhub skipped: FINNHUB_API_KEY not found")
+    provider_results.append(finnhub_result)
 
-    # Deduplicate by title, keep newest occurrence.
-    dedup_map: dict[str, datetime] = {}
-    for pub, title in recent_headlines:
-        prev = dedup_map.get(title)
-        if prev is None or pub > prev:
-            dedup_map[title] = pub
+    return provider_results
 
-    dedup = [(pub, title) for title, pub in dedup_map.items()]
-    dedup.sort(key=lambda x: x[0], reverse=True)
+
+def fetch_premarket_news(ticker: str, max_age_hours: int = 16, verbose: bool = False) -> list:
+    """
+    Fetch only RECENT headlines (published within the last `max_age_hours`).
+
+    Uses the stronger RSS helper with browser-like headers and also attempts
+    Finnhub live company news when an API key is available.
+
+    Returns:
+      List of (published_datetime, headline_text) tuples, newest first.
+    """
+    providers = fetch_premarket_news_by_provider(ticker, max_age_hours=max_age_hours, verbose=verbose)
+    dedup = _dedupe_recent_headlines([
+        headline
+        for provider in providers
+        for headline in provider.get("headlines", [])
+    ])
 
     if verbose:
         print(f"[{ticker}] total recent headlines after dedupe: {len(dedup)}")
@@ -1168,8 +1237,25 @@ def score_todays_news(ticker: str, engine: SentimentEngine, verbose: bool = Fals
       is_breaking_news  : True if > 3 headlines in the last 2 hours
       breaking_count    : number of headlines in the last 2 hours
       avg_abs_score     : mean absolute headline sentiment score
+      provider_status   : per-provider health summaries
+      primary_available : True when Finnhub returned fresh headlines
+      fallback_available: True when at least one non-Finnhub source returned fresh headlines
     """
-    headlines = fetch_premarket_news(ticker, max_age_hours=16, verbose=verbose)
+    provider_results = fetch_premarket_news_by_provider(ticker, max_age_hours=16, verbose=verbose)
+    provider_status = [_provider_status(p) for p in provider_results]
+    primary_available = any(
+        bool(p.get("is_primary")) and int(p.get("fresh_count", 0) or 0) > 0
+        for p in provider_results
+    )
+    fallback_available = any(
+        not bool(p.get("is_primary")) and int(p.get("fresh_count", 0) or 0) > 0
+        for p in provider_results
+    )
+    headlines = _dedupe_recent_headlines([
+        headline
+        for provider in provider_results
+        for headline in provider.get("headlines", [])
+    ])
 
     if not headlines:
         return {
@@ -1180,6 +1266,10 @@ def score_todays_news(ticker: str, engine: SentimentEngine, verbose: bool = Fals
             "is_breaking_news": False,
             "breaking_count": 0,
             "avg_abs_score": 0.0,
+            "provider_status": provider_status,
+            "primary_available": primary_available,
+            "fallback_available": fallback_available,
+            "fresh_headline_count": 0,
         }
 
     texts = [h[1] for h in headlines]
@@ -1218,6 +1308,10 @@ def score_todays_news(ticker: str, engine: SentimentEngine, verbose: bool = Fals
         "is_breaking_news": is_breaking,
         "breaking_count": int(recent_2h),
         "avg_abs_score": round(avg_abs_score, 4),
+        "provider_status": provider_status,
+        "primary_available": primary_available,
+        "fallback_available": fallback_available,
+        "fresh_headline_count": len(headlines),
     }
 
 

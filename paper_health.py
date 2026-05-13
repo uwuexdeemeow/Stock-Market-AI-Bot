@@ -234,36 +234,66 @@ def _equity_sanity_checks(equity: pd.DataFrame) -> dict:
     }
 
 
-def _position_concentration(status: dict) -> dict:
-    values = {
-        str(k).upper(): float(v or 0.0)
-        for k, v in dict(status.get("position_values", {}) or {}).items()
+def _finite_float(value) -> float | None:
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not np.isfinite(out):
+        return None
+    return out
+
+
+def _neutral_position_concentration() -> dict:
+    return {
+        "ticker_weights": {},
+        "core_ticker_weights": {},
+        "overlay_ticker_weights": {},
+        "sector_weights": {},
+        "overlay_sector_weights": {},
+        "max_ticker_weight": 0.0,
+        "max_ticker": "",
+        "max_core_ticker_weight": 0.0,
+        "max_core_ticker": "",
+        "max_overlay_ticker_weight": 0.0,
+        "max_overlay_ticker": "",
+        "max_sector_weight": 0.0,
+        "max_sector": "",
+        "max_overlay_sector_weight": 0.0,
+        "max_overlay_sector": "",
+        "ticker_concentration_warning": False,
+        "core_ticker_concentration_warning": False,
+        "overlay_ticker_concentration_warning": False,
+        "sector_concentration_warning": False,
+        "overlay_sector_concentration_warning": False,
     }
-    equity = float(status.get("account_equity", 0.0) or 0.0)
-    if equity <= 0 or not values:
-        return {
-            "ticker_weights": {},
-            "core_ticker_weights": {},
-            "overlay_ticker_weights": {},
-            "sector_weights": {},
-            "overlay_sector_weights": {},
-            "max_ticker_weight": 0.0,
-            "max_ticker": "",
-            "max_core_ticker_weight": 0.0,
-            "max_core_ticker": "",
-            "max_overlay_ticker_weight": 0.0,
-            "max_overlay_ticker": "",
-            "max_sector_weight": 0.0,
-            "max_sector": "",
-            "max_overlay_sector_weight": 0.0,
-            "max_overlay_sector": "",
-            "ticker_concentration_warning": False,
-            "core_ticker_concentration_warning": False,
-            "overlay_ticker_concentration_warning": False,
-            "sector_concentration_warning": False,
-            "overlay_sector_concentration_warning": False,
-        }
-    ticker_weights = {ticker: value / equity for ticker, value in sorted(values.items())}
+
+
+def _max_abs_item(weights: dict[str, float]) -> tuple[str, float]:
+    if not weights:
+        return "", 0.0
+    return max(weights.items(), key=lambda item: abs(item[1]))
+
+
+def _position_concentration(status: dict) -> dict:
+    values: dict[str, float] = {}
+    for ticker, raw_value in dict(status.get("position_values", {}) or {}).items():
+        value = _finite_float(raw_value)
+        if value is not None and value != 0.0:
+            values[str(ticker).upper()] = value
+
+    equity = _finite_float(status.get("account_equity", 0.0))
+    if equity is None or equity <= 0 or not values:
+        return _neutral_position_concentration()
+
+    ticker_weights = {
+        ticker: value / equity
+        for ticker, value in sorted(values.items())
+        if np.isfinite(value / equity)
+    }
+    if not ticker_weights:
+        return _neutral_position_concentration()
+
     core_weights = {ticker: weight for ticker, weight in ticker_weights.items() if ticker in CORE_TICKERS}
     overlay_weights = {ticker: weight for ticker, weight in ticker_weights.items() if ticker not in CORE_TICKERS}
     sector_values: dict[str, float] = {}
@@ -275,17 +305,11 @@ def _position_concentration(status: dict) -> dict:
             overlay_sector_values[sector] = overlay_sector_values.get(sector, 0.0) + abs(value)
     sector_weights = {sector: value / equity for sector, value in sorted(sector_values.items())}
     overlay_sector_weights = {sector: value / equity for sector, value in sorted(overlay_sector_values.items())}
-    max_ticker, max_ticker_weight = max(ticker_weights.items(), key=lambda item: abs(item[1]))
-    max_sector, max_sector_weight = max(sector_weights.items(), key=lambda item: abs(item[1]))
-    max_core_ticker, max_core_ticker_weight = ("", 0.0)
-    if core_weights:
-        max_core_ticker, max_core_ticker_weight = max(core_weights.items(), key=lambda item: abs(item[1]))
-    max_overlay_ticker, max_overlay_ticker_weight = ("", 0.0)
-    if overlay_weights:
-        max_overlay_ticker, max_overlay_ticker_weight = max(overlay_weights.items(), key=lambda item: abs(item[1]))
-    max_overlay_sector, max_overlay_sector_weight = ("", 0.0)
-    if overlay_sector_weights:
-        max_overlay_sector, max_overlay_sector_weight = max(overlay_sector_weights.items(), key=lambda item: abs(item[1]))
+    max_ticker, max_ticker_weight = _max_abs_item(ticker_weights)
+    max_sector, max_sector_weight = _max_abs_item(sector_weights)
+    max_core_ticker, max_core_ticker_weight = _max_abs_item(core_weights)
+    max_overlay_ticker, max_overlay_ticker_weight = _max_abs_item(overlay_weights)
+    max_overlay_sector, max_overlay_sector_weight = _max_abs_item(overlay_sector_weights)
     core_warning = bool(abs(max_core_ticker_weight) > MAX_CORE_TICKER_WEIGHT_WARN)
     overlay_ticker_warning = bool(abs(max_overlay_ticker_weight) > MAX_TICKER_WEIGHT_WARN)
     overlay_sector_warning = bool(abs(max_overlay_sector_weight) > MAX_SECTOR_WEIGHT_WARN)

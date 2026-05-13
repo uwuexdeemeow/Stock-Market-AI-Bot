@@ -17,17 +17,18 @@ Usage:
 Daily workflow (runs in order):
     1.  refresh_etf_data.py --refresh      → download latest ETF price data
     2.  research.py                        → refresh factor panel (stock prices + factor scores)
-    3.  core_satellite_alpha.py            → generate Moomoo signal
+    3.  core_satellite_alpha.py            → generate unified signal (both brokers)
     4.  moomoo_paper_trading.py --submit   → submit to Moomoo (auto-syncs fills)
     5.  moomoo_paper_trading.py --status   → sync equity/positions, save daily status
-    6.  paper_health.py                    → build deep health summary (slippage, concentration, risk)
-    7.  paper_gauntlet.py                  → check Moomoo gauntlet gates
-    8.  daily_paper_check.py --skip-status --skip-sync  → read-only verdict (status/sync already done)
-    9.  core_satellite_tqqq.py             → generate Alpaca TQQQ signal
-    10. alpaca_paper_trading.py --submit   → submit to Alpaca (auto-snapshots equity)
+    6.  moomoo_paper_trading.py --execution-guard → repair Moomoo ETF stops
+    7.  paper_health.py                    → build deep health summary (slippage, concentration, risk)
+    8.  paper_gauntlet.py                  → check Moomoo gauntlet gates
+    9.  daily_paper_check.py --skip-status --skip-sync  → read-only verdict (status/sync already done)
+    10. alpaca_paper_trading.py --submit   → submit to Alpaca (reads same signal as Moomoo)
     11. alpaca_paper_trading.py --reconcile → check if Alpaca orders filled
-    12. alpaca_paper_gauntlet.py           → check Alpaca health
-    13. paper_report.py                    → side-by-side strategy comparison (optional, --report)
+    12. execution_guard.py --once          → repair ETF stops, stale orders, P&L guard
+    13. alpaca_paper_gauntlet.py           → check Alpaca health
+    14. paper_report.py                    → side-by-side strategy comparison (optional, --report)
 
 Schedule with cron (9:30 AM ET on weekdays):
     30 9 * * 1-5 cd "/path/to/Stock Market AI Bot" && python3 daily_run.py >> logs/daily_run.log 2>&1
@@ -209,6 +210,11 @@ MOOMOO_STEPS = [
         "Sync Moomoo equity/positions and save daily status",
     ),
     (
+        "moomoo_execution_guard",
+        [sys.executable, "moomoo_paper_trading.py", "--execution-guard"],
+        "Repair Moomoo core ETF stop-limit protection",
+    ),
+    (
         "moomoo_health",
         [sys.executable, "paper_health.py"],
         "Build deep Moomoo health summary (slippage, concentration, equity risk, P&L)",
@@ -225,13 +231,10 @@ MOOMOO_STEPS = [
     ),
 ]
 
-# Steps for Alpaca TQQQ-enhanced strategy
+# Steps for Alpaca strategy (reads the same unified signal as Moomoo —
+# core_satellite_alpha_signal.csv includes TQQQ weight when the nested
+# walkforward grid search determines it helps on a risk-adjusted basis).
 ALPACA_STEPS = [
-    (
-        "alpaca_signal",
-        [sys.executable, "core_satellite_tqqq.py"],
-        "Generate TQQQ-enhanced signal for Alpaca",
-    ),
     (
         "alpaca_submit",
         [sys.executable, "alpaca_paper_trading.py", "--submit"],
@@ -241,6 +244,11 @@ ALPACA_STEPS = [
         "alpaca_reconcile",
         [sys.executable, "alpaca_paper_trading.py", "--reconcile"],
         "Reconcile Alpaca order fill statuses",
+    ),
+    (
+        "alpaca_execution_guard",
+        [sys.executable, "execution_guard.py", "--once"],
+        "Repair ETF protection, cancel stale Alpaca orders, and check intraday P&L",
     ),
     (
         "alpaca_gauntlet",

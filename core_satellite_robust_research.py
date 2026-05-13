@@ -9,6 +9,7 @@ import pandas as pd
 
 import core_satellite_alpha as core
 from alpha_factor_backtest import MAX_GROSS_EXPOSURE, attach_scores, load_factor_panel, load_feature_specs, load_prediction_scores
+from robustness_scoring import robustness_score_components
 from settings import SIGNAL_DIR
 
 
@@ -127,6 +128,7 @@ def _row(metrics: dict, config: dict) -> dict:
         "top_ticker_contribution_pass": gates["top_ticker_contribution_pass"],
         "holdout_2023_2026_vs_qqq_pass": gates["holdout_2023_2026_vs_qqq_pass"],
         "holdout_2023_2026_vs_blend_pass": gates["holdout_2023_2026_vs_blend_pass"],
+        **robustness_score_components({**metrics, **gates}),
     }
 
 
@@ -155,7 +157,7 @@ def run_research(*, full: bool, stress_top_n: int) -> pd.DataFrame:
         rows.append(_evaluate_with_temp_preset(panel, config))
 
     base = pd.DataFrame(rows).sort_values(
-        ["paper_ready", "alpha_vs_blend_pct", "sharpe", "max_drawdown_pct"],
+        ["paper_ready", "robustness_score", "sharpe", "max_drawdown_pct"],
         ascending=[False, False, False, False],
     )
     stress_configs: list[dict] = []
@@ -225,7 +227,7 @@ def run_research(*, full: bool, stress_top_n: int) -> pd.DataFrame:
     )
     out = out.merge(stress, on=group_cols, how="left")
     out = out.sort_values(
-        ["robust_promotion_candidate", "paper_ready", "alpha_vs_blend_pct", "sharpe", "max_drawdown_pct"],
+        ["robust_promotion_candidate", "paper_ready", "robustness_score", "sharpe", "max_drawdown_pct"],
         ascending=[False, False, False, False, False],
     ).reset_index(drop=True)
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -252,6 +254,10 @@ def main() -> None:
         "earnings_blackout_days",
         "cost_stress",
         "total_return_pct",
+        "robustness_score",
+        "drawdown_penalty",
+        "turnover_penalty",
+        "instability_penalty",
         "sharpe",
         "max_drawdown_pct",
         "alpha_vs_qqq_pct",

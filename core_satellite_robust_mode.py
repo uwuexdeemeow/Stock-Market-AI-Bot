@@ -16,6 +16,7 @@ import pandas as pd
 
 from alpha_factor_backtest import MAX_GROSS_EXPOSURE, attach_scores, load_factor_panel, load_feature_specs, load_prediction_scores
 import core_satellite_alpha as core
+from robustness_scoring import robustness_score_components
 from settings import SIGNAL_DIR
 
 
@@ -34,8 +35,14 @@ def _selected_row(grid: pd.DataFrame) -> pd.Series:
     ].copy()
     if candidates.empty:
         raise SystemExit("No robust-mode candidates found. Run core_satellite_alpha.py first.")
+    if "robustness_score" not in candidates.columns:
+        robustness_cols = candidates.apply(
+            lambda row: pd.Series(robustness_score_components(row)),
+            axis=1,
+        )
+        candidates = pd.concat([candidates, robustness_cols], axis=1)
     candidates = candidates.sort_values(
-        ["sharpe", "max_drawdown_pct", "alpha_vs_blend_pct", "total_return_pct"],
+        ["robustness_score", "sharpe", "max_drawdown_pct", "alpha_vs_blend_pct"],
         ascending=[False, False, False, False],
     )
     return candidates.iloc[0]
@@ -132,7 +139,11 @@ def main() -> None:
     panel = core._ensure_robust_score_columns(attach_scores(load_factor_panel(specs), specs, load_prediction_scores()))
     metrics, equity, trades = core.evaluate(panel, config)
     metrics["paper_ready"] = bool(metrics["core_satellite_gate_results"]["all_pass"])
-    metrics["selection_reason"] = "best passing <=0.50 overlay candidate sorted by Sharpe, drawdown, alpha"
+    metrics["robustness_score"] = float(row.get("robustness_score", 0))
+    metrics["drawdown_penalty"] = float(row.get("drawdown_penalty", 0))
+    metrics["turnover_penalty"] = float(row.get("turnover_penalty", 0))
+    metrics["instability_penalty"] = float(row.get("instability_penalty", 0))
+    metrics["selection_reason"] = "best passing <=0.50 overlay candidate sorted by robustness score"
     metrics["primary_strategy_metrics_path"] = str(Path(SIGNAL_DIR) / "core_satellite_alpha_metrics.json")
     with open(METRICS_PATH, "w") as f:
         json.dump(metrics, f, indent=2)

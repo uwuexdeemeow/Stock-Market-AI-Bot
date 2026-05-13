@@ -8,6 +8,8 @@ don't trade. Every test should take < 1 second.
 
 from __future__ import annotations
 
+import json
+from argparse import Namespace
 from datetime import datetime, timezone
 
 import numpy as np
@@ -17,7 +19,15 @@ from labels import forward_return, vol_normalized_return, triple_barrier
 from risk_sizing import vol_target_size, fractional_kelly, position_size_with_stop
 from execution_model import realistic_fill_price, commission, capacity_warning
 from data_validation import validate_price_frame
-from core_satellite_alpha import _paper_signal_timestamp, _scale_paper_targets_to_gross
+from core_satellite_alpha import (
+    _core_tickers_for_config,
+    _overlay_weights,
+    _paper_signal_timestamp,
+    _resolve_allocation,
+    _scale_paper_targets_to_gross,
+    _top_count,
+)
+from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
 from paper_health import (
     _current_order_lifecycle,
     _drift_breakdown,
@@ -37,9 +47,27 @@ from moomoo_paper_trading import (
 )
 import paper_gauntlet
 import daily_paper_check
+import core_satellite_nested_walkforward as nested_wf
 from daily_paper_check import _after_fill_verdict, _prune_snapshots, _verdict
 from refresh_etf_data import _validate_etf_frame
 from config_health import _requirement_ok
+from core_satellite_nested_walkforward import (
+    BASE_REGIME,
+    InnerFold,
+    STRATEGIES,
+    build_fold_splits,
+    build_inner_folds,
+    build_regime_preset_variant,
+    iter_candidate_configs,
+    select_config_from_inner_folds,
+)
+from core_satellite_alpha import MAX_GROSS_EXPOSURE, REGIME_PRESETS
+from feature_quality_diagnostic import (
+    add_oriented_feature,
+    add_sector_excess_return_columns,
+    find_return_column,
+    ic_decay_curve,
+)
 
 
 def _price_frame(n=100, start="2024-01-01"):
@@ -115,6 +143,334 @@ def test_core_satellite_paper_scaling_caps_gross():
     assert round(abs(spy) + abs(qqq) + float(paper_overlay.abs().sum()), 6) == 1.0
 
 
+def test_robustness_score_is_sharpe_minus_penalties():
+    score = robustness_score_components({
+        "sharpe": 1.2,
+        "max_drawdown_pct": -35.0,
+        "turnover_pct": 15_000.0,
+        "subperiod_stability_pass": False,
+        "year_alpha_concentration_pass": True,
+    })
+    assert score["drawdown_penalty"] == 0.4
+    assert score["turnover_penalty"] == 0.5
+    assert score["instability_penalty"] == 0.25
+    assert score["robustness_score"] == 0.05
+
+
+def _cost_stress_grid(overrides=None):
+    overrides = overrides or {}
+    rows = []
+    for cost in (2.0, 3.0, 5.0):
+        row = {
+            "config": "A",
+            "cost_stress": cost,
+            "row_gate_pass": True,
+            "alpha_vs_spy_pct": 1.0,
+            "alpha_vs_qqq_pct": 1.0,
+            "alpha_vs_blend_pct": 1.0,
+            "holdout_alpha_vs_qqq_pct": 1.0,
+            "holdout_alpha_vs_blend_pct": 1.0,
+        }
+        row.update(overrides.get(cost, {}))
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def test_cost_stress_approval_passes_complete_positive_group():
+    out = add_cost_stress_approval_columns(
+        _cost_stress_grid(),
+        key_cols=["config"],
+        required_costs=(2.0, 3.0, 5.0),
+        row_gate_col="row_gate_pass",
+    )
+    assert out["robust_cost_stress_pass"].all()
+    assert out["stress_has_required_costs"].all()
+    assert out["stress_all_gates_pass"].all()
+
+
+def test_cost_stress_approval_fails_missing_level():
+    df = _cost_stress_grid()
+    df = df[df["cost_stress"] != 5.0]
+    out = add_cost_stress_approval_columns(
+        df,
+        key_cols=["config"],
+        required_costs=(2.0, 3.0, 5.0),
+        row_gate_col="row_gate_pass",
+    )
+    assert not bool(out["robust_cost_stress_pass"].iloc[0])
+    assert not bool(out["stress_has_required_costs"].iloc[0])
+
+
+def test_cost_stress_approval_fails_negative_alpha():
+    out = add_cost_stress_approval_columns(
+        _cost_stress_grid({5.0: {"alpha_vs_blend_pct": -0.1}}),
+        key_cols=["config"],
+        required_costs=(2.0, 3.0, 5.0),
+        row_gate_col="row_gate_pass",
+    )
+    assert not bool(out["robust_cost_stress_pass"].iloc[0])
+    assert out["stress_min_alpha_vs_blend_pct"].iloc[0] == -0.1
+
+
+def test_cost_stress_approval_fails_hard_gate():
+    out = add_cost_stress_approval_columns(
+        _cost_stress_grid({3.0: {"row_gate_pass": False}}),
+        key_cols=["config"],
+        required_costs=(2.0, 3.0, 5.0),
+        row_gate_col="row_gate_pass",
+    )
+    assert not bool(out["robust_cost_stress_pass"].iloc[0])
+    assert not bool(out["stress_all_gates_pass"].iloc[0])
+
+
+def test_nested_live_signal_config_omits_cost_stress():
+    config = {
+        "strategy": "core-alpha",
+        "cost_stress": 5.0,
+        "nested_params": {"holding_days": 10},
+        "score_source": "factor_walkforward",
+        "shape": "top10",
+        "weighting": "sticky_vol_score",
+    }
+    live = nested_wf.live_signal_config(config)
+    assert "cost_stress" not in live
+    assert "nested_params" not in live
+    assert live["shape"] == "top10"
+    assert live["weighting"] == "sticky_vol_score"
+
+    tqqq_live = nested_wf.live_signal_config({
+        "strategy": "tqqq",
+        "cost_stress": 5.0,
+        "nested_params": {
+            "holding_days": 10,
+            "shape": "top15",
+            "weighting": "sticky_vol_score",
+            "tqqq_weight": 0.2,
+        },
+    })
+    assert "cost_stress" not in tqqq_live
+    assert tqqq_live["shape"] == "top15"
+    assert tqqq_live["weighting"] == "sticky_vol_score"
+
+
+def test_top15_and_sticky_vol_score_weights_are_supported():
+    assert _top_count(62, "top5") == 5
+    assert _top_count(62, "top10") == 10
+    assert _top_count(62, "top15") == 15
+
+    selected = pd.DataFrame({
+        "ticker": ["LOWVOL", "HIGHVOL", "MIDVOL"],
+        "_rank_score": [0.9, 0.9, 0.9],
+        "hvol_20d": [0.10, 0.40, 0.20],
+    })
+    weights = _overlay_weights(selected, 0.30, "vol_score", max_single_name_weight=0.25)
+    assert round(float(weights.sum()), 6) == 0.30
+    assert weights["LOWVOL"] > weights["MIDVOL"] > weights["HIGHVOL"]
+
+
+def test_nested_write_outputs_only_publishes_live_config_when_requested(tmp_path, monkeypatch):
+    live_path = tmp_path / "core_satellite_live_configs.json"
+    live_path.write_text('{"approvals":{"core-alpha":{"approved":true}},"approved_live_configs":{}}')
+    monkeypatch.setattr(nested_wf, "SIGNAL_DIR", str(tmp_path))
+    monkeypatch.setattr(nested_wf, "LIVE_CONFIG_PATH", live_path)
+
+    result = {
+        "strategy": "core-alpha",
+        "method": "nested_walk_forward",
+        "folds": [],
+        "live_config_approval": {"approved": False, "reasons": ["smoke"]},
+    }
+
+    nested_wf.write_outputs(result, output_prefix="smoke", publish_live_config=False)
+    assert '"approved":true' in live_path.read_text().replace(" ", "")
+
+    nested_wf.write_outputs(result, output_prefix="publish", publish_live_config=True)
+    live = json.loads(live_path.read_text())
+    assert live["source_json"].endswith("publish.json")
+    assert live["approvals"]["core-alpha"] == {"approved": False, "reasons": ["smoke"]}
+
+
+def test_nested_publish_decision_defaults_to_publish_only_for_full_runs():
+    full = Namespace(
+        publish_live_config=None,
+        fast=False,
+        max_folds=None,
+        max_configs=None,
+        start_year=None,
+        end_year=None,
+        max_specs=nested_wf.DEFAULT_MAX_SPECS,
+        output_prefix=nested_wf.DEFAULT_OUTPUT_PREFIX,
+    )
+    assert nested_wf.live_config_publish_decision(full) == (True, "auto_full_nested_default")
+
+    smoke = Namespace(**{**vars(full), "fast": True, "max_folds": 2})
+    publish, reason = nested_wf.live_config_publish_decision(smoke)
+    assert publish is False
+    assert "--fast" in reason
+    assert "--max-folds" in reason
+
+    forced = Namespace(**{**vars(smoke), "publish_live_config": True})
+    assert nested_wf.live_config_publish_decision(forced) == (True, "forced_by_--publish-live-config")
+
+    dry_run = Namespace(**{**vars(full), "publish_live_config": False})
+    assert nested_wf.live_config_publish_decision(dry_run) == (False, "disabled_by_--no-publish-live-config")
+
+
+def test_feature_quality_accepts_alpha_factor_return_columns():
+    panel = pd.DataFrame({
+        "date": list(pd.bdate_range("2024-01-01", periods=8)) * 6,
+        "ticker": [f"T{i}" for i in range(6) for _ in range(8)],
+        "feature": np.tile(np.arange(8, dtype=float), 6),
+        "forward_return": np.tile(np.linspace(-0.02, 0.02, 8), 6),
+        "forward_return_10d": np.tile(np.linspace(-0.01, 0.03, 8), 6),
+        "forward_return_20d": np.tile(np.linspace(0.0, 0.04, 8), 6),
+    })
+    panel["sector"] = np.repeat(["TECH", "TECH", "TECH", "FIN", "FIN", "FIN"], 8)
+    panel = add_sector_excess_return_columns(panel)
+    assert find_return_column(panel) == "fwd_sector_excess_5"
+    decay = ic_decay_curve(panel, "feature", horizons=[5, 10, 20])
+    assert decay["horizons"]["5"]["available"] is True
+    assert decay["horizons"]["10"]["available"] is True
+    assert decay["horizons"]["20"]["available"] is True
+    oriented = add_oriented_feature(panel, "feature", "low_is_good")
+    assert panel[oriented].iloc[0] == -panel["feature"].iloc[0]
+
+
+def test_core_satellite_allocation_accepts_regime_override_with_tqqq():
+    config = {
+        "regime_mode": "qqq_trend_switch_overlay70_core55",
+        "regime_preset": {
+            "risk_on": {"core_weights": {"SPY": 0.0, "QQQ": 0.8, "TQQQ": 0.2}, "core_gross": 0.55, "overlay_gross": 0.70},
+            "neutral": {"core_weights": {"SPY": 0.25, "QQQ": 0.75, "TQQQ": 0.0}, "core_gross": 0.50, "overlay_gross": 0.60},
+            "risk_off": {"core_weights": {"SPY": 0.6, "QQQ": 0.4, "TQQQ": 0.0}, "core_gross": 0.55, "overlay_gross": 0.25},
+        },
+    }
+    regime, weights, core_gross, overlay_gross = _resolve_allocation(
+        pd.Timestamp("2026-01-01"),
+        {**config, "current_regime": "risk_on"},
+        None,
+    )
+    assert regime == "risk_on"
+    assert weights["TQQQ"] == 0.2
+    assert core_gross == 0.55
+    assert overlay_gross == 0.70
+    assert "TQQQ" in _core_tickers_for_config(config)
+
+
+def test_nested_regime_variant_tunes_overlay_without_mutating_base():
+    base = REGIME_PRESETS[BASE_REGIME]
+    original_risk_on = dict(base["risk_on"]["core_weights"])
+    variant = build_regime_preset_variant(
+        base_preset=base,
+        risk_on_overlay_gross=0.60,
+        ma_window=75,
+        high_vol=0.25,
+        high_vol_mode="fixed",
+        tqqq_weight=0.20,
+    )
+    assert base["risk_on"]["core_weights"] == original_risk_on
+    assert variant["ma_window"] == 75
+    assert variant["high_vol"] == 0.25
+    assert variant["risk_on"]["overlay_gross"] == 0.60
+    assert round(variant["risk_on"]["core_gross"] + variant["risk_on"]["overlay_gross"], 6) == MAX_GROSS_EXPOSURE
+    assert variant["risk_on"]["core_weights"]["QQQ"] == 0.80
+    assert variant["risk_on"]["core_weights"]["TQQQ"] == 0.20
+    assert variant["neutral"]["core_weights"]["TQQQ"] == 0.0
+    assert variant["risk_off"]["core_weights"]["TQQQ"] == 0.0
+
+
+def test_nested_fold_splits_keep_outer_year_unseen():
+    rows = []
+    for year in range(2020, 2025):
+        for dt in pd.bdate_range(f"{year}-01-01", periods=25):
+            rows.append({"date": dt, "ticker": "TEST"})
+    panel = pd.DataFrame(rows)
+    splits = build_fold_splits(panel, min_train_years=3)
+    outer_2024 = [split for split in splits if split.outer_year == 2024][0]
+    assert outer_2024.train_end == pd.Timestamp("2023-12-31")
+    assert outer_2024.inner_validation_year == 2023
+    assert outer_2024.inner_train_end == pd.Timestamp("2022-12-31")
+    assert outer_2024.outer_start == pd.Timestamp("2024-01-01")
+    inner = build_inner_folds([2020, 2021, 2022, 2023], min_inner_train_years=2)
+    assert [fold.validation_year for fold in inner] == [2022, 2023]
+    assert inner[0].train_end == pd.Timestamp("2021-12-31")
+    assert inner[-1].validation_end == pd.Timestamp("2023-12-31")
+
+
+def test_nested_candidate_grid_includes_requested_tuning_dimensions():
+    configs = iter_candidate_configs(
+        holding_days=(5, 10),
+        overlay_gross=(0.50, 0.70),
+        ma_windows=(75,),
+        high_vol_values=(0.25,),
+        high_vol_modes=("fixed",),
+        score_sources=("factor_walkforward", "regime_adaptive"),
+        shapes=("top5", "top10", "top15"),
+        weightings=("sticky_score", "sticky_vol_score"),
+        tqqq_weights=(0.0, 0.20),
+    )
+    params = [config["nested_params"] for config in configs]
+    assert {p["holding_days"] for p in params} == {5, 10}
+    assert {p["risk_on_overlay_gross"] for p in params} == {0.50, 0.70}
+    assert {p["score_source"] for p in params} == {"factor_walkforward", "regime_adaptive"}
+    assert {p["shape"] for p in params} == {"top5", "top10", "top15"}
+    assert {p["weighting"] for p in params} == {"sticky_score", "sticky_vol_score"}
+    assert {p["tqqq_weight"] for p in params} == {0.0, 0.20}
+    for config in configs:
+        risk_on = config["regime_preset"]["risk_on"]
+        assert risk_on["core_gross"] + risk_on["overlay_gross"] <= MAX_GROSS_EXPOSURE + 1e-9
+    assert set(STRATEGIES) == {"core-alpha", "tqqq"}
+    alpha_default = iter_candidate_configs(strategy="core-alpha", max_configs=3)
+    tqqq_default = iter_candidate_configs(strategy="tqqq", high_vol_values=(0.30,), max_configs=8)
+    assert {c["nested_params"]["tqqq_weight"] for c in alpha_default} == {0.0}
+    assert any(c["nested_params"]["tqqq_weight"] > 0.0 for c in tqqq_default)
+    assert {c["shape"] for c in tqqq_default}.issubset({"top5", "top10", "top15"})
+    assert {c["weighting"] for c in tqqq_default}.issubset({"sticky_score", "sticky_vol_score"})
+
+
+def test_inner_selection_scores_validation_folds_only(monkeypatch):
+    configs = [
+        {"name": "train_fit", "nested_params": {"holding_days": 10}},
+        {"name": "validation_winner", "nested_params": {"holding_days": 10}},
+    ]
+    folds = [
+        InnerFold(
+            validation_year=2022,
+            train_end=pd.Timestamp("2021-12-31"),
+            validation_start=pd.Timestamp("2022-01-01"),
+            validation_end=pd.Timestamp("2022-12-31"),
+        ),
+        InnerFold(
+            validation_year=2023,
+            train_end=pd.Timestamp("2022-12-31"),
+            validation_start=pd.Timestamp("2023-01-01"),
+            validation_end=pd.Timestamp("2023-12-31"),
+        ),
+    ]
+    calls = []
+
+    def fake_evaluate_window(panel, config, start, end):
+        calls.append((config["name"], pd.Timestamp(start), pd.Timestamp(end)))
+        assert pd.Timestamp(start).year in {2022, 2023}
+        assert pd.Timestamp(end).year in {2022, 2023}
+        sharpe = 0.1 if config["name"] == "train_fit" else 1.0
+        return {
+            "sharpe": sharpe,
+            "total_return_pct": sharpe,
+            "max_drawdown_pct": -5.0,
+            "turnover_pct": 100.0,
+            "alpha_vs_spy_pct": 1.0,
+            "alpha_vs_qqq_pct": 1.0,
+            "alpha_vs_blend_pct": 1.0,
+        }
+
+    monkeypatch.setattr(nested_wf, "evaluate_window", fake_evaluate_window)
+    selected = select_config_from_inner_folds(pd.DataFrame(), configs, folds)
+
+    assert selected["config"]["name"] == "validation_winner"
+    assert len(calls) == len(configs) * len(folds) * 3
+
+
 def test_signal_timestamp_is_timezone_aware():
     ts = pd.Timestamp(_paper_signal_timestamp())
     assert ts.tzinfo is not None
@@ -166,6 +522,48 @@ def test_health_concentration_separates_core_etfs_from_overlay_stocks():
     assert concentration["max_overlay_ticker"] == "MU"
     assert concentration["overlay_ticker_concentration_warning"] is False
     assert concentration["core_ticker_concentration_warning"] is False
+
+
+def test_health_concentration_empty_positions_is_neutral():
+    concentration = _position_concentration({
+        "account_equity": 100_000,
+        "position_values": {},
+    })
+    assert concentration["ticker_weights"] == {}
+    assert concentration["max_ticker"] == ""
+    assert concentration["max_ticker_weight"] == 0.0
+    assert concentration["ticker_concentration_warning"] is False
+
+
+def test_health_concentration_unusable_position_values_is_neutral():
+    concentration = _position_concentration({
+        "account_equity": 100_000,
+        "position_values": {
+            "AAPL": 0.0,
+            "MSFT": np.nan,
+            "CAT": "not-a-number",
+        },
+    })
+    assert concentration["ticker_weights"] == {}
+    assert concentration["max_ticker"] == ""
+    assert concentration["max_sector"] == ""
+    assert concentration["overlay_sector_concentration_warning"] is False
+
+
+def test_health_concentration_core_only_keeps_overlay_fields_neutral():
+    concentration = _position_concentration({
+        "account_equity": 100_000,
+        "position_values": {
+            "SPY": 30_000,
+            "QQQ": 40_000,
+        },
+    })
+    assert concentration["max_ticker"] == "QQQ"
+    assert concentration["max_core_ticker"] == "QQQ"
+    assert concentration["max_overlay_ticker"] == ""
+    assert concentration["max_overlay_ticker_weight"] == 0.0
+    assert concentration["max_overlay_sector"] == ""
+    assert concentration["overlay_ticker_concentration_warning"] is False
 
 
 def test_moomoo_status_bucket_accepts_common_filled_variants():

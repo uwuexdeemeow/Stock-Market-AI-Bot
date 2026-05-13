@@ -11,6 +11,7 @@ Paper trading = real market prices, fake money. It lets you test the full pipeli
 - Short selling is disabled by default
 - Optional interactive confirmation before each trade
 - Logs every order to `signals/paper_trades.csv`
+- Repairs core ETF STOP_LIMIT protection for `SPY`, `QQQ`, and `TQQQ` when Moomoo paper trading accepts conditional stop-limit orders
 
 ---
 
@@ -31,6 +32,17 @@ python moomoo_paper_trading.py --confirm
 
 # Override: allow shorts (not recommended for beginners)
 python moomoo_paper_trading.py --allow-shorts
+
+# Core-satellite paper workflow
+python3 moomoo_paper_trading.py --submit
+python3 moomoo_paper_trading.py --status
+python3 moomoo_paper_trading.py --sync
+
+# Repair Moomoo core ETF protection while the laptop is awake
+python3 moomoo_paper_trading.py --execution-guard
+
+# Preview ETF protection changes without submitting/cancelling orders
+python3 moomoo_paper_trading.py --execution-guard --guard-dry-run
 ```
 
 ---
@@ -54,6 +66,7 @@ python moomoo_paper_trading.py --allow-shorts
 | **OpenD** | Moomoo's local server process. The Python API sends orders to OpenD, which forwards them to Moomoo's servers. |
 | **Include/exclude filters** | Command-line flags to manually restrict or skip certain tickers for one run. |
 | **Short selling** | Betting that a stock will go down by borrowing and selling shares you don't own. Disabled by default — complex and risky. |
+| **STOP_LIMIT protection** | A conditional sell order with a trigger price and lower limit price. It is safer than a plain sell limit below market, which could execute immediately. |
 
 ---
 
@@ -64,3 +77,4 @@ python moomoo_paper_trading.py --allow-shorts
 | `signals/paper_trades.csv` | Log of every trade attempted: ticker, signal, shares, price, time |
 | `signals/paper_equity.csv` | Daily equity curve: portfolio value over time |
 | `signals/paper_positions.csv` | Current open positions |
+| `signals/moomoo_execution_guard_state.json` | High-water marks used to move static ETF protection upward |

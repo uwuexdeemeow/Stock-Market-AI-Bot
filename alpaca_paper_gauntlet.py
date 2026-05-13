@@ -45,7 +45,7 @@ LOGS = Path(LOG_DIR)
 
 # Alpaca-specific files (written by alpaca_paper_trading.py)
 ALPACA_PAPER_LOG = SIGNALS / "alpaca_paper_log.csv"          # order submission log
-ALPACA_SIGNAL = SIGNALS / "core_satellite_tqqq_signal.csv"   # latest TQQQ signal
+ALPACA_SIGNAL = SIGNALS / "core_satellite_alpha_signal.csv"   # unified signal (includes TQQQ when approved)
 
 # Shared equity tracking files (if the user sets up equity snapshots)
 ALPACA_EQUITY = SIGNALS / "alpaca_paper_equity.csv"
@@ -57,7 +57,7 @@ ALPACA_EQUITY = SIGNALS / "alpaca_paper_equity.csv"
 # ─────────────────────────────────────────────────────────────────────────────
 MIN_TRADING_DAYS = int(os.environ.get("ALPACA_GAUNTLET_MIN_DAYS", "20"))
 MIN_SHARPE = float(os.environ.get("ALPACA_GAUNTLET_MIN_SHARPE", "0.5"))
-# TQQQ is 3x leveraged — expect bigger swings than core-satellite, so wider DD limit
+# Unified strategy may include TQQQ — expect bigger swings if tqqq_weight > 0
 MAX_DRAWDOWN_PCT = float(os.environ.get("ALPACA_GAUNTLET_MAX_DD", "-15.0"))
 MIN_FILL_RATE = float(os.environ.get("ALPACA_GAUNTLET_MIN_FILL_RATE", "0.95"))
 MAX_CANCEL_RATE = float(os.environ.get("ALPACA_GAUNTLET_MAX_CANCEL_RATE", "0.05"))
@@ -373,7 +373,7 @@ def evaluate_alpaca_paper(verbose: bool = False) -> dict:
             "approved_for_real_capital": False,
             "reason": "No Alpaca paper trading data found. Run some trades first.",
             "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "strategy": "core_satellite_tqqq",
+            "strategy": "core_satellite_alpha",
             "data_files": {
                 "alpaca_paper_log": str(ALPACA_PAPER_LOG),
                 "alpaca_paper_equity": str(ALPACA_EQUITY),
@@ -448,9 +448,9 @@ def evaluate_alpaca_paper(verbose: bool = False) -> dict:
     result = {
         "status": "passed" if passed else "failed",
         "approved_for_real_capital": passed,
-        "reason": "Alpaca TQQQ paper gauntlet passed" if passed else "; ".join(reasons),
+        "reason": "Alpaca paper gauntlet passed" if passed else "; ".join(reasons),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "strategy": "core_satellite_tqqq",
+        "strategy": "core_satellite_alpha",
 
         # Trading activity
         "trading_days": n_days,

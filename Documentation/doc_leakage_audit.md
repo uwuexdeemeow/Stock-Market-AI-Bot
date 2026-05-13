@@ -14,6 +14,17 @@ The test: edit tomorrow's price, re-run the feature pipeline for today, and chec
 python leakage_audit.py
 ```
 
+For the stricter gate, run:
+
+```bash
+python3 strict_leakage_audit.py
+python3 strict_leakage_audit.py --strict-static
+```
+
+The strict audit adds a truncate/recompute test, a feature-contract check, and
+a static scan for suspicious `shift(-N)`, `bfill()`, centered rolling windows,
+and full-sample transforms.
+
 **Expected output:**
 - `logs/leakage_audit.json` with pass/fail per ticker
 - Printed summary:
@@ -23,6 +34,10 @@ python leakage_audit.py
   ```
 
 **Exit code:** 0 = pass, 1 = leaks found, 2 = setup error.
+
+Strict audit output:
+- `logs/strict_leakage_audit.json`
+- `logs/strict_feature_audit.csv`
 
 ---
 

@@ -53,6 +53,7 @@ How to run the health checks
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import logging
 import os
@@ -93,6 +94,7 @@ load_dotenv()
 _MONITOR_LOG   = os.path.join(LOG_DIR, "monitor.log")
 _ALERT_LOG     = os.path.join(LOG_DIR, "alerts.jsonl")
 _DEDUP_FILE    = os.path.join(LOG_DIR, "alert_dedup.json")
+_DEDUP_LOCK_FILE = _DEDUP_FILE + ".lock"
 _DRIFT_LOG     = os.path.join(LOG_DIR, "drift.jsonl")
 _PIPELINE_LOG  = os.path.join(LOG_DIR, "pipeline_runs.jsonl")
 _EQUITY_CSV    = os.path.join(SIGNAL_DIR, "portfolio_equity.csv")
@@ -206,8 +208,18 @@ def _load_dedup() -> dict:
 
 
 def _save_dedup(cache: dict) -> None:
-    with open(_DEDUP_FILE, "w") as f:
+    dedup_dir = os.path.dirname(_DEDUP_FILE) or "."
+    tmp_path = os.path.join(dedup_dir, f".{os.path.basename(_DEDUP_FILE)}.{os.getpid()}.{time.time_ns()}.tmp")
+    with open(tmp_path, "w") as f:
         json.dump(cache, f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp_path, _DEDUP_FILE)
+
+
+def _append_alert_log(record: dict) -> None:
+    with open(_ALERT_LOG, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record) + "\n")
 
 
 def _is_suppressed(alert_key: str) -> bool:
@@ -225,14 +237,38 @@ def _is_suppressed(alert_key: str) -> bool:
     return elapsed_hours < DEDUP_WINDOW_HOURS
 
 
-def _mark_sent(alert_key: str) -> None:
-    """Record that this alert was just sent so we can suppress it for a while."""
-    cache = _load_dedup()
-    cache[alert_key] = time.time()
+def _claim_alert(alert_key: str, record: dict) -> bool:
+    """Atomically claim an alert key and write the local alert record."""
+    lock_dir = os.path.dirname(_DEDUP_LOCK_FILE) or "."
+    os.makedirs(lock_dir, exist_ok=True)
+    with open(_DEDUP_LOCK_FILE, "a") as lock_f:
+        fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
+        try:
+            if _is_suppressed(alert_key):
+                return False
+
+            _append_alert_log(record)
+
+            cache = _load_dedup()
+            cache[alert_key] = time.time()
+            _prune_and_save_dedup(cache)
+            return True
+        finally:
+            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
+
+
+def _prune_and_save_dedup(cache: dict) -> None:
     # Prune entries older than 24 hours to keep the file tidy
     cutoff = time.time() - 24 * 3600
     cache = {k: v for k, v in cache.items() if v > cutoff}
     _save_dedup(cache)
+
+
+def _mark_sent(alert_key: str) -> None:
+    """Record that this alert was just sent so we can suppress it for a while."""
+    cache = _load_dedup()
+    cache[alert_key] = time.time()
+    _prune_and_save_dedup(cache)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -338,10 +374,6 @@ def send_alert(
     """
     key = alert_key or title
 
-    if _is_suppressed(key):
-        _log.debug("alert suppressed (dedup): %s", key)
-        return
-
     # Always write to the local JSONL log first — this is the ground truth
     record = {
         "sent_at":  datetime.now(timezone.utc).isoformat(),
@@ -350,8 +382,10 @@ def send_alert(
         "body":     body,
         "key":      key,
     }
-    with open(_ALERT_LOG, "a", encoding="utf-8") as f:
-        f.write(json.dumps(record) + "\n")
+
+    if not _claim_alert(key, record):
+        _log.debug("alert suppressed (dedup): %s", key)
+        return
 
     # Log to monitor.log at the matching level
     level_map = {INFO: logging.INFO, WARNING: logging.WARNING,
@@ -369,12 +403,39 @@ def send_alert(
             title,
         )
 
-    _mark_sent(key)
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HEALTH CHECKS
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _metric_float(value, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _worst_drift_feature(features) -> tuple[str, float, float]:
+    if not isinstance(features, dict) or not features:
+        return "unavailable", 0.0, 0.0
+
+    worst_feat = None
+    worst_metrics = None
+    worst_psi = float("-inf")
+    for name, metrics in features.items():
+        if not isinstance(metrics, dict):
+            continue
+        psi = _metric_float(metrics.get("psi"), 0.0)
+        if psi > worst_psi:
+            worst_feat = name
+            worst_metrics = metrics
+            worst_psi = psi
+
+    if worst_feat is None or worst_metrics is None:
+        return "unavailable", 0.0, 0.0
+
+    return str(worst_feat), worst_psi, _metric_float(worst_metrics.get("ks_stat"), 0.0)
+
 
 def check_drift() -> dict:
     """
@@ -410,10 +471,8 @@ def check_drift() -> dict:
     run_at   = entry.get("run_at", "unknown")
     features = entry.get("features", {})
 
-    # Pull out the worst offending feature to make the alert body informative
-    worst_feat   = max(features, key=lambda k: features[k].get("psi", 0), default=None)
-    worst_psi    = features[worst_feat]["psi"] if worst_feat else 0
-    worst_ks     = features[worst_feat].get("ks_stat", 0) if worst_feat else 0
+    # Pull out the worst offending feature to make the alert body informative.
+    worst_feat, worst_psi, worst_ks = _worst_drift_feature(features)
 
     if status == "drift":
         body = (

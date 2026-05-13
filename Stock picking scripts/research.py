@@ -37,9 +37,22 @@ def research_ticker(ticker: str, start: str, end: str) -> bool:
     if df.empty:
         log.error("[%s] no data built", ticker)
         return False
+
+    # IMPORTANT: the current alpha_factor_backtest.load_factor_panel() expects
+    # ticker parquet files named like AAPL.parquet, MSFT.parquet, QQQ.parquet.
+    # Do not write *_features.parquet here unless the loader is changed too.
     out = os.path.join(DATA_DIR, f"{ticker}.parquet")
+
     df.to_parquet(out, index=True)
-    log.info("[%s] saved %s rows x %s cols -> %s", ticker, len(df), len(df.columns), out)
+
+    log.info(
+        "[%s] saved %s rows x %s cols -> %s",
+        ticker,
+        len(df),
+        len(df.columns),
+        out,
+    )
+
     return True
 
 def load_shortlist() -> list[str]:

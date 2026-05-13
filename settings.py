@@ -13,6 +13,11 @@ load_dotenv()  # loads .env file from project root into os.environ
 
 FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY", "").strip()
 
+# Tradier API — free with any brokerage account.  Used for real options IV data.
+# Get your token at https://web.tradier.com/user/api
+# Set TRADIER_USE_SANDBOX=1 for delayed/test data without a funded account.
+TRADIER_API_TOKEN = os.environ.get("TRADIER_API_TOKEN", "").strip()
+
 # ─────────────────────────────────────────────────────────────────────────────
 # WATCHLIST / SCANNER
 # ─────────────────────────────────────────────────────────────────────────────
@@ -359,7 +364,17 @@ USE_ORDER_BOOK = True
 USE_ANALYST_DATA = False
 USE_EARNINGS_DATA = False
 USE_YIELD_CURVE = True
-SOCIAL_SENTIMENT_ENABLED = False
+# Social sentiment is safety-only by default.
+#
+# StockTwits/X data is useful as a live fallback/diagnostic signal, but the
+# free feeds do not provide point-in-time history good enough for model alpha
+# without a separate validation project.  Keep the alpha flag off unless that
+# validation exists.
+SOCIAL_SENTIMENT_SAFETY_ENABLED = os.environ.get("SOCIAL_SENTIMENT_SAFETY_ENABLED", "1").strip().lower() in {"1", "true", "yes", "on"}
+SOCIAL_SENTIMENT_ALPHA_ENABLED = os.environ.get("SOCIAL_SENTIMENT_ALPHA_ENABLED", "0").strip().lower() in {"1", "true", "yes", "on"}
+# Backward-compatible alias for older code.  Legacy SOCIAL_SENTIMENT_ENABLED is
+# intentionally mapped to alpha mode, not safety mode.
+SOCIAL_SENTIMENT_ENABLED = SOCIAL_SENTIMENT_ALPHA_ENABLED
 USE_NEWS_SENTIMENT = True
 # Point-in-time valuation features from dated yfinance quarterly statements.
 # Values are exposed after a conservative reporting lag, then z-scored within
