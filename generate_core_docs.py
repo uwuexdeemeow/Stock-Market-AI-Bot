@@ -65,7 +65,7 @@ def build_document():
         "1. System Overview",
         "2. How the System Works (End-to-End)",
         "3. core_satellite_alpha.py - Moomoo Signal Generator",
-        "4. core_satellite_tqqq.py - Alpaca TQQQ Signal Generator",
+        "4. Unified Strategy — TQQQ as Grid Knob",
         "5. moomoo_paper_trading.py - Moomoo Broker Script",
         "6. alpaca_paper_trading.py - Alpaca Broker Script",
         "7. paper_gauntlet.py - Moomoo Health Check",
@@ -105,16 +105,15 @@ def build_document():
     hdr = table.rows[0].cells
     hdr[0].text = "Feature"
     hdr[1].text = "Moomoo (Core-Satellite)"
-    hdr[2].text = "Alpaca (TQQQ-Enhanced)"
+    hdr[2].text = "Alpaca (Unified)"
 
     rows_data = [
         ("Broker", "Moomoo (via OpenD desktop app)", "Alpaca (free cloud API)"),
-        ("Signal File", "core_satellite_alpha_signal.csv", "core_satellite_tqqq_signal.csv"),
-        ("Core Holdings", "SPY + QQQ", "SPY + QQQ + TQQQ"),
-        ("TQQQ (3x Leverage)", "No", "Yes, during uptrends only"),
-        ("Overlay Stocks", "Top 3 by factor score", "Top 3 by factor score"),
-        ("Backtested Return", "~8,887%", "~10,369%"),
-        ("Max Drawdown Limit", "-10%", "-15% (wider for TQQQ)"),
+        ("Signal File", "core_satellite_alpha_signal.csv", "core_satellite_alpha_signal.csv (same)"),
+        ("Core Holdings", "SPY + QQQ + TQQQ (if approved)", "SPY + QQQ + TQQQ (if approved)"),
+        ("TQQQ (3x Leverage)", "Included when grid search approves", "Included when grid search approves"),
+        ("Overlay Stocks", "Top 3-5 by factor score", "Top 3-5 by factor score"),
+        ("Max Drawdown Limit", "-10%", "-15% (wider when TQQQ active)"),
     ]
     for row_data in rows_data:
         add_table_row(table, row_data)
@@ -165,7 +164,7 @@ def build_document():
         ("Step 4: Moomoo Health Check", "paper_gauntlet.py",
          "Evaluates whether the Moomoo strategy is performing well enough. Checks Sharpe ratio, "
          "drawdown, fill rate, and other safety metrics."),
-        ("Step 5: Generate Alpaca Signal", "core_satellite_tqqq.py",
+        ("Step 5: Generate Alpaca Signal", "core_satellite_alpha.py",
          "Same as Step 1 but generates a signal that includes TQQQ allocation during uptrends."),
         ("Step 6: Submit Alpaca Orders", "alpaca_paper_trading.py --submit",
          "Reads the TQQQ signal, compares to current Alpaca positions, submits orders. "
@@ -189,7 +188,7 @@ def build_document():
         "                                                                                              |\n"
         "                                                                                    paper_gauntlet.py\n"
         "                                                                                              |\n"
-        "  Factor Data --> core_satellite_tqqq.py ---> signal CSV --> alpaca_paper_trading.py --> Alpaca Broker\n"
+        "  Factor Data --> core_satellite_alpha.py ---> signal CSV --> alpaca_paper_trading.py --> Alpaca Broker\n"
         "                                                                                              |\n"
         "                                                                                  alpaca_paper_gauntlet.py\n"
         "                                                                                              |\n"
@@ -304,9 +303,9 @@ def build_document():
     doc.add_page_break()
 
     # ═══════════════════════════════════════════════════════════════════════
-    # SECTION 4: core_satellite_tqqq.py
+    # SECTION 4: core_satellite_alpha.py
     # ═══════════════════════════════════════════════════════════════════════
-    add_heading(doc, "4. core_satellite_tqqq.py - Alpaca TQQQ Signal Generator", level=1)
+    add_heading(doc, "4. core_satellite_alpha.py - Alpaca TQQQ Signal Generator", level=1)
 
     add_para(doc, "Purpose", bold=True)
     add_para(doc, (
@@ -317,10 +316,10 @@ def build_document():
     ))
 
     add_para(doc, "How to Run", bold=True)
-    add_code(doc, "  python3 core_satellite_tqqq.py                     # Generate live signal (DEFAULT)")
-    add_code(doc, "  python3 core_satellite_tqqq.py --tqqq-weight 0.30  # Use 30% TQQQ instead of 20%")
-    add_code(doc, "  python3 core_satellite_tqqq.py --backtest          # Run historical backtest")
-    add_code(doc, "  python3 core_satellite_tqqq.py --grid              # Grid search over TQQQ weights")
+    add_code(doc, "  python3 core_satellite_alpha.py                     # Generate live signal (DEFAULT)")
+    add_code(doc, "  python3 core_satellite_alpha.py --tqqq-weight 0.30  # Use 30% TQQQ instead of 20%")
+    add_code(doc, "  python3 core_satellite_alpha.py --backtest          # Run historical backtest")
+    add_code(doc, "  python3 core_satellite_alpha.py --grid              # Grid search over TQQQ weights")
 
     add_para(doc, "")
     add_para(doc, "What is TQQQ?", bold=True)
@@ -371,7 +370,7 @@ def build_document():
         "d) Assigns weights to the stocks\n"
         "e) Computes ETF target weights (SPY, QQQ, TQQQ) based on regime\n"
         "f) Scales everything down to stay within 1.0x gross exposure\n"
-        "g) Writes the signal CSV to signals/core_satellite_tqqq_signal.csv"
+        "g) Writes the signal CSV to signals/core_satellite_alpha_signal.csv"
     ))
 
     add_para(doc, "3. _scale_paper_targets()", italic=True)
@@ -800,7 +799,7 @@ def build_document():
         ("2", "moomoo_submit", "moomoo_paper_trading.py --submit", "Submit orders to Moomoo"),
         ("3", "moomoo_status", "moomoo_paper_trading.py --status", "Sync equity and positions"),
         ("4", "moomoo_gauntlet", "paper_gauntlet.py", "Health check for Moomoo"),
-        ("5", "alpaca_signal", "core_satellite_tqqq.py", "Generate TQQQ signal"),
+        ("5", "alpaca_signal", "core_satellite_alpha.py", "Generate TQQQ signal"),
         ("6", "alpaca_submit", "alpaca_paper_trading.py --submit", "Submit orders to Alpaca"),
         ("7", "alpaca_reconcile", "alpaca_paper_trading.py --reconcile", "Check if Alpaca orders filled"),
         ("8", "alpaca_gauntlet", "alpaca_paper_gauntlet.py", "Health check for Alpaca"),
@@ -870,7 +869,7 @@ def build_document():
         ("paper_daily_status.json", "Moomoo", "Latest positions, drift, regime"),
         ("alpaca_paper_equity.csv", "Alpaca", "Daily equity snapshots (date, equity, cash)"),
         ("alpaca_paper_log.csv", "Alpaca", "Order submission log with fill status"),
-        ("core_satellite_tqqq_signal.csv", "Alpaca", "Latest TQQQ signal (for regime info)"),
+        ("core_satellite_alpha_signal.csv", "Alpaca", "Latest TQQQ signal (for regime info)"),
     ]
     for d in data_sources:
         add_table_row(data_table, d)

@@ -1,10 +1,12 @@
 # Core-Satellite Paper Trading Runbook
 
-This runbook covers **both** strategies:
-- **Moomoo**: Core-satellite alpha (`core_satellite_alpha_signal.csv`)
-- **Alpaca**: TQQQ-enhanced (`core_satellite_tqqq_signal.csv`)
+This runbook covers the **unified** core-satellite strategy:
+- **Signal**: `core_satellite_alpha_signal.csv` (one signal, both brokers)
+- **Moomoo**: Reads the same signal for core-satellite alpha
+- **Alpaca**: Reads the same signal — TQQQ allocation is included when the
+  nested walkforward grid search determines it helps on a risk-adjusted basis
 
-Both share the same factor data pipeline and regime detection logic.
+Both brokers share the same factor data pipeline, regime detection, and signal.
 
 ---
 
@@ -15,40 +17,40 @@ in the right order, handles errors gracefully, and sends notifications if
 anything breaks:
 
 ```bash
-python3 daily_run.py              # run everything (16 steps)
+python3 daily_run.py              # run everything (14 steps)
 python3 daily_run.py --dry-run    # preview what would run without executing
 python3 daily_run.py --moomoo     # only run Moomoo steps
 python3 daily_run.py --alpaca     # only run Alpaca steps
-python3 daily_run.py --stress     # also run stress tests (20 steps)
+python3 daily_run.py --stress     # also run stress tests
 python3 daily_run.py --report     # also run side-by-side performance report
 python3 daily_run.py --skip-refresh  # skip data download (use existing data)
 python3 daily_run.py --force      # run even on weekends/holidays
 ```
 
-### What daily_run.py does (16 steps, in order):
+### What daily_run.py does (14 steps, in order):
 
 | # | Step | Script | What it does |
 |---|------|--------|-------------|
 | 1 | refresh_etf_data | `refresh_etf_data.py --refresh` | Download latest ETF prices (SPY, QQQ, TQQQ, etc.) |
 | 2 | refresh_factor_data | `research.py` | Refresh factor panel (stock prices + factor scores) |
 | 3 | fill_monitor | `fill_monitor.py --days 2` | Verify yesterday's orders filled (catch cancellations) |
-| 4 | moomoo_signal | `core_satellite_alpha.py` | Generate core-satellite signal for Moomoo |
+| 4 | signal | `core_satellite_alpha.py` | Generate unified signal (both Moomoo and Alpaca) |
 | 5 | moomoo_submit | `moomoo_paper_trading.py --submit` | Submit orders to Moomoo (sells first, wait, then buys) |
 | 6 | moomoo_status | `moomoo_paper_trading.py --status` | Sync equity/positions and save daily status |
 | 7 | moomoo_execution_guard | `moomoo_paper_trading.py --execution-guard` | Repair Moomoo core ETF stop-limit protection |
 | 8 | moomoo_health | `paper_health.py` | Build deep health summary (slippage, concentration, risk) |
 | 9 | moomoo_gauntlet | `paper_gauntlet.py` | Run Moomoo paper gauntlet health check |
 | 10 | moomoo_daily_check | `daily_paper_check.py --skip-status --skip-sync` | Read-only verdict (status/sync already done) |
-| 11 | alpaca_signal | `core_satellite_tqqq.py` | Generate TQQQ-enhanced signal for Alpaca |
-| 12 | alpaca_submit | `alpaca_paper_trading.py --submit` | Submit orders to Alpaca (auto-snapshots equity) |
-| 13 | alpaca_reconcile | `alpaca_paper_trading.py --reconcile` | Reconcile Alpaca order fills |
-| 14 | alpaca_execution_guard | `execution_guard.py --once` | Repair ETF stops, cancel stale Alpaca orders, check P&L |
-| 15 | alpaca_gauntlet | `alpaca_paper_gauntlet.py` | Run Alpaca paper gauntlet health check |
-| 16 | regime_monitor | `regime_monitor.py` | Detect regime changes and alert (risk_on/neutral/risk_off) |
+| 11 | alpaca_submit | `alpaca_paper_trading.py --submit` | Submit orders to Alpaca (reads same signal) |
+| 12 | alpaca_reconcile | `alpaca_paper_trading.py --reconcile` | Reconcile Alpaca order fills |
+| 13 | alpaca_execution_guard | `execution_guard.py --once` | Repair ETF stops, cancel stale Alpaca orders, check P&L |
+| 14 | alpaca_gauntlet | `alpaca_paper_gauntlet.py` | Run Alpaca paper gauntlet health check |
 
 ### Built-in safety features:
 - **Weekend/holiday guard**: Automatically skips on weekends and US market holidays (use `--force` to override)
 - **Data freshness gate**: Warns if factor data > 5 trading days old, blocks if > 10 days old (use `--ignore-stale` to override)
+- **Fail-soft sentiment fallback**: Finnhub is preferred for live news, but Yahoo/Google RSS and social sentiment can keep the sentiment gate at `PARTIAL` instead of blocking trades. Trades block only if all fresh sentiment sources are unavailable, or if fallback sentiment finds strongly negative news for a selected stock.
+- **Social sentiment safety mode**: StockTwits/X sentiment is live diagnostic/fallback data only (`SOCIAL_SENTIMENT_SAFETY_ENABLED=1`). It is not included as trainable model alpha unless `SOCIAL_SENTIMENT_ALPHA_ENABLED=1` is explicitly enabled after separate validation.
 - **Sell-wait-buy phasing**: Moomoo sells execute first, waits for fills + settlement, then buys (prevents cancelled orders from insufficient buying power)
 - **Failure notifications**: macOS notification banner if any step fails; optional email alerts via SMTP env vars
 - **Regime change alerts**: macOS notification when market regime switches (e.g. risk_on to risk_off)
@@ -70,9 +72,8 @@ python3 research.py
 # 2. Check yesterday's fills
 python3 fill_monitor.py --days 2
 
-# 3. Generate signals
-python3 core_satellite_alpha.py       # Moomoo signal
-python3 core_satellite_tqqq.py        # Alpaca signal
+# 3. Generate signal (one unified signal for both brokers)
+python3 core_satellite_alpha.py
 
 # 4. Check regime
 python3 regime_monitor.py
@@ -129,6 +130,7 @@ Or run stress tests individually:
 python3 config_health.py
 python3 refresh_etf_data.py --symbols SPY QQQ TQQQ
 python3 leakage_audit.py
+python3 strict_leakage_audit.py
 python3 core_satellite_execution_stress.py
 python3 core_satellite_survivorship_audit.py
 python3 core_satellite_drawdown_throttle.py
@@ -138,6 +140,91 @@ python3 paper_gauntlet.py
 python3 alpaca_paper_gauntlet.py
 ```
 
+### Walk-Forward Validation (Weekly or After Strategy Changes)
+
+This is the **most important** trust check. It tells you the TRUE out-of-sample
+performance of the strategy — what you'd have actually made running it live:
+
+```bash
+# Proper nested validation: inner loop tunes parameters (including TQQQ weight),
+# outer yearly loop evaluates true unseen out-of-sample years.
+python3 core_satellite_nested_walkforward.py
+
+# Faster smoke/debug version:
+python3 core_satellite_nested_walkforward.py --fast --max-folds 2 --max-configs 8 --output-prefix core_satellite_nested_walkforward_smoke
+
+# Full dry run without publishing approval state:
+python3 core_satellite_nested_walkforward.py --no-publish-live-config
+
+# Optional one-off validation before generating that signal only:
+python3 core_satellite_alpha.py --walkforward --ignore-stale
+```
+
+What to check in nested output (`signals/core_satellite_nested_walkforward.json`):
+- **Mean OOS Sharpe** and **mean OOS alpha vs BLEND** are the headline numbers
+- **Selection-bias gap** shows how much better the inner winner looked than the true outer result
+- **Config stability** below 50% means the strategy is fragile across yearly retunes
+- The winning config's `tqqq_weight` tells you if TQQQ helps — 0.0 means pure core-alpha won
+- Full nested runs write approved or fail-closed live state to
+  `signals/core_satellite_live_configs.json` by default. Smoke/debug runs
+  (`--fast`, `--max-folds`, `--max-configs`, custom `--output-prefix`,
+  partial year windows, or reduced `--max-specs`) do not publish unless
+  `--publish-live-config` is passed explicitly.
+  Daily signal scripts must load from this file, not from the full-sample grid.
+
+If nested OOS Sharpe is below 0.5, **do not trust the in-sample grid results**.
+The strategy needs fundamental rework, not more parameter tuning. The daily
+signal script loads from `core_satellite_live_configs.json`.
+If no approved config exists, the signal generator fails closed.
+
+### Feature Quality Diagnostic (Weekly)
+
+Measures which factors actually predict returns and which are noise:
+
+```bash
+python3 feature_quality_diagnostic.py --top 24
+```
+
+Output: `signals/feature_quality_report.json` and `signals/feature_quality_summary.csv`
+
+What to check:
+- Grade A/B features are your real edge — keep them
+- Grade D/F features are noise — the alpha strategy auto-drops them on next run
+- IC decay: features with half-life < 10 days may not survive transaction costs
+- Turnover > 60%/period means the feature's rankings are too noisy to trade
+- Regime stability: features that only work in bull markets are dangerous
+
+The alpha strategy automatically loads this report and excludes D/F features
+from scoring. Run the diagnostic first, then the strategy benefits on next run.
+
+### Feature Research (Weekly)
+
+Deeper situational analysis — WHERE, WHEN, and UNDER WHAT CONDITIONS each
+feature works.  Complements `feature_quality_diagnostic.py` (which gives
+A/B/C/D/F grades).  This script answers questions like "does ret_5d only
+work in tech?" and "is rsi_14 losing its edge?":
+
+```bash
+python3 feature_research.py                # analyse top 24 features (~5 min)
+python3 feature_research.py --top 10       # only top 10 (~2 min)
+python3 feature_research.py --skip-pairs   # skip pairwise interactions (~2 min)
+```
+
+Output: `signals/feature_research_report.json` and `signals/feature_research_summary.csv`
+
+What to check:
+- **SECTOR-SPECIFIC**: features that only work in some sectors — consider
+  sector-conditional weighting
+- **DECAYING**: features losing predictive power recently — may need removal
+- **HORIZON MISMATCH**: features used at the wrong holding period — IC is
+  significantly higher at a different horizon
+- **CONDITIONAL**: features whose IC depends on VIX, yield curve, or earnings
+  proximity — may need regime-conditional usage
+- **SYNERGISTIC PAIRS**: feature pairs that predict better together than alone —
+  complementary signals worth combining
+
+### Other Weekly Checks
+
 What to check:
 - `paper_health.py` should show `fill_rate=1.000`, low drift, reasonable slippage
 - `quant_audit.py` should show `primary_strategy_ok=True`
@@ -146,7 +233,7 @@ What to check:
 - Survivorship stress should pass (may warn if alpha is survivor-sensitive)
 - Execution stress should pass every scenario
 - Factor decay must not show negative recent overlay alpha
-- Real capital remains blocked until paper gauntlet passes on **both** strategies
+- Real capital remains blocked until paper gauntlet passes on **both** brokers (Moomoo + Alpaca)
 
 ---
 
@@ -292,6 +379,32 @@ python3 core_satellite_robust_research.py --full
 python3 survivorship_audit.py --build --report --min-rows 500
 ```
 
+### Grid Search Details
+
+The alpha strategy grid is deliberately coarse to prevent overfitting:
+- 2 regime presets (adaptive + cashbuffer)
+- 2 overlay gross levels (25%, 50%)
+- 2 holding periods (10, 20 trading days)
+- 2 score sources (factor_walkforward + regime_adaptive)
+- 3 portfolio shapes (top5 + top10 + top15 concentration/stability test)
+- 2 weighting modes (sticky_score + sticky_vol_score, where sticky_vol_score is score × inverse-vol)
+- 2 sector caps (1 or 2 per sector)
+- Cost stress is an approval gate, not a selector: report base metrics at 2x
+  costs, then approve only if the same config passes 2x/3x/5x checks.
+
+Fixed parameters (not searched — one correct answer):
+- Earnings blackout: 5 days
+
+The unified grid also searches 4 TQQQ risk-on weight levels (0%, 10%, 20%, 30%).
+TQQQ is only held during `risk_on` regime — 0% in neutral/risk_off.  The grid
+search decides whether any TQQQ allocation helps on a risk-adjusted basis.
+
+The winner is selected by **base-cost robustness score** (not CAGR). Only configs
+that pass all 2x/3x/5x cost-stress checks become the live signal.
+
+**Important**: If you see CAGR > 30% in any output, that's a warning sign of
+overfitting. The walk-forward OOS results are the only numbers you should trust.
+
 ---
 
 ## Notification Setup (Optional)
@@ -316,7 +429,7 @@ export ALERT_EMAIL=your.email@gmail.com  # defaults to SMTP_USER
 
 ## Real-Capital Blockers
 
-Do not move to real capital until **all** of these are true for **both** strategies:
+Do not move to real capital until **all** of these are true for **both** brokers:
 - `paper_gauntlet.py` approves real capital (Moomoo)
 - `alpaca_paper_gauntlet.py` approves real capital (Alpaca)
 - At least `20` paper equity days exist
@@ -334,8 +447,7 @@ Do not move to real capital until **all** of these are true for **both** strateg
 
 | File | What it contains |
 |------|-----------------|
-| `signals/core_satellite_alpha_signal.csv` | Current Moomoo signal (regime, weights, tickers) |
-| `signals/core_satellite_tqqq_signal.csv` | Current Alpaca signal (with TQQQ allocation) |
+| `signals/core_satellite_alpha_signal.csv` | Unified signal for both brokers (regime, weights, TQQQ, tickers) |
 | `signals/paper_trades.csv` | Trade log with fill statuses |
 | `signals/paper_health.json` | Latest health dashboard |
 | `signals/paper_daily_status.json` | Latest daily status snapshot |
