@@ -297,10 +297,13 @@ def _send_slack(title: str, body: str, severity: str) -> bool:
         "text": f"{emoji} *[{severity}] {title}*\n```{body}```"
     }
     try:
-        resp = _requests.post(webhook_url, json=payload, timeout=10)
-        if resp.status_code == 200:
+        from http_retry import retry_request
+        # Slack webhooks can return 429 or 500 — retry with backoff
+        resp = retry_request("POST", webhook_url, json=payload, timeout=10)
+        if resp is not None and resp.status_code == 200:
             return True
-        _log.warning("Slack webhook returned HTTP %s: %s", resp.status_code, resp.text[:200])
+        if resp is not None:
+            _log.warning("Slack webhook returned HTTP %s: %s", resp.status_code, resp.text[:200])
     except Exception as exc:
         _log.warning("Slack delivery failed: %s", exc)
     return False

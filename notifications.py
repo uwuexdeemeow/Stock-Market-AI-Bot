@@ -150,6 +150,7 @@ def send_telegram(message: str, *, parse_mode: str = "HTML") -> bool:
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return False
     try:
+        from http_retry import retry_request
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         payload = {
             "chat_id": TELEGRAM_CHAT_ID,
@@ -158,10 +159,10 @@ def send_telegram(message: str, *, parse_mode: str = "HTML") -> bool:
         }
         if parse_mode:
             payload["parse_mode"] = parse_mode
-        data = json.dumps(payload).encode("utf-8")
-        req = Request(url, data=data, headers={"Content-Type": "application/json"})
-        resp = urlopen(req, timeout=10, context=_ssl_context())
-        return resp.status == 200
+        # retry_request handles transient 429/500+ errors with backoff.
+        # Telegram API rate-limits bots — retrying prevents missed alerts.
+        resp = retry_request("POST", url, json=payload, timeout=10)
+        return resp is not None and resp.status_code == 200
     except Exception as exc:
         _log(f"Telegram alert failed: {exc}")
         return False

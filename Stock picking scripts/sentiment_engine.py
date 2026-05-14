@@ -706,13 +706,16 @@ def _fetch_rss_headlines(url: str, ticker: str) -> list:
     filled = url.format(ticker=ticker, ticker_lower=ticker.lower())
     try:
         try:
-            import requests
+            from http_retry import retry_request
 
-            resp = requests.get(
-                filled, headers=_rss_http_headers(), timeout=30
-            )
-            resp.raise_for_status()
-            raw = resp.content
+            # retry_request handles 429/500+ with exponential backoff.
+            # RSS feeds can be flaky — retrying avoids missing headlines.
+            resp = retry_request("GET", filled, headers=_rss_http_headers(), timeout=30)
+            if resp is not None:
+                resp.raise_for_status()
+                raw = resp.content
+            else:
+                raw = None
         except Exception:
             raw = None
 
@@ -778,7 +781,11 @@ def _fetch_finnhub_headlines(
                     except Exception:
                         chunk_payload = []
                 else:
-                    resp = requests.get(
+                    from http_retry import retry_request
+                    # Finnhub free tier = 60 calls/min.  retry_request
+                    # handles 429 rate-limit responses with backoff.
+                    resp = retry_request(
+                        "GET",
                         "https://finnhub.io/api/v1/company-news",
                         params={
                             "symbol": ticker,
@@ -789,8 +796,11 @@ def _fetch_finnhub_headlines(
                         headers=_rss_http_headers(),
                         timeout=30,
                     )
-                    resp.raise_for_status()
-                    chunk_payload = resp.json() or []
+                    if resp is None:
+                        chunk_payload = []
+                    else:
+                        resp.raise_for_status()
+                        chunk_payload = resp.json() or []
                     with open(cache_path, "w", encoding="utf-8") as f:
                         json.dump(chunk_payload, f)
                     time.sleep(0.4)
@@ -1162,9 +1172,14 @@ def fetch_premarket_news_by_provider(
                 "to": today_utc.isoformat(),
                 "token": finnhub_key,
             }
-            resp = requests.get(url, params=params, headers=_rss_http_headers(), timeout=30)
-            resp.raise_for_status()
-            payload = resp.json() or []
+            from http_retry import retry_request
+            resp = retry_request("GET", url, params=params,
+                                 headers=_rss_http_headers(), timeout=30)
+            if resp is None:
+                payload = []
+            else:
+                resp.raise_for_status()
+                payload = resp.json() or []
 
             kept = 0
             recent_headlines: list[tuple[datetime, str]] = []

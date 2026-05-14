@@ -77,12 +77,17 @@ def fetch_stocktwits_sentiment(ticker: str, max_messages: int = 100) -> dict:
     url = f"https://api.stocktwits.com/api/2/streams/symbol/{st_ticker}.json"
 
     try:
-        import requests
-        resp = requests.get(url, params={"limit": max_messages}, timeout=10)
+        from http_retry import retry_request
+        # retry_request handles 429 (rate limit) with exponential backoff.
+        # StockTwits rate-limits aggressively — retrying helps a lot.
+        resp = retry_request("GET", url, params={"limit": max_messages}, timeout=10)
 
-        # 429 = rate limited; 403 = ticker not found or API changed — both are
-        # non-fatal, just return empty rather than logging a scary warning.
-        if resp.status_code in (403, 429):
+        if resp is None:
+            log.debug("[%s] StockTwits request failed after retries", ticker)
+            return _empty_stocktwits_result()
+
+        # 403 = ticker not found or API changed — non-fatal, return empty.
+        if resp.status_code == 403:
             log.debug("[%s] StockTwits status %s — returning empty", ticker, resp.status_code)
             return _empty_stocktwits_result()
 

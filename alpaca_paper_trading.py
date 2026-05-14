@@ -818,8 +818,60 @@ def _tqqq_pre_trade_check(broker: AlpacaBroker) -> tuple[bool, float]:
 
 
 # Sentinel file written when emergency liquidation fires — prevents re-triggering
-# on subsequent runs until the user manually removes it after reviewing the halt.
+# on subsequent runs.  Auto-clears on the next calendar day if drawdown has
+# recovered past half the halt threshold (e.g. from -12% back to -6%).
 _HALT_SENTINEL_FILE = Path(SIGNAL_DIR) / "alpaca_halt_active.txt"
+
+# Recovery threshold: auto-clear the halt sentinel when drawdown improves
+# past this fraction of the halt threshold.  0.5 = recover to half the
+# halt level (e.g. if halt is -12%, auto-clear at -6%).
+_HALT_RECOVERY_RATIO = 0.5
+
+
+def _maybe_auto_clear_halt(broker: AlpacaBroker) -> bool:
+    """Auto-clear the halt sentinel if drawdown has recovered sufficiently.
+
+    PLAIN ENGLISH: After an emergency liquidation, trading is halted by a
+    sentinel file.  Previously you had to manually delete this file.  Now
+    we auto-clear it the NEXT DAY if the account's drawdown has improved
+    to less than half the halt threshold.
+
+    Example: halt threshold = -12%.  Emergency liquidation fires at -13%.
+    Next day, account is at -5% drawdown (recovered).  Since -5% is better
+    than -6% (= 12% × 0.5), the sentinel is auto-cleared and trading resumes.
+
+    Returns True if the sentinel was cleared, False otherwise.
+    """
+    if not _HALT_SENTINEL_FILE.exists():
+        return False
+
+    # Only auto-clear if at least one calendar day has passed since the halt.
+    # This prevents clearing the same day the halt fired — gives you time
+    # to review what happened.
+    try:
+        sentinel_text = _HALT_SENTINEL_FILE.read_text()
+        # Parse the timestamp from the first line: "Emergency liquidation triggered at 2026-05-14T..."
+        ts_str = sentinel_text.split("at ")[-1].split("\n")[0].strip()
+        halt_time = datetime.fromisoformat(ts_str)
+        if (datetime.now() - halt_time).days < 1:
+            return False  # same day — don't auto-clear yet
+    except Exception:
+        pass  # if we can't parse the timestamp, proceed with recovery check
+
+    # Check current drawdown
+    _, current_dd = check_portfolio_drawdown(broker)
+    recovery_threshold = -PORTFOLIO_DRAWDOWN_HALT_PCT * _HALT_RECOVERY_RATIO
+
+    if current_dd > recovery_threshold:
+        # Drawdown has recovered past half the halt level — safe to resume
+        _HALT_SENTINEL_FILE.unlink(missing_ok=True)
+        print(f"  ✓ Halt auto-cleared: drawdown recovered to {current_dd*100:.1f}% "
+              f"(threshold: {recovery_threshold*100:.1f}%)")
+        return True
+    else:
+        print(f"  ⚠ Halt still active: drawdown at {current_dd*100:.1f}% "
+              f"(need better than {recovery_threshold*100:.1f}% to auto-clear)")
+        return False
 
 
 def _emergency_liquidate(broker: AlpacaBroker) -> None:
@@ -976,6 +1028,13 @@ def main():
     if not args.submit:
         print("  ⚠  DRY RUN — orders NOT submitted. Use --submit to execute.")
         return
+
+    # ── Auto-clear halt if drawdown has recovered ──────────────────────
+    # PLAIN ENGLISH: If we halted trading yesterday because of a big
+    # drawdown, check if the account has recovered enough to resume.
+    # The sentinel auto-clears the next day if drawdown improved to
+    # less than half the halt threshold.
+    _maybe_auto_clear_halt(broker)
 
     # ── Portfolio drawdown halt check ──────────────────────────────────
     # PLAIN ENGLISH: If the portfolio has dropped too much from its peak,

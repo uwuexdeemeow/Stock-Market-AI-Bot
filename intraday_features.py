@@ -127,9 +127,12 @@ def _alpaca_get_bars(
         params["end"] = end
 
     try:
-        resp = requests.get(url, headers=headers, params=params, timeout=15)
-        if resp.status_code != 200:
-            logger.debug("Alpaca bars %s returned %d: %s", ticker, resp.status_code, resp.text[:200])
+        from http_retry import retry_request
+        # retry_request handles transient failures (429, 500+) with backoff
+        resp = retry_request("GET", url, headers=headers, params=params, timeout=15)
+        if resp is None or resp.status_code != 200:
+            if resp is not None:
+                logger.debug("Alpaca bars %s returned %d: %s", ticker, resp.status_code, resp.text[:200])
             return pd.DataFrame()
 
         data = resp.json()

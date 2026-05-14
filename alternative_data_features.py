@@ -43,14 +43,45 @@ PLAIN ENGLISH
 """
 from __future__ import annotations
 
+import logging
 import os
+import time
 import warnings
 from datetime import datetime, timedelta
+from functools import lru_cache
 
 import numpy as np
 import pandas as pd
 
 warnings.filterwarnings("ignore", category=FutureWarning)
+
+_log = logging.getLogger(__name__)
+
+# ── In-memory TTL cache for API responses ──────────────────────────────
+# PLAIN ENGLISH: During a single pipeline run, many functions call the
+# same API for the same ticker (e.g. build_all_live_alternative_features
+# calls build_live_eps_revision_features, build_live_recommendation_features,
+# etc.).  This cache stores results for 10 minutes so we don't hit the
+# API repeatedly for the same ticker within one run.
+_API_CACHE: dict[str, tuple[float, object]] = {}   # key → (timestamp, result)
+_CACHE_TTL_SECONDS = 600   # 10 minutes — enough for one pipeline run
+
+
+def _cache_get(key: str):
+    """Return cached value if it exists and hasn't expired, else None."""
+    entry = _API_CACHE.get(key)
+    if entry is None:
+        return None
+    ts, value = entry
+    if time.time() - ts > _CACHE_TTL_SECONDS:
+        del _API_CACHE[key]
+        return None
+    return value
+
+
+def _cache_set(key: str, value):
+    """Store a value in the TTL cache."""
+    _API_CACHE[key] = (time.time(), value)
 
 try:
     from settings import FINNHUB_API_KEY
@@ -379,15 +410,25 @@ def fetch_finnhub_recommendation_history(ticker: str) -> pd.DataFrame:
 
     Returns a DataFrame with columns: date, buy_pct, rec_mean, n_analysts.
     Empty DataFrame if no data or API key missing.
+
+    Results are cached for 10 minutes — analyst recommendations update
+    monthly so there's no need to re-fetch within a single pipeline run.
     """
+    cache_key = f"finnhub_rec:{ticker}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached
+
     if not FINNHUB_API_KEY:
         return pd.DataFrame()
 
     try:
-        import requests
+        from http_retry import retry_request
         url = f"https://finnhub.io/api/v1/stock/recommendation?symbol={ticker}&token={FINNHUB_API_KEY}"
-        resp = requests.get(url, timeout=10)
-        if resp.status_code != 200:
+        # retry_request retries on 429 (rate limit) and 500+ (server error)
+        # with exponential backoff: 1s → 2s → 4s between retries.
+        resp = retry_request("GET", url, timeout=10)
+        if resp is None or resp.status_code != 200:
             return pd.DataFrame()
         data = resp.json()
         if not data:
@@ -416,6 +457,7 @@ def fetch_finnhub_recommendation_history(ticker: str) -> pd.DataFrame:
         df = pd.DataFrame(rows).sort_values("date").set_index("date")
         # Compute month-over-month change in buy_pct
         df["alt_rec_change_1m"] = df["alt_rec_buy_pct"].diff().clip(-0.5, 0.5).fillna(0.0)
+        _cache_set(cache_key, df)
         return df
 
     except Exception:
@@ -483,12 +525,23 @@ def build_all_live_alternative_features(ticker: str) -> dict[str, float]:
 
     This is meant to be called from predict.py for each ticker, then
     the features are added to the live prediction row.
+
+    Results are cached for 10 minutes so calling this multiple times
+    for the same ticker within one pipeline run doesn't hit the APIs
+    again — saves time and avoids rate limits.
     """
+    cache_key = f"all_alt_features:{ticker}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached
+
     features = {}
     features.update(build_live_eps_revision_features(ticker))
     features.update(build_live_recommendation_features(ticker))
     features.update(build_live_short_interest_features(ticker))
     features.update(build_live_insider_transaction_features(ticker))
+
+    _cache_set(cache_key, features)
     return features
 
 

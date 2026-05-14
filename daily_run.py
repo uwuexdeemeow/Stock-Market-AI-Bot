@@ -44,6 +44,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+import pandas as pd
+
 from settings import LOG_DIR
 
 LOGS = Path(LOG_DIR)
@@ -334,7 +336,20 @@ def build_steps(
         steps.extend(DATA_REFRESH_STEPS)
     steps.append(FILL_MONITOR_STEP)
     if run_moomoo or run_alpaca:
-        steps.append(BROKER_HEALTH_STEP)
+        # Pass broker flags so broker_health.py only checks the brokers
+        # we're actually using.  Without this, it imports moomoo_api even
+        # when running Alpaca-only (breaks on CI where moomoo isn't installed).
+        health_flags = []
+        if run_alpaca:
+            health_flags.append("--alpaca")
+        if run_moomoo:
+            health_flags.append("--moomoo")
+        steps.append(Step(
+            "broker_health",
+            [sys.executable, "broker_health.py"] + health_flags,
+            f"Pre-flight broker connectivity check ({', '.join(health_flags)})",
+            critical=False,
+        ))
         steps.append(CORE_SATELLITE_SIGNAL_STEP)
     if run_moomoo:
         steps.extend(MOOMOO_STEPS)
@@ -377,75 +392,25 @@ def _is_us_market_holiday(dt: datetime) -> bool:
     """
     Check if a date is a US stock market (NYSE) holiday.
 
-    PLAIN ENGLISH: The NYSE closes on ~9 holidays per year.  This function
-    checks if today matches one of them.  It handles the "observed" rule:
-    if a holiday falls on Saturday, Friday is the observed day off; if on
-    Sunday, Monday is the observed day off.
-
-    Covers: New Year's, MLK Day, Presidents' Day, Good Friday,
-    Memorial Day, Juneteenth, Independence Day, Labor Day,
-    Thanksgiving, Christmas.
+    PLAIN ENGLISH: Instead of manually computing each holiday, we use the
+    'exchange_calendars' library which has the official NYSE calendar.  This
+    handles early closes, special closures, and future holiday changes
+    automatically — no manual updates needed.
     """
-    from datetime import date, timedelta
+    import exchange_calendars as xcals
 
-    year = dt.year
+    nyse = xcals.get_calendar("XNYS")
     d = dt.date() if hasattr(dt, "date") else dt
-
-    def _observed(holiday: date) -> date:
-        """Shift Saturday→Friday, Sunday→Monday."""
-        if holiday.weekday() == 5:  # Saturday
-            return holiday - timedelta(days=1)
-        if holiday.weekday() == 6:  # Sunday
-            return holiday + timedelta(days=1)
-        return holiday
-
-    def _nth_weekday(year: int, month: int, weekday: int, n: int) -> date:
-        """Return the nth occurrence of a weekday in a month (1-indexed)."""
-        first = date(year, month, 1)
-        # Days until the target weekday
-        days_ahead = (weekday - first.weekday()) % 7
-        first_occurrence = first + timedelta(days=days_ahead)
-        return first_occurrence + timedelta(weeks=n - 1)
-
-    def _last_weekday(year: int, month: int, weekday: int) -> date:
-        """Return the last occurrence of a weekday in a month."""
-        # Start from the last day of the month
-        if month == 12:
-            last = date(year + 1, 1, 1) - timedelta(days=1)
-        else:
-            last = date(year, month + 1, 1) - timedelta(days=1)
-        days_back = (last.weekday() - weekday) % 7
-        return last - timedelta(days=days_back)
-
-    def _easter(year: int) -> date:
-        """Compute Easter Sunday using the anonymous Gregorian algorithm."""
-        a = year % 19
-        b, c = divmod(year, 100)
-        d, e = divmod(b, 4)
-        f = (b + 8) // 25
-        g = (b - f + 1) // 3
-        h = (19 * a + b - d - g + 15) % 30
-        i, k = divmod(c, 4)
-        l = (32 + 2 * e + 2 * i - h - k) % 7  # noqa: E741
-        m = (a + 11 * h + 22 * l) // 451
-        month = (h + l - 7 * m + 114) // 31
-        day = ((h + l - 7 * m + 114) % 31) + 1
-        return date(year, month, day)
-
-    holidays = [
-        _observed(date(year, 1, 1)),                      # New Year's Day
-        _nth_weekday(year, 1, 0, 3),                      # MLK Day (3rd Monday Jan)
-        _nth_weekday(year, 2, 0, 3),                      # Presidents' Day (3rd Monday Feb)
-        _easter(year) - timedelta(days=2),                 # Good Friday
-        _last_weekday(year, 5, 0),                         # Memorial Day (last Monday May)
-        _observed(date(year, 6, 19)),                      # Juneteenth
-        _observed(date(year, 7, 4)),                       # Independence Day
-        _nth_weekday(year, 9, 0, 1),                       # Labor Day (1st Monday Sep)
-        _nth_weekday(year, 11, 3, 4),                      # Thanksgiving (4th Thursday Nov)
-        _observed(date(year, 12, 25)),                     # Christmas
-    ]
-
-    return d in holidays
+    # exchange_calendars uses pd.Timestamp for date lookups
+    ts = pd.Timestamp(d)
+    # A date is a holiday if it's a weekday but NOT a valid trading session
+    if d.weekday() >= 5:
+        return True  # weekend — not a holiday per se, but market is closed
+    try:
+        return not nyse.is_session(ts)
+    except Exception:
+        # If date is out of range for the calendar, fall back to weekend check
+        return d.weekday() >= 5
 
 
 def main():

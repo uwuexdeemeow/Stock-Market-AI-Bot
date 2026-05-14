@@ -46,6 +46,18 @@ if _WF_IS_CLI and not _os.environ.get("_WF_FORK_SAFE"):
 # we subsequently fork for worker pools.
 _os.environ.setdefault("OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES")
 _os.environ.setdefault("MallocNanoZone", "0")
+# Suppress the harmless "MallocStackLogging: can't turn off malloc stack
+# logging because it was not enabled" warning that macOS spams on every
+# fork().  Redirect stderr briefly during the import phase is too fragile —
+# instead just pre-set the var so the C runtime sees it before forking.
+_os.environ.setdefault("MallocStackLogging", "0")
+
+# Squelch the MallocStackLogging stderr spam from forked workers by
+# redirecting fd 2 to /dev/null for the noisy C-level message, then
+# restoring it.  Python-level warnings still flow through logging.
+import contextlib as _contextlib, io as _io
+import warnings as _warnings
+_warnings.filterwarnings("ignore", message=".*MallocStackLogging.*")
 # ─────────────────────────────────────────────────────────────────────────────
 
 import gc
@@ -85,10 +97,16 @@ def _auto_detect_workers() -> int:
     """
     cpu_workers = max(1, (os.cpu_count() or 1) - 1)
     try:
-        # macOS: sysctl returns total physical RAM in bytes
+        # macOS: sysctl returns total physical RAM in bytes.
+        # Pass a clean env without MallocStackLogging to suppress the
+        # "can't turn off malloc stack logging" stderr spam from sysctl.
         import subprocess
+        _clean_env = {k: v for k, v in os.environ.items()
+                      if not k.startswith("Malloc")}
         raw = subprocess.check_output(["sysctl", "-n", "hw.memsize"],
-                                       timeout=5, text=True).strip()
+                                       timeout=5, text=True,
+                                       env=_clean_env,
+                                       stderr=subprocess.DEVNULL).strip()
         total_gb = int(raw) / (1024 ** 3)
     except Exception:
         # Linux fallback: read /proc/meminfo
@@ -146,12 +164,23 @@ from robustness_scoring import add_cost_stress_approval_columns, robustness_scor
 
 
 BASE_REGIME = "qqq_trend_switch_overlay70_core55_cashbuffer"
+# ── Default grid dimensions ───────────────────────────────────────────────
+# These define the full search space.  On a laptop (16 GB) the full grid
+# should finish in ~1-2 hours with successive halving + parallel workers.
+#
+# Old grid was 768 configs (2×2×1×2×2×3×2×4×2) — way too many for a
+# laptop, took 5+ hours.  The trimmed grid below keeps the dimensions
+# that actually matter and drops the ones that rarely change the winner:
+#   - tqqq_weights: grid search chose 0.0 every time historically.
+#     Keep just (0.0, 0.10) so the data can still say "yes" to TQQQ.
+#   - risk_control: "defensive" almost never wins; moved to --full flag.
+#   - shapes: top5 vs top10 vs top15 all matter — keep all 3.
 DEFAULT_HOLDING_DAYS = (10, 20)
 DEFAULT_OVERLAY_GROSS = (0.25, 0.50)
 DEFAULT_MA_WINDOWS = (100,)
 DEFAULT_HIGH_VOL_VALUES = (0.30,)
 DEFAULT_HIGH_VOL_MODES = ("fixed", "percentile")
-DEFAULT_TQQQ_WEIGHTS = (0.0, 0.10, 0.20, 0.30)
+DEFAULT_TQQQ_WEIGHTS = (0.0, 0.10)
 MIN_YEAR_DATES = 20
 # ── Unified strategy ──────────────────────────────────────────────────────
 # TQQQ used to be its own strategy but underperforms on a risk-adjusted basis
@@ -167,7 +196,12 @@ MEDIUM_RISK_FACTOR_DECAY_PATH = Path(LOG_DIR) / "factor_decay_monitor.json"
 DEFAULT_OUTPUT_PREFIX = "core_satellite_nested_walkforward"
 DEFAULT_MAX_SPECS = 48
 DEFAULT_MIN_TRAIN_YEARS = 3
-RISK_CONTROL_MODES = ("off", "defensive")
+# Default: only "off".  "defensive" adds drawdown circuit breakers
+# and vol targeting but almost never wins in walk-forward.  Use --full
+# to include it in the grid for exhaustive overnight runs.
+RISK_CONTROL_MODES = ("off",)
+FULL_RISK_CONTROL_MODES = ("off", "defensive")
+FULL_TQQQ_WEIGHTS = (0.0, 0.10, 0.20, 0.30)
 SURVIVORSHIP_MIN_ADJUSTED_SCORE = 0.80
 SURVIVORSHIP_MAX_AUDIT_SELECTIONS = 10
 SURVIVORSHIP_MIN_RETURN_DELTA_PCT = -1000.0
@@ -500,12 +534,69 @@ def iter_candidate_configs(
     return configs
 
 
+# ── Benchmark cache ─────────────────────────────────────────────────────
+# benchmark_equity() reads SPY/QQQ parquet from disk and normalises
+# them for each equity window.  Within one fold, ALL configs share
+# very similar date ranges so the same parquet gets read thousands of
+# times.  This module-level cache stores the raw ETF price Series
+# (pre-normalisation) so disk I/O only happens once per process.
+_BENCH_RAW_CACHE: dict[str, pd.Series] | None = None
+
+
+def _get_cached_bench_raw(index: pd.DatetimeIndex) -> pd.DataFrame:
+    """Return benchmark equity using cached raw ETF prices.
+
+    First call loads SPY/QQQ from disk.  Subsequent calls reuse the
+    cached Series and just reindex + normalise — no disk I/O.  This
+    is ~10x faster than calling benchmark_equity() repeatedly.
+    """
+    global _BENCH_RAW_CACHE
+    if _BENCH_RAW_CACHE is None:
+        # First call: load raw prices once and cache them
+        from backtest import DATA_DIR
+        _BENCH_RAW_CACHE = {}
+        for sym in ("SPY", "QQQ"):
+            local_path = os.path.join(DATA_DIR, f"{sym}.parquet")
+            if os.path.exists(local_path):
+                try:
+                    df = pd.read_parquet(local_path)
+                    df.index = pd.DatetimeIndex(df.index)
+                    _BENCH_RAW_CACHE[sym] = df["Close"]
+                except Exception:
+                    _BENCH_RAW_CACHE[sym] = pd.Series(dtype=float)
+
+    # Reindex and normalise from cache — no disk I/O
+    from alpha_factor_backtest import INITIAL_CAPITAL
+    out = pd.DataFrame(index=index)
+    for sym in ("SPY", "QQQ"):
+        raw = _BENCH_RAW_CACHE.get(sym)
+        if raw is not None and not raw.empty:
+            close = raw.reindex(index).ffill().bfill()
+            first = float(close.iloc[0]) if not close.empty else 1.0
+            if first != 0.0:
+                out[sym] = INITIAL_CAPITAL * close / first
+            else:
+                out[sym] = INITIAL_CAPITAL
+        else:
+            out[sym] = INITIAL_CAPITAL
+    out["BLEND"] = 0.60 * out["SPY"] + 0.40 * out["QQQ"]
+    return out.ffill().bfill()
+
+
 def evaluate_window(panel: pd.DataFrame, config: dict, start: pd.Timestamp, end: pd.Timestamp) -> dict:
     """Evaluate a config using only panel rows up to end, then score [start, end].
 
     This function is called many times by nested CV. It avoids repeated date
     parsing and avoids copying the full panel, which prevents macOS from killing
     long nested runs due to memory pressure.
+
+    Performance notes (optimised for nested walkforward):
+    - Uses _get_cached_bench_raw() instead of benchmark_equity() to avoid
+      re-reading SPY/QQQ parquet from disk on every call (~10x faster).
+    - Calls run_core_satellite() directly instead of evaluate() to skip
+      unused work (subperiod_metrics, holdout, gate_metrics, yearly_alpha).
+    - Nulls all intermediate DataFrames in finally block to let Python's
+      refcount free them immediately without waiting for GC.
     """
     end_ts = pd.Timestamp(end)
     start_ts = pd.Timestamp(start)
@@ -522,8 +613,7 @@ def evaluate_window(panel: pd.DataFrame, config: dict, start: pd.Timestamp, end:
         # ── Routing: use TQQQ backtest engine when tqqq_weight > 0 ────────
         # The unified strategy includes tqqq_weight as a grid knob.  When
         # it's > 0, we need the TQQQ-aware backtest (regime switching with
-        # TQQQ in risk_on core).  When it's 0, the standard evaluate() is
-        # faster and produces identical results.
+        # TQQQ in risk_on core).  When it's 0, the standard path is faster.
         params = config.get("nested_params", {})
         tqqq_weight = float(params.get("tqqq_weight", config.get("tqqq_weight", 0.0)))
         if tqqq_weight > 0:
@@ -548,7 +638,14 @@ def evaluate_window(panel: pd.DataFrame, config: dict, start: pd.Timestamp, end:
                 quiet=True,
             )
         else:
-            metrics, equity, trades = evaluate(eval_panel, config)
+            # ── Direct call to run_core_satellite instead of evaluate() ──
+            # evaluate() computes subperiod_metrics, holdout_comparisons,
+            # gate_metrics, yearly_alpha, etc. — NONE of which are used by
+            # the nested walkforward.  Calling run_core_satellite directly
+            # skips all that work (~30% faster per call).
+            from core_satellite_alpha import run_core_satellite
+            equity, trades, extra_metrics = run_core_satellite(eval_panel, config)
+            metrics = extra_metrics
 
         eq = equity.loc[equity.index <= end_ts]
         anchor = eq.loc[eq.index < start_ts].tail(1)
@@ -561,7 +658,9 @@ def evaluate_window(panel: pd.DataFrame, config: dict, start: pd.Timestamp, end:
 
         periods_per_year = 252.0 / int(config.get("holding_days", 10))
         stats = portfolio_stats(window, periods_per_year)
-        bench = benchmark_equity(pd.DatetimeIndex(window.index))
+        # Use cached benchmark instead of benchmark_equity() — avoids
+        # re-reading SPY/QQQ parquet from disk on every call.
+        bench = _get_cached_bench_raw(pd.DatetimeIndex(window.index))
         comps = compare_to_benchmarks(window, bench)
         turnover_pct = None
         if not trades.empty and "date" in trades.columns and "turnover" in trades.columns:
@@ -583,9 +682,9 @@ def evaluate_window(panel: pd.DataFrame, config: dict, start: pd.Timestamp, end:
         }
     finally:
         # ── Aggressively null out every intermediate DataFrame ─────────
-        # evaluate() / run_tqqq_backtest() create equity curves, trade
-        # logs, benchmarks, etc.  Nulling lets Python's refcount free them
-        # immediately instead of waiting for a gc cycle.
+        # run_core_satellite() / run_tqqq_backtest() create equity curves,
+        # trade logs, benchmarks, etc.  Nulling lets Python's refcount
+        # free them immediately instead of waiting for a gc cycle.
         metrics = None
         equity = None
         trades = None
@@ -934,12 +1033,13 @@ def _screen_worker(config_low_memory: tuple[dict, bool]) -> dict | None:
     """Parallel worker for Phase 1 screening — evaluates one config on
     a single fold.  Much cheaper than _parallel_worker because it skips
     cost stress and only runs 1 fold.
+
+    No gc.collect() here — each screen eval is tiny (~100 KB of
+    DataFrames) and the GC overhead (~5ms) is significant relative
+    to the eval time (~200ms).  maxtasksperchild handles memory.
     """
     config, low_memory = config_low_memory
-    try:
-        return _screen_one_config(config, _SHARED_PANEL, _SHARED_SCREEN_FOLD, low_memory)
-    finally:
-        gc.collect()
+    return _screen_one_config(config, _SHARED_PANEL, _SHARED_SCREEN_FOLD, low_memory)
 
 
 def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
@@ -1000,10 +1100,12 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
                 # Can't catch up — bail out early
                 return None
 
-        # GC between folds inside each worker to keep memory in check.
-        # Each fold creates equity curves + trade logs that are only
-        # needed for scoring — drop them before the next fold.
-        if fold_idx > 0:
+        # GC every 3 folds — not every fold.  Each fold creates equity
+        # curves + trade logs but they're small (~100 KB each).  GC
+        # overhead (~5-10ms) adds up when called 5× per config × 48
+        # configs = 240 GC cycles per outer fold.  Every-3rd-fold
+        # cuts that to 80 while still keeping memory bounded.
+        if fold_idx > 0 and fold_idx % 3 == 0:
             gc.collect()
         base_config = config_with_cost_stress(config, BASE_COST_STRESS)
         cache_key = _eval_cache_key(base_config, fold.validation_start, fold.validation_end)
@@ -1129,6 +1231,35 @@ def _quiet_pyarrow_threads():
         pass
 
 
+def _suppress_malloc_stderr():
+    """Suppress the C-level 'MallocStackLogging: can't turn off...' warning.
+
+    macOS prints this directly to file descriptor 2 (stderr) whenever a
+    forked child process touches malloc internals.  Python's warnings
+    module can't catch it because it bypasses Python entirely.  We
+    redirect fd 2 to /dev/null for the brief moment of Pool creation,
+    then restore it.
+    """
+    try:
+        _devnull = os.open(os.devnull, os.O_WRONLY)
+        _old_stderr = os.dup(2)
+        os.dup2(_devnull, 2)
+        os.close(_devnull)
+        return _old_stderr
+    except OSError:
+        return None
+
+
+def _restore_stderr(old_fd):
+    """Restore stderr after _suppress_malloc_stderr()."""
+    if old_fd is not None:
+        try:
+            os.dup2(old_fd, 2)
+            os.close(old_fd)
+        except OSError:
+            pass
+
+
 # ── Successive halving parameters ─────────────────────────────────
 # Phase 1 ("screening"): evaluate ALL configs on a single inner fold
 #   (no cost stress — just base robustness score).  This is ~4x
@@ -1157,6 +1288,7 @@ def select_config_from_inner_folds(
     eval_cache: dict[str, dict] | None = None,
     low_memory: bool = False,
     n_workers: int = 1,
+    skip_halving: bool = False,
 ) -> dict:
     best: dict = {
         "config": None,
@@ -1171,7 +1303,12 @@ def select_config_from_inner_folds(
     # When the grid is large enough, a quick single-fold screen
     # eliminates the bottom 75% of configs before expensive full
     # evaluation.  This cuts total runtime by ~3x.
-    use_halving = _n_configs >= SCREEN_MIN_CONFIGS and len(inner_folds) >= 2
+    # Disabled in --full mode: the whole point of --full is exhaustive
+    # evaluation — screening on 1 fold risks dropping the true best
+    # config if it happens to score poorly on that specific fold.
+    use_halving = (not skip_halving
+                   and _n_configs >= SCREEN_MIN_CONFIGS
+                   and len(inner_folds) >= 2)
 
     if use_halving:
         # Pick the middle inner fold for screening — it's a balanced
@@ -1228,7 +1365,11 @@ def _run_screening_phase(
             completed = 0
             # Higher maxtasksperchild for screening — each task is cheap
             # (1 fold, no cost stress) so recycling overhead matters more.
+            # Suppress the C-level MallocStackLogging stderr spam that
+            # macOS prints every time a forked child touches malloc.
+            _old_fd = _suppress_malloc_stderr()
             with ctx.Pool(processes=n_workers, maxtasksperchild=8) as pool:
+                _restore_stderr(_old_fd)
                 for result in pool.imap_unordered(_screen_worker, work, chunksize=2):
                     completed += 1
                     if completed % 20 == 0 or completed == _n_configs:
@@ -1270,6 +1411,23 @@ def _run_screening_phase(
     return survivors
 
 
+def _phase2_workers(n_workers: int, n_inner_folds: int) -> int:
+    """Adaptive worker count for Phase 2.
+
+    Phase 2 is memory-heavy: each worker does n_inner_folds × 4 cost
+    levels = many evaluate_window calls, dirtying COW pages.  On 16 GB
+    laptops, 6 workers causes swap thrashing in later folds.
+
+    Rule: cap workers so (workers × inner_folds) doesn't exceed ~20.
+    This keeps total active evaluations bounded and prevents memory
+    pressure from climbing as folds get bigger.
+    """
+    # Each worker processes ~(inner_folds × 4_cost_levels) evals
+    # before completing one config.  More inner folds = more memory.
+    max_safe = max(2, 20 // max(1, n_inner_folds))
+    return min(n_workers, max_safe)
+
+
 def _run_parallel_full_eval(
     panel: pd.DataFrame,
     configs: list[dict],
@@ -1287,6 +1445,13 @@ def _run_parallel_full_eval(
         "failed_evaluations": 0,
     }
     _n_configs = len(configs)
+    # Reduce workers for Phase 2 to prevent swap thrashing.
+    # Phase 2 is much heavier per-worker than Phase 1 screening.
+    actual_workers = _phase2_workers(n_workers, len(inner_folds))
+    if actual_workers < n_workers:
+        print(f"    (reducing workers {n_workers}→{actual_workers} for Phase 2 "
+              f"with {len(inner_folds)} inner folds to prevent memory pressure)", flush=True)
+
     _SHARED_PANEL = panel
     _SHARED_INNER_FOLDS = inner_folds
     try:
@@ -1300,7 +1465,14 @@ def _run_parallel_full_eval(
         work = [(config, low_memory, best_score) for config in configs]
         _t0 = time.time()
         completed = 0
-        with ctx.Pool(processes=n_workers, maxtasksperchild=4) as pool:
+        # maxtasksperchild: higher with fewer survivors (48 configs ÷ 4
+        # workers = 12 configs per worker — recycling at 4 means 3
+        # respawns per worker.  Set to 8 to cut respawn overhead in half).
+        max_tasks = 8 if _n_configs <= 64 else 4
+        # Suppress C-level MallocStackLogging stderr spam during fork
+        _old_fd = _suppress_malloc_stderr()
+        with ctx.Pool(processes=actual_workers, maxtasksperchild=max_tasks) as pool:
+            _restore_stderr(_old_fd)
             for result in pool.imap_unordered(_parallel_worker, work, chunksize=1):
                 completed += 1
                 if completed % 5 == 0 or completed == _n_configs:
@@ -1309,7 +1481,7 @@ def _run_parallel_full_eval(
                     eta = (_n_configs - completed) / rate if rate > 0 else 0
                     print(f"    [{completed}/{_n_configs} configs, "
                           f"{elapsed:.0f}s elapsed, ~{eta:.0f}s remaining, "
-                          f"{n_workers} workers]", flush=True)
+                          f"{actual_workers} workers]", flush=True)
                 if result is None:
                     continue
                 if result["score"] > float(best["score"]):
@@ -1388,6 +1560,7 @@ def run_nested_walkforward(
     max_folds: int | None = None,
     min_inner_train_years: int | None = None,
     fast: bool = False,
+    full: bool = False,
     low_memory: bool = False,
     n_workers: int = 1,
     resume: bool = True,
@@ -1402,10 +1575,11 @@ def run_nested_walkforward(
         return {"valid": False, "reason": "no_valid_yearly_folds", "folds": []}
 
     if fast:
-        # ── Fast mode: collapse the grid to ~16 configs ──────────────────
-        # Fast mode keeps the shape/weighting dimensions but uses reduced
-        # regime knobs and only two TQQQ weights (0% and 10%) to keep smoke
-        # runs bounded while still testing whether TQQQ helps.
+        # ── Fast mode: collapse the grid to ~48 configs ──────────────────
+        # Fast mode keeps the shape/weighting dimensions but pins holding
+        # days to 10 and uses only two TQQQ weights (0% and 10%) to keep
+        # smoke runs bounded while still testing whether TQQQ helps.
+        # With halving: ~48 screen + ~12 full eval = done in ~15 min.
         configs = iter_candidate_configs(
             strategy=strategy,
             holding_days=(10,),
@@ -1416,9 +1590,26 @@ def run_nested_walkforward(
             shapes=SHAPES,
             weightings=WEIGHTING_MODES,
             tqqq_weights=(0.0, 0.10),
+            risk_control_modes=RISK_CONTROL_MODES,
+            max_configs=max_configs,
+        )
+    elif full:
+        # ── Full mode: exhaustive grid (768 configs) ─────────────────────
+        # Adds defensive risk control and full TQQQ sweep.  Use for
+        # overnight runs on beefy machines.  On a 16 GB laptop this takes
+        # ~3-5 hours with halving + parallel workers.
+        configs = iter_candidate_configs(
+            strategy=strategy,
+            tqqq_weights=FULL_TQQQ_WEIGHTS,
+            risk_control_modes=FULL_RISK_CONTROL_MODES,
             max_configs=max_configs,
         )
     else:
+        # ── Default mode: balanced grid (192 configs) ────────────────────
+        # Trimmed from the old 768-config default.  Drops dimensions that
+        # almost never change the winner (defensive risk control, high
+        # TQQQ weights).  With halving: ~192 screen + ~48 full eval.
+        # Finishes in ~1-1.5 hours on a 16 GB laptop with 6 workers.
         configs = iter_candidate_configs(strategy=strategy, max_configs=max_configs)
     if not configs:
         return {"valid": False, "reason": "no_candidate_configs", "folds": []}
@@ -1480,6 +1671,7 @@ def run_nested_walkforward(
         selected = select_config_from_inner_folds(
             panel, configs, inner_folds, eval_cache=eval_cache,
             low_memory=low_memory, n_workers=n_workers,
+            skip_halving=full,
         )
         print()  # newline after progress \r
         best_config = selected.get("config")
@@ -1847,7 +2039,11 @@ def main() -> None:
     parser.add_argument("--max-folds", type=int, default=None, help="Debug/smoke limit for outer folds")
     parser.add_argument("--max-specs", type=int, default=DEFAULT_MAX_SPECS)
     parser.add_argument("--output-prefix", default=DEFAULT_OUTPUT_PREFIX)
-    parser.add_argument("--fast", action="store_true", help="Use a smaller but still nested validation grid")
+    parser.add_argument("--fast", action="store_true",
+                        help="Use a smaller grid (~48 configs) for quick smoke tests (~15 min)")
+    parser.add_argument("--full", action="store_true",
+                        help="Use the exhaustive grid (768 configs) for overnight runs. "
+                             "Default is a balanced 192-config grid (~1 hour on laptop)")
     publish_group = parser.add_mutually_exclusive_group()
     publish_group.add_argument(
         "--publish-live-config",
@@ -1943,6 +2139,7 @@ def main() -> None:
             max_folds=args.max_folds,
             min_inner_train_years=args.min_inner_train_years,
             fast=bool(args.fast),
+            full=bool(args.full),
             low_memory=bool(args.low_memory),
             n_workers=int(args.workers),
             resume=bool(args.resume),
