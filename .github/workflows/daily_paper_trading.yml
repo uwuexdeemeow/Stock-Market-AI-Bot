@@ -1,0 +1,168 @@
+# ── Automated Daily Paper Trading ─────────────────────────────────────────────
+#
+# Runs the Alpaca paper trading pipeline every US trading day.
+#
+# Schedule: 9:35 AM ET (13:35 UTC) on weekdays.
+#   - 5 minutes after market open so price data is fresh.
+#   - daily_run.py has its own NYSE holiday guard (skips holidays automatically).
+#
+# Manual trigger: go to Actions tab → "Daily Paper Trading" → "Run workflow".
+#
+# Required secrets (set in repo Settings → Secrets → Actions):
+#   ALPACA_API_KEY, ALPACA_SECRET_KEY     — Alpaca paper trading credentials
+#   FINNHUB_API_KEY                       — Finnhub market data
+#   TRADIER_API_TOKEN                     — Tradier options IV data
+#   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID  — Telegram alerts (optional)
+#   SMTP_PASSWORD                         — Email alerts (optional)
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: Daily Paper Trading
+
+on:
+  # ── Automatic schedule (UNCOMMENT when ready to go live) ────────
+  # schedule:
+  #   # 14:35 UTC = 9:35 AM ET during daylight saving (Mar-Nov)
+  #   #            = 10:35 AM ET during standard time (Nov-Mar)
+  #   # Either way it's after market open.  Runs Mon-Fri; daily_run.py
+  #   # skips weekends & NYSE holidays internally.
+  #   - cron: "35 14 * * 1-5"
+
+  # Manual trigger only (Actions tab → Run workflow)
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Run even on weekends/holidays (--force flag)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      dry_run:
+        description: "Dry run (show steps without executing)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+jobs:
+  paper-trade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ── 1. Check out the repo ──────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Python ───────────────────────────────────────────
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ── 3. Cache pip packages (speeds up subsequent runs) ──────────
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-ci-${{ hashFiles('requirements-ci.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-ci-
+
+      # ── 4. Install dependencies ────────────────────────────────────
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements-ci.txt
+
+      # ── 5. Cache data directory (parquet files persist between runs) ─
+      #    research.py downloads stock data via yfinance. Caching means
+      #    it only downloads deltas (new days) instead of full history.
+      - name: Cache data directory
+        uses: actions/cache@v4
+        with:
+          path: data/
+          key: data-parquets-${{ github.run_number }}
+          restore-keys: |
+            data-parquets-
+
+      # ── 6. Write .env from GitHub Secrets ──────────────────────────
+      #    Secrets are stored encrypted in repo settings, injected at
+      #    runtime.  The .env file is never committed to git.
+      - name: Create .env from secrets
+        run: |
+          cat <<'ENVEOF' > .env
+          ALPACA_API_KEY=${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY=${{ secrets.ALPACA_SECRET_KEY }}
+          FINNHUB_API_KEY=${{ secrets.FINNHUB_API_KEY }}
+          TRADIER_API_TOKEN=${{ secrets.TRADIER_API_TOKEN }}
+          TRADIER_USE_SANDBOX=0
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
+          SMTP_HOST=smtp.gmail.com
+          SMTP_PORT=587
+          SMTP_USER=${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+          ALERT_EMAIL_FROM=${{ secrets.SMTP_USER }}
+          ALERT_EMAIL_TO=${{ secrets.ALERT_EMAIL_TO }}
+          PAPER_MODE_STRATEGY=core_satellite_alpha
+          PAPER_SIGNAL_TIMEZONE=Asia/Singapore
+          PAPER_GAUNTLET_MAX_AVG_SLIPPAGE_BPS=10
+          PAPER_HEALTH_MAX_AVG_SLIPPAGE_BPS=10
+          PAPER_HEALTH_MAX_DRAWDOWN_WARN_PCT=-5
+          PAPER_HEALTH_CORE_TICKERS=SPY,QQQ,TQQQ
+          PAPER_HEALTH_MAX_CORE_TICKER_WEIGHT=0.65
+          PAPER_HEALTH_MAX_TICKER_WEIGHT=0.35
+          PAPER_HEALTH_MAX_SECTOR_WEIGHT=0.50
+          PAPER_HEALTH_STALE_OPEN_ORDER_MINUTES=60
+          PAPER_HEALTH_MAX_EQUITY_DAILY_MOVE_WARN_PCT=25
+          GUARD_CORE_STOP=1
+          GUARD_CORE_TICKERS=SPY,QQQ,TQQQ
+          GUARD_CORE_TRAIL_PCT=0.05
+          GUARD_TQQQ_TRAIL_PCT=0.10
+          GUARD_STALE_CANCEL=1
+          GUARD_STALE_MINUTES=90
+          GUARD_PNL_MONITOR=1
+          GUARD_PNL_WARN_PCT=-3.0
+          GUARD_PNL_HALT_PCT=-8.0
+          GUARD_INTERVAL_SEC=300
+          GUARD_ALERTS=1
+          ENVEOF
+
+      # ── 7. Run the daily pipeline ─────────────────────────────────
+      - name: Run daily paper trading (Alpaca only)
+        run: |
+          FLAGS="--alpaca --timeout 600"
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            FLAGS="$FLAGS --force"
+          fi
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            FLAGS="$FLAGS --dry-run"
+          fi
+          python3 daily_run.py $FLAGS
+        env:
+          PYTHONUNBUFFERED: "1"
+
+      # ── 8. Upload logs as artifact (viewable in Actions tab) ───────
+      - name: Upload run logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-run-logs-${{ github.run_number }}
+          path: |
+            logs/
+            signals/core_satellite_alpha_signal.csv
+            signals/core_satellite_alpha_orders.csv
+          retention-days: 30
+
+      # ── 9. Upload updated data cache ───────────────────────────────
+      #    Save any new parquet data so the next run starts with it.
+      - name: Save data cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/
+          key: data-parquets-${{ github.run_number }}
