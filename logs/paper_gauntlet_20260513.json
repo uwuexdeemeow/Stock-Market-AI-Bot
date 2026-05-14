@@ -2,7 +2,7 @@
   "status": "failed",
   "approved_for_real_capital": false,
   "reason": "paper_equity_days 6 < 20; fill_rate 0.778 < 0.950",
-  "generated_at": "2026-05-13T14:03:11+00:00",
+  "generated_at": "2026-05-13T14:50:59+00:00",
   "strategy": "core_satellite_alpha",
   "portfolio_gauntlet": true,
   "paper_equity_days": 6,

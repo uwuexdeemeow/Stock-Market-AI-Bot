@@ -6,7 +6,7 @@
   "min_active_clusters": 6,
   "max_cluster_weight_allowed": 0.25,
   "summary": {
-    "raw_feature_count": 41,
+    "raw_feature_count": 42,
     "cluster_count": 10,
     "active_cluster_count": 10,
     "effective_cluster_count": 10,
@@ -566,6 +566,19 @@
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.111111
+    },
+    {
+      "feature": "xs_rank_market_factor_idio_vol_252_spy",
+      "cluster_id": "cluster_08",
+      "canonical_root": "factor_idio_vol_252_spy",
+      "health_state": "strengthening",
+      "recent_vs_full_ratio": 4.711836998706339,
+      "recent_ic": 0.029138,
+      "full_ic": 0.006184,
+      "active_candidate": true,
+      "root_quarantine_inherited": false,
+      "contributes_to_score": true,
+      "effective_weight": 0.111111
     }
   ],
   "clusters": [
@@ -766,12 +779,14 @@
         "factor_idio_vol_252_spy"
       ],
       "features": [
-        "xs_rank_sector_factor_idio_vol_252_spy"
+        "xs_rank_sector_factor_idio_vol_252_spy",
+        "xs_rank_market_factor_idio_vol_252_spy"
       ],
       "health_state": "active",
       "raw_weight": 1.0,
       "contributing_features": [
-        "xs_rank_sector_factor_idio_vol_252_spy"
+        "xs_rank_sector_factor_idio_vol_252_spy",
+        "xs_rank_market_factor_idio_vol_252_spy"
       ],
       "quarantined_features": [],
       "effective_weight": 0.111111

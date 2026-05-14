@@ -2,9 +2,8 @@
 daily_run.py — Run all paper trading steps in one command.
 
 PLAIN ENGLISH: Instead of running 6+ commands every trading day, this script
-chains them all together.  If one step fails, it logs the error and continues
-with the rest — one bad signal generation won't prevent the other strategy
-from trading.
+chains them all together. Critical upstream failures stop later broker
+submission steps so stale signals do not get traded.
 
 Usage:
     python3 daily_run.py              # run everything
@@ -17,18 +16,21 @@ Usage:
 Daily workflow (runs in order):
     1.  refresh_etf_data.py --refresh      → download latest ETF price data
     2.  research.py                        → refresh factor panel (stock prices + factor scores)
-    3.  core_satellite_alpha.py            → generate unified signal (both brokers)
-    4.  moomoo_paper_trading.py --submit   → submit to Moomoo (auto-syncs fills)
-    5.  moomoo_paper_trading.py --status   → sync equity/positions, save daily status
-    6.  moomoo_paper_trading.py --execution-guard → repair Moomoo ETF stops
-    7.  paper_health.py                    → build deep health summary (slippage, concentration, risk)
-    8.  paper_gauntlet.py                  → check Moomoo gauntlet gates
-    9.  daily_paper_check.py --skip-status --skip-sync  → read-only verdict (status/sync already done)
-    10. alpaca_paper_trading.py --submit   → submit to Alpaca (reads same signal as Moomoo)
-    11. alpaca_paper_trading.py --reconcile → check if Alpaca orders filled
-    12. execution_guard.py --once          → repair ETF stops, stale orders, P&L guard
-    13. alpaca_paper_gauntlet.py           → check Alpaca health
-    14. paper_report.py                    → side-by-side strategy comparison (optional, --report)
+    3.  fill_monitor.py --days 2           → verify yesterday's fills before placing new orders
+    4.  broker_health.py                   → pre-flight ping of Alpaca + Moomoo (alerts if down)
+    5.  core_satellite_alpha.py            → generate unified signal (both brokers)
+    6.  moomoo_paper_trading.py --submit   → submit to Moomoo (auto-syncs fills, trails stops)
+    7.  moomoo_paper_trading.py --status   → sync equity/positions, save daily status
+    8.  moomoo_paper_trading.py --execution-guard → repair Moomoo ETF stops
+    9.  paper_health.py                    → build deep health summary (slippage, drift, risk)
+    10. paper_gauntlet.py                  → check Moomoo gauntlet gates
+    11. daily_paper_check.py --skip-status --skip-sync  → read-only verdict
+    12. alpaca_paper_trading.py --submit   → submit to Alpaca (reads same signal as Moomoo)
+    13. alpaca_paper_trading.py --reconcile → check if Alpaca orders filled
+    14. execution_guard.py --once          → repair ETF stops, stale orders, P&L guard
+    15. alpaca_paper_gauntlet.py           → check Alpaca health
+    16. regime_monitor.py                  → detect and alert on regime changes
+    17. paper_report.py                    → side-by-side strategy comparison (optional, --report)
 
 Schedule with cron (9:30 AM ET on weekdays):
     30 9 * * 1-5 cd "/path/to/Stock Market AI Bot" && python3 daily_run.py >> logs/daily_run.log 2>&1
@@ -38,6 +40,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -50,95 +53,27 @@ LOGS = Path(LOG_DIR)
 # NOTIFICATION HELPERS — alert the user when something goes wrong
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _macos_notification(title: str, message: str) -> None:
-    """
-    Show a native macOS notification banner.
-
-    PLAIN ENGLISH: Uses the built-in AppleScript command to pop a
-    notification on your Mac.  Works without any extra packages.
-    If it fails (e.g. running on Linux), it just prints a warning.
-    """
-    try:
-        escaped_title = title.replace('"', '\\"')
-        escaped_msg = message.replace('"', '\\"')
-        subprocess.run(
-            [
-                "osascript", "-e",
-                f'display notification "{escaped_msg}" with title "{escaped_title}"',
-            ],
-            capture_output=True,
-            timeout=5,
-        )
-    except Exception as e:
-        print(f"  ⚠ Could not send macOS notification: {e}")
-
-
-def _send_failure_email(subject: str, body: str) -> None:
-    """
-    Send a failure alert email via SMTP (optional).
-
-    PLAIN ENGLISH: If you've set up SMTP credentials in environment variables,
-    this sends you an email when the daily run has failures.  If no credentials
-    are set, it silently skips — no crash.
-
-    Required env vars (all optional — if missing, email is skipped):
-        SMTP_HOST     — e.g. smtp.gmail.com
-        SMTP_PORT     — e.g. 587
-        SMTP_USER     — your email login
-        SMTP_PASSWORD — your email password or app password
-        ALERT_EMAIL   — where to send alerts (defaults to SMTP_USER)
-    """
-    import os as _os
-    smtp_host = _os.environ.get("SMTP_HOST", "")
-    smtp_port = _os.environ.get("SMTP_PORT", "587")
-    smtp_user = _os.environ.get("SMTP_USER", "")
-    smtp_pass = _os.environ.get("SMTP_PASSWORD", "")
-    alert_to = _os.environ.get("ALERT_EMAIL", smtp_user)
-
-    if not all([smtp_host, smtp_user, smtp_pass, alert_to]):
-        # No SMTP configured — skip silently
-        return
-
-    try:
-        import smtplib
-        from email.mime.text import MIMEText
-
-        msg = MIMEText(body)
-        msg["Subject"] = subject
-        msg["From"] = smtp_user
-        msg["To"] = alert_to
-
-        with smtplib.SMTP(smtp_host, int(smtp_port), timeout=15) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_user, [alert_to], msg.as_string())
-
-        print(f"  📧 Alert email sent to {alert_to}")
-    except Exception as e:
-        print(f"  ⚠ Could not send alert email: {e}")
-
-
 def notify_failures(results: list[dict], total_time: float) -> None:
     """
     Send notifications if any step failed.
 
     PLAIN ENGLISH: After all steps finish, this checks if anything broke.
-    If yes, it sends a macOS notification banner AND an email (if configured).
+    If yes, it sends alerts via macOS, email, AND Telegram (if configured)
+    through the shared notifications module.
     If everything passed, it stays quiet — no spam on good days.
     """
     failures = [r for r in results if r["status"] not in ("ok", "skipped")]
     if not failures:
         return
 
+    from notifications import send_alert
+
     # Build a short summary for notifications
     failed_names = ", ".join(r["name"] for r in failures)
     ok_count = sum(1 for r in results if r["status"] == "ok")
     total = len(results)
 
-    title = f"⚠ Daily Run: {len(failures)} step(s) failed"
-    short_msg = f"Failed: {failed_names} ({ok_count}/{total} passed)"
-
-    # Longer message for email with error details
+    # Longer message with error details
     lines = [
         f"Daily Paper Trading Run — {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         f"Passed: {ok_count}/{total}",
@@ -154,31 +89,39 @@ def notify_failures(results: list[dict], total_time: float) -> None:
         if r.get("error"):
             lines.append(f"    {r['error'][:300]}")
 
-    email_body = "\n".join(lines)
-
-    # Send both notification types
-    _macos_notification(title, short_msg)
-    _send_failure_email(title, email_body)
+    message = "\n".join(lines)
+    send_alert(message, title="Daily Run", priority="warning")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# STEP DEFINITIONS — each step is a (name, command, description) tuple
+# STEP DEFINITIONS
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class Step:
+    name: str
+    cmd: list[str]
+    description: str
+    critical: bool = False
+
 
 # Data refresh steps — run BEFORE signal generation so factors/ETFs are fresh.
 # PLAIN ENGLISH: These scripts download the latest stock and ETF data from the
 # internet and save it to disk.  Without fresh data, the signal generator would
 # use stale prices and factor scores, which defeats the purpose of daily trading.
 DATA_REFRESH_STEPS = [
-    (
+    Step(
         "refresh_etf_data",
         [sys.executable, "refresh_etf_data.py", "--refresh"],
         "Download latest ETF price data (SPY, QQQ, TQQQ, etc.)",
+        critical=True,
     ),
-    (
+    Step(
         "refresh_factor_data",
         [sys.executable, "research.py"],
         "Refresh factor panel data (download stock prices, compute factor scores)",
+        critical=True,
     ),
 ]
 
@@ -186,45 +129,55 @@ DATA_REFRESH_STEPS = [
 # PLAIN ENGLISH: Before submitting new orders, check if yesterday's orders
 # actually filled.  If something got cancelled or partially filled, you want
 # to know BEFORE placing new trades.
-FILL_MONITOR_STEP = (
+FILL_MONITOR_STEP = Step(
     "fill_monitor",
     [sys.executable, "fill_monitor.py", "--days", "2"],
     "Verify recent order fills (check for cancelled/partial orders)",
+    critical=True,
+)
+
+BROKER_HEALTH_STEP = Step(
+    "broker_health",
+    [sys.executable, "broker_health.py"],
+    "Pre-flight broker connectivity check (Alpaca + Moomoo)",
+    critical=False,  # don't block pipeline — just alert if a broker is down
+)
+
+CORE_SATELLITE_SIGNAL_STEP = Step(
+    "core_satellite_signal",
+    [sys.executable, "core_satellite_alpha.py"],
+    "Generate unified core-satellite signal for all brokers",
+    critical=True,
 )
 
 # Steps for Moomoo core-satellite strategy
 MOOMOO_STEPS = [
-    (
-        "moomoo_signal",
-        [sys.executable, "core_satellite_alpha.py"],
-        "Generate core-satellite signal for Moomoo",
-    ),
-    (
+    Step(
         "moomoo_submit",
         [sys.executable, "moomoo_paper_trading.py", "--submit"],
         "Submit orders to Moomoo paper trading (auto-syncs fills)",
     ),
-    (
+    Step(
         "moomoo_status",
         [sys.executable, "moomoo_paper_trading.py", "--status"],
         "Sync Moomoo equity/positions and save daily status",
     ),
-    (
+    Step(
         "moomoo_execution_guard",
         [sys.executable, "moomoo_paper_trading.py", "--execution-guard"],
         "Repair Moomoo core ETF stop-limit protection",
     ),
-    (
+    Step(
         "moomoo_health",
         [sys.executable, "paper_health.py"],
         "Build deep Moomoo health summary (slippage, concentration, equity risk, P&L)",
     ),
-    (
+    Step(
         "moomoo_gauntlet",
         [sys.executable, "paper_gauntlet.py"],
         "Run Moomoo paper gauntlet health check",
     ),
-    (
+    Step(
         "moomoo_daily_check",
         [sys.executable, "daily_paper_check.py", "--skip-status", "--skip-sync"],
         "Read-only verdict check (status/sync already done above)",
@@ -235,22 +188,22 @@ MOOMOO_STEPS = [
 # core_satellite_alpha_signal.csv includes TQQQ weight when the nested
 # walkforward grid search determines it helps on a risk-adjusted basis).
 ALPACA_STEPS = [
-    (
+    Step(
         "alpaca_submit",
         [sys.executable, "alpaca_paper_trading.py", "--submit"],
         "Submit orders to Alpaca paper trading (auto-snapshots equity)",
     ),
-    (
+    Step(
         "alpaca_reconcile",
         [sys.executable, "alpaca_paper_trading.py", "--reconcile"],
         "Reconcile Alpaca order fill statuses",
     ),
-    (
+    Step(
         "alpaca_execution_guard",
         [sys.executable, "execution_guard.py", "--once"],
         "Repair ETF protection, cancel stale Alpaca orders, and check intraday P&L",
     ),
-    (
+    Step(
         "alpaca_gauntlet",
         [sys.executable, "alpaca_paper_gauntlet.py"],
         "Run Alpaca paper gauntlet health check",
@@ -260,7 +213,7 @@ ALPACA_STEPS = [
 # Regime change monitor — runs after BOTH strategies generate signals.
 # PLAIN ENGLISH: Checks if the market regime (risk_on/neutral/risk_off)
 # changed since yesterday and sends you a notification if it did.
-REGIME_MONITOR_STEP = (
+REGIME_MONITOR_STEP = Step(
     "regime_monitor",
     [sys.executable, "regime_monitor.py"],
     "Check for regime changes and alert if detected",
@@ -272,22 +225,22 @@ REGIME_MONITOR_STEP = (
 # whether execution costs could hurt us, and whether our backtest is biased
 # by survivorship.  They don't change any signals — they just report.
 STRESS_STEPS = [
-    (
+    Step(
         "factor_decay",
         [sys.executable, "factor_decay_monitor.py"],
         "Check if factor overlay IC and alpha are decaying",
     ),
-    (
+    Step(
         "drawdown_throttle",
         [sys.executable, "core_satellite_drawdown_throttle.py"],
         "Stress test drawdown throttle scenarios",
     ),
-    (
+    Step(
         "execution_stress",
         [sys.executable, "core_satellite_execution_stress.py"],
         "Stress test execution costs (delayed fills, extra slippage)",
     ),
-    (
+    Step(
         "survivorship_audit",
         [sys.executable, "core_satellite_survivorship_audit.py"],
         "Audit survivorship bias in backtest universe",
@@ -366,6 +319,58 @@ def run_step(
         elapsed = (datetime.now() - start).total_seconds()
         print(f"  ✗ ERROR: {e}")
         return {"name": name, "status": "error", "elapsed": round(elapsed, 1), "error": str(e)}
+
+
+def build_steps(
+    *,
+    skip_refresh: bool,
+    run_moomoo: bool,
+    run_alpaca: bool,
+    stress: bool = False,
+    report: bool = False,
+) -> list[Step]:
+    steps: list[Step] = []
+    if not skip_refresh:
+        steps.extend(DATA_REFRESH_STEPS)
+    steps.append(FILL_MONITOR_STEP)
+    if run_moomoo or run_alpaca:
+        steps.append(BROKER_HEALTH_STEP)
+        steps.append(CORE_SATELLITE_SIGNAL_STEP)
+    if run_moomoo:
+        steps.extend(MOOMOO_STEPS)
+    if run_alpaca:
+        steps.extend(ALPACA_STEPS)
+    steps.append(REGIME_MONITOR_STEP)
+    if stress:
+        steps.extend(STRESS_STEPS)
+    if report:
+        steps.append(Step(
+            "performance_report",
+            [sys.executable, "paper_report.py"],
+            "Generate side-by-side Moomoo vs Alpaca performance report",
+        ))
+    return steps
+
+
+def run_steps(steps: list[Step], *, dry_run: bool, timeout: int) -> list[dict]:
+    results: list[dict] = []
+    blocked_by: str | None = None
+    for step in steps:
+        if blocked_by:
+            print(f"\n{'─'*60}")
+            print(f"  [{step.name}] BLOCKED by critical failure: {blocked_by}")
+            results.append({
+                "name": step.name,
+                "status": "blocked",
+                "blocked_by": blocked_by,
+                "elapsed": 0.0,
+            })
+            continue
+        result = run_step(step.name, step.cmd, step.description, dry_run=dry_run, timeout=timeout)
+        results.append(result)
+        if step.critical and result["status"] in ("failed", "error", "timeout"):
+            blocked_by = step.name
+    return results
 
 
 def _is_us_market_holiday(dt: datetime) -> bool:
@@ -501,40 +506,13 @@ def main():
     run_moomoo = args.moomoo or (not args.moomoo and not args.alpaca)
     run_alpaca = args.alpaca or (not args.moomoo and not args.alpaca)
 
-    steps = []
-
-    # Data refresh runs FIRST — both strategies need fresh data
-    # PLAIN ENGLISH: Download latest prices and factor scores before generating
-    # any signals.  Skip with --skip-refresh if you already refreshed today.
-    if not args.skip_refresh:
-        steps.extend(DATA_REFRESH_STEPS)
-
-    # Fill verification — check yesterday's orders before submitting new ones
-    # PLAIN ENGLISH: Before placing new trades, verify that yesterday's orders
-    # filled.  If something got cancelled, you want to know first.
-    steps.append(FILL_MONITOR_STEP)
-
-    if run_moomoo:
-        steps.extend(MOOMOO_STEPS)
-    if run_alpaca:
-        steps.extend(ALPACA_STEPS)
-
-    # Regime monitor — runs after signal generation to detect regime shifts
-    # PLAIN ENGLISH: After both strategies generate their signals, check if
-    # the market regime changed (risk_on ↔ neutral ↔ risk_off) and alert you.
-    steps.append(REGIME_MONITOR_STEP)
-
-    # Optional: stress tests (factor decay, drawdown, execution, survivorship)
-    if args.stress:
-        steps.extend(STRESS_STEPS)
-
-    # Optional: side-by-side performance report (needs both strategies' data)
-    if args.report:
-        steps.append((
-            "performance_report",
-            [sys.executable, "paper_report.py"],
-            "Generate side-by-side Moomoo vs Alpaca performance report",
-        ))
+    steps = build_steps(
+        skip_refresh=bool(args.skip_refresh),
+        run_moomoo=bool(run_moomoo),
+        run_alpaca=bool(run_alpaca),
+        stress=bool(args.stress),
+        report=bool(args.report),
+    )
 
     # Header
     now = datetime.now()
@@ -545,21 +523,19 @@ def main():
     if run_moomoo:
         print(f"  Moomoo: core-satellite")
     if run_alpaca:
-        print(f"  Alpaca: TQQQ-enhanced")
+        print(f"  Alpaca: core-satellite unified signal")
     if args.dry_run:
         print(f"  ⚠ DRY RUN MODE — nothing will execute")
     print(f"{'═'*60}")
 
     # Run each step
-    results = []
-    for name, cmd, desc in steps:
-        result = run_step(name, cmd, desc, dry_run=args.dry_run, timeout=args.timeout)
-        results.append(result)
+    results = run_steps(steps, dry_run=bool(args.dry_run), timeout=int(args.timeout))
 
     # Summary
     ok = sum(1 for r in results if r["status"] == "ok")
     failed = sum(1 for r in results if r["status"] == "failed")
     errors = sum(1 for r in results if r["status"] in ("error", "timeout"))
+    blocked = sum(1 for r in results if r["status"] == "blocked")
     skipped = sum(1 for r in results if r["status"] == "skipped")
     total_time = sum(r.get("elapsed", 0) for r in results)
 
@@ -571,6 +547,8 @@ def main():
         print(f"  ✗ Failed:  {failed}")
     if errors:
         print(f"  ✗ Errors:  {errors}")
+    if blocked:
+        print(f"  ⛔ Blocked: {blocked}")
     if skipped:
         print(f"  ⏭ Skipped: {skipped}")
     print(f"  Total time: {total_time:.1f}s")
@@ -591,7 +569,7 @@ def main():
         "timestamp": now.isoformat(),
         "steps_total": len(results),
         "steps_ok": ok,
-        "steps_failed": failed + errors,
+        "steps_failed": failed + errors + blocked,
         "total_elapsed_seconds": round(total_time, 1),
         "results": results,
     }
@@ -605,7 +583,7 @@ def main():
         notify_failures(results, total_time)
 
     # Exit with failure code if any step failed
-    if failed or errors:
+    if failed or errors or blocked:
         sys.exit(1)
 
 

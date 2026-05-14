@@ -35,6 +35,11 @@ from settings import (
     POSITION_SIZING_MODE,
     SINGLE_NAME_PAPER_TRADING_ENABLED,
 )
+from signal_freshness import (
+    latest_completed_us_trading_day as _shared_latest_completed_us_trading_day,
+    parse_signal_timestamp as _shared_parse_signal_timestamp,
+    validate_signal_freshness as _shared_validate_signal_freshness,
+)
 from trade_rules import load_trade_rule, passes_trade_rule
 
 SIGNAL_DIR = Path("signals")
@@ -56,6 +61,9 @@ DEFAULT_MIN_TRADE_VALUE = 25.0
 DEFAULT_ETF_DRIFT_THRESHOLD = 0.03
 DEFAULT_OVERLAY_DRIFT_THRESHOLD = 0.01
 DEFAULT_LIMIT_OFFSET_BPS = 10.0
+MOOMOO_OPEN_ORDER_REPAIR_AFTER_SECONDS = float(os.environ.get("MOOMOO_OPEN_ORDER_REPAIR_AFTER_SECONDS", "120"))
+MOOMOO_MAX_LIMIT_OFFSET_BPS = float(os.environ.get("MOOMOO_MAX_LIMIT_OFFSET_BPS", "50"))
+MOOMOO_REPAIR_LIMIT_OFFSET_BPS = float(os.environ.get("MOOMOO_REPAIR_LIMIT_OFFSET_BPS", "25"))
 DEFAULT_MAX_SIGNAL_AGE_HOURS = 24.0
 DEFAULT_MAX_FACTOR_AGE_TRADING_DAYS = 5
 DEFAULT_SYNC_AFTER_SUBMIT_LOOKBACK_DAYS = 3
@@ -69,6 +77,10 @@ MAX_MISSING_PRICE_SUBMIT_ROWS = int(os.environ.get("PAPER_MAX_MISSING_PRICE_SUBM
 # MooOrderType.TRAILING_STOP is not reliably supported in simulate mode, so we
 # use a static limit-sell at the stop price instead.
 MOOMOO_TRAILING_STOP_PCT = float(os.environ.get("MOOMOO_TRAILING_STOP_PCT", "0.08"))
+# Minimum price increase (%) before we bother updating a stop order.
+# Avoids churning stop orders for tiny price moves.  E.g. 0.02 = only
+# trail up when the new stop would be at least 2% higher than the old one.
+MOOMOO_STOP_TRAIL_MIN_IMPROVEMENT = float(os.environ.get("MOOMOO_STOP_TRAIL_MIN_IMPROVEMENT", "0.02"))
 MOOMOO_CORE_STOP_ENABLED = os.environ.get("MOOMOO_CORE_STOP", "1").strip().lower() in {"1", "true", "yes", "on"}
 MOOMOO_CORE_STOP_TICKERS = {
     item.strip().upper()
@@ -199,13 +211,7 @@ def _signal_timezone():
 
 
 def parse_signal_timestamp(value: object) -> pd.Timestamp:
-    ts = pd.to_datetime(value, errors="coerce")
-    if pd.isna(ts):
-        return pd.NaT
-    out = pd.Timestamp(ts)
-    if out.tzinfo is None:
-        out = out.tz_localize(_signal_timezone())
-    return out.tz_convert("UTC")
+    return _shared_parse_signal_timestamp(value, default_timezone=DEFAULT_SIGNAL_TIMEZONE)
 
 
 def current_signal_open_orders(signal: pd.Series | dict, trades_path: Path | None = None) -> pd.DataFrame:
@@ -239,15 +245,7 @@ def current_signal_open_orders(signal: pd.Series | dict, trades_path: Path | Non
 
 
 def latest_completed_us_trading_day(now: datetime | None = None) -> pd.Timestamp:
-    eastern = ZoneInfo("America/New_York")
-    ts = (now or datetime.now(timezone.utc)).astimezone(eastern)
-    current_day = pd.Timestamp(ts.date())
-    if ts.weekday() >= 5:
-        return current_day - pd.tseries.offsets.BDay(1)
-    close_ts = ts.replace(hour=16, minute=0, second=0, microsecond=0)
-    if ts < close_ts:
-        return current_day - pd.tseries.offsets.BDay(1)
-    return current_day
+    return _shared_latest_completed_us_trading_day(now=now)
 
 
 def validate_signal_freshness(
@@ -256,26 +254,11 @@ def validate_signal_freshness(
     max_signal_age_hours: float,
     max_factor_age_trading_days: int,
 ) -> tuple[bool, list[str]]:
-    issues: list[str] = []
-    predicted_at = signal.get("predicted_at", "")
-    predicted_ts = parse_signal_timestamp(predicted_at)
-    if pd.isna(predicted_ts):
-        issues.append("missing_predicted_at")
-    else:
-        age_hours = (pd.Timestamp.now(tz=timezone.utc) - predicted_ts).total_seconds() / 3600.0
-        if age_hours > float(max_signal_age_hours):
-            issues.append(f"signal_age_{age_hours:.1f}h_gt_{float(max_signal_age_hours):.1f}h")
-
-    latest_factor_date = signal.get("latest_factor_date", "")
-    factor_ts = pd.to_datetime(latest_factor_date, errors="coerce")
-    if pd.isna(factor_ts):
-        issues.append("missing_latest_factor_date")
-    else:
-        completed_us_day = latest_completed_us_trading_day()
-        age_days = len(pd.bdate_range(pd.Timestamp(factor_ts) + pd.tseries.offsets.BDay(1), completed_us_day))
-        if age_days > int(max_factor_age_trading_days):
-            issues.append(f"factor_age_{age_days}_bdays_gt_{int(max_factor_age_trading_days)}")
-    return not issues, issues
+    return _shared_validate_signal_freshness(
+        signal,
+        max_signal_age_hours=max_signal_age_hours,
+        max_factor_age_trading_days=max_factor_age_trading_days,
+    )
 
 
 def single_name_paper_trading_allowed() -> tuple[bool, str]:
@@ -440,9 +423,15 @@ def load_core_satellite_signal() -> pd.Series:
     if df.empty:
         raise RuntimeError(f"Core-satellite signal file is empty: {CORE_SATELLITE_SIGNAL_FILE}")
     row = df.iloc[0]
-    if not bool(row.get("paper_ready", False)) or not bool(row.get("gates_all_pass", False)):
+    if not _truthy(row.get("paper_ready", False)) or not _truthy(row.get("gates_all_pass", False)):
         reason = row.get("reason", "paper_ready/gates_all_pass false")
         raise RuntimeError(f"Core-satellite signal is not approved for paper trading: {reason}")
+    if not _truthy(row.get("medium_risk_review_pass", False)):
+        raise RuntimeError(
+            "Core-satellite signal is missing a passed medium-risk review. "
+            "Run `python3 nested_walkforward.py --strategy core-alpha --publish-live-config` "
+            "and then regenerate `python3 core_satellite_alpha.py`."
+        )
     return row
 
 
@@ -508,6 +497,12 @@ def _safe_order_id(value: object) -> str:
     if "." in text and text.replace(".", "", 1).isdigit():
         text = text.split(".", 1)[0]
     return text
+
+
+def _truthy(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"true", "1", "yes", "y"}
 
 
 def _extract_order_id_from_response(response: object) -> str:
@@ -655,6 +650,159 @@ def _cancel_moomoo_order(ctx, order_id: str) -> tuple[bool, str]:
     except Exception as exc:
         return False, repr(exc)
     return bool(ret == _moomoo_ret_ok()), str(data)
+
+
+def trail_overlay_stop_orders(ctx, *, logger=print) -> dict:
+    """Trail up existing overlay stop-loss orders to lock in gains.
+
+    PLAIN ENGLISH: Moomoo simulate mode doesn't support real trailing stops.
+    So we fake trailing stops by running this function each day:
+
+    1. Find all open SELL limit orders whose remark contains "stop_loss"
+    2. For each one, look up the stock's current price
+    3. Compute what the stop SHOULD be: current_price * (1 - 8%)
+    4. If the new stop is higher than the existing stop by at least 2%,
+       cancel the old order and place a new one at the higher price
+
+    This way, if a stock rallies 30%, the stop trails up from the original
+    purchase price to 8% below the new high.  It only moves UP, never DOWN.
+
+    Returns a summary dict with counts of updated, skipped, and failed stops.
+    """
+    from moomoo import OrderType as MooOrderType, TrdEnv, TrdSide
+
+    ETF_SKIP = {"SPY", "QQQ", "TQQQ", "BIL", "IEF", "GLD"}
+    summary = {"checked": 0, "trailed_up": 0, "skipped": 0, "failed": 0, "details": []}
+
+    # Step 1: Get all open orders
+    open_orders = _query_moomoo_open_orders(ctx)
+    if open_orders.empty:
+        logger("  No open orders found — nothing to trail.")
+        return summary
+
+    # Step 2: Get current positions and prices
+    try:
+        positions, prices = fetch_moomoo_positions_and_prices(ctx)
+    except Exception as exc:
+        logger(f"  Could not fetch positions/prices: {exc}")
+        return summary
+
+    # Step 3: Filter to stop-loss sell orders (identified by remark)
+    remark_col = "remark" if "remark" in open_orders.columns else None
+    if remark_col is None:
+        # Try to find any column with remark-like data
+        for col in ("order_remark", "memo", "note"):
+            if col in open_orders.columns:
+                remark_col = col
+                break
+    if remark_col is None:
+        logger("  No remark column in order data — cannot identify stop orders.")
+        return summary
+
+    # Filter for stop-loss orders: SELL side, remark contains "stop_loss"
+    side_col = "trd_side" if "trd_side" in open_orders.columns else "order_side" if "order_side" in open_orders.columns else None
+    status_col = "order_status" if "order_status" in open_orders.columns else None
+    price_col = "price" if "price" in open_orders.columns else "order_price" if "order_price" in open_orders.columns else None
+    code_col = "code" if "code" in open_orders.columns else "stock_code" if "stock_code" in open_orders.columns else None
+    qty_col = "qty" if "qty" in open_orders.columns else "quantity" if "quantity" in open_orders.columns else None
+    id_col = "order_id" if "order_id" in open_orders.columns else None
+
+    if not all([side_col, price_col, code_col, qty_col, id_col]):
+        logger(f"  Missing required columns in order data: {list(open_orders.columns)}")
+        return summary
+
+    for _, order in open_orders.iterrows():
+        remark = str(order.get(remark_col, "")).lower()
+        if "stop_loss" not in remark:
+            continue
+
+        # Check it's a sell order that's still open
+        side = str(order.get(side_col, "")).upper()
+        if "SELL" not in side:
+            continue
+        if status_col:
+            status = str(order.get(status_col, "")).upper().replace(" ", "").replace("_", "")
+            # Skip filled/cancelled orders
+            if any(done in status for done in ("FILLEDALL", "CANCELLED", "DELETED", "FAILED")):
+                continue
+
+        ticker = _plain_ticker_from_code(str(order.get(code_col, "")))
+        if ticker in ETF_SKIP:
+            continue
+
+        summary["checked"] += 1
+        old_stop_price = float(order.get(price_col, 0))
+        order_qty = int(float(order.get(qty_col, 0)))
+        order_id = str(order.get(id_col, ""))
+
+        if old_stop_price <= 0 or order_qty <= 0:
+            continue
+
+        # Get current price for this ticker
+        current_price = prices.get(ticker, 0.0)
+        if current_price <= 0:
+            summary["skipped"] += 1
+            continue
+
+        # Compute where the trailing stop SHOULD be
+        new_stop_price = round(current_price * (1.0 - MOOMOO_TRAILING_STOP_PCT), 2)
+
+        # Only trail UP — never move the stop down
+        if new_stop_price <= old_stop_price:
+            summary["skipped"] += 1
+            summary["details"].append({
+                "ticker": ticker, "action": "skipped_no_improvement",
+                "old_stop": old_stop_price, "new_stop": new_stop_price,
+                "current_price": current_price,
+            })
+            continue
+
+        # Only update if improvement is meaningful (avoid churn)
+        improvement = (new_stop_price - old_stop_price) / old_stop_price
+        if improvement < MOOMOO_STOP_TRAIL_MIN_IMPROVEMENT:
+            summary["skipped"] += 1
+            summary["details"].append({
+                "ticker": ticker, "action": "skipped_below_min_improvement",
+                "old_stop": old_stop_price, "new_stop": new_stop_price,
+                "improvement_pct": round(improvement * 100, 2),
+            })
+            continue
+
+        # Cancel old order, place new one at higher stop price
+        ok, cancel_msg = _cancel_moomoo_order(ctx, order_id)
+        if not ok:
+            logger(f"    ✗ {ticker}: failed to cancel old stop (order {order_id}): {cancel_msg}")
+            summary["failed"] += 1
+            continue
+
+        try:
+            ret, data = ctx.place_order(
+                price=new_stop_price,
+                qty=order_qty,
+                code=_moomoo_code(ticker),
+                trd_side=TrdSide.SELL,
+                order_type=MooOrderType.NORMAL,
+                trd_env=TrdEnv.SIMULATE,
+                remark=f"stop_loss_{MOOMOO_TRAILING_STOP_PCT*100:.0f}pct",
+            )
+            if ret == 0:
+                logger(f"    ↑ {ticker}: stop trailed ${old_stop_price:.2f} → ${new_stop_price:.2f} "
+                       f"(+{improvement*100:.1f}%, current=${current_price:.2f})")
+                summary["trailed_up"] += 1
+                summary["details"].append({
+                    "ticker": ticker, "action": "trailed_up",
+                    "old_stop": old_stop_price, "new_stop": new_stop_price,
+                    "current_price": current_price,
+                    "improvement_pct": round(improvement * 100, 2),
+                })
+            else:
+                logger(f"    ✗ {ticker}: cancel OK but new stop order failed: {data}")
+                summary["failed"] += 1
+        except Exception as exc:
+            logger(f"    ✗ {ticker}: trail-up failed: {exc}")
+            summary["failed"] += 1
+
+    return summary
 
 
 def _submit_moomoo_core_stop_order(ctx, ticker: str, qty: int, reference_price: float) -> tuple[bool, str, dict]:
@@ -1425,6 +1573,120 @@ def _submit_single_order(row: pd.Series, ctx, unlock_ok: bool, unlock_msg: str) 
     return out
 
 
+def _open_order_repair_candidates(trades: pd.DataFrame, *, now: pd.Timestamp | None = None) -> pd.DataFrame:
+    if trades.empty:
+        return pd.DataFrame()
+    now_ts = pd.Timestamp.now(tz="UTC") if now is None else pd.Timestamp(now)
+    if now_ts.tzinfo is None:
+        now_ts = now_ts.tz_localize("UTC")
+    else:
+        now_ts = now_ts.tz_convert("UTC")
+    status = trades.get("fill_status", pd.Series("", index=trades.index)).fillna("").astype(str).str.lower()
+    submitted = trades.get("submitted", pd.Series(False, index=trades.index)).astype(str).str.lower().isin({"true", "1", "yes"})
+    submitted_at = pd.to_datetime(trades.get("submitted_at", pd.Series("", index=trades.index)), errors="coerce", utc=True)
+    age_seconds = (now_ts - submitted_at).dt.total_seconds()
+    attempts = pd.to_numeric(trades.get("repair_attempt", pd.Series(0, index=trades.index)), errors="coerce").fillna(0)
+    has_order_id = trades.get("broker_order_id", pd.Series("", index=trades.index)).map(_safe_order_id).ne("")
+    actions = trades.get("action", pd.Series("", index=trades.index)).astype(str).str.upper().isin({"BUY", "SELL"})
+    order_type = trades.get("broker_order_type", pd.Series("NORMAL", index=trades.index)).fillna("NORMAL").astype(str).str.upper()
+    normal_order = order_type.eq("NORMAL") | order_type.eq("")
+    mask = (
+        status.isin(ACTIVE_FILL_STATUSES)
+        & submitted
+        & has_order_id
+        & actions
+        & normal_order
+        & attempts.lt(1)
+        & submitted_at.notna()
+        & age_seconds.ge(MOOMOO_OPEN_ORDER_REPAIR_AFTER_SECONDS)
+    )
+    return trades.loc[mask].copy()
+
+
+def _repair_limit_price(row: pd.Series, *, base_offset_bps: float = DEFAULT_LIMIT_OFFSET_BPS) -> tuple[float, float]:
+    action = str(row.get("action", "")).upper().strip()
+    reference = float(row.get("price", 0.0) or 0.0)
+    if reference <= 0:
+        reference = float(row.get("broker_requested_price", row.get("limit_price", 0.0)) or 0.0)
+    offset_bps = min(float(base_offset_bps) + float(MOOMOO_REPAIR_LIMIT_OFFSET_BPS), float(MOOMOO_MAX_LIMIT_OFFSET_BPS))
+    if action == "BUY":
+        raw = reference * (1.0 + offset_bps / 10_000.0)
+    elif action == "SELL":
+        raw = reference * (1.0 - offset_bps / 10_000.0)
+    else:
+        raw = 0.0
+    return offset_bps, _round_us_limit_price(raw, action)
+
+
+def repair_open_paper_orders(*, now: pd.Timestamp | None = None, dry_run: bool = False) -> pd.DataFrame:
+    path = SIGNAL_DIR / "paper_trades.csv"
+    if not path.exists():
+        raise FileNotFoundError("No paper_trades.csv found. Submit paper orders before repairing open orders.")
+    trades = pd.read_csv(path)
+    candidates = _open_order_repair_candidates(trades, now=now)
+    if candidates.empty:
+        return pd.DataFrame()
+
+    ctx = connect_moomoo_trade_context()
+    unlock_ok, unlock_msg = maybe_unlock_moomoo_trade(ctx)
+    batch_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    repair_rows: list[dict] = []
+    try:
+        for idx, row in candidates.iterrows():
+            parent_id = _safe_order_id(row.get("broker_order_id", ""))
+            if dry_run:
+                cancel_ok, cancel_response = True, "dry_run"
+            else:
+                cancel_ok, cancel_response = _cancel_moomoo_order(ctx, parent_id)
+            trades.loc[idx, "repair_reason"] = "stale_open_order"
+            trades.loc[idx, "repair_child_order_id"] = ""
+            trades.loc[idx, "repair_cancel_ok"] = bool(cancel_ok)
+            trades.loc[idx, "repair_cancel_response"] = cancel_response
+            if not cancel_ok:
+                continue
+
+            repair = row.copy()
+            prior_attempt = int(float(row.get("repair_attempt", 0) or 0))
+            repair["repair_parent_order_id"] = parent_id
+            repair["repair_attempt"] = prior_attempt + 1
+            repair["repair_reason"] = "stale_open_order"
+            repair["submission_batch_id"] = f"{batch_id}_repair"
+            offset_bps, limit_price = _repair_limit_price(repair)
+            repair["repair_limit_offset_bps"] = offset_bps
+            repair["limit_price"] = limit_price
+            repair["raw_limit_price"] = limit_price
+            repair["submitted_at"] = datetime.now(timezone.utc).isoformat()
+            if dry_run:
+                out = repair.to_dict()
+                out.update({"submitted": False, "broker_response": "dry_run", "broker_order_id": "", "fill_status": "dry_run"})
+            else:
+                out = _submit_single_order(repair, ctx, unlock_ok, unlock_msg)
+                out["submitted_at"] = repair["submitted_at"]
+                out["submission_batch_id"] = repair["submission_batch_id"]
+                out["fill_status"] = "pending" if out.get("submitted") else "submission_failed"
+            out["repair_parent_order_id"] = parent_id
+            out["repair_attempt"] = prior_attempt + 1
+            out["repair_reason"] = "stale_open_order"
+            out["repair_limit_offset_bps"] = offset_bps
+            repair_rows.append(out)
+            child_id = _safe_order_id(out.get("broker_order_id", ""))
+            if child_id:
+                trades.loc[idx, "repair_child_order_id"] = child_id
+    finally:
+        try:
+            ctx.close()
+        except Exception:
+            pass
+
+    repaired = pd.DataFrame(repair_rows)
+    if not repaired.empty:
+        combined = pd.concat([trades, repaired], ignore_index=True, sort=False)
+        combined.to_csv(path, index=False)
+    else:
+        trades.to_csv(path, index=False)
+    return repaired
+
+
 # How long to wait for sell proceeds before placing buy orders (seconds).
 # Moomoo paper accounts sometimes delay releasing buying power after sells fill.
 SELL_SETTLE_WAIT_SECONDS = 30
@@ -1559,6 +1821,19 @@ def submit_core_satellite_orders(orders: pd.DataFrame) -> pd.DataFrame:
         for _, row in buys.iterrows():
             out = _submit_single_order(row, ctx, unlock_ok, unlock_msg)
             submitted_rows.append(out)
+
+        # ── Phase 3.5: Trail up existing stop orders ─────────────────
+        # PLAIN ENGLISH: Before placing NEW stops, update any existing stop
+        # orders that are now too low.  If a stock has rallied since we
+        # placed the stop, move the stop up to lock in gains.  This gives
+        # us "fake trailing stops" on Moomoo simulate mode.
+        print("\n  Phase 3.5: Trailing up existing overlay stop orders...")
+        trail_result = trail_overlay_stop_orders(ctx, logger=lambda m: print(f"  {m}"))
+        if trail_result["trailed_up"] > 0:
+            print(f"    Trailed up {trail_result['trailed_up']} stop(s), "
+                  f"skipped {trail_result['skipped']}, failed {trail_result['failed']}")
+        elif trail_result["checked"] > 0:
+            print(f"    Checked {trail_result['checked']} stop(s) — none needed trailing up")
 
         # ── Phase 4: Submit stop-loss orders for overlay stocks ────────
         # PLAIN ENGLISH: After buying individual stocks, place a limit SELL
@@ -2305,6 +2580,11 @@ def main() -> None:
         help="Reconcile submitted paper orders against Moomoo simulated order history.",
     )
     parser.add_argument(
+        "--repair-open-orders",
+        action="store_true",
+        help="Cancel stale open normal paper orders and resubmit once with a wider capped limit offset.",
+    )
+    parser.add_argument(
         "--execution-guard",
         action="store_true",
         help="Run Moomoo ETF protection guard once: repair core ETF stop-limit orders.",
@@ -2405,6 +2685,17 @@ def main() -> None:
     if args.sync:
         reconciled = reconcile_paper_trades(lookback_days=int(args.lookback_days))
         print_reconciliation_summary(reconciled)
+        return
+
+    if args.repair_open_orders:
+        repaired = repair_open_paper_orders()
+        print(f"Repaired open paper orders: {len(repaired)}")
+        if not repaired.empty:
+            view = _clean_for_display(
+                repaired,
+                ["ticker", "action", "repair_parent_order_id", "broker_order_id", "submitted", "broker_requested_price", "fill_status"],
+            )
+            print(view.to_string(index=False))
         return
 
     if PAPER_MODE_STRATEGY == "core_satellite_alpha":

@@ -37,6 +37,7 @@ import pandas as pd
 
 from broker_interface import Broker, Order, Position, Fill
 from settings import SIGNAL_DIR
+from signal_freshness import validate_signal_freshness
 from alpaca_protection import (
     CORE_PROTECTION_ENABLED,
     CORE_PROTECTION_TICKERS,
@@ -61,6 +62,8 @@ ETF_DRIFT_THRESHOLD = float(os.environ.get("ALPACA_ETF_DRIFT_THRESHOLD", "0.03")
 OVERLAY_DRIFT_THRESHOLD = float(os.environ.get("ALPACA_OVERLAY_DRIFT_THRESHOLD", "0.01"))
 MIN_TRADE_VALUE = float(os.environ.get("ALPACA_MIN_TRADE_VALUE", "25.0"))
 MAX_GROSS_EXPOSURE = float(os.environ.get("ALPACA_MAX_GROSS_EXPOSURE", "1.00"))
+DEFAULT_MAX_SIGNAL_AGE_HOURS = float(os.environ.get("ALPACA_MAX_SIGNAL_AGE_HOURS", "24.0"))
+DEFAULT_MAX_FACTOR_AGE_TRADING_DAYS = int(os.environ.get("ALPACA_MAX_FACTOR_AGE_TRADING_DAYS", "5"))
 
 # ── STOP-LOSS CONFIGURATION ───────────────────────────────────────────────────
 # PLAIN ENGLISH: After buying overlay stocks, we place a trailing stop order
@@ -94,6 +97,12 @@ EQUITY_FILE = Path(SIGNAL_DIR) / "alpaca_paper_equity.csv"
 # Retry config for price fetches
 PRICE_RETRY_ATTEMPTS = int(os.environ.get("ALPACA_PRICE_RETRIES", "3"))
 PRICE_RETRY_BASE_DELAY = float(os.environ.get("ALPACA_PRICE_RETRY_DELAY", "1.0"))
+
+
+def _truthy(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"true", "1", "yes", "y"}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -298,14 +307,40 @@ def load_signal() -> pd.Series:
     row = df.iloc[0]
 
     # Safety check: only trade if strategy is paper-ready
-    if not bool(row.get("paper_ready", False)):
+    if not _truthy(row.get("paper_ready", False)):
         raise RuntimeError(
             f"Strategy is NOT paper-ready. Reason: {row.get('reason', 'unknown')}"
         )
-    if not bool(row.get("gates_all_pass", False)):
+    if not _truthy(row.get("gates_all_pass", False)):
         raise RuntimeError("Strategy gates have not all passed")
+    if not _truthy(row.get("medium_risk_review_pass", False)):
+        raise RuntimeError(
+            "Medium-risk review has not passed. Regenerate the unified signal after "
+            "`python3 nested_walkforward.py --strategy core-alpha --publish-live-config`."
+        )
 
     return row
+
+
+def check_signal_freshness(
+    signal: pd.Series,
+    *,
+    allow_stale_signal: bool = False,
+    max_signal_age_hours: float = DEFAULT_MAX_SIGNAL_AGE_HOURS,
+    max_factor_age_trading_days: int = DEFAULT_MAX_FACTOR_AGE_TRADING_DAYS,
+    now: datetime | None = None,
+) -> tuple[bool, list[str]]:
+    freshness_ok, freshness_issues = validate_signal_freshness(
+        signal,
+        max_signal_age_hours=max_signal_age_hours,
+        max_factor_age_trading_days=max_factor_age_trading_days,
+        now=now,
+    )
+    if freshness_ok:
+        return True, []
+    if allow_stale_signal:
+        return False, freshness_issues
+    raise RuntimeError(f"Stale signal/data: {', '.join(freshness_issues)}")
 
 
 def parse_target_weights(signal: pd.Series) -> dict[str, float]:
@@ -847,6 +882,12 @@ def main():
                         help="Skip drift thresholds AND duplicate-day check")
     parser.add_argument("--market-order", action="store_true", default=True,
                         help="Use market orders (default)")
+    parser.add_argument("--allow-stale-signal", action="store_true",
+                        help="Allow order planning/submission even if signal freshness checks fail")
+    parser.add_argument("--max-signal-age-hours", type=float, default=DEFAULT_MAX_SIGNAL_AGE_HOURS,
+                        help="Block submit if predicted_at is older than this many hours")
+    parser.add_argument("--max-factor-age-trading-days", type=int, default=DEFAULT_MAX_FACTOR_AGE_TRADING_DAYS,
+                        help="Block submit if latest_factor_date is older than this many trading days")
     args = parser.parse_args()
 
     # ── Connect to Alpaca ───────────────────────────────────────────────
@@ -882,6 +923,19 @@ def main():
         print(f"    Regime:   {signal.get('current_regime', 'unknown')}")
         print(f"    Gross:    {signal.get('gross_exposure', 'unknown')}")
     except (FileNotFoundError, RuntimeError) as e:
+        print(f"  ✗ {e}")
+        sys.exit(1)
+
+    try:
+        freshness_ok, freshness_issues = check_signal_freshness(
+            signal,
+            allow_stale_signal=bool(args.allow_stale_signal),
+            max_signal_age_hours=float(args.max_signal_age_hours),
+            max_factor_age_trading_days=int(args.max_factor_age_trading_days),
+        )
+        if not freshness_ok:
+            print(f"  ⚠ Stale signal/data allowed by --allow-stale-signal: {', '.join(freshness_issues)}")
+    except RuntimeError as e:
         print(f"  ✗ {e}")
         sys.exit(1)
 

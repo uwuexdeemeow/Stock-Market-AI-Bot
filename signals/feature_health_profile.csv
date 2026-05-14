@@ -40,3 +40,4 @@ ret_vs_spy_20d,cluster_02,ret_20d,quarantined,0.46557426337943475,-0.003097,-0.0
 ret_vs_qqq_20d,cluster_02,ret_20d,quarantined,0.46754227053140096,-0.003097,-0.006624,False,False,False,0.0
 rsi_14,cluster_02,rsi_14,strengthening,2.4587393422655297,-0.016149,-0.006568,True,False,True,0.111111
 xs_rank_market_rsi_14,cluster_02,rsi_14,strengthening,2.444276653578979,-0.016186,-0.006622,True,False,True,0.111111
+xs_rank_market_factor_idio_vol_252_spy,cluster_08,factor_idio_vol_252_spy,strengthening,4.711836998706339,0.029138,0.006184,True,False,True,0.111111

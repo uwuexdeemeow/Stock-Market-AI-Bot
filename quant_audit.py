@@ -17,6 +17,20 @@ SIGNALS = Path(SIGNAL_DIR)
 LOGS = Path(LOG_DIR)
 
 
+def _production_file(*candidates: str) -> Path:
+    for candidate in candidates:
+        path = ROOT / candidate
+        if path.exists():
+            return path
+    return ROOT / candidates[0]
+
+
+def _truthy(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"true", "1", "yes", "y"}
+
+
 def _read_csv(path: Path) -> pd.DataFrame:
     if not path.exists():
         return pd.DataFrame()
@@ -225,13 +239,53 @@ def _paper_section(findings: list[dict[str, str]]) -> dict[str, Any]:
             }
         )
     if gauntlet and not bool(gauntlet.get("approved_for_real_capital", False)):
-        findings.append(
-            {
-                "severity": "medium",
-                "area": "paper_trading",
-                "finding": f"Paper gauntlet blocks real-capital promotion: {gauntlet.get('reason', 'unknown reason')}",
-            }
-        )
+        if not bool(gauntlet.get("paper_maturity_pass", True)):
+            findings.append(
+                {
+                    "severity": "medium",
+                    "area": "paper_trading",
+                    "finding": (
+                        "paper_maturity_pending: "
+                        f"paper_equity_days {gauntlet.get('paper_equity_days', 0)} < "
+                        f"{gauntlet.get('paper_equity_days_required', 'required')} "
+                        f"({gauntlet.get('paper_equity_days_remaining', '?')} days remaining)"
+                    ),
+                }
+            )
+        if bool(gauntlet.get("open_orders_pending", False)):
+            findings.append(
+                {
+                    "severity": "medium",
+                    "area": "paper_trading",
+                    "finding": f"open_orders_pending: {gauntlet.get('active_open_orders', 0)} current paper order(s) still open.",
+                }
+            )
+        matured_fill_rate = gauntlet.get("matured_fill_rate", gauntlet.get("fill_rate"))
+        min_fill_rate = gauntlet.get("min_fill_rate", 0.95)
+        try:
+            fill_failed = float(matured_fill_rate or 0.0) < float(min_fill_rate or 0.95)
+        except Exception:
+            fill_failed = False
+        if fill_failed and int(gauntlet.get("matured_submitted_orders", gauntlet.get("submitted_orders", 0)) or 0) > 0:
+            findings.append(
+                {
+                    "severity": "medium",
+                    "area": "paper_trading",
+                    "finding": f"fill_rate_failed: matured_fill_rate {float(matured_fill_rate):.3f} < {float(min_fill_rate or 0.95):.3f}.",
+                }
+            )
+        if not any(
+            str(f.get("finding", "")).startswith(("paper_maturity_pending", "open_orders_pending", "fill_rate_failed"))
+            and f.get("area") == "paper_trading"
+            for f in findings
+        ):
+            findings.append(
+                {
+                    "severity": "medium",
+                    "area": "paper_trading",
+                    "finding": f"Paper gauntlet blocks real-capital promotion: {gauntlet.get('reason', 'unknown reason')}",
+                }
+            )
     return {
         "filtered_live_rows": int(len(filtered)),
         "paper_trade_rows": int(len(paper_trades)),
@@ -240,8 +294,18 @@ def _paper_section(findings: list[dict[str, str]]) -> dict[str, Any]:
         "paper_gauntlet_status": gauntlet.get("status"),
         "approved_for_real_capital": gauntlet.get("approved_for_real_capital"),
         "paper_gauntlet_reason": gauntlet.get("reason"),
+        "paper_maturity_pass": gauntlet.get("paper_maturity_pass"),
+        "paper_equity_days_remaining": gauntlet.get("paper_equity_days_remaining"),
+        "matured_fill_rate": gauntlet.get("matured_fill_rate"),
+        "open_orders_pending": gauntlet.get("open_orders_pending"),
+        "active_open_orders": gauntlet.get("active_open_orders"),
+        "stale_open_orders": gauntlet.get("stale_open_orders"),
         "paper_benchmark_comparisons": gauntlet.get("paper_benchmark_comparisons", {}),
-        "core_satellite_paper_ready": bool(core_signal.iloc[0].get("paper_ready", False)) if not core_signal.empty else False,
+        "core_satellite_paper_ready": (
+            _truthy(core_signal.iloc[0].get("paper_ready", False))
+            and _truthy(core_signal.iloc[0].get("gates_all_pass", False))
+            and _truthy(core_signal.iloc[0].get("medium_risk_review_pass", False))
+        ) if not core_signal.empty else False,
         "current_regime": paper_status.get("current_regime"),
         "account_equity": paper_status.get("account_equity"),
         "current_gross_exposure": paper_status.get("current_gross_exposure"),
@@ -395,6 +459,30 @@ def _factor_decay_section(findings: list[dict[str, str]]) -> dict[str, Any]:
         return {"report_file": None, "status": "missing", "real_capital_block": True}
     warning = bool(report.get("warning", False))
     real_capital_block = bool(report.get("real_capital_block", False))
+    edge_status = str(report.get("edge_health_status", "") or "")
+    if not edge_status:
+        row_statuses = []
+        for row in rows:
+            try:
+                rank_ic = float(row.get("daily_ic_mean", 0.0) or 0.0)
+                top_excess = float(row.get("top_bucket_excess_return_pct", 0.0) or 0.0)
+                overlay_alpha = float(row.get("overlay_alpha_sum_pct", 0.0) or 0.0)
+            except Exception:
+                row_statuses.append("warning")
+                continue
+            if overlay_alpha < 0.0:
+                row_statuses.append("block")
+            elif top_excess <= 0.0 or overlay_alpha <= 0.0:
+                row_statuses.append("warning")
+            elif rank_ic < 0.0:
+                row_statuses.append("advisory")
+            else:
+                row_statuses.append("pass")
+        edge_status = "pass"
+        for candidate in ("block", "warning", "advisory"):
+            if candidate in row_statuses:
+                edge_status = candidate
+                break
     if real_capital_block:
         findings.append(
             {
@@ -403,18 +491,20 @@ def _factor_decay_section(findings: list[dict[str, str]]) -> dict[str, Any]:
                 "finding": f"Factor decay monitor blocks real-capital promotion: {report.get('reason', 'unknown reason')}",
             }
         )
-    elif warning:
+    elif edge_status == "warning":
         findings.append(
             {
                 "severity": "medium",
                 "area": "factor_decay",
-                "finding": "Factor decay warning present: recent rank IC is weak/negative, though recent overlay alpha is not blocking.",
+                "finding": f"Factor decay warning present: {report.get('reason', 'unknown reason')}",
             }
         )
     return {
         "report_file": str(path.relative_to(ROOT)),
-        "status": "block" if real_capital_block else "warning" if warning else "pass",
-        "warning": warning,
+        "status": "block" if real_capital_block else edge_status,
+        "edge_health_status": edge_status,
+        "advisory": bool(report.get("advisory", False)),
+        "warning": bool(edge_status == "warning"),
         "real_capital_block": real_capital_block,
         "reason": report.get("reason"),
         "rows": rows,
@@ -450,7 +540,11 @@ def _robust_mode_section(findings: list[dict[str, str]]) -> dict[str, Any]:
 def _summary_section(report: dict[str, Any], findings: list[dict[str, str]]) -> dict[str, Any]:
     primary_metrics = _read_json(SIGNALS / "core_satellite_alpha_metrics.json")
     primary_gates = primary_metrics.get("core_satellite_gate_results", {})
-    primary_ok = bool(primary_metrics.get("paper_ready", False) and primary_gates.get("all_pass", False))
+    primary_ok = bool(
+        _truthy(primary_metrics.get("paper_ready", False))
+        and _truthy(primary_gates.get("all_pass", False))
+        and _truthy(primary_metrics.get("medium_risk_review_pass", False))
+    )
     paper = report.get("paper", {})
     real_capital_blocked_reason = None
     if not bool(paper.get("approved_for_real_capital", False)):
@@ -464,7 +558,7 @@ def _summary_section(report: dict[str, Any], findings: list[dict[str, str]]) -> 
         largest = "paper_execution_history"
     elif report.get("survivorship_bias", {}).get("status") == "pass_with_warning":
         largest = "survivorship_bias"
-    elif report.get("factor_decay", {}).get("warning"):
+    elif report.get("factor_decay", {}).get("edge_health_status") == "warning":
         largest = "factor_decay"
     else:
         largest = "none"
@@ -478,19 +572,19 @@ def _summary_section(report: dict[str, Any], findings: list[dict[str, str]]) -> 
 def run_audit() -> dict[str, Any]:
     findings: list[dict[str, str]] = []
     required_files = [
-        ROOT / "train.py",
-        ROOT / "backtest.py",
-        ROOT / "predict.py",
-        ROOT / "leakage_audit.py",
-        ROOT / "optimize_trade_rules.py",
-        ROOT / "model_quality.py",
-        ROOT / "trade_rules.py",
-        ROOT / "moomoo_paper_trading.py",
-        ROOT / "paper_gauntlet.py",
-        ROOT / "core_satellite_survivorship_audit.py",
-        ROOT / "core_satellite_execution_stress.py",
-        ROOT / "core_satellite_drawdown_throttle.py",
-        ROOT / "factor_decay_monitor.py",
+        _production_file("train.py", "Stock picking scripts/train.py"),
+        _production_file("backtest.py"),
+        _production_file("predict.py", "Stock picking scripts/predict.py"),
+        _production_file("leakage_audit.py"),
+        _production_file("optimize_trade_rules.py", "Stock picking scripts/optimize_trade_rules.py"),
+        _production_file("model_quality.py"),
+        _production_file("trade_rules.py", "Stock picking scripts/trade_rules.py"),
+        _production_file("moomoo_paper_trading.py"),
+        _production_file("paper_gauntlet.py"),
+        _production_file("core_satellite_survivorship_audit.py"),
+        _production_file("core_satellite_execution_stress.py"),
+        _production_file("core_satellite_drawdown_throttle.py"),
+        _production_file("factor_decay_monitor.py"),
     ]
     missing = [str(p.relative_to(ROOT)) for p in required_files if not p.exists()]
     if missing:

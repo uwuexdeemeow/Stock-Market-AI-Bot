@@ -54,35 +54,61 @@ FEATURE_QUALITY_MIN_GRADE = "C"  # drop D and F features
 _QUALITY_GRADE_ORDER = {"A": 5, "B": 4, "C": 3, "D": 2, "F": 1}
 
 
-def _load_feature_quality_filter() -> set[str] | None:
+def _load_feature_quality_filter(strict: bool = False) -> set[str] | None:
     """Load feature quality report and return set of features to KEEP.
 
-    Returns None if no report exists (use all features).
+    Returns None if no report exists in non-strict mode (use all features).
     Returns set of feature names that passed quality gate (grade >= C).
     """
     report_path = Path(SIGNAL_DIR) / "feature_quality_report.json"
     if not report_path.exists():
-        return None  # no report → use all features (no filtering)
+        if strict:
+            raise SystemExit(
+                f"Missing live feature quality report: {report_path}. "
+                "Run `python3 feature_quality_diagnostic.py --top 48` before live signal generation."
+            )
+        return None  # no report -> use all features in research/helper mode
 
     try:
         with open(report_path) as f:
             report = json.load(f)
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError) as exc:
+        if strict:
+            raise SystemExit(
+                f"Invalid live feature quality report: {report_path} ({exc}). "
+                "Run `python3 feature_quality_diagnostic.py --top 48` to rebuild it."
+            )
         return None
 
     min_grade_val = _QUALITY_GRADE_ORDER.get(FEATURE_QUALITY_MIN_GRADE, 3)
     keep_features = set()
     seen_features = set()
     dropped_features = []
+    usable_grade_count = 0
 
     for feat_info in report.get("features", []):
-        seen_features.add(str(feat_info["feature"]))
-        grade = feat_info.get("grade", "C")
+        feature = str(feat_info.get("feature", "")).strip() if isinstance(feat_info, dict) else ""
+        if not feature:
+            continue
+        usable_grade_count += 1
+        seen_features.add(feature)
+        grade = str(feat_info.get("grade", "C")).strip().upper()
         grade_val = _QUALITY_GRADE_ORDER.get(grade, 3)
         if grade_val >= min_grade_val:
-            keep_features.add(feat_info["feature"])
+            keep_features.add(feature)
         else:
-            dropped_features.append((feat_info["feature"], grade))
+            dropped_features.append((feature, grade))
+
+    if strict and usable_grade_count <= 0:
+        raise SystemExit(
+            f"Live feature quality report has no usable feature grades: {report_path}. "
+            "Run `python3 feature_quality_diagnostic.py --top 48` to rebuild it."
+        )
+    if strict and not keep_features:
+        raise SystemExit(
+            "Live feature quality report filters out every graded feature. "
+            "Run `python3 feature_quality_diagnostic.py --top 48` and inspect D/F feature grades."
+        )
 
     shortlist_path = Path("logs/feature_ic_shortlist.csv")
     if shortlist_path.exists():
@@ -104,6 +130,47 @@ def _load_feature_quality_filter() -> set[str] | None:
         print(f"  Feature quality gate: all {len(keep_features)} features pass")
 
     return keep_features if keep_features else None
+
+
+def _apply_live_feature_quality_filter(specs: list[dict], quality_filter: set[str]) -> list[dict]:
+    original_count = len(specs)
+    filtered = [s for s in specs if str(s.get("feature", "")) in quality_filter]
+    if not filtered:
+        raise SystemExit(
+            "Live feature quality filter removed every active feature spec. "
+            "Run `python3 feature_quality_diagnostic.py --top 48` after `python3 feature_research.py`."
+        )
+    if len(filtered) < original_count:
+        print(f"  Feature filter applied: {original_count} -> {len(filtered)} specs")
+    enriched, _feature_health_profile = enrich_feature_specs(filtered)
+    return enriched
+
+
+def _validate_live_feature_inputs(specs: list[dict], signal_panel: pd.DataFrame) -> None:
+    selected_features = [str(s.get("feature", "")).strip() for s in specs if str(s.get("feature", "")).strip()]
+    has_xs_rank = any(
+        feature.startswith("xs_rank_market_") or feature.startswith("xs_rank_sector_")
+        for feature in selected_features
+    )
+    if not has_xs_rank:
+        raise SystemExit(
+            "Live feature set contains no cross-sectional rank features "
+            "(xs_rank_market_* or xs_rank_sector_*). Run `python3 research.py --xs-only`, "
+            "then `python3 feature_quality_diagnostic.py --top 48`."
+        )
+
+    missing = sorted(feature for feature in selected_features if feature not in signal_panel.columns)
+    if missing:
+        preview = ", ".join(missing[:8])
+        suffix = f", ... +{len(missing) - 8} more" if len(missing) > 8 else ""
+        raise SystemExit(
+            f"Live signal panel is missing selected feature columns: {preview}{suffix}. "
+            "Run `python3 research.py --xs-only`, then `python3 feature_quality_diagnostic.py --top 48`."
+        )
+
+    health = getattr(signal_panel, "attrs", {}).get("feature_health_summary", {}) or {}
+    if health and not bool(health.get("feature_health_gate_pass", True)):
+        print("  Feature health gate failed in live panel; signal will be written as not tradeable.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -544,6 +611,7 @@ MAX_SINGLE_NAME_WEIGHT = 0.25
 # script is deliberately run with --allow-leverage-submit.
 PAPER_MAX_GROSS_EXPOSURE = 1.00
 PAPER_SIGNAL_TIMEZONE = os.environ.get("PAPER_SIGNAL_TIMEZONE", os.environ.get("TZ", "Asia/Singapore"))
+STICKY_STATE_EXCLUDED_TICKERS = {"SPY", "QQQ", "TQQQ", "BIL", "IEF", "GLD"}
 
 MAX_POSITIVE_YEAR_ALPHA_SHARE = 0.35
 MAX_TOP_TICKER_CONTRIB_SHARE = 0.50
@@ -1533,10 +1601,150 @@ def _paper_signal_timestamp() -> str:
     return datetime.now(tz).isoformat(timespec="minutes")
 
 
+def _core_satellite_signal_path() -> Path:
+    return Path(SIGNAL_DIR) / "core_satellite_alpha_signal.csv"
+
+
+def _paper_daily_status_path() -> Path:
+    return Path(SIGNAL_DIR) / "paper_daily_status.json"
+
+
+def _empty_live_sticky_state(reason: str, source: str = "none") -> dict:
+    return {
+        "source": source,
+        "used": False,
+        "held_tickers": set(),
+        "prev_overlay": pd.Series(dtype=float),
+        "reason": reason,
+    }
+
+
+def _normalise_sticky_ticker(ticker: object) -> str:
+    value = str(ticker).strip().upper()
+    return value.split(".", 1)[1] if "." in value else value
+
+
+def _overlay_series_from_values(values: dict, equity: float) -> pd.Series:
+    if not np.isfinite(float(equity)) or float(equity) <= 0:
+        return pd.Series(dtype=float)
+    weights: dict[str, float] = {}
+    for raw_ticker, raw_value in values.items():
+        ticker = _normalise_sticky_ticker(raw_ticker)
+        if not ticker or ticker in STICKY_STATE_EXCLUDED_TICKERS:
+            continue
+        try:
+            value = abs(float(raw_value or 0.0))
+        except Exception:
+            continue
+        if not np.isfinite(value) or value <= 0:
+            continue
+        weights[ticker] = value / float(equity)
+    if not weights:
+        return pd.Series(dtype=float)
+    return pd.Series(weights, dtype=float).sort_index()
+
+
+def _overlay_series_from_prior_signal(signal_path: Path) -> pd.Series:
+    if not signal_path.exists():
+        return pd.Series(dtype=float)
+    try:
+        df = pd.read_csv(signal_path)
+    except Exception:
+        return pd.Series(dtype=float)
+    if df.empty:
+        return pd.Series(dtype=float)
+    try:
+        raw = json.loads(str(df.iloc[0].get("overlay_weights_json", "{}") or "{}"))
+    except Exception:
+        return pd.Series(dtype=float)
+    weights: dict[str, float] = {}
+    for raw_ticker, raw_weight in dict(raw).items():
+        ticker = _normalise_sticky_ticker(raw_ticker)
+        if not ticker or ticker in STICKY_STATE_EXCLUDED_TICKERS:
+            continue
+        try:
+            weight = abs(float(raw_weight or 0.0))
+        except Exception:
+            continue
+        if np.isfinite(weight) and weight > 0:
+            weights[ticker] = weight
+    if not weights:
+        return pd.Series(dtype=float)
+    return pd.Series(weights, dtype=float).sort_index()
+
+
+def _load_live_sticky_overlay_state(
+    *,
+    status_path: Path | None = None,
+    signal_path: Path | None = None,
+) -> dict:
+    """Return live overlay holdings for sticky live selection.
+
+    Moomoo's paper_daily_status.json is authoritative when usable. If it is
+    missing or malformed, fall back to the prior unified signal overlay.
+    """
+    status_path = Path(status_path or _paper_daily_status_path())
+    signal_path = Path(signal_path or _core_satellite_signal_path())
+
+    if status_path.exists():
+        try:
+            status = json.loads(status_path.read_text())
+        except Exception:
+            status = None
+        if isinstance(status, dict):
+            try:
+                equity = float(status.get("account_equity", 0.0) or 0.0)
+            except Exception:
+                equity = 0.0
+            position_values = status.get("position_values", {})
+            if isinstance(position_values, dict) and equity > 0 and np.isfinite(equity):
+                prev_overlay = _overlay_series_from_values(position_values, equity)
+                return {
+                    "source": "paper_daily_status",
+                    "used": not prev_overlay.empty,
+                    "held_tickers": set(prev_overlay.index.astype(str)),
+                    "prev_overlay": prev_overlay,
+                    "reason": "loaded_from_moomoo_status" if not prev_overlay.empty else "no_overlay_positions_in_moomoo_status",
+                }
+
+    prev_overlay = _overlay_series_from_prior_signal(signal_path)
+    if not prev_overlay.empty:
+        return {
+            "source": "previous_signal",
+            "used": True,
+            "held_tickers": set(prev_overlay.index.astype(str)),
+            "prev_overlay": prev_overlay,
+            "reason": "loaded_from_previous_signal",
+        }
+    return _empty_live_sticky_state("no_live_or_prior_overlay_state")
+
+
+def _mark_live_regime_failure(metrics: dict, exc: Exception) -> dict:
+    error = str(exc).strip() or exc.__class__.__name__
+    if len(error) > 300:
+        error = error[:297] + "..."
+    metrics["paper_ready"] = False
+    gates = dict(metrics.get("core_satellite_gate_results", {}) or {})
+    gates["all_pass"] = False
+    metrics["core_satellite_gate_results"] = gates
+    metrics["live_regime_refresh_failed"] = True
+    metrics["live_regime_refresh_error"] = error
+    reasons = [str(x) for x in metrics.get("live_gate_reasons", []) if str(x)]
+    if "regime_refresh_failed" not in reasons:
+        reasons.append("regime_refresh_failed")
+    metrics["live_gate_reasons"] = reasons
+    return metrics
+
+
 def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
     holding_days = int(metrics.get("holding_days", HORIZON_DAYS))
     latest_date = pd.Timestamp(panel["date"].max())
     regime_indicators = None
+    regime_refresh_failed = False
+    current_regime = str(metrics.get("current_regime", "static"))
+    core_weights: dict[str, float] = {}
+    core_gross = 0.0
+    overlay_gross = 0.0
     if str(metrics.get("regime_mode", "static")) in REGIME_PRESETS:
         try:
             regime_indicators = _load_regime_indicators(
@@ -1545,10 +1753,15 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
                 metrics,
             )
         except Exception as exc:
-            if str(metrics.get("current_regime", "")) not in REGIME_PRESETS[str(metrics.get("regime_mode", "static"))]:
-                raise
-            print(f"Warning: using last known regime {metrics.get('current_regime')} because regime indicator refresh failed: {exc}")
-    current_regime, core_weights, core_gross, overlay_gross = _resolve_allocation(latest_date, metrics, regime_indicators)
+            metrics = _mark_live_regime_failure(metrics, exc)
+            regime_refresh_failed = True
+            preset = REGIME_PRESETS[str(metrics.get("regime_mode", "static"))]
+            if current_regime not in preset:
+                last_known = str(metrics.get("last_known_regime", ""))
+                current_regime = last_known if last_known in preset else "unknown"
+            print(f"Live regime refresh failed; writing non-tradeable signal: {exc}")
+    if not regime_refresh_failed:
+        current_regime, core_weights, core_gross, overlay_gross = _resolve_allocation(latest_date, metrics, regime_indicators)
     feature_health_gate_pass = bool(metrics.get("feature_health_gate_pass", True))
     feature_health_reason = ""
     if not feature_health_gate_pass:
@@ -1556,9 +1769,19 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         feature_health_reason = "feature_health_gate_failed"
     score_col = _score_col_for_regime(str(metrics["score_source"]), current_regime)
     day = panel[panel["date"] == latest_date]
+    sticky_state = _load_live_sticky_overlay_state()
+    held_tickers = set(sticky_state["held_tickers"])
+    prev_overlay = sticky_state["prev_overlay"]
+    metrics["sticky_holdings_source"] = str(sticky_state["source"])
+    metrics["sticky_holdings_used"] = bool(sticky_state["used"])
+    metrics["sticky_held_tickers"] = sorted(held_tickers)
+    metrics["sticky_prev_overlay_json"] = json.dumps(
+        {str(k): round(float(v), 6) for k, v in prev_overlay.items()}, sort_keys=True
+    )
+    metrics["sticky_holdings_reason"] = str(sticky_state["reason"])
     selected = _select_sticky_holdings(
         day,
-        set(),
+        held_tickers,
         score_col=score_col,
         return_col=None,
         shape=str(metrics["shape"]),
@@ -1588,7 +1811,7 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         selected,
         overlay_gross,
         str(metrics["weighting"]),
-        pd.Series(dtype=float),
+        prev_overlay,
         max_single_name_weight=float(metrics.get("max_single_name_weight", MAX_SINGLE_NAME_WEIGHT)),
     )
     raw_target_spy = core_gross * float(core_weights.get("SPY", 0.0))
@@ -1609,6 +1832,7 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         "paper_signal_type": "core_satellite_alpha",
         "paper_ready": bool(metrics.get("paper_ready", False)),
         "core_preset": metrics["core_preset"],
+        "risk_control_mode": str(metrics.get("risk_control_mode", "off")),
         "regime_mode": str(metrics.get("regime_mode", "static")),
         "current_regime": current_regime,
         "score_source": metrics["score_source"],
@@ -1641,17 +1865,35 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         "cost_stress": float(metrics.get("cost_stress", COST_STRESS_MULTIPLIERS[0])),
         "gates_all_pass": bool(metrics.get("core_satellite_gate_results", {}).get("all_pass", False)),
         "reason": (
-            "hardened core-satellite gates pass"
+            "nested walk-forward live gates pass"
             if metrics.get("paper_ready")
-            else (feature_health_reason or "hardened core-satellite gates have not passed")
+            else "; ".join(str(x) for x in metrics.get("live_gate_reasons", []) if str(x))
+            or feature_health_reason
+            or "nested walk-forward live gates have not passed"
         ),
+        "live_gate_source": str(metrics.get("live_gate_source", "")),
+        "live_gate_reasons": ";".join(str(x) for x in metrics.get("live_gate_reasons", [])),
+        "walkforward_approval_pass": bool(metrics.get("walkforward_approval_pass", False)),
+        "nested_cost_stress_approval_pass": bool(metrics.get("nested_cost_stress_approval_pass", False)),
+        "medium_risk_review_pass": bool(metrics.get("medium_risk_review_pass", False)),
+        "medium_risk_review_reasons": ";".join(str(x) for x in metrics.get("medium_risk_review_reasons", [])),
+        "survivorship_review": json.dumps(metrics.get("survivorship_review", {}), sort_keys=True),
+        "execution_stress_review": json.dumps(metrics.get("execution_stress_review", {}), sort_keys=True),
+        "factor_decay_review": json.dumps(metrics.get("factor_decay_review", {}), sort_keys=True),
         "feature_health_gate_pass": feature_health_gate_pass,
+        "live_regime_refresh_failed": bool(metrics.get("live_regime_refresh_failed", False)),
+        "live_regime_refresh_error": str(metrics.get("live_regime_refresh_error", "")),
         "active_cluster_count": int(metrics.get("active_cluster_count", 0) or 0),
         "effective_cluster_count": int(metrics.get("effective_cluster_count", 0) or 0),
         "max_cluster_weight": round(float(metrics.get("max_cluster_weight", 0.0) or 0.0), 6),
         "quarantined_features": ",".join(str(x) for x in metrics.get("quarantined_features", [])),
         "watchlist_features": ",".join(str(x) for x in metrics.get("watchlist_features", [])),
         "predicted_at": _paper_signal_timestamp(),
+        "sticky_holdings_source": str(sticky_state["source"]),
+        "sticky_holdings_used": bool(sticky_state["used"]),
+        "sticky_held_tickers": ",".join(sorted(held_tickers)),
+        "sticky_prev_overlay_json": metrics["sticky_prev_overlay_json"],
+        "sticky_holdings_reason": str(sticky_state["reason"]),
         "sentiment_veto_enabled": SENTIMENT_VETO_ENABLED,
         "sentiment_scores_json": json.dumps(
             {k: round(v, 4) for k, v in sentiment_scores.items()}, sort_keys=True
@@ -1839,7 +2081,7 @@ def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
     if not LIVE_CONFIG_PATH.exists():
         raise SystemExit(
             f"Missing approved live config file: {LIVE_CONFIG_PATH}. "
-            "Run `python3 nested_walkforward.py --strategy both` first."
+            "Run `python3 nested_walkforward.py --strategy core-alpha` first."
         )
     try:
         payload = json.loads(LIVE_CONFIG_PATH.read_text())
@@ -1865,6 +2107,7 @@ def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
         "approval": approval,
         "approved_config_family": approved.get("approved_config_family"),
         "source_metrics": approved.get("source_metrics", {}),
+        "medium_risk_review": approved.get("medium_risk_review", payload.get("medium_risk_reviews", {}).get(strategy, {})),
         "source_json": payload.get("source_json"),
         "created_at": payload.get("created_at"),
     }
@@ -1872,7 +2115,7 @@ def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
 
 def _write_rejection_signal(reasons: list[str]) -> None:
     """Overwrite the signal file with paper_ready=False so stale approvals can't persist."""
-    signal_path = Path(SIGNAL_DIR) / "core_satellite_alpha_signal.csv"
+    signal_path = _core_satellite_signal_path()
     reason_str = "nested_walkforward_rejected: " + "; ".join(reasons)
     if signal_path.exists():
         try:
@@ -1891,6 +2134,62 @@ def _write_rejection_signal(reasons: list[str]) -> None:
         "reason": reason_str,
         "predicted_at": datetime.now().isoformat(),
     }]).to_csv(signal_path, index=False)
+
+
+def _apply_nested_live_approval_gates(metrics: dict, live: dict, freshness: dict) -> dict:
+    """Use nested approval as the live gate while preserving full-sample diagnostics."""
+    full_sample_gates = dict(metrics.get("core_satellite_gate_results", {}) or {})
+    metrics["full_sample_core_satellite_gate_results"] = full_sample_gates
+    metrics["full_sample_gate_all_pass"] = bool(full_sample_gates.get("all_pass", False))
+
+    approval = live.get("approval", {}) or {}
+    source_metrics = live.get("source_metrics", {}) or {}
+    walkforward_pass = bool(approval.get("approved", False))
+    cost_pass = bool(source_metrics.get("cost_stress_approval_pass", False))
+    medium_review = live.get("medium_risk_review", {}) or {}
+    medium_review_pass = bool(medium_review.get("pass", False))
+    feature_health_pass = bool(metrics.get("feature_health_gate_pass", True))
+    freshness_pass = bool(freshness.get("fresh", False))
+
+    reasons: list[str] = []
+    if not walkforward_pass:
+        approval_reasons = approval.get("reasons") or ["not approved"]
+        reasons.append("nested_walkforward_approval_failed:" + ",".join(str(x) for x in approval_reasons))
+    if not cost_pass:
+        reasons.append("nested_cost_stress_approval_failed")
+    if not medium_review_pass:
+        review_reasons = medium_review.get("reasons") or ["missing_medium_risk_review"]
+        reasons.append("medium_risk_review_failed:" + ",".join(str(x) for x in review_reasons))
+    if not feature_health_pass:
+        health_reasons = metrics.get("feature_health_gate_reasons") or ["feature_health_gate_failed"]
+        reasons.append("feature_health_gate_failed:" + ",".join(str(x) for x in health_reasons))
+    if not freshness_pass:
+        reasons.append("factor_data_stale")
+        metrics["factor_data_stale"] = True
+        metrics["factor_data_freshness"] = freshness
+
+    live_ready = not reasons
+    metrics["live_gate_source"] = "nested_walkforward_approval"
+    metrics["walkforward_approval_pass"] = walkforward_pass
+    metrics["walkforward_approval_reasons"] = list(approval.get("reasons") or [])
+    metrics["nested_cost_stress_approval_pass"] = cost_pass
+    metrics["medium_risk_review_pass"] = medium_review_pass
+    metrics["medium_risk_review_reasons"] = list(medium_review.get("reasons") or [])
+    metrics["survivorship_review"] = medium_review.get("survivorship_review", {})
+    metrics["execution_stress_review"] = medium_review.get("execution_stress_review", {})
+    metrics["factor_decay_review"] = medium_review.get("factor_decay_review", {})
+    metrics["robust_cost_stress_pass"] = cost_pass
+    metrics["live_gate_reasons"] = reasons
+    metrics["paper_ready"] = live_ready
+    metrics["core_satellite_gate_results"] = {
+        "walkforward_approval_pass": walkforward_pass,
+        "nested_cost_stress_approval_pass": cost_pass,
+        "medium_risk_review_pass": medium_review_pass,
+        "feature_health_gate_pass": feature_health_pass,
+        "factor_data_freshness_pass": freshness_pass,
+        "all_pass": live_ready,
+    }
+    return metrics
 
 
 def _generate_signal_from_approved_config(
@@ -1913,7 +2212,7 @@ def _generate_signal_from_approved_config(
             json.dump(rejection_metrics, f, indent=2)
         raise SystemExit(
             f"Nested walk-forward has not approved a live core-alpha config: {reasons}. "
-            "Run `python3 nested_walkforward.py --strategy both` and inspect the OOS report."
+            "Run `python3 nested_walkforward.py --strategy core-alpha` and inspect the OOS report."
         )
     selected_config = dict(live["config"])
     selected_config["live_config_source"] = "nested_walkforward"
@@ -1931,25 +2230,8 @@ def _generate_signal_from_approved_config(
         "source_json": live.get("source_json"),
         "created_at": live.get("created_at"),
     }
-    source_metrics = live.get("source_metrics", {}) or {}
-    approval = live.get("approval", {}) or {}
-    best_metrics["robust_cost_stress_pass"] = bool(
-        source_metrics.get("cost_stress_approval_pass", approval.get("approved", False))
-    )
-    best_metrics["core_satellite_gate_results"]["cost_stress_approval_pass"] = bool(
-        best_metrics["robust_cost_stress_pass"]
-    )
-    best_metrics["paper_ready"] = bool(
-        best_metrics["core_satellite_gate_results"]["all_pass"]
-        and best_metrics["robust_cost_stress_pass"]
-    )
-    best_metrics["core_satellite_gate_results"]["all_pass"] = bool(best_metrics["paper_ready"])
-
-    if not freshness["fresh"]:
-        best_metrics["paper_ready"] = False
-        best_metrics["core_satellite_gate_results"]["all_pass"] = False
-        best_metrics["factor_data_stale"] = True
-        best_metrics["factor_data_freshness"] = freshness
+    best_metrics = _apply_nested_live_approval_gates(best_metrics, live, freshness)
+    if not bool(freshness.get("fresh", False)):
         print("  ⚠ gates_all_pass forced to False because factor data is stale")
 
     pd.DataFrame({"equity": best_equity}).to_csv(Path(SIGNAL_DIR) / "core_satellite_alpha_equity.csv")
@@ -1961,6 +2243,7 @@ def _generate_signal_from_approved_config(
     row = {
         "paper_ready": best_metrics.get("paper_ready"),
         "core_preset": best_metrics.get("core_preset"),
+        "risk_control_mode": best_metrics.get("risk_control_mode", "off"),
         "regime_mode": best_metrics.get("regime_mode"),
         "holding_days": best_metrics.get("holding_days"),
         "overlay_gross": best_metrics.get("overlay_gross"),
@@ -1982,7 +2265,7 @@ def main() -> None:
                         help="Override stale data block — generate signal even if factor data is very old")
     parser.add_argument("--walkforward", action="store_true",
                         help="Run proper nested core-alpha validation before generating the signal. "
-                             "For normal validation of both signal generators, prefer nested_walkforward.py.")
+                             "For normal validation, prefer nested_walkforward.py.")
     parser.add_argument("--no-walkforward", action="store_true",
                         help="Legacy no-op. Nested validation is skipped by default; use --walkforward to run it.")
     parser.add_argument("--min-train-years", type=int, default=4,
@@ -1992,18 +2275,11 @@ def main() -> None:
     Path(SIGNAL_DIR).mkdir(parents=True, exist_ok=True)
 
     # ── FEATURE QUALITY FILTER ────────────────────────────────────────────────
-    # PLAIN ENGLISH: If the feature quality diagnostic has been run, load its
-    # results and DROP features graded D/F.  This removes noise features that
-    # have no reliable predictive power — using them just adds noise to the
-    # scoring pipeline and makes it easier to overfit.
-    quality_filter = _load_feature_quality_filter()
+    # Live signal generation is strict: diagnostics must exist, parse cleanly,
+    # and leave usable cross-sectional rank features in the final panel.
+    quality_filter = _load_feature_quality_filter(strict=True)
     specs = load_feature_specs()
-    if quality_filter is not None:
-        original_count = len(specs)
-        specs = [s for s in specs if s["feature"] in quality_filter]
-        if len(specs) < original_count:
-            print(f"  Feature filter applied: {original_count} → {len(specs)} specs")
-        specs, _feature_health_profile = enrich_feature_specs(specs)
+    specs = _apply_live_feature_quality_filter(specs, quality_filter)
     ml_scores = load_prediction_scores()
 
     # Backtest/training panel: requires forward returns, so its newest usable row
@@ -2020,22 +2296,23 @@ def main() -> None:
     )
     print(f"  Live signal panel: {len(signal_panel)} rows, {signal_panel['ticker'].nunique()} tickers, "
           f"{signal_panel['date'].nunique()} dates, latest={pd.Timestamp(signal_panel['date'].max()).date()}")
+    _validate_live_feature_inputs(specs, signal_panel)
 
     # ── OPTIONAL: NESTED WALK-FORWARD VALIDATION ────────────────────────────
     # PLAIN ENGLISH: Daily signal generation should stay fast and focused.
-    # Run `python3 nested_walkforward.py --strategy both` as the research trust
-    # gate for both live signal generators.  This flag remains useful when you
+    # Run `python3 nested_walkforward.py --strategy core-alpha` as the research trust
+    # gate for the unified live signal.  This flag remains useful when you
     # want a one-off core-alpha validation before generating today's signal.
     if args.walkforward:
         print("\n  Running nested walk-forward validation (--walkforward)...")
         print("  (This tests TRUE out-of-sample performance, year by year)")
-        print("  (For both strategies, run: python3 nested_walkforward.py --strategy both)")
+        print("  (For full validation, run: python3 nested_walkforward.py --strategy core-alpha)")
         wf_results = run_nested_walkforward(panel, min_train_years=args.min_train_years)
 
         print("\n  Now generating today's signal from nested-approved live config...")
     else:
         print("\n  Skipping nested validation for daily signal generation.")
-        print("  Trust check lives in: python3 nested_walkforward.py --strategy both")
+        print("  Trust check lives in: python3 nested_walkforward.py --strategy core-alpha")
 
     # ── Data freshness gate ────────────────────────────────────────────
     # PLAIN ENGLISH: Before generating the signal, check if the factor data
@@ -2049,12 +2326,45 @@ def main() -> None:
     _FACTOR_DATA_FRESH = freshness["fresh"]
 
     print(f"\n  Loading approved live config from nested walk-forward: {LIVE_CONFIG_PATH}")
+
+    # ── Config change detection ───────────────────────────────────────
+    # PLAIN ENGLISH: Before generating the signal, check if the approved
+    # config family changed since the last run.  If it did, that means
+    # the walkforward picked a different winning strategy — send an alert
+    # so you know the portfolio will shift.
+    _prev_config_family = None
+    _prev_signal = _core_satellite_signal_path()
+    if _prev_signal.exists():
+        try:
+            _prev_df = pd.read_csv(_prev_signal)
+            _prev_config_family = str(_prev_df["core_preset"].iloc[0]) if "core_preset" in _prev_df.columns else None
+        except Exception:
+            pass
+
     summary_grid, best_metrics, signal_path = _generate_signal_from_approved_config(
         panel=panel,
         signal_panel=signal_panel,
         specs=specs,
         freshness=freshness,
     )
+
+    # Check if the config changed and notify
+    _new_config_family = best_metrics.get("core_preset")
+    if _prev_config_family and _new_config_family and _prev_config_family != _new_config_family:
+        _change_msg = (
+            f"Live config rotated!\n"
+            f"Old: {_prev_config_family}\n"
+            f"New: {_new_config_family}"
+        )
+        print(f"\n  🔄 CONFIG CHANGE DETECTED: {_change_msg}")
+        try:
+            from notifications import send_alert as _notify
+            _notify(_change_msg, title="Config Rotation", priority="warning")
+        except Exception:
+            pass
+    elif _prev_config_family is None and _new_config_family:
+        print(f"\n  First signal generation — config: {_new_config_family}")
+
     print_run_summary(summary_grid, best_metrics, signal_path)
 
 

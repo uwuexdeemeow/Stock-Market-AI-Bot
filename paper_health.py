@@ -32,6 +32,33 @@ CORE_TICKERS = {
     if item.strip()
 }
 
+# ── Backtest-vs-live drift detection ──────────────────────────────────
+# Path to the walkforward results that contain the backtested OOS metrics
+# (Sharpe, CAGR, drawdown, alpha) for the approved config.
+WALKFORWARD_RESULTS = SIGNALS / "core_satellite_nested_walkforward.json"
+# How many trading days of live data before we start checking drift.
+# Too few days and the comparison is meaningless noise.
+DRIFT_MIN_LIVE_DAYS = int(
+    __import__("os").environ.get("PAPER_HEALTH_DRIFT_MIN_LIVE_DAYS", "10")
+)
+# Multiplier thresholds: if live drawdown is worse than backtest worst by
+# this factor, we flag a warning.  E.g. 1.5 means 50% worse than the
+# worst OOS drawdown triggers a warning.
+DRIFT_DD_WARN_MULT = float(
+    __import__("os").environ.get("PAPER_HEALTH_DRIFT_DD_WARN_MULT", "1.5")
+)
+# If the annualised live Sharpe ratio falls below this fraction of the
+# backtest mean OOS Sharpe, flag a warning.  E.g. 0.3 means the live
+# Sharpe is less than 30% of the backtested average — something is off.
+DRIFT_SHARPE_WARN_FRAC = float(
+    __import__("os").environ.get("PAPER_HEALTH_DRIFT_SHARPE_WARN_FRAC", "0.3")
+)
+# If live annualised return underperforms the backtest mean CAGR by more
+# than this many percentage points, flag a warning.
+DRIFT_CAGR_UNDERPERFORM_PCT = float(
+    __import__("os").environ.get("PAPER_HEALTH_DRIFT_CAGR_UNDERPERFORM_PCT", "20")
+)
+
 
 def _read_csv(path: Path) -> pd.DataFrame:
     if not path.exists():
@@ -447,6 +474,9 @@ def _readiness_flags(health: dict) -> dict:
             or concentration.get("core_ticker_concentration_warning", False)
         ),
         "real_capital_allowed": bool(health.get("approved_for_real_capital", False)),
+        "backtest_drift_ok": not bool(
+            health.get("backtest_vs_live_drift", {}).get("drift_detected", False)
+        ),
     }
 
 
@@ -516,6 +546,12 @@ def _go_live_scorecard(health: dict) -> dict:
             "actual": bool(flags.get("concentration_ok", True)),
             "target": True,
         },
+        {
+            "name": "backtest_drift_ok",
+            "passed": bool(flags.get("backtest_drift_ok", True)),
+            "actual": bool(flags.get("backtest_drift_ok", True)),
+            "target": True,
+        },
     ]
     passed = sum(1 for item in criteria if item["passed"])
     return {
@@ -524,6 +560,149 @@ def _go_live_scorecard(health: dict) -> dict:
         "ready": bool(passed == len(criteria) and health.get("approved_for_real_capital", False)),
         "criteria": criteria,
     }
+
+
+def _backtest_vs_live_drift(equity: pd.DataFrame) -> dict:
+    """Compare live paper-trading performance against backtested expectations.
+
+    Reads the walkforward results (OOS Sharpe, CAGR, drawdown) for the
+    approved config and compares them to the actual paper equity curve.
+    Returns a dict with the comparison metrics and any warnings.
+
+    This is the "implementation shortfall" detector — it catches cases where
+    the live strategy is silently underperforming what the backtest predicted,
+    which could indicate data issues, execution problems, or regime change
+    the model hasn't adapted to yet.
+    """
+    result: dict = {
+        "data_available": False,
+        "reason": "",
+        "warnings": [],
+    }
+
+    # ── Load backtest expectations from walkforward results ──────────
+    if not WALKFORWARD_RESULTS.exists():
+        result["reason"] = "walkforward_results_not_found"
+        return result
+    try:
+        wf = json.loads(WALKFORWARD_RESULTS.read_text(encoding="utf-8"))
+    except Exception:
+        result["reason"] = "walkforward_results_unreadable"
+        return result
+
+    # Pull the backtested OOS metrics — these are our "expected" numbers
+    bt_sharpe = wf.get("mean_oos_sharpe")
+    bt_cagr = wf.get("mean_oos_cagr_pct")
+    bt_worst_dd = wf.get("worst_oos_max_drawdown_pct")
+    bt_mean_dd = wf.get("mean_oos_max_drawdown_pct")
+    if bt_sharpe is None or bt_cagr is None:
+        result["reason"] = "walkforward_missing_oos_metrics"
+        return result
+
+    result["backtest_mean_oos_sharpe"] = float(bt_sharpe)
+    result["backtest_mean_oos_cagr_pct"] = float(bt_cagr)
+    result["backtest_worst_oos_drawdown_pct"] = float(bt_worst_dd) if bt_worst_dd is not None else None
+    result["backtest_mean_oos_drawdown_pct"] = float(bt_mean_dd) if bt_mean_dd is not None else None
+
+    # ── Compute live performance from equity curve ───────────────────
+    if equity.empty or "equity" not in equity.columns:
+        result["reason"] = "no_equity_data"
+        return result
+
+    eq = equity.copy()
+    # Parse dates — the CSV has a 'date' or 'timestamp' column
+    date_col = "date" if "date" in eq.columns else "timestamp" if "timestamp" in eq.columns else ""
+    if not date_col:
+        result["reason"] = "no_date_column_in_equity"
+        return result
+    eq["_dt"] = pd.to_datetime(eq[date_col], errors="coerce")
+    eq = eq.dropna(subset=["_dt"]).sort_values("_dt")
+    eq["equity"] = pd.to_numeric(eq["equity"], errors="coerce")
+    eq = eq.dropna(subset=["equity"])
+
+    live_days = len(eq)
+    if live_days < DRIFT_MIN_LIVE_DAYS:
+        result["reason"] = f"too_few_live_days ({live_days} < {DRIFT_MIN_LIVE_DAYS})"
+        return result
+
+    result["data_available"] = True
+    result["reason"] = "ok"
+    result["live_equity_days"] = live_days
+
+    # Total return and annualised return
+    start_equity = float(eq["equity"].iloc[0])
+    end_equity = float(eq["equity"].iloc[-1])
+    if start_equity <= 0:
+        result["reason"] = "invalid_start_equity"
+        result["data_available"] = False
+        return result
+
+    total_return = (end_equity / start_equity) - 1.0
+    # Approximate trading days per year = 252
+    years = live_days / 252.0
+    if years > 0:
+        live_cagr = ((1.0 + total_return) ** (1.0 / years) - 1.0) * 100.0
+    else:
+        live_cagr = 0.0
+
+    # Live Sharpe (annualised) from daily returns
+    daily_returns = eq["equity"].pct_change().dropna()
+    daily_returns = daily_returns.replace([np.inf, -np.inf], np.nan).dropna()
+    if len(daily_returns) >= 2:
+        live_sharpe = float(
+            daily_returns.mean() / daily_returns.std() * np.sqrt(252)
+        ) if daily_returns.std() > 0 else 0.0
+    else:
+        live_sharpe = 0.0
+
+    # Live max drawdown
+    cummax = eq["equity"].cummax()
+    drawdowns = (eq["equity"] / cummax - 1.0) * 100.0
+    live_max_dd = float(drawdowns.min())
+
+    result["live_total_return_pct"] = round(total_return * 100.0, 3)
+    result["live_annualised_cagr_pct"] = round(live_cagr, 3)
+    result["live_annualised_sharpe"] = round(live_sharpe, 3)
+    result["live_max_drawdown_pct"] = round(live_max_dd, 3)
+
+    # ── Compare and flag warnings ────────────────────────────────────
+    warnings: list[str] = []
+
+    # 1) Drawdown check: is live drawdown much worse than backtest worst?
+    if bt_worst_dd is not None and bt_worst_dd < 0:
+        dd_ratio = live_max_dd / bt_worst_dd  # both negative, ratio > 1 = worse
+        result["drawdown_ratio_vs_worst_oos"] = round(dd_ratio, 3)
+        if dd_ratio > DRIFT_DD_WARN_MULT:
+            warnings.append(
+                f"live_drawdown_exceeds_backtest: {live_max_dd:.1f}% vs "
+                f"worst OOS {bt_worst_dd:.1f}% (ratio {dd_ratio:.2f}x, "
+                f"threshold {DRIFT_DD_WARN_MULT:.1f}x)"
+            )
+
+    # 2) Sharpe check: is live Sharpe way below backtest average?
+    if bt_sharpe > 0:
+        sharpe_frac = live_sharpe / bt_sharpe
+        result["sharpe_fraction_of_backtest"] = round(sharpe_frac, 3)
+        if sharpe_frac < DRIFT_SHARPE_WARN_FRAC:
+            warnings.append(
+                f"live_sharpe_below_backtest: {live_sharpe:.2f} vs "
+                f"backtest mean {bt_sharpe:.2f} "
+                f"(ratio {sharpe_frac:.2f}, threshold {DRIFT_SHARPE_WARN_FRAC:.1f})"
+            )
+
+    # 3) CAGR check: is live annualised return way below backtest?
+    cagr_gap = bt_cagr - live_cagr
+    result["cagr_gap_pct"] = round(cagr_gap, 3)
+    if cagr_gap > DRIFT_CAGR_UNDERPERFORM_PCT:
+        warnings.append(
+            f"live_cagr_underperforming: {live_cagr:.1f}% vs "
+            f"backtest mean {bt_cagr:.1f}% "
+            f"(gap {cagr_gap:.1f}pp, threshold {DRIFT_CAGR_UNDERPERFORM_PCT:.0f}pp)"
+        )
+
+    result["warnings"] = warnings
+    result["drift_detected"] = bool(warnings)
+    return result
 
 
 def build_health() -> dict:
@@ -599,6 +778,7 @@ def build_health() -> dict:
         "concentration": _position_concentration(status),
         "open_position_attribution": _open_position_attribution(status, trades),
         "factor_data": _factor_data_status(),
+        "backtest_vs_live_drift": _backtest_vs_live_drift(equity),
     }
     health["readiness_flags"] = _readiness_flags(health)
     health["go_live_scorecard"] = _go_live_scorecard(health)
@@ -674,6 +854,32 @@ def print_health(health: dict) -> None:
     scorecard = health.get("go_live_scorecard", {}) or {}
     if scorecard:
         print(f"Go-live scorecard:     {scorecard.get('passed')}/{scorecard.get('total')} ready={scorecard.get('ready')}")
+    # ── Backtest-vs-live drift ────────────────────────────────────────
+    bt_drift = health.get("backtest_vs_live_drift", {}) or {}
+    if bt_drift.get("data_available"):
+        print(
+            f"Backtest drift:        "
+            f"live_sharpe={bt_drift.get('live_annualised_sharpe')} "
+            f"(bt={bt_drift.get('backtest_mean_oos_sharpe')}) "
+            f"live_cagr={bt_drift.get('live_annualised_cagr_pct')}% "
+            f"(bt={bt_drift.get('backtest_mean_oos_cagr_pct')}%) "
+            f"live_dd={bt_drift.get('live_max_drawdown_pct')}% "
+            f"(bt_worst={bt_drift.get('backtest_worst_oos_drawdown_pct')}%)"
+        )
+        drift_warnings = bt_drift.get("warnings", [])
+        if drift_warnings:
+            print(f"  ⚠ DRIFT WARNINGS:")
+            for w in drift_warnings:
+                print(f"    - {w}")
+            # Send alert via all channels (Telegram, email, macOS)
+            from notifications import send_alert as _notify
+            _notify(
+                "Backtest-vs-live drift detected:\n" + "\n".join(f"• {w}" for w in drift_warnings),
+                title="Drift Alert",
+                priority="warning",
+            )
+    elif bt_drift.get("reason"):
+        print(f"Backtest drift:        {bt_drift.get('reason')}")
     print(f"Gauntlet:              {health.get('gauntlet_status')} approved={health.get('approved_for_real_capital')}")
     print(f"Reason:                {health.get('gauntlet_reason')}")
 

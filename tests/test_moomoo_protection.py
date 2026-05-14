@@ -37,7 +37,7 @@ def _install_fake_moomoo(monkeypatch):
         TrdEnv=types.SimpleNamespace(SIMULATE="SIMULATE"),
         ModifyOrderOp=types.SimpleNamespace(CANCEL="CANCEL"),
         OrderType=types.SimpleNamespace(STOP_LIMIT="STOP_LIMIT", NORMAL="NORMAL"),
-        TrdSide=types.SimpleNamespace(SELL="SELL"),
+        TrdSide=types.SimpleNamespace(BUY="BUY", SELL="SELL"),
         TimeInForce=types.SimpleNamespace(GTC="GTC"),
     )
     monkeypatch.setitem(sys.modules, "moomoo", fake)
@@ -145,3 +145,23 @@ def test_moomoo_repair_does_not_submit_trigger_above_current_price(monkeypatch, 
     assert len(ctx.placed) == 1
     assert ctx.placed[0]["aux_price"] == 85.5
     assert ctx.placed[0]["aux_price"] < 90.0
+
+
+def test_moomoo_load_signal_requires_medium_risk_review(tmp_path, monkeypatch):
+    import moomoo_paper_trading as mpt
+
+    signal_path = tmp_path / "core_satellite_alpha_signal.csv"
+    pd.DataFrame([{
+        "paper_ready": True,
+        "gates_all_pass": True,
+        "medium_risk_review_pass": False,
+        "reason": "old signal",
+    }]).to_csv(signal_path, index=False)
+    monkeypatch.setattr(mpt, "CORE_SATELLITE_SIGNAL_FILE", signal_path)
+
+    try:
+        mpt.load_core_satellite_signal()
+    except RuntimeError as exc:
+        assert "medium-risk review" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError")

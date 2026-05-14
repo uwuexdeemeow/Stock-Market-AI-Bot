@@ -14,12 +14,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import smtplib
-import subprocess
 import sys
 import time as time_module
 from datetime import datetime, timezone
-from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -80,51 +77,19 @@ def log(message: str) -> None:
     print(f"  {message}")
 
 
-def _macos_notification(title: str, message: str) -> None:
-    try:
-        subprocess.run(
-            [
-                "osascript",
-                "-e",
-                f'display notification "{message.replace(chr(34), chr(92) + chr(34))}" '
-                f'with title "{title.replace(chr(34), chr(92) + chr(34))}"',
-            ],
-            capture_output=True,
-            timeout=5,
-        )
-    except Exception as exc:
-        log(f"macOS notification failed: {exc}")
+def send_alert(message: str, *, priority: str = "warning") -> None:
+    """Send a notification via all configured channels and write the log.
 
-
-def _send_email(subject: str, body: str) -> None:
-    smtp_host = os.environ.get("SMTP_HOST", "")
-    smtp_port = os.environ.get("SMTP_PORT", "587")
-    smtp_user = os.environ.get("SMTP_USER", "")
-    smtp_pass = os.environ.get("SMTP_PASSWORD", "")
-    alert_to = os.environ.get("ALERT_EMAIL_TO") or os.environ.get("ALERT_EMAIL") or smtp_user
-    alert_from = os.environ.get("ALERT_EMAIL_FROM") or smtp_user
-    if not all([smtp_host, smtp_user, smtp_pass, alert_to, alert_from]):
-        return
-    try:
-        msg = MIMEText(body)
-        msg["Subject"] = subject
-        msg["From"] = alert_from
-        msg["To"] = alert_to
-        with smtplib.SMTP(smtp_host, int(smtp_port), timeout=15) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(alert_from, [alert_to], msg.as_string())
-    except Exception as exc:
-        log(f"email alert failed: {exc}")
-
-
-def send_alert(message: str) -> None:
-    """Send a notification/email if configured, and always write the log."""
+    PLAIN ENGLISH: Delegates to the shared notifications module which
+    handles macOS banners, email, AND Telegram — so you get alerts on
+    your phone even when your laptop is asleep.
+    """
     log(f"ALERT: {message}")
     if not ALERTS_ENABLED:
         return
-    _macos_notification("Execution Guard", message)
-    _send_email("Execution Guard Alert", message)
+    # Import here to avoid circular imports at module load time
+    from notifications import send_alert as _notify
+    _notify(message, title="Execution Guard", priority=priority)
 
 
 def load_state() -> dict:

@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -38,21 +37,10 @@ PAPER_TRADES_FILE = SIGNALS / "paper_trades.csv"
 FILL_MONITOR_LOG = SIGNALS / "fill_monitor.json"
 
 
-def _macos_notification(title: str, message: str) -> None:
-    """Show a native macOS notification banner."""
-    try:
-        escaped_title = title.replace('"', '\\"')
-        escaped_msg = message.replace('"', '\\"')
-        subprocess.run(
-            [
-                "osascript", "-e",
-                f'display notification "{escaped_msg}" with title "{escaped_title}"',
-            ],
-            capture_output=True,
-            timeout=5,
-        )
-    except Exception as e:
-        print(f"  ⚠ Could not send macOS notification: {e}")
+def _send_fill_alert(title: str, message: str) -> None:
+    """Send fill issue alert via all configured channels (macOS + Telegram + email)."""
+    from notifications import send_alert
+    send_alert(message, title=title, priority="warning")
 
 
 def _parse_timestamp(value: object) -> pd.Timestamp | None:
@@ -257,8 +245,8 @@ def print_fill_report(result: dict, *, quiet: bool = False) -> None:
 
         # Send macOS notification
         problem_tickers = ", ".join(p["ticker"] for p in problems[:5])
-        _macos_notification(
-            f"⚠ Fill Issues: {len(problems)} order(s)",
+        _send_fill_alert(
+            f"Fill Issues: {len(problems)} order(s)",
             f"Problems with: {problem_tickers}. Fill rate: {result['fill_rate']}%",
         )
     elif not quiet:

@@ -131,7 +131,7 @@ def test_validation_rejects_bad():
 
 def test_core_satellite_paper_scaling_caps_gross():
     overlay = pd.Series({"AMAT": 0.233333, "C": 0.138866, "MU": 0.327801})
-    spy, qqq, paper_overlay, raw_gross, scale, scaled = _scale_paper_targets_to_gross(
+    spy, qqq, tqqq, paper_overlay, raw_gross, scale, scaled = _scale_paper_targets_to_gross(
         target_spy=0.0,
         target_qqq=0.55,
         overlay=overlay,
@@ -140,7 +140,7 @@ def test_core_satellite_paper_scaling_caps_gross():
     assert scaled is True
     assert round(raw_gross, 6) == 1.25
     assert round(scale, 6) == 0.8
-    assert round(abs(spy) + abs(qqq) + float(paper_overlay.abs().sum()), 6) == 1.0
+    assert round(abs(spy) + abs(qqq) + abs(tqqq) + float(paper_overlay.abs().sum()), 6) == 1.0
 
 
 def test_robustness_score_is_sharpe_minus_penalties():
@@ -270,7 +270,17 @@ def test_top15_and_sticky_vol_score_weights_are_supported():
 
 def test_nested_write_outputs_only_publishes_live_config_when_requested(tmp_path, monkeypatch):
     live_path = tmp_path / "core_satellite_live_configs.json"
-    live_path.write_text('{"approvals":{"core-alpha":{"approved":true}},"approved_live_configs":{}}')
+    live_path.write_text(json.dumps({
+        "approvals": {
+            "core-alpha": {"approved": True},
+            "tqqq": {"approved": True},
+            "both": {"approved": True},
+        },
+        "approved_live_configs": {
+            "tqqq": {"config": {"stale": True}},
+            "both": {"config": {"stale": True}},
+        },
+    }))
     monkeypatch.setattr(nested_wf, "SIGNAL_DIR", str(tmp_path))
     monkeypatch.setattr(nested_wf, "LIVE_CONFIG_PATH", live_path)
 
@@ -288,6 +298,10 @@ def test_nested_write_outputs_only_publishes_live_config_when_requested(tmp_path
     live = json.loads(live_path.read_text())
     assert live["source_json"].endswith("publish.json")
     assert live["approvals"]["core-alpha"] == {"approved": False, "reasons": ["smoke"]}
+    assert "tqqq" not in live["approvals"]
+    assert "both" not in live["approvals"]
+    assert "tqqq" not in live["approved_live_configs"]
+    assert "both" not in live["approved_live_configs"]
 
 
 def test_nested_publish_decision_defaults_to_publish_only_for_full_runs():
@@ -419,13 +433,13 @@ def test_nested_candidate_grid_includes_requested_tuning_dimensions():
     for config in configs:
         risk_on = config["regime_preset"]["risk_on"]
         assert risk_on["core_gross"] + risk_on["overlay_gross"] <= MAX_GROSS_EXPOSURE + 1e-9
-    assert set(STRATEGIES) == {"core-alpha", "tqqq"}
-    alpha_default = iter_candidate_configs(strategy="core-alpha", max_configs=3)
-    tqqq_default = iter_candidate_configs(strategy="tqqq", high_vol_values=(0.30,), max_configs=8)
-    assert {c["nested_params"]["tqqq_weight"] for c in alpha_default} == {0.0}
-    assert any(c["nested_params"]["tqqq_weight"] > 0.0 for c in tqqq_default)
-    assert {c["shape"] for c in tqqq_default}.issubset({"top5", "top10", "top15"})
-    assert {c["weighting"] for c in tqqq_default}.issubset({"sticky_score", "sticky_vol_score"})
+    assert set(STRATEGIES) == {"core-alpha"}
+    alpha_default = iter_candidate_configs(strategy="core-alpha", high_vol_values=(0.30,), max_configs=8)
+    tqqq_alias_default = iter_candidate_configs(strategy="tqqq", high_vol_values=(0.30,), max_configs=8)
+    assert alpha_default == tqqq_alias_default
+    assert any(c["nested_params"]["tqqq_weight"] > 0.0 for c in alpha_default)
+    assert {c["shape"] for c in alpha_default}.issubset({"top5", "top10", "top15"})
+    assert {c["weighting"] for c in alpha_default}.issubset({"sticky_score", "sticky_vol_score"})
 
 
 def test_inner_selection_scores_validation_folds_only(monkeypatch):

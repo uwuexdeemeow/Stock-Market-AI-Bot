@@ -24,6 +24,31 @@ OUT_CSV = Path(SIGNAL_DIR) / "factor_decay_monitor.csv"
 OUT_JSON = Path(LOG_DIR) / "factor_decay_monitor.json"
 TRADES_PATH = Path(SIGNAL_DIR) / "core_satellite_alpha_trades.csv"
 METRICS_PATH = Path(SIGNAL_DIR) / "core_satellite_alpha_metrics.json"
+MIN_WEAK_OVERLAY_ALPHA_PCT = 0.0
+
+
+def edge_health_status(row: dict | pd.Series) -> str:
+    """Classify live factor edge health without overreacting to full-rank IC alone."""
+    rank_ic = pd.to_numeric(pd.Series([row.get("daily_ic_mean")]), errors="coerce").iloc[0]
+    top_excess = pd.to_numeric(pd.Series([row.get("top_bucket_excess_return_pct")]), errors="coerce").iloc[0]
+    overlay_alpha = pd.to_numeric(pd.Series([row.get("overlay_alpha_sum_pct")]), errors="coerce").iloc[0]
+    if pd.notna(overlay_alpha) and float(overlay_alpha) < 0.0:
+        return "block"
+    if pd.isna(top_excess) or float(top_excess) <= 0.0:
+        return "warning"
+    if pd.notna(overlay_alpha) and float(overlay_alpha) <= MIN_WEAK_OVERLAY_ALPHA_PCT:
+        return "warning"
+    if pd.notna(rank_ic) and float(rank_ic) < 0.0:
+        return "advisory"
+    return "pass"
+
+
+def aggregate_edge_health_status(rows: list[dict]) -> str:
+    statuses = [str(row.get("edge_health_status", "warning")) for row in rows]
+    for status in ("block", "warning", "advisory"):
+        if status in statuses:
+            return status
+    return "pass"
 
 
 def _selected_config() -> dict:
@@ -182,23 +207,31 @@ def main() -> None:
         row["as_of"] = str(as_of.date())
         row["rank_ic_warning"] = bool(pd.notna(row["daily_ic_mean"]) and float(row["daily_ic_mean"]) < 0)
         row["overlay_alpha_warning"] = bool(pd.notna(row["overlay_alpha_sum_pct"]) and float(row["overlay_alpha_sum_pct"]) < 0)
-        row["warning"] = bool(row["rank_ic_warning"] or row["overlay_alpha_warning"])
+        row["edge_health_status"] = edge_health_status(row)
+        row["warning"] = bool(row["edge_health_status"] in {"warning", "block"})
         rows.append(row)
 
     out = pd.DataFrame(rows)
     out.to_csv(OUT_CSV, index=False)
-    real_capital_block = bool(out["overlay_alpha_warning"].any())
+    edge_status = aggregate_edge_health_status(rows)
+    real_capital_block = edge_status == "block"
     payload = {
         "generated_at": datetime.now().isoformat(),
         "purpose": "factor_decay_monitor",
         "as_of": str(as_of.date()),
         "selected_score_source": config.get("score_source"),
         "rows": rows,
-        "warning": bool(out["warning"].any()),
+        "edge_health_status": edge_status,
+        "warning": bool(edge_status == "warning"),
+        "advisory": bool(edge_status == "advisory"),
         "real_capital_block": real_capital_block,
         "reason": (
             "recent overlay alpha is negative"
             if real_capital_block
+            else "top-bucket edge is weak/non-positive"
+            if edge_status == "warning"
+            else "rank IC is weak/negative but top-bucket edge and overlay alpha remain positive"
+            if edge_status == "advisory"
             else "factor decay monitor has no real-capital blocking warning"
         ),
     }

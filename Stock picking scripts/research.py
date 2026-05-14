@@ -64,6 +64,30 @@ def load_shortlist() -> list[str]:
         return []
     return [str(x).upper() for x in df["ticker"].dropna().tolist()]
 
+
+def _validate_xs_rank_summary(summary: dict) -> None:
+    updated = int(summary.get("updated", 0) or 0)
+    new_cols = list(summary.get("new_cols", []) or [])
+    write_errors = list(summary.get("write_errors", []) or [])
+    if write_errors:
+        preview = "; ".join(str(x) for x in write_errors[:5])
+        suffix = f"; ... +{len(write_errors) - 5} more" if len(write_errors) > 5 else ""
+        raise RuntimeError(
+            f"cross-sectional rank post-pass had write_errors: {preview}{suffix}. "
+            "Run `python3 research.py --xs-only` after checking parquet write permissions."
+        )
+    if updated <= 0:
+        raise RuntimeError(
+            "cross-sectional rank post-pass updated 0 parquet files. "
+            "Run `python3 feature_research.py`, then `python3 research.py --xs-only`."
+        )
+    if not new_cols:
+        raise RuntimeError(
+            "cross-sectional rank post-pass produced no xs-rank columns. "
+            "Run `python3 research.py --xs-only` and inspect logs/research.log."
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build research parquet files")
     parser.add_argument("--ticker", type=str, default=None)
@@ -91,6 +115,7 @@ def main():
                 len(xs_summary.get("skipped", [])),
                 len(xs_summary.get("write_errors", [])),
             )
+            _validate_xs_rank_summary(xs_summary)
             sys.exit(0)
         except Exception as exc:
             log.error("[xs_rank] xs-only post-pass failed: %s", exc)
@@ -118,7 +143,12 @@ def main():
             summary = apply_sector_fundamental_zscores(zscore_universe, DATA_DIR)
             log.info("[fundamentals] sector z-score post-pass: %s", summary)
         except Exception as exc:
-            log.warning("[fundamentals] sector z-score post-pass failed: %s", exc)
+            log.error(
+                "[fundamentals] sector z-score post-pass failed: %s. "
+                "Run `python3 feature_research.py`, then retry `python3 research.py --xs-only`.",
+                exc,
+            )
+            ok = False
 
         # Cross-sectional rank-within-sector / rank-within-market features.
         # These are the highest-leverage feature class for a cross-sectional
@@ -143,8 +173,10 @@ def main():
                 len(xs_summary.get("skipped", [])),
                 len(xs_summary.get("write_errors", [])),
             )
+            _validate_xs_rank_summary(xs_summary)
         except Exception as exc:
-            log.warning("[xs_rank] cross-sectional rank post-pass failed: %s", exc)
+            log.error("[xs_rank] cross-sectional rank post-pass failed: %s", exc)
+            ok = False
     sys.exit(0 if ok else 1)
 
 if __name__ == "__main__":

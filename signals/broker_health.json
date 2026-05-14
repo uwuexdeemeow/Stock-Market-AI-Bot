@@ -1,0 +1,15 @@
+{
+  "checked_at": "2026-05-14T11:46:18+00:00",
+  "all_healthy": true,
+  "down_brokers": [],
+  "brokers": {
+    "moomoo": {
+      "broker": "moomoo",
+      "healthy": true,
+      "equity": 1174801.14,
+      "latency_ms": 815.0,
+      "error": null,
+      "checked_at": "2026-05-14T11:46:17+00:00"
+    }
+  }
+}

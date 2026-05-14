@@ -31,7 +31,9 @@ MIN_PORTFOLIO_FILL_RATE = float(os.environ.get("PAPER_GAUNTLET_MIN_FILL_RATE", "
 MAX_PORTFOLIO_CANCEL_RATE = float(os.environ.get("PAPER_GAUNTLET_MAX_CANCEL_RATE", "0.05"))
 MAX_PORTFOLIO_DRIFT = float(os.environ.get("PAPER_GAUNTLET_MAX_DRIFT", "0.15"))
 MAX_AVG_SLIPPAGE_BPS = float(os.environ.get("PAPER_GAUNTLET_MAX_AVG_SLIPPAGE_BPS", "10"))
+OPEN_ORDER_STALE_SECONDS = float(os.environ.get("PAPER_GAUNTLET_OPEN_ORDER_STALE_SECONDS", str(4 * 60 * 60)))
 DEFAULT_SIGNAL_TIMEZONE = os.environ.get("PAPER_SIGNAL_TIMEZONE", os.environ.get("TZ", "Asia/Singapore"))
+ACTIVE_FILL_STATUSES = {"open", "partial", "partially_filled", "unknown", "submitted", "pending", "queued"}
 
 
 def _read_csv(path: Path) -> pd.DataFrame:
@@ -120,15 +122,25 @@ def _paper_days(equity_df: pd.DataFrame) -> int:
     return int(len(equity_df))
 
 
-def _order_fill_stats(trades: pd.DataFrame) -> dict:
+def _order_fill_stats(trades: pd.DataFrame, *, now: pd.Timestamp | None = None) -> dict:
+    now_ts = pd.Timestamp.now(tz="UTC") if now is None else pd.Timestamp(now)
+    if now_ts.tzinfo is None:
+        now_ts = now_ts.tz_localize("UTC")
+    else:
+        now_ts = now_ts.tz_convert("UTC")
     if trades.empty:
         return {
             "submitted_orders": 0,
+            "matured_submitted_orders": 0,
             "filled_orders": 0,
             "cancelled_orders": 0,
             "partial_orders": 0,
+            "active_open_orders": 0,
+            "stale_open_orders": 0,
             "fill_rate": 0.0,
+            "matured_fill_rate": 0.0,
             "cancel_rate": 0.0,
+            "open_orders_pending": False,
         }
 
     submitted = trades
@@ -140,17 +152,38 @@ def _order_fill_stats(trades: pd.DataFrame) -> dict:
         .astype(str)
         .str.lower()
     )
+    active_mask = statuses.isin(ACTIVE_FILL_STATUSES)
+    submitted_ts = pd.to_datetime(
+        submitted.get("submitted_at", pd.Series("", index=submitted.index)),
+        errors="coerce",
+        utc=True,
+    )
+    age_seconds = (now_ts - submitted_ts).dt.total_seconds()
+    stale_open_mask = active_mask & (submitted_ts.isna() | (age_seconds >= OPEN_ORDER_STALE_SECONDS))
+    active_open_mask = active_mask & ~stale_open_mask
+    matured = submitted.loc[~active_open_mask].copy()
+    matured_statuses = statuses.loc[matured.index]
     filled = int(statuses.eq("filled").sum())
     cancelled = int(statuses.eq("cancelled").sum())
     partial = int(statuses.eq("partial").sum() + statuses.eq("partially_filled").sum())
     total = int(len(submitted))
+    matured_filled = int(matured_statuses.eq("filled").sum())
+    matured_cancelled = int(matured_statuses.eq("cancelled").sum())
+    matured_partial = int(matured_statuses.eq("partial").sum() + matured_statuses.eq("partially_filled").sum())
+    matured_total = int(len(matured))
+    matured_rate = float((matured_filled + 0.5 * matured_partial) / matured_total) if matured_total else 0.0
     return {
         "submitted_orders": total,
+        "matured_submitted_orders": matured_total,
         "filled_orders": filled,
         "cancelled_orders": cancelled,
         "partial_orders": partial,
+        "active_open_orders": int(active_open_mask.sum()),
+        "stale_open_orders": int(stale_open_mask.sum()),
         "fill_rate": float((filled + 0.5 * partial) / total) if total else 0.0,
+        "matured_fill_rate": matured_rate,
         "cancel_rate": float(cancelled / total) if total else 0.0,
+        "open_orders_pending": bool(active_open_mask.any()),
     }
 
 
@@ -290,6 +323,7 @@ def _evaluate_portfolio_paper(
     fill_stats = _order_fill_stats(current_signal_trades)
     fill_stats_scope = "current_signal"
     paper_days = _paper_days(equity_df)
+    paper_maturity_pass = paper_days >= MIN_PORTFOLIO_EQUITY_DAYS
     strategy = str(status.get("strategy") or PAPER_MODE_STRATEGY)
     max_drift_abs = float(status.get("max_drift_abs", np.nan))
     expected_order_count = int(float(status.get("order_count", 0) or 0))
@@ -315,12 +349,12 @@ def _evaluate_portfolio_paper(
         reasons.append("strategy backtest gates_all_pass is false")
     if not bool(status.get("freshness_ok", True)):
         reasons.append("paper signal freshness check failed")
-    if paper_days < MIN_PORTFOLIO_EQUITY_DAYS:
+    if not paper_maturity_pass:
         reasons.append(f"paper_equity_days {paper_days} < {MIN_PORTFOLIO_EQUITY_DAYS}")
     if fill_stats["submitted_orders"] <= 0:
         reasons.append("no submitted paper orders found")
-    elif fill_stats["fill_rate"] < MIN_PORTFOLIO_FILL_RATE:
-        reasons.append(f"fill_rate {fill_stats['fill_rate']:.3f} < {MIN_PORTFOLIO_FILL_RATE:.3f}")
+    elif fill_stats["matured_fill_rate"] < MIN_PORTFOLIO_FILL_RATE:
+        reasons.append(f"matured_fill_rate {fill_stats['matured_fill_rate']:.3f} < {MIN_PORTFOLIO_FILL_RATE:.3f}")
     if fill_stats["cancel_rate"] > MAX_PORTFOLIO_CANCEL_RATE:
         reasons.append(f"cancel_rate {fill_stats['cancel_rate']:.3f} > {MAX_PORTFOLIO_CANCEL_RATE:.3f}")
     if np.isfinite(max_drift_abs) and max_drift_abs > MAX_PORTFOLIO_DRIFT:
@@ -355,6 +389,10 @@ def _evaluate_portfolio_paper(
         "strategy": strategy,
         "portfolio_gauntlet": True,
         "paper_equity_days": paper_days,
+        "paper_equity_days_required": MIN_PORTFOLIO_EQUITY_DAYS,
+        "paper_equity_days_remaining": max(MIN_PORTFOLIO_EQUITY_DAYS - paper_days, 0),
+        "paper_maturity_pass": paper_maturity_pass,
+        "min_fill_rate": MIN_PORTFOLIO_FILL_RATE,
         "paper_equity_rows": int(len(equity_df)),
         "paper_trades": int(len(trades)),
         "current_signal_paper_trades": int(len(current_signal_trades)),

@@ -162,6 +162,86 @@ class TestScaleWeights:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# ALPACA SIGNAL FRESHNESS TESTS
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestAlpacaSignalFreshness:
+    def test_fresh_signal_passes(self):
+        import alpaca_paper_trading as apt
+
+        now = datetime(2026, 5, 8, 21, 0, tzinfo=timezone.utc)
+        signal = pd.Series({
+            "predicted_at": now.isoformat(),
+            "latest_factor_date": "2026-05-08",
+        })
+        ok, issues = apt.check_signal_freshness(signal, now=now)
+        assert ok is True
+        assert issues == []
+
+    def test_stale_predicted_at_fails_closed(self):
+        import alpaca_paper_trading as apt
+
+        now = datetime(2026, 5, 8, 21, 0, tzinfo=timezone.utc)
+        signal = pd.Series({
+            "predicted_at": "2026-05-07T20:00:00+00:00",
+            "latest_factor_date": "2026-05-08",
+        })
+        with pytest.raises(RuntimeError, match="signal_age"):
+            apt.check_signal_freshness(signal, now=now)
+
+    def test_stale_latest_factor_date_fails_closed(self):
+        import alpaca_paper_trading as apt
+
+        now = datetime(2026, 5, 8, 21, 0, tzinfo=timezone.utc)
+        signal = pd.Series({
+            "predicted_at": now.isoformat(),
+            "latest_factor_date": "2026-04-24",
+        })
+        with pytest.raises(RuntimeError, match="factor_age"):
+            apt.check_signal_freshness(signal, now=now)
+
+    def test_missing_freshness_fields_fail_closed(self):
+        import alpaca_paper_trading as apt
+
+        now = datetime(2026, 5, 8, 21, 0, tzinfo=timezone.utc)
+        with pytest.raises(RuntimeError, match="missing_predicted_at"):
+            apt.check_signal_freshness(pd.Series({}), now=now)
+
+    def test_allow_stale_signal_returns_issues_without_raising(self):
+        import alpaca_paper_trading as apt
+
+        now = datetime(2026, 5, 8, 21, 0, tzinfo=timezone.utc)
+        signal = pd.Series({
+            "predicted_at": "2026-05-07T20:00:00+00:00",
+            "latest_factor_date": "2026-04-24",
+        })
+        ok, issues = apt.check_signal_freshness(
+            signal,
+            allow_stale_signal=True,
+            now=now,
+        )
+        assert ok is False
+        assert any(issue.startswith("signal_age") for issue in issues)
+        assert any(issue.startswith("factor_age") for issue in issues)
+
+
+def test_alpaca_load_signal_requires_medium_risk_review(tmp_path, monkeypatch):
+    import alpaca_paper_trading as apt
+
+    signal_path = tmp_path / "core_satellite_alpha_signal.csv"
+    pd.DataFrame([{
+        "paper_ready": True,
+        "gates_all_pass": True,
+        "medium_risk_review_pass": False,
+        "reason": "old signal",
+    }]).to_csv(signal_path, index=False)
+    monkeypatch.setattr(apt, "SIGNAL_FILE", signal_path)
+
+    with pytest.raises(RuntimeError, match="Medium-risk review"):
+        apt.load_signal()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # DUPLICATE ORDER PREVENTION TESTS
 # ─────────────────────────────────────────────────────────────────────────────
 

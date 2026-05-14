@@ -23,7 +23,6 @@ How it works:
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -98,26 +97,15 @@ def _read_signal_regime(signal_path: Path) -> dict | None:
         return None
 
 
-def _macos_notification(title: str, message: str) -> None:
-    """
-    Show a native macOS notification banner.
+def _send_regime_alert(title: str, message: str) -> None:
+    """Send regime change alert via all configured channels (macOS + Telegram + email).
 
-    PLAIN ENGLISH: Pops a notification on your Mac's screen.
-    If it fails (e.g. running on Linux), it just prints a warning.
+    PLAIN ENGLISH: Regime changes are important — they shift the whole portfolio
+    allocation. This sends the alert to your phone via Telegram too, not just
+    your Mac screen.
     """
-    try:
-        escaped_title = title.replace('"', '\\"')
-        escaped_msg = message.replace('"', '\\"')
-        subprocess.run(
-            [
-                "osascript", "-e",
-                f'display notification "{escaped_msg}" with title "{escaped_title}"',
-            ],
-            capture_output=True,
-            timeout=5,
-        )
-    except Exception as e:
-        print(f"  ⚠ Could not send macOS notification: {e}")
+    from notifications import send_alert
+    send_alert(message, title=title, priority="warning")
 
 
 def check_regime_changes(*, quiet: bool = False) -> list[dict]:
@@ -194,8 +182,8 @@ def check_regime_changes(*, quiet: bool = False) -> list[dict]:
             print(f"     Overlay stocks: {current['overlay_tickers']}")
 
         # Send macOS notification
-        _macos_notification(
-            f"⚡ Regime Change: {prev_regime} → {new_regime}",
+        _send_regime_alert(
+            f"Regime Change: {prev_regime} → {new_regime}",
             f"{strategy_name}: {impact}. Core={current['core_gross']:.0%} Overlay={current['overlay_gross']:.0%}",
         )
 
