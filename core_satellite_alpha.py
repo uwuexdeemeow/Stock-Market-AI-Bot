@@ -2090,6 +2090,14 @@ def run_nested_walkforward(panel: pd.DataFrame, min_train_years: int = 4) -> dic
 
 LIVE_CONFIG_PATH = Path(SIGNAL_DIR) / "core_satellite_live_configs.json"
 
+# ── Config expiry ───────────────────────────────────────────────────────
+# PLAIN ENGLISH: If the approved walkforward config is older than this many
+# days, the daily run will treat it as expired and refuse to trade with it.
+# This prevents a stale config (approved under a different market regime)
+# from running indefinitely without re-validation.  The walkforward must
+# be re-run to produce a fresh approval.
+LIVE_CONFIG_MAX_AGE_DAYS = int(os.environ.get("LIVE_CONFIG_MAX_AGE_DAYS", "45"))
+
 
 def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
     if not LIVE_CONFIG_PATH.exists():
@@ -2112,6 +2120,33 @@ def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
             "reasons": reasons,
             "approval": approval,
         }
+
+    # ── Config expiry check ────────────────────────────────────────────────
+    # PLAIN ENGLISH: Check how old the live config is.  If it was created more
+    # than LIVE_CONFIG_MAX_AGE_DAYS ago, reject it.  Market conditions change —
+    # a config approved 2 months ago may no longer be valid.  Re-run the nested
+    # walkforward to get a fresh approval.
+    created_at_str = payload.get("created_at", "")
+    if created_at_str:
+        try:
+            from datetime import datetime, timezone
+            created_at = datetime.fromisoformat(created_at_str)
+            age_days = (datetime.now(timezone.utc) - created_at).days
+            if age_days > LIVE_CONFIG_MAX_AGE_DAYS:
+                return {
+                    "approved": False,
+                    "reasons": [
+                        f"config_expired: approved {age_days} days ago "
+                        f"(max={LIVE_CONFIG_MAX_AGE_DAYS}). "
+                        "Re-run nested walkforward to refresh."
+                    ],
+                    "approval": approval,
+                    "expired": True,
+                    "age_days": age_days,
+                }
+        except (ValueError, TypeError):
+            pass  # If created_at can't be parsed, skip expiry check
+
     approved = payload.get("approved_live_configs", {}).get(strategy)
     config = approved.get("config") if isinstance(approved, dict) else None
     if not isinstance(config, dict):
@@ -2224,6 +2259,23 @@ def _generate_signal_from_approved_config(
         }
         with open(Path(SIGNAL_DIR) / "core_satellite_alpha_metrics.json", "w") as f:
             json.dump(rejection_metrics, f, indent=2)
+        # ── Notify on config rejection/expiry ─────────────────────────
+        # PLAIN ENGLISH: If the live config was rejected (e.g. expired or
+        # failed approval), send a Telegram alert so you know the daily
+        # run won't trade today and the walkforward needs re-running.
+        try:
+            from notifications import send_alert as _rejection_notify
+            is_expired = live.get("expired", False)
+            age_str = f" (age: {live.get('age_days', '?')} days)" if is_expired else ""
+            _rejection_notify(
+                f"Daily signal BLOCKED — live config rejected{age_str}\n"
+                f"Reasons: {'; '.join(reasons)}\n"
+                f"Action: re-run nested walkforward.",
+                title="Config Rejected",
+                priority="warning",
+            )
+        except Exception:
+            pass
         raise SystemExit(
             f"Nested walk-forward has not approved a live core-alpha config: {reasons}. "
             "Run `python3 core_satellite_nested_walkforward.py --strategy core-alpha` and inspect the OOS report."

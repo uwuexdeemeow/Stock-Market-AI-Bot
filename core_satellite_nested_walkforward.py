@@ -2231,33 +2231,36 @@ def main() -> None:
     print(f"  csv:  {csv_path}")
     if publish_live_config:
         print(f"  live configs: {LIVE_CONFIG_PATH} ({publish_reason})")
-        # ── Notify on completion + config publish ─────────────────────
-        # PLAIN ENGLISH: When a full walkforward finishes and publishes a
-        # new live config, send a Telegram/email alert so you know the
-        # next daily signal will use the updated config.
-        try:
-            from notifications import send_alert as _notify
-            approval = result.get("live_config_approval", {})
-            approved = bool(approval.get("approved", False))
-            config_family = result.get("most_common_config", "unknown")
-            sharpe = result.get("mean_oos_sharpe", "?")
-            folds = result.get("fold_count", "?")
-            _notify(
-                f"Walkforward finished ({folds} folds)\n"
-                f"Approved: {approved}\n"
-                f"Config: {config_family}\n"
-                f"Mean OOS Sharpe: {sharpe}\n"
-                f"Next daily run will use this config automatically.",
-                title="Walkforward Complete",
-                priority="info",
-            )
-        except Exception:
-            pass  # don't let notification failure crash the run
     else:
         print(
             f"  live configs: not published ({publish_reason}; "
             f"use --publish-live-config to force update {LIVE_CONFIG_PATH})"
         )
+
+    # ── Notify on completion (always, not just on publish) ────────────
+    # PLAIN ENGLISH: When ANY walkforward run finishes, send a Telegram/email
+    # alert so you know whether the config was approved or rejected.  This
+    # fires regardless of whether --publish-live-config was set, because you
+    # always want to know the result of a 1-hour run.
+    try:
+        from notifications import send_alert as _notify
+        approval = result.get("live_config_approval", {})
+        approved = bool(approval.get("approved", False))
+        config_family = result.get("most_common_config", "unknown")
+        sharpe = result.get("mean_oos_sharpe", "?")
+        folds = result.get("fold_count", "?")
+        published_str = "✓ published" if publish_live_config else "✗ not published"
+        _notify(
+            f"Walkforward finished ({folds} folds)\n"
+            f"Approved: {approved}\n"
+            f"Config: {config_family}\n"
+            f"Mean OOS Sharpe: {sharpe}\n"
+            f"Live config: {published_str}",
+            title="Walkforward Complete",
+            priority="info" if approved else "warning",
+        )
+    except Exception:
+        pass  # don't let notification failure crash the run
 
 
 if __name__ == "__main__":
