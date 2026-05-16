@@ -53,7 +53,7 @@ How to run the health checks
 from __future__ import annotations
 
 import argparse
-import fcntl
+import contextlib
 import json
 import logging
 import os
@@ -65,6 +65,16 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Optional
+
+try:
+    import fcntl as _fcntl
+except ImportError:  # Windows
+    _fcntl = None
+
+try:
+    import msvcrt as _msvcrt
+except ImportError:  # POSIX
+    _msvcrt = None
 
 # We use requests for the Slack webhook call.  It is already a dependency of
 # many other modules so it should always be available.
@@ -222,6 +232,30 @@ def _append_alert_log(record: dict) -> None:
         f.write(json.dumps(record) + "\n")
 
 
+@contextlib.contextmanager
+def _exclusive_file_lock(lock_f):
+    """Cross-platform advisory lock for the small alert dedup cache."""
+    if _fcntl is not None:
+        _fcntl.flock(lock_f.fileno(), _fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            _fcntl.flock(lock_f.fileno(), _fcntl.LOCK_UN)
+        return
+
+    if _msvcrt is not None:
+        lock_f.seek(0)
+        _msvcrt.locking(lock_f.fileno(), _msvcrt.LK_LOCK, 1)
+        try:
+            yield
+        finally:
+            lock_f.seek(0)
+            _msvcrt.locking(lock_f.fileno(), _msvcrt.LK_UNLCK, 1)
+        return
+
+    yield
+
+
 def _is_suppressed(alert_key: str) -> bool:
     """
     Return True if this exact alert was already sent within DEDUP_WINDOW_HOURS.
@@ -242,8 +276,7 @@ def _claim_alert(alert_key: str, record: dict) -> bool:
     lock_dir = os.path.dirname(_DEDUP_LOCK_FILE) or "."
     os.makedirs(lock_dir, exist_ok=True)
     with open(_DEDUP_LOCK_FILE, "a") as lock_f:
-        fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
-        try:
+        with _exclusive_file_lock(lock_f):
             if _is_suppressed(alert_key):
                 return False
 
@@ -253,8 +286,6 @@ def _claim_alert(alert_key: str, record: dict) -> bool:
             cache[alert_key] = time.time()
             _prune_and_save_dedup(cache)
             return True
-        finally:
-            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
 
 
 def _prune_and_save_dedup(cache: dict) -> None:

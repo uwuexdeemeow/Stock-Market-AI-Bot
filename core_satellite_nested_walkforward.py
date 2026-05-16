@@ -23,7 +23,7 @@ from __future__ import annotations
 # could touch Arrow, numpy, or any C extension with thread pools.
 import os as _os, sys as _sys
 
-_WF_ENTRYPOINTS = {"core_satellite_nested_walkforward.py", "nested_walkforward.py"}
+_WF_ENTRYPOINTS = {"core_satellite_nested_walkforward.py"}
 _WF_IS_CLI = _os.path.basename(_sys.argv[0]) in _WF_ENTRYPOINTS
 if _sys.platform == "darwin" and _WF_IS_CLI and not _os.environ.get("_WF_FORK_SAFE"):
     # Carry all current env vars forward, add the two safety flags and the

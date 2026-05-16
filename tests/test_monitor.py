@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-MONITOR_PATH = REPO_ROOT / "Stock picking scripts" / "monitor.py"
+MONITOR_PATH = REPO_ROOT / "monitor.py"
 
 
 def load_monitor_module(name: str = "monitor_under_test"):

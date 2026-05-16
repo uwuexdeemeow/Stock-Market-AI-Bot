@@ -572,13 +572,13 @@ def _summary_section(report: dict[str, Any], findings: list[dict[str, str]]) -> 
 def run_audit() -> dict[str, Any]:
     findings: list[dict[str, str]] = []
     required_files = [
-        _production_file("train.py", "Stock picking scripts/train.py"),
+        _production_file("train.py"),
         _production_file("backtest.py"),
-        _production_file("predict.py", "Stock picking scripts/predict.py"),
+        _production_file("predict.py"),
         _production_file("leakage_audit.py"),
-        _production_file("optimize_trade_rules.py", "Stock picking scripts/optimize_trade_rules.py"),
+        _production_file("optimize_trade_rules.py"),
         _production_file("model_quality.py"),
-        _production_file("trade_rules.py", "Stock picking scripts/trade_rules.py"),
+        _production_file("trade_rules.py"),
         _production_file("moomoo_paper_trading.py"),
         _production_file("paper_gauntlet.py"),
         _production_file("core_satellite_survivorship_audit.py"),

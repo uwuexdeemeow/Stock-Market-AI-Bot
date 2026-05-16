@@ -28,7 +28,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 if str(Path(__file__).resolve().parent) not in sys.path:
@@ -107,12 +107,12 @@ FORBIDDEN_FEATURE_PATTERNS = (
 )
 
 STATIC_SCAN_FILES = (
-    "Stock picking scripts/pipeline_shared.py",
-    "Stock picking scripts/cross_sectional_features.py",
-    "Stock picking scripts/fundamental_features.py",
-    "Stock picking scripts/xgb_feature_engineering.py",
-    "Stock picking scripts/labels.py",
-    "Stock picking scripts/train.py",
+    "pipeline_shared.py",
+    "cross_sectional_features.py",
+    "fundamental_features.py",
+    "xgb_feature_engineering.py",
+    "labels.py",
+    "train.py",
     "alpha_factor_backtest.py",
 )
 STATIC_PATTERNS = (

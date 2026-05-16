@@ -18,7 +18,7 @@ import json
 import os
 import shutil
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from settings import MODEL_DIR
@@ -50,7 +50,8 @@ def _sha256(path: str) -> str:
 
 def register(model_path: str, metrics: dict[str, Any], params: dict[str, Any], tag: str = "latest") -> dict:
     """Record a trained model. Copies artifact into a versioned path."""
-    version = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    now_utc = datetime.now(timezone.utc)
+    version = now_utc.strftime("%Y%m%d_%H%M%S")
     dst_dir = os.path.join(MODEL_DIR, "versions", version)
     os.makedirs(dst_dir, exist_ok=True)
     dst_path = os.path.join(dst_dir, os.path.basename(model_path))
@@ -64,7 +65,7 @@ def register(model_path: str, metrics: dict[str, Any], params: dict[str, Any], t
         "git": _git_sha(),
         "metrics": metrics,
         "params": params,
-        "created_at": datetime.utcnow().isoformat() + "Z",
+        "created_at": now_utc.isoformat(),
     }
 
     ledger = []

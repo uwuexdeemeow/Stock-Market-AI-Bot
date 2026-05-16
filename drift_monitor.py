@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -69,7 +69,7 @@ def check_drift(features: pd.DataFrame, scores: np.ndarray) -> dict:
     base_scores = _safe_array(z["scores"])
     curr_scores = _safe_array(scores)
 
-    results = {"run_at": datetime.utcnow().isoformat() + "Z", "features": {}, "score": {}}
+    results = {"run_at": datetime.now(timezone.utc).isoformat(), "features": {}, "score": {}}
     for i, col in enumerate(base_cols):
         if col not in features.columns or i >= base_feat.shape[1]:
             continue

@@ -3,7 +3,7 @@ data_validation.py — Schema + freshness guards for every dataframe leaving the
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
@@ -35,9 +35,10 @@ def validate_price_frame(df: pd.DataFrame, ticker: str, max_lag_days: int = 5) -
     if (rets > 0.5).any():
         raise ValueError(f"{ticker}: >50% single-day move — likely bad tick or split not adjusted")
 
-    lag = datetime.utcnow().date() - df.index[-1].date()
+    now_utc = datetime.now(timezone.utc)
+    lag = now_utc.date() - df.index[-1].date()
     allowed_lag = timedelta(days=max_lag_days)
-    if datetime.utcnow().weekday() >= 5:
+    if now_utc.weekday() >= 5:
         allowed_lag += timedelta(days=2)
     if lag > allowed_lag:
         raise ValueError(f"{ticker}: stale data — last bar is {lag.days} days old")

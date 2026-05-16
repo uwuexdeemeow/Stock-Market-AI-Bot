@@ -9,7 +9,7 @@ import pytest
 
 def _load_research_module():
     repo = Path(__file__).resolve().parents[1]
-    path = repo / "Stock picking scripts" / "research.py"
+    path = repo / "research.py"
     spec = importlib.util.spec_from_file_location("stock_research_script", path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None

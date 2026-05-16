@@ -214,8 +214,6 @@ def _fetch_live_sentiment(tickers: list[str], timeout_per_ticker: float = 5.0) -
 
     Returns dict mapping ticker → compound sentiment score.
     """
-    import sys
-    sys.path.insert(0, str(Path(__file__).parent / "Stock picking scripts"))
     try:
         from sentiment_engine import get_sentiment_engine, score_todays_news
     except ImportError:

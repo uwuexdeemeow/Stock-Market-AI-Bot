@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import sys
 import numpy as np
@@ -649,7 +649,7 @@ def build_live_features_with_latest_news(
     sentiment_zscore_stats: dict[str, dict[str, float]] | None = None,
     verbose: bool = False,
 ) -> pd.DataFrame | None:
-    end = datetime.utcnow().date()
+    end = datetime.now(timezone.utc).date()
     start = end - timedelta(days=270)
     start_str = start.isoformat()
     end_str = (end + timedelta(days=1)).isoformat()

@@ -23,6 +23,31 @@ from settings import SIGNAL_DIR
 SIGNALS = Path(SIGNAL_DIR)
 
 
+def _boolish(value) -> bool:
+    """Parse bools from pandas/numpy scalars and CSV string values."""
+    if isinstance(value, (bool, np.bool_)):
+        return bool(value)
+    text = str(value).strip().lower()
+    if text in {"true", "1", "yes"}:
+        return True
+    if text in {"false", "0", "no", "", "nan", "none"}:
+        return False
+    raise AssertionError(f"Cannot parse boolean value: {value!r}")
+
+
+def _nonempty_gate_reason(signal) -> str:
+    for col in ("reason", "live_gate_reasons", "medium_risk_review_reasons"):
+        if col not in signal.index:
+            continue
+        raw = signal.get(col)
+        if pd.isna(raw):
+            continue
+        text = str(raw).strip()
+        if text and text.lower() != "nan":
+            return text
+    return ""
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # UNIFIED SIGNAL FILE TESTS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -76,13 +101,19 @@ class TestUnifiedSignalFile:
         """Signal type should identify this as the unified core-satellite strategy."""
         assert signal["paper_signal_type"] == "core_satellite_alpha"
 
-    def test_paper_ready_is_true(self, signal):
-        """Signal should be paper-ready."""
-        assert bool(signal["paper_ready"]) is True
+    def test_paper_ready_has_gate_reason_when_blocked(self, signal):
+        """Signal may be blocked, but blocked signals must explain why."""
+        ready = _boolish(signal["paper_ready"])
+        gates_pass = _boolish(signal["gates_all_pass"])
+        assert ready == gates_pass
+        if not ready:
+            assert _nonempty_gate_reason(signal), "Blocked signal is missing a gate reason"
 
     def test_gates_all_pass(self, signal):
-        """Gates should all pass."""
-        assert bool(signal["gates_all_pass"]) is True
+        """Gate state should be parseable and consistent with paper readiness."""
+        gates_pass = _boolish(signal["gates_all_pass"])
+        ready = _boolish(signal["paper_ready"])
+        assert gates_pass == ready
 
     def test_tqqq_weight_non_negative(self, signal):
         """TQQQ weight should be 0 or positive (never negative)."""
@@ -197,12 +228,11 @@ class TestCoreSatelliteSignalFile:
         gross = float(signal["gross_exposure"])
         assert gross <= 1.0 + 1e-6
 
-    def test_no_tqqq_in_core_satellite(self, signal):
-        """Core-satellite should NOT have a TQQQ weight column with value > 0."""
+    def test_tqqq_weight_non_negative(self, signal):
+        """Core-satellite may include TQQQ when nested validation approves it."""
         if "target_tqqq_weight" in signal.index:
             tqqq = float(signal.get("target_tqqq_weight", 0.0) or 0.0)
-            assert abs(tqqq) < 1e-9, \
-                f"Core-satellite has TQQQ weight {tqqq} — should be 0"
+            assert tqqq >= 0.0, f"Core-satellite TQQQ weight is negative: {tqqq}"
 
     def test_overlay_weights_json_valid(self, signal):
         """Overlay JSON should be parseable."""

@@ -10,6 +10,7 @@ Run:  python -m pytest tests/test_brokers.py -v
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 from datetime import datetime, timezone
@@ -18,6 +19,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+
+
+def _alpaca_package_or_skip() -> None:
+    if importlib.util.find_spec("alpaca_trade_api") is None:
+        pytest.skip("alpaca-trade-api not installed")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -339,6 +345,7 @@ class TestAlpacaBroker:
         api_key = os.environ.get("ALPACA_API_KEY", "")
         if not api_key:
             pytest.skip("ALPACA_API_KEY not set")
+        _alpaca_package_or_skip()
         from alpaca_paper_trading import AlpacaBroker
         return AlpacaBroker()
 
@@ -395,6 +402,7 @@ class TestEquitySnapshot:
         api_key = os.environ.get("ALPACA_API_KEY", "")
         if not api_key:
             pytest.skip("ALPACA_API_KEY not set")
+        _alpaca_package_or_skip()
 
         import alpaca_paper_trading as apt
         orig = apt.EQUITY_FILE
@@ -416,6 +424,7 @@ class TestEquitySnapshot:
         api_key = os.environ.get("ALPACA_API_KEY", "")
         if not api_key:
             pytest.skip("ALPACA_API_KEY not set")
+        _alpaca_package_or_skip()
 
         import alpaca_paper_trading as apt
         orig = apt.EQUITY_FILE

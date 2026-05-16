@@ -635,39 +635,11 @@ LIVE_CONFIG_PATH = Path(SIGNAL_DIR) / "core_satellite_live_configs.json"
 
 def _load_approved_tqqq_config() -> dict:
     """
-    Load the nested-walk-forward-approved TQQQ config.
+    Retired compatibility shim.
 
-    Live signals must come from nested walk-forward approval, not from the
-    full-sample grid search. Missing or unapproved config fails closed.
+    TQQQ exposure is now controlled by the unified core-alpha live config.
     """
-    if not LIVE_CONFIG_PATH.exists():
-        raise SystemExit(
-            f"Missing approved live config file: {LIVE_CONFIG_PATH}. "
-            "Run `python3 core_satellite_nested_walkforward.py --strategy both` first."
-        )
-    try:
-        payload = json.loads(LIVE_CONFIG_PATH.read_text())
-    except json.JSONDecodeError as exc:
-        raise SystemExit(f"Invalid approved live config file {LIVE_CONFIG_PATH}: {exc}") from exc
-
-    approval = payload.get("approvals", {}).get("tqqq", {})
-    if not bool(approval.get("approved", False)):
-        reasons = approval.get("reasons", ["not approved"])
-        raise SystemExit(
-            f"Nested walk-forward has not approved a live TQQQ config: {reasons}. "
-            "Run `python3 core_satellite_nested_walkforward.py --strategy both` and inspect the OOS report."
-        )
-    approved = payload.get("approved_live_configs", {}).get("tqqq", {})
-    config = approved.get("config") if isinstance(approved, dict) else None
-    if not isinstance(config, dict):
-        raise SystemExit(f"Approved live TQQQ config is missing from {LIVE_CONFIG_PATH}.")
-    return {
-        **config,
-        "approved_config_family": approved.get("approved_config_family"),
-        "source_metrics": approved.get("source_metrics", {}),
-        "approval": approval,
-        "source_json": payload.get("source_json"),
-    }
+    raise SystemExit(TQQQ_LIVE_DISABLED_MESSAGE)
 
 
 def write_tqqq_signal(panel: pd.DataFrame, tqqq_weight: float = 0.20, factor_freshness: dict | None = None) -> Path:

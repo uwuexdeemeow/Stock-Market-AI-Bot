@@ -7,9 +7,6 @@ import pandas as pd
 import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCRIPTS = os.path.join(ROOT, "Stock picking scripts")
-if SCRIPTS not in sys.path:
-    sys.path.insert(0, SCRIPTS)
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
