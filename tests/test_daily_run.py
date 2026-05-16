@@ -20,6 +20,12 @@ def test_default_steps_include_one_shared_signal_before_brokers():
     assert "moomoo_signal" not in names
 
 
+def test_daily_refresh_forces_etf_download():
+    etf_step = next(step for step in daily_run.DATA_REFRESH_STEPS if step.name == "refresh_etf_data")
+    assert "--refresh" in etf_step.cmd
+    assert "--force" in etf_step.cmd
+
+
 def test_alpaca_only_still_generates_shared_signal():
     steps = daily_run.build_steps(
         skip_refresh=True,

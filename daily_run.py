@@ -14,7 +14,7 @@ Usage:
     python3 daily_run.py --stress     # also run stress tests (decay, drawdown, execution, survivorship)
 
 Daily workflow (runs in order):
-    1.  refresh_etf_data.py --refresh      → download latest ETF price data
+    1.  refresh_etf_data.py --refresh --force → download latest ETF price data
     2.  research.py                        → refresh factor panel (stock prices + factor scores)
     3.  fill_monitor.py --days 2           → verify yesterday's fills before placing new orders
     4.  broker_health.py                   → pre-flight ping of Alpaca + Moomoo (alerts if down)
@@ -128,7 +128,7 @@ class Step:
 DATA_REFRESH_STEPS = [
     Step(
         "refresh_etf_data",
-        [sys.executable, "refresh_etf_data.py", "--refresh"],
+        [sys.executable, "refresh_etf_data.py", "--refresh", "--force"],
         "Download latest ETF price data (SPY, QQQ, TQQQ, etc.)",
         critical=True,
     ),

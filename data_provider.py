@@ -367,7 +367,7 @@ def download_prices(
     if result is not None and not result.empty:
         # Only print the fallback notice once per session, not for every ticker
         if last_provider != "yahooquery":
-            print(f"  ℹ Using yahooquery fallback (yfinance unavailable)")
+            print("  INFO: Using yahooquery fallback (yfinance unavailable)")
         last_provider = "yahooquery"
         return result
     errors.append("yahooquery: returned empty or failed")
@@ -378,7 +378,7 @@ def download_prices(
     )
     if result is not None and not result.empty:
         if last_provider != "stooq":
-            print(f"  ℹ Using Stooq fallback (yfinance and yahooquery unavailable)")
+            print("  INFO: Using Stooq fallback (yfinance and yahooquery unavailable)")
         last_provider = "stooq"
         return result
     errors.append("stooq: returned empty or failed")

@@ -84,7 +84,7 @@ def _download(symbol: str) -> pd.DataFrame:
     return frame
 
 
-def validate_etfs(symbols: list[str], *, refresh: bool = False) -> dict:
+def validate_etfs(symbols: list[str], *, refresh: bool = False, force: bool = False) -> dict:
     DATA.mkdir(parents=True, exist_ok=True)
     results: list[dict] = []
     for symbol in symbols:
@@ -92,7 +92,7 @@ def validate_etfs(symbols: list[str], *, refresh: bool = False) -> dict:
         frame = _read_local(symbol)
         local = _validate_etf_frame(frame, symbol=symbol)
         refreshed = False
-        if refresh and not local["ok"]:
+        if refresh and (force or not local["ok"]):
             downloaded = _download(symbol)
             downloaded_check = _validate_etf_frame(downloaded, symbol=symbol)
             if downloaded_check["ok"]:
@@ -107,6 +107,7 @@ def validate_etfs(symbols: list[str], *, refresh: bool = False) -> dict:
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "ok": ok,
         "refresh": bool(refresh),
+        "force": bool(force),
         "results": results,
     }
 
@@ -115,10 +116,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Validate or refresh ETF parquet data used by core alpha.")
     parser.add_argument("--symbols", nargs="*", default=list(DEFAULT_ETFS), help="ETF symbols to validate.")
     parser.add_argument("--refresh", action="store_true", help="Download and replace stale/missing ETF parquet data.")
+    parser.add_argument("--force", action="store_true", help="Download and replace ETF parquet data even if local data passes validation.")
     parser.add_argument("--json", action="store_true", help="Print JSON output.")
     args = parser.parse_args()
 
-    report = validate_etfs([str(s).upper() for s in args.symbols], refresh=bool(args.refresh))
+    report = validate_etfs([str(s).upper() for s in args.symbols], refresh=bool(args.refresh), force=bool(args.force))
     LOGS.mkdir(parents=True, exist_ok=True)
     out = LOGS / "etf_data_health.json"
     out.write_text(json.dumps(report, indent=2), encoding="utf-8")
@@ -127,7 +129,7 @@ def main() -> None:
     else:
         print("ETF Data Health")
         print("-" * 72)
-        print(f"OK: {report['ok']} refresh={report['refresh']}")
+        print(f"OK: {report['ok']} refresh={report['refresh']} force={report['force']}")
         for row in report["results"]:
             issues = ",".join(row.get("issues", [])) or "none"
             print(f"{row['symbol']:5s} ok={row['ok']} rows={row['rows']} latest={row.get('latest_date')} age_bdays={row.get('age_business_days')} issues={issues}")

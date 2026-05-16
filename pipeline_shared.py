@@ -44,6 +44,24 @@ def flatten_yf(df: pd.DataFrame) -> pd.DataFrame:
 
 def fetch_price_data(ticker: str, start: str, end: str) -> pd.DataFrame:
     """Download price data with automatic fallback (yfinance → yahooquery → Stooq)."""
+    price_cols = ["Open", "High", "Low", "Close", "Volume"]
+    local_path = os.path.join(DATA_DIR, f"{ticker.upper()}.parquet")
+    if os.path.exists(local_path):
+        try:
+            local = pd.read_parquet(local_path)
+            local.index = pd.DatetimeIndex(local.index)
+            if all(c in local.columns for c in price_cols):
+                out = local.loc[:, price_cols].sort_index()
+                if start:
+                    out = out[out.index >= pd.Timestamp(start)]
+                if end:
+                    out = out[out.index < pd.Timestamp(end)]
+                out = out.dropna().copy()
+                if not out.empty:
+                    return out
+        except Exception:
+            pass
+
     try:
         df = _dp_download_single(ticker, start=start, end=end)
     except RuntimeError:
@@ -51,8 +69,9 @@ def fetch_price_data(ticker: str, start: str, end: str) -> pd.DataFrame:
     df = flatten_yf(df)
     if df.empty:
         return pd.DataFrame()
-    cols = [c for c in ["Open", "High", "Low", "Close", "Volume"] if c in df.columns]
-    return df[cols].dropna().copy()
+    if not all(c in df.columns for c in price_cols):
+        return pd.DataFrame()
+    return df[price_cols].dropna().copy()
 
 def add_technical_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
