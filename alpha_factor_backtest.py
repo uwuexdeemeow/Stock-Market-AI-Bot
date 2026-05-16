@@ -68,6 +68,7 @@ FACTOR_NAME_ALLOWLIST = (
     "sector_rs_slope",
     "factor_mom",
     "factor_resid_mom",
+    "factor_52w_high",
     # --- Phase 2: added high-IC features that were previously excluded ---
     # These all have |t-stat| > 5 in the IC shortlist, meaning they
     # reliably predict forward sector-excess returns.
@@ -91,6 +92,7 @@ def load_feature_specs(max_specs: int = 48) -> list[dict]:
             {"feature": "xs_rank_market_ret_5d", "preferred_direction": "low_is_good"},
             {"feature": "dist_ma5", "preferred_direction": "low_is_good"},
             {"feature": "ret_vs_sector_5d", "preferred_direction": "low_is_good"},
+            {"feature": "factor_52w_high_proximity", "preferred_direction": "high_is_good"},
         ]
         enriched, _profile = enrich_feature_specs(fallback)
         return enriched

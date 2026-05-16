@@ -70,6 +70,7 @@ SOURCE_COLS: list[str] = [
     "factor_idio_vol_252_spy",            # trailing idiosyncratic volatility
     "factor_liquidity_dollar_vol_20d",    # dollar-volume liquidity
     "factor_illiquidity_amihud_20d",      # Amihud illiquidity proxy
+    "factor_52w_high_proximity",          # 52-week high proximity (George & Hwang 2004)
     "hvol_20d",        # 20-day historical volatility
     "dist_ma50",       # distance from 50-day moving average (trend strength)
     "dist_ma200",      # distance from 200-day moving average (long-term trend)

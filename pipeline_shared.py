@@ -319,6 +319,17 @@ def build_literature_factor_features(df: pd.DataFrame) -> pd.DataFrame:
     amihud = (ret_1d.abs() / (dollar_vol + 1e-9)).rolling(20, min_periods=5).mean()
     result["factor_illiquidity_amihud_20d"] = np.log1p(amihud * 1e9).clip(0.0, 30.0)
 
+    # 52-week high proximity — George & Hwang (2004), Journal of Finance.
+    # PLAIN ENGLISH: How close is today's price to its highest price in the
+    # past year?  A value of 1.0 means the stock IS at its 52-week high;
+    # 0.8 means it's 20% below.  Stocks near their 52-week high tend to
+    # OUTPERFORM because investors anchor to the high as a mental ceiling,
+    # creating underreaction when the stock breaks through.  This is distinct
+    # from standard momentum (12-1) — it captures anchoring bias rather than
+    # trend-following.  Cross-sectional t-stat > 5 in academic literature.
+    high_252 = close.rolling(252, min_periods=60).max()
+    result["factor_52w_high_proximity"] = (close / (high_252 + 1e-9)).clip(0.0, 1.2)
+
     return result.replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
 def build_calendar_features(dates: pd.DatetimeIndex) -> pd.DataFrame:

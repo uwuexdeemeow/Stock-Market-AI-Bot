@@ -1,0 +1,8 @@
+feature,cluster_id,canonical_root,health_state,recent_vs_full_ratio,recent_ic,full_ic,active_candidate,root_quarantine_inherited,contributes_to_score,effective_weight
+xs_rank_sector_factor_illiquidity_amihud_20d,cluster_01,factor_illiquidity_amihud_20d,healthy,,,,True,False,True,0.166667
+xs_rank_sector_factor_liquidity_dollar_vol_20d,cluster_02,factor_liquidity_dollar_vol_20d,healthy,,,,True,False,True,0.166667
+xs_rank_sector_ret_5d,cluster_03,ret_5d,healthy,,,,True,False,True,0.166667
+xs_rank_market_ret_5d,cluster_03,ret_5d,healthy,,,,True,False,True,0.166667
+dist_ma5,cluster_04,dist_ma5,healthy,,,,True,False,True,0.166667
+ret_vs_sector_5d,cluster_05,ret_vs_sector_5d,healthy,,,,True,False,True,0.166667
+factor_52w_high_proximity,cluster_06,factor_52w_high_proximity,healthy,,,,True,False,True,0.166667
