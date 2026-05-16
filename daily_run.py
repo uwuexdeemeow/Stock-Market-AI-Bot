@@ -38,7 +38,6 @@ Schedule with cron (9:30 AM ET on weekdays):
 from __future__ import annotations
 
 import argparse
-import fcntl
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -480,7 +479,14 @@ def main():
     _lock_path = LOGS / "daily_run.lock"
     _lock_file = open(_lock_path, "w")
     try:
-        fcntl.flock(_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        if sys.platform == "win32":
+            # Windows: use msvcrt for file locking (no fcntl available)
+            import msvcrt
+            msvcrt.locking(_lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            # macOS / Linux: use fcntl for file locking
+            import fcntl
+            fcntl.flock(_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except (IOError, OSError):
         print("⛔ Another daily_run.py is already running — exiting to prevent double-orders.")
         sys.exit(1)
