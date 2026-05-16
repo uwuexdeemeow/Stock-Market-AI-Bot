@@ -170,9 +170,34 @@ from settings import (
 
 def _download_yfinance(*args, **kwargs) -> pd.DataFrame:
     """Import yfinance only when a download fallback is actually needed."""
+    from data_provider import _quiet_yfinance_logging, download_prices
     import yfinance as yf
 
-    return yf.download(*args, **kwargs)
+    raw = None
+    first_error: Exception | None = None
+    try:
+        with _quiet_yfinance_logging():
+            raw = yf.download(*args, **kwargs)
+    except Exception as exc:
+        first_error = exc
+
+    if raw is not None and not raw.empty:
+        return raw
+
+    if args:
+        fallback_kwargs = {
+            key: kwargs[key]
+            for key in ("start", "end", "period", "auto_adjust", "progress")
+            if key in kwargs
+        }
+        try:
+            return download_prices(args[0], **fallback_kwargs)
+        except Exception:
+            pass
+
+    if first_error is not None:
+        raise first_error
+    return raw if raw is not None else pd.DataFrame()
 from xgb_feature_engineering import build_xgb_matrix
 from pipeline_shared import apply_sentiment_distribution_matching, fit_sentiment_zscore_stats
 from ranker_utils import build_rank_groups_from_dates, daily_rank_ic

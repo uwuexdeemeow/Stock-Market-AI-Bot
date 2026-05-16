@@ -40,6 +40,8 @@ Note: Each source has slightly different data coverage and quirks:
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
+import logging
 import warnings
 from datetime import datetime, timedelta
 from typing import Optional
@@ -49,6 +51,35 @@ import numpy as np
 
 # ── Track which provider was last used (for diagnostics) ──────────────
 last_provider: str = "none"
+
+
+@contextmanager
+def _quiet_yfinance_logging():
+    """Temporarily silence yfinance's noisy internal loggers."""
+    manager = logging.Logger.manager
+    logger_names = ["yfinance"] + [
+        name
+        for name in manager.loggerDict
+        if isinstance(name, str) and name.startswith("yfinance.")
+    ]
+    saved_loggers = {}
+    previous_disable_level = manager.disable
+    try:
+        logging.disable(logging.CRITICAL)
+        for name in logger_names:
+            logger = logging.getLogger(name)
+            saved_loggers[name] = (logger.level, logger.disabled, logger.propagate)
+            logger.disabled = True
+            logger.setLevel(logging.CRITICAL + 1)
+            logger.propagate = False
+        yield
+    finally:
+        for name, (level, disabled, propagate) in saved_loggers.items():
+            logger = logging.getLogger(name)
+            logger.setLevel(level)
+            logger.disabled = disabled
+            logger.propagate = propagate
+        logging.disable(previous_disable_level)
 
 # ── Period-to-date conversion ─────────────────────────────────────────
 # PLAIN ENGLISH: yfinance supports "period" like "5d", "6mo", "max".
@@ -135,27 +166,25 @@ def _try_yfinance(
     # messages to stderr even when we're about to fall back to another
     # provider.  This temporarily silences those so the user doesn't
     # think something is broken when the fallback is working fine.
-    import logging
-    yf_logger = logging.getLogger("yfinance")
-    old_level = yf_logger.level
-    yf_logger.setLevel(logging.CRITICAL)
+    # A parent logger level is not enough here; yfinance can emit through
+    # child loggers with their own levels, so wrap the actual download call.
 
     last_error: Exception | None = None
     for attempt in range(MAX_RETRIES + 1):
         try:
-            if period and not start:
-                if len(tickers) == 1:
-                    raw = yf.download(
-                        tickers[0], period=period,
-                        auto_adjust=auto_adjust, progress=progress, threads=False,
-                    )
-                else:
-                    raw = yf.download(
-                        tickers, period=period,
-                        auto_adjust=auto_adjust, progress=progress, threads=False,
-                    )
-            else:
-                if len(tickers) == 1:
+            with _quiet_yfinance_logging():
+                if period and not start:
+                    if len(tickers) == 1:
+                        raw = yf.download(
+                            tickers[0], period=period,
+                            auto_adjust=auto_adjust, progress=progress, threads=False,
+                        )
+                    else:
+                        raw = yf.download(
+                            tickers, period=period,
+                            auto_adjust=auto_adjust, progress=progress, threads=False,
+                        )
+                elif len(tickers) == 1:
                     raw = yf.download(
                         tickers[0], start=start, end=end,
                         auto_adjust=auto_adjust, progress=progress, threads=False,
@@ -165,10 +194,8 @@ def _try_yfinance(
                         tickers, start=start, end=end,
                         auto_adjust=auto_adjust, progress=progress, threads=False,
                     )
-
             if raw is None or raw.empty:
                 # Empty result isn't retryable — ticker might just not exist
-                yf_logger.setLevel(old_level)
                 return None
 
             # Flatten MultiIndex columns if needed
@@ -177,7 +204,6 @@ def _try_yfinance(
                 if len(tickers) == 1:
                     raw.columns = raw.columns.get_level_values(0)
 
-            yf_logger.setLevel(old_level)
             return raw
 
         except Exception as e:
@@ -189,7 +215,6 @@ def _try_yfinance(
                 continue
             break
 
-    yf_logger.setLevel(old_level)
     if last_error:
         warnings.warn(f"yfinance failed after {attempt + 1} attempts: {last_error}")
     return None
