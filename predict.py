@@ -1133,6 +1133,24 @@ def main() -> None:
         raise SystemExit("No predictions generated")
     out = pd.DataFrame(rows)
 
+    # ── Sentiment feed health check — alert if degraded across many tickers ──
+    # PLAIN ENGLISH: If most tickers got "DEGRADED" sentiment health, it means
+    # the sentiment API (Finnhub/news feeds) is probably down.  The model will
+    # still make predictions but they'll be based only on technical features,
+    # which is less reliable.  Send one alert so you know to investigate.
+    if "sentiment_health" in out.columns:
+        _degraded_count = (out["sentiment_health"] == "DEGRADED").sum()
+        _total = len(out)
+        if _degraded_count > 0 and _degraded_count / _total > 0.5:
+            _msg = (f"Sentiment feeds degraded for {_degraded_count}/{_total} tickers. "
+                    f"Predictions running on technical features only.")
+            print(f"\n  ⚠ {_msg}")
+            try:
+                from notifications import send_alert
+                send_alert(_msg, title="Sentiment Degraded", priority="warning")
+            except Exception:
+                pass
+
     # ── SPY timing mode: aggregate predictions into one signal ───────────────
     if use_etf_rotation:
         rotation = compute_etf_rotation_signal(rows)

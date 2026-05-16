@@ -73,3 +73,70 @@ def validate_signal_freshness(
         if age_days > int(max_factor_age_trading_days):
             issues.append(f"factor_age_{age_days}_bdays_gt_{int(max_factor_age_trading_days)}")
     return not issues, issues
+
+
+def validate_signal_sanity(
+    signal,
+    *,
+    max_gross_exposure: float = 1.5,
+    max_single_weight: float = 0.30,
+    required_core_etfs: set[str] | None = None,
+) -> tuple[bool, list[str]]:
+    """Check if signal weights are sane before submitting orders.
+
+    PLAIN ENGLISH: Even if a signal is fresh, it could be WRONG — a bug in
+    signal generation might produce weights that sum to 500% equity, or put
+    50% into a single stock, or forget SPY entirely.  This catches those
+    bugs at submission time so you don't blindly execute a broken signal.
+
+    Checks:
+      1. Total gross exposure doesn't exceed max_gross_exposure (default 150%)
+      2. No single ticker exceeds max_single_weight (default 30%)
+      3. Required core ETFs (SPY or QQQ) are present with non-zero weight
+      4. No negative weights (we don't short in this strategy)
+
+    Returns (is_sane, list_of_issues).
+    """
+    issues: list[str] = []
+    if required_core_etfs is None:
+        required_core_etfs = {"SPY", "QQQ"}
+
+    # Extract weights from signal
+    weights: dict[str, float] = {}
+    for key, val in signal.items():
+        if key.startswith("target_weight_"):
+            ticker = key.replace("target_weight_", "").upper()
+            try:
+                weights[ticker] = float(val)
+            except (ValueError, TypeError):
+                pass
+
+    if not weights:
+        # No target_weight_ fields — check if there's a target_weights dict
+        if hasattr(signal, 'get') and isinstance(signal.get("target_weights"), dict):
+            weights = {k: float(v) for k, v in signal["target_weights"].items()}
+
+    if not weights:
+        return True, []  # can't validate without weights, skip
+
+    # Check gross exposure
+    gross = sum(abs(w) for w in weights.values())
+    if gross > max_gross_exposure:
+        issues.append(f"gross_exposure_{gross:.2f}_exceeds_{max_gross_exposure:.2f}")
+
+    # Check single-name concentration
+    for ticker, w in weights.items():
+        if abs(w) > max_single_weight:
+            issues.append(f"{ticker}_weight_{w:.3f}_exceeds_{max_single_weight:.2f}")
+
+    # Check for negative weights (no shorting in this strategy)
+    neg_tickers = [t for t, w in weights.items() if w < -0.001]
+    if neg_tickers:
+        issues.append(f"negative_weights: {', '.join(neg_tickers)}")
+
+    # Check required core ETFs present
+    present_core = required_core_etfs.intersection(weights.keys())
+    if not present_core and weights:
+        issues.append(f"missing_core_etfs: need at least one of {required_core_etfs}")
+
+    return not issues, issues

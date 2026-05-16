@@ -612,6 +612,21 @@ def main():
     if not args.dry_run:
         notify_failures(results, total_time)
 
+        # ── Send a daily summary notification (even on success) ──────────
+        # PLAIN ENGLISH: Even when everything works, you want a quick
+        # "heartbeat" message confirming the pipeline ran.  This way,
+        # silence = something is wrong (cron died, machine off, etc.)
+        try:
+            from notifications import notify_info
+            status_emoji = "✓" if not (failed or errors or blocked) else "⚠"
+            notify_info(
+                f"{status_emoji} Daily run complete: "
+                f"{ok}/{len(results)} passed, {total_time:.0f}s. "
+                f"{now.strftime('%Y-%m-%d %H:%M')}"
+            )
+        except Exception:
+            pass
+
     # Exit with failure code if any step failed
     if failed or errors or blocked:
         sys.exit(1)

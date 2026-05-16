@@ -38,7 +38,7 @@ import pandas as pd
 from broker_interface import Broker, Order, Position, Fill
 from safe_io import atomic_write_csv
 from settings import SIGNAL_DIR
-from signal_freshness import validate_signal_freshness
+from signal_freshness import validate_signal_freshness, validate_signal_sanity
 from alpaca_protection import (
     CORE_PROTECTION_ENABLED,
     CORE_PROTECTION_TICKERS,
@@ -98,6 +98,15 @@ EQUITY_FILE = Path(SIGNAL_DIR) / "alpaca_paper_equity.csv"
 # Retry config for price fetches
 PRICE_RETRY_ATTEMPTS = int(os.environ.get("ALPACA_PRICE_RETRIES", "3"))
 PRICE_RETRY_BASE_DELAY = float(os.environ.get("ALPACA_PRICE_RETRY_DELAY", "1.0"))
+
+# Spread guard — skip market orders when bid-ask spread is abnormally wide.
+# PLAIN ENGLISH: If a stock's spread is wider than this threshold, a market
+# order would fill at a terrible price.  Better to skip it and alert.
+# Core ETFs (SPY/QQQ/TQQQ) typically have 0.01-0.05% spreads.
+# Overlay stocks typically have 0.05-0.3% spreads.
+# Anything above 1% is suspiciously illiquid or halted.
+MAX_SPREAD_PCT_ETF = float(os.environ.get("MAX_SPREAD_PCT_ETF", "0.005"))  # 0.5% for ETFs
+MAX_SPREAD_PCT_OVERLAY = float(os.environ.get("MAX_SPREAD_PCT_OVERLAY", "0.015"))  # 1.5% for stocks
 
 
 def _truthy(value: object) -> bool:
@@ -294,6 +303,28 @@ class AlpacaBroker(Broker):
         """Check if US market is currently open."""
         clock = self._api.get_clock()
         return bool(clock.is_open)
+
+    def get_spread_pct(self, ticker: str) -> float | None:
+        """Get current bid-ask spread as a percentage of midpoint.
+
+        PLAIN ENGLISH: The 'spread' is the gap between what buyers offer (bid)
+        and what sellers ask (ask).  A 0.1% spread means you lose 0.1% just by
+        entering and exiting.  Wide spreads (>1%) mean the stock is illiquid
+        and market orders will get bad fills.
+
+        Returns spread as a fraction (e.g. 0.005 = 0.5%), or None if unavailable.
+        """
+        try:
+            snapshot = self._api.get_snapshot(ticker)
+            quote = snapshot.latest_quote
+            bid = float(quote.bp) if hasattr(quote, 'bp') else float(quote.bid_price)
+            ask = float(quote.ap) if hasattr(quote, 'ap') else float(quote.ask_price)
+            if bid > 0 and ask > 0:
+                mid = (bid + ask) / 2
+                return (ask - bid) / mid
+        except Exception:
+            pass
+        return None
 
     def get_last_price(self, ticker: str) -> float:
         """
@@ -1033,6 +1064,23 @@ def main():
         print(f"  ✗ {e}")
         sys.exit(1)
 
+    # ── Signal sanity check — catch broken signals before they become orders ──
+    sanity_ok, sanity_issues = validate_signal_sanity(signal)
+    if not sanity_ok:
+        print(f"  ⚠ Signal sanity issues: {', '.join(sanity_issues)}")
+        try:
+            from notifications import send_alert
+            send_alert(
+                f"Signal sanity check FAILED:\n" + "\n".join(f"• {i}" for i in sanity_issues),
+                title="Signal Sanity",
+                priority="critical",
+            )
+        except Exception:
+            pass
+        if not getattr(args, 'force', False):
+            print(f"  ✗ Aborting order submission. Use --force to override.")
+            sys.exit(1)
+
     # ── Parse and scale target weights ──────────────────────────────────
     raw_weights = parse_target_weights(signal)
     target_weights = scale_weights(raw_weights, MAX_GROSS_EXPOSURE)
@@ -1157,6 +1205,32 @@ def main():
             if tqqq_dd < -0.08:
                 print(f"  ⚠ TQQQ is {tqqq_dd*100:.1f}% from {TQQQ_FAST_DD_LOOKBACK_DAYS}-day high "
                       f"(circuit breaker threshold {TQQQ_FAST_DD_THRESHOLD*100:.0f}% — still OK).")
+
+    # ── Spread sanity check: skip orders on abnormally wide spreads ──────
+    # PLAIN ENGLISH: Before submitting, check the bid-ask spread for each ticker.
+    # If the spread is wider than our threshold (e.g. >1.5% for stocks), the market
+    # order would fill at a terrible price.  Skip it and log a warning instead.
+    _spread_blocked: list[str] = []
+    for o in orders:
+        ticker = o["ticker"]
+        spread = broker.get_spread_pct(ticker)
+        threshold = MAX_SPREAD_PCT_ETF if ticker in ETF_TICKERS else MAX_SPREAD_PCT_OVERLAY
+        if spread is not None and spread > threshold:
+            _spread_blocked.append(ticker)
+            print(f"    ⚠ SPREAD BLOCK: {ticker} spread={spread*100:.2f}% "
+                  f"(threshold={threshold*100:.1f}%) — skipping order")
+    if _spread_blocked:
+        orders = [o for o in orders if o["ticker"] not in _spread_blocked]
+        try:
+            from notifications import send_alert
+            send_alert(
+                f"Spread guard blocked {len(_spread_blocked)} orders: "
+                f"{', '.join(_spread_blocked)}",
+                title="Spread Guard",
+                priority="warning",
+            )
+        except Exception:
+            pass
 
     print(f"\n  Submitting {len(orders)} orders...")
     order_ids = []
