@@ -1,0 +1,53 @@
+{
+  "checked_at": "2026-05-16T08:20:41+00:00",
+  "max_age_hours": 36,
+  "all_ok": false,
+  "stale_monitors": [
+    "paper_health",
+    "fill_monitor",
+    "regime_monitor",
+    "broker_health"
+  ],
+  "missing_monitors": [
+    "execution_guard",
+    "daily_run"
+  ],
+  "monitors": {
+    "paper_health": {
+      "path": "/Users/amos/Code/Stock Market AI Bot/signals/paper_health.json",
+      "exists": true,
+      "age_hours": 66.3,
+      "status": "stale"
+    },
+    "fill_monitor": {
+      "path": "/Users/amos/Code/Stock Market AI Bot/signals/fill_monitor.json",
+      "exists": true,
+      "age_hours": 95.2,
+      "status": "stale"
+    },
+    "regime_monitor": {
+      "path": "/Users/amos/Code/Stock Market AI Bot/signals/regime_history.json",
+      "exists": true,
+      "age_hours": 117.1,
+      "status": "stale"
+    },
+    "broker_health": {
+      "path": "/Users/amos/Code/Stock Market AI Bot/signals/broker_health.json",
+      "exists": true,
+      "age_hours": 44.6,
+      "status": "stale"
+    },
+    "execution_guard": {
+      "path": "/Users/amos/Code/Stock Market AI Bot/signals/execution_guard_state.json",
+      "exists": false,
+      "age_hours": null,
+      "status": "missing"
+    },
+    "daily_run": {
+      "path": "/Users/amos/Code/Stock Market AI Bot/logs/daily_run_20260515.json",
+      "exists": false,
+      "age_hours": null,
+      "status": "missing"
+    }
+  }
+}

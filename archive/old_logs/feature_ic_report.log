@@ -1,0 +1,42 @@
+2026-04-29 09:50:07,608  INFO      [start] horizons=[5]  min_tickers/day=15
+2026-04-29 09:50:07,608  INFO      [start] universe size=149  (UNIVERSE_MODE=broad)
+2026-04-29 09:50:09,472  INFO      [panel] loaded 605241 rows  149 tickers  163 cols  (0 skipped)
+2026-04-29 09:50:10,540  INFO      [start] 154 candidate feature columns
+2026-04-29 09:50:20,268  INFO      [ic] 50 / 154  feature×horizon scored
+2026-04-29 09:50:29,546  INFO      [ic] 100 / 154  feature×horizon scored
+2026-04-29 09:50:39,629  INFO      [ic] 150 / 154  feature×horizon scored
+2026-04-29 09:50:40,692  INFO      [saved] per-feature: /Users/amos/Code/Stock Market AI Bot/logs/feature_ic_report.csv
+2026-04-29 09:50:40,692  INFO      [saved] per-family:  /Users/amos/Code/Stock Market AI Bot/logs/feature_ic_family.csv
+2026-04-29 09:53:59,468  INFO      [start] horizons=[5]  targets=['xs_excess', 'sector_excess', 'spy_excess', 'raw_return']  min_tickers/day=15
+2026-04-29 09:53:59,468  INFO      [start] universe size=149  (UNIVERSE_MODE=broad)
+2026-04-29 09:54:01,165  INFO      [panel] loaded 605241 rows  149 tickers  163 cols  (0 skipped)
+2026-04-29 09:54:02,312  INFO      [start] 154 candidate feature columns
+2026-04-29 09:54:11,582  INFO      [ic] 50 / 616  feature×target×horizon scored
+2026-04-29 09:54:21,272  INFO      [ic] 100 / 616  feature×target×horizon scored
+2026-04-29 09:54:30,889  INFO      [ic] 150 / 616  feature×target×horizon scored
+2026-04-29 09:54:41,577  INFO      [ic] 200 / 616  feature×target×horizon scored
+2026-04-29 09:54:51,709  INFO      [ic] 250 / 616  feature×target×horizon scored
+2026-04-29 09:55:01,721  INFO      [ic] 300 / 616  feature×target×horizon scored
+2026-04-29 09:55:12,523  INFO      [ic] 350 / 616  feature×target×horizon scored
+2026-04-29 09:55:22,547  INFO      [ic] 400 / 616  feature×target×horizon scored
+2026-04-29 09:55:32,692  INFO      [ic] 450 / 616  feature×target×horizon scored
+2026-04-29 09:55:43,356  INFO      [ic] 500 / 616  feature×target×horizon scored
+2026-04-29 09:55:53,358  INFO      [ic] 550 / 616  feature×target×horizon scored
+2026-04-29 09:56:03,730  INFO      [ic] 600 / 616  feature×target×horizon scored
+2026-04-29 09:56:07,353  INFO      [saved] per-feature: /Users/amos/Code/Stock Market AI Bot/logs/feature_ic_report.csv
+2026-04-29 09:56:07,353  INFO      [saved] per-family:  /Users/amos/Code/Stock Market AI Bot/logs/feature_ic_family.csv
+2026-04-29 09:56:07,353  INFO      [saved] shortlist:   /Users/amos/Code/Stock Market AI Bot/logs/feature_ic_shortlist.csv
+2026-04-29 13:49:26,595  INFO      [start] horizons=[5]  targets=['xs_excess', 'sector_excess']  min_tickers/day=15
+2026-04-29 13:49:26,595  INFO      [start] universe size=149  (UNIVERSE_MODE=broad)
+2026-04-29 13:49:27,743  INFO      [panel] loaded 605388 rows  149 tickers  185 cols  (0 skipped)
+2026-04-29 13:49:28,074  INFO      [start] 176 candidate feature columns
+2026-04-29 13:49:34,841  INFO      [ic] 50 / 352  feature×target×horizon scored
+2026-04-29 13:49:41,411  INFO      [ic] 100 / 352  feature×target×horizon scored
+2026-04-29 13:49:48,231  INFO      [ic] 150 / 352  feature×target×horizon scored
+2026-04-29 13:49:55,492  INFO      [ic] 200 / 352  feature×target×horizon scored
+2026-04-29 13:50:02,546  INFO      [ic] 250 / 352  feature×target×horizon scored
+2026-04-29 13:50:09,584  INFO      [ic] 300 / 352  feature×target×horizon scored
+2026-04-29 13:50:16,791  INFO      [ic] 350 / 352  feature×target×horizon scored
+2026-04-29 13:50:17,254  INFO      [saved] per-feature: /Users/amos/Code/Stock Market AI Bot/logs/feature_ic_report.csv
+2026-04-29 13:50:17,254  INFO      [saved] per-family:  /Users/amos/Code/Stock Market AI Bot/logs/feature_ic_family.csv
+2026-04-29 13:50:17,254  INFO      [saved] shortlist:   /Users/amos/Code/Stock Market AI Bot/logs/feature_ic_shortlist.csv
