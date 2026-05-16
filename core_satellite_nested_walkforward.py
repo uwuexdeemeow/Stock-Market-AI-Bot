@@ -226,12 +226,7 @@ MEDIUM_RISK_FACTOR_DECAY_PATH = Path(LOG_DIR) / "factor_decay_monitor.json"
 DEFAULT_OUTPUT_PREFIX = "core_satellite_nested_walkforward"
 DEFAULT_MAX_SPECS = 48
 DEFAULT_MIN_TRAIN_YEARS = 3
-# Hard cap: reject any config whose mean turnover across inner folds
-# exceeds this.  Set to 700% — high enough to keep legitimately good
-# churny configs (2017 had 676% and returned +30.8%) but kills anything
-# truly degenerate.  The SOFT penalty in robustness_scoring.py (free up
-# to 400%, then ramps) handles the preference for lower turnover.
-MAX_INNER_MEAN_TURNOVER_PCT = 700.0
+MAX_INNER_MEAN_TURNOVER_PCT = 400.0
 # "defensive" adds drawdown circuit breakers and vol targeting.
 # Historical walkforward data shows 5/7 years selected defensive —
 # it was incorrectly excluded from the default grid.  Now included.
@@ -250,7 +245,7 @@ SURVIVORSHIP_MIN_ADJUSTED_SCORE = 0.50  # retain at least 50% of return
 SURVIVORSHIP_MAX_AUDIT_SELECTIONS = 60  # allow up to 60 selections (realistic with 5 failed names × 411 rebals)
 SURVIVORSHIP_MIN_RETURN_DELTA_PCT = -5000.0  # absolute return delta (wide, since returns are compounded %)
 SURVIVORSHIP_MIN_DRAWDOWN_DELTA_PCT = -5.0  # drawdown can't get >5% worse
-EXECUTION_STRESS_MIN_WORST_DRAWDOWN_PCT = -38.0  # allow up to 38% dd under worst stress (delay+25bps)
+EXECUTION_STRESS_MIN_WORST_DRAWDOWN_PCT = -35.0  # allow up to 35% dd under worst stress (delay+25bps)
 
 # ── Checkpoint helpers ────────────────────────────────────────────────────────
 # The walkforward can take hours.  After each outer fold we persist the
@@ -988,7 +983,7 @@ def medium_risk_review_from_reports(
         survivorship
         and stressed
         and bool(stressed.get("paper_ready", False))
-        and surv_score >= SURVIVORSHIP_MIN_ADJUSTED_SCORE
+        and surv_score > SURVIVORSHIP_MIN_ADJUSTED_SCORE
         and audit_picks <= SURVIVORSHIP_MAX_AUDIT_SELECTIONS
         and return_delta >= SURVIVORSHIP_MIN_RETURN_DELTA_PCT
         and dd_delta >= SURVIVORSHIP_MIN_DRAWDOWN_DELTA_PCT
@@ -1246,6 +1241,27 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
     # 0.5 Sharpe lower on average but rock-solid across regimes.
     stable_score = mean_score - 0.35 * score_std
 
+    # ── QQQ opportunity-cost penalty ─────────────────────────────────
+    # If you can't beat QQQ, why not just hold QQQ?  This penalizes
+    # configs that consistently underperform QQQ across inner folds.
+    # The 2019 miss (-14% vs QQQ) happened because the scorer didn't
+    # care about opportunity cost — a "safe" config that trails the
+    # benchmark in every bull market is not actually safe.
+    #
+    # Penalty ramps linearly:
+    #   mean_alpha_vs_qqq >= 0  → no penalty
+    #   mean_alpha_vs_qqq = -5% → penalty = 0.15
+    #   mean_alpha_vs_qqq = -10% → penalty = 0.30
+    # Scale: 0.03 per percentage point of underperformance vs QQQ.
+    QQQ_PENALTY_RATE = 0.03  # per 1% of QQQ underperformance
+    alpha_vs_qqq_values = [
+        float(m.get("alpha_vs_qqq_pct", 0.0) or 0.0)
+        for m in fold_metrics
+    ]
+    mean_alpha_vs_qqq = float(np.mean(alpha_vs_qqq_values)) if alpha_vs_qqq_values else 0.0
+    qqq_penalty = max(0.0, -mean_alpha_vs_qqq * QQQ_PENALTY_RATE)
+    stable_score -= qqq_penalty
+
     return {
         "config": config,
         "score": stable_score,
@@ -1258,7 +1274,8 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
             "inner_mean_sharpe": round(float(np.mean([float(m.get("sharpe", 0.0) or 0.0) for m in fold_metrics])), 4),
             "inner_mean_return_pct": round(float(np.mean([float(m.get("return_pct", 0.0) or 0.0) for m in fold_metrics])), 2),
             "inner_mean_alpha_vs_spy_pct": round(float(np.mean([float(m.get("alpha_vs_spy_pct", 0.0) or 0.0) for m in fold_metrics])), 2),
-            "inner_mean_alpha_vs_qqq_pct": round(float(np.mean([float(m.get("alpha_vs_qqq_pct", 0.0) or 0.0) for m in fold_metrics])), 2),
+            "inner_mean_alpha_vs_qqq_pct": round(mean_alpha_vs_qqq, 2),
+            "inner_qqq_opportunity_cost_penalty": round(qqq_penalty, 4),
             "inner_mean_turnover_pct": round(mean_turnover_pct, 2),
             "inner_cost_stress_approval_pass": bool(stress_ratio >= MIN_STRESS_PASS_RATIO),
             "inner_stress_pass_ratio": round(stress_ratio, 2),

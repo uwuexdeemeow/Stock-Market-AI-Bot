@@ -604,6 +604,7 @@ SIMPLE_FACTOR_WEIGHTS = {
 ADAPTIVE_WEIGHTS_FILE = os.path.join(SIGNAL_DIR, "adaptive_factor_weights.json")
 ADAPTIVE_WEIGHT_HALFLIFE = int(os.environ.get("ADAPTIVE_WEIGHT_HALFLIFE", "63"))  # days
 ADAPTIVE_WEIGHT_FLOOR = float(os.environ.get("ADAPTIVE_WEIGHT_FLOOR", "0.05"))   # min per factor
+ADAPTIVE_WEIGHTS_MAX_AGE_DAYS = int(os.environ.get("ADAPTIVE_WEIGHTS_MAX_AGE_DAYS", "7"))
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MODEL SELECTION
@@ -867,6 +868,15 @@ MAX_NET_EXPOSURE = 0.80
 MAX_SECTOR_EXPOSURE = 0.40
 MAX_SINGLE_NAME_EXPOSURE = 0.20   # 20% per name; 5 names × 20% = 100% max exposure
 MAX_PAIR_CORRELATION = 0.85
+CORRELATION_HALFLIFE = int(os.environ.get(
+    "CORRELATION_HALFLIFE",
+    os.environ.get("CORRELATION_EWM_HALFLIFE", "20"),
+))
+CORRELATION_STRESS_FLOOR = float(os.environ.get("CORRELATION_STRESS_FLOOR", "0.50"))
+CORRELATION_STRESS_VIX_THRESHOLD = float(os.environ.get("CORRELATION_STRESS_VIX_THRESHOLD", "28.0"))
+CORRELATION_LOOKBACK_WINDOWS = (20, 60, 90)
+CORRELATION_EWM_HALFLIFE = CORRELATION_HALFLIFE
+CORRELATION_DOWNSIDE_MIN_OBS = int(os.environ.get("CORRELATION_DOWNSIDE_MIN_OBS", "20"))
 MAX_DRAWDOWN_HALT_PCT = 0.99      # effectively disabled — regime filter handles protection; halt is a last resort
 
 # "legacy_confidence" matches the earlier gate-passing backtests (ATR-based,

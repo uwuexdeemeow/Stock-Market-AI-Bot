@@ -1047,6 +1047,7 @@ def _select_sticky_holdings(
     exit_rank_floor: float,
     max_per_sector: int,
     earnings_blackout_days: int = 0,
+    diagnostics: dict | None = None,
 ) -> pd.DataFrame:
     required_cols = [score_col] if return_col is None else [score_col, return_col]
     ranked = day.dropna(subset=required_cols).copy()
@@ -1083,6 +1084,11 @@ def _select_sticky_holdings(
             _add(row)
     selected_tickers = {str(row["ticker"]) for row in selected_rows}
 
+    # Track tickers skipped due to earnings blackout for observability.
+    # PLAIN ENGLISH: We want to know exactly which stocks were excluded
+    # (and why) so we can audit the overlay selection after each run.
+    earnings_blackout_skipped: list[dict] = []
+
     for _idx, row in ranked.iterrows():
         if len(selected_rows) >= target_n:
             break
@@ -1090,14 +1096,35 @@ def _select_sticky_holdings(
         if ticker in selected_tickers:
             continue
         if bool(row.get("_earnings_blackout", False)):
+            earnings_blackout_skipped.append({
+                "ticker": ticker,
+                "days_to_next_earnings": (
+                    float(row.get("days_to_next_earnings"))
+                    if pd.notna(row.get("days_to_next_earnings", np.nan))
+                    else None
+                ),
+                "rank_score": (
+                    float(row.get("_rank_score"))
+                    if pd.notna(row.get("_rank_score", np.nan))
+                    else None
+                ),
+            })
             continue
         if _can_add(row):
             _add(row)
             selected_tickers.add(ticker)
 
+    if diagnostics is not None:
+        diagnostics["earnings_blackout_skips"] = earnings_blackout_skipped
+
     if not selected_rows:
-        return ranked.iloc[0:0]
-    return pd.DataFrame(selected_rows)
+        result = ranked.iloc[0:0]
+    else:
+        result = pd.DataFrame(selected_rows)
+    # Attach metadata for signal CSV output
+    result.attrs["earnings_blackout_skipped"] = [str(item["ticker"]) for item in earnings_blackout_skipped]
+    result.attrs["earnings_blackout_skipped_details"] = earnings_blackout_skipped
+    return result
 
 
 def _cap_and_rescale(weights: pd.Series, gross: float, cap: float) -> pd.Series:
@@ -1822,6 +1849,7 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         {str(k): round(float(v), 6) for k, v in prev_overlay.items()}, sort_keys=True
     )
     metrics["sticky_holdings_reason"] = str(sticky_state["reason"])
+    selection_diagnostics: dict = {}
     selected = _select_sticky_holdings(
         day,
         held_tickers,
@@ -1831,7 +1859,18 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         exit_rank_floor=float(metrics["exit_rank_floor"]),
         max_per_sector=int(metrics["max_per_sector"]),
         earnings_blackout_days=int(metrics.get("earnings_blackout_days", 0)),
+        diagnostics=selection_diagnostics,
     )
+    blackout_skips = list(selection_diagnostics.get("earnings_blackout_skips", []))
+    blackout_tickers = [str(item.get("ticker", "")) for item in blackout_skips if item.get("ticker")]
+    metrics["earnings_blackout_skipped_count"] = int(len(blackout_skips))
+    metrics["earnings_blackout_skipped_tickers"] = ",".join(blackout_tickers)
+    metrics["earnings_blackout_skipped_json"] = json.dumps(blackout_skips, sort_keys=True)
+    if blackout_skips:
+        print(
+            f"  ⚠ Earnings blackout skipped {len(blackout_skips)} tickers: "
+            f"{', '.join(blackout_tickers)}"
+        )
 
     # ── Sentiment veto: remove stocks with very negative recent news ──────
     # PLAIN ENGLISH: Check if any selected stock has terrible news right now.
@@ -1897,6 +1936,9 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         "robust_cost_stress_pass": bool(metrics.get("robust_cost_stress_pass", False)),
         "adaptive_exit_mode": str(metrics.get("adaptive_exit_mode", "fixed")),
         "earnings_blackout_days": int(metrics.get("earnings_blackout_days", 0)),
+        "earnings_blackout_skipped_count": int(metrics.get("earnings_blackout_skipped_count", 0)),
+        "earnings_blackout_skipped_tickers": str(metrics.get("earnings_blackout_skipped_tickers", "")),
+        "earnings_blackout_skipped_json": str(metrics.get("earnings_blackout_skipped_json", "[]")),
         "holding_days": holding_days,
         "overlay_tickers": ",".join(paper_overlay.index.astype(str).tolist()),
         "overlay_weights_json": json.dumps({str(k): round(float(v), 6) for k, v in paper_overlay.items()}, sort_keys=True),
@@ -1945,6 +1987,21 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
     out = Path(SIGNAL_DIR) / "core_satellite_alpha_signal.csv"
     pd.DataFrame([row]).to_csv(out, index=False)
     return out
+
+
+def _notify_earnings_blackout_if_needed(metrics: dict, notifier=None) -> bool:
+    blackout_count = int(metrics.get("earnings_blackout_skipped_count", 0) or 0)
+    if blackout_count <= 0:
+        return False
+    blackout_tickers = str(metrics.get("earnings_blackout_skipped_tickers", "") or "")
+    msg = (
+        f"Earnings blackout skipped {blackout_count} overlay candidate(s)"
+        + (f": {blackout_tickers}" if blackout_tickers else "")
+    )
+    if notifier is None:
+        from notifications import notify_warning as notifier
+    notifier(msg, title="Earnings Blackout")
+    return True
 
 
 def _fmt_pct(value: object) -> str:
@@ -2442,6 +2499,11 @@ def main() -> None:
         specs=specs,
         freshness=freshness,
     )
+    try:
+        if _notify_earnings_blackout_if_needed(best_metrics):
+            print(f"\n  ⚠ Earnings blackout alert sent for {best_metrics.get('earnings_blackout_skipped_tickers', '')}")
+    except Exception:
+        pass
 
     # Check if the config changed and notify
     _new_config_family = best_metrics.get("core_preset")

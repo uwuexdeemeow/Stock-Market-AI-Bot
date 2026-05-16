@@ -128,7 +128,9 @@ from settings import (
     POOLED_RANKER_EXPERIMENT_ENABLED,
     SIMPLE_FACTOR_RANKING,
     SIMPLE_FACTOR_COLS,
-    SIMPLE_FACTOR_WEIGHTS, ADAPTIVE_WEIGHTS_FILE,
+    SIMPLE_FACTOR_WEIGHTS,
+    ADAPTIVE_WEIGHTS_FILE,
+    ADAPTIVE_WEIGHTS_MAX_AGE_DAYS,
     SPY_TIMING_MODE,
     SPY_TIMING_BULL_THRESHOLD,
     SPY_TIMING_INSTRUMENTS,
@@ -177,7 +179,7 @@ def _download_yfinance(*args, **kwargs) -> pd.DataFrame:
         return yf.download(*args, **kwargs)
 from xgb_feature_engineering import build_xgb_matrix
 from pipeline_shared import apply_sentiment_distribution_matching, fit_sentiment_zscore_stats
-from ranker_utils import build_rank_groups_from_dates, daily_rank_ic
+from ranker_utils import build_rank_groups_from_dates, daily_rank_ic, load_adaptive_factor_weights
 from portfolio_manager import PortfolioRiskManager, ProposedTrade
 from execution_model import realistic_fill_price, commission as calc_commission, capacity_warning
 from risk_sizing import compute_position_size
@@ -193,24 +195,13 @@ _ETF_PRICE_FRAME_CACHE: dict[tuple[tuple[str, ...], str, str], pd.DataFrame] = {
 _ETF_VOTE_CACHE: dict[int, tuple[pd.Series, dict[pd.Timestamp, dict]]] = {}
 _ETF_DOWNLOAD_FAILED_SYMBOLS: set[str] = set()
 
-# ── Adaptive factor weights ───────────────────────────────────────────────────
-# PLAIN ENGLISH: Load IC-based weights from JSON (written by research.py after
-# each run).  If the file doesn't exist yet, fall back to static weights from
-# settings.py.  This ensures the factor composite adapts to recent regime shifts.
-def _load_factor_weights() -> dict[str, float]:
-    """Load adaptive weights from JSON, fall back to static settings."""
-    try:
-        with open(ADAPTIVE_WEIGHTS_FILE) as f:
-            import json as _json
-            data = _json.load(f)
-        weights = data.get("weights", {})
-        if weights and abs(sum(weights.values()) - 1.0) < 0.01:
-            return weights
-    except (FileNotFoundError, KeyError, ValueError, OSError):
-        pass
-    return dict(SIMPLE_FACTOR_WEIGHTS)
-
-_active_factor_weights = _load_factor_weights()
+_active_factor_weights, _active_factor_weight_meta = load_adaptive_factor_weights(
+    ADAPTIVE_WEIGHTS_FILE,
+    SIMPLE_FACTOR_WEIGHTS,
+    SIMPLE_FACTOR_COLS,
+    max_age_days=ADAPTIVE_WEIGHTS_MAX_AGE_DAYS,
+    return_metadata=True,
+)
 
 # ── ATR-based position sizing parameters ──────────────────────────────────────
 # Instead of a flat % per trade, we risk a fixed fraction of capital per trade.
@@ -1971,6 +1962,12 @@ def apply_cross_sectional_ranking(
     _factor_data: dict[str, pd.DataFrame] = {}  # ticker → DataFrame of factor cols
     if SIMPLE_FACTOR_RANKING:
         print("[rank] SIMPLE_FACTOR_RANKING enabled — using raw factor composite instead of XGBoost scores")
+        print(
+            "[rank] factor weights: "
+            f"{_active_factor_weight_meta.get('adaptive_weight_status')} "
+            f"({_active_factor_weight_meta.get('adaptive_weight_reason')}) "
+            f"{_active_factor_weights}"
+        )
         for ticker in updated:
             path = os.path.join(DATA_DIR, f"{ticker}.parquet")
             try:

@@ -139,6 +139,67 @@ def _empty_ic() -> dict:
     return {"n_days": 0, "mean_ic": 0.0, "std_ic": 0.0, "t_stat": 0.0, "hit_rate": 0.0}
 
 
+def load_adaptive_factor_weights(
+    adaptive_weights_file: str,
+    fallback_weights: dict[str, float],
+    factor_cols: list[str],
+    *,
+    max_age_days: int = 7,
+    now: pd.Timestamp | None = None,
+    return_metadata: bool = False,
+):
+    """Load validated adaptive factor weights or fall back to static weights."""
+    import json as _json
+    from pathlib import Path
+
+    fallback = {col: float(fallback_weights.get(col, 0.0) or 0.0) for col in factor_cols}
+    total = sum(v for v in fallback.values() if np.isfinite(v))
+    if total > 0:
+        fallback = {col: round(float(fallback[col]) / total, 6) for col in factor_cols}
+    else:
+        fallback = {col: round(1.0 / max(len(factor_cols), 1), 6) for col in factor_cols}
+    metadata = {
+        "adaptive_weight_status": "fallback",
+        "adaptive_weight_reason": "not_loaded",
+        "adaptive_weights_file": str(adaptive_weights_file),
+    }
+
+    try:
+        payload = _json.loads(Path(adaptive_weights_file).read_text())
+        weights_raw = payload.get("weights", {})
+        missing = [col for col in factor_cols if col not in weights_raw]
+        if missing:
+            raise ValueError("missing_weights:" + ",".join(missing))
+        weights = {col: float(weights_raw[col]) for col in factor_cols}
+        if not all(np.isfinite(v) and v >= 0.0 for v in weights.values()):
+            raise ValueError("non_finite_or_negative_weights")
+        weight_sum = float(sum(weights.values()))
+        if abs(weight_sum - 1.0) > 0.01:
+            raise ValueError(f"weights_sum={weight_sum:.4f}")
+
+        computed_at = pd.Timestamp(payload.get("computed_at"))
+        if computed_at.tzinfo is not None:
+            computed_at = computed_at.tz_convert(None)
+        now_ts = pd.Timestamp.now() if now is None else pd.Timestamp(now)
+        if now_ts.tzinfo is not None:
+            now_ts = now_ts.tz_convert(None)
+        age_days = float((now_ts - computed_at).total_seconds() / 86400.0)
+        if age_days > float(max_age_days):
+            raise ValueError(f"stale_weights:{age_days:.1f}d")
+
+        weights = {col: round(float(weights[col]) / weight_sum, 6) for col in factor_cols}
+        metadata.update({
+            "adaptive_weight_status": "adaptive",
+            "adaptive_weight_reason": "loaded",
+            "adaptive_weight_age_days": round(age_days, 3),
+            "adaptive_weight_computed_at": str(payload.get("computed_at", "")),
+        })
+        return (weights, metadata) if return_metadata else weights
+    except Exception as exc:
+        metadata["adaptive_weight_reason"] = str(exc)
+        return (fallback, metadata) if return_metadata else fallback
+
+
 # ── Adaptive factor weight computation ────────────────────────────────────────
 
 def compute_adaptive_factor_weights(
@@ -147,6 +208,7 @@ def compute_adaptive_factor_weights(
     lookback_days: int = 252,
     halflife: int = 63,
     floor: float = 0.05,
+    target_horizon_days: int = 5,
     output_path: str | None = None,
 ) -> dict[str, float]:
     """Recompute factor weights from trailing IC with exponential decay.
@@ -185,12 +247,18 @@ def compute_adaptive_factor_weights(
             df = pd.read_parquet(pq)
         except Exception:
             continue
-        if "target" not in df.columns:
+        if not {"Open", "Close"}.issubset(df.columns):
             continue
-        keep_cols = ["target"] + [c for c in factor_cols if c in df.columns]
-        if len(keep_cols) <= 1:
+        available_factors = [c for c in factor_cols if c in df.columns]
+        if not available_factors:
             continue
+        keep_cols = ["Open", "Close"] + available_factors
         chunk = df[keep_cols].copy()
+        chunk["_adaptive_forward_return"] = (
+            pd.to_numeric(chunk["Close"], errors="coerce").shift(-int(target_horizon_days))
+            / pd.to_numeric(chunk["Open"], errors="coerce").shift(-1)
+            - 1.0
+        )
         chunk["ticker"] = ticker
         chunk["date"] = chunk.index
         frames.append(chunk)
@@ -201,7 +269,8 @@ def compute_adaptive_factor_weights(
         return equal
 
     panel = pd.concat(frames, ignore_index=True)
-    panel = panel.dropna(subset=["target"])
+    target_col = "_adaptive_forward_return"
+    panel = panel.dropna(subset=[target_col])
 
     # Keep only the last lookback_days of unique trading dates
     all_dates = sorted(panel["date"].unique())
@@ -231,14 +300,14 @@ def compute_adaptive_factor_weights(
         daily_ics = []
         for dt in all_dates:
             day = panel[panel["date"] == dt]
-            valid = day[[col, "target"]].dropna()
+            valid = day[[col, target_col]].dropna()
             if len(valid) < 10:
                 daily_ics.append(0.0)
                 continue
             # Spearman rank correlation: does this factor's ranking match
             # the actual return ranking?
             scores = valid[col].rank().values
-            targets = valid["target"].rank().values
+            targets = valid[target_col].rank().values
             if scores.std() < 1e-12 or targets.std() < 1e-12:
                 daily_ics.append(0.0)
                 continue
@@ -256,7 +325,12 @@ def compute_adaptive_factor_weights(
     raw_weights = {c: max(factor_ics.get(c, 0.0), 0.0) for c in factor_cols}
     total = sum(raw_weights.values())
     if total > 0:
-        weights = {c: max(raw_weights[c] / total, floor) for c in factor_cols}
+        floor_total = min(float(floor) * len(factor_cols), 0.95)
+        variable_budget = max(0.0, 1.0 - floor_total)
+        weights = {
+            c: float(floor) + variable_budget * (raw_weights[c] / total)
+            for c in factor_cols
+        }
     else:
         # All factors have negative IC — equal weight (defensive)
         weights = {c: 1.0 / len(factor_cols) for c in factor_cols}
@@ -274,6 +348,9 @@ def compute_adaptive_factor_weights(
             "lookback_days": lookback_days,
             "halflife": halflife,
             "floor": floor,
+            "target_horizon_days": int(target_horizon_days),
+            "target_source": "open_next_to_close_horizon",
+            "weight_status": "adaptive",
             "n_trading_days_used": n_days,
             "n_tickers_in_panel": len(frames),
             "computed_at": datetime.now().isoformat(timespec="seconds"),

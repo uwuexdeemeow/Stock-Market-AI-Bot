@@ -21,10 +21,12 @@ from execution_model import realistic_fill_price, commission, capacity_warning
 from data_validation import validate_price_frame
 from core_satellite_alpha import (
     _core_tickers_for_config,
+    _notify_earnings_blackout_if_needed,
     _overlay_weights,
     _paper_signal_timestamp,
     _resolve_allocation,
     _scale_paper_targets_to_gross,
+    _select_sticky_holdings,
     _top_count,
 )
 from robustness_scoring import (
@@ -67,6 +69,8 @@ from core_satellite_nested_walkforward import (
     select_config_from_inner_folds,
 )
 from core_satellite_alpha import MAX_GROSS_EXPOSURE, REGIME_PRESETS
+from portfolio_manager import PortfolioRiskManager, ProposedTrade
+from ranker_utils import compute_adaptive_factor_weights, load_adaptive_factor_weights
 from feature_quality_diagnostic import (
     add_oriented_feature,
     add_sector_excess_return_columns,
@@ -123,6 +127,84 @@ def test_execution_costs_sane():
     assert capacity_warning(100_000, 1_000_000) is True
 
 
+def _price_from_returns(values, start="2024-01-01"):
+    idx = pd.bdate_range(start=start, periods=len(values))
+    return pd.Series(100.0 * np.cumprod(1.0 + np.asarray(values, dtype=float)), index=idx)
+
+
+def test_portfolio_correlation_blocks_recent_spike_not_diluted_by_60d():
+    base = np.array([0.01, -0.006, 0.004, -0.003] * 30, dtype=float)
+    left = base.copy()
+    right = np.roll(base, 1)
+    right[-20:] = left[-20:]
+    manager = PortfolioRiskManager(max_pair_correlation=0.85)
+    candidates = [
+        ProposedTrade("AAPL", pd.Timestamp("2024-06-01"), "LONG", 0.9, 1.0, 0.10),
+        ProposedTrade("MSFT", pd.Timestamp("2024-06-01"), "LONG", 0.8, 1.0, 0.10),
+    ]
+
+    approved = manager.approve_day(
+        candidates,
+        {"AAPL": _price_from_returns(left), "MSFT": _price_from_returns(right)},
+        pd.Series([10_000.0], index=[pd.Timestamp("2024-06-01")]),
+    )
+
+    assert [trade.ticker for trade in approved] == ["AAPL"]
+
+
+def test_portfolio_correlation_checks_existing_open_tickers():
+    ret = np.array([0.005, -0.004, 0.006, -0.003] * 30, dtype=float)
+    manager = PortfolioRiskManager(max_pair_correlation=0.85)
+    candidates = [ProposedTrade("MSFT", pd.Timestamp("2024-06-01"), "LONG", 0.9, 1.0, 0.10)]
+
+    approved = manager.approve_day(
+        candidates,
+        {"AAPL": _price_from_returns(ret), "MSFT": _price_from_returns(ret)},
+        pd.Series([10_000.0], index=[pd.Timestamp("2024-06-01")]),
+        current_gross=0.10,
+        current_net=0.10,
+        open_tickers={"AAPL"},
+    )
+
+    assert approved == []
+
+
+def test_portfolio_correlation_insufficient_data_does_not_block():
+    ret = np.array([0.005, -0.004] * 5, dtype=float)
+    manager = PortfolioRiskManager(max_pair_correlation=0.85)
+    candidates = [
+        ProposedTrade("AAPL", pd.Timestamp("2024-01-15"), "LONG", 0.9, 1.0, 0.10),
+        ProposedTrade("MSFT", pd.Timestamp("2024-01-15"), "LONG", 0.8, 1.0, 0.10),
+    ]
+
+    approved = manager.approve_day(
+        candidates,
+        {"AAPL": _price_from_returns(ret), "MSFT": _price_from_returns(ret)},
+        pd.Series([10_000.0], index=[pd.Timestamp("2024-01-15")]),
+    )
+
+    assert [trade.ticker for trade in approved] == ["AAPL", "MSFT"]
+
+
+def test_portfolio_correlation_vix_stress_floor_blocks_pairs():
+    left = np.array([0.005, -0.004, 0.003, -0.002] * 25, dtype=float)
+    right = np.array([-0.003, 0.002, -0.005, 0.004] * 25, dtype=float)
+    manager = PortfolioRiskManager(max_pair_correlation=0.50)
+    candidates = [
+        ProposedTrade("AAPL", pd.Timestamp("2024-06-01"), "LONG", 0.9, 1.0, 0.10),
+        ProposedTrade("MSFT", pd.Timestamp("2024-06-01"), "LONG", 0.8, 1.0, 0.10),
+    ]
+
+    approved = manager.approve_day(
+        candidates,
+        {"AAPL": _price_from_returns(left), "MSFT": _price_from_returns(right)},
+        pd.Series([10_000.0], index=[pd.Timestamp("2024-06-01")]),
+        vix_level=35.0,
+    )
+
+    assert [trade.ticker for trade in approved] == ["AAPL"]
+
+
 def test_validation_rejects_bad():
     import pytest
     good = _price_frame()
@@ -164,6 +246,91 @@ def test_robustness_score_is_sharpe_minus_penalties():
     assert score["turnover_penalty"] == expected_turnover_penalty
     assert score["instability_penalty"] == 0.25
     assert score["robustness_score"] == round(1.2 - 0.4 - expected_turnover_penalty - 0.25, 4)
+
+
+def test_adaptive_factor_weights_use_forward_return_and_floor(tmp_path):
+    dates = pd.bdate_range("2024-01-01", periods=80)
+    horizon = 5
+    for i in range(12):
+        target = np.array([0.001 * (i - 5.5) + 0.00001 * j for j in range(len(dates))])
+        close = np.full(len(dates), 100.0)
+        for j in range(len(dates) - horizon):
+            close[j + horizon] = 100.0 * (1.0 + target[j])
+        df = pd.DataFrame({
+            "Open": np.full(len(dates), 100.0),
+            "Close": close,
+            "good_factor": target,
+            "bad_factor": -target,
+        }, index=dates)
+        df.to_parquet(tmp_path / f"T{i:02d}.parquet")
+
+    weights = compute_adaptive_factor_weights(
+        str(tmp_path),
+        ["good_factor", "bad_factor"],
+        lookback_days=60,
+        halflife=20,
+        floor=0.05,
+        target_horizon_days=horizon,
+        output_path=str(tmp_path / "weights.json"),
+    )
+
+    assert round(sum(weights.values()), 6) == 1.0
+    assert weights["good_factor"] > weights["bad_factor"]
+    assert weights["bad_factor"] >= 0.05
+    payload = json.loads((tmp_path / "weights.json").read_text())
+    assert payload["target_horizon_days"] == horizon
+    assert payload["target_source"] == "open_next_to_close_horizon"
+    assert payload["weight_status"] == "adaptive"
+
+
+def test_adaptive_factor_weight_loader_validates_schema_and_staleness(tmp_path):
+    fallback = {"a": 0.7, "b": 0.3}
+    path = tmp_path / "adaptive.json"
+    path.write_text(json.dumps({
+        "weights": {"a": 0.6, "b": 0.4},
+        "computed_at": "2026-05-16T00:00:00",
+    }))
+
+    weights, meta = load_adaptive_factor_weights(
+        str(path),
+        fallback,
+        ["a", "b"],
+        max_age_days=7,
+        now=pd.Timestamp("2026-05-17T00:00:00"),
+        return_metadata=True,
+    )
+    assert weights == {"a": 0.6, "b": 0.4}
+    assert meta["adaptive_weight_status"] == "adaptive"
+
+    path.write_text(json.dumps({
+        "weights": {"a": 1.0},
+        "computed_at": "2026-05-16T00:00:00",
+    }))
+    weights, meta = load_adaptive_factor_weights(
+        str(path),
+        fallback,
+        ["a", "b"],
+        now=pd.Timestamp("2026-05-17T00:00:00"),
+        return_metadata=True,
+    )
+    assert weights == fallback
+    assert meta["adaptive_weight_status"] == "fallback"
+    assert "missing_weights" in meta["adaptive_weight_reason"]
+
+    path.write_text(json.dumps({
+        "weights": {"a": 0.6, "b": 0.4},
+        "computed_at": "2026-04-01T00:00:00",
+    }))
+    weights, meta = load_adaptive_factor_weights(
+        str(path),
+        fallback,
+        ["a", "b"],
+        max_age_days=7,
+        now=pd.Timestamp("2026-05-17T00:00:00"),
+        return_metadata=True,
+    )
+    assert weights == fallback
+    assert "stale_weights" in meta["adaptive_weight_reason"]
 
 
 def _cost_stress_grid(overrides=None):
@@ -387,6 +554,51 @@ def test_core_satellite_allocation_accepts_regime_override_with_tqqq():
     assert core_gross == 0.55
     assert overlay_gross == 0.70
     assert "TQQQ" in _core_tickers_for_config(config)
+
+
+def test_earnings_blackout_records_skipped_overlay_candidates():
+    day = pd.DataFrame({
+        "ticker": ["NVDA", "MSFT", "CAT"],
+        "sector": ["XLK", "XLK", "XLI"],
+        "factor_score": [0.95, 0.80, 0.70],
+        "days_to_next_earnings": [2.0, 10.0, 20.0],
+    })
+    diagnostics = {}
+
+    selected = _select_sticky_holdings(
+        day,
+        set(),
+        score_col="factor_score",
+        return_col=None,
+        shape="top5",
+        exit_rank_floor=0.0,
+        max_per_sector=2,
+        earnings_blackout_days=5,
+        diagnostics=diagnostics,
+    )
+
+    assert "NVDA" not in set(selected["ticker"])
+    assert diagnostics["earnings_blackout_skips"][0]["ticker"] == "NVDA"
+    assert diagnostics["earnings_blackout_skips"][0]["days_to_next_earnings"] == 2.0
+    assert diagnostics["earnings_blackout_skips"][0]["rank_score"] == 1.0
+
+
+def test_earnings_blackout_notification_helper_only_fires_when_needed():
+    calls = []
+
+    def fake_notify(message, *, title):
+        calls.append((message, title))
+
+    assert _notify_earnings_blackout_if_needed({}, notifier=fake_notify) is False
+    assert calls == []
+    assert _notify_earnings_blackout_if_needed(
+        {
+            "earnings_blackout_skipped_count": 2,
+            "earnings_blackout_skipped_tickers": "NVDA,MSFT",
+        },
+        notifier=fake_notify,
+    ) is True
+    assert calls == [("Earnings blackout skipped 2 overlay candidate(s): NVDA,MSFT", "Earnings Blackout")]
 
 
 def test_nested_regime_variant_tunes_overlay_without_mutating_base():

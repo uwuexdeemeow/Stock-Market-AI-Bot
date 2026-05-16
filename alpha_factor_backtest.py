@@ -397,7 +397,20 @@ def attach_walkforward_factor_score(
             sign = float(row_ic.get(raw_col, 0.0))
             raw_rank = pd.to_numeric(group[raw_col], errors="coerce")
             components.append(raw_rank if sign >= 0 else 1.0 - raw_rank)
-        score_parts.append(pd.concat(components, axis=1).mean(axis=1, skipna=True))
+        # IC-weighted average of selected clusters (not simple mean).
+        # PLAIN ENGLISH: Clusters with stronger recent IC get more weight in
+        # the composite.  A cluster with IC=0.08 contributes 2x more than one
+        # with IC=0.04.  This makes the overlay score responsive to which
+        # factors are currently working best, rather than treating all selected
+        # clusters as equally informative.
+        ic_magnitudes = row_ic.abs()[selected]
+        ic_sum = float(ic_magnitudes.sum())
+        if ic_sum > 1e-9 and len(components) > 1:
+            ic_weights = (ic_magnitudes / ic_sum).values
+            combined = pd.concat(components, axis=1)
+            score_parts.append(combined.mul(ic_weights, axis=1).sum(axis=1, skipna=True))
+        else:
+            score_parts.append(pd.concat(components, axis=1).mean(axis=1, skipna=True))
 
     panel["factor_walkforward_score"] = pd.concat(score_parts).sort_index()
     panel["factor_walkforward_score"] = panel["factor_walkforward_score"].fillna(panel["factor_score"])

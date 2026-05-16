@@ -8,9 +8,13 @@ from typing import Dict, List
 
 import pandas as pd
 
+import numpy as np
+
 from settings import (
     MAX_GROSS_EXPOSURE, MAX_NET_EXPOSURE, MAX_SECTOR_EXPOSURE,
     MAX_SINGLE_NAME_EXPOSURE, MAX_PAIR_CORRELATION, MAX_DRAWDOWN_HALT_PCT,
+    CORRELATION_DOWNSIDE_MIN_OBS, CORRELATION_EWM_HALFLIFE, CORRELATION_LOOKBACK_WINDOWS,
+    CORRELATION_STRESS_FLOOR, CORRELATION_STRESS_VIX_THRESHOLD,
     SECTOR_MAP,
 )
 
@@ -45,6 +49,61 @@ class PortfolioRiskManager:
     def _signed(self, signal: str, weight: float) -> float:
         return weight if signal == "LONG" else -weight
 
+    def _max_abs_pair_correlation(
+        self,
+        left: pd.Series,
+        right: pd.Series,
+        vix_level: float | None = None,
+    ) -> float | None:
+        joined = pd.concat([left, right], axis=1).dropna()
+        stress_floor = None
+        if vix_level is not None:
+            try:
+                if float(vix_level) > CORRELATION_STRESS_VIX_THRESHOLD:
+                    stress_floor = CORRELATION_STRESS_FLOOR
+            except (TypeError, ValueError):
+                stress_floor = None
+
+        if len(joined) < 20:
+            if stress_floor is not None:
+                return abs(float(stress_floor))
+            return None
+
+        candidates: list[float] = []
+        for window in CORRELATION_LOOKBACK_WINDOWS:
+            sample = joined.tail(int(window))
+            if len(sample) >= min(20, int(window)):
+                corr = sample.iloc[:, 0].corr(sample.iloc[:, 1])
+                if pd.notna(corr) and np.isfinite(corr):
+                    candidates.append(abs(float(corr)))
+
+        ewm_sample = joined.tail(60)
+        if len(ewm_sample) >= 20:
+            cov = ewm_sample.iloc[:, 0].ewm(
+                halflife=CORRELATION_EWM_HALFLIFE, min_periods=15
+            ).cov(ewm_sample.iloc[:, 1]).iloc[-1]
+            std0 = ewm_sample.iloc[:, 0].ewm(
+                halflife=CORRELATION_EWM_HALFLIFE, min_periods=15
+            ).std().iloc[-1]
+            std1 = ewm_sample.iloc[:, 1].ewm(
+                halflife=CORRELATION_EWM_HALFLIFE, min_periods=15
+            ).std().iloc[-1]
+            denom = float(std0) * float(std1)
+            if denom > 1e-12 and pd.notna(cov):
+                candidates.append(abs(float(np.clip(cov / denom, -1.0, 1.0))))
+
+        downside = joined.tail(120)
+        downside = downside[(downside.iloc[:, 0] < 0) | (downside.iloc[:, 1] < 0)]
+        if len(downside) >= CORRELATION_DOWNSIDE_MIN_OBS:
+            corr = downside.iloc[:, 0].corr(downside.iloc[:, 1])
+            if pd.notna(corr) and np.isfinite(corr):
+                candidates.append(abs(float(corr)))
+
+        if stress_floor is not None:
+            candidates.append(abs(float(stress_floor)))
+
+        return max(candidates) if candidates else None
+
     def approve_day(
         self,
         candidates: List[ProposedTrade],
@@ -53,6 +112,7 @@ class PortfolioRiskManager:
         current_gross: float = 0.0,   # gross exposure already held in open positions
         current_net: float = 0.0,     # net long/short exposure already held
         open_tickers: set | None = None,  # tickers already held (no double-entries)
+        vix_level: float | None = None,  # optional stress proxy; high VIX floors equity correlations
     ) -> List[ProposedTrade]:
         """
         Decide which proposed trades to approve for today.
@@ -85,13 +145,13 @@ class PortfolioRiskManager:
         # Tickers already in portfolio — don't open a second position in same stock.
         held_tickers: set = set(open_tickers) if open_tickers else set()
         sector_alloc: Dict[str, float] = {}
-        chosen_tickers: List[str] = []
+        chosen_tickers: List[str] = list(held_tickers)
         returns_cache: Dict[str, pd.Series] = {}
 
         for ticker, series in price_history.items():
             try:
                 px = pd.Series(series).dropna()
-                returns_cache[ticker] = px.pct_change().dropna().tail(60)
+                returns_cache[ticker] = px.pct_change().dropna().tail(max(CORRELATION_LOOKBACK_WINDOWS))
             except Exception:
                 returns_cache[ticker] = pd.Series(dtype=float)
 
@@ -118,13 +178,13 @@ class PortfolioRiskManager:
             too_correlated = False
             rt = returns_cache.get(trade.ticker, pd.Series(dtype=float))
             for chosen in chosen_tickers:
+                if chosen == trade.ticker:
+                    continue
                 rc = returns_cache.get(chosen, pd.Series(dtype=float))
-                joined = pd.concat([rt, rc], axis=1).dropna()
-                if len(joined) >= 20:
-                    corr = joined.iloc[:, 0].corr(joined.iloc[:, 1])
-                    if pd.notna(corr) and abs(corr) >= self.max_pair_correlation:
-                        too_correlated = True
-                        break
+                corr = self._max_abs_pair_correlation(rt, rc, vix_level=vix_level)
+                if corr is not None and corr >= self.max_pair_correlation:
+                    too_correlated = True
+                    break
             if too_correlated:
                 continue
 

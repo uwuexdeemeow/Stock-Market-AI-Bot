@@ -25,11 +25,7 @@ OUT_JSON = Path(LOG_DIR) / "factor_decay_monitor.json"
 TRADES_PATH = Path(SIGNAL_DIR) / "core_satellite_alpha_trades.csv"
 METRICS_PATH = Path(SIGNAL_DIR) / "core_satellite_alpha_metrics.json"
 MIN_WEAK_OVERLAY_ALPHA_PCT = -0.1  # warn if overlay alpha below -0.1% (noise floor)
-# De minimis threshold: overlay alpha values within this band of zero are
-# considered noise, not real negative edge.  -0.0016% over 4 periods is
-# rounding error — don't block live trading over it.  Only block when
-# the loss is economically meaningful (> 0.5% cumulative).
-OVERLAY_ALPHA_BLOCK_THRESHOLD_PCT = -0.5
+OVERLAY_ALPHA_BLOCK_THRESHOLD_PCT = 0.0
 
 
 def edge_health_status(row: dict | pd.Series) -> str:
