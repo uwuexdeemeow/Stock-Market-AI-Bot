@@ -81,7 +81,7 @@ from core_satellite_alpha import (
     _load_feature_quality_filter,
 )
 from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
-from settings import SIGNAL_DIR, SLIPPAGE_BASE_PCT
+from settings import DATA_DIR, SIGNAL_DIR, SLIPPAGE_BASE_PCT
 
 TQQQ_LIVE_DISABLED_MESSAGE = (
     "Standalone core_satellite_tqqq.py live signal generation is retired. "
@@ -252,10 +252,23 @@ def _load_etf_prices_with_tqqq(price_index: pd.DatetimeIndex) -> pd.DataFrame:
     start = pd.Timestamp(price_index.min()) - pd.tseries.offsets.BDay(5)
     end = pd.Timestamp(price_index.max()) + pd.tseries.offsets.BDay(5)
 
-    # Download once with full date range
+    # Prefer local parquet files produced by the research refresh. Nested
+    # walk-forward should not depend on live provider availability when the
+    # required ETF history is already on disk.
     all_dates = pd.bdate_range(start, end)
     prices = pd.DataFrame(index=all_dates)
     for sym in tickers:
+        local_path = Path(DATA_DIR) / f"{sym}.parquet"
+        if local_path.exists():
+            try:
+                local = pd.read_parquet(local_path)
+                local.index = pd.DatetimeIndex(local.index)
+                if "Close" in local.columns and not local["Close"].dropna().empty:
+                    prices[sym] = local["Close"].reindex(all_dates).ffill().bfill()
+                    continue
+            except Exception as e:
+                print(f"  WARNING: Could not load local {sym} data from {local_path}: {e}")
+
         try:
             raw = download_single(
                 sym,
