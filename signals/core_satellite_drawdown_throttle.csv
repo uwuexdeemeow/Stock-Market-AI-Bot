@@ -1,4 +1,0 @@
-throttle_rule,total_return_pct,cagr_pct,sharpe,max_drawdown_pct,alpha_vs_spy_pct,alpha_vs_qqq_pct,alpha_vs_blend_pct,turnover_pct,estimated_cost_pct,avg_gross_exposure,avg_overlay_gross,throttle_periods,paper_ready,return_delta_pct,sharpe_delta,max_drawdown_delta_pct,improves_risk,promotion_candidate
-normal,8886.5,31.76,1.269,-30.38,8151.03,7369.71,7838.5,10256.26,20.5125,1.201,0.633,0,False,0.0,0.0,0.0,False,False
-soft_throttle_15,7049.17,29.92,1.233,-30.38,6313.7,5532.38,6001.17,10008.87,20.0177,1.179,0.61,40,False,-1837.33,-0.036,0.0,False,False
-hard_throttle_20,5935.84,28.58,1.202,-30.37,5200.37,4419.05,4887.84,9869.48,19.739,1.16,0.591,33,False,-2950.66,-0.067,0.01,True,False
