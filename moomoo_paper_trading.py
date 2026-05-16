@@ -305,6 +305,7 @@ def print_paper_allocation_hint() -> None:
                 "current_regime",
                 "target_spy_weight",
                 "target_qqq_weight",
+                "target_tqqq_weight",
                 "target_cash_weight",
                 "gross_exposure",
                 "core_gross",
@@ -429,7 +430,7 @@ def load_core_satellite_signal() -> pd.Series:
     if not _truthy(row.get("medium_risk_review_pass", False)):
         raise RuntimeError(
             "Core-satellite signal is missing a passed medium-risk review. "
-            "Run `python3 nested_walkforward.py --strategy core-alpha --publish-live-config` "
+            "Run `python3 core_satellite_nested_walkforward.py --strategy core-alpha --publish-live-config` "
             "and then regenerate `python3 core_satellite_alpha.py`."
         )
     return row
@@ -437,12 +438,14 @@ def load_core_satellite_signal() -> pd.Series:
 
 def core_satellite_target_weights(row: pd.Series) -> dict[str, float]:
     weights: dict[str, float] = {}
-    spy_weight = float(row.get("target_spy_weight", 0.0) or 0.0)
-    qqq_weight = float(row.get("target_qqq_weight", 0.0) or 0.0)
-    if abs(spy_weight) > 1e-9:
-        weights["SPY"] = weights.get("SPY", 0.0) + spy_weight
-    if abs(qqq_weight) > 1e-9:
-        weights["QQQ"] = weights.get("QQQ", 0.0) + qqq_weight
+    for ticker, column in (
+        ("SPY", "target_spy_weight"),
+        ("QQQ", "target_qqq_weight"),
+        ("TQQQ", "target_tqqq_weight"),
+    ):
+        weight = float(row.get(column, 0.0) or 0.0)
+        if abs(weight) > 1e-9:
+            weights[ticker] = weights.get(ticker, 0.0) + weight
 
     overlay_raw = row.get("overlay_weights_json", "{}")
     try:

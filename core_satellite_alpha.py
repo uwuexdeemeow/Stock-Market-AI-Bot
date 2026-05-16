@@ -33,7 +33,7 @@ from alpha_factor_backtest import (
 from backtest import INITIAL_CAPITAL, _load_etf_price_frame
 from feature_health import enrich_feature_specs
 from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
-from settings import SIGNAL_DIR, SLIPPAGE_BASE_PCT
+from settings import DATA_DIR, SIGNAL_DIR, SLIPPAGE_BASE_PCT
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -79,6 +79,22 @@ def _load_feature_quality_filter(strict: bool = False) -> set[str] | None:
                 "Run `python3 feature_quality_diagnostic.py --top 48` to rebuild it."
             )
         return None
+
+    if strict:
+        report_mtime = report_path.stat().st_mtime
+        freshness_inputs = [Path("logs/feature_ic_shortlist.csv")]
+        freshness_inputs.extend(Path(DATA_DIR).glob("*.parquet"))
+        stale_inputs = [
+            path
+            for path in freshness_inputs
+            if path.exists() and path.stat().st_mtime > report_mtime
+        ]
+        if stale_inputs:
+            newest = max(stale_inputs, key=lambda path: path.stat().st_mtime)
+            raise SystemExit(
+                f"Live feature quality report is older than {newest}. "
+                "Run `python3 feature_quality_diagnostic.py --top 48` after refreshing data."
+            )
 
     min_grade_val = _QUALITY_GRADE_ORDER.get(FEATURE_QUALITY_MIN_GRADE, 3)
     keep_features = set()
@@ -1848,7 +1864,7 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         "paper_weights_scaled": bool(paper_scaled),
         "overlay_gross": round(float(paper_overlay.abs().sum()), 4),
         "raw_overlay_gross": round(float(overlay.abs().sum()), 4),
-        "core_gross": round(abs(target_spy) + abs(target_qqq), 4),
+        "core_gross": round(abs(target_spy) + abs(target_qqq) + abs(target_tqqq), 4),
         "raw_core_gross": round(core_gross, 4),
         "max_single_name_weight": round(float(metrics.get("max_single_name_weight", MAX_SINGLE_NAME_WEIGHT)), 4),
         "robust_cost_stress_pass": bool(metrics.get("robust_cost_stress_pass", False)),
@@ -2081,7 +2097,7 @@ def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
     if not LIVE_CONFIG_PATH.exists():
         raise SystemExit(
             f"Missing approved live config file: {LIVE_CONFIG_PATH}. "
-            "Run `python3 nested_walkforward.py --strategy core-alpha` first."
+            "Run `python3 core_satellite_nested_walkforward.py --strategy core-alpha` first."
         )
     try:
         payload = json.loads(LIVE_CONFIG_PATH.read_text())
@@ -2212,7 +2228,7 @@ def _generate_signal_from_approved_config(
             json.dump(rejection_metrics, f, indent=2)
         raise SystemExit(
             f"Nested walk-forward has not approved a live core-alpha config: {reasons}. "
-            "Run `python3 nested_walkforward.py --strategy core-alpha` and inspect the OOS report."
+            "Run `python3 core_satellite_nested_walkforward.py --strategy core-alpha` and inspect the OOS report."
         )
     selected_config = dict(live["config"])
     selected_config["live_config_source"] = "nested_walkforward"
@@ -2265,7 +2281,7 @@ def main() -> None:
                         help="Override stale data block — generate signal even if factor data is very old")
     parser.add_argument("--walkforward", action="store_true",
                         help="Run proper nested core-alpha validation before generating the signal. "
-                             "For normal validation, prefer nested_walkforward.py.")
+                             "For normal validation, prefer core_satellite_nested_walkforward.py.")
     parser.add_argument("--no-walkforward", action="store_true",
                         help="Legacy no-op. Nested validation is skipped by default; use --walkforward to run it.")
     parser.add_argument("--min-train-years", type=int, default=4,
@@ -2300,19 +2316,19 @@ def main() -> None:
 
     # ── OPTIONAL: NESTED WALK-FORWARD VALIDATION ────────────────────────────
     # PLAIN ENGLISH: Daily signal generation should stay fast and focused.
-    # Run `python3 nested_walkforward.py --strategy core-alpha` as the research trust
+    # Run `python3 core_satellite_nested_walkforward.py --strategy core-alpha` as the research trust
     # gate for the unified live signal.  This flag remains useful when you
     # want a one-off core-alpha validation before generating today's signal.
     if args.walkforward:
         print("\n  Running nested walk-forward validation (--walkforward)...")
         print("  (This tests TRUE out-of-sample performance, year by year)")
-        print("  (For full validation, run: python3 nested_walkforward.py --strategy core-alpha)")
+        print("  (For full validation, run: python3 core_satellite_nested_walkforward.py --strategy core-alpha)")
         wf_results = run_nested_walkforward(panel, min_train_years=args.min_train_years)
 
         print("\n  Now generating today's signal from nested-approved live config...")
     else:
         print("\n  Skipping nested validation for daily signal generation.")
-        print("  Trust check lives in: python3 nested_walkforward.py --strategy core-alpha")
+        print("  Trust check lives in: python3 core_satellite_nested_walkforward.py --strategy core-alpha")
 
     # ── Data freshness gate ────────────────────────────────────────────
     # PLAIN ENGLISH: Before generating the signal, check if the factor data

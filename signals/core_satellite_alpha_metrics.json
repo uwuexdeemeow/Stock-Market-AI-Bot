@@ -61,12 +61,12 @@
   "vol_target": 0.0,
   "live_config_source": "nested_walkforward",
   "live_config_source_json": "/Users/amos/Code/Stock Market AI Bot/signals/core_satellite_nested_walkforward.json",
-  "total_return_pct": 4273.25,
+  "total_return_pct": 4272.99,
   "cagr_pct": 26.07,
   "sharpe": 1.322,
   "max_drawdown_pct": -27.0,
-  "turnover_pct": 9259.46,
-  "estimated_cost_pct": 18.5189,
+  "turnover_pct": 9259.4,
+  "estimated_cost_pct": 18.5188,
   "avg_gross_exposure": 1.131,
   "avg_overlay_positions": 10.0,
   "avg_effective_overlay_names": 7.548,
@@ -82,17 +82,17 @@
   "benchmark_comparisons": {
     "SPY": {
       "benchmark_return_pct": 762.75,
-      "alpha_pct": 3510.5,
+      "alpha_pct": 3510.24,
       "nw_tstat_vs_benchmark": 4.409
     },
     "QQQ": {
       "benchmark_return_pct": 1624.81,
-      "alpha_pct": 2648.44,
+      "alpha_pct": 2648.18,
       "nw_tstat_vs_benchmark": 2.733
     },
     "BLEND": {
       "benchmark_return_pct": 1107.57,
-      "alpha_pct": 3165.67,
+      "alpha_pct": 3165.42,
       "nw_tstat_vs_benchmark": 3.943
     }
   },
@@ -156,7 +156,7 @@
     "2010": 5.71,
     "2011": -1.02,
     "2012": 10.39,
-    "2013": 21.74,
+    "2013": 21.73,
     "2014": 9.52,
     "2015": 2.01,
     "2016": 13.66,
@@ -173,22 +173,12 @@
   },
   "cost_stress": 2.0,
   "core_satellite_gate_results": {
-    "alpha_vs_spy_pass": true,
-    "alpha_vs_qqq_pass": true,
-    "alpha_vs_blend_after_cost_pass": true,
-    "nw_tstat_vs_blend_pass": true,
-    "subperiod_stability_pass": true,
-    "year_alpha_concentration_pass": true,
-    "turnover_adjusted_alpha_pass": true,
-    "drawdown_vs_qqq_pass": true,
-    "max_positive_year_alpha_share": 0.156,
-    "holdout_2023_2026_vs_qqq_pass": true,
-    "holdout_2023_2026_vs_blend_pass": true,
-    "single_name_weight_cap_pass": true,
-    "top_ticker_contribution_pass": true,
+    "walkforward_approval_pass": true,
+    "nested_cost_stress_approval_pass": true,
+    "medium_risk_review_pass": false,
     "feature_health_gate_pass": true,
-    "all_pass": true,
-    "cost_stress_approval_pass": true
+    "factor_data_freshness_pass": true,
+    "all_pass": false
   },
   "feature_health_gate_pass": true,
   "feature_health_gate_reasons": [],
@@ -215,7 +205,7 @@
     "macd_hist"
   ],
   "max_cluster_weight": 0.111111,
-  "paper_ready": true,
+  "paper_ready": false,
   "selected_features": [
     {
       "feature": "factor_liquidity_dollar_vol_20d",
@@ -754,5 +744,48 @@
     "source_json": "/Users/amos/Code/Stock Market AI Bot/signals/core_satellite_nested_walkforward.json",
     "created_at": "2026-05-13T13:55:10+00:00"
   },
-  "robust_cost_stress_pass": true
+  "full_sample_core_satellite_gate_results": {
+    "alpha_vs_spy_pass": true,
+    "alpha_vs_qqq_pass": true,
+    "alpha_vs_blend_after_cost_pass": true,
+    "nw_tstat_vs_blend_pass": true,
+    "subperiod_stability_pass": true,
+    "year_alpha_concentration_pass": true,
+    "turnover_adjusted_alpha_pass": true,
+    "drawdown_vs_qqq_pass": true,
+    "max_positive_year_alpha_share": 0.156,
+    "holdout_2023_2026_vs_qqq_pass": true,
+    "holdout_2023_2026_vs_blend_pass": true,
+    "single_name_weight_cap_pass": true,
+    "top_ticker_contribution_pass": true,
+    "feature_health_gate_pass": true,
+    "all_pass": true
+  },
+  "full_sample_gate_all_pass": true,
+  "live_gate_source": "nested_walkforward_approval",
+  "walkforward_approval_pass": true,
+  "walkforward_approval_reasons": [],
+  "nested_cost_stress_approval_pass": true,
+  "medium_risk_review_pass": false,
+  "medium_risk_review_reasons": [],
+  "survivorship_review": {},
+  "execution_stress_review": {},
+  "factor_decay_review": {},
+  "robust_cost_stress_pass": true,
+  "live_gate_reasons": [
+    "medium_risk_review_failed:missing_medium_risk_review"
+  ],
+  "sticky_holdings_source": "paper_daily_status",
+  "sticky_holdings_used": true,
+  "sticky_held_tickers": [
+    "C",
+    "CAT",
+    "GE",
+    "GS",
+    "INTC",
+    "MU",
+    "NEM"
+  ],
+  "sticky_prev_overlay_json": "{\"C\": 0.04581, \"CAT\": 0.054393, \"GE\": 0.016934, \"GS\": 0.040351, \"INTC\": 0.068037, \"MU\": 0.048903, \"NEM\": 0.031151}",
+  "sticky_holdings_reason": "loaded_from_moomoo_status"
 }

@@ -377,17 +377,6 @@ def attach_walkforward_factor_score(
         ic_by_cluster[raw_col] = daily_ic.rolling(lookback_days, min_periods=min_periods).mean().shift(HORIZON_DAYS)
 
     ic_frame = pd.DataFrame(ic_by_cluster, index=dates)
-    global_ic = {
-        raw_col: float(
-            panel[[raw_col, "forward_return"]]
-            .dropna()
-            .corr(method="spearman")
-            .iloc[0, 1]
-        )
-        for raw_col in cluster_score_cols
-        if panel[raw_col].notna().any()
-    }
-
     score_parts: list[pd.Series] = []
     for dt, group in panel.groupby("date", sort=False):
         if dt in ic_frame.index:
@@ -395,14 +384,15 @@ def attach_walkforward_factor_score(
         else:
             row_ic = pd.Series(dtype=float)
         if row_ic.empty:
-            row_ic = pd.Series(global_ic).dropna()
+            score_parts.append(pd.Series(panel.loc[group.index, "factor_score"], index=group.index))
+            continue
         selected = row_ic.abs().sort_values(ascending=False).head(top_k).index.tolist()
         if not selected:
             score_parts.append(pd.Series(panel.loc[group.index, "factor_score"], index=group.index))
             continue
         components: list[pd.Series] = []
         for raw_col in selected:
-            sign = float(row_ic.get(raw_col, global_ic.get(raw_col, 0.0)))
+            sign = float(row_ic.get(raw_col, 0.0))
             raw_rank = pd.to_numeric(group[raw_col], errors="coerce")
             components.append(raw_rank if sign >= 0 else 1.0 - raw_rank)
         score_parts.append(pd.concat(components, axis=1).mean(axis=1, skipna=True))

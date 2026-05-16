@@ -25,7 +25,7 @@ import os as _os, sys as _sys
 
 _WF_ENTRYPOINTS = {"core_satellite_nested_walkforward.py", "nested_walkforward.py"}
 _WF_IS_CLI = _os.path.basename(_sys.argv[0]) in _WF_ENTRYPOINTS
-if _WF_IS_CLI and not _os.environ.get("_WF_FORK_SAFE"):
+if _sys.platform == "darwin" and _WF_IS_CLI and not _os.environ.get("_WF_FORK_SAFE"):
     # Carry all current env vars forward, add the two safety flags and the
     # sentinel so the re-exec'd process knows not to loop.
     _env = _os.environ.copy()
@@ -97,29 +97,45 @@ def _auto_detect_workers() -> int:
     """
     cpu_workers = max(1, (os.cpu_count() or 1) - 1)
     try:
-        # macOS: sysctl returns total physical RAM in bytes.
-        # Pass a clean env without MallocStackLogging to suppress the
-        # "can't turn off malloc stack logging" stderr spam from sysctl.
-        import subprocess
-        _clean_env = {k: v for k, v in os.environ.items()
-                      if not k.startswith("Malloc")}
-        raw = subprocess.check_output(["sysctl", "-n", "hw.memsize"],
-                                       timeout=5, text=True,
-                                       env=_clean_env,
-                                       stderr=subprocess.DEVNULL).strip()
-        total_gb = int(raw) / (1024 ** 3)
-    except Exception:
-        # Linux fallback: read /proc/meminfo
-        try:
+        if _sys.platform == "win32":
+            # Windows: use ctypes to query physical RAM
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            class _MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [("dwLength", ctypes.c_ulong),
+                            ("dwMemoryLoad", ctypes.c_ulong),
+                            ("ullTotalPhys", ctypes.c_ulonglong),
+                            ("ullAvailPhys", ctypes.c_ulonglong),
+                            ("ullTotalPageFile", ctypes.c_ulonglong),
+                            ("ullAvailPageFile", ctypes.c_ulonglong),
+                            ("ullTotalVirtual", ctypes.c_ulonglong),
+                            ("ullAvailVirtual", ctypes.c_ulonglong),
+                            ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+            stat = _MEMORYSTATUSEX()
+            stat.dwLength = ctypes.sizeof(stat)
+            kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
+            total_gb = stat.ullTotalPhys / (1024 ** 3)
+        elif _sys.platform == "darwin":
+            # macOS: sysctl returns total physical RAM in bytes.
+            import subprocess
+            _clean_env = {k: v for k, v in os.environ.items()
+                          if not k.startswith("Malloc")}
+            raw = subprocess.check_output(["sysctl", "-n", "hw.memsize"],
+                                           timeout=5, text=True,
+                                           env=_clean_env,
+                                           stderr=subprocess.DEVNULL).strip()
+            total_gb = int(raw) / (1024 ** 3)
+        else:
+            # Linux: read /proc/meminfo
             with open("/proc/meminfo") as f:
                 for line in f:
                     if line.startswith("MemTotal:"):
                         total_gb = int(line.split()[1]) / (1024 ** 2)
                         break
                 else:
-                    total_gb = 16.0  # conservative default
-        except Exception:
-            total_gb = 16.0
+                    total_gb = 16.0
+    except Exception:
+        total_gb = 16.0
 
     # Reserve 4 GB for OS + VS Code + main process, allocate ~2 GB per worker
     usable_gb = max(1, total_gb - 4)
@@ -133,8 +149,22 @@ _PARALLEL_WORKERS = int(os.getenv("WALKFORWARD_WORKERS", str(_DEFAULT_WORKERS)))
 
 # Module-level references set before forking so workers inherit them
 # via copy-on-write.  Only the main process writes these; workers read.
+# On Windows (spawn), these are set by _init_pool_worker in each child.
 _SHARED_PANEL: pd.DataFrame | None = None
 _SHARED_INNER_FOLDS: list | None = None
+
+
+def _init_pool_worker(panel, inner_folds=None, screen_fold=None):
+    """Initializer for spawn-based Pool workers (Windows).
+
+    Called once per worker process at startup.  Sets the module globals
+    so worker functions can read them the same way they do on macOS/Linux
+    where fork gives copy-on-write access.
+    """
+    global _SHARED_PANEL, _SHARED_INNER_FOLDS, _SHARED_SCREEN_FOLD
+    _SHARED_PANEL = panel
+    _SHARED_INNER_FOLDS = inner_folds
+    _SHARED_SCREEN_FOLD = screen_fold
 
 from alpha_factor_backtest import (
     attach_scores,
@@ -1360,15 +1390,16 @@ def _run_screening_phase(
         _SHARED_SCREEN_FOLD = screen_fold
         try:
             _quiet_pyarrow_threads()
-            ctx = mp.get_context("fork")
+            _use_spawn = _sys.platform == "win32"
+            ctx = mp.get_context("spawn" if _use_spawn else "fork")
             work = [(c, low_memory) for c in configs]
             completed = 0
-            # Higher maxtasksperchild for screening — each task is cheap
-            # (1 fold, no cost stress) so recycling overhead matters more.
-            # Suppress the C-level MallocStackLogging stderr spam that
-            # macOS prints every time a forked child touches malloc.
             _old_fd = _suppress_malloc_stderr()
-            with ctx.Pool(processes=n_workers, maxtasksperchild=8) as pool:
+            _pool_kw = dict(processes=n_workers, maxtasksperchild=8)
+            if _use_spawn:
+                _pool_kw["initializer"] = _init_pool_worker
+                _pool_kw["initargs"] = (panel, None, screen_fold)
+            with ctx.Pool(**_pool_kw) as pool:
                 _restore_stderr(_old_fd)
                 for result in pool.imap_unordered(_screen_worker, work, chunksize=2):
                     completed += 1
@@ -1456,22 +1487,19 @@ def _run_parallel_full_eval(
     _SHARED_INNER_FOLDS = inner_folds
     try:
         _quiet_pyarrow_threads()
-        ctx = mp.get_context("fork")
-        # Pass the current best score to each worker for early termination.
-        # Workers launched earlier won't know about later discoveries, but
-        # that's fine — early termination is a best-effort optimization.
-        # The first batch uses -inf; we update for subsequent batches.
+        _use_spawn = _sys.platform == "win32"
+        ctx = mp.get_context("spawn" if _use_spawn else "fork")
         best_score = float(best["score"])
         work = [(config, low_memory, best_score) for config in configs]
         _t0 = time.time()
         completed = 0
-        # maxtasksperchild: higher with fewer survivors (48 configs ÷ 4
-        # workers = 12 configs per worker — recycling at 4 means 3
-        # respawns per worker.  Set to 8 to cut respawn overhead in half).
         max_tasks = 8 if _n_configs <= 64 else 4
-        # Suppress C-level MallocStackLogging stderr spam during fork
         _old_fd = _suppress_malloc_stderr()
-        with ctx.Pool(processes=actual_workers, maxtasksperchild=max_tasks) as pool:
+        _pool_kw = dict(processes=actual_workers, maxtasksperchild=max_tasks)
+        if _use_spawn:
+            _pool_kw["initializer"] = _init_pool_worker
+            _pool_kw["initargs"] = (panel, inner_folds)
+        with ctx.Pool(**_pool_kw) as pool:
             _restore_stderr(_old_fd)
             for result in pool.imap_unordered(_parallel_worker, work, chunksize=1):
                 completed += 1

@@ -51,6 +51,18 @@ from settings import LOG_DIR
 LOGS = Path(LOG_DIR)
 
 
+def _configure_console_output() -> None:
+    """Keep Windows cp1252 consoles from crashing on existing Unicode status text."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
+_configure_console_output()
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # NOTIFICATION HELPERS — alert the user when something goes wrong
 # ─────────────────────────────────────────────────────────────────────────────
@@ -123,6 +135,12 @@ DATA_REFRESH_STEPS = [
         "refresh_factor_data",
         [sys.executable, "research.py"],
         "Refresh factor panel data (download stock prices, compute factor scores)",
+        critical=True,
+    ),
+    Step(
+        "refresh_feature_quality",
+        [sys.executable, "feature_quality_diagnostic.py", "--top", "48"],
+        "Refresh live feature quality report used by core_satellite_alpha.py",
         critical=True,
     ),
 ]

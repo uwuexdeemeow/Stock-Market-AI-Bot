@@ -316,7 +316,7 @@ def load_signal() -> pd.Series:
     if not _truthy(row.get("medium_risk_review_pass", False)):
         raise RuntimeError(
             "Medium-risk review has not passed. Regenerate the unified signal after "
-            "`python3 nested_walkforward.py --strategy core-alpha --publish-live-config`."
+            "`python3 core_satellite_nested_walkforward.py --strategy core-alpha --publish-live-config`."
         )
 
     return row

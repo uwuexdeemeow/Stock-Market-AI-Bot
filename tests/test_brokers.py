@@ -60,6 +60,23 @@ class TestParseTargetWeights:
         assert "AAPL" in weights
         assert "SPY" not in weights  # weight is 0.0, should be excluded
 
+    def test_moomoo_tqqq_signal(self):
+        """Moomoo must route the same TQQQ target as the unified signal."""
+        from moomoo_paper_trading import core_satellite_target_weights
+
+        signal = pd.Series({
+            "target_spy_weight": 0.0,
+            "target_qqq_weight": 0.44,
+            "target_tqqq_weight": 0.11,
+            "overlay_weights_json": '{"AAPL": 0.15}',
+        })
+        weights = core_satellite_target_weights(signal)
+        assert "TQQQ" in weights
+        assert abs(weights["TQQQ"] - 0.11) < 1e-6
+        assert "QQQ" in weights
+        assert "AAPL" in weights
+        assert "SPY" not in weights
+
     def test_zero_weights_excluded(self):
         """Weights of 0.0 should not appear in the result."""
         from alpaca_paper_trading import parse_target_weights

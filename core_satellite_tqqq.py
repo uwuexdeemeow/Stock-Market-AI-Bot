@@ -643,7 +643,7 @@ def _load_approved_tqqq_config() -> dict:
     if not LIVE_CONFIG_PATH.exists():
         raise SystemExit(
             f"Missing approved live config file: {LIVE_CONFIG_PATH}. "
-            "Run `python3 nested_walkforward.py --strategy both` first."
+            "Run `python3 core_satellite_nested_walkforward.py --strategy both` first."
         )
     try:
         payload = json.loads(LIVE_CONFIG_PATH.read_text())
@@ -655,7 +655,7 @@ def _load_approved_tqqq_config() -> dict:
         reasons = approval.get("reasons", ["not approved"])
         raise SystemExit(
             f"Nested walk-forward has not approved a live TQQQ config: {reasons}. "
-            "Run `python3 nested_walkforward.py --strategy both` and inspect the OOS report."
+            "Run `python3 core_satellite_nested_walkforward.py --strategy both` and inspect the OOS report."
         )
     approved = payload.get("approved_live_configs", {}).get("tqqq", {})
     config = approved.get("config") if isinstance(approved, dict) else None
