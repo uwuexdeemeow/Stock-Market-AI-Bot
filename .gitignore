@@ -24,6 +24,9 @@ ENV/
 .AppleDouble
 .LSOverride
 
+# Archive (old scripts, stale data — local only, never push)
+archive/
+
 # Model artifacts (large binaries — manage separately)
 models/*.pkl
 models/*.json

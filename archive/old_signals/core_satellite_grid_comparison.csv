@@ -1,3 +1,0 @@
-label,row_count,best_config,cagr_pct,sharpe,max_drawdown_pct,turnover_pct,alpha_vs_spy_pct,alpha_vs_qqq_pct,robustness_score,drawdown_penalty,turnover_penalty,instability_penalty,paper_ready,robust_cost_stress_pass,stress_cost_levels
-old_huge_grid,6336,"preset=qqq_trend_switch_overlay70_core55,score=regime_adaptive,shape=top3,weighting=sticky_risk_parity,sector=2,hold=10,overlay=0.7,cost_gate=True",37.25,1.415,-28.9,8848.38,16620.27,15758.2,,,,,True,True,"2.0,3.0,5.0"
-new_reduced_grid,384,"preset=qqq_trend_switch_overlay70_core55_cashbuffer,score=regime_adaptive,shape=top3,weighting=sticky_score,sector=2,hold=20,overlay=0.5,cost_gate=True",28.79,1.278,-24.36,6385.9,5424.7,4643.38,1.2087,0.0,0.0693,0.0,True,True,"2.0,3.0,5.0"
