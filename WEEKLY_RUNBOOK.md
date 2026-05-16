@@ -667,7 +667,8 @@ Fixed parameters (not searched — one correct answer):
 
 The winner is selected by **stability-adjusted robustness score** (not CAGR):
 mean inner-fold robustness minus 10% of score standard deviation. Only configs
-where ≥60% of inner folds pass cost-stress survive to be scored.
+where ≥60% of inner folds pass cost-stress survive to be scored, and configs
+with mean inner-fold turnover above 400% are rejected before selection.
 
 **Important**: If you see CAGR > 30% in any output, that's a warning sign of
 overfitting. The walk-forward OOS results are the only numbers you should trust.

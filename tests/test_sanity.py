@@ -27,7 +27,12 @@ from core_satellite_alpha import (
     _scale_paper_targets_to_gross,
     _top_count,
 )
-from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
+from robustness_scoring import (
+    DEFAULT_TURNOVER_FREE_PCT,
+    DEFAULT_TURNOVER_PENALTY_SPAN_PCT,
+    add_cost_stress_approval_columns,
+    robustness_score_components,
+)
 from paper_health import (
     _current_order_lifecycle,
     _drift_breakdown,
@@ -152,9 +157,13 @@ def test_robustness_score_is_sharpe_minus_penalties():
         "year_alpha_concentration_pass": True,
     })
     assert score["drawdown_penalty"] == 0.4
-    assert score["turnover_penalty"] == 0.5
+    expected_turnover_penalty = round(
+        (15_000.0 - DEFAULT_TURNOVER_FREE_PCT) / DEFAULT_TURNOVER_PENALTY_SPAN_PCT,
+        4,
+    )
+    assert score["turnover_penalty"] == expected_turnover_penalty
     assert score["instability_penalty"] == 0.25
-    assert score["robustness_score"] == 0.05
+    assert score["robustness_score"] == round(1.2 - 0.4 - expected_turnover_penalty - 0.25, 4)
 
 
 def _cost_stress_grid(overrides=None):
@@ -510,6 +519,45 @@ def test_inner_selection_scores_validation_folds_only(monkeypatch):
 
     assert selected["config"]["name"] == "validation_winner"
     assert len(calls) == len(configs) * len(folds) * 3
+
+
+def test_inner_selection_rejects_configs_above_turnover_cap(monkeypatch):
+    configs = [
+        {"name": "high_sharpe_churn", "nested_params": {"holding_days": 10}},
+        {"name": "lower_sharpe_clean", "nested_params": {"holding_days": 10}},
+    ]
+    folds = [
+        InnerFold(
+            validation_year=2022,
+            train_end=pd.Timestamp("2021-12-31"),
+            validation_start=pd.Timestamp("2022-01-01"),
+            validation_end=pd.Timestamp("2022-12-31"),
+        ),
+        InnerFold(
+            validation_year=2023,
+            train_end=pd.Timestamp("2022-12-31"),
+            validation_start=pd.Timestamp("2023-01-01"),
+            validation_end=pd.Timestamp("2023-12-31"),
+        ),
+    ]
+
+    def fake_evaluate_window(panel, config, start, end):
+        churn = config["name"] == "high_sharpe_churn"
+        return {
+            "sharpe": 5.0 if churn else 1.0,
+            "total_return_pct": 25.0 if churn else 5.0,
+            "max_drawdown_pct": -5.0,
+            "turnover_pct": 450.0 if churn else 100.0,
+            "alpha_vs_spy_pct": 1.0,
+            "alpha_vs_qqq_pct": 1.0,
+            "alpha_vs_blend_pct": 1.0,
+        }
+
+    monkeypatch.setattr(nested_wf, "evaluate_window", fake_evaluate_window)
+    selected = select_config_from_inner_folds(pd.DataFrame(), configs, folds)
+
+    assert selected["config"]["name"] == "lower_sharpe_clean"
+    assert selected["metrics"]["inner_mean_turnover_pct"] == 100.0
 
 
 def test_signal_timestamp_is_timezone_aware():
