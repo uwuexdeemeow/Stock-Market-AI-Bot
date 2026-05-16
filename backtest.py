@@ -24,7 +24,6 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 import xgboost as xgb
-import yfinance as yf
 from sklearn.preprocessing import StandardScaler
 
 from confidence_calibration import fit_direction_calibrator, calibrate_p_up
@@ -167,6 +166,13 @@ from settings import (
     EDGE_GATE_MIN_PROFIT_FACTOR,
     EDGE_GATE_MIN_AVG_PNL,
 )
+
+
+def _download_yfinance(*args, **kwargs) -> pd.DataFrame:
+    """Import yfinance only when a download fallback is actually needed."""
+    import yfinance as yf
+
+    return yf.download(*args, **kwargs)
 from xgb_feature_engineering import build_xgb_matrix
 from pipeline_shared import apply_sentiment_distribution_matching, fit_sentiment_zscore_stats
 from ranker_utils import build_rank_groups_from_dates, daily_rank_ic
@@ -578,7 +584,7 @@ def build_benchmark(index: pd.DatetimeIndex, symbol: str = "SPY") -> pd.Series:
     start = index.min().strftime("%Y-%m-%d")
     end = (index.max() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
     try:
-        raw = yf.download(symbol, start=start, end=end, progress=False, auto_adjust=True)
+        raw = _download_yfinance(symbol, start=start, end=end, progress=False, auto_adjust=True)
         if isinstance(raw.columns, pd.MultiIndex):
             raw.columns = raw.columns.get_level_values(0)
         if not raw.empty and "Close" in raw.columns:
@@ -641,7 +647,7 @@ def build_vix_series(index: pd.DatetimeIndex) -> pd.Series:
     try:
         start = index.min().strftime("%Y-%m-%d")
         end = (index.max() + pd.Timedelta(days=5)).strftime("%Y-%m-%d")
-        vix = yf.download("^VIX", start=start, end=end, progress=False, auto_adjust=True)
+        vix = _download_yfinance("^VIX", start=start, end=end, progress=False, auto_adjust=True)
         if isinstance(vix.columns, pd.MultiIndex):
             vix.columns = vix.columns.get_level_values(0)
         return vix["Close"].reindex(index, method="ffill").bfill()
@@ -3339,14 +3345,13 @@ def run_spy_timing_backtest(
     ).sort_index()
 
     # ── 2. Download benchmark prices ─────────────────────────────────────────
-    import yfinance as yf
     start_str = str(timeline[0].date() - pd.Timedelta(days=5))
     end_str   = str(timeline[-1].date() + pd.Timedelta(days=RETURN_HORIZON_DAYS + 5))
     bench_prices: dict[str, pd.Series] = {}
     benchmark_symbols = sorted(set(instruments) | {"SPY", "QQQ"})
     for sym in benchmark_symbols:
         try:
-            raw = yf.download(sym, start=start_str, end=end_str, progress=False, auto_adjust=True)
+            raw = _download_yfinance(sym, start=start_str, end=end_str, progress=False, auto_adjust=True)
             if isinstance(raw.columns, pd.MultiIndex):
                 raw.columns = raw.columns.get_level_values(0)
             bench_prices[sym] = raw["Close"]
@@ -3668,7 +3673,7 @@ def _load_etf_price_frame(index: pd.DatetimeIndex, symbols: tuple[str, ...] | li
         start = index.min().strftime("%Y-%m-%d")
         end = (index.max() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
         try:
-            raw = yf.download(
+            raw = _download_yfinance(
                 missing,
                 start=start,
                 end=end,
