@@ -29,6 +29,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from safe_io import atomic_write_csv, atomic_write_json
 from settings import SIGNAL_DIR
 
 SIGNALS = Path(SIGNAL_DIR)
@@ -64,11 +65,7 @@ def _load_regime_history() -> dict:
 
 def _save_regime_history(history: dict) -> None:
     """Save the updated regime history to disk."""
-    REGIME_HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    REGIME_HISTORY_PATH.write_text(
-        json.dumps(history, indent=2, default=str),
-        encoding="utf-8",
-    )
+    atomic_write_json(history, REGIME_HISTORY_PATH)
 
 
 def _read_signal_regime(signal_path: Path) -> dict | None:
@@ -207,7 +204,7 @@ def check_regime_changes(*, quiet: bool = False) -> list[dict]:
             # Append to existing log
             existing = pd.read_csv(log_path)
             change_df = pd.concat([existing, change_df], ignore_index=True)
-        change_df.to_csv(log_path, index=False)
+        atomic_write_csv(change_df, log_path)
         print(f"\n  Regime change log updated → {log_path}")
 
     return changes

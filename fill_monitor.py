@@ -28,6 +28,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from safe_io import atomic_write_json
 from settings import SIGNAL_DIR, LOG_DIR
 
 SIGNALS = Path(SIGNAL_DIR)
@@ -255,7 +256,7 @@ def print_fill_report(result: dict, *, quiet: bool = False) -> None:
     # Save the report to disk for reference
     LOGS.mkdir(parents=True, exist_ok=True)
     log_path = SIGNALS / "fill_monitor.json"
-    log_path.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
+    atomic_write_json(result, log_path)
 
 
 def main() -> None:

@@ -22,6 +22,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from alpaca_paper_trading import AlpacaBroker, _emergency_liquidate
+from safe_io import atomic_write_json
 from alpaca_protection import (
     CORE_PROTECTION_ENABLED,
     list_open_orders,
@@ -120,7 +121,7 @@ def load_state() -> dict:
 
 def save_state(state: dict) -> None:
     SIGNALS.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_json(state, STATE_FILE)
 
 
 def _parse_timestamp(value: Any) -> datetime | None:

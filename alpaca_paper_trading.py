@@ -36,6 +36,7 @@ import numpy as np
 import pandas as pd
 
 from broker_interface import Broker, Order, Position, Fill
+from safe_io import atomic_write_csv
 from settings import SIGNAL_DIR
 from signal_freshness import validate_signal_freshness
 from alpaca_protection import (
@@ -106,6 +107,43 @@ def _truthy(value: object) -> bool:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# RETRY HELPER — retries transient broker API failures automatically
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _broker_retry(func, *, max_retries: int = 3, base_delay: float = 1.0):
+    """Decorator: retry broker method on transient network errors.
+
+    PLAIN ENGLISH: If a broker API call fails with a temporary error (network
+    timeout, 5xx server error), wait a moment and try again.  After 3 failures
+    in a row, give up and raise the last error.  This prevents a single hiccup
+    from killing the entire daily run.
+    """
+    import functools
+    import time as _time
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        last_exc = None
+        for attempt in range(max_retries + 1):
+            try:
+                return func(*args, **kwargs)
+            except Exception as exc:
+                last_exc = exc
+                exc_str = str(exc).lower()
+                # Only retry on transient errors, not auth/validation failures
+                is_transient = any(s in exc_str for s in (
+                    "timeout", "timed out", "connection", "502", "503",
+                    "504", "500", "rate limit", "429", "retry",
+                ))
+                if not is_transient or attempt >= max_retries:
+                    raise
+                delay = base_delay * (2 ** attempt)
+                _time.sleep(delay)
+        raise last_exc  # unreachable but satisfies type checker
+    return wrapper
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # ALPACA BROKER — implements the Broker abstract interface
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -146,16 +184,19 @@ class AlpacaBroker(Broker):
         except Exception as e:
             raise ConnectionError(f"Could not connect to Alpaca: {e}")
 
+    @_broker_retry
     def get_equity(self) -> float:
         """Get total account equity (cash + positions market value)."""
         account = self._api.get_account()
         return float(account.equity)
 
+    @_broker_retry
     def get_cash(self) -> float:
         """Get available cash."""
         account = self._api.get_account()
         return float(account.cash)
 
+    @_broker_retry
     def get_positions(self) -> list[Position]:
         """Get all current positions."""
         positions = self._api.list_positions()
@@ -172,6 +213,7 @@ class AlpacaBroker(Broker):
         """Get positions as a simple ticker → quantity dict."""
         return {p.ticker: p.quantity for p in self.get_positions()}
 
+    @_broker_retry
     def place_order(self, order: Order) -> str:
         """
         Submit an order to Alpaca.
@@ -506,7 +548,7 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
     if PAPER_LOG_FILE.exists():
         existing = pd.read_csv(PAPER_LOG_FILE)
         df = pd.concat([existing, df], ignore_index=True)
-    df.to_csv(PAPER_LOG_FILE, index=False)
+    atomic_write_csv(df, PAPER_LOG_FILE)
 
 
 def _already_submitted_today() -> bool:
@@ -571,7 +613,7 @@ def snapshot_equity(broker: AlpacaBroker) -> None:
         existing = existing[existing["date"] != row["date"]]
         df = pd.concat([existing, df], ignore_index=True)
 
-    df.to_csv(EQUITY_FILE, index=False)
+    atomic_write_csv(df, EQUITY_FILE)
     print(f"    ✓ Equity snapshot: ${equity:,.2f} → {EQUITY_FILE.name}")
 
 
@@ -633,7 +675,7 @@ def reconcile_orders(broker: AlpacaBroker) -> None:
             print(f"    ✗ {row['ticker']} order {oid[:12]}... → query failed: {e}")
             updated += 1
 
-    log.to_csv(PAPER_LOG_FILE, index=False)
+    atomic_write_csv(log, PAPER_LOG_FILE)
     print(f"\n  ✓ Reconciled {updated} orders. Log updated → {PAPER_LOG_FILE.name}")
 
 
@@ -1118,13 +1160,19 @@ def main():
 
     print(f"\n  Submitting {len(orders)} orders...")
     order_ids = []
+    # Use today's date as part of a deterministic client_order_id so that
+    # network retries cannot double-submit the same logical order.
+    _today_str = datetime.now(timezone.utc).strftime("%Y%m%d")
     for o in orders:
         try:
+            # Deterministic ID: date_ticker_side_qty — Alpaca rejects duplicates
+            _idempotency_key = f"{_today_str}_{o['ticker']}_{o['side']}_{o['quantity']}"
             order = Order(
                 ticker=o["ticker"],
                 side=o["side"],
                 quantity=o["quantity"],
                 type="market",
+                client_id=_idempotency_key,
             )
             oid = broker.place_order(order)
             order_ids.append(oid)

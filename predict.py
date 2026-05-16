@@ -61,6 +61,12 @@ from xgb_feature_engineering import build_xgb_matrix
 os.makedirs(SIGNAL_DIR, exist_ok=True)
 RETURN_BIN_CENTRES = np.array([-0.04, -0.02, 0.00, 0.02, 0.04], dtype=float)
 NON_TRADABLE_SCALER_PREFIXES = {"pooled"}
+
+# Model staleness threshold — warn if models are older than this many days.
+# PLAIN ENGLISH: ML models go stale over time as market dynamics shift.
+# If your models haven't been retrained in a while, predictions may be
+# unreliable.  This threshold triggers a warning (not a hard block).
+MODEL_MAX_AGE_DAYS = int(os.environ.get("MODEL_MAX_AGE_DAYS", "30"))
 SUMMARY_COLUMNS = [
     "ticker",
     "signal",
@@ -178,6 +184,47 @@ def load_h5_model(saved: dict) -> xgb.XGBClassifier | None:
         return h5
     except Exception:
         return None
+
+
+def check_model_staleness() -> dict:
+    """Check if prediction models are stale (older than MODEL_MAX_AGE_DAYS).
+
+    PLAIN ENGLISH: Scans the models/ directory, finds the newest and oldest
+    model file, and warns if ANY model is older than the threshold.  Returns
+    a dict with status info.  This is informational — it won't block predictions,
+    but it logs a warning so you know retraining is overdue.
+    """
+    import time as _time
+    now = _time.time()
+    threshold = MODEL_MAX_AGE_DAYS * 86400
+    model_files = [f for f in os.listdir(MODEL_DIR) if f.endswith((".pkl", ".json"))]
+    if not model_files:
+        return {"status": "no_models", "count": 0}
+
+    ages = []
+    for f in model_files:
+        mtime = os.path.getmtime(os.path.join(MODEL_DIR, f))
+        ages.append((now - mtime) / 86400)
+
+    newest_days = min(ages)
+    oldest_days = max(ages)
+    stale_count = sum(1 for a in ages if a * 86400 > threshold)
+
+    result = {
+        "status": "stale" if stale_count > 0 else "fresh",
+        "count": len(model_files),
+        "newest_days": round(newest_days, 1),
+        "oldest_days": round(oldest_days, 1),
+        "stale_count": stale_count,
+        "threshold_days": MODEL_MAX_AGE_DAYS,
+    }
+
+    if stale_count > 0:
+        print(f"  ⚠ MODEL STALENESS: {stale_count}/{len(model_files)} model files are "
+              f">{MODEL_MAX_AGE_DAYS} days old (oldest: {oldest_days:.0f}d). "
+              f"Consider retraining.")
+
+    return result
 
 
 def discover_prediction_tickers() -> list[str]:
@@ -1071,6 +1118,9 @@ def main() -> None:
     # Force SPY timing mode from CLI flag or settings
     use_spy_timing = args.spy_timing or SPY_TIMING_MODE
     use_etf_rotation = args.etf_rotation or ETF_ROTATION_MODE
+
+    # Pre-flight: check if models are stale before running predictions
+    check_model_staleness()
 
     tickers = [args.ticker.upper()] if args.ticker else discover_prediction_tickers()
     rows = []

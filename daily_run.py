@@ -38,6 +38,7 @@ Schedule with cron (9:30 AM ET on weekdays):
 from __future__ import annotations
 
 import argparse
+import fcntl
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -46,6 +47,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from safe_io import atomic_write_json
 from settings import LOG_DIR
 
 LOGS = Path(LOG_DIR)
@@ -239,6 +241,18 @@ REGIME_MONITOR_STEP = Step(
     "Check for regime changes and alert if detected",
 )
 
+MONITOR_HEARTBEAT_STEP = Step(
+    "monitor_heartbeat",
+    [sys.executable, "monitor_heartbeat.py"],
+    "Check if all monitors produced fresh output (watchdog)",
+)
+
+LOG_CLEANUP_STEP = Step(
+    "log_cleanup",
+    [sys.executable, "log_cleanup.py", "--check-disk"],
+    "Check disk usage and warn if nearing capacity",
+)
+
 # Stress test steps — optional, run with --stress flag
 # PLAIN ENGLISH: These are research/safety scripts that check whether the
 # strategy's edge is decaying, whether drawdown throttles would have fired,
@@ -374,6 +388,9 @@ def build_steps(
     if run_alpaca:
         steps.extend(ALPACA_STEPS)
     steps.append(REGIME_MONITOR_STEP)
+    # Watchdog + housekeeping — non-critical, run last
+    steps.append(MONITOR_HEARTBEAT_STEP)
+    steps.append(LOG_CLEANUP_STEP)
     if stress:
         steps.extend(STRESS_STEPS)
     if report:
@@ -455,6 +472,19 @@ def main():
 
     LOGS.mkdir(parents=True, exist_ok=True)
 
+    # ── PID lock — prevents cron + manual overlap from double-submitting ──
+    # PLAIN ENGLISH: If you accidentally run daily_run.py twice at the same time
+    # (e.g. cron fires while you're running it manually), the second instance
+    # will see the lock file is held and exit immediately instead of submitting
+    # duplicate orders.  The lock is automatically released when the process ends.
+    _lock_path = LOGS / "daily_run.lock"
+    _lock_file = open(_lock_path, "w")
+    try:
+        fcntl.flock(_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except (IOError, OSError):
+        print("⛔ Another daily_run.py is already running — exiting to prevent double-orders.")
+        sys.exit(1)
+
     # Weekend & holiday guard — skip if market is closed today
     # PLAIN ENGLISH: No point downloading data or submitting orders when
     # the stock market is closed.  We check if today is a weekday and not
@@ -483,6 +513,23 @@ def main():
             print(f"  Use --force to run anyway")
             print(f"{'═'*60}\n")
             sys.exit(0)
+
+    # ── Pre-flight: validate that broker API keys are configured ──
+    # PLAIN ENGLISH: Check that required environment variables exist BEFORE
+    # spending 5 minutes on signal generation only to fail at order submission.
+    # This catches copy-paste mistakes (empty strings, missing .env lines).
+    _missing_keys: list[str] = []
+    if not args.dry_run:
+        import os as _os
+        if (args.alpaca or (not args.alpaca and not args.moomoo)):
+            if not _os.environ.get("ALPACA_API_KEY", "").strip():
+                _missing_keys.append("ALPACA_API_KEY")
+            if not _os.environ.get("ALPACA_SECRET_KEY", "").strip():
+                _missing_keys.append("ALPACA_SECRET_KEY")
+        if _missing_keys:
+            print(f"⛔ Missing required environment variables: {', '.join(_missing_keys)}")
+            print("  Set them in your .env file or shell profile before running.")
+            sys.exit(1)
 
     # Determine which steps to run
     # If neither --moomoo nor --alpaca specified, run both
@@ -556,7 +603,7 @@ def main():
         "total_elapsed_seconds": round(total_time, 1),
         "results": results,
     }
-    log_path.write_text(json.dumps(run_log, indent=2, default=str), encoding="utf-8")
+    atomic_write_json(run_log, log_path)
     print(f"  Run log saved → {log_path}")
 
     # Send notifications if any step failed

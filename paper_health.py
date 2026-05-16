@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 import paper_gauntlet
+from safe_io import atomic_write_json
 from settings import DATA_DIR, LOG_DIR, SECTOR_MAP, SIGNAL_DIR, WATCHLIST
 
 
@@ -890,10 +891,10 @@ def main() -> None:
     args = parser.parse_args()
 
     health = build_health()
-    PAPER_HEALTH.write_text(json.dumps(health, indent=2), encoding="utf-8")
+    atomic_write_json(health, PAPER_HEALTH)
     LOGS.mkdir(parents=True, exist_ok=True)
     dated = LOGS / f"paper_health_{datetime.now().strftime('%Y%m%d')}.json"
-    dated.write_text(json.dumps(health, indent=2), encoding="utf-8")
+    atomic_write_json(health, dated)
     if args.json:
         print(json.dumps(health, indent=2))
     else:

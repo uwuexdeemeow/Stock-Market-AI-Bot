@@ -26,6 +26,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from safe_io import atomic_write_json
 from settings import SIGNAL_DIR
 
 SIGNALS = Path(SIGNAL_DIR)
@@ -148,7 +149,7 @@ def check_all(*, alpaca: bool = True, moomoo: bool = True) -> dict:
 
     # Save results to disk for other scripts to read
     SIGNALS.mkdir(parents=True, exist_ok=True)
-    HEALTH_FILE.write_text(json.dumps(summary, indent=2))
+    atomic_write_json(summary, HEALTH_FILE)
 
     # Send alert if any broker is down
     if down_brokers:

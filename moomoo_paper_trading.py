@@ -27,6 +27,7 @@ import pandas as pd
 import yfinance as yf
 
 from risk_sizing import compute_position_size
+from safe_io import atomic_write_csv, atomic_write_json, atomic_write_text
 from settings import (
     BORROW_COST_ANNUAL_DEFAULT,
     BORROW_COSTS,
@@ -875,7 +876,7 @@ def _load_moomoo_guard_state() -> dict:
 
 def _save_moomoo_guard_state(state: dict) -> None:
     MOOMOO_GUARD_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    MOOMOO_GUARD_STATE_FILE.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_json(state, MOOMOO_GUARD_STATE_FILE)
 
 
 def cancel_moomoo_core_etf_stops(
@@ -1112,7 +1113,7 @@ def _check_moomoo_drawdown(ctx, halt_pct: float = MOOMOO_DD_HALT_PCT) -> tuple[b
     else:
         eq_df = pd.DataFrame([new_row])
     try:
-        eq_df.to_csv(MOOMOO_EQUITY_FILE, index=False)
+        atomic_write_csv(eq_df, MOOMOO_EQUITY_FILE)
     except Exception:
         pass
 
@@ -1480,7 +1481,7 @@ def write_paper_status(
         "position_values": position_values,
         "submit_readiness": submit_readiness,
     }
-    PAPER_STATUS_FILE.write_text(json.dumps(status, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_json(status, PAPER_STATUS_FILE)
 
     equity_row = {
         "date": datetime.now(timezone.utc).date().isoformat(),
@@ -1498,7 +1499,7 @@ def write_paper_status(
         equity_df = pd.concat([equity_df, pd.DataFrame([equity_row])], ignore_index=True)
     else:
         equity_df = pd.DataFrame([equity_row])
-    equity_df.to_csv(PAPER_EQUITY_FILE, index=False)
+    atomic_write_csv(equity_df, PAPER_EQUITY_FILE)
     return status
 
 
@@ -1684,9 +1685,9 @@ def repair_open_paper_orders(*, now: pd.Timestamp | None = None, dry_run: bool =
     repaired = pd.DataFrame(repair_rows)
     if not repaired.empty:
         combined = pd.concat([trades, repaired], ignore_index=True, sort=False)
-        combined.to_csv(path, index=False)
+        atomic_write_csv(combined, path)
     else:
-        trades.to_csv(path, index=False)
+        atomic_write_csv(trades, path)
     return repaired
 
 
@@ -2113,7 +2114,7 @@ def reconcile_paper_trades(*, lookback_days: int = 14) -> pd.DataFrame:
     if orders.empty:
         trades["fill_status"] = trades.get("fill_status", "unknown")
         trades["reconciled_at"] = datetime.now(timezone.utc).isoformat()
-        trades.to_csv(SIGNAL_DIR / "paper_trades.csv", index=False)
+        atomic_write_csv(trades, SIGNAL_DIR / "paper_trades.csv")
         return trades
 
     updated_rows: list[dict] = []
@@ -2157,8 +2158,8 @@ def reconcile_paper_trades(*, lookback_days: int = 14) -> pd.DataFrame:
         updated_rows.append(out)
 
     reconciled = pd.DataFrame(updated_rows)
-    reconciled.to_csv(SIGNAL_DIR / "paper_trades.csv", index=False)
-    reconciled.to_csv(PAPER_RECONCILIATION_FILE, index=False)
+    atomic_write_csv(reconciled, SIGNAL_DIR / "paper_trades.csv")
+    atomic_write_csv(reconciled, PAPER_RECONCILIATION_FILE)
 
     signal = load_core_satellite_signal()
     freshness_ok, freshness_issues = validate_signal_freshness(
@@ -2301,7 +2302,7 @@ def run_core_satellite_submission(
     )
     submit_allowed, guard_reasons = evaluate_rebalance_guard(signal=signal, orders=orders, state=state, force=force)
     plan_path = SIGNAL_DIR / "core_satellite_alpha_orders.csv"
-    orders.to_csv(plan_path, index=False)
+    atomic_write_csv(orders, plan_path)
     print(f"Saved core-satellite order plan -> {plan_path}")
     print(f"Account equity used: ${equity:,.2f}")
     print(f"Raw target gross: {raw_target_gross:.2f}x")
@@ -2422,11 +2423,11 @@ def run_core_satellite_submission(
         broker_logged = broker_logged_batch
 
     if not broker_logged.empty:
-        broker_logged.to_csv(out_path, index=False)
+        atomic_write_csv(broker_logged, out_path)
         print(f"Logged accepted broker orders -> {out_path}")
     elif not out_path.exists():
         # Create a CSV with the expected columns so --sync has a clear file state.
-        broker_logged.to_csv(out_path, index=False)
+        atomic_write_csv(broker_logged, out_path)
         print(f"Created empty broker order log -> {out_path}")
 
     if not broker_rejected_batch.empty:
@@ -2435,7 +2436,7 @@ def run_core_satellite_submission(
             broker_rejections = pd.concat([prior_rejects, broker_rejected_batch], ignore_index=True)
         else:
             broker_rejections = broker_rejected_batch
-        broker_rejections.to_csv(reject_path, index=False)
+        atomic_write_csv(broker_rejections, reject_path)
         print(f"Logged rejected/no-ID rows -> {reject_path}")
 
     print_submission_summary(batch_rows)
@@ -2746,7 +2747,7 @@ def main() -> None:
     df = enrich_with_sizing(df, equity=single_name_equity)
 
     out_path = SIGNAL_DIR / "signals_live_filtered.csv"
-    df.to_csv(out_path, index=False)
+    atomic_write_csv(df, out_path)
     print(f"Saved filtered live universe -> {out_path}")
 
     # Print a readable summary table
@@ -2768,7 +2769,7 @@ def main() -> None:
             if choice in {"y", "yes"}:
                 keep_rows.append(row)
         df = pd.DataFrame(keep_rows)
-        df.to_csv(out_path, index=False)
+        atomic_write_csv(df, out_path)
         print(f"Saved interactively approved trades -> {out_path}")
 
     print("\nNext step: enter the recommended_shares from the CSV directly into moomoo.")
