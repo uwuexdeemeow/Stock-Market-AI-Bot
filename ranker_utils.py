@@ -29,6 +29,7 @@ PLAIN ENGLISH
 """
 from __future__ import annotations
 
+import os
 import numpy as np
 import pandas as pd
 
@@ -136,6 +137,150 @@ def daily_rank_ic(
 
 def _empty_ic() -> dict:
     return {"n_days": 0, "mean_ic": 0.0, "std_ic": 0.0, "t_stat": 0.0, "hit_rate": 0.0}
+
+
+# ── Adaptive factor weight computation ────────────────────────────────────────
+
+def compute_adaptive_factor_weights(
+    data_dir: str,
+    factor_cols: list[str],
+    lookback_days: int = 252,
+    halflife: int = 63,
+    floor: float = 0.05,
+    output_path: str | None = None,
+) -> dict[str, float]:
+    """Recompute factor weights from trailing IC with exponential decay.
+
+    PLAIN ENGLISH: For each factor, look at the last ~year of data and
+    measure how well it predicted future returns (daily rank correlation).
+    Recent days count more (exponential weighting with given halflife).
+    Factors with strong recent IC get more weight; those that lost their
+    edge get less (but never below the floor — the IC might recover).
+
+    Args:
+        data_dir: path to directory with ticker parquet files (AAPL.parquet etc.)
+        factor_cols: list of factor column names to weight
+        lookback_days: how many trading days of history to use for IC calculation
+        halflife: exponential decay halflife in days (63 = 1 quarter)
+        floor: minimum weight per factor (prevents total zeroing)
+        output_path: if set, writes JSON file with weights + diagnostics
+
+    Returns:
+        dict of factor_col → weight (sums to 1.0)
+    """
+    import glob
+    import json as _json
+    from pathlib import Path
+    from datetime import datetime
+
+    # Load all ticker parquets to build a cross-sectional panel
+    parquets = glob.glob(os.path.join(data_dir, "*.parquet"))
+    frames = []
+    for pq in parquets:
+        ticker = Path(pq).stem
+        # Skip non-ticker files (e.g. _metadata, long names)
+        if ticker.startswith("_") or len(ticker) > 6 or "-" in ticker:
+            continue
+        try:
+            df = pd.read_parquet(pq)
+        except Exception:
+            continue
+        if "target" not in df.columns:
+            continue
+        keep_cols = ["target"] + [c for c in factor_cols if c in df.columns]
+        if len(keep_cols) <= 1:
+            continue
+        chunk = df[keep_cols].copy()
+        chunk["ticker"] = ticker
+        chunk["date"] = chunk.index
+        frames.append(chunk)
+
+    if not frames:
+        # No data available — return equal weights
+        equal = {c: 1.0 / len(factor_cols) for c in factor_cols}
+        return equal
+
+    panel = pd.concat(frames, ignore_index=True)
+    panel = panel.dropna(subset=["target"])
+
+    # Keep only the last lookback_days of unique trading dates
+    all_dates = sorted(panel["date"].unique())
+    if len(all_dates) > lookback_days:
+        cutoff = all_dates[-lookback_days]
+        panel = panel[panel["date"] >= cutoff]
+        all_dates = sorted(panel["date"].unique())
+
+    n_days = len(all_dates)
+    if n_days < 30:
+        equal = {c: 1.0 / len(factor_cols) for c in factor_cols}
+        return equal
+
+    # Exponential decay weights: most recent day gets highest weight.
+    # PLAIN ENGLISH: A halflife of 63 means data from 63 days ago counts
+    # half as much as today's data.  This makes the weights responsive to
+    # recent regime changes without forgetting the past entirely.
+    exp_weights = np.array([2.0 ** (-(n_days - 1 - i) / halflife) for i in range(n_days)])
+    exp_weights /= exp_weights.sum()
+
+    # Compute exponentially-weighted mean IC for each factor
+    factor_ics: dict[str, float] = {}
+    for col in factor_cols:
+        if col not in panel.columns:
+            factor_ics[col] = 0.0
+            continue
+        daily_ics = []
+        for dt in all_dates:
+            day = panel[panel["date"] == dt]
+            valid = day[[col, "target"]].dropna()
+            if len(valid) < 10:
+                daily_ics.append(0.0)
+                continue
+            # Spearman rank correlation: does this factor's ranking match
+            # the actual return ranking?
+            scores = valid[col].rank().values
+            targets = valid["target"].rank().values
+            if scores.std() < 1e-12 or targets.std() < 1e-12:
+                daily_ics.append(0.0)
+                continue
+            rho = float(np.corrcoef(scores, targets)[0, 1])
+            daily_ics.append(rho if np.isfinite(rho) else 0.0)
+
+        # Weighted mean IC
+        arr = np.array(daily_ics)
+        factor_ics[col] = float((arr * exp_weights).sum())
+
+    # IC-weighted with floor:
+    # PLAIN ENGLISH: Factors with negative IC get zero raw weight (they're
+    # hurting, not helping).  The floor ensures no factor drops below 5% —
+    # it might recover next quarter and we don't want to fully abandon it.
+    raw_weights = {c: max(factor_ics.get(c, 0.0), 0.0) for c in factor_cols}
+    total = sum(raw_weights.values())
+    if total > 0:
+        weights = {c: max(raw_weights[c] / total, floor) for c in factor_cols}
+    else:
+        # All factors have negative IC — equal weight (defensive)
+        weights = {c: 1.0 / len(factor_cols) for c in factor_cols}
+
+    # Re-normalize after applying floors (floors can push sum above 1.0)
+    w_total = sum(weights.values())
+    weights = {c: round(w / w_total, 6) for c, w in weights.items()}
+
+    # Write to JSON for downstream consumers (backtest.py, core_satellite_alpha)
+    if output_path:
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "weights": weights,
+            "ics": {c: round(v, 6) for c, v in factor_ics.items()},
+            "lookback_days": lookback_days,
+            "halflife": halflife,
+            "floor": floor,
+            "n_trading_days_used": n_days,
+            "n_tickers_in_panel": len(frames),
+            "computed_at": datetime.now().isoformat(timespec="seconds"),
+        }
+        Path(output_path).write_text(_json.dumps(payload, indent=2))
+
+    return weights
 
 
 # ── Self-test (runs only when executed directly) ──────────────────────────────

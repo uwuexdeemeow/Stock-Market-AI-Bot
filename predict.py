@@ -42,7 +42,7 @@ from settings import (
     SPY_TIMING_MODE, SPY_TIMING_BULL_THRESHOLD, SPY_TIMING_INSTRUMENTS,
     SPY_TIMING_INVEST_PCT, SPY_TIMING_ENTER_THRESHOLD, SPY_TIMING_EXIT_THRESHOLD,
     SPY_TIMING_SMOOTH_WINDOW, SPY_TIMING_MIN_HOLD_DAYS,
-    PAPER_MODE_STRATEGY, SINGLE_NAME_PAPER_TRADING_ENABLED,
+    PAPER_MODE_STRATEGY, SINGLE_NAME_PAPER_TRADING_ENABLED, EARNINGS_BLACKOUT_DAYS,
     ETF_ROTATION_MODE, ETF_ROTATION_PRESETS, ETF_ROTATION_DEFENSIVE_MIXES,
     ETF_ROTATION_RISK_ON_ENTER, ETF_ROTATION_RISK_ON_EXIT,
     ETF_ROTATION_NEUTRAL_THRESHOLD, ETF_ROTATION_DEFAULT_VOL_TARGET,
@@ -707,6 +707,26 @@ def predict_ticker(ticker: str, verbose: bool = False) -> dict:
         actionable = False
         suppressed_reason = crash_filter_reason
 
+    # ── Earnings blackout gate ────────────────────────────────────────────
+    # PLAIN ENGLISH: If earnings are within EARNINGS_BLACKOUT_DAYS, suppress
+    # the prediction.  Earnings are binary events with 5-15% gap risk that
+    # the model cannot price.  Better to skip the trade entirely than gamble
+    # on an announcement outcome.  This gate applies to per-ticker predictions
+    # used by both SPY timing (direction votes) and single-name entries.
+    if actionable and EARNINGS_BLACKOUT_DAYS > 0:
+        days_to_earnings = None
+        if "days_to_next_earnings" in df.columns:
+            try:
+                days_to_earnings = float(df["days_to_next_earnings"].iloc[-1])
+            except (ValueError, TypeError, IndexError):
+                pass
+        if days_to_earnings is not None and 0 <= days_to_earnings <= EARNINGS_BLACKOUT_DAYS:
+            actionable = False
+            suppressed_reason = (
+                f"earnings_blackout: {int(days_to_earnings)}d to earnings "
+                f"(blackout={EARNINGS_BLACKOUT_DAYS}d)"
+            )
+
     # Live safety: shorts are disabled until validated separately.
     live_actionable = actionable and signal == "LONG"
     if signal == "SHORT":
@@ -884,11 +904,28 @@ def compute_spy_timing_signal(predictions: list[dict]) -> dict:
     # Live state (was_invested_yesterday) is loaded from prior signal file.
     prior_signal_path = os.path.join(SIGNAL_DIR, "spy_timing_signal.csv")
     was_invested = False
+    hold_days = 0  # How many consecutive days we've held the current position
     if os.path.exists(prior_signal_path):
         try:
             prev = pd.read_csv(prior_signal_path)
             if not prev.empty and "signal" in prev.columns:
                 was_invested = str(prev["signal"].iloc[-1]).strip() == "BUY_SPY"
+                # Count consecutive days in current position for min-hold enforcement.
+                # PLAIN ENGLISH: Look at the history of signals.  Count how many days
+                # in a row the signal has been the same as today's.  This tells us
+                # whether we've held long enough to be allowed to flip.
+                if "hold_days" in prev.columns:
+                    hold_days = int(prev["hold_days"].iloc[-1])
+                else:
+                    # Infer from consecutive identical signals at the tail
+                    signals = prev["signal"].tolist()
+                    current = signals[-1]
+                    hold_days = 0
+                    for s in reversed(signals):
+                        if str(s).strip() == str(current).strip():
+                            hold_days += 1
+                        else:
+                            break
         except Exception:
             pass
 
@@ -898,6 +935,19 @@ def compute_spy_timing_signal(predictions: list[dict]) -> dict:
         is_bullish = bull_fraction > SPY_TIMING_EXIT_THRESHOLD
     else:
         is_bullish = bull_fraction >= SPY_TIMING_ENTER_THRESHOLD
+
+    # ── Minimum hold period enforcement ───────────────────────────────────
+    # PLAIN ENGLISH: If we just entered or exited a position less than
+    # SPY_TIMING_MIN_HOLD_DAYS ago, LOCK the signal to the current state.
+    # This prevents costly whipsaw where the signal flips back and forth
+    # daily — each flip costs ~1.5 bps in ETF slippage, and daily flipping
+    # can erode ~7.5% annually.  The min-hold forces us to commit to a
+    # direction for at least N days before reconsidering.
+    min_hold_locked = False
+    if hold_days < SPY_TIMING_MIN_HOLD_DAYS:
+        # Lock: keep the current position regardless of what bull_fraction says.
+        is_bullish = was_invested
+        min_hold_locked = True
 
     # Scale position size by conviction strength:
     #   - Just above enter threshold (e.g. 56%) → invest at 60% of max
@@ -912,6 +962,17 @@ def compute_spy_timing_signal(predictions: list[dict]) -> dict:
         invest_pct = 0.0
 
     signal = "BUY_SPY" if is_bullish else "STAY_CASH"
+
+    # ── Update hold counter ───────────────────────────────────────────────
+    # PLAIN ENGLISH: If the signal is the same as yesterday, increment the
+    # hold counter.  If it changed (or this is a fresh entry), reset to 1.
+    # This counter is written to the CSV so tomorrow's run can read it back.
+    prior_signal = "BUY_SPY" if was_invested else "STAY_CASH"
+    if signal == prior_signal:
+        new_hold_days = hold_days + 1
+    else:
+        new_hold_days = 1
+
     total_weight = sum(float(w) for w in SPY_TIMING_INSTRUMENTS.values() if float(w) > 0)
     instrument_weights = {
         str(sym).upper(): float(weight) / total_weight
@@ -923,6 +984,14 @@ def compute_spy_timing_signal(predictions: list[dict]) -> dict:
         for sym, weight in instrument_weights.items()
     }
     target_cash_weight = round(max(0.0, 1.0 - sum(target_weights.values())), 4)
+
+    # Build the reason string — include min-hold lock info if active
+    reason_parts = (
+        f"{n_long}/{n_total} tickers LONG ({bull_fraction:.0%}) "
+        f"{'≥' if is_bullish else '<'} {SPY_TIMING_BULL_THRESHOLD:.0%} threshold"
+    )
+    if min_hold_locked:
+        reason_parts += f" [MIN-HOLD LOCKED: day {new_hold_days}/{SPY_TIMING_MIN_HOLD_DAYS}]"
 
     return {
         "signal": signal,
@@ -942,10 +1011,10 @@ def compute_spy_timing_signal(predictions: list[dict]) -> dict:
         "single_name_paper_trading_enabled": False,
         "paper_mode_strategy": PAPER_MODE_STRATEGY,
         "paper_signal_type": "index_timing",
-        "reason": (
-            f"{n_long}/{n_total} tickers LONG ({bull_fraction:.0%}) "
-            f"{'≥' if is_bullish else '<'} {SPY_TIMING_BULL_THRESHOLD:.0%} threshold"
-        ),
+        "hold_days": new_hold_days,
+        "min_hold_locked": min_hold_locked,
+        "min_hold_days_setting": SPY_TIMING_MIN_HOLD_DAYS,
+        "reason": reason_parts,
         "predicted_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
 

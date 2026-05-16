@@ -586,6 +586,8 @@ SIMPLE_FACTOR_COLS = [
     "xs_rank_sector_hvol_20d",    # within-sector vol rank
 ]
 # Weights from the walk-forward IC-weighted estimation.  They sum to 1.0.
+# These are the FALLBACK weights — the adaptive updater (Fix 3) writes fresh
+# IC-weighted weights to ADAPTIVE_WEIGHTS_FILE after each research run.
 SIMPLE_FACTOR_WEIGHTS = {
     "factor_idio_vol_252_spy": 0.25,
     "hvol_20d":                0.20,
@@ -593,6 +595,15 @@ SIMPLE_FACTOR_WEIGHTS = {
     "factor_beta_252_spy":     0.20,
     "xs_rank_sector_hvol_20d": 0.15,
 }
+
+# ── Adaptive factor weight settings ─────────────────────────────────────────
+# PLAIN ENGLISH: After each research.py run, we recompute factor weights from
+# trailing IC (information coefficient = how predictive each factor was recently).
+# Factors that have been working well get more weight; those that lost edge get
+# less.  This prevents slow alpha decay from stale static weights.
+ADAPTIVE_WEIGHTS_FILE = os.path.join(SIGNAL_DIR, "adaptive_factor_weights.json")
+ADAPTIVE_WEIGHT_HALFLIFE = int(os.environ.get("ADAPTIVE_WEIGHT_HALFLIFE", "63"))  # days
+ADAPTIVE_WEIGHT_FLOOR = float(os.environ.get("ADAPTIVE_WEIGHT_FLOOR", "0.05"))   # min per factor
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MODEL SELECTION
@@ -650,6 +661,14 @@ DEFAULT_APPROVED_LIVE_TICKERS: list[str] = []
 # ─────────────────────────────────────────────────────────────────────────────
 # REGIME / RISK / BACKTEST
 # ─────────────────────────────────────────────────────────────────────────────
+
+# VIX term structure inversion threshold.
+# PLAIN ENGLISH: When VIX > VIX3M (ratio > 1.0), the term structure is
+# "inverted" (backwardation).  This means the market expects MORE volatility
+# in the short term than the medium term — a strong crash signal.  When
+# the ratio exceeds this threshold, the live regime is forced to "risk_off"
+# regardless of trend signals.  1.05 means VIX must be 5% above VIX3M.
+VIX_INVERSION_THRESHOLD = float(os.environ.get("VIX_INVERSION_THRESHOLD", "1.05"))
 
 VIX_HIGH_THRESHOLD = 25.0
 VIX_EXTREME_THRESHOLD = 35.0
@@ -807,6 +826,14 @@ MIN_ETF_ROTATION_NW_TSTAT_VS_BLEND = float(os.environ.get("MIN_ETF_ROTATION_NW_T
 # backtest metrics.
 PAPER_MODE_STRATEGY = os.environ.get("PAPER_MODE_STRATEGY", "core_satellite_alpha").strip().lower()
 SINGLE_NAME_PAPER_TRADING_ENABLED = os.environ.get("SINGLE_NAME_PAPER_TRADING_ENABLED", "0").strip().lower() in {"1", "true", "yes", "on"}
+
+# ── Earnings blackout gate ─────────────────────────────────────────────────────
+# PLAIN ENGLISH: Don't open new positions when earnings are within this many
+# trading days.  Earnings announcements are binary events with unpredictable
+# outcomes — the model cannot predict gap risk, so we simply avoid it.
+# Set to 0 to disable.  Applies to both predict.py per-ticker "actionable" gate
+# and the core_satellite_alpha overlay selection.
+EARNINGS_BLACKOUT_DAYS = int(os.environ.get("EARNINGS_BLACKOUT_DAYS", "3"))
 
 SINGLE_NAME_CRASH_FILTER_ENABLED = True
 SINGLE_NAME_CRASH_MIN_PRICE = 2.0

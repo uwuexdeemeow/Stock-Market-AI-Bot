@@ -308,6 +308,7 @@ def test_nested_publish_decision_defaults_to_publish_only_for_full_runs():
     full = Namespace(
         publish_live_config=None,
         fast=False,
+        stable_grid=False,
         max_folds=None,
         max_configs=None,
         start_year=None,
@@ -322,6 +323,14 @@ def test_nested_publish_decision_defaults_to_publish_only_for_full_runs():
     assert publish is False
     assert "--fast" in reason
     assert "--max-folds" in reason
+
+    stable_grid = Namespace(**{**vars(full), "stable_grid": True})
+    publish, reason = nested_wf.live_config_publish_decision(stable_grid)
+    assert publish is False
+    assert "--stable-grid" in reason
+
+    stable_forced = Namespace(**{**vars(stable_grid), "publish_live_config": True})
+    assert nested_wf.live_config_publish_decision(stable_forced) == (True, "forced_by_--publish-live-config")
 
     forced = Namespace(**{**vars(smoke), "publish_live_config": True})
     assert nested_wf.live_config_publish_decision(forced) == (True, "forced_by_--publish-live-config")
@@ -440,6 +449,24 @@ def test_nested_candidate_grid_includes_requested_tuning_dimensions():
     assert any(c["nested_params"]["tqqq_weight"] > 0.0 for c in alpha_default)
     assert {c["shape"] for c in alpha_default}.issubset({"top5", "top10", "top15"})
     assert {c["weighting"] for c in alpha_default}.issubset({"sticky_score", "sticky_vol_score"})
+
+
+def test_nested_stable_grid_pins_consensus_dimensions():
+    configs = nested_wf.stable_grid_candidate_configs()
+
+    assert len(configs) == 24
+    params = [config["nested_params"] for config in configs]
+    assert {p["holding_days"] for p in params} == {20}
+    assert {p["overlay_gross"] for p in params} == {0.50}
+    assert {p["risk_on_overlay_gross"] for p in params} == {0.50}
+    assert {p["ma_window"] for p in params} == {100}
+    assert {p["high_vol"] for p in params} == {0.30}
+    assert {p["score_source"] for p in params} == {"regime_adaptive"}
+    assert {p["weighting"] for p in params} == {"sticky_score"}
+    assert {p["risk_control_mode"] for p in params} == {"defensive"}
+    assert {p["shape"] for p in params} == {"top5", "top10", "top15"}
+    assert {p["tqqq_weight"] for p in params} == {0.0, 0.10, 0.20, 0.30}
+    assert {p["high_vol_mode"] for p in params} == {"fixed", "percentile"}
 
 
 def test_inner_selection_scores_validation_folds_only(monkeypatch):

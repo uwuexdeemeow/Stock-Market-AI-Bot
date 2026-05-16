@@ -321,6 +321,31 @@ def main():
         except Exception as exc:
             log.error("[xs_rank] cross-sectional rank post-pass failed: %s", exc)
             ok = False
+
+    # ── Adaptive factor weight update ────────────────────────────────────
+    # PLAIN ENGLISH: Now that parquets are fresh, recompute how well each
+    # factor predicted returns over the last year.  Factors that worked well
+    # recently get more weight in the composite score; those that lost their
+    # edge get less.  This keeps the signal adaptive to regime changes.
+    if built_tickers:
+        try:
+            from ranker_utils import compute_adaptive_factor_weights
+            from settings import (
+                SIMPLE_FACTOR_COLS, ADAPTIVE_WEIGHTS_FILE,
+                ADAPTIVE_WEIGHT_HALFLIFE, ADAPTIVE_WEIGHT_FLOOR,
+            )
+            adaptive_w = compute_adaptive_factor_weights(
+                data_dir=DATA_DIR,
+                factor_cols=SIMPLE_FACTOR_COLS,
+                lookback_days=252,
+                halflife=ADAPTIVE_WEIGHT_HALFLIFE,
+                floor=ADAPTIVE_WEIGHT_FLOOR,
+                output_path=ADAPTIVE_WEIGHTS_FILE,
+            )
+            log.info("[adaptive_weights] Updated: %s", adaptive_w)
+        except Exception as exc:
+            log.warning("[adaptive_weights] Failed (non-fatal): %s", exc)
+
     sys.exit(0 if ok else 1)
 
 if __name__ == "__main__":

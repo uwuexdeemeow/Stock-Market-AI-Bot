@@ -128,7 +128,7 @@ from settings import (
     POOLED_RANKER_EXPERIMENT_ENABLED,
     SIMPLE_FACTOR_RANKING,
     SIMPLE_FACTOR_COLS,
-    SIMPLE_FACTOR_WEIGHTS,
+    SIMPLE_FACTOR_WEIGHTS, ADAPTIVE_WEIGHTS_FILE,
     SPY_TIMING_MODE,
     SPY_TIMING_BULL_THRESHOLD,
     SPY_TIMING_INSTRUMENTS,
@@ -190,6 +190,25 @@ MIN_BUCKET_N_MEDIUM = 15
 _ETF_PRICE_FRAME_CACHE: dict[tuple[tuple[str, ...], str, str], pd.DataFrame] = {}
 _ETF_VOTE_CACHE: dict[int, tuple[pd.Series, dict[pd.Timestamp, dict]]] = {}
 _ETF_DOWNLOAD_FAILED_SYMBOLS: set[str] = set()
+
+# ── Adaptive factor weights ───────────────────────────────────────────────────
+# PLAIN ENGLISH: Load IC-based weights from JSON (written by research.py after
+# each run).  If the file doesn't exist yet, fall back to static weights from
+# settings.py.  This ensures the factor composite adapts to recent regime shifts.
+def _load_factor_weights() -> dict[str, float]:
+    """Load adaptive weights from JSON, fall back to static settings."""
+    try:
+        with open(ADAPTIVE_WEIGHTS_FILE) as f:
+            import json as _json
+            data = _json.load(f)
+        weights = data.get("weights", {})
+        if weights and abs(sum(weights.values()) - 1.0) < 0.01:
+            return weights
+    except (FileNotFoundError, KeyError, ValueError, OSError):
+        pass
+    return dict(SIMPLE_FACTOR_WEIGHTS)
+
+_active_factor_weights = _load_factor_weights()
 
 # ── ATR-based position sizing parameters ──────────────────────────────────────
 # Instead of a flat % per trade, we risk a fixed fraction of capital per trade.
@@ -2154,7 +2173,9 @@ def apply_cross_sectional_ranking(
                     if np.isfinite(val):
                         factor_vals.setdefault(col, {})[ticker] = val
 
-            # Cross-sectional z-score each factor, then weighted sum
+            # Cross-sectional z-score each factor, then weighted sum.
+            # Use adaptive weights from JSON if available (recomputed each
+            # research run based on trailing IC); fall back to static settings.
             ticker_scores: dict[str, float] = {t: 0.0 for t in day_tickers}
             for col in SIMPLE_FACTOR_COLS:
                 vals = factor_vals.get(col, {})
@@ -2163,7 +2184,7 @@ def apply_cross_sectional_ranking(
                 arr_vals = np.array(list(vals.values()))
                 mean_v = float(arr_vals.mean())
                 std_v = max(float(arr_vals.std()), 1e-9)
-                w = SIMPLE_FACTOR_WEIGHTS.get(col, 0.0)
+                w = _active_factor_weights.get(col, 0.0)
                 for ticker, v in vals.items():
                     z = (v - mean_v) / std_v
                     ticker_scores[ticker] += w * z

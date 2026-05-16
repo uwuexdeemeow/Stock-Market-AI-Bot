@@ -33,7 +33,7 @@ from alpha_factor_backtest import (
 from backtest import INITIAL_CAPITAL, _load_etf_price_frame
 from feature_health import enrich_feature_specs
 from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
-from settings import DATA_DIR, SIGNAL_DIR, SLIPPAGE_BASE_PCT
+from settings import DATA_DIR, SIGNAL_DIR, SLIPPAGE_BASE_PCT, VIX_INVERSION_THRESHOLD
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -785,6 +785,25 @@ def _load_regime_indicators(rebalance_dates: pd.DatetimeIndex, exit_dates: pd.Da
         # Fixed threshold — original behavior
         out["high_vol"] = out["qqq_realized_vol"] > high_vol_threshold
 
+    # ── VIX term structure inversion ─────────────────────────────────────
+    # PLAIN ENGLISH: When VIX > VIX3M (short-term fear exceeds medium-term
+    # fear), the term structure is "inverted."  This is one of the strongest
+    # short-term crash signals — it means options traders expect imminent
+    # turbulence that exceeds what they expect over the next 3 months.
+    # If VIX data can't be fetched, we simply skip this check (defensive).
+    vix_inversion_threshold = float(config.get("vix_inversion_threshold", VIX_INVERSION_THRESHOLD))
+    try:
+        vix_prices = _cached_etf_prices(pd.DatetimeIndex(timeline), ["^VIX", "^VIX3M"])
+        vix = vix_prices["^VIX"]
+        vix3m = vix_prices["^VIX3M"]
+        vix_ratio = vix / (vix3m + 1e-9)
+        out["vix_inverted"] = (vix_ratio > vix_inversion_threshold).reindex(out.index, fill_value=False)
+        out["vix_ratio"] = vix_ratio.reindex(out.index, fill_value=1.0)
+    except Exception:
+        # VIX data unavailable — don't crash, just skip this signal
+        out["vix_inverted"] = False
+        out["vix_ratio"] = 1.0
+
     # ── Regime confirmation cooldown ──────────────────────────────────────
     # PLAIN ENGLISH: Without this, a single day where QQQ dips below its
     # moving average flips the regime from "risk_on" to "neutral" or
@@ -843,7 +862,15 @@ def _resolve_allocation(dt: pd.Timestamp, config: dict, regime_indicators: pd.Da
     regime_mode = str(config.get("regime_mode", "static"))
     if regime_mode in REGIME_PRESETS and regime_indicators is not None:
         row = regime_indicators.loc[pd.Timestamp(dt)]
-        if bool(row["qqq_trend_ok"]) and bool(row["spy_trend_ok"]) and not bool(row["high_vol"]):
+        # VIX inversion override — strongest short-term crash signal.
+        # PLAIN ENGLISH: If VIX > VIX3M (term structure inverted), it means
+        # options traders expect an imminent crash.  Override all other regime
+        # signals and go defensive immediately.  This catches events like
+        # Feb 2018 volmageddon, March 2020 COVID, where trends were still
+        # technically "ok" but volatility was exploding.
+        if "vix_inverted" in row.index and bool(row.get("vix_inverted", False)):
+            regime = "risk_off"
+        elif bool(row["qqq_trend_ok"]) and bool(row["spy_trend_ok"]) and not bool(row["high_vol"]):
             regime = "risk_on"
         elif bool(row["spy_trend_ok"]) and not bool(row["high_vol"]):
             regime = "neutral"
@@ -1245,7 +1272,9 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
             if ts not in regime_indicators.index:
                 continue
             row = regime_indicators.loc[ts]
-            if bool(row["qqq_trend_ok"]) and bool(row["spy_trend_ok"]) and not bool(row["high_vol"]):
+            if "vix_inverted" in row.index and bool(row.get("vix_inverted", False)):
+                cur_regime = "risk_off"
+            elif bool(row["qqq_trend_ok"]) and bool(row["spy_trend_ok"]) and not bool(row["high_vol"]):
                 cur_regime = "risk_on"
             elif bool(row["spy_trend_ok"]) and not bool(row["high_vol"]):
                 cur_regime = "neutral"

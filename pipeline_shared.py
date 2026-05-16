@@ -352,17 +352,62 @@ def build_literature_factor_features(df: pd.DataFrame) -> pd.DataFrame:
     return result.replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
 def build_calendar_features(dates: pd.DatetimeIndex) -> pd.DataFrame:
+    """Build calendar-based features for seasonality and market structure events.
+
+    PLAIN ENGLISH: The stock market has predictable patterns tied to the
+    calendar — stocks behave differently on Mondays vs Fridays, at month-end
+    (when funds rebalance), and during options expiration week (when dealers
+    unwind hedges causing extra volatility).  This function flags those days
+    so the model can learn these patterns.
+
+    Features produced:
+      - dow_monday/dow_friday: day-of-week flags
+      - month_sin/month_cos: cyclical month encoding (captures Jan effect, etc.)
+      - month_end: 1 if this is one of the last 3 trading days of the month
+      - opex_week: 1 if this trading day falls in the same Mon-Fri week as
+        the third Friday of the month (monthly options expiration)
+    """
     result = pd.DataFrame(index=dates)
     result["dow_monday"] = (dates.dayofweek == 0).astype(int)
     result["dow_friday"] = (dates.dayofweek == 4).astype(int)
     result["month_sin"] = np.sin(2 * np.pi * dates.month / 12)
     result["month_cos"] = np.cos(2 * np.pi * dates.month / 12)
-    result["month_end"] = 0
-    result["opex_week"] = 0
-    for i, date in enumerate(dates):
-        month_dates = dates[(dates.year == date.year) & (dates.month == date.month)]
-        if len(month_dates) >= 3 and date in month_dates[-3:]:
-            result.iloc[i, result.columns.get_loc("month_end")] = 1
+
+    # ── Vectorized month_end: last 3 trading days of each month ──────────
+    # PLAIN ENGLISH: Instead of looping through every date (slow O(n²)),
+    # group dates by (year, month) and rank from the end.  The last 3 dates
+    # in each group get flagged.  This is 100x faster for large date ranges.
+    s = pd.Series(np.arange(len(dates)), index=dates)
+    group_rank = s.groupby([dates.year, dates.month]).rank(
+        method="first", ascending=False
+    )
+    result["month_end"] = (group_rank <= 3).astype(int)
+
+    # ── OpEx week: the week containing the third Friday of each month ────
+    # PLAIN ENGLISH: Monthly options expiration (OpEx) is the third Friday
+    # of every month.  Massive open interest expires that day, causing
+    # dealers to unwind delta hedges and creating abnormal volume/volatility.
+    # The effect begins Monday of that week as dealers start adjusting.
+    # We flag the entire Mon-Fri week so the model can learn this pattern.
+    first_month = dates.min().replace(day=1)
+    last_month = dates.max().replace(day=1) + pd.offsets.MonthBegin(1)
+    month_starts = pd.date_range(first_month, last_month, freq="MS")
+
+    opex_weeks = set()
+    for ms in month_starts:
+        # Third Friday = first Friday of month + 14 calendar days.
+        # First Friday: offset from day 1 based on its weekday.
+        first_day_dow = ms.weekday()  # 0=Mon, 4=Fri
+        days_to_friday = (4 - first_day_dow) % 7
+        first_friday = ms + pd.Timedelta(days=days_to_friday)
+        third_friday = first_friday + pd.Timedelta(days=14)
+        # Flag Mon-Fri of that week (third_friday is Friday, so Mon = Fri - 4)
+        week_monday = third_friday - pd.Timedelta(days=4)
+        for d in range(5):
+            opex_weeks.add(week_monday + pd.Timedelta(days=d))
+
+    result["opex_week"] = dates.normalize().isin(opex_weeks).astype(int)
+
     return result
 
 

@@ -108,6 +108,7 @@ reads.
 ```bash
 python3 core_satellite_nested_walkforward.py                    # full run (recommended weekly)
 python3 core_satellite_nested_walkforward.py --fast             # smoke test (~10 min instead of hours)
+python3 core_satellite_nested_walkforward.py --stable-grid --no-resume  # pinned alpha-decay baseline
 python3 core_satellite_nested_walkforward.py --no-resume        # ignore checkpoint, start fresh
 python3 core_satellite_nested_walkforward.py --workers 1        # single-threaded (debug)
 python3 core_satellite_nested_walkforward.py --no-low-memory    # faster on 32+ GB machines
@@ -125,6 +126,7 @@ python3 core_satellite_nested_walkforward.py --no-low-memory    # faster on 32+ 
 | `--max-specs N` | `48` | Maximum number of feature specs to load. Reducing this shrinks the factor panel and speeds up each evaluation, but may drop useful features. |
 | `--output-prefix NAME` | `core_satellite_nested_walkforward` | Prefix for output files. Changes the JSON/CSV filenames under `signals/`. Using a non-default prefix **disables** automatic live config publishing (safety: debug runs shouldn't overwrite production approvals). |
 | `--fast` | off | Use a reduced grid (~32 configs instead of 384) and fewer knob combinations. Good for smoke tests. Still runs proper nested validation — just with fewer candidates. |
+| `--stable-grid` | off | Use the pinned alpha-decay baseline grid (~24 configs): holding days 20, overlay 50%, MA 100, regime-adaptive scoring, sticky-score weighting, defensive risk control; only shape, high-vol mode, and TQQQ weight remain tunable. Auto-publishing is disabled unless `--publish-live-config` is passed. |
 | `--publish-live-config` | auto | Force writing approval state to `signals/core_satellite_live_configs.json`, even for bounded/debug runs. Normally, runs with `--fast`, `--max-folds`, `--max-configs`, custom `--output-prefix`, or partial year windows do NOT publish (to prevent debug runs from overwriting production approvals). |
 | `--no-publish-live-config` | — | Never write approval state. Useful for dry-run full validations where you want to inspect results without affecting production. |
 | `--resume` / `--no-resume` | `--resume` | Resume from the last checkpoint if available. After each outer fold completes, progress is saved to `signals/walkforward_checkpoint_core_alpha.json`. If the run crashes or you Ctrl-C, re-running picks up from the last completed fold. Use `--no-resume` to force a clean start (e.g. after changing strategy code). The checkpoint auto-invalidates if you change the config grid or fold range. |
@@ -648,6 +650,12 @@ The nested walkforward grid is deliberately coarse to prevent overfitting:
 **Total: 384 configs per outer fold.** TQQQ is only held during `risk_on`
 regime — 0% in neutral/risk_off. The grid search decides whether any TQQQ
 allocation helps on a risk-adjusted basis.
+
+For alpha-decay diagnosis, `--stable-grid` pins the repeatedly selected
+dimensions (`h=20`, `overlay_gross=0.50`, `ma=100`, `score=regime_adaptive`,
+`weighting=sticky_score`, `risk=defensive`) and tests only shape, high-vol
+mode, and TQQQ weight. This is an A/B research baseline and will not publish
+live approval state unless forced with `--publish-live-config`.
 
 Cost stress is an approval gate, not a selector: report base metrics at 1×
 costs, then approve only if the same config passes 2×/3×/5× checks.

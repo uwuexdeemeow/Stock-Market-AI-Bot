@@ -232,6 +232,8 @@ DEFAULT_MIN_TRAIN_YEARS = 3
 RISK_CONTROL_MODES = ("off",)
 FULL_RISK_CONTROL_MODES = ("off", "defensive")
 FULL_TQQQ_WEIGHTS = (0.0, 0.10, 0.20, 0.30)
+STABLE_GRID_TQQQ_WEIGHTS = FULL_TQQQ_WEIGHTS
+STABLE_GRID_HIGH_VOL_MODES = ("fixed", "percentile")
 # Survivorship gate thresholds — tuned for the limited audit data reality:
 # Only 5 of 17 known failed tickers have local parquet data.  With a
 # 147-ticker universe, random chance alone would select them ~20 times.
@@ -568,6 +570,28 @@ def iter_candidate_configs(
             if max_configs is not None and len(configs) >= int(max_configs):
                 return configs
     return configs
+
+
+def stable_grid_candidate_configs(
+    *,
+    strategy: str = "core-alpha",
+    max_configs: int | None = None,
+) -> list[dict]:
+    """Return the pinned research grid for alpha-decay baseline testing."""
+    return iter_candidate_configs(
+        strategy=strategy,
+        holding_days=(20,),
+        overlay_gross=(0.50,),
+        ma_windows=(100,),
+        high_vol_values=(0.30,),
+        high_vol_modes=STABLE_GRID_HIGH_VOL_MODES,
+        score_sources=("regime_adaptive",),
+        shapes=SHAPES,
+        weightings=("sticky_score",),
+        tqqq_weights=STABLE_GRID_TQQQ_WEIGHTS,
+        risk_control_modes=("defensive",),
+        max_configs=max_configs,
+    )
 
 
 # ── Benchmark cache ─────────────────────────────────────────────────────
@@ -1595,6 +1619,7 @@ def run_nested_walkforward(
     min_inner_train_years: int | None = None,
     fast: bool = False,
     full: bool = False,
+    stable_grid: bool = False,
     low_memory: bool = False,
     n_workers: int = 1,
     resume: bool = True,
@@ -1636,6 +1661,14 @@ def run_nested_walkforward(
             strategy=strategy,
             tqqq_weights=FULL_TQQQ_WEIGHTS,
             risk_control_modes=FULL_RISK_CONTROL_MODES,
+            max_configs=max_configs,
+        )
+    elif stable_grid:
+        # ── Stable grid: pinned alpha-decay baseline (~24 configs) ───────
+        # Pins the dimensions that were repeatedly selected in completed
+        # folds and leaves only shape, high-vol mode, and TQQQ weight open.
+        configs = stable_grid_candidate_configs(
+            strategy=strategy,
             max_configs=max_configs,
         )
     else:
@@ -2019,6 +2052,8 @@ def live_config_publish_decision(args: argparse.Namespace) -> tuple[bool, str]:
     debug_reasons: list[str] = []
     if bool(getattr(args, "fast", False)):
         debug_reasons.append("--fast")
+    if bool(getattr(args, "stable_grid", False)):
+        debug_reasons.append("--stable-grid")
     if getattr(args, "max_folds", None) is not None:
         debug_reasons.append("--max-folds")
     if getattr(args, "max_configs", None) is not None:
@@ -2078,6 +2113,10 @@ def main() -> None:
     parser.add_argument("--full", action="store_true",
                         help="Use the exhaustive grid (768 configs) for overnight runs. "
                              "Default is a balanced 192-config grid (~1 hour on laptop)")
+    parser.add_argument("--stable-grid", action="store_true",
+                        help="Use the pinned stable research grid (~24 configs): "
+                             "h=20, ov=0.50, ma=100, regime_adaptive, "
+                             "sticky_score, defensive risk; tunes shape, vol mode, and TQQQ.")
     publish_group = parser.add_mutually_exclusive_group()
     publish_group.add_argument(
         "--publish-live-config",
@@ -2174,6 +2213,7 @@ def main() -> None:
             min_inner_train_years=args.min_inner_train_years,
             fast=bool(args.fast),
             full=bool(args.full),
+            stable_grid=bool(args.stable_grid),
             low_memory=bool(args.low_memory),
             n_workers=int(args.workers),
             resume=bool(args.resume),
