@@ -111,6 +111,50 @@
         "worst_oos_max_drawdown_pct": -15.21,
         "worst_oos_return_pct": 3.76,
         "selection_bias_gap_sharpe": 0.177
+      },
+      "medium_risk_review": {
+        "pass": true,
+        "reasons": [],
+        "survivorship_review": {
+          "pass": true,
+          "survivorship_adjusted_score": 0.575,
+          "audit_rebalance_selections": 51,
+          "total_return_delta_pct": -3776.86,
+          "max_drawdown_delta_pct": -3.14
+        },
+        "execution_stress_review": {
+          "pass": true,
+          "failed_scenarios": 0,
+          "worst_stressed_drawdown_pct": -36.25
+        },
+        "factor_decay_review": {
+          "pass": true,
+          "edge_health_status": "advisory",
+          "reason": "rank IC is weak/negative but top-bucket edge and overlay alpha remain positive"
+        }
+      }
+    }
+  },
+  "medium_risk_reviews": {
+    "core-alpha": {
+      "pass": true,
+      "reasons": [],
+      "survivorship_review": {
+        "pass": true,
+        "survivorship_adjusted_score": 0.575,
+        "audit_rebalance_selections": 51,
+        "total_return_delta_pct": -3776.86,
+        "max_drawdown_delta_pct": -3.14
+      },
+      "execution_stress_review": {
+        "pass": true,
+        "failed_scenarios": 0,
+        "worst_stressed_drawdown_pct": -36.25
+      },
+      "factor_decay_review": {
+        "pass": true,
+        "edge_health_status": "advisory",
+        "reason": "rank IC is weak/negative but top-bucket edge and overlay alpha remain positive"
       }
     }
   }

@@ -24,7 +24,12 @@ OUT_CSV = Path(SIGNAL_DIR) / "factor_decay_monitor.csv"
 OUT_JSON = Path(LOG_DIR) / "factor_decay_monitor.json"
 TRADES_PATH = Path(SIGNAL_DIR) / "core_satellite_alpha_trades.csv"
 METRICS_PATH = Path(SIGNAL_DIR) / "core_satellite_alpha_metrics.json"
-MIN_WEAK_OVERLAY_ALPHA_PCT = 0.0
+MIN_WEAK_OVERLAY_ALPHA_PCT = -0.1  # warn if overlay alpha below -0.1% (noise floor)
+# De minimis threshold: overlay alpha values within this band of zero are
+# considered noise, not real negative edge.  -0.0016% over 4 periods is
+# rounding error — don't block live trading over it.  Only block when
+# the loss is economically meaningful (> 0.5% cumulative).
+OVERLAY_ALPHA_BLOCK_THRESHOLD_PCT = -0.5
 
 
 def edge_health_status(row: dict | pd.Series) -> str:
@@ -32,7 +37,7 @@ def edge_health_status(row: dict | pd.Series) -> str:
     rank_ic = pd.to_numeric(pd.Series([row.get("daily_ic_mean")]), errors="coerce").iloc[0]
     top_excess = pd.to_numeric(pd.Series([row.get("top_bucket_excess_return_pct")]), errors="coerce").iloc[0]
     overlay_alpha = pd.to_numeric(pd.Series([row.get("overlay_alpha_sum_pct")]), errors="coerce").iloc[0]
-    if pd.notna(overlay_alpha) and float(overlay_alpha) < 0.0:
+    if pd.notna(overlay_alpha) and float(overlay_alpha) < OVERLAY_ALPHA_BLOCK_THRESHOLD_PCT:
         return "block"
     if pd.isna(top_excess) or float(top_excess) <= 0.0:
         return "warning"

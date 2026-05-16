@@ -134,8 +134,8 @@ DATA_REFRESH_STEPS = [
     ),
     Step(
         "refresh_factor_data",
-        [sys.executable, "research.py"],
-        "Refresh factor panel data (download stock prices, compute factor scores)",
+        [sys.executable, "research.py", "--incremental"],
+        "Refresh factor panel data incrementally (only download new days since last run)",
         critical=True,
     ),
     Step(
@@ -632,6 +632,18 @@ def main():
             )
         except Exception:
             pass
+
+        # ── Send signal files to Telegram ────────────────────────────────
+        # PLAIN ENGLISH: After a successful run, push the signal CSVs
+        # (target weights + orders) to your Telegram chat so you can review
+        # them on your phone without logging into GitHub.  Only sends when
+        # the signal step actually succeeded (no point sending stale files).
+        if not (failed or errors or blocked):
+            try:
+                from notifications import send_signal_summary_telegram
+                send_signal_summary_telegram()
+            except Exception as exc:
+                print(f"  ⚠ Telegram signal delivery failed: {exc}")
 
     # Exit with failure code if any step failed
     if failed or errors or blocked:

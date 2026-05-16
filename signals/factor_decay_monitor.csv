@@ -1,3 +1,3 @@
-lookback_days,daily_ic_mean,daily_ic_positive_rate,top_bucket_excess_return_pct,observations,overlay_periods,overlay_return_sum_pct,overlay_hit_rate,overlay_alpha_sum_pct,top_selected_ticker,top_selected_count,as_of,rank_ic_warning,overlay_alpha_warning,warning
-60,-0.07858,0.3488,0.5379,6321,4,3.2257,0.75,3.2257,GM,3,2026-04-17,True,False,True
-120,-0.06079,0.3171,0.7189,12054,8,9.198,0.625,9.198,COF,6,2026-04-17,True,False,True
+lookback_days,daily_ic_mean,daily_ic_positive_rate,top_bucket_excess_return_pct,observations,overlay_periods,overlay_return_sum_pct,overlay_hit_rate,overlay_alpha_sum_pct,top_selected_ticker,top_selected_count,as_of,rank_ic_warning,overlay_alpha_warning,edge_health_status,warning
+60,-0.00443,0.5238,4.8716,2604,4,-0.0016,0.5,-0.0016,TSLA,2,2026-04-29,True,True,advisory,False
+120,-0.09974,0.3373,1.8568,5146,8,0.7025,0.5,0.7025,C,6,2026-04-29,True,False,advisory,False

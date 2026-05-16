@@ -19,15 +19,15 @@
 name: Daily Paper Trading
 
 on:
-  # ── Automatic schedule (UNCOMMENT when ready to go live) ────────
-  # schedule:
-  #   # 14:35 UTC = 9:35 AM ET during daylight saving (Mar-Nov)
-  #   #            = 10:35 AM ET during standard time (Nov-Mar)
-  #   # Either way it's after market open.  Runs Mon-Fri; daily_run.py
-  #   # skips weekends & NYSE holidays internally.
-  #   - cron: "35 14 * * 1-5"
+  # ── Automatic schedule ─────────────────────────────────────────
+  schedule:
+    # 14:35 UTC = 9:35 AM ET during daylight saving (Mar-Nov)
+    #            = 10:35 AM ET during standard time (Nov-Mar)
+    # Either way it's after market open.  Runs Mon-Fri; daily_run.py
+    # skips weekends & NYSE holidays internally.
+    - cron: "35 14 * * 1-5"
 
-  # Manual trigger only (Actions tab → Run workflow)
+  # Manual trigger (Actions tab → Run workflow)
   workflow_dispatch:
     inputs:
       force:
@@ -47,10 +47,13 @@ on:
           - "false"
           - "true"
 
+permissions:
+  contents: write   # needed to push signal files to signals/latest branch
+
 jobs:
   paper-trade:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       # ── 1. Check out the repo ──────────────────────────────────────
@@ -89,6 +92,28 @@ jobs:
           restore-keys: |
             data-parquets-
 
+      # ── 5b. Cache signals & logs (gate state persists between runs) ─
+      #    Without this, walkforward approval, factor decay reports, and
+      #    feature quality reports are lost between runs — causing
+      #    paper_ready=False every time.
+      - name: Cache signals and logs state
+        uses: actions/cache@v4
+        with:
+          path: |
+            signals/core_satellite_live_configs.json
+            signals/core_satellite_nested_walkforward.json
+            signals/core_satellite_alpha_metrics.json
+            signals/feature_quality_report.json
+            signals/feature_quality_summary.csv
+            signals/factor_decay_monitor.csv
+            logs/feature_ic_shortlist.csv
+            logs/factor_decay_monitor.json
+            logs/core_satellite_execution_stress.json
+            logs/core_satellite_survivorship_audit.json
+          key: state-files-${{ github.run_number }}
+          restore-keys: |
+            state-files-
+
       # ── 6. Write .env from GitHub Secrets ──────────────────────────
       #    Secrets are stored encrypted in repo settings, injected at
       #    runtime.  The .env file is never committed to git.
@@ -110,6 +135,7 @@ jobs:
           ALERT_EMAIL_TO=${{ secrets.ALERT_EMAIL_TO }}
           PAPER_MODE_STRATEGY=core_satellite_alpha
           PAPER_SIGNAL_TIMEZONE=Asia/Singapore
+          SENTIMENT_ENGINE_LEVEL=vader
           PAPER_GAUNTLET_MAX_AVG_SLIPPAGE_BPS=10
           PAPER_HEALTH_MAX_AVG_SLIPPAGE_BPS=10
           PAPER_HEALTH_MAX_DRAWDOWN_WARN_PCT=-5
@@ -135,7 +161,7 @@ jobs:
       # ── 7. Run the daily pipeline ─────────────────────────────────
       - name: Run daily paper trading (Alpaca only)
         run: |
-          FLAGS="--alpaca --timeout 600"
+          FLAGS="--alpaca --stress --timeout 600"
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
             FLAGS="$FLAGS --force"
           fi
@@ -158,7 +184,28 @@ jobs:
             signals/core_satellite_alpha_orders.csv
           retention-days: 30
 
-      # ── 9. Upload updated data cache ───────────────────────────────
+      # ── 9. Commit signal files back to repo (signals/latest branch) ─
+      #    PLAIN ENGLISH: Push today's signal files to a dedicated branch
+      #    so you can git pull them locally as a failsafe.  This creates
+      #    a commit history of every day's signals for audit/review.
+      #    Uses the built-in GITHUB_TOKEN (no extra secrets needed).
+      - name: Commit signals to repo
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B signals/latest
+          git add -f signals/core_satellite_alpha_signal.csv \
+                     signals/core_satellite_alpha_orders.csv \
+                     signals/core_satellite_alpha_metrics.json \
+                     signals/alpaca_paper_equity.csv \
+                     logs/daily_run_*.json
+          git commit -m "signals: $(date -u +%Y-%m-%d) daily run #${{ github.run_number }}" || echo "No signal changes to commit"
+          git push origin signals/latest --force
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 10. Upload updated data cache ──────────────────────────────
       #    Save any new parquet data so the next run starts with it.
       - name: Save data cache
         if: always()
@@ -166,3 +213,23 @@ jobs:
         with:
           path: data/
           key: data-parquets-${{ github.run_number }}
+
+      # ── 10. Save updated state files ──────────────────────────────
+      #    Gate reports and approval configs updated during this run
+      #    must persist for the next run to see paper_ready=True.
+      - name: Save state files cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            signals/core_satellite_live_configs.json
+            signals/core_satellite_nested_walkforward.json
+            signals/core_satellite_alpha_metrics.json
+            signals/feature_quality_report.json
+            signals/feature_quality_summary.csv
+            signals/factor_decay_monitor.csv
+            logs/feature_ic_shortlist.csv
+            logs/factor_decay_monitor.json
+            logs/core_satellite_execution_stress.json
+            logs/core_satellite_survivorship_audit.json
+          key: state-files-${{ github.run_number }}

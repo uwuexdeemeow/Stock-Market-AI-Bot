@@ -68,6 +68,45 @@ def _period_to_dates(period: str) -> tuple[str, str]:
     return start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
 
 
+# ── Retry configuration ──────────────────────────────────────────────
+# PLAIN ENGLISH: If yfinance gets rate-limited (HTTP 429) or has a server
+# error (5xx), we wait a bit and try again instead of immediately giving up
+# and falling through to the next provider.  Yahoo rate limits are transient
+# — waiting 2-4 seconds usually resolves them.
+#
+# MAX_RETRIES: how many times to retry before giving up on this provider.
+# RETRY_BASE_DELAY: initial wait in seconds (doubled each retry attempt).
+# So delays are: 2s, 4s, 8s for 3 retries = 14s worst case per ticker.
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 2.0
+
+import time as _time
+
+
+def _is_retryable_error(exc: Exception) -> bool:
+    """Check if an exception is a transient error worth retrying.
+
+    PLAIN ENGLISH: Some errors are permanent (ticker doesn't exist) and some
+    are temporary (server overloaded, rate limited).  We only retry temporary
+    ones.  We check the error message for known patterns like "429" (rate
+    limited), "500/502/503" (server errors), and "timeout".
+    """
+    msg = str(exc).lower()
+    # HTTP 429 Too Many Requests (rate limit)
+    if "429" in msg or "rate limit" in msg or "too many requests" in msg:
+        return True
+    # Server errors (5xx)
+    if any(code in msg for code in ("500", "502", "503", "504")):
+        return True
+    # Network timeouts
+    if "timeout" in msg or "timed out" in msg:
+        return True
+    # Connection reset / refused (transient network issue)
+    if "connection" in msg and ("reset" in msg or "refused" in msg or "aborted" in msg):
+        return True
+    return False
+
+
 # ══════════════════════════════════════════════════════════════════════
 #  PROVIDER 1: yfinance (primary)
 # ══════════════════════════════════════════════════════════════════════
@@ -91,17 +130,18 @@ def _try_yfinance(
     except ImportError:
         return None
 
-    try:
-        # Suppress yfinance's noisy ERROR logging when Yahoo is down.
-        # PLAIN ENGLISH: yfinance prints scary "ERROR" and "Failed download"
-        # messages to stderr even when we're about to fall back to another
-        # provider.  This temporarily silences those so the user doesn't
-        # think something is broken when the fallback is working fine.
-        import logging
-        yf_logger = logging.getLogger("yfinance")
-        old_level = yf_logger.level
-        yf_logger.setLevel(logging.CRITICAL)
+    # Suppress yfinance's noisy ERROR logging when Yahoo is down.
+    # PLAIN ENGLISH: yfinance prints scary "ERROR" and "Failed download"
+    # messages to stderr even when we're about to fall back to another
+    # provider.  This temporarily silences those so the user doesn't
+    # think something is broken when the fallback is working fine.
+    import logging
+    yf_logger = logging.getLogger("yfinance")
+    old_level = yf_logger.level
+    yf_logger.setLevel(logging.CRITICAL)
 
+    last_error: Exception | None = None
+    for attempt in range(MAX_RETRIES + 1):
         try:
             if period and not start:
                 if len(tickers) == 1:
@@ -125,23 +165,34 @@ def _try_yfinance(
                         tickers, start=start, end=end,
                         auto_adjust=auto_adjust, progress=progress, threads=False,
                     )
-        finally:
+
+            if raw is None or raw.empty:
+                # Empty result isn't retryable — ticker might just not exist
+                yf_logger.setLevel(old_level)
+                return None
+
+            # Flatten MultiIndex columns if needed
+            if isinstance(raw.columns, pd.MultiIndex):
+                # For single ticker, yfinance sometimes wraps in MultiIndex
+                if len(tickers) == 1:
+                    raw.columns = raw.columns.get_level_values(0)
+
             yf_logger.setLevel(old_level)
+            return raw
 
-        if raw is None or raw.empty:
-            return None
+        except Exception as e:
+            last_error = e
+            if attempt < MAX_RETRIES and _is_retryable_error(e):
+                # Exponential backoff: 2s, 4s, 8s
+                delay = RETRY_BASE_DELAY * (2 ** attempt)
+                _time.sleep(delay)
+                continue
+            break
 
-        # Flatten MultiIndex columns if needed
-        if isinstance(raw.columns, pd.MultiIndex):
-            # For single ticker, yfinance sometimes wraps in MultiIndex
-            if len(tickers) == 1:
-                raw.columns = raw.columns.get_level_values(0)
-
-        return raw
-
-    except Exception as e:
-        warnings.warn(f"yfinance failed: {e}")
-        return None
+    yf_logger.setLevel(old_level)
+    if last_error:
+        warnings.warn(f"yfinance failed after {attempt + 1} attempts: {last_error}")
+    return None
 
 
 # ══════════════════════════════════════════════════════════════════════

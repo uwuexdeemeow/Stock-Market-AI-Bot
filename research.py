@@ -33,6 +33,13 @@ logging.basicConfig(
 log = logging.getLogger("research")
 
 def research_ticker(ticker: str, start: str, end: str) -> bool:
+    """Build or rebuild the full parquet for a single ticker.
+
+    PLAIN ENGLISH: Downloads all price data from `start` to `end`, computes
+    every technical/factor/sentiment feature, and saves to data/{TICKER}.parquet.
+    This is the FULL rebuild — used when you need to regenerate everything from
+    scratch (new feature added, first run, etc.).
+    """
     df = build_research_feature_frame(ticker, start, end)
     if df.empty:
         log.error("[%s] no data built", ticker)
@@ -53,6 +60,132 @@ def research_ticker(ticker: str, start: str, end: str) -> bool:
         out,
     )
 
+    return True
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INCREMENTAL REFRESH — only download new days since last parquet date
+# ─────────────────────────────────────────────────────────────────────────────
+# PLAIN ENGLISH: Instead of downloading 15 years of data every day, this checks
+# what's already on disk and only downloads the missing recent days.  Features
+# that need a lookback window (e.g. 252-day moving average) are recomputed for
+# the last RECOMPUTE_WINDOW_DAYS so they stay accurate.  This cuts a 10-20 min
+# full rebuild down to ~2-3 minutes for daily CI runs.
+
+# How many calendar days of features to recompute from scratch.
+# Must be larger than the longest lookback window used in any feature (252 days
+# for the 52-week high factor) plus a safety margin for weekends/holidays.
+INCREMENTAL_RECOMPUTE_WINDOW_DAYS = 380
+
+# If an existing parquet is stale by more than this many calendar days,
+# fall back to a full rebuild (incremental savings not worth the complexity).
+INCREMENTAL_MAX_STALENESS_DAYS = 30
+
+
+def research_ticker_incremental(ticker: str, start: str, end: str) -> bool:
+    """Incrementally refresh a ticker's parquet — only fetch new days.
+
+    PLAIN ENGLISH: Looks at the existing parquet for this ticker.  If it already
+    has data up to yesterday, there's nothing to do (skip it).  If it's a few
+    days behind, download only the missing days, rebuild features for a trailing
+    window, and splice the new rows onto the existing data.
+
+    Falls back to a full rebuild if:
+      - No existing parquet exists
+      - The parquet is more than INCREMENTAL_MAX_STALENESS_DAYS behind
+      - The existing parquet has different columns (schema changed)
+
+    Returns True if the parquet is up-to-date after this call.
+    """
+    import pandas as pd
+    from datetime import datetime, timedelta
+
+    out_path = os.path.join(DATA_DIR, f"{ticker}.parquet")
+
+    # ── Check if parquet exists and how stale it is ─────────────────────────
+    if not os.path.exists(out_path):
+        log.info("[%s] no existing parquet — full rebuild", ticker)
+        return research_ticker(ticker, start, end)
+
+    try:
+        existing = pd.read_parquet(out_path)
+    except Exception as exc:
+        log.warning("[%s] existing parquet unreadable (%s) — full rebuild", ticker, exc)
+        return research_ticker(ticker, start, end)
+
+    if existing.empty or not isinstance(existing.index, pd.DatetimeIndex):
+        log.info("[%s] existing parquet empty or no DatetimeIndex — full rebuild", ticker)
+        return research_ticker(ticker, start, end)
+
+    last_date = existing.index.max()
+    today = pd.Timestamp(end)
+    staleness_days = (today - last_date).days
+
+    # Already up-to-date (within 1 calendar day = same or next trading day)
+    if staleness_days <= 1:
+        log.info("[%s] already up-to-date (last=%s) — skipped", ticker, last_date.date())
+        return True
+
+    # Too stale — full rebuild is safer (catches schema changes, delistings, etc.)
+    if staleness_days > INCREMENTAL_MAX_STALENESS_DAYS:
+        log.info(
+            "[%s] stale by %d days (max=%d) — full rebuild",
+            ticker, staleness_days, INCREMENTAL_MAX_STALENESS_DAYS,
+        )
+        return research_ticker(ticker, start, end)
+
+    # ── Incremental path: rebuild from (last_date - recompute_window) to today ─
+    # We need a generous lookback because features like 252-day rolling max need
+    # price history BEFORE the recompute window to produce valid values.
+    recompute_start = last_date - timedelta(days=INCREMENTAL_RECOMPUTE_WINDOW_DAYS)
+    # Clamp to original start date (don't go before available history)
+    if recompute_start < pd.Timestamp(start):
+        recompute_start = pd.Timestamp(start)
+
+    log.info(
+        "[%s] incremental: last=%s, stale=%dd, recomputing from %s",
+        ticker, last_date.date(), staleness_days, recompute_start.date(),
+    )
+
+    # Build features for the recompute window + new days
+    fresh = build_research_feature_frame(
+        ticker, str(recompute_start.date()), end
+    )
+    if fresh.empty:
+        log.error("[%s] incremental build returned empty — keeping existing", ticker)
+        return True  # Don't destroy existing data
+
+    # Schema compatibility check: if columns changed, do a full rebuild
+    if set(fresh.columns) != set(existing.columns):
+        missing_in_fresh = set(existing.columns) - set(fresh.columns)
+        new_in_fresh = set(fresh.columns) - set(existing.columns)
+        if missing_in_fresh:
+            log.info(
+                "[%s] schema changed (lost %d cols) — full rebuild",
+                ticker, len(missing_in_fresh),
+            )
+            return research_ticker(ticker, start, end)
+        # New columns added (e.g. new factor) — full rebuild to fill history
+        if new_in_fresh:
+            log.info(
+                "[%s] schema expanded (+%d cols: %s) — full rebuild",
+                ticker, len(new_in_fresh),
+                ", ".join(sorted(new_in_fresh)[:5]),
+            )
+            return research_ticker(ticker, start, end)
+
+    # ── Splice: keep old rows before recompute_start, use fresh for the rest ──
+    # This preserves the full history while updating the tail with fresh features.
+    old_rows = existing[existing.index < recompute_start]
+    combined = pd.concat([old_rows, fresh], axis=0)
+    combined = combined[~combined.index.duplicated(keep="last")]
+    combined = combined.sort_index()
+
+    combined.to_parquet(out_path, index=True)
+    log.info(
+        "[%s] incremental save: %d rows (was %d, fresh contributed %d) -> %s",
+        ticker, len(combined), len(existing), len(fresh), out_path,
+    )
     return True
 
 def load_shortlist() -> list[str]:
@@ -95,6 +228,11 @@ def main():
     parser.add_argument("--all", action="store_true", help="Build parquets for the full settings.WATCHLIST (default)")
     parser.add_argument("--test", action="store_true")
     parser.add_argument(
+        "--incremental",
+        action="store_true",
+        help="Only download new days since last parquet date (fast daily refresh for CI).",
+    )
+    parser.add_argument(
         "--xs-only",
         action="store_true",
         help="Skip parquet rebuild; only run the cross-sectional rank post-pass on existing parquets.",
@@ -130,10 +268,16 @@ def main():
     else:
         tickers = [t.upper() for t in WATCHLIST]
 
+    # Choose build function: incremental (fast, for CI daily runs) or full rebuild.
+    # PLAIN ENGLISH: --incremental skips tickers that are already up-to-date and
+    # only downloads missing days for ones that are slightly behind.  This makes
+    # daily CI runs 5-10x faster than a full rebuild.
+    build_fn = research_ticker_incremental if args.incremental else research_ticker
+
     ok = True
     built_tickers: list[str] = []
     for t in tickers:
-        built = research_ticker(t, TRAIN_START, TRAIN_END)
+        built = build_fn(t, TRAIN_START, TRAIN_END)
         if built:
             built_tickers.append(t)
         ok = built and ok

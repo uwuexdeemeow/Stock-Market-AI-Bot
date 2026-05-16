@@ -168,6 +168,121 @@ def send_telegram(message: str, *, parse_mode: str = "HTML") -> bool:
         return False
 
 
+def send_telegram_document(file_path: str, *, caption: str = "") -> bool:
+    """Send a file (CSV, JSON, etc.) to Telegram as a document attachment.
+
+    PLAIN ENGLISH: Uploads a file from disk to your Telegram chat via the bot.
+    Use this for sending signal CSVs, order logs, or any file you want to
+    receive on your phone after a CI run.  Telegram supports files up to 50 MB.
+
+    Args:
+        file_path: Path to the file on disk to send.
+        caption: Optional text caption shown below the file in the chat.
+
+    Returns True if the file was sent, False otherwise.
+    """
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return False
+    from pathlib import Path
+    path = Path(file_path)
+    if not path.exists():
+        _log(f"Telegram document skipped — file not found: {file_path}")
+        return False
+    try:
+        import urllib.request
+        import urllib.error
+        # Telegram sendDocument API expects multipart/form-data.
+        # We build it manually to avoid needing the 'requests' library.
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendDocument"
+        boundary = "----PythonFormBoundary7MA4YWxkTrZu0gW"
+        file_data = path.read_bytes()
+        filename = path.name
+
+        body_parts = []
+        # chat_id field
+        body_parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"chat_id\"\r\n\r\n{TELEGRAM_CHAT_ID}".encode())
+        # caption field (optional)
+        if caption:
+            body_parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"caption\"\r\n\r\n{caption}".encode())
+        # document file field
+        body_parts.append(
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"document\"; filename=\"{filename}\"\r\nContent-Type: application/octet-stream\r\n\r\n".encode()
+            + file_data
+        )
+        body_parts.append(f"--{boundary}--\r\n".encode())
+        body = b"\r\n".join(body_parts)
+
+        req = Request(url, data=body, method="POST")
+        req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+        ctx = _ssl_context()
+        with urlopen(req, context=ctx, timeout=30) as resp:
+            return resp.status == 200
+    except Exception as exc:
+        _log(f"Telegram document send failed: {exc}")
+        return False
+
+
+def send_signal_summary_telegram(
+    signal_path: str = "signals/core_satellite_alpha_signal.csv",
+    orders_path: str = "signals/core_satellite_alpha_orders.csv",
+) -> bool:
+    """Send today's signal summary + files to Telegram after a daily run.
+
+    PLAIN ENGLISH: Reads the signal CSV, formats a short text summary showing
+    target weights and any new orders, sends it as a Telegram message, then
+    attaches the full CSV files so you can review details on your phone.
+
+    Called at the end of daily_run.py if the run succeeds.
+    """
+    from pathlib import Path
+    import pandas as pd
+
+    signal_file = Path(signal_path)
+    orders_file = Path(orders_path)
+
+    if not signal_file.exists():
+        _log("No signal file to send via Telegram")
+        return False
+
+    # Build a short human-readable summary
+    try:
+        sig = pd.read_csv(signal_file)
+        lines = ["📊 <b>Daily Signal</b>\n"]
+
+        # Show target weights
+        if "ticker" in sig.columns and "target_weight" in sig.columns:
+            for _, row in sig.iterrows():
+                ticker = row["ticker"]
+                weight = float(row.get("target_weight", 0))
+                if abs(weight) > 0.001:
+                    lines.append(f"  <code>{ticker:6s}</code> → {weight*100:.1f}%")
+
+        # Show order count if orders file exists
+        if orders_file.exists():
+            try:
+                orders = pd.read_csv(orders_file)
+                if not orders.empty:
+                    buys = len(orders[orders.get("side", pd.Series()) == "buy"]) if "side" in orders.columns else 0
+                    sells = len(orders[orders.get("side", pd.Series()) == "sell"]) if "side" in orders.columns else 0
+                    lines.append(f"\n📋 Orders: {buys} buys, {sells} sells")
+            except Exception:
+                pass
+
+        summary = "\n".join(lines)
+    except Exception as exc:
+        summary = f"📊 Signal generated (couldn't parse summary: {exc})"
+
+    # Send text summary first
+    send_telegram(summary)
+
+    # Then attach the CSV files
+    send_telegram_document(str(signal_file), caption="Signal weights")
+    if orders_file.exists():
+        send_telegram_document(str(orders_file), caption="Orders")
+
+    return True
+
+
 # ── Unified send_alert ────────────────────────────────────────────────
 def send_alert(
     message: str,
