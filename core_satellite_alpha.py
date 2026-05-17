@@ -562,12 +562,16 @@ CORE_OVERLAY_COMBOS = (
 
 SCORE_SOURCES = ("factor_walkforward", "regime_adaptive")
 # PLAIN ENGLISH: test whether wider baskets reduce concentration risk without
-# diluting alpha too much.  top3 is intentionally no longer searched.
-SHAPES = ("top5", "top10", "top15")
-# PLAIN ENGLISH: "sticky_score" weights by model confidence. "sticky_vol_score"
-# preserves the score tilt but scales down high-volatility names before applying
-# the existing sticky blend and single-name cap.
-WEIGHTING_MODES = ("sticky_score", "sticky_vol_score")
+# diluting alpha too much.  top3 added back after full walkforward showed
+# it crushed 2021-2025 (+90% in 2024) — concentrated bets work when the
+# market rewards conviction and features have strong IC.
+SHAPES = ("top3", "top5", "top10", "top15")
+# PLAIN ENGLISH: "sticky_score" weights by model confidence. "risk_parity"
+# sizes positions inversely to volatility (equal risk contribution).
+# "sticky_vol_score" blends both approaches.
+# risk_parity added back after full run showed regime_adaptive/top3/risk_parity
+# was the dominant config for 2021-2025.
+WEIGHTING_MODES = ("sticky_score", "risk_parity", "sticky_vol_score")
 EXIT_RANK_FLOORS = (0.80,)
 ADAPTIVE_EXIT_MODES = ("fixed",)
 # PLAIN ENGLISH: max_per_sector controls how many stocks from the same

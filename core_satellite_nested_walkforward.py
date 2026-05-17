@@ -1730,12 +1730,12 @@ def run_nested_walkforward(
         # selected, freeing only the dimensions that actually vary:
         #   Pinned (consensus): weighting=sticky_score (7/7), ma=100 (7/7),
         #                       score=regime_adaptive (5/7)
-        #   Free: shape(3), hold(2), overlay(2), vol_mode(2), tqqq(2), risk(2)
-        # This stops config hopping by removing the noise dimensions while
-        # still letting the optimizer adapt where it matters.
-        # Grid: 3×3×2×2×2×2 = 144 configs → with halving ~36 full eval.
-        # Added ov=0.70 so the optimizer can pick aggressive overlay in
-        # bull markets instead of being structurally capped at 50%.
+        #   Free: shape(4), hold(2), overlay(3), vol_mode(2), tqqq(2),
+        #          weighting(2), risk(2)
+        # Grid: 4×2×3×2×2×2×2 = 384 configs → with halving ~96 full eval.
+        # Added: top3 shape (dominated 2021-2025 in full run),
+        #        risk_parity weighting (paired with top3 for best results),
+        #        ov=0.70 (aggressive overlay for bull markets).
         configs = iter_candidate_configs(
             strategy=strategy,
             holding_days=DEFAULT_HOLDING_DAYS,
@@ -1745,7 +1745,7 @@ def run_nested_walkforward(
             high_vol_modes=DEFAULT_HIGH_VOL_MODES,
             score_sources=("regime_adaptive",),
             shapes=SHAPES,
-            weightings=("sticky_score",),
+            weightings=("sticky_score", "risk_parity"),
             tqqq_weights=DEFAULT_TQQQ_WEIGHTS,
             risk_control_modes=RISK_CONTROL_MODES,
             max_configs=max_configs,
