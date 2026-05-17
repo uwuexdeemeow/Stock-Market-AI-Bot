@@ -32,6 +32,7 @@ from fundamental_features import (
     build_iv_rank_features,
     build_sector_strength_features,
     build_market_breadth_features,
+    build_market_concentration_features,
     build_gap_features,
     build_point_in_time_valuation_features,
     build_volume_features,
@@ -442,6 +443,7 @@ CONSERVATIVE_FEATURE_PREFIXES = (
     "ret_vs_qqq",
     "breadth_",
     "pct_above_",
+    "concentration_",
     "fund_",
     "factor_",
     "xs_rank_",
@@ -682,6 +684,7 @@ def build_research_feature_frame(ticker: str, start: str, end: str) -> pd.DataFr
         build_volume_features(df),
         build_point_in_time_valuation_features(ticker, df),
         build_market_breadth_features(dates, start, end),
+        build_market_concentration_features(dates, start, end),
         # Earnings-surprise features (PEAD): eps_surprise_pct, days_since/to
         # earnings.  Returns neutral values when USE_EARNINGS_DATA=False.
         build_earnings_features_context(ticker, dates),
@@ -745,6 +748,7 @@ def build_live_features_with_latest_news(
         build_volume_features(df),
         build_point_in_time_valuation_features(ticker, df),
         build_market_breadth_features(dates, start_str, end_str),
+        build_market_concentration_features(dates, start_str, end_str),
         # Earnings-surprise features (PEAD): eps_surprise_pct, days_since/to
         # earnings.  Returns neutral values when USE_EARNINGS_DATA=False.
         build_earnings_features_context(ticker, dates),

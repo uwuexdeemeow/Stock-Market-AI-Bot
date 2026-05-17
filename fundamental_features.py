@@ -762,3 +762,115 @@ def build_market_breadth_features(dates: pd.DatetimeIndex, start: str, end: str)
         pass
 
     return result
+
+
+def build_market_concentration_features(dates: pd.DatetimeIndex, start: str, end: str) -> pd.DataFrame:
+    """
+    Build market concentration features using free ETFs �� no panel needed.
+
+    What "market concentration" means:
+        In 2019-2024, a handful of mega-caps (AAPL, MSFT, NVDA, AMZN, GOOG, META, TSLA)
+        drove most of QQQ's returns. When the market is THIS concentrated, a diversified
+        15-stock overlay will lag QQQ because you're diluting into laggards.
+
+        These features let the model learn: "when concentration is high, go top3 and
+        pick the leaders" vs "when breadth is wide, go top15 and capture the broader move."
+
+    How we measure it (all from free ETFs, no per-ticker panel needed):
+        1. QQQ vs QQQE (equal-weight Nasdaq-100)
+           When QQQ >> QQQE, mega-caps are driving all the gains.
+           This is the purest concentration signal for tech-heavy strategies.
+
+        2. SPY vs RSP (equal-weight S&P 500)
+           Same concept but for broad market. Already partially in breadth
+           features, but here we compute multiple timeframes and the LEVEL
+           (cumulative gap) not just the slope.
+
+        3. XLK vs RSP — sector dominance
+           When the tech sector ETF massively outperforms equal-weight market,
+           it signals the "FAANG carrying everything" regime.
+
+        4. Concentration trend — is the gap widening or narrowing?
+           Rising gap = go concentrated. Falling gap = broaden.
+
+    Returns columns:
+        concentration_qqq_vs_eqw_5d   — QQQ minus QQQE 5-day return
+                                         (positive = mega-caps leading)
+        concentration_qqq_vs_eqw_20d  — same but 20-day (more stable signal)
+        concentration_spy_vs_eqw_20d  — SPY minus RSP 20-day return
+        concentration_tech_dom_20d    — XLK minus RSP 20-day return
+                                         (positive = tech dominance)
+        concentration_trend_20d       — 20-day change in the QQQ/QQQE ratio
+                                         (positive = concentration INCREASING)
+        concentration_level           — cumulative QQQ/QQQE ratio level (z-scored)
+                                         High = we're deep in a concentrated market
+    """
+    result = pd.DataFrame(index=dates, data={
+        "concentration_qqq_vs_eqw_5d": 0.0,
+        "concentration_qqq_vs_eqw_20d": 0.0,
+        "concentration_spy_vs_eqw_20d": 0.0,
+        "concentration_tech_dom_20d": 0.0,
+        "concentration_trend_20d": 0.0,
+        "concentration_level": 0.0,
+    })
+
+    try:
+        # Download ETF data: QQQ (cap-weight), QQQE (equal-weight Nasdaq),
+        # RSP (equal-weight S&P), XLK (tech sector)
+        raw = _dp_download_prices(["QQQ", "QQQE", "RSP", "SPY", "XLK"], start=start, end=end)
+
+        if raw.empty:
+            return result
+
+        if isinstance(raw.columns, pd.MultiIndex):
+            close = raw["Close"]
+        else:
+            return result
+
+        def _get(sym: str) -> pd.Series | None:
+            if sym in close.columns:
+                return close[sym].reindex(dates, method="ffill")
+            return None
+
+        qqq = _get("QQQ")
+        qqqe = _get("QQQE")
+        rsp = _get("RSP")
+        spy = _get("SPY")
+        xlk = _get("XLK")
+
+        # QQQ vs QQQE — the core concentration signal
+        if qqq is not None and qqqe is not None:
+            # 5-day return gap
+            result["concentration_qqq_vs_eqw_5d"] = (
+                (qqq.pct_change(5) - qqqe.pct_change(5)).fillna(0.0).values
+            )
+            # 20-day return gap (more stable)
+            result["concentration_qqq_vs_eqw_20d"] = (
+                (qqq.pct_change(20) - qqqe.pct_change(20)).fillna(0.0).values
+            )
+            # Ratio level — are we in a high-concentration regime?
+            ratio = qqq / (qqqe + 1e-9)
+            # Z-score the ratio using trailing 60-day window
+            ratio_mean = ratio.rolling(60, min_periods=20).mean()
+            ratio_std = ratio.rolling(60, min_periods=20).std()
+            z = ((ratio - ratio_mean) / (ratio_std + 1e-9)).fillna(0.0).clip(-3, 3)
+            result["concentration_level"] = z.values
+            # Trend: is concentration increasing or decreasing?
+            result["concentration_trend_20d"] = ratio.pct_change(20).fillna(0.0).values
+
+        # SPY vs RSP — broad market concentration
+        if spy is not None and rsp is not None:
+            result["concentration_spy_vs_eqw_20d"] = (
+                (spy.pct_change(20) - rsp.pct_change(20)).fillna(0.0).values
+            )
+
+        # XLK vs RSP — tech sector dominance
+        if xlk is not None and rsp is not None:
+            result["concentration_tech_dom_20d"] = (
+                (xlk.pct_change(20) - rsp.pct_change(20)).fillna(0.0).values
+            )
+
+    except Exception:
+        pass
+
+    return result

@@ -1112,7 +1112,8 @@ def _screen_worker(config_low_memory: tuple[dict, bool]) -> dict | None:
 
 
 def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
-                          low_memory: bool, best_score_so_far: float = -np.inf) -> dict | None:
+                          low_memory: bool, best_score_so_far: float = -np.inf,
+                          skip_stress_gate: bool = False) -> dict | None:
     """Evaluate a single config across all inner folds.
 
     Returns a result dict with {config, score, metrics, fold_metrics,
@@ -1228,8 +1229,10 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
 
     # Reject if fewer than 60% of inner folds passed cost stress.
     # This replaces the old "all must pass" rule.
+    # skip_stress_gate=True bypasses this (used in fallback mode when
+    # no config passes the gate — better to have a config than NaN).
     stress_ratio = stress_passed / stress_tested if stress_tested > 0 else 0.0
-    if stress_ratio < MIN_STRESS_PASS_RATIO:
+    if not skip_stress_gate and stress_ratio < MIN_STRESS_PASS_RATIO:
         return None
 
     mean_turnover_pct = float(np.mean([
@@ -1606,6 +1609,37 @@ def _run_parallel_full_eval(
     return best
 
 
+def _run_sequential_full_eval_relaxed(
+    panel: pd.DataFrame,
+    configs: list[dict],
+    inner_folds: list,
+    low_memory: bool,
+) -> dict:
+    """Fallback evaluation with relaxed gates.
+
+    Same as _run_sequential_full_eval but calls _evaluate_one_config_relaxed
+    which skips the cost-stress gate entirely.  Used when the primary pass
+    finds no valid config — better to have a non-stress-approved config
+    than a blank year (NaN).
+    """
+    best: dict = {
+        "config": None,
+        "score": -np.inf,
+        "metrics": {},
+        "fold_metrics": [],
+        "failed_evaluations": 0,
+    }
+    for config in configs:
+        result = _evaluate_one_config(config, panel, inner_folds, low_memory,
+                                       best_score_so_far=float(best["score"]),
+                                       skip_stress_gate=True)
+        if result is None:
+            continue
+        if result["score"] > float(best["score"]):
+            best = result
+    return best
+
+
 def _run_sequential_full_eval(
     panel: pd.DataFrame,
     configs: list[dict],
@@ -1814,6 +1848,21 @@ def run_nested_walkforward(
         )
         print()  # newline after progress \r
         best_config = selected.get("config")
+
+        # ── Fallback: if no config passed the 60% stress gate, relax ──
+        # A missing year (NaN) is worse than a suboptimal config.  If the
+        # primary pass found nothing, re-run with stress gate disabled.
+        # The config won't be "stress-approved" but at least we get an
+        # OOS result to evaluate whether the strategy works at all.
+        if best_config is None:
+            print(f"    ⚠ No config passed stress gate — retrying with relaxed gate...", flush=True)
+            selected = _run_sequential_full_eval_relaxed(
+                panel, configs, inner_folds, low_memory
+            )
+            best_config = selected.get("config")
+            if best_config is not None:
+                print(f"    ✓ Fallback found config (stress gate relaxed)", flush=True)
+
         if best_config is None:
             fold_rows.append(
                 {

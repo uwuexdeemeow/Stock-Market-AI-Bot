@@ -1127,7 +1127,7 @@ _ALLOWED_PREFIXES = (
     "vol_ratio", "volume_chg_", "vol_zscore_", "vol_pct_vs_", "vol_trend_",
     "hl_range", "spread_proxy", "roc_", "drawdown_",
     "weekly_", "monthly_", "tf_alignment", "spy_", "qqq_", "vix_", "macro_", "regime",
-    "ret_vs_spy", "ret_vs_qqq", "breadth_", "pct_above_",
+    "ret_vs_spy", "ret_vs_qqq", "breadth_", "pct_above_", "concentration_",
     "factor_",
     # Cross-sectional rank features written by cross_sectional_features.py
     # research-time post-pass.  These are rank-percentile-in-[0,1] features that

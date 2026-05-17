@@ -512,7 +512,7 @@ def strip_sentiment(feature_cols: list[str]) -> list[str]:
         "vol_ratio", "volume_chg_", "vol_zscore_", "vol_pct_vs_", "vol_trend_",
         "hl_range", "spread_proxy", "roc_", "drawdown_",
         "weekly_", "monthly_", "tf_alignment", "spy_", "qqq_", "vix_", "macro_", "regime",
-        "ret_vs_spy", "ret_vs_qqq", "breadth_", "pct_above_",
+        "ret_vs_spy", "ret_vs_qqq", "breadth_", "pct_above_", "concentration_",
         "factor_",
         # Cross-sectional rank features (xs_rank_sector_*, xs_rank_market_*).
         "xs_rank_",
@@ -769,7 +769,7 @@ def _select_feature_cols_bt(df: pd.DataFrame) -> list[str]:
         "vol_ratio", "volume_chg_", "vol_zscore_", "vol_pct_vs_", "vol_trend_",
         "hl_range", "spread_proxy", "roc_", "drawdown_",
         "weekly_", "monthly_", "tf_alignment", "spy_", "qqq_", "vix_", "macro_", "regime",
-        "ret_vs_spy", "ret_vs_qqq", "breadth_", "pct_above_",
+        "ret_vs_spy", "ret_vs_qqq", "breadth_", "pct_above_", "concentration_",
         "factor_",
         # Cross-sectional rank features (must stay in sync with train.py).
         "xs_rank_",
