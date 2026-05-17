@@ -65,7 +65,11 @@ def load_paper_equity(broker: str = "alpaca") -> pd.DataFrame:
 
 
 def load_benchmark(ticker: str = "QQQ", dates: pd.DatetimeIndex | None = None) -> pd.Series:
-    """Load benchmark ETF close prices for the given dates."""
+    """Load benchmark ETF close prices for the given dates.
+
+    Uses reindex with ffill, then drops NaN tails (dates beyond
+    the parquet's range).  Returns only dates with valid prices.
+    """
     path = DATA_DIR / f"{ticker}.parquet"
     if not path.exists():
         return pd.Series(dtype=float)
@@ -73,7 +77,10 @@ def load_benchmark(ticker: str = "QQQ", dates: pd.DatetimeIndex | None = None) -
     df.index = pd.DatetimeIndex(df.index)
     close = df["Close"]
     if dates is not None:
-        close = close.reindex(dates).ffill()
+        # Normalize dates to midnight for matching
+        norm_dates = dates.normalize()
+        close = close.reindex(close.index.union(norm_dates)).ffill()
+        close = close.reindex(norm_dates).dropna()
     return close
 
 
@@ -186,27 +193,34 @@ def compute_scorecard(broker: str = "alpaca") -> dict:
         "spy_return_pct": round(spy_return_pct, 2),
     }
 
-    # ── Slippage analysis ─────��──────────────────────────────────────────
+    # ── Execution quality analysis ───────────────────────────────────────
+    # NOTE: The "price" column in the trade log is the price at SIGNAL
+    # generation time, NOT the limit price.  The gap between signal price
+    # and fill price includes market movement (hours/overnight) plus true
+    # execution slippage.  We report it as "signal-to-fill gap" — a large
+    # gap means either (a) signal is stale by execution time, or (b) bad
+    # fills.  Either way it's alpha leakage.
     trades = load_trade_log()
     slippage_metrics = {}
     if not trades.empty and "filled_avg_price" in trades.columns and "price" in trades.columns:
-        trades["target_price"] = pd.to_numeric(trades["price"], errors="coerce")
+        trades["signal_price"] = pd.to_numeric(trades["price"], errors="coerce")
         trades["fill_price"] = pd.to_numeric(trades["filled_avg_price"], errors="coerce")
-        valid = trades.dropna(subset=["target_price", "fill_price"])
+        valid = trades.dropna(subset=["signal_price", "fill_price"])
         if not valid.empty:
-            # Slippage in basis points (positive = paid more than target)
-            slippage_bps = ((valid["fill_price"] - valid["target_price"]) / valid["target_price"]) * 10000
-            # For sells, negative slippage is bad (sold lower)
+            # Gap in basis points (positive = paid more than signal price)
+            gap_bps = ((valid["fill_price"] - valid["signal_price"]) / valid["signal_price"]) * 10000
+            # For sells, flip sign (selling lower than signal = bad)
             if "side" in valid.columns:
                 sell_mask = valid["side"].str.lower() == "sell"
-                slippage_bps.loc[sell_mask] = -slippage_bps.loc[sell_mask]
+                gap_bps.loc[sell_mask] = -gap_bps.loc[sell_mask]
 
             slippage_metrics = {
-                "mean_slippage_bps": round(float(slippage_bps.mean()), 2),
-                "median_slippage_bps": round(float(slippage_bps.median()), 2),
-                "worst_slippage_bps": round(float(slippage_bps.max()), 2),
+                "mean_signal_to_fill_gap_bps": round(float(gap_bps.mean()), 2),
+                "median_signal_to_fill_gap_bps": round(float(gap_bps.median()), 2),
+                "worst_signal_to_fill_gap_bps": round(float(gap_bps.max()), 2),
                 "total_trades": len(valid),
-                "trades_with_positive_slippage": int((slippage_bps > 0).sum()),
+                "trades_with_adverse_gap": int((gap_bps > 0).sum()),
+                "note": "Includes market movement + execution slippage",
             }
 
     # ── Divergence from predictions ──────────────────────────────────────
@@ -244,10 +258,10 @@ def compute_scorecard(broker: str = "alpaca") -> dict:
                     f"DRAWDOWN_EXCESS: live DD={max_drawdown_pct:.1f}% vs predicted={pred_dd:.1f}%"
                 )
 
-        if slippage_metrics.get("mean_slippage_bps", 0) > 15:
+        if slippage_metrics.get("mean_signal_to_fill_gap_bps", 0) > 50:
             health_flags.append(
-                f"HIGH_SLIPPAGE: mean={slippage_metrics['mean_slippage_bps']:.1f}bps "
-                f"(target <10bps)"
+                f"HIGH_SIGNAL_TO_FILL_GAP: mean={slippage_metrics['mean_signal_to_fill_gap_bps']:.1f}bps "
+                f"(target <50bps — includes market movement between signal & fill)"
             )
 
         # Stale signal check
@@ -334,14 +348,16 @@ def print_scorecard(scorecard: dict) -> None:
     print(f"  {'QQQ':<25} {live.get('qqq_return_pct', 0):>+10.2f}%")
     print(f"  {'SPY':<25} {live.get('spy_return_pct', 0):>+10.2f}%")
 
-    # Slippage
+    # Execution quality (signal-to-fill gap)
     if slip:
-        print(f"\n  EXECUTION QUALITY")
-        print(f"  {'─' * 35}")
-        print(f"  Mean slippage:    {slip.get('mean_slippage_bps', 0):.1f} bps")
-        print(f"  Median slippage:  {slip.get('median_slippage_bps', 0):.1f} bps")
-        print(f"  Worst slippage:   {slip.get('worst_slippage_bps', 0):.1f} bps")
+        print(f"\n  EXECUTION QUALITY (signal → fill gap)")
+        print(f"  {'─' * 45}")
+        print(f"  Mean gap:         {slip.get('mean_signal_to_fill_gap_bps', 0):.1f} bps")
+        print(f"  Median gap:       {slip.get('median_signal_to_fill_gap_bps', 0):.1f} bps")
+        print(f"  Worst gap:        {slip.get('worst_signal_to_fill_gap_bps', 0):.1f} bps")
         print(f"  Total trades:     {slip.get('total_trades', 0)}")
+        print(f"  Adverse fills:    {slip.get('trades_with_adverse_gap', 0)}")
+        print(f"  Note: gap includes market movement + execution slippage")
 
     # Health flags
     if flags:
