@@ -206,7 +206,12 @@ BASE_REGIME = "qqq_trend_switch_overlay70_core55_cashbuffer"
 #   - risk_control: "defensive" almost never wins; moved to --full flag.
 #   - shapes: top5 vs top10 vs top15 all matter — keep all 3.
 DEFAULT_HOLDING_DAYS = (10, 20)
-DEFAULT_OVERLAY_GROSS = (0.25, 0.50)
+# Overlay gross: the fraction of portfolio in stock-picking overlay.
+# 0.25 = conservative (75% core ETFs, 25% picks) — too passive in bull markets
+# 0.50 = balanced
+# 0.70 = aggressive (55% core, 70% picks) — can actually beat QQQ in momentum years
+# The old grid only had 0.25/0.50, which structurally couldn't beat QQQ when it rips.
+DEFAULT_OVERLAY_GROSS = (0.25, 0.50, 0.70)
 DEFAULT_MA_WINDOWS = (100,)
 DEFAULT_HIGH_VOL_VALUES = (0.30,)
 DEFAULT_HIGH_VOL_MODES = ("fixed", "percentile")
@@ -226,7 +231,10 @@ MEDIUM_RISK_FACTOR_DECAY_PATH = Path(LOG_DIR) / "factor_decay_monitor.json"
 DEFAULT_OUTPUT_PREFIX = "core_satellite_nested_walkforward"
 DEFAULT_MAX_SPECS = 48
 DEFAULT_MIN_TRAIN_YEARS = 3
-MAX_INNER_MEAN_TURNOVER_PCT = 400.0
+# Hard cap on mean inner-fold turnover. Configs above this are rejected.
+# Raised from 400→600 because ov=0.70 configs naturally churn more and
+# the SOFT penalty in robustness_scoring.py already handles the economics.
+MAX_INNER_MEAN_TURNOVER_PCT = 600.0
 # "defensive" adds drawdown circuit breakers and vol targeting.
 # Historical walkforward data shows 5/7 years selected defensive —
 # it was incorrectly excluded from the default grid.  Now included.
@@ -1241,25 +1249,34 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
     # 0.5 Sharpe lower on average but rock-solid across regimes.
     stable_score = mean_score - 0.35 * score_std
 
-    # ── QQQ opportunity-cost penalty ─────────────────────────────────
+    # ── QQQ opportunity-cost penalty (v2 — strengthened) ────────────
     # If you can't beat QQQ, why not just hold QQQ?  This penalizes
     # configs that consistently underperform QQQ across inner folds.
-    # The 2019 miss (-14% vs QQQ) happened because the scorer didn't
-    # care about opportunity cost — a "safe" config that trails the
-    # benchmark in every bull market is not actually safe.
     #
-    # Penalty ramps linearly:
+    # v2 changes after seeing 6/8 OOS years trail QQQ despite the
+    # original 0.03 penalty.  Root cause: ov=0.25 configs get high
+    # Sharpe (low vol) but structurally can't beat QQQ in bull markets.
+    # The penalty must offset that Sharpe advantage.
+    #
+    # Base penalty (linear):
     #   mean_alpha_vs_qqq >= 0  → no penalty
-    #   mean_alpha_vs_qqq = -5% → penalty = 0.15
-    #   mean_alpha_vs_qqq = -10% → penalty = 0.30
-    # Scale: 0.03 per percentage point of underperformance vs QQQ.
-    QQQ_PENALTY_RATE = 0.03  # per 1% of QQQ underperformance
+    #   mean_alpha_vs_qqq = -5% → penalty = 0.25
+    #   mean_alpha_vs_qqq = -10% → penalty = 0.50
+    #
+    # Consistency multiplier: if EVERY fold trails QQQ, multiply by 1.5x
+    # because it's structural, not bad luck.
+    QQQ_PENALTY_RATE = 0.05  # per 1% underperformance vs QQQ (was 0.03)
     alpha_vs_qqq_values = [
         float(m.get("alpha_vs_qqq_pct", 0.0) or 0.0)
         for m in fold_metrics
     ]
     mean_alpha_vs_qqq = float(np.mean(alpha_vs_qqq_values)) if alpha_vs_qqq_values else 0.0
     qqq_penalty = max(0.0, -mean_alpha_vs_qqq * QQQ_PENALTY_RATE)
+
+    # Consistency multiplier: ALL folds trailing QQQ = structural problem
+    if len(alpha_vs_qqq_values) >= 3 and all(v < 0 for v in alpha_vs_qqq_values):
+        qqq_penalty *= 1.5
+
     stable_score -= qqq_penalty
 
     return {
@@ -1716,7 +1733,9 @@ def run_nested_walkforward(
         #   Free: shape(3), hold(2), overlay(2), vol_mode(2), tqqq(2), risk(2)
         # This stops config hopping by removing the noise dimensions while
         # still letting the optimizer adapt where it matters.
-        # Grid: 3×2×2×2×2×2 = 96 configs → with halving ~24 full eval.
+        # Grid: 3×3×2×2×2×2 = 144 configs → with halving ~36 full eval.
+        # Added ov=0.70 so the optimizer can pick aggressive overlay in
+        # bull markets instead of being structurally capped at 50%.
         configs = iter_candidate_configs(
             strategy=strategy,
             holding_days=DEFAULT_HOLDING_DAYS,
