@@ -152,19 +152,21 @@ _PARALLEL_WORKERS = int(os.getenv("WALKFORWARD_WORKERS", str(_DEFAULT_WORKERS)))
 # On Windows (spawn), these are set by _init_pool_worker in each child.
 _SHARED_PANEL: pd.DataFrame | None = None
 _SHARED_INNER_FOLDS: list | None = None
+_SHARED_PRIOR_SIGS: list[str] | None = None
 
 
-def _init_pool_worker(panel, inner_folds=None, screen_fold=None):
+def _init_pool_worker(panel, inner_folds=None, screen_fold=None, prior_sigs=None):
     """Initializer for spawn-based Pool workers (Windows).
 
     Called once per worker process at startup.  Sets the module globals
     so worker functions can read them the same way they do on macOS/Linux
     where fork gives copy-on-write access.
     """
-    global _SHARED_PANEL, _SHARED_INNER_FOLDS, _SHARED_SCREEN_FOLD
+    global _SHARED_PANEL, _SHARED_INNER_FOLDS, _SHARED_SCREEN_FOLD, _SHARED_PRIOR_SIGS
     _SHARED_PANEL = panel
     _SHARED_INNER_FOLDS = inner_folds
     _SHARED_SCREEN_FOLD = screen_fold
+    _SHARED_PRIOR_SIGS = prior_sigs
 
 from alpha_factor_backtest import (
     attach_scores,
@@ -1113,7 +1115,8 @@ def _screen_worker(config_low_memory: tuple[dict, bool]) -> dict | None:
 
 def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
                           low_memory: bool, best_score_so_far: float = -np.inf,
-                          skip_stress_gate: bool = False) -> dict | None:
+                          skip_stress_gate: bool = False,
+                          prior_selected_sigs: list[str] | None = None) -> dict | None:
     """Evaluate a single config across all inner folds.
 
     Returns a result dict with {config, score, metrics, fold_metrics,
@@ -1244,13 +1247,16 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
 
     mean_score = float(np.mean(fold_scores))
     score_std = float(np.std(fold_scores, ddof=0)) if len(fold_scores) > 1 else 0.0
-    # Stability penalty: strongly prefer configs that score consistently
-    # across folds.  Old value was 0.10 (barely mattered) — 7 years of
-    # walkforward picked 7 different configs because noisy high-mean
-    # configs beat stable moderate ones.  0.35 makes a config with
-    # std=1.5 lose 0.525 points — enough to prefer a config that's
-    # 0.5 Sharpe lower on average but rock-solid across regimes.
-    stable_score = mean_score - 0.35 * score_std
+    # Stability penalty: mildly prefer configs that score consistently
+    # across folds.  Was 0.35 which crushed concentrated configs (top3)
+    # because 3-stock portfolios have inherently higher per-year variance.
+    # At 0.35, a top3 config with std=1.5 lost 0.525 points — enough to
+    # lose to a mediocre top10 config every time.  Reduced to 0.10 so
+    # the penalty is a tiebreaker, not a dominant selection force.
+    # A config with std=1.5 now loses only 0.15 points — still meaningful
+    # but won't override a 0.3+ Sharpe advantage.
+    STABILITY_PENALTY_WEIGHT = 0.10
+    stable_score = mean_score - STABILITY_PENALTY_WEIGHT * score_std
 
     # ── QQQ opportunity-cost penalty (v2 — strengthened) ────────────
     # If you can't beat QQQ, why not just hold QQQ?  This penalizes
@@ -1282,6 +1288,26 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
 
     stable_score -= qqq_penalty
 
+    # ── Config momentum bonus ──────────────────────────────────────────
+    # Prevent random config-hopping between outer folds.  If this config
+    # was selected in recent prior outer folds, give it a small bonus.
+    # This creates "stickiness" — a config that worked recently gets the
+    # benefit of the doubt, which reduces the 14-unique-in-14-folds noise
+    # problem.
+    #
+    # Bonus = +0.15 if this config matches ≥50% of the last 3 selections.
+    # 0.15 is large enough to break ties but small enough that a config
+    # with genuinely better inner-fold performance will still win.
+    CONFIG_MOMENTUM_BONUS = 0.15
+    momentum_bonus = 0.0
+    if prior_selected_sigs:
+        this_sig = config_signature(config)
+        recent = prior_selected_sigs[-3:]  # last 3 outer folds
+        matches = sum(1 for s in recent if s == this_sig)
+        if matches >= max(1, len(recent) // 2):
+            momentum_bonus = CONFIG_MOMENTUM_BONUS
+            stable_score += momentum_bonus
+
     return {
         "config": config,
         "score": stable_score,
@@ -1296,6 +1322,7 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
             "inner_mean_alpha_vs_spy_pct": round(float(np.mean([float(m.get("alpha_vs_spy_pct", 0.0) or 0.0) for m in fold_metrics])), 2),
             "inner_mean_alpha_vs_qqq_pct": round(mean_alpha_vs_qqq, 2),
             "inner_qqq_opportunity_cost_penalty": round(qqq_penalty, 4),
+            "inner_config_momentum_bonus": round(momentum_bonus, 4),
             "inner_mean_turnover_pct": round(mean_turnover_pct, 2),
             "inner_cost_stress_approval_pass": bool(stress_ratio >= MIN_STRESS_PASS_RATIO),
             "inner_stress_pass_ratio": round(stress_ratio, 2),
@@ -1324,7 +1351,8 @@ def _parallel_worker(config_low_memory_best: tuple[dict, bool, float]) -> dict |
     config, low_memory, best_score = config_low_memory_best
     try:
         return _evaluate_one_config(config, _SHARED_PANEL, _SHARED_INNER_FOLDS,
-                                     low_memory, best_score_so_far=best_score)
+                                     low_memory, best_score_so_far=best_score,
+                                     prior_selected_sigs=_SHARED_PRIOR_SIGS)
     finally:
         # Release any DataFrames the worker created (equity curves,
         # trade logs, benchmark series) so macOS can reclaim pages.
@@ -1405,6 +1433,7 @@ def select_config_from_inner_folds(
     low_memory: bool = False,
     n_workers: int = 1,
     skip_halving: bool = False,
+    prior_selected_sigs: list[str] | None = None,
 ) -> dict:
     best: dict = {
         "config": None,
@@ -1443,10 +1472,12 @@ def select_config_from_inner_folds(
     # ── Phase 2: full evaluation on survivors (or all if no halving) ──
     if n_workers > 1 and _n_configs > 1:
         best = _run_parallel_full_eval(panel, configs, inner_folds,
-                                        low_memory, n_workers)
+                                        low_memory, n_workers,
+                                        prior_selected_sigs=prior_selected_sigs)
     else:
         best = _run_sequential_full_eval(panel, configs, inner_folds,
-                                          low_memory)
+                                          low_memory,
+                                          prior_selected_sigs=prior_selected_sigs)
     return best
 
 
@@ -1551,9 +1582,10 @@ def _run_parallel_full_eval(
     inner_folds: list,
     low_memory: bool,
     n_workers: int,
+    prior_selected_sigs: list[str] | None = None,
 ) -> dict:
     """Phase 2 parallel: full evaluation with early termination."""
-    global _SHARED_PANEL, _SHARED_INNER_FOLDS
+    global _SHARED_PANEL, _SHARED_INNER_FOLDS, _SHARED_PRIOR_SIGS
     best: dict = {
         "config": None,
         "score": -np.inf,
@@ -1571,6 +1603,7 @@ def _run_parallel_full_eval(
 
     _SHARED_PANEL = panel
     _SHARED_INNER_FOLDS = inner_folds
+    _SHARED_PRIOR_SIGS = prior_selected_sigs
     try:
         _quiet_pyarrow_threads()
         _use_spawn = _sys.platform == "win32"
@@ -1584,7 +1617,7 @@ def _run_parallel_full_eval(
         _pool_kw = dict(processes=actual_workers, maxtasksperchild=max_tasks)
         if _use_spawn:
             _pool_kw["initializer"] = _init_pool_worker
-            _pool_kw["initargs"] = (panel, inner_folds)
+            _pool_kw["initargs"] = (panel, inner_folds, None, prior_selected_sigs)
         with ctx.Pool(**_pool_kw) as pool:
             _restore_stderr(_old_fd)
             for result in pool.imap_unordered(_parallel_worker, work, chunksize=1):
@@ -1605,6 +1638,7 @@ def _run_parallel_full_eval(
     finally:
         _SHARED_PANEL = None
         _SHARED_INNER_FOLDS = None
+        _SHARED_PRIOR_SIGS = None
         gc.collect()
     return best
 
@@ -1614,13 +1648,14 @@ def _run_sequential_full_eval_relaxed(
     configs: list[dict],
     inner_folds: list,
     low_memory: bool,
+    prior_selected_sigs: list[str] | None = None,
 ) -> dict:
     """Fallback evaluation with relaxed gates.
 
-    Same as _run_sequential_full_eval but calls _evaluate_one_config_relaxed
-    which skips the cost-stress gate entirely.  Used when the primary pass
-    finds no valid config — better to have a non-stress-approved config
-    than a blank year (NaN).
+    Same as _run_sequential_full_eval but calls _evaluate_one_config
+    with skip_stress_gate=True.  Used when the primary pass finds no
+    valid config — better to have a non-stress-approved config than a
+    blank year (NaN).
     """
     best: dict = {
         "config": None,
@@ -1632,7 +1667,8 @@ def _run_sequential_full_eval_relaxed(
     for config in configs:
         result = _evaluate_one_config(config, panel, inner_folds, low_memory,
                                        best_score_so_far=float(best["score"]),
-                                       skip_stress_gate=True)
+                                       skip_stress_gate=True,
+                                       prior_selected_sigs=prior_selected_sigs)
         if result is None:
             continue
         if result["score"] > float(best["score"]):
@@ -1645,6 +1681,7 @@ def _run_sequential_full_eval(
     configs: list[dict],
     inner_folds: list,
     low_memory: bool,
+    prior_selected_sigs: list[str] | None = None,
 ) -> dict:
     """Phase 2 sequential: full evaluation with early termination."""
     best: dict = {
@@ -1668,7 +1705,8 @@ def _run_sequential_full_eval(
         # Pass current best score for early termination — if this
         # config can't beat it after 2 folds, skip the rest.
         result = _evaluate_one_config(config, panel, inner_folds, low_memory,
-                                       best_score_so_far=float(best["score"]))
+                                       best_score_so_far=float(best["score"]),
+                                       prior_selected_sigs=prior_selected_sigs)
 
         if (cfg_idx + 1) % _GC_EVERY_N_CONFIGS == 0:
             gc.collect()
@@ -1841,10 +1879,19 @@ def run_nested_walkforward(
 
         workers_label = f" ({n_workers} workers)" if n_workers > 1 else ""
         print(f"  {split.outer_year}: selecting from {len(configs)} configs × {len(inner_folds)} inner folds...{workers_label}")
+        # Build prior config signatures for momentum bonus — configs
+        # selected in earlier outer folds get a small score boost to
+        # encourage consistency across folds (reduces config-hopping).
+        prior_sigs = [
+            config_signature(sc["config"])
+            for sc in selected_configs
+        ] if selected_configs else None
+
         selected = select_config_from_inner_folds(
             panel, configs, inner_folds, eval_cache=eval_cache,
             low_memory=low_memory, n_workers=n_workers,
             skip_halving=full,
+            prior_selected_sigs=prior_sigs,
         )
         print()  # newline after progress \r
         best_config = selected.get("config")
@@ -1857,7 +1904,8 @@ def run_nested_walkforward(
         if best_config is None:
             print(f"    ⚠ No config passed stress gate — retrying with relaxed gate...", flush=True)
             selected = _run_sequential_full_eval_relaxed(
-                panel, configs, inner_folds, low_memory
+                panel, configs, inner_folds, low_memory,
+                prior_selected_sigs=prior_sigs,
             )
             best_config = selected.get("config")
             if best_config is not None:
