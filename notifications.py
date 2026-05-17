@@ -109,6 +109,55 @@ def send_macos_notification(title: str, message: str) -> bool:
         return False
 
 
+# ── Windows native toast ─────────────────────────────────────────────
+def send_windows_notification(title: str, message: str) -> bool:
+    """Pop a Windows 10/11 toast notification.
+
+    PLAIN ENGLISH: Uses PowerShell's built-in .NET classes to show a
+    toast notification in the Windows Action Center (bottom-right corner).
+    No third-party packages needed — works on any Windows 10+ machine.
+    Returns True if the notification was sent, False on failure.
+    """
+    try:
+        # Escape single-quotes for PowerShell string
+        safe_msg = message.replace("'", "''").replace("\n", "\\n")
+        safe_title = title.replace("'", "''")
+        # PowerShell script that creates a toast notification using
+        # Windows.UI.Notifications (built into Windows 10+)
+        ps_script = f"""
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
+[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null
+
+$template = @"
+<toast>
+    <visual>
+        <binding template="ToastGeneric">
+            <text>{safe_title}</text>
+            <text>{safe_msg}</text>
+        </binding>
+    </visual>
+</toast>
+"@
+
+$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+$xml.LoadXml($template)
+$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Stock Bot').Show($toast)
+"""
+        subprocess.run(
+            ["powershell", "-NoProfile", "-Command", ps_script],
+            capture_output=True,
+            timeout=10,
+        )
+        return True
+    except FileNotFoundError:
+        # PowerShell not available (not Windows, or stripped install)
+        return False
+    except Exception as exc:
+        _log(f"Windows notification failed: {exc}")
+        return False
+
+
 # ── Email ─────────────────────────────────────────────────────────────
 def send_email(subject: str, body: str) -> bool:
     """Send an email alert via SMTP.
@@ -305,7 +354,7 @@ def send_alert(
     _log(f"ALERT [{priority}]: {message}")
 
     results: dict[str, bool] = {
-        "macos": False,
+        "desktop": False,
         "email": False,
         "telegram": False,
     }
@@ -317,10 +366,15 @@ def send_alert(
     emoji = {"info": "ℹ️", "warning": "⚠️", "critical": "🚨"}.get(priority, "⚠️")
     tg_message = f"{emoji} <b>{title}</b>\n{message}"
 
-    # macOS — always send (you might be at your desk)
-    results["macos"] = send_macos_notification(title, message)
+    # Desktop notification — detect OS and use the right method.
+    # macOS uses osascript, Windows uses PowerShell toast.
+    import sys
+    if sys.platform == "darwin":
+        results["desktop"] = send_macos_notification(title, message)
+    elif sys.platform == "win32":
+        results["desktop"] = send_windows_notification(title, message)
 
-    # Telegram — always send if configured (works when away from Mac)
+    # Telegram — always send if configured (works when away from desk)
     results["telegram"] = send_telegram(tg_message)
 
     # Email — skip for "info" priority to avoid inbox noise
