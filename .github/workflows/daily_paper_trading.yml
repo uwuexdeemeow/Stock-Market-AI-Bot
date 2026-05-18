@@ -2,8 +2,10 @@
 #
 # Runs the Alpaca paper trading pipeline every US trading day.
 #
-# Schedule: 9:35 AM ET (13:35 UTC) on weekdays.
+# Schedule: 9:35 AM New York time on weekdays.
 #   - 5 minutes after market open so price data is fresh.
+#   - GitHub cron is UTC and does not handle DST, so this workflow schedules
+#     both possible UTC times and a gate below runs only the in-season one.
 #   - daily_run.py has its own NYSE holiday guard (skips holidays automatically).
 #
 # Manual trigger: go to Actions tab → "Daily Paper Trading" → "Run workflow".
@@ -21,10 +23,10 @@ name: Daily Paper Trading
 on:
   # ── Automatic schedule ─────────────────────────────────────────
   schedule:
-    # 14:35 UTC = 9:35 AM ET during daylight saving (Mar-Nov)
-    #            = 10:35 AM ET during standard time (Nov-Mar)
-    # Either way it's after market open.  Runs Mon-Fri; daily_run.py
-    # skips weekends & NYSE holidays internally.
+    # 13:35 UTC = 9:35 AM New York during daylight saving time.
+    # 14:35 UTC = 9:35 AM New York during standard time.
+    # The New York schedule gate skips the off-season duplicate trigger.
+    - cron: "35 13 * * 1-5"
     - cron: "35 14 * * 1-5"
 
   # Manual trigger (Actions tab → Run workflow)
@@ -56,18 +58,51 @@ jobs:
     timeout-minutes: 75
 
     steps:
+      # ── 0. DST-safe schedule gate ─────────────────────────────────
+      # GitHub cron is UTC, not America/New_York.  We schedule both possible
+      # 9:35 AM NY equivalents and skip whichever one is wrong for today's
+      # DST offset.  Manual workflow_dispatch runs are always allowed.
+      - name: New York schedule gate
+        id: ny_schedule_gate
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Manual trigger — running."
+            exit 0
+          fi
+
+          NY_OFFSET="$(TZ=America/New_York date +%z)"
+          TRIGGER="${{ github.event.schedule }}"
+          echo "Trigger cron: ${TRIGGER}"
+          echo "New York offset now: ${NY_OFFSET}"
+
+          if [ "${TRIGGER}" = "35 13 * * 1-5" ] && [ "${NY_OFFSET}" = "-0400" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "DST trigger matches 9:35 AM New York — running."
+          elif [ "${TRIGGER}" = "35 14 * * 1-5" ] && [ "${NY_OFFSET}" = "-0500" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "Standard-time trigger matches 9:35 AM New York — running."
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "Off-season duplicate trigger — skipping trading pipeline."
+          fi
+
       # ── 1. Check out the repo ──────────────────────────────────────
       - name: Checkout repository
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/checkout@v4
 
       # ── 2. Set up Python ───────────────────────────────────────────
       - name: Set up Python 3.12
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       # ── 3. Cache pip packages (speeds up subsequent runs) ──────────
       - name: Cache pip packages
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
@@ -77,6 +112,7 @@ jobs:
 
       # ── 4. Install dependencies ────────────────────────────────────
       - name: Install dependencies
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           pip install --upgrade pip
           pip install -r requirements-ci.txt
@@ -85,6 +121,7 @@ jobs:
       #    research.py downloads stock data via yfinance. Caching means
       #    it only downloads deltas (new days) instead of full history.
       - name: Cache data directory
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v4
         with:
           path: data/
@@ -97,6 +134,7 @@ jobs:
       #    feature quality reports are lost between runs — causing
       #    paper_ready=False every time.
       - name: Cache signals and logs state
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v4
         with:
           path: |
@@ -118,6 +156,7 @@ jobs:
       #    Secrets are stored encrypted in repo settings, injected at
       #    runtime.  The .env file is never committed to git.
       - name: Create .env from secrets
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           cat <<'ENVEOF' > .env
           ALPACA_API_KEY=${{ secrets.ALPACA_API_KEY }}
@@ -163,6 +202,7 @@ jobs:
       #    data download + feature build.  Fail fast if credentials are
       #    wrong or Alpaca is having an outage.
       - name: Pre-flight API health check
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           python3 -c "
           import os, sys
@@ -205,6 +245,7 @@ jobs:
       #    Retry once on failure — transient network errors (yfinance
       #    timeouts, rate limits) are common on GitHub runners.
       - name: Run daily paper trading (Alpaca only)
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           FLAGS="--alpaca --timeout 1800"
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
@@ -229,7 +270,7 @@ jobs:
 
       # ── 8. Upload logs as artifact (viewable in Actions tab) ───────
       - name: Upload run logs
-        if: always()
+        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/upload-artifact@v4
         with:
           name: daily-run-logs-${{ github.run_number }}
@@ -247,7 +288,7 @@ jobs:
       #
       #    Skipped on dry-run since no signal files are generated.
       - name: Commit signals to repo
-        if: success() && github.event.inputs.dry_run != 'true'
+        if: ${{ success() && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -288,7 +329,7 @@ jobs:
       # ── 10. Upload updated data cache ──────────────────────────────
       #    Save any new parquet data so the next run starts with it.
       - name: Save data cache
-        if: always()
+        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v4
         with:
           path: data/
@@ -298,7 +339,7 @@ jobs:
       #    Gate reports and approval configs updated during this run
       #    must persist for the next run to see paper_ready=True.
       - name: Save state files cache
-        if: always()
+        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v4
         with:
           path: |
@@ -318,7 +359,7 @@ jobs:
       #    Send a Telegram message if the pipeline failed so you know
       #    immediately (instead of discovering hours later).
       - name: Notify on failure (Telegram)
-        if: failure()
+        if: ${{ failure() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -341,7 +382,7 @@ jobs:
       #    Confirm the daily run finished successfully.  Includes account
       #    equity and order count when available (skipped for dry-runs).
       - name: Notify on success (Telegram)
-        if: success() && github.event.inputs.dry_run != 'true'
+        if: ${{ success() && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
