@@ -336,3 +336,44 @@ jobs:
             -d parse_mode="Markdown" \
             -d text="${MSG}" \
             || echo "⚠ Telegram notification failed (non-fatal)"
+
+      # ── 12. Alert on success ───────────────────────────────────────
+      #    Confirm the daily run finished successfully.  Includes account
+      #    equity and order count when available (skipped for dry-runs).
+      - name: Notify on success (Telegram)
+        if: success() && github.event.inputs.dry_run != 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ]; then
+            echo "TELEGRAM_BOT_TOKEN not set — skipping notification"
+            exit 0
+          fi
+
+          # Pull a couple of stats from artifacts if they exist.
+          ORDERS_LINE=""
+          if [ -f signals/core_satellite_alpha_orders.csv ]; then
+            # Header row + N data rows.  Subtract 1 for the header.
+            N=$(($(wc -l < signals/core_satellite_alpha_orders.csv) - 1))
+            if [ "$N" -lt 0 ]; then N=0; fi
+            ORDERS_LINE="Orders: ${N}%0A"
+          fi
+          EQUITY_LINE=""
+          if [ -f signals/alpaca_paper_equity.csv ]; then
+            # Last line is the most recent equity snapshot.
+            EQ=$(tail -n 1 signals/alpaca_paper_equity.csv | awk -F',' '{print $2}')
+            if [ -n "$EQ" ]; then
+              EQUITY_LINE="Equity: \$${EQ}%0A"
+            fi
+          fi
+
+          MSG="✅ *Daily Paper Trading OK*%0A"
+          MSG="${MSG}Run: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})%0A"
+          MSG="${MSG}${ORDERS_LINE}${EQUITY_LINE}"
+          MSG="${MSG}Time: $(date -u '+%Y-%m-%d %H:%M UTC')"
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d parse_mode="Markdown" \
+            -d text="${MSG}" \
+            || echo "⚠ Telegram notification failed (non-fatal)"
