@@ -13,9 +13,11 @@ JSON, and write it out.  Use this when you trust the CSV results and
 just need to promote them to live.
 
 Usage:
-    # Default: use the most recent fold's selected config (safest for
-    # first deployment).
+    # Default: use the most frequently selected exact config.
     python3 publish_live_config_from_csv.py
+
+    # Use the most recent fold's selected config.
+    python3 publish_live_config_from_csv.py --source latest
 
     # Use the top-family config (most-frequently-selected family of
     # configs, ignoring small variants like overlay and tqqq weight).
@@ -154,7 +156,12 @@ def build_full_config(params: dict, fold_metrics: dict) -> dict:
         "max_gross_exposure": 1.25,
         "max_single_name_weight": 0.25,
         "holding_days": h,
-        "drawdown_circuit_breaker": 0.0,
+        # Drawdown circuit breaker: when portfolio drops 15% from peak,
+        # exit to 100% cash and wait for regime to turn risk_on again.
+        # Was 0.0 (off) — turned on to limit downside since the WF showed
+        # -27.7% worst drawdown.  Stays in cash until regime confirms
+        # recovery rather than letting equity grind further down.
+        "drawdown_circuit_breaker": 0.15,
         "vol_target": 0.0,
         "tqqq_weight": tqqq_weight,
         "risk_control_mode": risk_mode,
@@ -166,11 +173,21 @@ def select_config(df: pd.DataFrame, source: str) -> dict:
     """Return the chosen fold row + the family signature.
 
     source options:
+      "most_common" → most frequently selected exact config, latest occurrence
       "latest"      → most recent fold's selected config
       "best_sharpe" → fold with the highest OOS Sharpe
       "top_family"  → most-frequent family (shape+weighting), latest
                       occurrence of that family
     """
+    if source == "most_common":
+        top_sig = str(df.selected_config.value_counts().index[0])
+        sub = df[df.selected_config.astype(str) == top_sig]
+        row = sub.iloc[-1]
+        return {
+            "row": row,
+            "reason": f"most common exact config ({len(sub)}/{len(df)} folds) — most recent: {int(row.fold_year)}",
+        }
+
     if source == "latest":
         row = df.iloc[-1]
         return {"row": row, "reason": f"latest fold ({int(row.fold_year)})"}
@@ -221,6 +238,7 @@ def compute_aggregate_metrics(df: pd.DataFrame) -> dict:
         "mean_oos_sharpe": round(float(valid.oos_sharpe.mean()), 3),
         "mean_oos_max_drawdown_pct": round(float(valid.oos_max_drawdown_pct.mean()), 2),
         "worst_oos_max_drawdown_pct": round(float(valid.oos_max_drawdown_pct.min()), 2),
+        "worst_oos_turnover_pct": round(float(valid.oos_turnover_pct.max()), 2),
         "mean_oos_alpha_vs_spy_pct": round(float(valid.oos_alpha_vs_spy_pct.mean()), 2),
         "mean_oos_alpha_vs_qqq_pct": round(float(valid.oos_alpha_vs_qqq_pct.mean()), 2),
         "oos_positive_alpha_hit_rate": round(float((valid.oos_alpha_vs_qqq_pct > 0).mean()), 3),
@@ -229,11 +247,30 @@ def compute_aggregate_metrics(df: pd.DataFrame) -> dict:
     }
 
 
+def compute_selected_config_metrics(df: pd.DataFrame, selected_config: str) -> dict:
+    """Return stability stats for the exact config that would be published."""
+    valid = df.dropna(subset=["oos_return_pct"])
+    n = len(valid)
+    if n == 0:
+        return {
+            "selected_config_fold_count": 0,
+            "selected_config_frequency": 0.0,
+            "selected_config_years": [],
+        }
+    selected = valid[valid.selected_config.astype(str) == str(selected_config)]
+    return {
+        "selected_config_fold_count": int(len(selected)),
+        "selected_config_frequency": round(float(len(selected) / n), 4),
+        "selected_config_years": [int(v) for v in selected.fold_year.tolist()],
+    }
+
+
 # ── Build the approval payload (passes thresholds or not) ──────────────
 def build_approval(
     metrics: dict,
     config_family: str,
     force: bool,
+    selected_config_metrics: dict | None = None,
 ) -> dict:
     """Decide approval status based on relaxed thresholds suitable for a
     14-fold walkforward.  The default min_config_frequency was 0.30 but
@@ -243,17 +280,25 @@ def build_approval(
     thresholds = {
         "min_folds": 3,
         "min_config_frequency": 0.20,   # was 0.30; relaxed for 14-fold
+        "min_selected_config_frequency": 0.20,
         "min_mean_oos_sharpe": 0.5,
         "min_oos_alpha_hit_rate": 0.6,
         "max_mean_oos_drawdown_pct": -25.0,
         "max_worst_oos_drawdown_pct": -35.0,
+        "max_worst_oos_turnover_pct": 600.0,
         "max_selection_bias_gap_sharpe": 1.5,
     }
+    selected_config_metrics = selected_config_metrics or {}
+    selected_freq = float(selected_config_metrics.get("selected_config_frequency", 0.0) or 0.0)
     reasons = []
     if metrics["fold_count"] < thresholds["min_folds"]:
         reasons.append(f"folds {metrics['fold_count']} < {thresholds['min_folds']}")
     if metrics["best_config_frequency"] < thresholds["min_config_frequency"]:
         reasons.append(f"config_freq {metrics['best_config_frequency']:.2f} < {thresholds['min_config_frequency']}")
+    if selected_freq < thresholds["min_selected_config_frequency"]:
+        reasons.append(
+            f"selected_config_freq {selected_freq:.2f} < {thresholds['min_selected_config_frequency']}"
+        )
     if metrics["mean_oos_sharpe"] < thresholds["min_mean_oos_sharpe"]:
         reasons.append(f"sharpe {metrics['mean_oos_sharpe']} < {thresholds['min_mean_oos_sharpe']}")
     if metrics["oos_positive_alpha_hit_rate"] < thresholds["min_oos_alpha_hit_rate"]:
@@ -262,6 +307,10 @@ def build_approval(
         reasons.append(f"mean_dd {metrics['mean_oos_max_drawdown_pct']}% < {thresholds['max_mean_oos_drawdown_pct']}%")
     if metrics["worst_oos_max_drawdown_pct"] < thresholds["max_worst_oos_drawdown_pct"]:
         reasons.append(f"worst_dd {metrics['worst_oos_max_drawdown_pct']}% < {thresholds['max_worst_oos_drawdown_pct']}%")
+    if metrics["worst_oos_turnover_pct"] > thresholds["max_worst_oos_turnover_pct"]:
+        reasons.append(
+            f"worst_turnover {metrics['worst_oos_turnover_pct']}% > {thresholds['max_worst_oos_turnover_pct']}%"
+        )
 
     approved = (len(reasons) == 0) or force
     if force and reasons:
@@ -273,6 +322,8 @@ def build_approval(
         "thresholds": thresholds,
         "strategy": "core-alpha",
         "approved_config_family": config_family,
+        "approved_config_fold_count": int(selected_config_metrics.get("selected_config_fold_count", 0) or 0),
+        "approved_config_frequency": selected_freq,
         "source": "manual_csv_publish",
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
@@ -320,6 +371,7 @@ def publish(source: str, force: bool, dry_run: bool):
 
     # 3. Compute aggregate metrics for approval gate
     metrics = compute_aggregate_metrics(df)
+    selected_metrics = compute_selected_config_metrics(df, row.selected_config)
     print("Aggregate metrics (14-fold walkforward):")
     print(f"  Compound return:   {metrics['compound_oos_return_pct']}%")
     print(f"  CAGR:              {metrics['mean_oos_cagr_pct']}%")
@@ -327,11 +379,17 @@ def publish(source: str, force: bool, dry_run: bool):
     print(f"  Mean alpha vs QQQ: {metrics['mean_oos_alpha_vs_qqq_pct']}%")
     print(f"  Hit rate vs QQQ:   {metrics['oos_positive_alpha_hit_rate']}")
     print(f"  Top config freq:   {metrics['best_config_frequency']}")
+    print(
+        "  Selected freq:     "
+        f"{selected_metrics['selected_config_frequency']} "
+        f"({selected_metrics['selected_config_fold_count']}/{metrics['fold_count']} folds)"
+    )
     print(f"  Worst drawdown:    {metrics['worst_oos_max_drawdown_pct']}%")
+    print(f"  Worst turnover:    {metrics['worst_oos_turnover_pct']}%")
     print()
 
     # 4. Build approval payload
-    approval = build_approval(metrics, row.selected_config, force)
+    approval = build_approval(metrics, row.selected_config, force, selected_metrics)
     print(f"Approval verdict: {'✓ APPROVED' if approval['approved'] else '✗ REJECTED'}")
     if approval["reasons"]:
         for r in approval["reasons"]:
@@ -355,12 +413,16 @@ def publish(source: str, force: bool, dry_run: bool):
         "required_cost_stresses": [2.0, 3.0, 5.0],
         "mean_oos_max_drawdown_pct": metrics["mean_oos_max_drawdown_pct"],
         "worst_oos_max_drawdown_pct": metrics["worst_oos_max_drawdown_pct"],
+        "worst_oos_turnover_pct": metrics["worst_oos_turnover_pct"],
         "worst_oos_return_pct": round(float(df.oos_return_pct.min()), 2),
         "selection_bias_gap_sharpe": round(float((df.inner_score - df.oos_sharpe).mean()), 3),
         "medium_risk_review_pass": True,
         "selected_fold_year": int(row.fold_year),
         "selected_fold_sharpe": float(row.oos_sharpe),
         "selected_fold_return_pct": float(row.oos_return_pct),
+        "approved_config_fold_count": selected_metrics["selected_config_fold_count"],
+        "approved_config_frequency": selected_metrics["selected_config_frequency"],
+        "approved_config_years": selected_metrics["selected_config_years"],
     }
 
     # Reuse the existing medium_risk_review block — it's from cost stress
@@ -408,10 +470,13 @@ def publish(source: str, force: bool, dry_run: bool):
         "mean_oos_sharpe": metrics["mean_oos_sharpe"],
         "mean_oos_max_drawdown_pct": metrics["mean_oos_max_drawdown_pct"],
         "worst_oos_max_drawdown_pct": metrics["worst_oos_max_drawdown_pct"],
+        "worst_oos_turnover_pct": metrics["worst_oos_turnover_pct"],
         "mean_oos_alpha_vs_spy_pct": metrics["mean_oos_alpha_vs_spy_pct"],
         "mean_oos_alpha_vs_qqq_pct": metrics["mean_oos_alpha_vs_qqq_pct"],
         "oos_positive_alpha_hit_rate": metrics["oos_positive_alpha_hit_rate"],
         "best_config_frequency": metrics["best_config_frequency"],
+        "approved_config_fold_count": selected_metrics["selected_config_fold_count"],
+        "approved_config_frequency": selected_metrics["selected_config_frequency"],
         "most_common_config": metrics["most_common_config"],
         "live_config_approval": approval,
         "approved_live_config": live_payload["approved_live_configs"]["core-alpha"],
@@ -442,9 +507,9 @@ def publish(source: str, force: bool, dry_run: bool):
 # ── CLI entrypoint ──────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--source", default="latest",
-                        choices=["latest", "best_sharpe", "top_family"],
-                        help="Which config to promote (default: latest)")
+    parser.add_argument("--source", default="most_common",
+                        choices=["most_common", "latest", "best_sharpe", "top_family"],
+                        help="Which config to promote (default: most_common)")
     parser.add_argument("--force", action="store_true",
                         help="Publish even if approval gate fails")
     parser.add_argument("--dry-run", action="store_true",

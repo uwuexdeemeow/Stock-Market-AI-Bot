@@ -15,11 +15,39 @@ from settings import DATA_DIR, LOG_DIR, SECTOR_MAP, SIGNAL_DIR, WATCHLIST
 
 SIGNALS = Path(SIGNAL_DIR)
 LOGS = Path(LOG_DIR)
+# ── Broker-specific file paths ─────────────────────────────────────────
+# PLAIN ENGLISH: paper_health.py originally only worked for Moomoo
+# (because it read paper_trades.csv etc.).  Now it supports both brokers
+# via --broker CLI flag — Alpaca runs swap the paths to alpaca_paper_*.
+# The defaults below remain Moomoo so existing import sites are unchanged.
 PAPER_TRADES = SIGNALS / "paper_trades.csv"
 PAPER_EQUITY = SIGNALS / "paper_equity.csv"
 PAPER_STATUS = SIGNALS / "paper_daily_status.json"
 PAPER_HEALTH = SIGNALS / "paper_health.json"
 CORE_ORDER_PLAN = SIGNALS / "core_satellite_alpha_orders.csv"
+
+
+def _set_broker_paths(broker: str) -> None:
+    """Swap file paths globally based on which broker is being checked.
+
+    Called from main() once at startup.  Other functions reference the
+    module-level globals so this is the single switch point.
+    """
+    global PAPER_TRADES, PAPER_EQUITY, PAPER_STATUS, PAPER_HEALTH
+    broker = broker.lower().strip()
+    if broker == "alpaca":
+        PAPER_TRADES = SIGNALS / "alpaca_paper_log.csv"
+        PAPER_EQUITY = SIGNALS / "alpaca_paper_equity.csv"
+        PAPER_STATUS = SIGNALS / "alpaca_daily_status.json"
+        PAPER_HEALTH = SIGNALS / "alpaca_paper_health.json"
+    elif broker == "moomoo":
+        # Defaults — explicit reassignment so re-runs don't carry over Alpaca paths.
+        PAPER_TRADES = SIGNALS / "paper_trades.csv"
+        PAPER_EQUITY = SIGNALS / "paper_equity.csv"
+        PAPER_STATUS = SIGNALS / "paper_daily_status.json"
+        PAPER_HEALTH = SIGNALS / "paper_health.json"
+    else:
+        raise ValueError(f"Unknown --broker value: {broker!r} (expected 'alpaca' or 'moomoo')")
 MAX_SLIPPAGE_WARN_BPS = float(__import__("os").environ.get("PAPER_HEALTH_MAX_AVG_SLIPPAGE_BPS", "10"))
 MAX_DRAWDOWN_WARN_PCT = float(__import__("os").environ.get("PAPER_HEALTH_MAX_DRAWDOWN_WARN_PCT", "-5"))
 MAX_TICKER_WEIGHT_WARN = float(__import__("os").environ.get("PAPER_HEALTH_MAX_TICKER_WEIGHT", "0.35"))
@@ -886,14 +914,26 @@ def print_health(health: dict) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Summarize Moomoo paper-trading health.")
+    parser = argparse.ArgumentParser(description="Summarize paper-trading health (Alpaca or Moomoo).")
     parser.add_argument("--json", action="store_true", help="Print the health summary as JSON.")
+    parser.add_argument(
+        "--broker",
+        choices=["alpaca", "moomoo"],
+        default="moomoo",
+        help="Which broker's paper-trading state to evaluate. Default: moomoo (backwards compat).",
+    )
     args = parser.parse_args()
 
+    # Swap file paths BEFORE building health — everything downstream
+    # reads the module globals.
+    _set_broker_paths(args.broker)
+
     health = build_health()
+    health["broker"] = args.broker  # tag the report so consumers know which one
     atomic_write_json(health, PAPER_HEALTH)
     LOGS.mkdir(parents=True, exist_ok=True)
-    dated = LOGS / f"paper_health_{datetime.now().strftime('%Y%m%d')}.json"
+    # Different dated filename per broker so they don't clobber each other.
+    dated = LOGS / f"{args.broker}_paper_health_{datetime.now().strftime('%Y%m%d')}.json"
     atomic_write_json(health, dated)
     if args.json:
         print(json.dumps(health, indent=2))

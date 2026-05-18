@@ -1,0 +1,122 @@
+# daily_run.py — Daily Pipeline Orchestrator
+
+## What it does (plain English)
+
+This is the "one command that runs everything" for daily paper trading.
+Instead of running 13+ scripts in the right order, you run `daily_run.py`
+and it handles the orchestration.
+
+It runs the steps below in sequence.  If a CRITICAL step fails,
+downstream steps are skipped so you don't trade on stale data.  If a
+non-critical step fails, it just logs and continues.
+
+## The pipeline
+
+| # | Step | Critical? | What it does |
+|---|------|-----------|--------------|
+| 1 | `refresh_etf_data` | ✓ | Download SPY/QQQ/TQQQ etc. |
+| 2 | `refresh_factor_data` | ✓ | `research.py --incremental` — refresh per-ticker factor panel |
+| 3 | `refresh_feature_quality` | ✓ | `feature_quality_diagnostic.py` — re-rank features |
+| 4 | `fill_monitor` | ✓ | Check yesterday's orders for stuck fills |
+| 5 | `broker_health` | — | Ping Alpaca, alert if down |
+| 6 | `core_satellite_signal` | ✓ | `core_satellite_alpha.py` — generate today's signal |
+| 7 | `alpaca_submit` | — | Send orders to Alpaca paper |
+| 8 | `alpaca_reconcile` | — | Check what filled vs cancelled |
+| 9 | `alpaca_execution_guard` | — | Repair ETF stops, cancel stale orders |
+| 10 | `alpaca_paper_health` | — | Build deep health summary + drift detection |
+| 11 | `alpaca_gauntlet` | — | Run go-live gauntlet check |
+| 12 | `regime_monitor` | — | Detect regime change + alert |
+| 13 | `monitor_heartbeat` | — | Watchdog over all monitors |
+| 14 | `log_cleanup` | — | Disk usage check |
+
+## How to run
+
+```bash
+# Default — run everything
+python3 daily_run.py
+
+# Alpaca only (Moomoo skipped)
+python3 daily_run.py --alpaca
+
+# Both brokers
+python3 daily_run.py --alpaca --moomoo
+
+# Skip data refresh (use existing parquets — useful if you already ran research.py manually)
+python3 daily_run.py --alpaca --skip-refresh
+
+# Per-step timeout in seconds (default 300, increase if research.py needs longer)
+python3 daily_run.py --alpaca --timeout 600
+
+# Dry-run — show what would run without executing
+python3 daily_run.py --dry-run
+
+# Force-run on weekends/holidays
+python3 daily_run.py --force
+
+# Also run stress tests (factor decay, drawdown throttle, execution, survivorship)
+python3 daily_run.py --alpaca --stress
+
+# Side-by-side comparison report (Alpaca vs Moomoo if both ran)
+python3 daily_run.py --alpaca --moomoo --report
+```
+
+## Outputs
+
+| File | What's in it |
+|------|--------------|
+| `logs/daily_run_YYYYMMDD.json` | Per-step results, timings, errors |
+| All artifacts from each step | See individual script docs |
+
+## Schedule
+
+In production, this is scheduled via GitHub Actions:
+
+```yaml
+cron: "35 14 * * 1-5"  # 14:35 UTC = 9:35 AM ET, weekdays only
+```
+
+The workflow file `.github/workflows/daily_paper_trading.yml` invokes
+`python3 daily_run.py --alpaca --timeout 600`.
+
+## Safety features
+
+- **PID lock** — refuses to run if another `daily_run.py` is already
+  running (prevents cron + manual overlap from double-submitting).
+- **Weekend/holiday guard** — skips automatically on weekends and US
+  market holidays.  Use `--force` to override (e.g., for testing).
+- **Critical-step short-circuit** — if a step marked `critical=True`
+  fails, downstream steps don't run.  Better to skip than to trade on
+  broken state.
+- **Per-step timeout** — default 5 min per step (10 min recommended
+  for research.py).
+- **Internal Telegram alert** — sends a warning when any step fails,
+  regardless of the workflow exit code.
+
+## Key concepts
+
+- **Critical step** — a step whose failure means downstream steps can't
+  safely run.  Marked with `critical=True` in the Step dataclass.
+  Example: if data refresh fails, signal generation can't trust prices.
+- **Skipped step** — a step that ran but didn't execute (e.g., in
+  dry-run mode, or because a critical predecessor failed).  Skipped is
+  not the same as failed — it counts as "didn't run" not "broken".
+- **PID lock** — a file (`logs/daily_run.lock`) that the script
+  exclusive-locks while running.  If a second copy can't acquire the
+  lock, it exits cleanly.  Auto-released when the process ends.
+
+## Recent additions
+
+- `alpaca_paper_health` step (May 19, 2026) — added so drift detection
+  vs walkforward runs daily on the Alpaca pipeline.  Previously only
+  ran with `--moomoo` and was silently dead in Alpaca-only mode.
+
+## When something goes wrong
+
+1. Check the Telegram alert — it tells you which step failed.
+2. Read `logs/daily_run_YYYYMMDD.json` for per-step error tails.
+3. Common fixes:
+   - **Refresh timeout** — increase `--timeout` to 600.
+   - **Feature quality stale** — manually run
+     `python3 feature_quality_diagnostic.py --top 48`.
+   - **Market closed** — the Alpaca submit step prompts in interactive
+     mode but auto-proceeds in CI.  Orders queue for next open.

@@ -669,6 +669,46 @@ def main() -> None:
         print_gauntlet_report(result)
         print(f"  Report saved → {out_path}")
 
+    # ── Alert on gauntlet failure ──────────────────────────────────────
+    # PLAIN ENGLISH: Until now the gauntlet wrote a JSON file but never
+    # told anyone when it failed.  A silently-failing gauntlet defeats
+    # the purpose — it's supposed to gate the strategy from real capital.
+    # Send a Telegram warning when status=failed so you actually see it.
+    #
+    # Note: gauntlet "fail" during the first few weeks of paper trading
+    # is EXPECTED (not enough trading days, equity history short).  The
+    # alert is informational — it doesn't halt anything.
+    if result.get("status") == "failed":
+        try:
+            from notifications import send_alert
+            reason = result.get("reason", "unknown")
+            n_days = result.get("trading_days", 0)
+            sharpe = result.get("sharpe", 0)
+            dd = result.get("max_drawdown_pct", 0)
+            msg = (
+                f"Alpaca paper gauntlet FAILED\n"
+                f"Reason: {reason}\n"
+                f"Trading days: {n_days}\n"
+                f"Sharpe: {sharpe} | Max DD: {dd}%"
+            )
+            send_alert(msg, title="Alpaca Gauntlet", priority="warning")
+        except Exception as e:
+            # Notification failure is non-fatal — don't break the CI step.
+            print(f"  ⚠ Could not send gauntlet alert: {e}")
+
+    # Exit code 0 if passed, 1 if failed — lets CI surface the status
+    # to the workflow without depending on string parsing.
+    if result.get("status") == "failed":
+        import sys
+        # Use exit 0 for the first 30 days (data accumulation period) so the
+        # workflow doesn't go red every day for an expected reason.  After
+        # that, fail loudly.
+        n_days = int(result.get("trading_days", 0) or 0)
+        if n_days < 30:
+            print("  (gauntlet failure expected during data accumulation — workflow not failed)")
+            sys.exit(0)
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

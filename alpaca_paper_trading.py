@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 
 from broker_interface import Broker, Order, Position, Fill
-from safe_io import atomic_write_csv
+from safe_io import atomic_write_csv, atomic_write_json
 from settings import SIGNAL_DIR
 from signal_freshness import validate_signal_freshness, validate_signal_sanity
 from alpaca_protection import (
@@ -94,6 +94,12 @@ SIGNAL_FILE = Path(SIGNAL_DIR) / "core_satellite_alpha_signal.csv"
 PAPER_LOG_FILE = Path(SIGNAL_DIR) / "alpaca_paper_log.csv"
 # Equity snapshot file — tracks daily account value for gauntlet
 EQUITY_FILE = Path(SIGNAL_DIR) / "alpaca_paper_equity.csv"
+# PLAIN ENGLISH: Status file mirrors what Moomoo writes to
+# paper_daily_status.json so that core_satellite_alpha.py can compute
+# "sticky" overlay holdings (carry-forward of yesterday's picks) against
+# the RIGHT broker.  Without this, the signal generator reads Moomoo's
+# state even in Alpaca-only mode and computes wrong sticky weights.
+STATUS_FILE = Path(SIGNAL_DIR) / "alpaca_daily_status.json"
 
 # Retry config for price fetches
 PRICE_RETRY_ATTEMPTS = int(os.environ.get("ALPACA_PRICE_RETRIES", "3"))
@@ -648,6 +654,73 @@ def snapshot_equity(broker: AlpacaBroker) -> None:
     print(f"    ✓ Equity snapshot: ${equity:,.2f} → {EQUITY_FILE.name}")
 
 
+def snapshot_status(broker: AlpacaBroker) -> None:
+    """
+    Write a JSON status file mirroring Moomoo's paper_daily_status.json.
+
+    PLAIN ENGLISH: The signal generator (core_satellite_alpha.py) reads a
+    status file to know what the broker is currently holding — it uses
+    this to decide which overlay picks to KEEP across rebalances ("sticky
+    holdings").  Historically only Moomoo wrote a status file, so when
+    you run Alpaca-only the signal was computing sticky weights against
+    Moomoo's stale positions.  This function writes the same structure
+    so the signal can read Alpaca's actual state.
+
+    Position values come from Alpaca's API directly (market_value field),
+    so quantities/values reflect live broker truth, not local trade log.
+    """
+    try:
+        equity = broker.get_equity()
+        cash = broker.get_cash()
+        # Use the raw API for market_value — broker.get_positions() returns
+        # quantity/avg_price only, not current market value.
+        raw_positions = broker._api.list_positions()
+    except Exception as e:
+        print(f"    ⚠ Could not snapshot status: {e}")
+        return
+
+    # Build status dict matching Moomoo's paper_daily_status.json format so
+    # downstream readers (paper_health, core_satellite_alpha) need no
+    # special-casing.  Format contract:
+    #   positions       : {ticker: share_count}      (dict)
+    #   position_values : {ticker: dollar_value}     (dict)
+    # Extra detail goes into position_details (Alpaca-only) since Moomoo
+    # doesn't have unrealized_pl / avg_price at this layer.
+    position_values: dict[str, float] = {}
+    positions: dict[str, int] = {}
+    position_details: list[dict] = []
+    for p in raw_positions:
+        try:
+            ticker = str(p.symbol).upper()
+            qty = int(float(p.qty))
+            mv = float(p.market_value)
+            positions[ticker] = qty
+            position_values[ticker] = round(mv, 2)
+            position_details.append({
+                "ticker": ticker,
+                "quantity": qty,
+                "avg_price": float(p.avg_entry_price),
+                "market_value": round(mv, 2),
+                "unrealized_pl": round(float(p.unrealized_pl), 2),
+            })
+        except Exception:
+            continue
+
+    status = {
+        "broker": "alpaca",
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "account_equity": round(float(equity), 2),
+        "account_cash": round(float(cash), 2),
+        "account_invested": round(float(equity) - float(cash), 2),
+        "position_count": len(position_details),
+        "positions": positions,
+        "position_values": position_values,
+        "position_details": position_details,
+    }
+    atomic_write_json(status, STATUS_FILE)
+    print(f"    ✓ Status snapshot: {len(position_details)} positions → {STATUS_FILE.name}")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # ORDER RECONCILIATION — check if submitted orders actually filled
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1038,6 +1111,10 @@ def main():
     # ── Reconcile mode: check fill statuses of pending orders ──────────
     if args.reconcile:
         reconcile_orders(broker)
+        # Refresh status snapshot too — reconcile may have updated positions
+        # via filled orders, and we want the signal to see the new state on
+        # tomorrow's run.
+        snapshot_status(broker)
         return
 
     # ── Load strategy signal ────────────────────────────────────────────
@@ -1150,10 +1227,20 @@ def main():
 
     if not broker.is_market_open():
         print("  ⚠  Market is CLOSED. Orders will queue for next open.")
-        resp = input("  Continue anyway? [y/N]: ").strip().lower()
-        if resp != "y":
-            print("  Aborted.")
-            return
+        # PLAIN ENGLISH: When this script runs interactively (you typed the
+        # command), we ask before submitting — closed market means weird
+        # spreads and night-time fills.  But in CI/cron there's no human
+        # at the keyboard, so we auto-proceed (queueing for next open is
+        # the desired behavior).  --force overrides either way.
+        if args.force:
+            print("  --force flag set — proceeding anyway.")
+        elif sys.stdin.isatty():
+            resp = input("  Continue anyway? [y/N]: ").strip().lower()
+            if resp != "y":
+                print("  Aborted.")
+                return
+        else:
+            print("  Non-interactive mode — auto-proceeding (orders will queue).")
 
     # ── Core ETF protective stops — clear before rebalance ───────────────
     # PLAIN ENGLISH: Broker-side trailing stops reserve shares. If we are
@@ -1276,6 +1363,11 @@ def main():
     # compute your Sharpe ratio and drawdown over time.  Happens
     # automatically — no need to run a separate command.
     snapshot_equity(broker)
+    # ── Auto-snapshot Alpaca status (positions + equity) for signal ────
+    # PLAIN ENGLISH: The signal generator reads this file to decide which
+    # overlay tickers to KEEP across rebalances (sticky holdings).  Must
+    # reflect what Alpaca actually holds — not Moomoo's stale state.
+    snapshot_status(broker)
 
     # ── Durable core ETF protection ─────────────────────────────────────
     # PLAIN ENGLISH: The local guard only works while this laptop is awake.

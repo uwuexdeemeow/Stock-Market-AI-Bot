@@ -245,6 +245,11 @@ FULL_RISK_CONTROL_MODES = ("off", "defensive")
 FULL_TQQQ_WEIGHTS = (0.0, 0.10, 0.20, 0.30)
 STABLE_GRID_TQQQ_WEIGHTS = FULL_TQQQ_WEIGHTS
 STABLE_GRID_HIGH_VOL_MODES = ("fixed", "percentile")
+RECENT_ALPHA_GRID_SHAPES = ("top3", "top5", "top15")
+RECENT_ALPHA_GRID_OVERLAY_GROSS = (0.50, 0.70)
+RECENT_ALPHA_GRID_TQQQ_WEIGHTS = (0.0, 0.10)
+RECENT_ALPHA_GRID_WEIGHTINGS = ("sticky_score", "risk_parity")
+RECENT_ALPHA_GRID_HIGH_VOL_MODES = ("fixed", "percentile")
 # Survivorship gate thresholds — tuned for the limited audit data reality:
 # Only 5 of 17 known failed tickers have local parquet data.  With a
 # 147-ticker universe, random chance alone would select them ~20 times.
@@ -338,6 +343,7 @@ _APPROVAL_THRESHOLDS: dict[str, dict[str, float]] = {
         "min_oos_alpha_hit_rate": 0.60,          # fraction of folds with positive alpha
         "max_mean_oos_drawdown_pct": -25.0,      # mean max drawdown across folds (negative %)
         "max_worst_oos_drawdown_pct": -35.0,     # worst single-fold max drawdown
+        "max_worst_oos_turnover_pct": 600.0,     # reject one-off churn blowups
         "max_selection_bias_gap_sharpe": 1.50,   # inner-vs-OOS Sharpe gap (overfitting detector)
     },
     "tqqq": {
@@ -347,6 +353,7 @@ _APPROVAL_THRESHOLDS: dict[str, dict[str, float]] = {
         "min_oos_alpha_hit_rate": 0.60,
         "max_mean_oos_drawdown_pct": -20.0,      # tighter — leverage amplifies drawdowns
         "max_worst_oos_drawdown_pct": -25.0,     # must prove regime switching protects in crashes
+        "max_worst_oos_turnover_pct": 600.0,
         "max_selection_bias_gap_sharpe": 1.00,   # tighter — overfitting on leverage is costly
         "min_worst_oos_return_pct": -30.0,       # TQQQ-only: catch crash-year blowups
     },
@@ -603,6 +610,33 @@ def stable_grid_candidate_configs(
         weightings=("sticky_score",),
         tqqq_weights=STABLE_GRID_TQQQ_WEIGHTS,
         risk_control_modes=("defensive",),
+        max_configs=max_configs,
+    )
+
+
+def recent_alpha_grid_candidate_configs(
+    *,
+    strategy: str = "core-alpha",
+    max_configs: int | None = None,
+) -> list[dict]:
+    """Return the focused post-2020 alpha research grid.
+
+    This grid keeps the dimensions the latest 14-fold run favored while
+    leaving only the newer-regime uncertainty open: overlay aggression,
+    concentration, weighting, high-vol mode, and a small TQQQ sleeve.
+    """
+    return iter_candidate_configs(
+        strategy=strategy,
+        holding_days=(20,),
+        overlay_gross=RECENT_ALPHA_GRID_OVERLAY_GROSS,
+        ma_windows=(100,),
+        high_vol_values=(0.30,),
+        high_vol_modes=RECENT_ALPHA_GRID_HIGH_VOL_MODES,
+        score_sources=("regime_adaptive",),
+        shapes=RECENT_ALPHA_GRID_SHAPES,
+        weightings=RECENT_ALPHA_GRID_WEIGHTINGS,
+        tqqq_weights=RECENT_ALPHA_GRID_TQQQ_WEIGHTS,
+        risk_control_modes=("off",),
         max_configs=max_configs,
     )
 
@@ -911,7 +945,11 @@ def approval_status(result: dict) -> dict:
     # ── Existing gates (tightened) ──────────────────────────────────────────
     fold_count = int(result.get("fold_count", 0) or 0)
     config_frequency = float(
-        result.get("best_config_frequency", result.get("config_stability", 0.0)) or 0.0
+        result.get(
+            "approved_config_frequency",
+            result.get("best_config_frequency", result.get("config_stability", 0.0)),
+        )
+        or 0.0
     )
     mean_oos_sharpe = float(result.get("mean_oos_sharpe", 0.0) or 0.0)
     alpha_hit_rate = float(result.get("oos_positive_alpha_hit_rate", 0.0) or 0.0)
@@ -940,6 +978,12 @@ def approval_status(result: dict) -> dict:
         reasons.append(
             f"worst_oos_drawdown={worst_dd:.1f}%<{thresholds['max_worst_oos_drawdown_pct']:.0f}%"
         )
+    if "max_worst_oos_turnover_pct" in thresholds:
+        worst_turnover = float(result.get("worst_oos_turnover_pct", 0.0) or 0.0)
+        if worst_turnover > thresholds["max_worst_oos_turnover_pct"]:
+            reasons.append(
+                f"worst_oos_turnover={worst_turnover:.1f}%>{thresholds['max_worst_oos_turnover_pct']:.0f}%"
+            )
 
     # ── Selection bias gate (new — overfitting detector) ────────────────────
     # The gap between inner (optimized) Sharpe and OOS Sharpe.  A large gap
@@ -1747,6 +1791,7 @@ def run_nested_walkforward(
     fast: bool = False,
     full: bool = False,
     stable_grid: bool = False,
+    recent_alpha_grid: bool = False,
     low_memory: bool = False,
     n_workers: int = 1,
     resume: bool = True,
@@ -1795,6 +1840,15 @@ def run_nested_walkforward(
         # Pins the dimensions that were repeatedly selected in completed
         # folds and leaves only shape, high-vol mode, and TQQQ weight open.
         configs = stable_grid_candidate_configs(
+            strategy=strategy,
+            max_configs=max_configs,
+        )
+    elif recent_alpha_grid:
+        # ── Recent-alpha grid: focused post-2020 research grid (~48 configs)
+        # Keeps the dimensions favored by the latest 14-fold result, but
+        # tests whether overlay aggression, concentration, weighting, vol
+        # mode, and a small TQQQ sleeve are truly robust.
+        configs = recent_alpha_grid_candidate_configs(
             strategy=strategy,
             max_configs=max_configs,
         )
@@ -2089,6 +2143,7 @@ def run_nested_walkforward(
         "mean_oos_max_drawdown_pct": round(float(np.mean(oos_drawdowns)), 2),
         "worst_oos_max_drawdown_pct": round(float(np.min(oos_drawdowns)), 2),
         "mean_oos_turnover_pct": round(float(np.mean(oos_turnovers)), 2),
+        "worst_oos_turnover_pct": round(float(np.max(oos_turnovers)), 2),
         "worst_oos_return_pct": round(float(np.min(oos_returns)) * 100.0, 2),
         "mean_oos_alpha_vs_blend_pct": round(float(np.mean(oos_alpha)), 2),
         "mean_oos_alpha_vs_spy_pct": round(float(np.mean(oos_spy_alpha)), 2),
@@ -2100,6 +2155,8 @@ def run_nested_walkforward(
         "selection_bias_gap_alpha_vs_spy_pct": round(float(np.mean(inner_alpha) - np.mean(oos_spy_alpha)), 2),
         "config_stability": config_stability,
         "best_config_frequency": round(float(most_common_count / len(valid_rows)), 3),
+        "approved_config_fold_count": int(most_common_count),
+        "approved_config_frequency": round(float(most_common_count / len(valid_rows)), 3),
         "most_common_config": most_common_sig,
         "config_frequency": config_frequency,
         "cost_stress_approval_pass": bool(all(row.get("inner_cost_stress_approval_pass", False) for row in valid_rows)),
@@ -2134,8 +2191,11 @@ def run_nested_walkforward(
                 # New gate metrics (drawdown, bias, worst return)
                 "mean_oos_max_drawdown_pct": summary["mean_oos_max_drawdown_pct"],
                 "worst_oos_max_drawdown_pct": summary["worst_oos_max_drawdown_pct"],
+                "worst_oos_turnover_pct": summary["worst_oos_turnover_pct"],
                 "worst_oos_return_pct": summary["worst_oos_return_pct"],
                 "selection_bias_gap_sharpe": summary["selection_bias_gap_sharpe"],
+                "approved_config_fold_count": summary["approved_config_fold_count"],
+                "approved_config_frequency": summary["approved_config_frequency"],
             },
         }
     return apply_medium_risk_review(summary)
@@ -2225,6 +2285,8 @@ def live_config_publish_decision(args: argparse.Namespace) -> tuple[bool, str]:
         debug_reasons.append("--fast")
     if bool(getattr(args, "stable_grid", False)):
         debug_reasons.append("--stable-grid")
+    if bool(getattr(args, "recent_alpha_grid", False)):
+        debug_reasons.append("--recent-alpha-grid")
     if getattr(args, "max_folds", None) is not None:
         debug_reasons.append("--max-folds")
     if getattr(args, "max_configs", None) is not None:
@@ -2288,6 +2350,10 @@ def main() -> None:
                         help="Use the pinned stable research grid (~24 configs): "
                              "h=20, ov=0.50, ma=100, regime_adaptive, "
                              "sticky_score, defensive risk; tunes shape, vol mode, and TQQQ.")
+    parser.add_argument("--recent-alpha-grid", action="store_true",
+                        help="Use the focused recent-alpha research grid (~48 configs): "
+                             "h=20, risk off, ma=100, regime_adaptive; tunes "
+                             "overlay aggression, shape, weighting, vol mode, and TQQQ.")
     publish_group = parser.add_mutually_exclusive_group()
     publish_group.add_argument(
         "--publish-live-config",
@@ -2343,6 +2409,8 @@ def main() -> None:
         ),
     )
     args = parser.parse_args()
+    if sum(bool(flag) for flag in (args.fast, args.full, args.stable_grid, args.recent_alpha_grid)) > 1:
+        parser.error("Choose at most one grid mode: --fast, --full, --stable-grid, or --recent-alpha-grid")
 
     # Force the 'spawn' start method so child workers do NOT inherit PyArrow's
     # background ThreadPool.  With 'fork' (the macOS default before Python 3.12)
@@ -2385,6 +2453,7 @@ def main() -> None:
             fast=bool(args.fast),
             full=bool(args.full),
             stable_grid=bool(args.stable_grid),
+            recent_alpha_grid=bool(args.recent_alpha_grid),
             low_memory=bool(args.low_memory),
             n_workers=int(args.workers),
             resume=bool(args.resume),

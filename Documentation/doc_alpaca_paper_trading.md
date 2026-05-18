@@ -1,0 +1,104 @@
+# alpaca_paper_trading.py — Alpaca Paper Broker
+
+## What it does (plain English)
+
+This script is the bridge between the strategy's daily signal and the
+Alpaca paper-trading account.  Every day it:
+
+1. Reads the latest signal (`core_satellite_alpha_signal.csv`) — which
+   tickers to hold, at what weights.
+2. Reads current Alpaca positions and equity.
+3. Computes the *delta* — what needs to be bought or sold to match
+   target weights.
+4. Submits those orders to Alpaca (paper mode = no real money).
+5. Writes back fresh state files so tomorrow's signal sees the truth:
+   - `alpaca_paper_log.csv` — append-only order log with fill status
+   - `alpaca_paper_equity.csv` — daily equity snapshots
+   - `alpaca_daily_status.json` — current positions + equity (used by
+     the signal generator for "sticky" overlay carry-forward)
+
+It also wires in safety nets — a portfolio drawdown halt, spread guards
+(refuse to trade when bid-ask is too wide), per-ticker fail tracking,
+and broker-side trailing stops on core ETFs.
+
+## Why it exists
+
+Without this script the strategy's signals would just sit in a CSV.
+This is the piece that *acts* on them.
+
+## How to run
+
+```bash
+# Submit today's orders (the normal mode, runs after signal generation)
+python3 alpaca_paper_trading.py --submit
+
+# Reconcile yesterday's pending orders (check what filled vs cancelled)
+python3 alpaca_paper_trading.py --reconcile
+
+# Just show current account state — no orders submitted
+python3 alpaca_paper_trading.py --status
+
+# Force submission even when market is closed (orders queue for next open)
+python3 alpaca_paper_trading.py --submit --force
+
+# Dry-run — show planned orders without sending to Alpaca
+python3 alpaca_paper_trading.py --submit --dry-run
+```
+
+## Inputs
+
+| File | Source | Purpose |
+|------|--------|---------|
+| `signals/core_satellite_alpha_signal.csv` | `core_satellite_alpha.py` | Target weights for today |
+| `.env` | local | `ALPACA_API_KEY`, `ALPACA_SECRET_KEY` |
+
+## Outputs
+
+| File | What's in it |
+|------|--------------|
+| `signals/alpaca_paper_log.csv` | Every order submitted, with fill status |
+| `signals/alpaca_paper_equity.csv` | Daily equity snapshots |
+| `signals/alpaca_daily_status.json` | Current positions, cash, equity |
+| `signals/alpaca_halt_active.txt` | Created when drawdown halt fires |
+
+## Key concepts
+
+- **Paper trading** — fake money but real prices and real fills.  Lets
+  you test a strategy with real-time market behavior, no risk.
+- **Spread guard** — refuses to trade when the bid-ask spread is wider
+  than 1.5%.  Wide spreads mean illiquid markets — you'd get filled at
+  bad prices.  Common when market is closed.
+- **Drawdown halt** — when account drops 12% from peak, stop submitting
+  new buys (sells/stops still allowed).  Auto-clears when account
+  recovers past 50% of halt threshold.
+- **Sticky holdings** — the strategy carries forward yesterday's picks
+  when they still rank well, to reduce churn.  The script reads
+  `alpaca_daily_status.json` so it knows what was held.
+- **Trailing stop** — broker-side sell order that follows the price up.
+  If QQQ goes from $400 to $500, a 5% trailing stop sits at $475.  If
+  $500 then drops to $475, it fires.
+
+## Safety rules
+
+The script has multiple layers of protection:
+
+1. **Duplicate submission check** — refuses to run `--submit` twice in
+   one day unless `--force` is passed.
+2. **Account drawdown halt** — auto-liquidates if portfolio falls 12%
+   from peak (configurable via `PORTFOLIO_DRAWDOWN_HALT_PCT`).
+3. **Spread guard** — skips individual orders when spread > 1.5%
+   (configurable via `MAX_SPREAD_PCT`).
+4. **Market-closed prompt** — when run interactively at market close,
+   asks confirmation before queueing orders.  In CI/cron it auto-proceeds.
+5. **Core ETF trailing stops** — broker-side stops on SPY/QQQ/TQQQ that
+   stay active even if the local machine is offline.
+
+## When to run
+
+Typically:
+- Once per trading day, ~5 minutes after market open (so spreads are tight)
+- Via `daily_run.py --alpaca` which orchestrates the full pipeline
+- Or via GitHub Actions cron at 9:35 AM ET on weekdays
+
+You should not run it more than once a day — the duplicate-submission
+guard catches that anyway, but it's wasted effort.

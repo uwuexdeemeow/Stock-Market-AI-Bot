@@ -212,7 +212,7 @@ ALPACA_STEPS = [
     Step(
         "alpaca_submit",
         [sys.executable, "alpaca_paper_trading.py", "--submit"],
-        "Submit orders to Alpaca paper trading (auto-snapshots equity)",
+        "Submit orders to Alpaca paper trading (auto-snapshots equity + status)",
     ),
     Step(
         "alpaca_reconcile",
@@ -223,6 +223,11 @@ ALPACA_STEPS = [
         "alpaca_execution_guard",
         [sys.executable, "execution_guard.py", "--once"],
         "Repair ETF protection, cancel stale Alpaca orders, and check intraday P&L",
+    ),
+    Step(
+        "alpaca_paper_health",
+        [sys.executable, "paper_health.py", "--broker", "alpaca"],
+        "Build deep health summary for Alpaca (slippage, drift vs walkforward, risk)",
     ),
     Step(
         "alpaca_gauntlet",
