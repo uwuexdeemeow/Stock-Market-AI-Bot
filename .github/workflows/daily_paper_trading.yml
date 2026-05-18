@@ -206,7 +206,7 @@ jobs:
       #    timeouts, rate limits) are common on GitHub runners.
       - name: Run daily paper trading (Alpaca only)
         run: |
-          FLAGS="--alpaca --stress --timeout 600"
+          FLAGS="--alpaca --timeout 600"
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
             FLAGS="$FLAGS --force"
           fi
