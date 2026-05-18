@@ -293,11 +293,16 @@ jobs:
       #    Send a Telegram message if the pipeline failed so you know
       #    immediately (instead of discovering hours later).
       - name: Notify on failure (Telegram)
-        if: failure() && secrets.TELEGRAM_BOT_TOKEN != ''
+        if: failure()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
+          # Skip silently if the bot token isn't configured (e.g. fresh fork)
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ]; then
+            echo "TELEGRAM_BOT_TOKEN not set — skipping notification"
+            exit 0
+          fi
           MSG="🚨 *Daily Paper Trading FAILED*%0A"
           MSG="${MSG}Run: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})%0A"
           MSG="${MSG}Time: $(date -u '+%Y-%m-%d %H:%M UTC')"
