@@ -244,17 +244,42 @@ jobs:
       #    so you can git pull them locally as a failsafe.  This creates
       #    a commit history of every day's signals for audit/review.
       #    Uses the built-in GITHUB_TOKEN (no extra secrets needed).
+      #
+      #    Skipped on dry-run since no signal files are generated.
       - name: Commit signals to repo
-        if: success()
+        if: success() && github.event.inputs.dry_run != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -B signals/latest
-          git add -f signals/core_satellite_alpha_signal.csv \
-                     signals/core_satellite_alpha_orders.csv \
-                     signals/core_satellite_alpha_metrics.json \
-                     signals/alpaca_paper_equity.csv \
-                     logs/daily_run_*.json
+
+          # Add each expected file ONLY if it actually exists (dry-run, partial
+          # failure, or a not-yet-implemented step may leave some missing).
+          added=0
+          for f in \
+              signals/core_satellite_alpha_signal.csv \
+              signals/core_satellite_alpha_orders.csv \
+              signals/core_satellite_alpha_metrics.json \
+              signals/alpaca_paper_equity.csv ; do
+            if [ -f "$f" ]; then
+              git add -f "$f"
+              added=$((added + 1))
+            else
+              echo "  skipping missing file: $f"
+            fi
+          done
+          # daily_run_*.json logs use a glob — only add what's there
+          for f in logs/daily_run_*.json; do
+            if [ -f "$f" ]; then
+              git add -f "$f"
+              added=$((added + 1))
+            fi
+          done
+
+          if [ "$added" -eq 0 ]; then
+            echo "  no signal files to commit — skipping"
+            exit 0
+          fi
           git commit -m "signals: $(date -u +%Y-%m-%d) daily run #${{ github.run_number }}" || echo "No signal changes to commit"
           git push origin signals/latest --force
         env:
