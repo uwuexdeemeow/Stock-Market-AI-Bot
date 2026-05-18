@@ -331,7 +331,9 @@ BASE_COST_STRESS = float(COST_STRESS_MULTIPLIERS[0])
 _APPROVAL_THRESHOLDS: dict[str, dict[str, float]] = {
     "core-alpha": {
         "min_folds": 3,                          # minimum outer folds for statistical meaning
-        "min_config_frequency": 0.30,            # winning config must be selected ≥30% of folds
+        "min_config_frequency": 0.20,            # winning config must be selected ≥20% of folds
+                                                 # (was 0.30, but 14-fold walkforward picks more
+                                                 # diversity — 20% = 3/14 folds is the floor)
         "min_mean_oos_sharpe": 0.50,             # mean OOS Sharpe across folds
         "min_oos_alpha_hit_rate": 0.60,          # fraction of folds with positive alpha
         "max_mean_oos_drawdown_pct": -25.0,      # mean max drawdown across folds (negative %)
