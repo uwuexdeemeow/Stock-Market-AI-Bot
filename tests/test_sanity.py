@@ -850,6 +850,56 @@ def test_inner_selection_rejects_configs_above_turnover_cap(monkeypatch):
     assert selected["metrics"]["inner_mean_turnover_pct"] == 100.0
 
 
+def test_inner_selection_can_treat_stress_gate_as_diagnostic(monkeypatch):
+    configs = [{"name": "research_candidate", "nested_params": {"holding_days": 20}}]
+    folds = [
+        InnerFold(
+            validation_year=2022,
+            train_end=pd.Timestamp("2021-12-31"),
+            validation_start=pd.Timestamp("2022-01-01"),
+            validation_end=pd.Timestamp("2022-12-31"),
+        ),
+        InnerFold(
+            validation_year=2023,
+            train_end=pd.Timestamp("2022-12-31"),
+            validation_start=pd.Timestamp("2023-01-01"),
+            validation_end=pd.Timestamp("2023-12-31"),
+        ),
+    ]
+
+    def fake_evaluate_window(panel, config, start, end):
+        return {
+            "sharpe": 1.0,
+            "total_return_pct": 10.0,
+            "max_drawdown_pct": -5.0,
+            "turnover_pct": 100.0,
+            "alpha_vs_spy_pct": 2.0,
+            "alpha_vs_qqq_pct": 2.0,
+            "alpha_vs_blend_pct": 2.0,
+        }
+
+    def fake_stress_approval(*args, **kwargs):
+        return {
+            "cost_stress_approval_pass": False,
+            "cost_stress_summary": {"all_gates_pass": False},
+        }
+
+    monkeypatch.setattr(nested_wf, "evaluate_window", fake_evaluate_window)
+    monkeypatch.setattr(nested_wf, "nested_cost_stress_approval", fake_stress_approval)
+
+    strict = select_config_from_inner_folds(pd.DataFrame(), configs, folds)
+    relaxed = select_config_from_inner_folds(
+        pd.DataFrame(),
+        configs,
+        folds,
+        skip_stress_gate=True,
+    )
+
+    assert strict["config"] is None
+    assert relaxed["config"]["name"] == "research_candidate"
+    assert relaxed["metrics"]["inner_cost_stress_approval_pass"] is False
+
+
 def test_signal_timestamp_is_timezone_aware():
     ts = pd.Timestamp(_paper_signal_timestamp())
     assert ts.tzinfo is not None

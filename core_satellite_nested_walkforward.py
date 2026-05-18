@@ -1381,7 +1381,7 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
     }
 
 
-def _parallel_worker(config_low_memory_best: tuple[dict, bool, float]) -> dict | None:
+def _parallel_worker(config_low_memory_best: tuple[dict, bool, float, bool]) -> dict | None:
     """Thin wrapper for multiprocessing.Pool — reads panel and folds
     from module-level globals (inherited via fork, no pickling).
 
@@ -1395,10 +1395,11 @@ def _parallel_worker(config_low_memory_best: tuple[dict, bool, float]) -> dict |
     configs (configs that can't beat the current best even with
     perfect remaining fold scores).
     """
-    config, low_memory, best_score = config_low_memory_best
+    config, low_memory, best_score, skip_stress_gate = config_low_memory_best
     try:
         return _evaluate_one_config(config, _SHARED_PANEL, _SHARED_INNER_FOLDS,
                                      low_memory, best_score_so_far=best_score,
+                                     skip_stress_gate=skip_stress_gate,
                                      prior_selected_sigs=_SHARED_PRIOR_SIGS)
     finally:
         # Release any DataFrames the worker created (equity curves,
@@ -1480,6 +1481,7 @@ def select_config_from_inner_folds(
     low_memory: bool = False,
     n_workers: int = 1,
     skip_halving: bool = False,
+    skip_stress_gate: bool = False,
     prior_selected_sigs: list[str] | None = None,
 ) -> dict:
     best: dict = {
@@ -1520,11 +1522,13 @@ def select_config_from_inner_folds(
     if n_workers > 1 and _n_configs > 1:
         best = _run_parallel_full_eval(panel, configs, inner_folds,
                                         low_memory, n_workers,
-                                        prior_selected_sigs=prior_selected_sigs)
+                                        prior_selected_sigs=prior_selected_sigs,
+                                        skip_stress_gate=skip_stress_gate)
     else:
         best = _run_sequential_full_eval(panel, configs, inner_folds,
                                           low_memory,
-                                          prior_selected_sigs=prior_selected_sigs)
+                                          prior_selected_sigs=prior_selected_sigs,
+                                          skip_stress_gate=skip_stress_gate)
     return best
 
 
@@ -1630,6 +1634,7 @@ def _run_parallel_full_eval(
     low_memory: bool,
     n_workers: int,
     prior_selected_sigs: list[str] | None = None,
+    skip_stress_gate: bool = False,
 ) -> dict:
     """Phase 2 parallel: full evaluation with early termination."""
     global _SHARED_PANEL, _SHARED_INNER_FOLDS, _SHARED_PRIOR_SIGS
@@ -1656,7 +1661,7 @@ def _run_parallel_full_eval(
         _use_spawn = _sys.platform == "win32"
         ctx = mp.get_context("spawn" if _use_spawn else "fork")
         best_score = float(best["score"])
-        work = [(config, low_memory, best_score) for config in configs]
+        work = [(config, low_memory, best_score, skip_stress_gate) for config in configs]
         _t0 = time.time()
         completed = 0
         max_tasks = 8 if _n_configs <= 64 else 4
@@ -1711,7 +1716,15 @@ def _run_sequential_full_eval_relaxed(
         "fold_metrics": [],
         "failed_evaluations": 0,
     }
-    for config in configs:
+    _n_configs = len(configs)
+    _t0 = time.time()
+    for cfg_idx, config in enumerate(configs):
+        if cfg_idx > 0 and (cfg_idx % 5 == 0 or cfg_idx == _n_configs - 1):
+            elapsed = time.time() - _t0
+            rate = cfg_idx / elapsed if elapsed > 0 else 0
+            eta = (_n_configs - cfg_idx) / rate if rate > 0 else 0
+            print(f"    [relaxed {cfg_idx}/{_n_configs} configs, "
+                  f"{elapsed:.0f}s elapsed, ~{eta:.0f}s remaining]", flush=True)
         result = _evaluate_one_config(config, panel, inner_folds, low_memory,
                                        best_score_so_far=float(best["score"]),
                                        skip_stress_gate=True,
@@ -1729,6 +1742,7 @@ def _run_sequential_full_eval(
     inner_folds: list,
     low_memory: bool,
     prior_selected_sigs: list[str] | None = None,
+    skip_stress_gate: bool = False,
 ) -> dict:
     """Phase 2 sequential: full evaluation with early termination."""
     best: dict = {
@@ -1753,6 +1767,7 @@ def _run_sequential_full_eval(
         # config can't beat it after 2 folds, skip the rest.
         result = _evaluate_one_config(config, panel, inner_folds, low_memory,
                                        best_score_so_far=float(best["score"]),
+                                       skip_stress_gate=skip_stress_gate,
                                        prior_selected_sigs=prior_selected_sigs)
 
         if (cfg_idx + 1) % _GC_EVERY_N_CONFIGS == 0:
@@ -1936,6 +1951,9 @@ def run_nested_walkforward(
 
         workers_label = f" ({n_workers} workers)" if n_workers > 1 else ""
         print(f"  {split.outer_year}: selecting from {len(configs)} configs × {len(inner_folds)} inner folds...{workers_label}")
+        skip_inner_stress_gate = bool(recent_alpha_grid)
+        if skip_inner_stress_gate:
+            print("    recent-alpha grid: cost-stress gate is diagnostic-only during selection", flush=True)
         # Build prior config signatures for momentum bonus — configs
         # selected in earlier outer folds get a small score boost to
         # encourage consistency across folds (reduces config-hopping).
@@ -1948,6 +1966,7 @@ def run_nested_walkforward(
             panel, configs, inner_folds, eval_cache=eval_cache,
             low_memory=low_memory, n_workers=n_workers,
             skip_halving=full,
+            skip_stress_gate=skip_inner_stress_gate,
             prior_selected_sigs=prior_sigs,
         )
         print()  # newline after progress \r
@@ -1959,7 +1978,7 @@ def run_nested_walkforward(
         # The config won't be "stress-approved" but at least we get an
         # OOS result to evaluate whether the strategy works at all.
         if best_config is None:
-            print(f"    ⚠ No config passed stress gate — retrying with relaxed gate...", flush=True)
+            print(f"    ⚠ No config passed strict inner gates — retrying with relaxed stress gate...", flush=True)
             selected = _run_sequential_full_eval_relaxed(
                 panel, configs, inner_folds, low_memory,
                 prior_selected_sigs=prior_sigs,
