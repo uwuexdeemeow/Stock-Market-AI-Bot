@@ -15,6 +15,7 @@ def test_default_steps_include_one_shared_signal_before_brokers():
     )
     names = _names(steps)
     assert names.count("core_satellite_signal") == 1
+    assert names.index("factor_data_health") < names.index("core_satellite_signal")
     assert names.index("core_satellite_signal") < names.index("moomoo_submit")
     assert names.index("core_satellite_signal") < names.index("alpaca_submit")
     assert "moomoo_signal" not in names
@@ -34,6 +35,7 @@ def test_alpaca_only_still_generates_shared_signal():
     )
     names = _names(steps)
     assert names.count("core_satellite_signal") == 1
+    assert names.index("factor_data_health") < names.index("core_satellite_signal")
     assert names.index("core_satellite_signal") < names.index("alpaca_submit")
     assert "moomoo_submit" not in names
 
@@ -49,8 +51,31 @@ def test_skip_factor_refresh_keeps_etf_refresh_and_signal():
     assert "refresh_etf_data" in names
     assert "refresh_factor_data" not in names
     assert "refresh_feature_quality" not in names
+    assert "factor_data_health" in names
     assert names.index("refresh_etf_data") < names.index("core_satellite_signal")
+    assert names.index("factor_data_health") < names.index("core_satellite_signal")
     assert names.index("core_satellite_signal") < names.index("alpaca_submit")
+
+
+def test_factor_data_health_failure_blocks_signal_and_orders(monkeypatch):
+    steps = daily_run.build_steps(
+        skip_refresh=True,
+        run_moomoo=False,
+        run_alpaca=True,
+    )
+    called: list[str] = []
+
+    def fake_run_step(name, cmd, description, dry_run=False, timeout=300):
+        called.append(name)
+        if name == "factor_data_health":
+            return {"name": name, "status": "failed", "elapsed": 0.1}
+        return {"name": name, "status": "ok", "elapsed": 0.1}
+
+    monkeypatch.setattr(daily_run, "run_step", fake_run_step)
+    results = daily_run.run_steps(steps, dry_run=False, timeout=1)
+    assert called == ["fill_monitor", "broker_health", "factor_data_health"]
+    assert next(r for r in results if r["name"] == "core_satellite_signal")["status"] == "blocked"
+    assert next(r for r in results if r["name"] == "alpaca_submit")["blocked_by"] == "factor_data_health"
 
 
 def test_core_signal_failure_blocks_broker_steps(monkeypatch):

@@ -145,6 +145,7 @@ jobs:
             signals/core_satellite_alpha_metrics.json
             signals/feature_quality_report.json
             signals/feature_quality_summary.csv
+            signals/factor_data_health.json
             signals/factor_decay_monitor.csv
             logs/feature_ic_shortlist.csv
             logs/factor_decay_monitor.json
@@ -280,6 +281,7 @@ jobs:
             logs/
             signals/core_satellite_alpha_signal.csv
             signals/core_satellite_alpha_orders.csv
+            signals/factor_data_health.json
           retention-days: 30
 
       # ── 9. Commit signal files back to repo (signals/latest branch) ─
@@ -350,6 +352,7 @@ jobs:
             signals/core_satellite_alpha_metrics.json
             signals/feature_quality_report.json
             signals/feature_quality_summary.csv
+            signals/factor_data_health.json
             signals/factor_decay_monitor.csv
             logs/feature_ic_shortlist.csv
             logs/factor_decay_monitor.json

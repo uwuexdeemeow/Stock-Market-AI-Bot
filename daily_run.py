@@ -181,6 +181,13 @@ CORE_SATELLITE_SIGNAL_STEP = Step(
     critical=True,
 )
 
+FACTOR_DATA_HEALTH_STEP = Step(
+    "factor_data_health",
+    [sys.executable, "factor_data_health.py", "--strict"],
+    "Validate restored factor data cache before signal generation",
+    critical=True,
+)
+
 # Steps for Moomoo core-satellite strategy
 MOOMOO_STEPS = [
     Step(
@@ -399,6 +406,7 @@ def build_steps(
             f"Pre-flight broker connectivity check ({', '.join(health_flags)})",
             critical=False,
         ))
+        steps.append(FACTOR_DATA_HEALTH_STEP)
         steps.append(CORE_SATELLITE_SIGNAL_STEP)
     if run_moomoo:
         steps.extend(MOOMOO_STEPS)
