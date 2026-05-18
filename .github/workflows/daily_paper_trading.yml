@@ -169,15 +169,15 @@ jobs:
           from dotenv import load_dotenv
           load_dotenv()
 
-          # -- Alpaca connectivity --
+          # -- Alpaca connectivity (uses alpaca-trade-api, same as the bot) --
           try:
-              from alpaca.trading.client import TradingClient
-              client = TradingClient(
+              from alpaca_trade_api import REST
+              api = REST(
                   os.environ['ALPACA_API_KEY'],
                   os.environ['ALPACA_SECRET_KEY'],
-                  paper=True
+                  base_url='https://paper-api.alpaca.markets',
               )
-              acct = client.get_account()
+              acct = api.get_account()
               print(f'✓ Alpaca OK — equity: \${float(acct.equity):,.0f}')
           except Exception as e:
               print(f'✗ Alpaca health check FAILED: {e}')
