@@ -237,3 +237,113 @@ def sidebar_refresh() -> None:
         if st.button("🔄 Refresh", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
+
+
+# ── Subprocess runner with live streaming + logging ────────────────────
+import subprocess
+import sys as _sys
+from pathlib import Path as _Path
+from datetime import datetime as _datetime
+
+
+def run_script(cmd: list[str], label: str, *,
+               cwd: str | _Path | None = None,
+               max_lines_shown: int = 200) -> dict:
+    """Run a subprocess and stream its output into the Streamlit UI.
+
+    PLAIN ENGLISH: Click a button → this function fires the command,
+    captures its output line by line, and shows it live in the page.
+    Also tees the full output to logs/dashboard_*.log for later review.
+
+    Returns a dict with:
+        success    : bool
+        returncode : int
+        log_file   : Path
+        line_count : int
+
+    The page calls this synchronously — Streamlit blocks until the
+    command exits.  For a script that takes hours (nested walkforward)
+    use run_script_async() instead (TODO).
+    """
+    # Where to save the live log file
+    log_dir = _Path(cwd or ".") / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stamp = _datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_label = "".join(ch if ch.isalnum() or ch in "_-" else "_" for ch in label.lower())
+    log_file = log_dir / f"dashboard_{stamp}_{safe_label}.log"
+
+    # Header box showing the command being executed
+    st.info(f"▶ **{label}**\n```\n{' '.join(cmd)}\n```")
+    # Live output area
+    output_box = st.empty()
+    lines: list[str] = []
+
+    # Run the subprocess with line-buffered output
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            cwd=str(cwd) if cwd else None,
+            env={**__import__("os").environ, "PYTHONUNBUFFERED": "1"},
+        )
+    except FileNotFoundError as e:
+        st.error(f"✗ Command not found: {e}")
+        return {"success": False, "returncode": -1, "log_file": log_file, "line_count": 0}
+
+    with open(log_file, "w", encoding="utf-8") as f:
+        if proc.stdout is None:
+            proc.wait()
+        else:
+            for raw in iter(proc.stdout.readline, ""):
+                line = raw.rstrip("\n")
+                lines.append(line)
+                f.write(raw)
+                f.flush()
+                # Throttle UI updates — only redraw every 5 lines (or last lines)
+                # to avoid Streamlit slowdown on bursty output.
+                if len(lines) % 5 == 0 or len(line) > 80:
+                    output_box.code("\n".join(lines[-max_lines_shown:]), language="text")
+            proc.stdout.close()
+        rc = proc.wait()
+
+    # Final redraw + verdict
+    output_box.code("\n".join(lines[-max_lines_shown:]) or "(no output)", language="text")
+    if rc == 0:
+        st.success(f"✓ **{label}** finished successfully  ·  {len(lines)} lines  ·  log: `{log_file.name}`")
+    else:
+        st.error(f"✗ **{label}** failed with exit code {rc}  ·  log: `{log_file.name}`")
+
+    return {
+        "success": rc == 0,
+        "returncode": rc,
+        "log_file": log_file,
+        "line_count": len(lines),
+    }
+
+
+def script_button(label: str, cmd: list[str], *,
+                  key: str | None = None,
+                  help_text: str | None = None,
+                  expected_runtime: str = "fast",
+                  destructive: bool = False) -> None:
+    """Render a button that runs a script when clicked.
+
+    expected_runtime: free-text label ("fast", "1-3 min", "hours") —
+        shown as a small caption so the user knows what to expect.
+    destructive: if True, the button uses a warning style.  Use for
+        submit/order operations that send real orders.
+    """
+    btn_label = label
+    if expected_runtime and expected_runtime != "fast":
+        btn_label = f"{label}  ·  ⏱ {expected_runtime}"
+    if destructive:
+        btn_label = f"⚠️  {btn_label}"
+
+    if st.button(btn_label, key=key, help=help_text, use_container_width=True):
+        run_script(cmd, label, cwd=_Path(__file__).resolve().parent.parent)
+        # Invalidate cached data after any script run — chances are some
+        # signal/log file just changed and the dashboard should reflect it.
+        st.cache_data.clear()
