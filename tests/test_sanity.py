@@ -737,6 +737,48 @@ def test_nested_live_approval_uses_specific_config_frequency_and_turnover():
     assert any(reason.startswith("worst_oos_turnover=") for reason in approval["reasons"])
 
 
+def _wf_sig(
+    *,
+    shape: str = "top5",
+    weighting: str = "sticky_score",
+    tqqq: float = 0.0,
+    risk: str = "off",
+    h: int = 20,
+    ov: float = 0.5,
+    vol_mode: str = "fixed",
+) -> str:
+    return (
+        f"h={h},ov={ov},ma=100,vol={vol_mode}:0.3,"
+        f"score=regime_adaptive,shape={shape},weighting={weighting},"
+        f"tqqq={tqqq},risk={risk}"
+    )
+
+
+def test_stable_family_signature_keeps_tqqq_separate():
+    no_tqqq = nested_wf.stable_family_signature_from_config_signature(_wf_sig(tqqq=0.0))
+    with_tqqq = nested_wf.stable_family_signature_from_config_signature(_wf_sig(tqqq=0.1))
+
+    assert no_tqqq != with_tqqq
+    assert no_tqqq.endswith("tqqq=0.0")
+    assert with_tqqq.endswith("tqqq=0.1")
+
+
+def test_stable_family_tiebreak_prefers_no_tqqq_then_lower_drawdown():
+    rows = [
+        {"selected_config": _wf_sig(shape="top3", tqqq=0.1), "outer_year": 2025, "oos_cagr_pct": 20, "oos_sharpe": 3.0, "oos_max_drawdown_pct": -4.0, "oos_turnover_pct": 100, "oos_alpha_vs_spy_pct": 5, "oos_alpha_vs_qqq_pct": 4},
+        {"selected_config": _wf_sig(shape="top3", tqqq=0.1, vol_mode="percentile"), "outer_year": 2026, "oos_cagr_pct": 21, "oos_sharpe": 3.1, "oos_max_drawdown_pct": -4.5, "oos_turnover_pct": 110, "oos_alpha_vs_spy_pct": 5, "oos_alpha_vs_qqq_pct": 4},
+        {"selected_config": _wf_sig(shape="top5", tqqq=0.0), "outer_year": 2023, "oos_cagr_pct": 12, "oos_sharpe": 1.1, "oos_max_drawdown_pct": -5.0, "oos_turnover_pct": 90, "oos_alpha_vs_spy_pct": 4, "oos_alpha_vs_qqq_pct": 3},
+        {"selected_config": _wf_sig(shape="top5", tqqq=0.0, vol_mode="percentile"), "outer_year": 2024, "oos_cagr_pct": 13, "oos_sharpe": 1.0, "oos_max_drawdown_pct": -6.0, "oos_turnover_pct": 95, "oos_alpha_vs_spy_pct": 4, "oos_alpha_vs_qqq_pct": 3},
+        {"selected_config": _wf_sig(shape="top15", tqqq=0.0), "outer_year": 2021, "oos_cagr_pct": 15, "oos_sharpe": 2.0, "oos_max_drawdown_pct": -10.0, "oos_turnover_pct": 80, "oos_alpha_vs_spy_pct": 4, "oos_alpha_vs_qqq_pct": 3},
+        {"selected_config": _wf_sig(shape="top15", tqqq=0.0, vol_mode="percentile"), "outer_year": 2022, "oos_cagr_pct": 16, "oos_sharpe": 2.2, "oos_max_drawdown_pct": -11.0, "oos_turnover_pct": 85, "oos_alpha_vs_spy_pct": 4, "oos_alpha_vs_qqq_pct": 3},
+    ]
+
+    families = nested_wf.stable_family_frequency(rows)
+
+    assert families[0]["stable_family_signature"] == "score=regime_adaptive,shape=top5,weighting=sticky_score,risk=off,tqqq=0.0"
+    assert families[0]["uses_tqqq"] is False
+
+
 def test_manual_publish_approval_rejects_one_off_selected_config():
     df = pd.DataFrame({
         "fold_year": [2020, 2021, 2022, 2023, 2024, 2025],
@@ -766,6 +808,43 @@ def test_manual_publish_approval_rejects_one_off_selected_config():
     )
     assert approval_too_rare["approved"] is False
     assert any("selected_config_freq" in reason for reason in approval_too_rare["reasons"])
+
+
+def test_manual_publish_stable_family_skips_latest_one_off_config():
+    df = pd.DataFrame({
+        "fold_year": [2020, 2021, 2022, 2023, 2024, 2025],
+        "selected_config": [
+            _wf_sig(shape="top5", h=10),
+            _wf_sig(shape="top5", h=20),
+            _wf_sig(shape="top5", h=10, vol_mode="percentile"),
+            _wf_sig(shape="top3", tqqq=0.1),
+            _wf_sig(shape="top15", weighting="risk_parity"),
+            _wf_sig(shape="top3", weighting="risk_parity", tqqq=0.1),
+        ],
+        "oos_return_pct": [10.0, 12.0, 8.0, 9.0, 11.0, 13.0],
+        "oos_sharpe": [1.0, 1.1, 0.9, 1.2, 1.3, 1.4],
+        "oos_max_drawdown_pct": [-5.0, -6.0, -7.0, -8.0, -9.0, -10.0],
+        "oos_turnover_pct": [100.0, 120.0, 130.0, 140.0, 150.0, 160.0],
+        "oos_alpha_vs_spy_pct": [4.0, 5.0, 3.0, 4.0, 5.0, 6.0],
+        "oos_alpha_vs_qqq_pct": [2.0, 3.0, 1.0, 2.0, 3.0, 4.0],
+    })
+
+    pick = manual_publish.select_config(df, "stable_family")
+    selected_metrics = manual_publish.compute_selected_config_metrics(df, str(pick["row"].selected_config))
+    family_metrics = pick["family_metrics"]
+    approval = manual_publish.build_approval(
+        manual_publish.compute_aggregate_metrics(df),
+        pick["family_signature"],
+        force=False,
+        selected_config_metrics=selected_metrics,
+        stable_family_metrics=family_metrics,
+    )
+
+    assert int(pick["row"].fold_year) == 2022
+    assert family_metrics["approved_family_fold_count"] == 3
+    assert approval["approved"] is True
+    assert approval["approved_config_frequency"] < approval["approved_family_frequency"]
+    assert approval["warnings"]
 
 
 def test_inner_selection_scores_validation_folds_only(monkeypatch):

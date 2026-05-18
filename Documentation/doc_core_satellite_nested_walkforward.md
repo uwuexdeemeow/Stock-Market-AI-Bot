@@ -109,6 +109,10 @@ python3 core_satellite_nested_walkforward.py --no-publish-live-config
   result rather than a NaN year.
 - **min_config_frequency** (line ~334) — relaxed from 0.30 → 0.20
   because 14-fold walk-forwards naturally have more config diversity.
+- **Stable family promotion** — live approval now counts repeatable config
+  families (`score`, `shape`, `weighting`, `risk`, `tqqq`) instead of only
+  exact configs.  This avoids promoting a one-off latest-year winner while
+  still letting small tuning knobs come from the freshest fold.
 
 ## Output to validate
 

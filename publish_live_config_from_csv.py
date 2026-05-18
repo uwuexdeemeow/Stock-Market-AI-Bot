@@ -8,13 +8,16 @@ the walkforward with --publish-live-config to refresh them — but that
 takes hours.
 
 This script does it in seconds: read the CSV, pick a config strategy
-(latest fold / best sharpe / top family), build the full live_configs
-JSON, and write it out.  Use this when you trust the CSV results and
-just need to promote them to live.
+(stable family / latest fold / best sharpe / top family), build the full
+live_configs JSON, and write it out.  Use this when you trust the CSV results
+and just need to promote them to live.
 
 Usage:
-    # Default: use the most frequently selected exact config.
+    # Default: use the most stable config family, then latest fold in it.
     python3 publish_live_config_from_csv.py
+
+    # Same as default, explicit.
+    python3 publish_live_config_from_csv.py --source stable_family
 
     # Use the most recent fold's selected config.
     python3 publish_live_config_from_csv.py --source latest
@@ -40,7 +43,7 @@ Outputs:
 Safety:
     * Always makes a `.bak` backup of any file it overwrites.
     * Refuses to publish if the CSV is malformed or empty.
-    * Refuses to publish a one-off exact config unless --force is passed.
+    * Refuses to publish a one-off stable family unless --force is passed.
     * Prints the resulting config and metrics so you can sanity-check.
 """
 
@@ -83,6 +86,103 @@ def parse_config_signature(sig: str) -> dict:
         out["high_vol"] = float(val)
         del out["vol"]
     return out
+
+
+def _stable_family_float(value, default: float = 0.0) -> str:
+    """Format small grid floats so stable family text is consistent."""
+    try:
+        number = round(float(value), 4)
+    except (TypeError, ValueError):
+        number = float(default)
+    text = f"{number:.4f}".rstrip("0").rstrip(".")
+    return f"{text}.0" if "." not in text else text
+
+
+def stable_family_signature_from_config_signature(sig: str) -> str:
+    """Collapse an exact config into the behavior family used for approval.
+
+    PLAIN ENGLISH: exact configs include small tuning choices like holding
+    period and overlay size.  This family key keeps only the strategy choices
+    that should repeat across years: score source, shape, weighting, risk
+    mode, and whether TQQQ is used.
+    """
+    params = parse_config_signature(sig)
+    return (
+        f"score={params.get('score')},"
+        f"shape={params.get('shape')},"
+        f"weighting={params.get('weighting')},"
+        f"risk={params.get('risk', 'off')},"
+        f"tqqq={_stable_family_float(params.get('tqqq', 0.0))}"
+    )
+
+
+def stable_family_tqqq_weight(family_signature: str) -> float:
+    """Read the TQQQ weight from a stable family signature."""
+    params = parse_config_signature(family_signature)
+    try:
+        return float(params.get("tqqq", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def compute_stable_family_table(df: pd.DataFrame) -> list[dict]:
+    """Rank stable families by repeatability, risk, Sharpe, then recency."""
+    valid = df.dropna(subset=["oos_return_pct"]).copy()
+    if len(valid) == 0:
+        return []
+
+    valid["stable_family_signature"] = valid.selected_config.astype(str).apply(
+        stable_family_signature_from_config_signature
+    )
+    rows: list[dict] = []
+    for family_signature, group in valid.groupby("stable_family_signature", sort=False):
+        tqqq_weight = stable_family_tqqq_weight(str(family_signature))
+        rows.append(
+            {
+                "approved_family_signature": str(family_signature),
+                "approved_family_fold_count": int(len(group)),
+                "approved_family_frequency": round(float(len(group) / len(valid)), 4),
+                "approved_family_uses_tqqq": bool(tqqq_weight > 0.0),
+                "approved_family_tqqq_weight": round(float(tqqq_weight), 4),
+                "approved_family_years": [int(v) for v in group.fold_year.tolist()],
+                "approved_family_latest_year": int(group.fold_year.max()),
+                "approved_family_mean_oos_sharpe": round(float(group.oos_sharpe.mean()), 3),
+                "approved_family_mean_oos_max_drawdown_pct": round(float(group.oos_max_drawdown_pct.mean()), 2),
+                "approved_family_worst_oos_turnover_pct": round(float(group.oos_turnover_pct.max()), 2),
+                "approved_family_mean_oos_alpha_vs_qqq_pct": round(float(group.oos_alpha_vs_qqq_pct.mean()), 2),
+            }
+        )
+
+    return sorted(
+        rows,
+        key=lambda item: (
+            -int(item["approved_family_fold_count"]),
+            bool(item["approved_family_uses_tqqq"]),
+            -float(item["approved_family_mean_oos_max_drawdown_pct"]),
+            -float(item["approved_family_mean_oos_sharpe"]),
+            -int(item["approved_family_latest_year"]),
+        ),
+    )
+
+
+def compute_selected_family_metrics(df: pd.DataFrame, family_signature: str) -> dict:
+    """Return the metrics for the family that would be promoted."""
+    for item in compute_stable_family_table(df):
+        if item["approved_family_signature"] == str(family_signature):
+            return item
+    return {
+        "approved_family_signature": str(family_signature),
+        "approved_family_fold_count": 0,
+        "approved_family_frequency": 0.0,
+        "approved_family_uses_tqqq": False,
+        "approved_family_tqqq_weight": 0.0,
+        "approved_family_years": [],
+        "approved_family_latest_year": None,
+        "approved_family_mean_oos_sharpe": 0.0,
+        "approved_family_mean_oos_max_drawdown_pct": 0.0,
+        "approved_family_worst_oos_turnover_pct": 0.0,
+        "approved_family_mean_oos_alpha_vs_qqq_pct": 0.0,
+    }
 
 
 # ── Build the full live config dict from parsed params ──────────────────
@@ -174,12 +274,35 @@ def select_config(df: pd.DataFrame, source: str) -> dict:
     """Return the chosen fold row + the family signature.
 
     source options:
+      "stable_family" → most repeated behavior family, latest occurrence
       "most_common" → most frequently selected exact config, latest occurrence
       "latest"      → most recent fold's selected config
       "best_sharpe" → fold with the highest OOS Sharpe
       "top_family"  → most-frequent family (shape+weighting), latest
                       occurrence of that family
     """
+    if source == "stable_family":
+        families = compute_stable_family_table(df)
+        if not families:
+            raise SystemExit("No valid stable families found in walkforward CSV")
+        family_metrics = families[0]
+        family_sig = family_metrics["approved_family_signature"]
+        sub = df[
+            df.selected_config.astype(str).apply(stable_family_signature_from_config_signature)
+            == family_sig
+        ]
+        row = sub.sort_values("fold_year").iloc[-1]
+        return {
+            "row": row,
+            "family_signature": family_sig,
+            "family_metrics": family_metrics,
+            "reason": (
+                f"stable family ({family_sig}, "
+                f"{family_metrics['approved_family_fold_count']}/{len(df)} folds) "
+                f"— most recent: {int(row.fold_year)}"
+            ),
+        }
+
     if source == "most_common":
         top_sig = str(df.selected_config.value_counts().index[0])
         sub = df[df.selected_config.astype(str) == top_sig]
@@ -211,7 +334,13 @@ def select_config(df: pd.DataFrame, source: str) -> dict:
         # Use the MOST RECENT occurrence in this family so params are
         # closest to current market regime.
         row = sub.iloc[-1]
-        return {"row": row, "reason": f"top family ({top_fam}) — most recent: {int(row.fold_year)}"}
+        stable_family_sig = stable_family_signature_from_config_signature(str(row.selected_config))
+        return {
+            "row": row,
+            "family_signature": stable_family_sig,
+            "family_metrics": compute_selected_family_metrics(df, stable_family_sig),
+            "reason": f"top family ({top_fam}) — most recent: {int(row.fold_year)}",
+        }
 
     raise SystemExit(f"Unknown --source value: {source}")
 
@@ -272,6 +401,7 @@ def build_approval(
     config_family: str,
     force: bool,
     selected_config_metrics: dict | None = None,
+    stable_family_metrics: dict | None = None,
 ) -> dict:
     """Decide approval status based on relaxed thresholds suitable for a
     14-fold walkforward.  The default min_config_frequency was 0.30 but
@@ -290,16 +420,31 @@ def build_approval(
         "max_selection_bias_gap_sharpe": 1.5,
     }
     selected_config_metrics = selected_config_metrics or {}
+    stable_family_metrics = stable_family_metrics or {}
     selected_freq = float(selected_config_metrics.get("selected_config_frequency", 0.0) or 0.0)
+    family_freq = float(stable_family_metrics.get("approved_family_frequency", 0.0) or 0.0)
+    family_worst_turnover = float(
+        stable_family_metrics.get("approved_family_worst_oos_turnover_pct", metrics.get("worst_oos_turnover_pct", 0.0))
+        or 0.0
+    )
     reasons = []
+    warnings = []
     if metrics["fold_count"] < thresholds["min_folds"]:
         reasons.append(f"folds {metrics['fold_count']} < {thresholds['min_folds']}")
-    if metrics["best_config_frequency"] < thresholds["min_config_frequency"]:
-        reasons.append(f"config_freq {metrics['best_config_frequency']:.2f} < {thresholds['min_config_frequency']}")
-    if selected_freq < thresholds["min_selected_config_frequency"]:
-        reasons.append(
-            f"selected_config_freq {selected_freq:.2f} < {thresholds['min_selected_config_frequency']}"
-        )
+    if stable_family_metrics:
+        if family_freq < thresholds["min_config_frequency"]:
+            reasons.append(f"family_freq {family_freq:.2f} < {thresholds['min_config_frequency']}")
+        if selected_freq < thresholds["min_selected_config_frequency"]:
+            warnings.append(
+                f"selected_config_freq {selected_freq:.2f} < {thresholds['min_selected_config_frequency']}"
+            )
+    else:
+        if metrics["best_config_frequency"] < thresholds["min_config_frequency"]:
+            reasons.append(f"config_freq {metrics['best_config_frequency']:.2f} < {thresholds['min_config_frequency']}")
+        if selected_freq < thresholds["min_selected_config_frequency"]:
+            reasons.append(
+                f"selected_config_freq {selected_freq:.2f} < {thresholds['min_selected_config_frequency']}"
+            )
     if metrics["mean_oos_sharpe"] < thresholds["min_mean_oos_sharpe"]:
         reasons.append(f"sharpe {metrics['mean_oos_sharpe']} < {thresholds['min_mean_oos_sharpe']}")
     if metrics["oos_positive_alpha_hit_rate"] < thresholds["min_oos_alpha_hit_rate"]:
@@ -308,9 +453,9 @@ def build_approval(
         reasons.append(f"mean_dd {metrics['mean_oos_max_drawdown_pct']}% < {thresholds['max_mean_oos_drawdown_pct']}%")
     if metrics["worst_oos_max_drawdown_pct"] < thresholds["max_worst_oos_drawdown_pct"]:
         reasons.append(f"worst_dd {metrics['worst_oos_max_drawdown_pct']}% < {thresholds['max_worst_oos_drawdown_pct']}%")
-    if metrics["worst_oos_turnover_pct"] > thresholds["max_worst_oos_turnover_pct"]:
+    if family_worst_turnover > thresholds["max_worst_oos_turnover_pct"]:
         reasons.append(
-            f"worst_turnover {metrics['worst_oos_turnover_pct']}% > {thresholds['max_worst_oos_turnover_pct']}%"
+            f"worst_turnover {family_worst_turnover}% > {thresholds['max_worst_oos_turnover_pct']}%"
         )
 
     approved = (len(reasons) == 0) or force
@@ -323,8 +468,12 @@ def build_approval(
         "thresholds": thresholds,
         "strategy": "core-alpha",
         "approved_config_family": config_family,
+        "approved_family_signature": stable_family_metrics.get("approved_family_signature", config_family),
+        "approved_family_fold_count": int(stable_family_metrics.get("approved_family_fold_count", 0) or 0),
+        "approved_family_frequency": family_freq,
         "approved_config_fold_count": int(selected_config_metrics.get("selected_config_fold_count", 0) or 0),
         "approved_config_frequency": selected_freq,
+        "warnings": warnings,
         "source": "manual_csv_publish",
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
@@ -358,8 +507,17 @@ def publish(source: str, force: bool, dry_run: bool):
     # 1. Pick the config
     pick = select_config(df, source)
     row = pick["row"]
+    family_signature = str(
+        pick.get("family_signature")
+        or stable_family_signature_from_config_signature(str(row.selected_config))
+    )
+    family_metrics = dict(
+        pick.get("family_metrics")
+        or compute_selected_family_metrics(df, family_signature)
+    )
     print(f"Selected config source: {pick['reason']}")
     print(f"  Signature: {row.selected_config}")
+    print(f"  Stable family: {family_signature}")
     print(f"  OOS Return:    {row.oos_return_pct:.2f}%")
     print(f"  OOS Sharpe:    {row.oos_sharpe:.3f}")
     print(f"  OOS Drawdown:  {row.oos_max_drawdown_pct:.2f}%")
@@ -381,20 +539,29 @@ def publish(source: str, force: bool, dry_run: bool):
     print(f"  Hit rate vs QQQ:   {metrics['oos_positive_alpha_hit_rate']}")
     print(f"  Top config freq:   {metrics['best_config_frequency']}")
     print(
+        "  Family freq:       "
+        f"{family_metrics['approved_family_frequency']} "
+        f"({family_metrics['approved_family_fold_count']}/{metrics['fold_count']} folds)"
+    )
+    print(
         "  Selected freq:     "
         f"{selected_metrics['selected_config_frequency']} "
         f"({selected_metrics['selected_config_fold_count']}/{metrics['fold_count']} folds)"
     )
     print(f"  Worst drawdown:    {metrics['worst_oos_max_drawdown_pct']}%")
     print(f"  Worst turnover:    {metrics['worst_oos_turnover_pct']}%")
+    print(f"  Family turnover:   {family_metrics['approved_family_worst_oos_turnover_pct']}%")
     print()
 
     # 4. Build approval payload
-    approval = build_approval(metrics, row.selected_config, force, selected_metrics)
+    approval = build_approval(metrics, family_signature, force, selected_metrics, family_metrics)
     print(f"Approval verdict: {'✓ APPROVED' if approval['approved'] else '✗ REJECTED'}")
     if approval["reasons"]:
         for r in approval["reasons"]:
             print(f"  • {r}")
+    if approval.get("warnings"):
+        for r in approval["warnings"]:
+            print(f"  warning: {r}")
     print()
 
     if not approval["approved"] and not force:
@@ -405,6 +572,14 @@ def publish(source: str, force: bool, dry_run: bool):
     source_metrics = {
         "fold_count": metrics["fold_count"],
         "best_config_frequency": metrics["best_config_frequency"],
+        "approved_family_signature": family_signature,
+        "approved_family_fold_count": family_metrics["approved_family_fold_count"],
+        "approved_family_frequency": family_metrics["approved_family_frequency"],
+        "approved_family_uses_tqqq": family_metrics["approved_family_uses_tqqq"],
+        "approved_family_years": family_metrics["approved_family_years"],
+        "approved_family_mean_oos_sharpe": family_metrics["approved_family_mean_oos_sharpe"],
+        "approved_family_mean_oos_max_drawdown_pct": family_metrics["approved_family_mean_oos_max_drawdown_pct"],
+        "approved_family_worst_oos_turnover_pct": family_metrics["approved_family_worst_oos_turnover_pct"],
         "mean_oos_sharpe": metrics["mean_oos_sharpe"],
         "mean_oos_cagr_pct": metrics["mean_oos_cagr_pct"],
         "mean_oos_alpha_vs_spy_pct": metrics["mean_oos_alpha_vs_spy_pct"],
@@ -421,6 +596,7 @@ def publish(source: str, force: bool, dry_run: bool):
         "selected_fold_year": int(row.fold_year),
         "selected_fold_sharpe": float(row.oos_sharpe),
         "selected_fold_return_pct": float(row.oos_return_pct),
+        "approved_exact_config": str(row.selected_config),
         "approved_config_fold_count": selected_metrics["selected_config_fold_count"],
         "approved_config_frequency": selected_metrics["selected_config_frequency"],
         "approved_config_years": selected_metrics["selected_config_years"],
@@ -446,7 +622,9 @@ def publish(source: str, force: bool, dry_run: bool):
         "approved_live_configs": {
             "core-alpha": {
                 "strategy": "core-alpha",
-                "approved_config_family": row.selected_config,
+                "approved_config_family": family_signature,
+                "approved_family_signature": family_signature,
+                "approved_exact_config": str(row.selected_config),
                 "config": full_config,
                 "source_metrics": source_metrics,
                 "medium_risk_review": medium_review,
@@ -476,6 +654,12 @@ def publish(source: str, force: bool, dry_run: bool):
         "mean_oos_alpha_vs_qqq_pct": metrics["mean_oos_alpha_vs_qqq_pct"],
         "oos_positive_alpha_hit_rate": metrics["oos_positive_alpha_hit_rate"],
         "best_config_frequency": metrics["best_config_frequency"],
+        "approved_family_signature": family_signature,
+        "approved_family_fold_count": family_metrics["approved_family_fold_count"],
+        "approved_family_frequency": family_metrics["approved_family_frequency"],
+        "approved_family_uses_tqqq": family_metrics["approved_family_uses_tqqq"],
+        "approved_family_worst_oos_turnover_pct": family_metrics["approved_family_worst_oos_turnover_pct"],
+        "approved_exact_config": str(row.selected_config),
         "approved_config_fold_count": selected_metrics["selected_config_fold_count"],
         "approved_config_frequency": selected_metrics["selected_config_frequency"],
         "most_common_config": metrics["most_common_config"],
@@ -508,9 +692,9 @@ def publish(source: str, force: bool, dry_run: bool):
 # ── CLI entrypoint ──────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--source", default="most_common",
-                        choices=["most_common", "latest", "best_sharpe", "top_family"],
-                        help="Which config to promote (default: most_common)")
+    parser.add_argument("--source", default="stable_family",
+                        choices=["stable_family", "most_common", "latest", "best_sharpe", "top_family"],
+                        help="Which config to promote (default: stable_family)")
     parser.add_argument("--force", action="store_true",
                         help="Publish even if approval gate fails")
     parser.add_argument("--dry-run", action="store_true",

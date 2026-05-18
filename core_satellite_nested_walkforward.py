@@ -876,6 +876,104 @@ def config_signature(config: dict) -> str:
     )
 
 
+def _stable_family_float(value, default: float = 0.0) -> str:
+    """Format small grid floats so family keys match across strings/configs."""
+    try:
+        number = round(float(value), 4)
+    except (TypeError, ValueError):
+        number = float(default)
+    text = f"{number:.4f}".rstrip("0").rstrip(".")
+    return f"{text}.0" if "." not in text else text
+
+
+def _parse_config_signature(signature: str) -> dict[str, str]:
+    """Turn ``k=v,k=v`` config text into a dictionary for family grouping."""
+    parsed: dict[str, str] = {}
+    for part in str(signature).split(","):
+        if "=" not in part:
+            continue
+        key, value = part.split("=", 1)
+        parsed[key.strip()] = value.strip()
+    return parsed
+
+
+def stable_family_signature_from_config_signature(signature: str) -> str:
+    """Group exact configs by the durable choices that should repeat.
+
+    PLAIN ENGLISH: holding days, overlay size, MA window, and volatility mode
+    are small tuning knobs.  The family key keeps the bigger behavior choices:
+    scoring method, concentration shape, weighting method, risk mode, and
+    whether TQQQ is used.  Keeping TQQQ in the key prevents leveraged and
+    non-leveraged configs from being counted as the same family.
+    """
+    parsed = _parse_config_signature(signature)
+    return (
+        f"score={parsed.get('score')},"
+        f"shape={parsed.get('shape')},"
+        f"weighting={parsed.get('weighting')},"
+        f"risk={parsed.get('risk', 'off')},"
+        f"tqqq={_stable_family_float(parsed.get('tqqq', 0.0))}"
+    )
+
+
+def stable_family_signature(config: dict) -> str:
+    """Return the stable family key for a candidate config dictionary."""
+    return stable_family_signature_from_config_signature(config_signature(config))
+
+
+def _stable_family_tqqq_weight(family_signature: str) -> float:
+    parsed = _parse_config_signature(family_signature)
+    try:
+        return float(parsed.get("tqqq", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def stable_family_frequency(valid_rows: list[dict]) -> list[dict]:
+    """Summarize and rank stable families from valid outer-fold rows."""
+    grouped: dict[str, list[dict]] = {}
+    for row in valid_rows:
+        family = stable_family_signature_from_config_signature(str(row["selected_config"]))
+        grouped.setdefault(family, []).append(row)
+
+    summaries: list[dict] = []
+    fold_count = max(1, len(valid_rows))
+    for family, rows_for_family in grouped.items():
+        tqqq_weight = _stable_family_tqqq_weight(family)
+        summaries.append(
+            {
+                "stable_family_signature": family,
+                "fold_count": int(len(rows_for_family)),
+                "frequency": round(float(len(rows_for_family) / fold_count), 3),
+                "uses_tqqq": bool(tqqq_weight > 0.0),
+                "tqqq_weight": round(float(tqqq_weight), 4),
+                "outer_years": [int(row["outer_year"]) for row in rows_for_family],
+                "latest_outer_year": int(max(row["outer_year"] for row in rows_for_family)),
+                "mean_oos_cagr_pct": round(float(np.mean([float(row["oos_cagr_pct"]) for row in rows_for_family])), 2),
+                "mean_oos_sharpe": round(float(np.mean([float(row["oos_sharpe"]) for row in rows_for_family])), 3),
+                "mean_oos_max_drawdown_pct": round(float(np.mean([float(row["oos_max_drawdown_pct"]) for row in rows_for_family])), 2),
+                "worst_oos_max_drawdown_pct": round(float(np.min([float(row["oos_max_drawdown_pct"]) for row in rows_for_family])), 2),
+                "mean_oos_turnover_pct": round(float(np.mean([float(row["oos_turnover_pct"]) for row in rows_for_family])), 2),
+                "worst_oos_turnover_pct": round(float(np.max([float(row["oos_turnover_pct"]) for row in rows_for_family])), 2),
+                "mean_oos_alpha_vs_spy_pct": round(float(np.mean([float(row["oos_alpha_vs_spy_pct"]) for row in rows_for_family])), 2),
+                "mean_oos_alpha_vs_qqq_pct": round(float(np.mean([float(row["oos_alpha_vs_qqq_pct"]) for row in rows_for_family])), 2),
+            }
+        )
+
+    # Sort in the exact promotion order: more repeats, no TQQQ, smaller
+    # drawdown, better Sharpe, then most recent representative fold.
+    return sorted(
+        summaries,
+        key=lambda item: (
+            -int(item["fold_count"]),
+            bool(item["uses_tqqq"]),
+            -float(item["mean_oos_max_drawdown_pct"]),
+            -float(item["mean_oos_sharpe"]),
+            -int(item["latest_outer_year"]),
+        ),
+    )
+
+
 def live_signal_config(config: dict) -> dict:
     """Return the stable subset live signal generators are allowed to consume.
 
@@ -923,10 +1021,10 @@ def approval_status(result: dict) -> dict:
     # ── Unified strategy: if the winning config uses TQQQ, apply the stricter
     # TQQQ drawdown and bias gates on top of core-alpha thresholds.  This
     # ensures leveraged configs don't sneak through with worse risk numbers.
-    most_common_config = str(result.get("most_common_config", ""))
-    if "tqqq=" in most_common_config:
+    approved_family = str(result.get("approved_family_signature", result.get("most_common_config", "")))
+    if "tqqq=" in approved_family:
         import re as _re
-        _tqqq_match = _re.search(r"tqqq=([\d.]+)", most_common_config)
+        _tqqq_match = _re.search(r"tqqq=([\d.]+)", approved_family)
         if _tqqq_match and float(_tqqq_match.group(1)) > 0:
             tqqq_thresholds = _APPROVAL_THRESHOLDS.get("tqqq", {})
             # Only tighten — never loosen existing thresholds
@@ -942,13 +1040,17 @@ def approval_status(result: dict) -> dict:
         return {"approved": False, "reasons": ["nested_result_invalid"], "thresholds": thresholds}
 
     reasons: list[str] = []
+    warnings: list[str] = []
 
     # ── Existing gates (tightened) ──────────────────────────────────────────
     fold_count = int(result.get("fold_count", 0) or 0)
     config_frequency = float(
         result.get(
-            "approved_config_frequency",
-            result.get("best_config_frequency", result.get("config_stability", 0.0)),
+            "approved_family_frequency",
+            result.get(
+                "approved_config_frequency",
+                result.get("best_config_frequency", result.get("config_stability", 0.0)),
+            ),
         )
         or 0.0
     )
@@ -959,6 +1061,10 @@ def approval_status(result: dict) -> dict:
         reasons.append(f"fold_count<{thresholds['min_folds']:.0f}")
     if config_frequency < thresholds["min_config_frequency"]:
         reasons.append(f"config_frequency<{thresholds['min_config_frequency']:.2f}")
+    if "approved_family_frequency" in result:
+        exact_frequency = float(result.get("approved_config_frequency", 0.0) or 0.0)
+        if exact_frequency < thresholds["min_config_frequency"]:
+            warnings.append(f"exact_config_frequency<{thresholds['min_config_frequency']:.2f}")
     if mean_oos_sharpe < thresholds["min_mean_oos_sharpe"]:
         reasons.append(f"mean_oos_sharpe<{thresholds['min_mean_oos_sharpe']:.2f}")
     if alpha_hit_rate < thresholds["min_oos_alpha_hit_rate"]:
@@ -980,7 +1086,10 @@ def approval_status(result: dict) -> dict:
             f"worst_oos_drawdown={worst_dd:.1f}%<{thresholds['max_worst_oos_drawdown_pct']:.0f}%"
         )
     if "max_worst_oos_turnover_pct" in thresholds:
-        worst_turnover = float(result.get("worst_oos_turnover_pct", 0.0) or 0.0)
+        worst_turnover = float(
+            result.get("approved_family_worst_oos_turnover_pct", result.get("worst_oos_turnover_pct", 0.0))
+            or 0.0
+        )
         if worst_turnover > thresholds["max_worst_oos_turnover_pct"]:
             reasons.append(
                 f"worst_oos_turnover={worst_turnover:.1f}%>{thresholds['max_worst_oos_turnover_pct']:.0f}%"
@@ -1005,7 +1114,7 @@ def approval_status(result: dict) -> dict:
                 f"worst_oos_return={worst_ret:.1f}%<{thresholds['min_worst_oos_return_pct']:.0f}%"
             )
 
-    return {"approved": not reasons, "reasons": reasons, "thresholds": thresholds}
+    return {"approved": not reasons, "reasons": reasons, "thresholds": thresholds, "warnings": warnings}
 
 
 def _read_json(path: Path) -> dict:
@@ -2114,6 +2223,21 @@ def run_nested_walkforward(
     signatures = Counter(str(row["selected_config"]) for row in valid_rows)
     most_common_sig, most_common_count = signatures.most_common(1)[0]
     config_stability = round(float(most_common_count / len(valid_rows)), 3)
+    family_frequency = stable_family_frequency(valid_rows)
+    approved_family = family_frequency[0]
+    approved_family_sig = str(approved_family["stable_family_signature"])
+    approved_family_rows = [
+        row
+        for row in valid_rows
+        if stable_family_signature_from_config_signature(str(row["selected_config"])) == approved_family_sig
+    ]
+    # The live representative comes from the newest fold inside the stable
+    # family.  That lets the big behavior stay repeatable while smaller knobs
+    # still reflect the freshest market window.
+    approved_row = max(approved_family_rows, key=lambda row: int(row["outer_year"]))
+    approved_exact_sig = str(approved_row["selected_config"])
+    approved_exact_count = int(signatures[approved_exact_sig])
+    approved_exact_frequency = round(float(approved_exact_count / len(valid_rows)), 3)
     config_frequency = []
     for signature, count in signatures.most_common():
         rows_for_config = [row for row in valid_rows if str(row["selected_config"]) == signature]
@@ -2133,17 +2257,32 @@ def run_nested_walkforward(
         )
     for row in fold_rows:
         if row.get("valid"):
+            family_sig = stable_family_signature_from_config_signature(str(row["selected_config"]))
+            matching_family = next(
+                item for item in family_frequency
+                if str(item["stable_family_signature"]) == family_sig
+            )
             row["config_stability"] = config_stability
             row["selected_config_fold_count"] = int(signatures[str(row["selected_config"])])
             row["selected_config_frequency"] = round(float(signatures[str(row["selected_config"])] / len(valid_rows)), 3)
             row["config_is_most_common"] = bool(str(row["selected_config"]) == most_common_sig)
+            row["stable_family_signature"] = family_sig
+            row["stable_family_fold_count"] = int(matching_family["fold_count"])
+            row["stable_family_frequency"] = float(matching_family["frequency"])
+            row["stable_family_is_approved"] = bool(family_sig == approved_family_sig)
 
     approved_config = None
     for item in reversed(selected_configs):
         config = item.get("config", {})
-        if config_signature(config) == most_common_sig:
+        if int(item.get("outer_year", -1)) == int(approved_row["outer_year"]) and config_signature(config) == approved_exact_sig:
             approved_config = config
             break
+    if approved_config is None:
+        for item in reversed(selected_configs):
+            config = item.get("config", {})
+            if stable_family_signature(config) == approved_family_sig:
+                approved_config = config
+                break
 
     summary = {
         "valid": True,
@@ -2175,10 +2314,19 @@ def run_nested_walkforward(
         "selection_bias_gap_alpha_vs_spy_pct": round(float(np.mean(inner_alpha) - np.mean(oos_spy_alpha)), 2),
         "config_stability": config_stability,
         "best_config_frequency": round(float(most_common_count / len(valid_rows)), 3),
-        "approved_config_fold_count": int(most_common_count),
-        "approved_config_frequency": round(float(most_common_count / len(valid_rows)), 3),
+        "approved_config_fold_count": approved_exact_count,
+        "approved_config_frequency": approved_exact_frequency,
+        "approved_exact_config": approved_exact_sig,
+        "approved_family_signature": approved_family_sig,
+        "approved_family_fold_count": int(approved_family["fold_count"]),
+        "approved_family_frequency": float(approved_family["frequency"]),
+        "approved_family_uses_tqqq": bool(approved_family["uses_tqqq"]),
+        "approved_family_worst_oos_turnover_pct": float(approved_family["worst_oos_turnover_pct"]),
+        "approved_family_mean_oos_max_drawdown_pct": float(approved_family["mean_oos_max_drawdown_pct"]),
+        "approved_family_mean_oos_sharpe": float(approved_family["mean_oos_sharpe"]),
         "most_common_config": most_common_sig,
         "config_frequency": config_frequency,
+        "stable_family_frequency": family_frequency,
         "cost_stress_approval_pass": bool(all(row.get("inner_cost_stress_approval_pass", False) for row in valid_rows)),
         "required_cost_stresses": [float(v) for v in COST_STRESS_MULTIPLIERS],
         "folds": fold_rows,
@@ -2189,18 +2337,31 @@ def run_nested_walkforward(
     summary["live_config_approval"] = {
         **approval,
         "strategy": strategy,
-        "approved_config_family": most_common_sig,
+        "approved_config_family": approved_family_sig,
+        "approved_family_signature": approved_family_sig,
+        "approved_family_fold_count": int(approved_family["fold_count"]),
+        "approved_family_frequency": float(approved_family["frequency"]),
+        "approved_exact_config": approved_exact_sig,
+        "approved_config_fold_count": approved_exact_count,
+        "approved_config_frequency": approved_exact_frequency,
         "source": "nested_walkforward",
         "created_at": summary["created_at"],
     }
     if approval["approved"] and approved_config is not None:
         summary["approved_live_config"] = {
             "strategy": strategy,
-            "approved_config_family": most_common_sig,
+            "approved_config_family": approved_family_sig,
+            "approved_family_signature": approved_family_sig,
+            "approved_exact_config": approved_exact_sig,
             "config": live_signal_config(approved_config),
             "source_metrics": {
                 "fold_count": summary["fold_count"],
                 "best_config_frequency": summary["best_config_frequency"],
+                "approved_family_fold_count": summary["approved_family_fold_count"],
+                "approved_family_frequency": summary["approved_family_frequency"],
+                "approved_family_worst_oos_turnover_pct": summary["approved_family_worst_oos_turnover_pct"],
+                "approved_family_mean_oos_max_drawdown_pct": summary["approved_family_mean_oos_max_drawdown_pct"],
+                "approved_family_mean_oos_sharpe": summary["approved_family_mean_oos_sharpe"],
                 "mean_oos_sharpe": summary["mean_oos_sharpe"],
                 "mean_oos_cagr_pct": summary["mean_oos_cagr_pct"],
                 "mean_oos_alpha_vs_spy_pct": summary["mean_oos_alpha_vs_spy_pct"],
@@ -2524,7 +2685,10 @@ def main() -> None:
         print(f"  mean OOS alpha vs BLEND: {result.get('mean_oos_alpha_vs_blend_pct')}%")
         print(f"  selection-bias Sharpe gap: {result.get('selection_bias_gap_sharpe')}")
         print(f"  best config frequency: {result.get('best_config_frequency')}")
+        print(f"  approved family frequency: {result.get('approved_family_frequency')}")
         print(f"  live config approved: {approval.get('approved')} {approval.get('reasons', [])}")
+        for row in result.get("stable_family_frequency", [])[:5]:
+            print(f"    family {row['fold_count']} folds ({row['frequency']:.0%}): {row['stable_family_signature']}")
         for row in result.get("config_frequency", [])[:5]:
             print(f"    {row['fold_count']} folds ({row['frequency']:.0%}): {row['selected_config']}")
     print(f"  json: {json_path}")
