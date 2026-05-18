@@ -40,6 +40,7 @@ Outputs:
 Safety:
     * Always makes a `.bak` backup of any file it overwrites.
     * Refuses to publish if the CSV is malformed or empty.
+    * Refuses to publish a one-off exact config unless --force is passed.
     * Prints the resulting config and metrics so you can sanity-check.
 """
 

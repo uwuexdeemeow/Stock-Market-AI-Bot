@@ -109,6 +109,7 @@ reads.
 python3 core_satellite_nested_walkforward.py                    # full run (recommended weekly)
 python3 core_satellite_nested_walkforward.py --fast             # smoke test (~10 min instead of hours)
 python3 core_satellite_nested_walkforward.py --stable-grid --no-resume  # pinned alpha-decay baseline
+python3 core_satellite_nested_walkforward.py --recent-alpha-grid --no-resume  # focused post-2020 alpha grid
 python3 core_satellite_nested_walkforward.py --no-resume        # ignore checkpoint, start fresh
 python3 core_satellite_nested_walkforward.py --workers 1        # single-threaded (debug)
 python3 core_satellite_nested_walkforward.py --no-low-memory    # faster on 32+ GB machines
@@ -127,7 +128,8 @@ python3 core_satellite_nested_walkforward.py --no-low-memory    # faster on 32+ 
 | `--output-prefix NAME` | `core_satellite_nested_walkforward` | Prefix for output files. Changes the JSON/CSV filenames under `signals/`. Using a non-default prefix **disables** automatic live config publishing (safety: debug runs shouldn't overwrite production approvals). |
 | `--fast` | off | Use a reduced grid (~32 configs instead of 384) and fewer knob combinations. Good for smoke tests. Still runs proper nested validation — just with fewer candidates. |
 | `--stable-grid` | off | Use the pinned alpha-decay baseline grid (~24 configs): holding days 20, overlay 50%, MA 100, regime-adaptive scoring, sticky-score weighting, defensive risk control; only shape, high-vol mode, and TQQQ weight remain tunable. Auto-publishing is disabled unless `--publish-live-config` is passed. |
-| `--publish-live-config` | auto | Force writing approval state to `signals/core_satellite_live_configs.json`, even for bounded/debug runs. Normally, runs with `--fast`, `--max-folds`, `--max-configs`, custom `--output-prefix`, or partial year windows do NOT publish (to prevent debug runs from overwriting production approvals). |
+| `--recent-alpha-grid` | off | Use the focused post-2020 alpha grid (~48 configs): holding days 20, MA 100, regime-adaptive scoring, risk control off; tunes overlay 50/70%, top3/top5/top15 concentration, sticky-score/risk-parity weighting, high-vol mode, and 0/10% TQQQ. Auto-publishing is disabled unless `--publish-live-config` is passed. |
+| `--publish-live-config` | auto | Force writing approval state to `signals/core_satellite_live_configs.json`, even for bounded/debug runs. Normally, runs with `--fast`, `--stable-grid`, `--recent-alpha-grid`, `--max-folds`, `--max-configs`, custom `--output-prefix`, or partial year windows do NOT publish (to prevent debug/research runs from overwriting production approvals). |
 | `--no-publish-live-config` | — | Never write approval state. Useful for dry-run full validations where you want to inspect results without affecting production. |
 | `--resume` / `--no-resume` | `--resume` | Resume from the last checkpoint if available. After each outer fold completes, progress is saved to `signals/walkforward_checkpoint_core_alpha.json`. If the run crashes or you Ctrl-C, re-running picks up from the last completed fold. Use `--no-resume` to force a clean start (e.g. after changing strategy code). The checkpoint auto-invalidates if you change the config grid or fold range. |
 | `--low-memory` / `--no-low-memory` | `--low-memory` | Aggressive memory management — disables eval caching and runs garbage collection after every config. Prevents macOS from OOM-killing the process on 16 GB laptops. Use `--no-low-memory` on machines with 32+ GB RAM for ~2× faster runs. |
@@ -638,14 +640,15 @@ What to check:
 
 The nested walkforward grid is deliberately coarse to prevent overfitting:
 - 2 holding periods (10, 20 trading days)
-- 2 overlay gross levels (25%, 50%)
+- 3 overlay gross levels (25%, 50%, 70%)
 - 1 regime preset (the proven winner: cashbuffer)
 - 1 MA window (100 days)
 - 2 high-vol modes (fixed threshold vs percentile-based)
-- 2 score sources (factor_walkforward + regime_adaptive)
-- 3 portfolio shapes (top5 + top10 + top15)
-- 2 weighting modes (sticky_score + sticky_vol_score)
-- 4 TQQQ risk-on weights (0%, 10%, 20%, 30%)
+- 1 score source (regime_adaptive)
+- 4 portfolio shapes (top3 + top5 + top10 + top15)
+- 2 weighting modes (sticky_score + risk_parity)
+- 2 TQQQ risk-on weights (0%, 10%)
+- 2 risk-control modes (off + defensive)
 
 **Total: 384 configs per outer fold.** TQQQ is only held during `risk_on`
 regime — 0% in neutral/risk_off. The grid search decides whether any TQQQ
@@ -656,6 +659,13 @@ dimensions (`h=20`, `overlay_gross=0.50`, `ma=100`, `score=regime_adaptive`,
 `weighting=sticky_score`, `risk=defensive`) and tests only shape, high-vol
 mode, and TQQQ weight. This is an A/B research baseline and will not publish
 live approval state unless forced with `--publish-live-config`.
+
+For post-2020 alpha research, `--recent-alpha-grid` pins `h=20`, `ma=100`,
+`score=regime_adaptive`, and `risk=off`, then tests the dimensions the latest
+run showed actually matter: 50/70% overlay, top3/top5/top15 concentration,
+sticky-score vs risk-parity weighting, fixed vs percentile high-vol mode, and
+0/10% TQQQ. This mode is also research-only by default and does not publish
+unless forced.
 
 Cost stress is an approval gate, not a selector: report base metrics at 1×
 costs, then approve only if the same config passes 2×/3×/5× checks.

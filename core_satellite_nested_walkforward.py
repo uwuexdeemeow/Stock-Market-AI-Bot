@@ -244,6 +244,7 @@ RISK_CONTROL_MODES = ("off", "defensive")
 FULL_RISK_CONTROL_MODES = ("off", "defensive")
 FULL_TQQQ_WEIGHTS = (0.0, 0.10, 0.20, 0.30)
 STABLE_GRID_TQQQ_WEIGHTS = FULL_TQQQ_WEIGHTS
+STABLE_GRID_SHAPES = ("top5", "top10", "top15")
 STABLE_GRID_HIGH_VOL_MODES = ("fixed", "percentile")
 RECENT_ALPHA_GRID_SHAPES = ("top3", "top5", "top15")
 RECENT_ALPHA_GRID_OVERLAY_GROSS = (0.50, 0.70)
@@ -606,7 +607,7 @@ def stable_grid_candidate_configs(
         high_vol_values=(0.30,),
         high_vol_modes=STABLE_GRID_HIGH_VOL_MODES,
         score_sources=("regime_adaptive",),
-        shapes=SHAPES,
+        shapes=STABLE_GRID_SHAPES,
         weightings=("sticky_score",),
         tqqq_weights=STABLE_GRID_TQQQ_WEIGHTS,
         risk_control_modes=("defensive",),

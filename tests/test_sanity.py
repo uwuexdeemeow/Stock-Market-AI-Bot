@@ -55,6 +55,7 @@ from moomoo_paper_trading import (
 import paper_gauntlet
 import daily_paper_check
 import core_satellite_nested_walkforward as nested_wf
+import publish_live_config_from_csv as manual_publish
 from daily_paper_check import _after_fill_verdict, _prune_snapshots, _verdict
 from refresh_etf_data import _validate_etf_frame
 from config_health import _requirement_ok
@@ -485,6 +486,7 @@ def test_nested_publish_decision_defaults_to_publish_only_for_full_runs():
         publish_live_config=None,
         fast=False,
         stable_grid=False,
+        recent_alpha_grid=False,
         max_folds=None,
         max_configs=None,
         start_year=None,
@@ -507,6 +509,11 @@ def test_nested_publish_decision_defaults_to_publish_only_for_full_runs():
 
     stable_forced = Namespace(**{**vars(stable_grid), "publish_live_config": True})
     assert nested_wf.live_config_publish_decision(stable_forced) == (True, "forced_by_--publish-live-config")
+
+    recent_alpha = Namespace(**{**vars(full), "recent_alpha_grid": True})
+    publish, reason = nested_wf.live_config_publish_decision(recent_alpha)
+    assert publish is False
+    assert "--recent-alpha-grid" in reason
 
     forced = Namespace(**{**vars(smoke), "publish_live_config": True})
     assert nested_wf.live_config_publish_decision(forced) == (True, "forced_by_--publish-live-config")
@@ -668,8 +675,8 @@ def test_nested_candidate_grid_includes_requested_tuning_dimensions():
     tqqq_alias_default = iter_candidate_configs(strategy="tqqq", high_vol_values=(0.30,), max_configs=8)
     assert alpha_default == tqqq_alias_default
     assert any(c["nested_params"]["tqqq_weight"] > 0.0 for c in alpha_default)
-    assert {c["shape"] for c in alpha_default}.issubset({"top5", "top10", "top15"})
-    assert {c["weighting"] for c in alpha_default}.issubset({"sticky_score", "sticky_vol_score"})
+    assert {c["shape"] for c in alpha_default}.issubset({"top3", "top5", "top10", "top15"})
+    assert {c["weighting"] for c in alpha_default}.issubset({"sticky_score", "risk_parity", "sticky_vol_score"})
 
 
 def test_nested_stable_grid_pins_consensus_dimensions():
@@ -688,6 +695,77 @@ def test_nested_stable_grid_pins_consensus_dimensions():
     assert {p["shape"] for p in params} == {"top5", "top10", "top15"}
     assert {p["tqqq_weight"] for p in params} == {0.0, 0.10, 0.20, 0.30}
     assert {p["high_vol_mode"] for p in params} == {"fixed", "percentile"}
+
+
+def test_nested_recent_alpha_grid_focuses_new_regime_dimensions():
+    configs = nested_wf.recent_alpha_grid_candidate_configs()
+
+    assert len(configs) == 48
+    params = [config["nested_params"] for config in configs]
+    assert {p["holding_days"] for p in params} == {20}
+    assert {p["overlay_gross"] for p in params} == {0.50, 0.70}
+    assert {p["ma_window"] for p in params} == {100}
+    assert {p["high_vol"] for p in params} == {0.30}
+    assert {p["score_source"] for p in params} == {"regime_adaptive"}
+    assert {p["risk_control_mode"] for p in params} == {"off"}
+    assert {p["shape"] for p in params} == {"top3", "top5", "top15"}
+    assert {p["weighting"] for p in params} == {"sticky_score", "risk_parity"}
+    assert {p["tqqq_weight"] for p in params} == {0.0, 0.10}
+    assert {p["high_vol_mode"] for p in params} == {"fixed", "percentile"}
+
+
+def test_nested_live_approval_uses_specific_config_frequency_and_turnover():
+    result = {
+        "valid": True,
+        "strategy": "core-alpha",
+        "fold_count": 14,
+        "best_config_frequency": 0.30,
+        "approved_config_frequency": 0.07,
+        "mean_oos_sharpe": 1.4,
+        "oos_positive_alpha_hit_rate": 0.70,
+        "cost_stress_approval_pass": True,
+        "mean_oos_max_drawdown_pct": -12.0,
+        "worst_oos_max_drawdown_pct": -28.0,
+        "worst_oos_turnover_pct": 991.0,
+        "selection_bias_gap_sharpe": 0.4,
+        "most_common_config": "h=20,ov=0.5,ma=100,vol=fixed:0.3,score=regime_adaptive,shape=top5,weighting=sticky_score,tqqq=0.0,risk=off",
+    }
+    approval = nested_wf.approval_status(result)
+
+    assert approval["approved"] is False
+    assert any(reason.startswith("config_frequency<") for reason in approval["reasons"])
+    assert any(reason.startswith("worst_oos_turnover=") for reason in approval["reasons"])
+
+
+def test_manual_publish_approval_rejects_one_off_selected_config():
+    df = pd.DataFrame({
+        "fold_year": [2020, 2021, 2022, 2023, 2024, 2025],
+        "selected_config": ["A", "A", "B", "C", "D", "E"],
+        "oos_return_pct": [10.0, 12.0, 8.0, 9.0, 11.0, 13.0],
+        "oos_sharpe": [1.0, 1.1, 0.9, 1.2, 1.3, 1.4],
+        "oos_max_drawdown_pct": [-5.0, -6.0, -7.0, -8.0, -9.0, -10.0],
+        "oos_turnover_pct": [100.0, 120.0, 130.0, 140.0, 150.0, 160.0],
+        "oos_alpha_vs_spy_pct": [4.0, 5.0, 3.0, 4.0, 5.0, 6.0],
+        "oos_alpha_vs_qqq_pct": [2.0, 3.0, 1.0, 2.0, 3.0, 4.0],
+    })
+
+    metrics = manual_publish.compute_aggregate_metrics(df)
+    selected = manual_publish.compute_selected_config_metrics(df, "A")
+    approval = manual_publish.build_approval(metrics, "A", force=False, selected_config_metrics=selected)
+
+    assert metrics["best_config_frequency"] == round(2 / 6, 4)
+    assert selected["selected_config_frequency"] == round(2 / 6, 4)
+    assert approval["approved"] is True
+
+    selected_too_rare = manual_publish.compute_selected_config_metrics(df, "E")
+    approval_too_rare = manual_publish.build_approval(
+        metrics,
+        "E",
+        force=False,
+        selected_config_metrics=selected_too_rare,
+    )
+    assert approval_too_rare["approved"] is False
+    assert any("selected_config_freq" in reason for reason in approval_too_rare["reasons"])
 
 
 def test_inner_selection_scores_validation_folds_only(monkeypatch):
@@ -759,7 +837,7 @@ def test_inner_selection_rejects_configs_above_turnover_cap(monkeypatch):
             "sharpe": 5.0 if churn else 1.0,
             "total_return_pct": 25.0 if churn else 5.0,
             "max_drawdown_pct": -5.0,
-            "turnover_pct": 450.0 if churn else 100.0,
+            "turnover_pct": nested_wf.MAX_INNER_MEAN_TURNOVER_PCT + 50.0 if churn else 100.0,
             "alpha_vs_spy_pct": 1.0,
             "alpha_vs_qqq_pct": 1.0,
             "alpha_vs_blend_pct": 1.0,
