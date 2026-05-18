@@ -1,6 +1,8 @@
 # ── Automated Daily Paper Trading ─────────────────────────────────────────────
 #
 # Runs the Alpaca paper trading pipeline every US trading day.
+# Heavy factor data refresh is handled by the separate "Factor Data Refresh"
+# workflow so this job can trade from the latest successful cached factor data.
 #
 # Schedule: 9:35 AM New York time on weekdays.
 #   - 5 minutes after market open so price data is fresh.
@@ -118,14 +120,14 @@ jobs:
           pip install -r requirements-ci.txt
 
       # ── 5. Cache data directory (parquet files persist between runs) ─
-      #    research.py downloads stock data via yfinance. Caching means
-      #    it only downloads deltas (new days) instead of full history.
+      #    Restores the latest successful factor-data cache.  The daily trading
+      #    job refreshes ETF files only; research.py runs in factor_data_refresh.yml.
       - name: Cache data directory
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v4
         with:
           path: data/
-          key: data-parquets-${{ github.run_number }}
+          key: data-parquets-${{ github.run_id }}
           restore-keys: |
             data-parquets-
 
@@ -148,7 +150,7 @@ jobs:
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json
-          key: state-files-${{ github.run_number }}
+          key: state-files-${{ github.run_id }}
           restore-keys: |
             state-files-
 
@@ -242,12 +244,12 @@ jobs:
           PYTHONUNBUFFERED: "1"
 
       # ── 7. Run the daily pipeline ─────────────────────────────────
-      #    Retry once on failure — transient network errors (yfinance
-      #    timeouts, rate limits) are common on GitHub runners.
+      #    Uses the latest restored factor data/report.  core_satellite_alpha.py
+      #    still blocks orders if that data is too stale.
       - name: Run daily paper trading (Alpaca only)
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
-          FLAGS="--alpaca --timeout 1800"
+          FLAGS="--alpaca --timeout 900 --skip-factor-refresh"
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
             FLAGS="$FLAGS --force"
           fi
@@ -329,17 +331,17 @@ jobs:
       # ── 10. Upload updated data cache ──────────────────────────────
       #    Save any new parquet data so the next run starts with it.
       - name: Save data cache
-        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v4
         with:
           path: data/
-          key: data-parquets-${{ github.run_number }}
+          key: data-parquets-${{ github.run_id }}
 
       # ── 10. Save updated state files ──────────────────────────────
       #    Gate reports and approval configs updated during this run
       #    must persist for the next run to see paper_ready=True.
       - name: Save state files cache
-        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v4
         with:
           path: |
@@ -353,7 +355,7 @@ jobs:
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json
-          key: state-files-${{ github.run_number }}
+          key: state-files-${{ github.run_id }}
 
       # ── 11. Alert on failure ───────────────────────────────────────
       #    Send a Telegram message if the pipeline failed so you know

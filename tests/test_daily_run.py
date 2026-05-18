@@ -38,6 +38,21 @@ def test_alpaca_only_still_generates_shared_signal():
     assert "moomoo_submit" not in names
 
 
+def test_skip_factor_refresh_keeps_etf_refresh_and_signal():
+    steps = daily_run.build_steps(
+        skip_refresh=False,
+        skip_factor_refresh=True,
+        run_moomoo=False,
+        run_alpaca=True,
+    )
+    names = _names(steps)
+    assert "refresh_etf_data" in names
+    assert "refresh_factor_data" not in names
+    assert "refresh_feature_quality" not in names
+    assert names.index("refresh_etf_data") < names.index("core_satellite_signal")
+    assert names.index("core_satellite_signal") < names.index("alpaca_submit")
+
+
 def test_core_signal_failure_blocks_broker_steps(monkeypatch):
     steps = [
         daily_run.CORE_SATELLITE_SIGNAL_STEP,

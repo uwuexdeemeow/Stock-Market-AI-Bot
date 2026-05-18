@@ -15,22 +15,23 @@ Usage:
 
 Daily workflow (runs in order):
     1.  refresh_etf_data.py --refresh --force → download latest ETF price data
-    2.  research.py                        → refresh factor panel (stock prices + factor scores)
-    3.  fill_monitor.py --days 2           → verify yesterday's fills before placing new orders
-    4.  broker_health.py                   → pre-flight ping of Alpaca + Moomoo (alerts if down)
-    5.  core_satellite_alpha.py            → generate unified signal (both brokers)
-    6.  moomoo_paper_trading.py --submit   → submit to Moomoo (auto-syncs fills, trails stops)
-    7.  moomoo_paper_trading.py --status   → sync equity/positions, save daily status
-    8.  moomoo_paper_trading.py --execution-guard → repair Moomoo ETF stops
-    9.  paper_health.py                    → build deep health summary (slippage, drift, risk)
-    10. paper_gauntlet.py                  → check Moomoo gauntlet gates
-    11. daily_paper_check.py --skip-status --skip-sync  → read-only verdict
-    12. alpaca_paper_trading.py --submit   → submit to Alpaca (reads same signal as Moomoo)
-    13. alpaca_paper_trading.py --reconcile → check if Alpaca orders filled
-    14. execution_guard.py --once          → repair ETF stops, stale orders, P&L guard
-    15. alpaca_paper_gauntlet.py           → check Alpaca health
-    16. regime_monitor.py                  → detect and alert on regime changes
-    17. paper_report.py                    → side-by-side strategy comparison (optional, --report)
+    2.  research.py --incremental          → refresh factor panel (optional in CI)
+    3.  feature_quality_diagnostic.py      → refresh live feature quality report (optional in CI)
+    4.  fill_monitor.py --days 2           → verify yesterday's fills before placing new orders
+    5.  broker_health.py                   → pre-flight ping of Alpaca + Moomoo (alerts if down)
+    6.  core_satellite_alpha.py            → generate unified signal (both brokers)
+    7.  moomoo_paper_trading.py --submit   → submit to Moomoo (auto-syncs fills, trails stops)
+    8.  moomoo_paper_trading.py --status   → sync equity/positions, save daily status
+    9.  moomoo_paper_trading.py --execution-guard → repair Moomoo ETF stops
+    10. paper_health.py                    → build deep health summary (slippage, drift, risk)
+    11. paper_gauntlet.py                  → check Moomoo gauntlet gates
+    12. daily_paper_check.py --skip-status --skip-sync  → read-only verdict
+    13. alpaca_paper_trading.py --submit   → submit to Alpaca (reads same signal as Moomoo)
+    14. alpaca_paper_trading.py --reconcile → check if Alpaca orders filled
+    15. execution_guard.py --once          → repair ETF stops, stale orders, P&L guard
+    16. alpaca_paper_gauntlet.py           → check Alpaca health
+    17. regime_monitor.py                  → detect and alert on regime changes
+    18. paper_report.py                    → side-by-side strategy comparison (optional, --report)
 
 Schedule with cron (9:30 AM ET on weekdays):
     30 9 * * 1-5 cd "/path/to/Stock Market AI Bot" && python3 daily_run.py >> logs/daily_run.log 2>&1
@@ -126,13 +127,18 @@ class Step:
 # PLAIN ENGLISH: These scripts download the latest stock and ETF data from the
 # internet and save it to disk.  Without fresh data, the signal generator would
 # use stale prices and factor scores, which defeats the purpose of daily trading.
-DATA_REFRESH_STEPS = [
-    Step(
-        "refresh_etf_data",
-        [sys.executable, "refresh_etf_data.py", "--refresh", "--force"],
-        "Download latest ETF price data (SPY, QQQ, TQQQ, etc.)",
-        critical=True,
-    ),
+ETF_REFRESH_STEP = Step(
+    "refresh_etf_data",
+    [sys.executable, "refresh_etf_data.py", "--refresh", "--force"],
+    "Download latest ETF price data (SPY, QQQ, TQQQ, etc.)",
+    critical=True,
+)
+
+# Factor refresh can be slow on ephemeral GitHub runners.  The CI daily trading
+# workflow skips these steps and relies on the latest successful factor refresh
+# workflow; core_satellite_alpha.py still blocks if the restored factor data is
+# too stale.
+FACTOR_REFRESH_STEPS = [
     Step(
         "refresh_factor_data",
         [sys.executable, "research.py", "--incremental"],
@@ -148,6 +154,7 @@ DATA_REFRESH_STEPS = [
         timeout_seconds=600,
     ),
 ]
+DATA_REFRESH_STEPS = [ETF_REFRESH_STEP, *FACTOR_REFRESH_STEPS]
 
 # Fill verification — runs BEFORE new signals/orders to check yesterday's fills.
 # PLAIN ENGLISH: Before submitting new orders, check if yesterday's orders
@@ -365,6 +372,7 @@ def run_step(
 def build_steps(
     *,
     skip_refresh: bool,
+    skip_factor_refresh: bool = False,
     run_moomoo: bool,
     run_alpaca: bool,
     stress: bool = False,
@@ -372,7 +380,9 @@ def build_steps(
 ) -> list[Step]:
     steps: list[Step] = []
     if not skip_refresh:
-        steps.extend(DATA_REFRESH_STEPS)
+        steps.append(ETF_REFRESH_STEP)
+        if not skip_factor_refresh:
+            steps.extend(FACTOR_REFRESH_STEPS)
     steps.append(FILL_MONITOR_STEP)
     if run_moomoo or run_alpaca:
         # Pass broker flags so broker_health.py only checks the brokers
@@ -472,6 +482,8 @@ def main():
                         help="Also run stress tests (factor decay, drawdown throttle, execution, survivorship)")
     parser.add_argument("--skip-refresh", action="store_true",
                         help="Skip data refresh steps (use existing factor/ETF data as-is)")
+    parser.add_argument("--skip-factor-refresh", action="store_true",
+                        help="Refresh ETF data, but use latest existing factor data/report")
     parser.add_argument("--force", action="store_true",
                         help="Run even on weekends and US market holidays")
     parser.add_argument("--timeout", type=int, default=300,
@@ -553,6 +565,7 @@ def main():
 
     steps = build_steps(
         skip_refresh=bool(args.skip_refresh),
+        skip_factor_refresh=bool(args.skip_factor_refresh),
         run_moomoo=bool(run_moomoo),
         run_alpaca=bool(run_alpaca),
         stress=bool(args.stress),
@@ -571,6 +584,8 @@ def main():
         print(f"  Alpaca: core-satellite unified signal")
     if args.dry_run:
         print(f"  ⚠ DRY RUN MODE — nothing will execute")
+    if args.skip_factor_refresh and not args.skip_refresh:
+        print("  Factor refresh: skipped — using latest restored factor data/report")
     print(f"{'═'*60}")
 
     # Run each step

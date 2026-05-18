@@ -33,7 +33,14 @@ from alpha_factor_backtest import (
 from backtest import INITIAL_CAPITAL, _load_etf_price_frame
 from feature_health import enrich_feature_specs
 from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
-from settings import DATA_DIR, SIGNAL_DIR, SLIPPAGE_BASE_PCT, VIX_INVERSION_THRESHOLD
+from settings import (
+    DATA_DIR,
+    SIGNAL_DIR,
+    SLIPPAGE_BASE_PCT,
+    SURVIVORSHIP_TRAINING_TICKERS,
+    VIX_INVERSION_THRESHOLD,
+    WATCHLIST,
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -52,6 +59,14 @@ from settings import DATA_DIR, SIGNAL_DIR, SLIPPAGE_BASE_PCT, VIX_INVERSION_THRE
 
 FEATURE_QUALITY_MIN_GRADE = "C"  # drop D and F features
 _QUALITY_GRADE_ORDER = {"A": 5, "B": 4, "C": 3, "D": 2, "F": 1}
+
+
+def _feature_quality_freshness_inputs() -> list[Path]:
+    """Files that should make the live feature-quality report stale."""
+    inputs = [Path("logs/feature_ic_shortlist.csv")]
+    factor_universe = sorted(set(WATCHLIST) | set(SURVIVORSHIP_TRAINING_TICKERS))
+    inputs.extend(Path(DATA_DIR) / f"{ticker.upper()}.parquet" for ticker in factor_universe)
+    return inputs
 
 
 def _load_feature_quality_filter(strict: bool = False) -> set[str] | None:
@@ -82,8 +97,7 @@ def _load_feature_quality_filter(strict: bool = False) -> set[str] | None:
 
     if strict:
         report_mtime = report_path.stat().st_mtime
-        freshness_inputs = [Path("logs/feature_ic_shortlist.csv")]
-        freshness_inputs.extend(Path(DATA_DIR).glob("*.parquet"))
+        freshness_inputs = _feature_quality_freshness_inputs()
         stale_inputs = [
             path
             for path in freshness_inputs

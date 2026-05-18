@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 import pandas as pd
 import pytest
@@ -220,6 +221,36 @@ def test_strict_feature_quality_all_filtered_raises(tmp_path, monkeypatch):
         csa._load_feature_quality_filter(strict=True)
 
     assert "filters out every graded feature" in str(exc.value)
+
+
+def test_strict_feature_quality_ignores_newer_etf_parquets(tmp_path, monkeypatch):
+    signal_dir = tmp_path / "signals"
+    data_dir = tmp_path / "data"
+    signal_dir.mkdir()
+    data_dir.mkdir()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(csa, "SIGNAL_DIR", str(signal_dir))
+    monkeypatch.setattr(csa, "DATA_DIR", str(data_dir))
+    monkeypatch.setattr(csa, "WATCHLIST", ["AAPL"])
+    monkeypatch.setattr(csa, "SURVIVORSHIP_TRAINING_TICKERS", [])
+
+    report_path = signal_dir / "feature_quality_report.json"
+    report_path.write_text(
+        json.dumps({"features": [{"feature": "mom_20d", "grade": "A"}]}),
+        encoding="utf-8",
+    )
+    report_mtime = 1_700_000_000
+    os.utime(report_path, (report_mtime, report_mtime))
+
+    factor_path = data_dir / "AAPL.parquet"
+    factor_path.write_text("factor", encoding="utf-8")
+    os.utime(factor_path, (report_mtime - 100, report_mtime - 100))
+
+    etf_path = data_dir / "SPY.parquet"
+    etf_path.write_text("etf", encoding="utf-8")
+    os.utime(etf_path, (report_mtime + 100, report_mtime + 100))
+
+    assert csa._load_feature_quality_filter(strict=True) == {"mom_20d"}
 
 
 def test_live_feature_validator_requires_xs_rank_features():
