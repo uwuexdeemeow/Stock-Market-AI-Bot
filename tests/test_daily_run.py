@@ -84,6 +84,20 @@ def test_refresh_failure_blocks_all_later_steps(monkeypatch):
     assert next(r for r in results if r["name"] == "alpaca_submit")["status"] == "blocked"
 
 
+def test_refresh_factor_data_uses_longer_step_timeout(monkeypatch):
+    captured: dict[str, int] = {}
+    step = next(step for step in daily_run.DATA_REFRESH_STEPS if step.name == "refresh_factor_data")
+
+    def fake_run_step(name, cmd, description, dry_run=False, timeout=300):
+        captured[name] = timeout
+        return {"name": name, "status": "ok", "elapsed": 0.1}
+
+    monkeypatch.setattr(daily_run, "run_step", fake_run_step)
+    daily_run.run_steps([step], dry_run=False, timeout=1)
+
+    assert captured["refresh_factor_data"] == 1800
+
+
 def test_dry_run_skipped_critical_steps_do_not_block(monkeypatch):
     steps = [
         daily_run.DATA_REFRESH_STEPS[0],

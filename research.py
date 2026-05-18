@@ -80,6 +80,12 @@ INCREMENTAL_RECOMPUTE_WINDOW_DAYS = 380
 # If an existing parquet is stale by more than this many calendar days,
 # fall back to a full rebuild (incremental savings not worth the complexity).
 INCREMENTAL_MAX_STALENESS_DAYS = 30
+POST_PASS_COLUMN_PREFIXES = ("xs_rank_",)
+
+
+def _is_post_pass_column(column: str) -> bool:
+    """Return True for columns rebuilt by research post-pass stages."""
+    return any(str(column).startswith(prefix) for prefix in POST_PASS_COLUMN_PREFIXES)
 
 
 def research_ticker_incremental(ticker: str, start: str, end: str) -> bool:
@@ -155,14 +161,22 @@ def research_ticker_incremental(ticker: str, start: str, end: str) -> bool:
         log.error("[%s] incremental build returned empty — keeping existing", ticker)
         return True  # Don't destroy existing data
 
-    # Schema compatibility check: if columns changed, do a full rebuild
+    # Schema compatibility check: if core pipeline columns changed, do a full
+    # rebuild.  Post-pass columns such as xs_rank_* are expected to be absent
+    # from a single-ticker fresh frame because they are rebuilt after all
+    # tickers finish.  Treating those as a schema break turns every daily
+    # incremental refresh into a full rebuild and can trip daily_run timeouts.
     if set(fresh.columns) != set(existing.columns):
         missing_in_fresh = set(existing.columns) - set(fresh.columns)
         new_in_fresh = set(fresh.columns) - set(existing.columns)
-        if missing_in_fresh:
+        blocking_missing = {col for col in missing_in_fresh if not _is_post_pass_column(col)}
+        post_pass_missing = missing_in_fresh - blocking_missing
+        if blocking_missing:
             log.info(
-                "[%s] schema changed (lost %d cols) — full rebuild",
-                ticker, len(missing_in_fresh),
+                "[%s] schema changed (lost %d core cols: %s) — full rebuild",
+                ticker,
+                len(blocking_missing),
+                ", ".join(sorted(blocking_missing)[:5]),
             )
             return research_ticker(ticker, start, end)
         # New columns added (e.g. new factor) — full rebuild to fill history
@@ -173,6 +187,16 @@ def research_ticker_incremental(ticker: str, start: str, end: str) -> bool:
                 ", ".join(sorted(new_in_fresh)[:5]),
             )
             return research_ticker(ticker, start, end)
+        if post_pass_missing:
+            log.info(
+                "[%s] preserving %d post-pass cols until post-pass refresh: %s",
+                ticker,
+                len(post_pass_missing),
+                ", ".join(sorted(post_pass_missing)[:5]),
+            )
+            for col in sorted(post_pass_missing):
+                fresh[col] = pd.NA
+            fresh = fresh.reindex(columns=existing.columns)
 
     # ── Splice: keep old rows before recompute_start, use fresh for the rest ──
     # This preserves the full history while updating the tail with fresh features.

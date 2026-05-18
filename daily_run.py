@@ -119,6 +119,7 @@ class Step:
     cmd: list[str]
     description: str
     critical: bool = False
+    timeout_seconds: int | None = None
 
 
 # Data refresh steps — run BEFORE signal generation so factors/ETFs are fresh.
@@ -137,12 +138,14 @@ DATA_REFRESH_STEPS = [
         [sys.executable, "research.py", "--incremental"],
         "Refresh factor panel data incrementally (only download new days since last run)",
         critical=True,
+        timeout_seconds=1800,
     ),
     Step(
         "refresh_feature_quality",
         [sys.executable, "feature_quality_diagnostic.py", "--top", "48"],
         "Refresh live feature quality report used by core_satellite_alpha.py",
         critical=True,
+        timeout_seconds=600,
     ),
 ]
 
@@ -420,7 +423,8 @@ def run_steps(steps: list[Step], *, dry_run: bool, timeout: int) -> list[dict]:
                 "elapsed": 0.0,
             })
             continue
-        result = run_step(step.name, step.cmd, step.description, dry_run=dry_run, timeout=timeout)
+        effective_timeout = int(step.timeout_seconds or timeout)
+        result = run_step(step.name, step.cmd, step.description, dry_run=dry_run, timeout=effective_timeout)
         results.append(result)
         if step.critical and result["status"] in ("failed", "error", "timeout"):
             blocked_by = step.name
