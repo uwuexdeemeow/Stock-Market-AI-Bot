@@ -110,6 +110,7 @@ jobs:
             signals/core_satellite_live_configs.json
             signals/core_satellite_nested_walkforward.json
             signals/core_satellite_alpha_metrics.json
+            signals/adaptive_factor_weights.json
             signals/feature_quality_report.json
             signals/feature_quality_summary.csv
             signals/factor_data_health.json
@@ -166,6 +167,7 @@ jobs:
           name: factor-data-refresh-logs-${{ github.run_number }}
           path: |
             logs/
+            signals/adaptive_factor_weights.json
             signals/feature_quality_report.json
             signals/feature_quality_summary.csv
             signals/factor_data_health.json
@@ -186,6 +188,7 @@ jobs:
             signals/core_satellite_live_configs.json
             signals/core_satellite_nested_walkforward.json
             signals/core_satellite_alpha_metrics.json
+            signals/adaptive_factor_weights.json
             signals/feature_quality_report.json
             signals/feature_quality_summary.csv
             signals/factor_data_health.json

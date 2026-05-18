@@ -143,6 +143,7 @@ jobs:
             signals/core_satellite_live_configs.json
             signals/core_satellite_nested_walkforward.json
             signals/core_satellite_alpha_metrics.json
+            signals/adaptive_factor_weights.json
             signals/feature_quality_report.json
             signals/feature_quality_summary.csv
             signals/factor_data_health.json
@@ -244,6 +245,24 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
 
+      # ── 6c. Repair missing/stale restored factor cache ─────────────
+      #    A fresh runner has no ignored data/signals files unless a previous
+      #    factor refresh cache restores them. If that cache is absent or stale,
+      #    rebuild it here before daily_run.py reaches the strict health gate.
+      - name: Rebuild factor cache if restore is incomplete
+        if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        run: |
+          if python3 factor_data_health.py --strict --no-write; then
+            echo "Restored factor cache is trade-ready."
+          else
+            echo "Restored factor cache is missing or stale; rebuilding factor data and feature quality."
+            python3 research.py --incremental
+            python3 feature_quality_diagnostic.py --top 48
+            python3 factor_data_health.py --strict
+          fi
+        env:
+          PYTHONUNBUFFERED: "1"
+
       # ── 7. Run the daily pipeline ─────────────────────────────────
       #    Uses the latest restored factor data/report.  core_satellite_alpha.py
       #    still blocks orders if that data is too stale.
@@ -281,6 +300,9 @@ jobs:
             logs/
             signals/core_satellite_alpha_signal.csv
             signals/core_satellite_alpha_orders.csv
+            signals/adaptive_factor_weights.json
+            signals/feature_quality_report.json
+            signals/feature_quality_summary.csv
             signals/factor_data_health.json
           retention-days: 30
 
@@ -350,6 +372,7 @@ jobs:
             signals/core_satellite_live_configs.json
             signals/core_satellite_nested_walkforward.json
             signals/core_satellite_alpha_metrics.json
+            signals/adaptive_factor_weights.json
             signals/feature_quality_report.json
             signals/feature_quality_summary.csv
             signals/factor_data_health.json
