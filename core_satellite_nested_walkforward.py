@@ -243,7 +243,7 @@ MAX_INNER_MEAN_TURNOVER_PCT = 600.0
 RISK_CONTROL_MODES = ("off", "defensive")
 FULL_RISK_CONTROL_MODES = ("off", "defensive")
 FULL_TQQQ_WEIGHTS = (0.0, 0.10, 0.20, 0.30)
-STABLE_GRID_TQQQ_WEIGHTS = FULL_TQQQ_WEIGHTS
+STABLE_GRID_TQQQ_WEIGHTS = (0.0, 0.10)
 STABLE_GRID_SHAPES = ("top5", "top10", "top15")
 STABLE_GRID_HIGH_VOL_MODES = ("fixed", "percentile")
 RECENT_ALPHA_GRID_SHAPES = ("top3", "top5", "top15")
@@ -598,11 +598,18 @@ def stable_grid_candidate_configs(
     strategy: str = "core-alpha",
     max_configs: int | None = None,
 ) -> list[dict]:
-    """Return the pinned research grid for alpha-decay baseline testing.
+    """Return the consensus-aligned baseline grid for stable approval.
 
     Pins the 14-fold consensus dimensions (h=20, ma=100, score=regime_adaptive,
-    weighting=sticky_score, risk=defensive, overlay=0.50) and searches only
-    shape, high-vol mode, and the TQQQ sleeve.
+    risk=off) AND drops overlay=0.7 — the May 2026 stable-grid run showed it's
+    a turnover disaster:
+      ov=0.5:  308% mean turnover, 2.03 mean Sharpe, +13.5% mean α vs QQQ
+      ov=0.7:  562% mean turnover, 0.95 mean Sharpe,  +2.2% mean α vs QQQ
+    The 991% blowup on the 2014 fold was an ov=0.7 fold.
+
+    Also drops tqqq=(0.2, 0.3) which won 0/14 folds and risk=defensive
+    which won 0/14 folds.  Keeps the dimensions that actually vary across
+    winners: shape, weighting, vol mode, and tqqq=(0.0, 0.1).
     """
     return iter_candidate_configs(
         strategy=strategy,
@@ -613,9 +620,9 @@ def stable_grid_candidate_configs(
         high_vol_modes=STABLE_GRID_HIGH_VOL_MODES,
         score_sources=("regime_adaptive",),
         shapes=STABLE_GRID_SHAPES,
-        weightings=("sticky_score",),
+        weightings=("sticky_score", "risk_parity"),
         tqqq_weights=STABLE_GRID_TQQQ_WEIGHTS,
-        risk_control_modes=("defensive",),
+        risk_control_modes=("off",),
         max_configs=max_configs,
     )
 
@@ -2551,10 +2558,11 @@ def main() -> None:
                         help="Use the exhaustive grid (768 configs) for overnight runs. "
                              "Default is a balanced 192-config grid (~1 hour on laptop)")
     parser.add_argument("--stable-grid", action="store_true",
-                        help="Use the pinned consensus baseline grid (24 configs): "
-                             "pins 14-fold consensus (h=20, ma=100, regime_adaptive, "
-                             "sticky_score, risk=defensive, overlay=0.50); tunes "
-                             "shape, vol mode, and TQQQ.")
+                        help="Use the consensus baseline grid (24 configs): pins "
+                             "14-fold winners (h=20, ma=100, regime_adaptive, "
+                             "risk=off, overlay=0.50) and drops ov=0.7 which had "
+                             "562% turnover and 0.95 Sharpe; tunes shape, weighting, "
+                             "vol mode, and tqqq=(0.0, 0.1).")
     parser.add_argument("--recent-alpha-grid", action="store_true",
                         help="Use the focused recent-alpha research grid (~48 configs): "
                              "h=20, risk off, ma=100, regime_adaptive; tunes "
