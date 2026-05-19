@@ -1,15 +1,14 @@
 """
 dashboard.py — Stock Bot Dashboard (main entry point)
 
-PLAIN ENGLISH: This is the home page when you run `streamlit run
-dashboard.py`.  It shows a quick health summary and equity curve;
-detail lives in the sidebar pages.
-
-Run with:
-    streamlit run dashboard.py
+PLAIN ENGLISH: Run with `streamlit run dashboard.py`.  This is the home
+page — quick health summary, equity curve, regime indicator, freshness
+checks.  Detailed views live in the sidebar pages.
 """
 
 # ── Imports ────────────────────────────────────────────────────────────
+from datetime import datetime
+
 import streamlit as st
 
 from dashboard import data
@@ -31,21 +30,35 @@ st.set_page_config(
 )
 
 
-# ── Sidebar — refresh only (page nav is auto-injected) ────────────────
+# ── Shared CSS + sidebar refresh button (applied to every page) ────────
 sidebar_refresh()
 
 
-# ── Main page ─────────────────────────────────────────────────────────
-st.title("Stock Bot")
-st.caption("Live paper-trading dashboard")
+# ── Hero header ────────────────────────────────────────────────────────
+hero_left, hero_right = st.columns([5, 2])
+with hero_left:
+    st.title("Stock Bot")
+    st.caption("Live paper-trading dashboard · core-satellite strategy")
+with hero_right:
+    # Top-right clock so it's clear which timezone the data is in
+    now = datetime.now()
+    st.markdown(
+        f"<div style='text-align:right;padding-top:1rem;color:#64748b;font-size:0.875rem'>"
+        f"As of <strong style='color:#0f172a'>{now.strftime('%a %b %d')}</strong>"
+        f" · {now.strftime('%H:%M')} local"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
-# Account summary at top
+
+# ── Account summary ────────────────────────────────────────────────────
 summary = data.compute_account_summary()
 account_summary_card(summary)
 
 st.divider()
 
-# Regime + health chips
+
+# ── Regime + health chips ──────────────────────────────────────────────
 col_a, col_b = st.columns([2, 3])
 
 with col_a:
@@ -53,7 +66,7 @@ with col_a:
     regime = str(signal.get("current_regime", "unknown"))
     regime_indicator(regime)
     if signal.get("predicted_at"):
-        st.caption(f"Signal generated: {signal.get('predicted_at')}")
+        st.caption(f"Signal generated · {signal.get('predicted_at')}")
 
 with col_b:
     st.markdown("##### System status")
@@ -61,13 +74,17 @@ with col_b:
     with h1:
         wf = data.load_walkforward_summary() or {}
         approval = (wf.get("live_config_approval") or {}).get("approved", False)
-        status_chip("Walkforward approved" if approval else "Not approved",
-                    "ok" if approval else "fail")
+        status_chip(
+            "Walkforward approved" if approval else "Approval blocked",
+            "ok" if approval else "fail",
+        )
     with h2:
         ready = bool(signal.get("paper_ready", False))
         gates = bool(signal.get("gates_all_pass", False))
-        status_chip("Paper ready" if ready and gates else "Gates blocked",
-                    "ok" if ready and gates else "warn")
+        status_chip(
+            "Paper-trading ready" if ready and gates else "Gates blocked",
+            "ok" if ready and gates else "warn",
+        )
     with h3:
         last_run = data.load_latest_daily_run() or {}
         passed = last_run.get("steps_ok", 0)
@@ -81,7 +98,8 @@ with col_b:
 
 st.divider()
 
-# Equity curve
+
+# ── Equity curve ───────────────────────────────────────────────────────
 st.markdown("##### Equity (last 90 days)")
 equity_df = data.load_alpaca_equity_history()
 qqq_df = data.load_etf_data("QQQ", days=90)
@@ -96,12 +114,13 @@ else:
 
 st.divider()
 
-# Quick file freshness check
-with st.expander("Data freshness"):
+
+# ── Data freshness check ───────────────────────────────────────────────
+with st.expander("Data freshness · click to expand"):
     st.dataframe(data.file_status_table(), use_container_width=True, hide_index=True)
 
 st.caption(
-    "Data cached for 30–60s. Use **Refresh** in the sidebar to force a "
+    "Cached for 30–60 seconds. Use **Refresh** in the sidebar to force a "
     "reread. When the daily run completes (~9:35 AM ET) files update and "
     "the dashboard reflects it on the next auto-refresh."
 )

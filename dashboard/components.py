@@ -230,13 +230,125 @@ def freshness_badge(age_minutes: Optional[float]) -> None:
         status_chip(f"old ({hours:.1f}h)", "fail")
 
 
+def apply_page_style() -> None:
+    """Inject the shared CSS used on every page.
+
+    Centralises typography, button styling, and spacing so the whole
+    dashboard feels like one app instead of seven loose pages.  Idempotent —
+    safe to call from every page header.
+    """
+    st.markdown(
+        """
+        <style>
+          html, body, [class*="css"] {
+            font-family: -apple-system, BlinkMacSystemFont, "Inter",
+              "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+          }
+          .block-container {
+            padding-top: 2rem !important;
+            padding-bottom: 4rem !important;
+            max-width: 1400px;
+          }
+          [data-testid="stSidebar"] {
+            background-color: #fafafa;
+            border-right: 1px solid #e5e7eb;
+          }
+          h1 {
+            font-weight: 700 !important;
+            letter-spacing: -0.025em !important;
+            font-size: 2rem !important;
+            color: #0f172a !important;
+          }
+          h2, h3 {
+            font-weight: 600 !important;
+            letter-spacing: -0.015em !important;
+            color: #1e293b !important;
+          }
+          h4, h5 {
+            font-weight: 600 !important;
+            letter-spacing: -0.01em !important;
+            color: #334155 !important;
+            margin-bottom: 0.5rem !important;
+          }
+          [data-testid="stMetricValue"] {
+            font-weight: 700 !important;
+            letter-spacing: -0.02em !important;
+            font-size: 1.75rem !important;
+          }
+          [data-testid="stMetricLabel"] {
+            font-size: 0.8rem !important;
+            font-weight: 500 !important;
+            color: #64748b !important;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+          }
+          [data-testid="stMetricDelta"] {
+            font-size: 0.8rem !important;
+            font-weight: 500 !important;
+          }
+          .stButton button {
+            border-radius: 8px !important;
+            font-weight: 500 !important;
+            transition: all 0.15s ease !important;
+            border: 1px solid #e2e8f0 !important;
+          }
+          .stButton button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+          }
+          .stButton button[kind="primary"] {
+            background-color: #3b82f6 !important;
+            border-color: #3b82f6 !important;
+          }
+          hr {
+            margin: 1.75rem 0 !important;
+            border-color: #e5e7eb !important;
+            opacity: 0.7;
+          }
+          .streamlit-expanderHeader {
+            font-weight: 500 !important;
+            border-radius: 8px !important;
+          }
+          .stTabs [data-baseweb="tab-list"] {
+            gap: 8px;
+            border-bottom: 1px solid #e5e7eb;
+          }
+          .stTabs [data-baseweb="tab"] {
+            padding: 8px 16px !important;
+            font-weight: 500 !important;
+            border-radius: 8px 8px 0 0 !important;
+          }
+          .stTabs [aria-selected="true"] {
+            color: #3b82f6 !important;
+            border-bottom: 2px solid #3b82f6 !important;
+          }
+          pre {
+            border-radius: 8px !important;
+            background-color: #f8fafc !important;
+            border: 1px solid #e2e8f0 !important;
+          }
+          pre code { font-size: 0.85rem !important; }
+          [data-testid="stDataFrame"] {
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+          }
+          .stAlert {
+            border-radius: 8px !important;
+            border-width: 1px !important;
+          }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def sidebar_refresh() -> None:
     """One-button sidebar shown on every page.
 
-    Streamlit auto-injects the page navigation at the top of the
-    sidebar, so we only add the refresh control below it.  Anything
-    else (titles, captions, page lists) is redundant and removed.
+    Also applies the shared page CSS so each page picks up the styling
+    without each one repeating the markdown block.
     """
+    apply_page_style()
     with st.sidebar:
         if st.button("🔄 Refresh", use_container_width=True):
             st.cache_data.clear()
