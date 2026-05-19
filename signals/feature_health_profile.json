@@ -3,8 +3,8 @@
   "correlation_cluster_threshold": 0.7,
   "decay_quarantine_ratio": 0.5,
   "decay_watch_ratio": 0.8,
-  "min_active_clusters": 3,
-  "max_cluster_weight_allowed": 0.4,
+  "min_active_clusters": 6,
+  "max_cluster_weight_allowed": 0.25,
   "summary": {
     "raw_feature_count": 42,
     "cluster_count": 10,
