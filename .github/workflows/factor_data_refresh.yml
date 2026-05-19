@@ -132,6 +132,7 @@ jobs:
           TRADIER_USE_SANDBOX=0
           TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
+          STOCKBOT_SCRIPT_TELEGRAM_ENABLED=0
           SENTIMENT_ENGINE_LEVEL=vader
           ENVEOF
 
@@ -194,40 +195,80 @@ jobs:
             logs/core_satellite_survivorship_audit.json
           key: state-files-${{ github.run_id }}
 
-      - name: Notify on failure (Telegram)
-        if: ${{ failure() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+      - name: Send consolidated Telegram summary
+        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_NUMBER: ${{ github.run_number }}
+          XS_ONLY_INPUT: ${{ github.event.inputs.xs_only }}
         run: |
-          if [ -z "${TELEGRAM_BOT_TOKEN}" ]; then
-            echo "TELEGRAM_BOT_TOKEN not set - skipping notification"
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
+            echo "Telegram secrets not set - skipping notification"
             exit 0
           fi
-          MSG="FAILED: *Factor Data Refresh FAILED*%0A"
-          MSG="${MSG}Run: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})%0A"
-          MSG="${MSG}Time: $(date -u '+%Y-%m-%d %H:%M UTC')"
-          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-            -d chat_id="${TELEGRAM_CHAT_ID}" \
-            -d parse_mode="Markdown" \
-            -d text="${MSG}" \
-            || echo "Telegram notification failed (non-fatal)"
 
-      - name: Notify on success (Telegram)
-        if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          if [ -z "${TELEGRAM_BOT_TOKEN}" ]; then
-            echo "TELEGRAM_BOT_TOKEN not set - skipping notification"
-            exit 0
-          fi
-          MSG="OK: *Factor Data Refresh OK*%0A"
-          MSG="${MSG}Run: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})%0A"
-          MSG="${MSG}Time: $(date -u '+%Y-%m-%d %H:%M UTC')"
+          python3 - <<'PY' > /tmp/telegram_summary.txt
+          import json
+          import os
+          from pathlib import Path
+
+          status = os.environ.get("JOB_STATUS", "unknown")
+          label = {
+              "success": "OK",
+              "failure": "FAILED",
+              "cancelled": "CANCELLED",
+          }.get(status, status.upper())
+          lines = [
+              f"Factor Data Refresh {label}",
+              f"Run #{os.environ.get('RUN_NUMBER', '?')}: {os.environ.get('RUN_URL', '')}",
+              f"Time: {os.popen(\"date -u '+%Y-%m-%d %H:%M UTC'\").read().strip()}",
+          ]
+          if os.environ.get("XS_ONLY_INPUT") == "true":
+              lines.append("Mode: xs-only")
+
+          health_path = Path("signals/factor_data_health.json")
+          if health_path.exists():
+              try:
+                  health = json.loads(health_path.read_text())
+                  status_text = health.get("status") or ("ready" if health.get("factor_data_ready") else "not_ready")
+                  latest = health.get("latest_data_date") or health.get("latest_date") or "?"
+                  age = health.get("age_trading_days", "?")
+                  present = health.get("required_present_count", "?")
+                  required = health.get("required_count", "?")
+                  lines.append(f"Factor data: {status_text}, latest={latest}, age={age}d")
+                  lines.append(f"Required tickers: {present}/{required}")
+                  reasons = health.get("reasons") or []
+                  if reasons:
+                      lines.append("Reasons: " + ", ".join(str(x) for x in reasons[:5]))
+              except Exception as exc:
+                  lines.append(f"Health report unreadable: {exc}")
+          else:
+              lines.append("Health report: missing")
+
+          quality_path = Path("signals/feature_quality_report.json")
+          if quality_path.exists():
+              try:
+                  quality = json.loads(quality_path.read_text())
+                  grades = quality.get("grade_counts", {})
+                  if grades:
+                      ordered = " ".join(f"{k}:{grades.get(k, 0)}" for k in ["A", "B", "C", "D", "F"])
+                      lines.append(f"Feature grades: {ordered}")
+                  if quality.get("n_features") is not None:
+                      lines.append(f"Features checked: {quality.get('n_features')}")
+              except Exception as exc:
+                  lines.append(f"Quality report unreadable: {exc}")
+          else:
+              lines.append("Quality report: missing")
+
+          print("\n".join(lines))
+          PY
+
+          cat /tmp/telegram_summary.txt
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
-            -d parse_mode="Markdown" \
-            -d text="${MSG}" \
+            -d disable_web_page_preview=true \
+            --data-urlencode "text@/tmp/telegram_summary.txt" \
             || echo "Telegram notification failed (non-fatal)"

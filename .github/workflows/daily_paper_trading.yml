@@ -177,6 +177,7 @@ jobs:
           TRADIER_USE_SANDBOX=0
           TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
+          STOCKBOT_SCRIPT_TELEGRAM_ENABLED=0
           SMTP_HOST=smtp.gmail.com
           SMTP_PORT=587
           SMTP_USER=${{ secrets.SMTP_USER }}
@@ -407,66 +408,105 @@ jobs:
             logs/core_satellite_survivorship_audit.json
           key: state-files-${{ github.run_id }}
 
-      # ── 11. Alert on failure ───────────────────────────────────────
-      #    Send a Telegram message if the pipeline failed so you know
-      #    immediately (instead of discovering hours later).
-      - name: Notify on failure (Telegram)
-        if: ${{ failure() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+      # ── 11. One consolidated Telegram summary ──────────────────────
+      #    Python scripts suppress their own Telegram messages in Actions
+      #    (`STOCKBOT_SCRIPT_TELEGRAM_ENABLED=0`), so this is the only
+      #    Telegram message sent by the workflow.
+      - name: Send consolidated Telegram summary
+        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_NUMBER: ${{ github.run_number }}
+          DRY_RUN_INPUT: ${{ github.event.inputs.dry_run }}
         run: |
-          # Skip silently if the bot token isn't configured (e.g. fresh fork)
-          if [ -z "${TELEGRAM_BOT_TOKEN}" ]; then
-            echo "TELEGRAM_BOT_TOKEN not set — skipping notification"
-            exit 0
-          fi
-          MSG="🚨 *Daily Paper Trading FAILED*%0A"
-          MSG="${MSG}Run: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})%0A"
-          MSG="${MSG}Time: $(date -u '+%Y-%m-%d %H:%M UTC')"
-          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-            -d chat_id="${TELEGRAM_CHAT_ID}" \
-            -d parse_mode="Markdown" \
-            -d text="${MSG}" \
-            || echo "⚠ Telegram notification failed (non-fatal)"
-
-      # ── 12. Alert on success ───────────────────────────────────────
-      #    Confirm the daily run finished successfully.  Includes account
-      #    equity and order count when available (skipped for dry-runs).
-      - name: Notify on success (Telegram)
-        if: ${{ success() && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          if [ -z "${TELEGRAM_BOT_TOKEN}" ]; then
-            echo "TELEGRAM_BOT_TOKEN not set — skipping notification"
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
+            echo "Telegram secrets not set — skipping notification"
             exit 0
           fi
 
-          # Pull a couple of stats from artifacts if they exist.
-          ORDERS_LINE=""
-          if [ -f signals/core_satellite_alpha_orders.csv ]; then
-            # Header row + N data rows.  Subtract 1 for the header.
-            N=$(($(wc -l < signals/core_satellite_alpha_orders.csv) - 1))
-            if [ "$N" -lt 0 ]; then N=0; fi
-            ORDERS_LINE="Orders: ${N}%0A"
-          fi
-          EQUITY_LINE=""
-          if [ -f signals/alpaca_paper_equity.csv ]; then
-            # Last line is the most recent equity snapshot.
-            EQ=$(tail -n 1 signals/alpaca_paper_equity.csv | awk -F',' '{print $2}')
-            if [ -n "$EQ" ]; then
-              EQUITY_LINE="Equity: \$${EQ}%0A"
-            fi
-          fi
+          python3 - <<'PY' > /tmp/telegram_summary.txt
+          import csv
+          import glob
+          import json
+          import os
+          from pathlib import Path
 
-          MSG="✅ *Daily Paper Trading OK*%0A"
-          MSG="${MSG}Run: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})%0A"
-          MSG="${MSG}${ORDERS_LINE}${EQUITY_LINE}"
-          MSG="${MSG}Time: $(date -u '+%Y-%m-%d %H:%M UTC')"
+          status = os.environ.get("JOB_STATUS", "unknown")
+          label = {
+              "success": "OK",
+              "failure": "FAILED",
+              "cancelled": "CANCELLED",
+          }.get(status, status.upper())
+          lines = [
+              f"Daily Paper Trading {label}",
+              f"Run #{os.environ.get('RUN_NUMBER', '?')}: {os.environ.get('RUN_URL', '')}",
+              f"Time: {os.popen(\"date -u '+%Y-%m-%d %H:%M UTC'\").read().strip()}",
+          ]
+          if os.environ.get("DRY_RUN_INPUT") == "true":
+              lines.append("Mode: dry-run")
+
+          logs = sorted(glob.glob("logs/daily_run_*.json"), key=lambda p: Path(p).stat().st_mtime if Path(p).exists() else 0)
+          if logs:
+              path = logs[-1]
+              try:
+                  data = json.loads(Path(path).read_text())
+                  ok = data.get("steps_ok", "?")
+                  total = data.get("steps_total", "?")
+                  failed = data.get("steps_failed", 0)
+                  elapsed = data.get("total_elapsed_seconds", "?")
+                  lines.append(f"Steps: {ok}/{total} ok, failed={failed}, elapsed={elapsed}s")
+                  bad = [r for r in data.get("results", []) if r.get("status") not in {"ok", "skipped"}]
+                  if bad:
+                      lines.append("Failures:")
+                      for row in bad[:8]:
+                          suffix = f" by {row.get('blocked_by')}" if row.get("blocked_by") else ""
+                          lines.append(f"- {row.get('name')}: {row.get('status')}{suffix}")
+                      if len(bad) > 8:
+                          lines.append(f"- ... +{len(bad) - 8} more")
+              except Exception as exc:
+                  lines.append(f"Daily log unreadable: {exc}")
+          else:
+              lines.append("Daily log: missing")
+
+          signal_path = Path("signals/core_satellite_alpha_signal.csv")
+          if signal_path.exists():
+              try:
+                  rows = list(csv.DictReader(signal_path.open()))
+                  row = rows[0] if rows else {}
+                  lines.append(f"paper_ready: {row.get('paper_ready', '?')}")
+                  lines.append(f"regime: {row.get('current_regime', '?')} | gross: {row.get('gross_exposure', '?')}")
+                  if row.get("reason"):
+                      lines.append(f"reason: {row.get('reason')}")
+              except Exception as exc:
+                  lines.append(f"Signal unreadable: {exc}")
+
+          orders_path = Path("signals/core_satellite_alpha_orders.csv")
+          if orders_path.exists():
+              try:
+                  with orders_path.open() as f:
+                      order_count = max(sum(1 for _ in f) - 1, 0)
+                  lines.append(f"Orders: {order_count}")
+              except Exception:
+                  pass
+
+          equity_path = Path("signals/alpaca_paper_equity.csv")
+          if equity_path.exists():
+              try:
+                  rows = list(csv.DictReader(equity_path.open()))
+                  if rows:
+                      lines.append(f"Equity: ${rows[-1].get('equity', '?')}")
+              except Exception:
+                  pass
+
+          print("\n".join(lines))
+          PY
+
+          cat /tmp/telegram_summary.txt
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
-            -d parse_mode="Markdown" \
-            -d text="${MSG}" \
+            -d disable_web_page_preview=true \
+            --data-urlencode "text@/tmp/telegram_summary.txt" \
             || echo "⚠ Telegram notification failed (non-fatal)"

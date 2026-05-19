@@ -66,6 +66,7 @@ python3 daily_run.py --force      # run even on weekends/holidays
 - **Social sentiment safety mode**: StockTwits/X sentiment is live diagnostic/fallback data only (`SOCIAL_SENTIMENT_SAFETY_ENABLED=1`). It is not included as trainable model alpha unless `SOCIAL_SENTIMENT_ALPHA_ENABLED=1` is explicitly enabled after separate validation.
 - **Sell-wait-buy phasing**: Moomoo sells execute first, waits for fills + settlement, then buys (prevents cancelled orders from insufficient buying power)
 - **Failure notifications**: macOS notification banner if any step fails; optional email alerts via SMTP env vars
+- **GitHub Actions Telegram**: script-level Telegram is muted in Actions and each workflow sends one consolidated final Telegram summary
 - **Regime change alerts**: macOS notification when market regime switches (e.g. risk_on to risk_off)
 - **Fill verification**: Checks yesterday's orders before submitting new ones
 - **Moomoo ETF protection**: STOP_LIMIT protection is repaired for SPY/QQQ/TQQQ when supported by Moomoo paper trading

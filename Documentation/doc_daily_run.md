@@ -94,6 +94,9 @@ The workflow file `.github/workflows/daily_paper_trading.yml` invokes
   `logs/daily_run_YYYYMMDD.json` and `signals/fill_monitor.json` placeholder.
   If the run crashes early, `monitor_heartbeat.py` still sees where the pipeline
   got to instead of reporting a misleading missing file.
+- **Consolidated Telegram in GitHub Actions** — the workflow sets
+  `STOCKBOT_SCRIPT_TELEGRAM_ENABLED=0`, so scripts do not send their own
+  Telegram alerts.  The workflow sends one final summary instead.
 - **Per-step timeout** — default 5 min per step (10 min recommended
   for research.py).
 - **Internal Telegram alert** — sends a warning when any step fails,
