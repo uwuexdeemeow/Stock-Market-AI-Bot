@@ -29,13 +29,35 @@ from pathlib import Path
 import pandas as pd
 
 from safe_io import atomic_write_json
-from settings import SIGNAL_DIR, LOG_DIR
+from settings import SIGNAL_DIR
 
 SIGNALS = Path(SIGNAL_DIR)
-LOGS = Path(LOG_DIR)
 
 PAPER_TRADES_FILE = SIGNALS / "paper_trades.csv"
 FILL_MONITOR_LOG = SIGNALS / "fill_monitor.json"
+
+
+def _empty_result(*, lookback_days: int, reason: str) -> dict:
+    """Build a normal report for "nothing to check" cases.
+
+    PLAIN ENGLISH: Even when there are no trades, the monitor still needs to
+    write `signals/fill_monitor.json`.  The heartbeat watchdog only knows that
+    this script ran by seeing a fresh output file.
+    """
+    return {
+        "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "lookback_days": lookback_days,
+        "status": "ok",
+        "reason": reason,
+        "total_checked": 0,
+        "filled": 0,
+        "cancelled": 0,
+        "partial": 0,
+        "unknown": 0,
+        "not_submitted": 0,
+        "problems": [],
+        "fill_rate": 0,
+    }
 
 
 def _send_fill_alert(title: str, message: str) -> None:
@@ -78,13 +100,13 @@ def check_recent_fills(*, lookback_days: int = 1, quiet: bool = False) -> dict:
     if not PAPER_TRADES_FILE.exists():
         if not quiet:
             print(f"  No paper_trades.csv found — nothing to check")
-        return {"total_checked": 0, "problems": []}
+        return _empty_result(lookback_days=lookback_days, reason="paper_trades_missing")
 
     trades = pd.read_csv(PAPER_TRADES_FILE)
     if trades.empty:
         if not quiet:
             print(f"  paper_trades.csv is empty — nothing to check")
-        return {"total_checked": 0, "problems": []}
+        return _empty_result(lookback_days=lookback_days, reason="paper_trades_empty")
 
     # Filter to recent trades only
     # PLAIN ENGLISH: We only care about orders from the last N days.
@@ -126,14 +148,14 @@ def check_recent_fills(*, lookback_days: int = 1, quiet: bool = False) -> dict:
     if recent.empty:
         if not quiet:
             print(f"  No orders found in the last {lookback_days} day(s)")
-        return {"total_checked": 0, "problems": []}
+        return _empty_result(lookback_days=lookback_days, reason="no_recent_orders")
 
     # Only check BUY and SELL orders (not HOLD, SKIP, etc.)
     actionable = recent[recent["action"].isin(["BUY", "SELL"])] if "action" in recent.columns else recent
     if actionable.empty:
         if not quiet:
             print(f"  No actionable orders (BUY/SELL) in the last {lookback_days} day(s)")
-        return {"total_checked": 0, "problems": []}
+        return _empty_result(lookback_days=lookback_days, reason="no_actionable_orders")
 
     # Count fill statuses
     fill_col = "fill_status" if "fill_status" in actionable.columns else None
@@ -198,6 +220,7 @@ def check_recent_fills(*, lookback_days: int = 1, quiet: bool = False) -> dict:
     result = {
         "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "lookback_days": lookback_days,
+        "status": "warning" if problems else "ok",
         "total_checked": total,
         "filled": filled,
         "cancelled": cancelled,
@@ -219,6 +242,12 @@ def print_fill_report(result: dict, *, quiet: bool = False) -> None:
     a macOS notification if there are any problems.
     """
     total = result["total_checked"]
+
+    # Save every run, including "0 orders checked".  Without this, the
+    # heartbeat watchdog thinks fill_monitor died on quiet days.
+    SIGNALS.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(result, FILL_MONITOR_LOG)
+
     if total == 0:
         return
 
@@ -252,11 +281,6 @@ def print_fill_report(result: dict, *, quiet: bool = False) -> None:
         )
     elif not quiet:
         print(f"\n  ✓ All orders filled successfully!")
-
-    # Save the report to disk for reference
-    LOGS.mkdir(parents=True, exist_ok=True)
-    log_path = SIGNALS / "fill_monitor.json"
-    atomic_write_json(result, log_path)
 
 
 def main() -> None:

@@ -7,8 +7,8 @@ Instead of running 13+ scripts in the right order, you run `daily_run.py`
 and it handles the orchestration.
 
 It runs the steps below in sequence.  If a CRITICAL step fails,
-downstream steps are skipped so you don't trade on stale data.  If a
-non-critical step fails, it just logs and continues.
+downstream trading steps are skipped so you don't trade on stale data.  A few
+watchdog/housekeeping steps still run so their output files stay fresh.
 
 ## The pipeline
 
@@ -17,7 +17,7 @@ non-critical step fails, it just logs and continues.
 | 1 | `refresh_etf_data` | ✓ | Download SPY/QQQ/TQQQ etc. |
 | 2 | `refresh_factor_data` | ✓ | `research.py --incremental` — refresh per-ticker factor panel |
 | 3 | `refresh_feature_quality` | ✓ | `feature_quality_diagnostic.py` — re-rank features |
-| 4 | `fill_monitor` | ✓ | Check yesterday's orders for stuck fills |
+| 4 | `fill_monitor` | ✓, always-run | Check yesterday's orders for stuck fills |
 | 5 | `broker_health` | — | Ping Alpaca, alert if down |
 | 6 | `core_satellite_signal` | ✓ | `core_satellite_alpha.py` — generate today's signal |
 | 7 | `alpaca_submit` | — | Send orders to Alpaca paper |
@@ -26,8 +26,8 @@ non-critical step fails, it just logs and continues.
 | 10 | `alpaca_paper_health` | — | Build deep health summary + drift detection |
 | 11 | `alpaca_gauntlet` | — | Run go-live gauntlet check |
 | 12 | `regime_monitor` | — | Detect regime change + alert |
-| 13 | `monitor_heartbeat` | — | Watchdog over all monitors |
-| 14 | `log_cleanup` | — | Disk usage check |
+| 13 | `monitor_heartbeat` | always-run | Watchdog over all monitors |
+| 14 | `log_cleanup` | always-run | Disk usage check |
 
 ## How to run
 
@@ -85,8 +85,11 @@ The workflow file `.github/workflows/daily_paper_trading.yml` invokes
 - **Weekend/holiday guard** — skips automatically on weekends and US
   market holidays.  Use `--force` to override (e.g., for testing).
 - **Critical-step short-circuit** — if a step marked `critical=True`
-  fails, downstream steps don't run.  Better to skip than to trade on
+  fails, downstream trading steps don't run.  Better to skip than to trade on
   broken state.
+- **Always-run monitors** — `fill_monitor`, `monitor_heartbeat`, and
+  `log_cleanup` still run after an upstream failure.  This keeps watchdog files
+  fresh even on no-trade or blocked days.
 - **Per-step timeout** — default 5 min per step (10 min recommended
   for research.py).
 - **Internal Telegram alert** — sends a warning when any step fails,
@@ -97,6 +100,8 @@ The workflow file `.github/workflows/daily_paper_trading.yml` invokes
 - **Critical step** — a step whose failure means downstream steps can't
   safely run.  Marked with `critical=True` in the Step dataclass.
   Example: if data refresh fails, signal generation can't trust prices.
+- **Always-run step** — a safety or housekeeping step that still runs after an
+  earlier blocker because its output is useful even when trading is skipped.
 - **Skipped step** — a step that ran but didn't execute (e.g., in
   dry-run mode, or because a critical predecessor failed).  Skipped is
   not the same as failed — it counts as "didn't run" not "broken".

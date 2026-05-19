@@ -73,9 +73,10 @@ def test_factor_data_health_failure_blocks_signal_and_orders(monkeypatch):
 
     monkeypatch.setattr(daily_run, "run_step", fake_run_step)
     results = daily_run.run_steps(steps, dry_run=False, timeout=1)
-    assert called == ["fill_monitor", "broker_health", "factor_data_health"]
+    assert called == ["fill_monitor", "broker_health", "factor_data_health", "monitor_heartbeat", "log_cleanup"]
     assert next(r for r in results if r["name"] == "core_satellite_signal")["status"] == "blocked"
     assert next(r for r in results if r["name"] == "alpaca_submit")["blocked_by"] == "factor_data_health"
+    assert next(r for r in results if r["name"] == "monitor_heartbeat")["upstream_blocked_by"] == "factor_data_health"
 
 
 def test_core_signal_failure_blocks_broker_steps(monkeypatch):
@@ -116,12 +117,13 @@ def test_refresh_failure_blocks_all_later_steps(monkeypatch):
 
     monkeypatch.setattr(daily_run, "run_step", fake_run_step)
     results = daily_run.run_steps(steps, dry_run=False, timeout=1)
-    assert called == ["refresh_etf_data", "refresh_factor_data"]
+    assert called == ["refresh_etf_data", "refresh_factor_data", "fill_monitor", "monitor_heartbeat", "log_cleanup"]
     blocked = [r for r in results if r["status"] == "blocked"]
     assert blocked
     assert all(r["blocked_by"] == "refresh_factor_data" for r in blocked)
     assert next(r for r in results if r["name"] == "core_satellite_signal")["status"] == "blocked"
     assert next(r for r in results if r["name"] == "alpaca_submit")["status"] == "blocked"
+    assert next(r for r in results if r["name"] == "fill_monitor")["upstream_blocked_by"] == "refresh_factor_data"
 
 
 def test_refresh_factor_data_uses_longer_step_timeout(monkeypatch):

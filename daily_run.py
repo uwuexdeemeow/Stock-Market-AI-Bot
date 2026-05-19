@@ -121,6 +121,7 @@ class Step:
     description: str
     critical: bool = False
     timeout_seconds: int | None = None
+    always_run: bool = False
 
 
 # Data refresh steps — run BEFORE signal generation so factors/ETFs are fresh.
@@ -165,6 +166,7 @@ FILL_MONITOR_STEP = Step(
     [sys.executable, "fill_monitor.py", "--days", "2"],
     "Verify recent order fills (check for cancelled/partial orders)",
     critical=True,
+    always_run=True,
 )
 
 BROKER_HEALTH_STEP = Step(
@@ -266,12 +268,14 @@ MONITOR_HEARTBEAT_STEP = Step(
     "monitor_heartbeat",
     [sys.executable, "monitor_heartbeat.py"],
     "Check if all monitors produced fresh output (watchdog)",
+    always_run=True,
 )
 
 LOG_CLEANUP_STEP = Step(
     "log_cleanup",
     [sys.executable, "log_cleanup.py", "--check-disk"],
     "Check disk usage and warn if nearing capacity",
+    always_run=True,
 )
 
 # Stress test steps — optional, run with --stress flag
@@ -449,7 +453,7 @@ def run_steps(steps: list[Step], *, dry_run: bool, timeout: int) -> list[dict]:
     results: list[dict] = []
     blocked_by: str | None = None
     for step in steps:
-        if blocked_by:
+        if blocked_by and not step.always_run:
             print(f"\n{'─'*60}")
             print(f"  [{step.name}] BLOCKED by critical failure: {blocked_by}")
             results.append({
@@ -460,9 +464,16 @@ def run_steps(steps: list[Step], *, dry_run: bool, timeout: int) -> list[dict]:
             })
             continue
         effective_timeout = int(step.timeout_seconds or timeout)
+        if blocked_by and step.always_run:
+            print(f"\n{'─'*60}")
+            print(f"  [{step.name}] running despite earlier blocker: {blocked_by}")
         result = run_step(step.name, step.cmd, step.description, dry_run=dry_run, timeout=effective_timeout)
+        if blocked_by and step.always_run:
+            # Keep the original blocker visible in the JSON log while still
+            # letting watchdog/cleanup style steps refresh their output files.
+            result["upstream_blocked_by"] = blocked_by
         results.append(result)
-        if step.critical and result["status"] in ("failed", "error", "timeout"):
+        if step.critical and result["status"] in ("failed", "error", "timeout") and blocked_by is None:
             blocked_by = step.name
     return results
 
