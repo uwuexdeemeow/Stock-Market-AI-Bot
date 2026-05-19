@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from datetime import datetime
+
 import daily_run
 
 
@@ -153,3 +156,26 @@ def test_dry_run_skipped_critical_steps_do_not_block(monkeypatch):
     monkeypatch.setattr(daily_run, "run_step", fake_run_step)
     results = daily_run.run_steps(steps, dry_run=True, timeout=1)
     assert [r["status"] for r in results] == ["skipped", "skipped", "skipped"]
+
+
+def test_startup_stubs_use_signal_dir_and_refresh_existing_fill_file(tmp_path, monkeypatch, capsys):
+    signal_dir = tmp_path / "signals_abs"
+    log_dir = tmp_path / "logs_abs"
+    signal_dir.mkdir()
+    old_fill = signal_dir / "fill_monitor.json"
+    old_fill.write_text(json.dumps({"status": "stale"}))
+
+    monkeypatch.setattr(daily_run, "SIGNAL_DIR", str(signal_dir))
+    monkeypatch.setattr(daily_run, "LOGS", log_dir)
+
+    now = datetime(2026, 5, 19, 9, 35)
+    daily_run._write_startup_stubs(now, [daily_run.FILL_MONITOR_STEP])
+
+    fill_payload = json.loads(old_fill.read_text())
+    assert fill_payload["status"] == "pending"
+    assert fill_payload["stub_path"] == str(old_fill)
+    assert fill_payload["stub_existed_before"] is True
+
+    run_stub = log_dir / "daily_run_20260519.json"
+    assert json.loads(run_stub.read_text())["status"] == "running"
+    assert f"Wrote fill_monitor stub → {old_fill}" in capsys.readouterr().out

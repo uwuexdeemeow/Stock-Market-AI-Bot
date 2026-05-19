@@ -90,6 +90,10 @@ The workflow file `.github/workflows/daily_paper_trading.yml` invokes
 - **Always-run monitors** — `fill_monitor`, `monitor_heartbeat`, and
   `log_cleanup` still run after an upstream failure.  This keeps watchdog files
   fresh even on no-trade or blocked days.
+- **Startup stubs** — before any step runs, `daily_run.py` writes a fresh
+  `logs/daily_run_YYYYMMDD.json` and `signals/fill_monitor.json` placeholder.
+  If the run crashes early, `monitor_heartbeat.py` still sees where the pipeline
+  got to instead of reporting a misleading missing file.
 - **Per-step timeout** — default 5 min per step (10 min recommended
   for research.py).
 - **Internal Telegram alert** — sends a warning when any step fails,

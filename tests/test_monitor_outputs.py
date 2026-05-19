@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 
+import daily_run
 import fill_monitor
+import monitor_heartbeat
 
 
 def test_fill_monitor_writes_fresh_output_when_no_trade_file(tmp_path, monkeypatch):
@@ -22,3 +25,24 @@ def test_fill_monitor_writes_fresh_output_when_no_trade_file(tmp_path, monkeypat
     assert payload["reason"] == "paper_trades_missing"
     assert payload["total_checked"] == 0
     assert payload["problems"] == []
+
+
+def test_monitor_heartbeat_finds_daily_run_fill_stub(tmp_path, monkeypatch):
+    signal_dir = tmp_path / "signals_abs"
+    log_dir = tmp_path / "logs_abs"
+    monkeypatch.setattr(daily_run, "SIGNAL_DIR", str(signal_dir))
+    monkeypatch.setattr(daily_run, "LOGS", log_dir)
+
+    now = datetime(2026, 5, 19, 9, 35)
+    daily_run._write_startup_stubs(now, [daily_run.FILL_MONITOR_STEP])
+
+    fill_path = signal_dir / "fill_monitor.json"
+    monkeypatch.setattr(monitor_heartbeat, "SIGNALS", signal_dir)
+    monkeypatch.setattr(monitor_heartbeat, "MONITORED_FILES", {"fill_monitor": fill_path})
+
+    summary = monitor_heartbeat.check_monitors(max_age_hours=36)
+
+    assert summary["all_ok"] is True
+    assert summary["missing_monitors"] == []
+    assert summary["monitors"]["fill_monitor"]["path"] == str(fill_path)
+    assert summary["monitors"]["fill_monitor"]["status"] == "fresh"
