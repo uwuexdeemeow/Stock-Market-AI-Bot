@@ -432,6 +432,7 @@ jobs:
           import glob
           import json
           import os
+          from datetime import datetime, timezone
           from pathlib import Path
 
           status = os.environ.get("JOB_STATUS", "unknown")
@@ -440,10 +441,14 @@ jobs:
               "failure": "FAILED",
               "cancelled": "CANCELLED",
           }.get(status, status.upper())
+          # Use datetime.now(timezone.utc) instead of os.popen("date -u ...").
+          # Python 3.12 rejects backslash-escaped quotes inside f-strings as a
+          # SyntaxError; the equivalent shell-out broke the workflow.
+          now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
           lines = [
               f"Daily Paper Trading {label}",
               f"Run #{os.environ.get('RUN_NUMBER', '?')}: {os.environ.get('RUN_URL', '')}",
-              f"Time: {os.popen(\"date -u '+%Y-%m-%d %H:%M UTC'\").read().strip()}",
+              f"Time: {now_str}",
           ]
           if os.environ.get("DRY_RUN_INPUT") == "true":
               lines.append("Mode: dry-run")

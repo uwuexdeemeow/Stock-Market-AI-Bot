@@ -4,7 +4,12 @@ import json
 
 import pandas as pd
 
-from feature_health import build_feature_health_profile, canonical_feature_root
+from feature_health import (
+    MAX_CLUSTER_WEIGHT,
+    MIN_ACTIVE_CLUSTERS,
+    build_feature_health_profile,
+    canonical_feature_root,
+)
 
 
 def test_canonical_roots_collapse_rank_and_benchmark_return_variants():
@@ -87,3 +92,16 @@ def test_feature_health_clusters_and_quarantines_decaying_features(tmp_path):
 
     assert (tmp_path / "feature_health_profile.json").exists()
     assert (tmp_path / "feature_health_profile.csv").exists()
+
+
+def test_feature_health_profile_uses_live_diversification_gate_constants(tmp_path):
+    features = [f"independent_signal_{idx}" for idx in range(MIN_ACTIVE_CLUSTERS)]
+
+    profile = build_feature_health_profile(features, output_dir=tmp_path)
+    summary = profile["summary"]
+
+    assert profile["min_active_clusters"] == MIN_ACTIVE_CLUSTERS == 6
+    assert profile["max_cluster_weight_allowed"] == MAX_CLUSTER_WEIGHT == 0.25
+    assert summary["active_cluster_count"] == MIN_ACTIVE_CLUSTERS
+    assert summary["max_cluster_weight"] == round(1 / MIN_ACTIVE_CLUSTERS, 6)
+    assert summary["feature_health_gate_pass"] is True

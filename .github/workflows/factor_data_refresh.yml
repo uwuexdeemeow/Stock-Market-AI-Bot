@@ -213,6 +213,7 @@ jobs:
           python3 - <<'PY' > /tmp/telegram_summary.txt
           import json
           import os
+          from datetime import datetime, timezone
           from pathlib import Path
 
           status = os.environ.get("JOB_STATUS", "unknown")
@@ -221,10 +222,13 @@ jobs:
               "failure": "FAILED",
               "cancelled": "CANCELLED",
           }.get(status, status.upper())
+          # Python 3.12 rejects backslash-escaped quotes inside f-strings.
+          # Use datetime instead of shelling out to `date -u`.
+          now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
           lines = [
               f"Factor Data Refresh {label}",
               f"Run #{os.environ.get('RUN_NUMBER', '?')}: {os.environ.get('RUN_URL', '')}",
-              f"Time: {os.popen(\"date -u '+%Y-%m-%d %H:%M UTC'\").read().strip()}",
+              f"Time: {now_str}",
           ]
           if os.environ.get("XS_ONLY_INPUT") == "true":
               lines.append("Mode: xs-only")
