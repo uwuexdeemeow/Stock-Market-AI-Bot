@@ -579,10 +579,24 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
             "fill_status": "pending",
         })
 
+    # Skip the write entirely if no orders were submitted (e.g. every
+    # proposed order got blocked by spread guards).  Writing an empty
+    # DataFrame produces a 0-byte CSV (no header), which then makes
+    # reconcile_orders crash with `EmptyDataError: No columns to parse`.
+    # Preserving the prior log keeps reconcile happy with the
+    # previously-written orders.
+    if not rows:
+        print("  No orders submitted — preserving existing log file untouched.")
+        return
+
     df = pd.DataFrame(rows)
     if PAPER_LOG_FILE.exists():
-        existing = pd.read_csv(PAPER_LOG_FILE)
-        df = pd.concat([existing, df], ignore_index=True)
+        try:
+            existing = pd.read_csv(PAPER_LOG_FILE)
+            df = pd.concat([existing, df], ignore_index=True)
+        except pd.errors.EmptyDataError:
+            # Old run wrote a 0-byte file (pre-fix).  Just overwrite.
+            pass
     atomic_write_csv(df, PAPER_LOG_FILE)
 
 
@@ -736,7 +750,19 @@ def reconcile_orders(broker: AlpacaBroker) -> None:
         print("  No paper log found — nothing to reconcile.")
         return
 
-    log = pd.read_csv(PAPER_LOG_FILE)
+    # Guard against an empty / corrupted CSV — pandas raises EmptyDataError
+    # when the file is 0 bytes (the pre-fix bug used to write this when
+    # zero orders survived spread/cost guards).  Also catch generic
+    # ParserError so a malformed log never crashes the workflow.
+    try:
+        log = pd.read_csv(PAPER_LOG_FILE)
+    except pd.errors.EmptyDataError:
+        print("  Paper log is empty (0 bytes) — nothing to reconcile.")
+        return
+    except pd.errors.ParserError as exc:
+        print(f"  Paper log is malformed ({exc}) — skipping reconcile.")
+        return
+
     if log.empty or "order_id" not in log.columns:
         print("  Paper log is empty or missing order_id column.")
         return
