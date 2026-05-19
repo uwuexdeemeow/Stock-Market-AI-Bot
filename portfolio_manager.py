@@ -15,6 +15,7 @@ from settings import (
     MAX_SINGLE_NAME_EXPOSURE, MAX_PAIR_CORRELATION, MAX_DRAWDOWN_HALT_PCT,
     CORRELATION_DOWNSIDE_MIN_OBS, CORRELATION_EWM_HALFLIFE, CORRELATION_LOOKBACK_WINDOWS,
     CORRELATION_STRESS_FLOOR, CORRELATION_STRESS_VIX_THRESHOLD,
+    MIN_DIVERSIFICATION_RATIO, DIVERSIFICATION_MIN_OBS,
     SECTOR_MAP,
 )
 
@@ -38,6 +39,7 @@ class PortfolioRiskManager:
         max_single_name_exposure: float = MAX_SINGLE_NAME_EXPOSURE,
         max_pair_correlation: float = MAX_PAIR_CORRELATION,
         max_drawdown_halt_pct: float = MAX_DRAWDOWN_HALT_PCT,
+        min_diversification_ratio: float = MIN_DIVERSIFICATION_RATIO,
     ):
         self.max_gross_exposure = max_gross_exposure
         self.max_net_exposure = max_net_exposure
@@ -45,6 +47,7 @@ class PortfolioRiskManager:
         self.max_single_name_exposure = max_single_name_exposure
         self.max_pair_correlation = max_pair_correlation
         self.max_drawdown_halt_pct = max_drawdown_halt_pct
+        self.min_diversification_ratio = min_diversification_ratio
         # Track tickers we've already warned about so the log isn't spammed
         # (same ticker showing up day after day with no SECTOR_MAP entry).
         self._unmapped_warned: set[str] = set()
@@ -107,6 +110,70 @@ class PortfolioRiskManager:
 
         return max(candidates) if candidates else None
 
+    def _diversification_ratio(
+        self,
+        weights: Dict[str, float],
+        returns_cache: Dict[str, pd.Series],
+    ) -> float | None:
+        """Return the portfolio's diversification ratio, or None if data is thin.
+
+        PLAIN ENGLISH: DR = Σ(weight_i × vol_i) / portfolio_vol.
+
+        Imagine the weighted sum of single-name vols (treating every name as
+        if it moved independently of every other) divided by the portfolio's
+        ACTUAL realized vol.  Two cases:
+
+          * DR ≈ 1.0  → portfolio vol equals the sum of single-name vols,
+                       meaning everything moves together.  No
+                       diversification benefit.
+          * DR > 1.3  → portfolio vol is meaningfully below the sum of
+                       single-name vols.  Names are cancelling each other —
+                       real diversification.
+
+        Returns None when there's not enough overlapping return data to
+        compute a stable covariance matrix (we don't want to reject trades
+        based on noise).
+        """
+        if len(weights) <= 1:
+            # Single-asset "portfolio" — DR is always 1 by definition; the
+            # check is meaningful only with 2+ names.  Skip the gate.
+            return None
+
+        # Build a return matrix where columns are tickers and rows are days.
+        # Drop dates that don't have data for every name (inner join).
+        series_list: list[pd.Series] = []
+        weight_list: list[float] = []
+        for ticker, weight in weights.items():
+            series = returns_cache.get(ticker)
+            if series is None or len(series) == 0:
+                return None  # missing data for one name → can't compute DR
+            series_list.append(series.rename(ticker))
+            weight_list.append(float(weight))
+
+        joined = pd.concat(series_list, axis=1).dropna()
+        if len(joined) < DIVERSIFICATION_MIN_OBS:
+            return None
+
+        w = np.asarray(weight_list, dtype=float)
+        # Normalise weights so they sum to 1 — DR is scale-invariant but we
+        # need a clean vector to multiply against the covariance matrix.
+        w_sum = float(np.abs(w).sum())
+        if w_sum <= 1e-12:
+            return None
+        w = w / w_sum
+
+        # Daily vols and covariance matrix
+        vols = joined.std().to_numpy()
+        cov = joined.cov().to_numpy()
+        port_var = float(w @ cov @ w)
+        if port_var <= 1e-12:
+            return None
+        port_vol = port_var ** 0.5
+        weighted_vol = float((np.abs(w) * vols).sum())
+        if weighted_vol <= 1e-12:
+            return None
+        return weighted_vol / port_vol
+
     def approve_day(
         self,
         candidates: List[ProposedTrade],
@@ -149,6 +216,9 @@ class PortfolioRiskManager:
         held_tickers: set = set(open_tickers) if open_tickers else set()
         sector_alloc: Dict[str, float] = {}
         chosen_tickers: List[str] = list(held_tickers)
+        # Track weights of approved trades so we can compute the
+        # diversification ratio incrementally as new picks are considered.
+        chosen_weights: Dict[str, float] = {}
         returns_cache: Dict[str, pd.Series] = {}
 
         for ticker, series in price_history.items():
@@ -202,8 +272,26 @@ class PortfolioRiskManager:
             if too_correlated:
                 continue
 
+            # ── Diversification ratio gate ───────────────────────────────
+            # Pair-correlation only looks at the WORST pair.  But a
+            # portfolio of 5 names that are all moderately correlated
+            # (no pair above 0.85, all around 0.6-0.7) still has very
+            # little real diversification.  The DR gate catches that —
+            # it compares the weighted sum of single-name vols against
+            # the portfolio's actual vol.  Skipped when there's only
+            # one name (DR is meaningless) or when min_ratio is 0.
+            if self.min_diversification_ratio > 0 and chosen_weights:
+                proposed_weights = dict(chosen_weights)
+                proposed_weights[trade.ticker] = weight
+                dr = self._diversification_ratio(proposed_weights, returns_cache)
+                if dr is not None and dr < self.min_diversification_ratio:
+                    # Adding this trade would crash the diversification
+                    # ratio below the floor — skip it.
+                    continue
+
             approved.append(trade)
             chosen_tickers.append(trade.ticker)
+            chosen_weights[trade.ticker] = weight
             held_tickers.add(trade.ticker)   # mark as now held so it can't be entered again today
             gross += abs(weight)
             net += signed

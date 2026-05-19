@@ -945,6 +945,21 @@ CORRELATION_EWM_HALFLIFE = CORRELATION_HALFLIFE
 CORRELATION_DOWNSIDE_MIN_OBS = int(os.environ.get("CORRELATION_DOWNSIDE_MIN_OBS", "20"))
 MAX_DRAWDOWN_HALT_PCT = 0.99      # effectively disabled — regime filter handles protection; halt is a last resort
 
+# ── Diversification ratio floor ─────────────────────────────────────────────
+# Diversification Ratio (DR) = Σ(w_i × σ_i) / σ_portfolio.
+# DR = 1.0 means all picks move together (no diversification benefit even if
+# they're in different sectors).  DR ≥ 1.3 means there's real cancellation
+# between names — the portfolio vol is meaningfully below the weighted-sum
+# of single-name vols.  This catches the case where sector caps say "OK,
+# these are 3 different sectors" but the names are still tightly correlated
+# in practice (e.g. tech / consumer-discretionary / communications all move
+# with the Nasdaq).  Set to 0 to disable.
+MIN_DIVERSIFICATION_RATIO = float(os.environ.get("MIN_DIVERSIFICATION_RATIO", "1.15"))
+# Sample size needed before the DR check kicks in.  Below this it's just
+# noise — we don't want to reject the second trade of the day because two
+# names happened to correlate over a 5-day window.
+DIVERSIFICATION_MIN_OBS = int(os.environ.get("DIVERSIFICATION_MIN_OBS", "30"))
+
 # "legacy_confidence" matches the earlier gate-passing backtests (ATR-based,
 #  fixed 15% per slot). Replaced by "vol_kelly".
 # "vol_kelly" — vol-target base (15% annual vol contribution per position) ×
