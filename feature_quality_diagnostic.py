@@ -32,8 +32,6 @@ import pandas as pd
 from alpha_factor_backtest import (
     load_factor_panel,
     load_feature_specs,
-    attach_scores,
-    load_prediction_scores,
     HORIZON_DAYS,
 )
 from settings import SIGNAL_DIR
@@ -476,7 +474,11 @@ def main():
 
     print("Loading factor panel...")
     specs = load_feature_specs(max_specs=args.top)
-    panel = attach_scores(load_factor_panel(specs), specs, load_prediction_scores())
+    # The quality report only needs raw feature columns plus forward returns.
+    # PLAIN ENGLISH: Do not call the full score builder here; that also creates
+    # walkforward/regime scores for trading, which is much slower and not needed
+    # for measuring individual feature quality.
+    panel = load_factor_panel(specs)
     panel = add_sector_excess_return_columns(panel)
     print(f"  Panel: {len(panel)} rows, {panel['ticker'].nunique()} tickers, "
           f"{panel['date'].nunique()} dates")

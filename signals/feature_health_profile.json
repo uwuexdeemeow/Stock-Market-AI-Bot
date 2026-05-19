@@ -6,7 +6,7 @@
   "min_active_clusters": 6,
   "max_cluster_weight_allowed": 0.25,
   "summary": {
-    "raw_feature_count": 42,
+    "raw_feature_count": 35,
     "cluster_count": 10,
     "active_cluster_count": 10,
     "effective_cluster_count": 10,
@@ -161,19 +161,6 @@
       "effective_weight": 0.1
     },
     {
-      "feature": "xs_rank_sector_factor_illiquidity_amihud_20d",
-      "cluster_id": "cluster_01",
-      "canonical_root": "factor_illiquidity_amihud_20d",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": null,
-      "recent_ic": null,
-      "full_ic": null,
-      "active_candidate": true,
-      "root_quarantine_inherited": false,
-      "contributes_to_score": true,
-      "effective_weight": 0.1
-    },
-    {
       "feature": "xs_rank_sector_ret_5d",
       "cluster_id": "cluster_02",
       "canonical_root": "ret_5d",
@@ -317,19 +304,6 @@
       "effective_weight": 0.1
     },
     {
-      "feature": "bb_pos",
-      "cluster_id": "cluster_02",
-      "canonical_root": "bb_pos",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": null,
-      "recent_ic": null,
-      "full_ic": null,
-      "active_candidate": true,
-      "root_quarantine_inherited": false,
-      "contributes_to_score": true,
-      "effective_weight": 0.1
-    },
-    {
       "feature": "rsi_7",
       "cluster_id": "cluster_02",
       "canonical_root": "rsi_7",
@@ -372,32 +346,6 @@
       "feature": "xs_rank_market_ret_10d",
       "cluster_id": "cluster_02",
       "canonical_root": "ret_10d",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": null,
-      "recent_ic": null,
-      "full_ic": null,
-      "active_candidate": true,
-      "root_quarantine_inherited": false,
-      "contributes_to_score": true,
-      "effective_weight": 0.1
-    },
-    {
-      "feature": "xs_rank_sector_factor_resid_mom_sector_12_1",
-      "cluster_id": "cluster_07",
-      "canonical_root": "factor_resid_mom_sector_12_1",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": null,
-      "recent_ic": null,
-      "full_ic": null,
-      "active_candidate": true,
-      "root_quarantine_inherited": false,
-      "contributes_to_score": true,
-      "effective_weight": 0.1
-    },
-    {
-      "feature": "xs_rank_market_factor_mom_12_1",
-      "cluster_id": "cluster_07",
-      "canonical_root": "factor_mom_12_1",
       "health_state": "healthy",
       "recent_vs_full_ratio": null,
       "recent_ic": null,
@@ -499,45 +447,6 @@
       "effective_weight": 0.1
     },
     {
-      "feature": "ret_vs_spy_20d",
-      "cluster_id": "cluster_02",
-      "canonical_root": "ret_20d",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": null,
-      "recent_ic": null,
-      "full_ic": null,
-      "active_candidate": true,
-      "root_quarantine_inherited": false,
-      "contributes_to_score": true,
-      "effective_weight": 0.1
-    },
-    {
-      "feature": "ret_vs_qqq_20d",
-      "cluster_id": "cluster_02",
-      "canonical_root": "ret_20d",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": null,
-      "recent_ic": null,
-      "full_ic": null,
-      "active_candidate": true,
-      "root_quarantine_inherited": false,
-      "contributes_to_score": true,
-      "effective_weight": 0.1
-    },
-    {
-      "feature": "rsi_14",
-      "cluster_id": "cluster_02",
-      "canonical_root": "rsi_14",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": null,
-      "recent_ic": null,
-      "full_ic": null,
-      "active_candidate": true,
-      "root_quarantine_inherited": false,
-      "contributes_to_score": true,
-      "effective_weight": 0.1
-    },
-    {
       "feature": "xs_rank_market_rsi_14",
       "cluster_id": "cluster_02",
       "canonical_root": "rsi_14",
@@ -576,7 +485,6 @@
         "xs_rank_market_factor_liquidity_dollar_vol_20d",
         "xs_rank_market_factor_illiquidity_amihud_20d",
         "factor_illiquidity_amihud_20d",
-        "xs_rank_sector_factor_illiquidity_amihud_20d",
         "xs_rank_sector_factor_liquidity_dollar_vol_20d"
       ],
       "health_state": "active",
@@ -586,7 +494,6 @@
         "xs_rank_market_factor_liquidity_dollar_vol_20d",
         "xs_rank_market_factor_illiquidity_amihud_20d",
         "factor_illiquidity_amihud_20d",
-        "xs_rank_sector_factor_illiquidity_amihud_20d",
         "xs_rank_sector_factor_liquidity_dollar_vol_20d"
       ],
       "quarantined_features": [],
@@ -595,12 +502,10 @@
     {
       "cluster_id": "cluster_02",
       "canonical_roots": [
-        "bb_pos",
         "dist_ma10",
         "dist_ma20",
         "dist_ma5",
         "ret_10d",
-        "ret_20d",
         "ret_3d",
         "ret_5d",
         "ret_vs_sector_5d",
@@ -622,14 +527,10 @@
         "sector_rs_slope_5d",
         "vwap_dist",
         "dist_ma20",
-        "bb_pos",
         "rsi_7",
         "ret_10d",
         "xs_rank_market_ret_10d",
         "xs_rank_sector_ret_10d",
-        "ret_vs_spy_20d",
-        "ret_vs_qqq_20d",
-        "rsi_14",
         "xs_rank_market_rsi_14"
       ],
       "health_state": "active",
@@ -647,14 +548,10 @@
         "sector_rs_slope_5d",
         "vwap_dist",
         "dist_ma20",
-        "bb_pos",
         "rsi_7",
         "ret_10d",
         "xs_rank_market_ret_10d",
         "xs_rank_sector_ret_10d",
-        "ret_vs_spy_20d",
-        "ret_vs_qqq_20d",
-        "rsi_14",
         "xs_rank_market_rsi_14"
       ],
       "quarantined_features": [],
@@ -735,8 +632,6 @@
       ],
       "features": [
         "xs_rank_sector_factor_mom_12_1",
-        "xs_rank_sector_factor_resid_mom_sector_12_1",
-        "xs_rank_market_factor_mom_12_1",
         "factor_mom_12_1",
         "xs_rank_market_factor_resid_mom_sector_12_1",
         "factor_resid_mom_sector_12_1"
@@ -745,8 +640,6 @@
       "raw_weight": 1.0,
       "contributing_features": [
         "xs_rank_sector_factor_mom_12_1",
-        "xs_rank_sector_factor_resid_mom_sector_12_1",
-        "xs_rank_market_factor_mom_12_1",
         "factor_mom_12_1",
         "xs_rank_market_factor_resid_mom_sector_12_1",
         "factor_resid_mom_sector_12_1"

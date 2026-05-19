@@ -1,0 +1,38 @@
+# feature_quality_diagnostic.py — Feature Quality Report
+
+## What It Does
+
+`feature_quality_diagnostic.py` checks whether the factor features used by the
+core-satellite overlay are useful enough for live paper trading. It measures
+predictive power, stability, regime behavior, signal decay, turnover, and
+feature correlation.
+
+The daily signal generator reads this report before trading. If the report is
+missing, stale, or says too many features are weak, the bot blocks trading.
+
+## How To Run It
+
+```bash
+python3 feature_quality_diagnostic.py
+python3 feature_quality_diagnostic.py --top 48
+```
+
+Inputs:
+
+- `logs/feature_ic_shortlist.csv` — ranked feature shortlist from research.
+- `data/*.parquet` — per-ticker factor data with raw feature columns.
+
+Outputs:
+
+- `signals/feature_quality_report.json` — detailed feature diagnostics.
+- `signals/feature_quality_summary.csv` — compact table of grades and metrics.
+
+## Key Terms
+
+- **Feature** — one input signal, such as recent return, liquidity, or sector
+  relative strength.
+- **IC** — information coefficient; rank correlation between feature score and
+  future return.
+- **Regime** — market environment, such as bull or bear.
+- **Turnover** — how often the top-ranked stocks change.
+- **Correlation cluster** — a group of features that mostly say the same thing.
