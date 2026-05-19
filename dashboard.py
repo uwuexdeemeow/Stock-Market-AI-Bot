@@ -40,11 +40,12 @@ with hero_left:
     st.title("Stock Bot")
     st.caption("Live paper-trading dashboard · core-satellite strategy")
 with hero_right:
-    # Top-right clock so it's clear which timezone the data is in
+    # Top-right clock so it's clear which timezone the data is in.
+    # Use `opacity` instead of hardcoded color so it adapts to dark mode.
     now = datetime.now()
     st.markdown(
-        f"<div style='text-align:right;padding-top:1rem;color:#64748b;font-size:0.875rem'>"
-        f"As of <strong style='color:#0f172a'>{now.strftime('%a %b %d')}</strong>"
+        f"<div style='text-align:right;padding-top:1rem;font-size:0.875rem;opacity:0.6'>"
+        f"As of <strong style='opacity:1.4'>{now.strftime('%a %b %d')}</strong>"
         f" · {now.strftime('%H:%M')} local"
         f"</div>",
         unsafe_allow_html=True,

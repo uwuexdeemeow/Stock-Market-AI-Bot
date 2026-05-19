@@ -233,43 +233,52 @@ def freshness_badge(age_minutes: Optional[float]) -> None:
 def apply_page_style() -> None:
     """Inject the shared CSS used on every page.
 
-    Centralises typography, button styling, and spacing so the whole
-    dashboard feels like one app instead of seven loose pages.  Idempotent —
+    Theme-aware: uses Streamlit's CSS variables (--background-color,
+    --text-color, --secondary-background-color) so the look adapts to
+    both light and dark mode without hardcoding colors.  Idempotent —
     safe to call from every page header.
     """
     st.markdown(
         """
         <style>
+          /* ── Typography — system font stack, crisp on every OS ───── */
           html, body, [class*="css"] {
             font-family: -apple-system, BlinkMacSystemFont, "Inter",
               "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
           }
+
+          /* ── Layout — tighter container, more room to breathe ───── */
           .block-container {
             padding-top: 2rem !important;
             padding-bottom: 4rem !important;
             max-width: 1400px;
           }
-          [data-testid="stSidebar"] {
-            background-color: #fafafa;
-            border-right: 1px solid #e5e7eb;
+
+          /* ── Sidebar — adapts to theme via Streamlit's own vars ──── */
+          /* Use --secondary-background-color so it's slightly off the
+             main background in BOTH themes (light gray on light theme,
+             slightly lifted dark gray on dark theme).                 */
+          [data-testid="stSidebar"] > div:first-child {
+            background-color: var(--secondary-background-color);
           }
+
+          /* ── Headings — weight + tracking, color from theme ─────── */
           h1 {
             font-weight: 700 !important;
             letter-spacing: -0.025em !important;
             font-size: 2rem !important;
-            color: #0f172a !important;
           }
           h2, h3 {
             font-weight: 600 !important;
             letter-spacing: -0.015em !important;
-            color: #1e293b !important;
           }
           h4, h5 {
             font-weight: 600 !important;
             letter-spacing: -0.01em !important;
-            color: #334155 !important;
             margin-bottom: 0.5rem !important;
           }
+
+          /* ── Metric cards — bigger numbers, subtle labels ───────── */
           [data-testid="stMetricValue"] {
             font-weight: 700 !important;
             letter-spacing: -0.02em !important;
@@ -278,7 +287,7 @@ def apply_page_style() -> None:
           [data-testid="stMetricLabel"] {
             font-size: 0.8rem !important;
             font-weight: 500 !important;
-            color: #64748b !important;
+            opacity: 0.7;
             text-transform: uppercase;
             letter-spacing: 0.05em;
           }
@@ -286,32 +295,40 @@ def apply_page_style() -> None:
             font-size: 0.8rem !important;
             font-weight: 500 !important;
           }
+
+          /* ── Buttons — flatter, with hover lift ─────────────────── */
           .stButton button {
             border-radius: 8px !important;
             font-weight: 500 !important;
             transition: all 0.15s ease !important;
-            border: 1px solid #e2e8f0 !important;
           }
           .stButton button:hover {
             transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
           }
           .stButton button[kind="primary"] {
             background-color: #3b82f6 !important;
             border-color: #3b82f6 !important;
+            color: white !important;
           }
+
+          /* ── Dividers — softer, theme-adaptive via currentColor ── */
           hr {
             margin: 1.75rem 0 !important;
-            border-color: #e5e7eb !important;
-            opacity: 0.7;
+            opacity: 0.2;
           }
+
+          /* ── Expanders ─────────────────────────────────────────── */
           .streamlit-expanderHeader {
             font-weight: 500 !important;
             border-radius: 8px !important;
           }
+
+          /* ── Tabs — modern blue underline ──────────────────────── */
           .stTabs [data-baseweb="tab-list"] {
             gap: 8px;
-            border-bottom: 1px solid #e5e7eb;
+            border-bottom: 1px solid;
+            border-color: rgba(128, 128, 128, 0.2);
           }
           .stTabs [data-baseweb="tab"] {
             padding: 8px 16px !important;
@@ -322,19 +339,23 @@ def apply_page_style() -> None:
             color: #3b82f6 !important;
             border-bottom: 2px solid #3b82f6 !important;
           }
+
+          /* ── Code blocks — use Streamlit's own bg vars ─────────── */
           pre {
             border-radius: 8px !important;
-            background-color: #f8fafc !important;
-            border: 1px solid #e2e8f0 !important;
+            border: 1px solid rgba(128, 128, 128, 0.2) !important;
           }
           pre code { font-size: 0.85rem !important; }
+
+          /* ── Dataframes ───────────────────────────────────────── */
           [data-testid="stDataFrame"] {
             border-radius: 8px;
-            border: 1px solid #e2e8f0;
+            border: 1px solid rgba(128, 128, 128, 0.2);
           }
+
+          /* ── Alerts ───────────────────────────────────────────── */
           .stAlert {
             border-radius: 8px !important;
-            border-width: 1px !important;
           }
         </style>
         """,
