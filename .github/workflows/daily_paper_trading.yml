@@ -135,20 +135,27 @@ jobs:
       #    Without this, walkforward approval, factor decay reports, and
       #    feature quality reports are lost between runs — causing
       #    paper_ready=False every time.
+      # NOTE: Files now tracked in git (committed in main) are intentionally
+      # excluded from the cache list — caching them would overwrite the
+      # known-good baseline checked out from git with a potentially stale
+      # cached copy.  Currently git-tracked:
+      #   signals/feature_quality_report.json
+      #   signals/feature_quality_summary.csv
+      #   signals/feature_health_profile.json
+      #   signals/feature_health_profile.csv
+      #   logs/feature_ic_shortlist.csv
+      #   signals/core_satellite_live_configs.json
+      #   signals/core_satellite_nested_walkforward.json
+      #   signals/adaptive_factor_weights.json
+      # Only NON-git-tracked state files belong in cache below.
       - name: Cache signals and logs state
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v4
         with:
           path: |
-            signals/core_satellite_live_configs.json
-            signals/core_satellite_nested_walkforward.json
             signals/core_satellite_alpha_metrics.json
-            signals/adaptive_factor_weights.json
-            signals/feature_quality_report.json
-            signals/feature_quality_summary.csv
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
-            logs/feature_ic_shortlist.csv
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json
@@ -249,6 +256,11 @@ jobs:
       #    A fresh runner has no ignored data/signals files unless a previous
       #    factor refresh cache restores them. If that cache is absent or stale,
       #    rebuild it here before daily_run.py reaches the strict health gate.
+      #
+      #    SAFETY: feature_quality_report.json is now git-tracked.  If the
+      #    rebuild produces a worse report (e.g. research.py only partially
+      #    completed and the diagnostic graded < 20 features), restore the
+      #    git baseline so daily_run.py doesn't blow the cluster gate.
       - name: Rebuild factor cache if restore is incomplete
         if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         run: |
@@ -256,8 +268,25 @@ jobs:
             echo "Restored factor cache is trade-ready."
           else
             echo "Restored factor cache is missing or stale; rebuilding factor data and feature quality."
+
+            # Snapshot the git-tracked baseline BEFORE the rebuild so we can
+            # roll back if the rebuild produces a worse report (e.g. research
+            # ran against a partial panel and diagnostic graded < 20 features).
+            cp signals/feature_quality_report.json signals/feature_quality_report.json.gitbase 2>/dev/null || true
+            cp signals/feature_quality_summary.csv signals/feature_quality_summary.csv.gitbase 2>/dev/null || true
+            cp logs/feature_ic_shortlist.csv logs/feature_ic_shortlist.csv.gitbase 2>/dev/null || true
+
             python3 research.py --incremental
             python3 feature_quality_diagnostic.py --top 48
+
+            # Sanity check: restore baseline if rebuild produced too few features.
+            python3 ci_check_feature_report.py --min-features 20
+
+            # Clean up snapshots regardless of outcome
+            rm -f signals/feature_quality_report.json.gitbase \
+                  signals/feature_quality_summary.csv.gitbase \
+                  logs/feature_ic_shortlist.csv.gitbase
+
             python3 factor_data_health.py --strict
           fi
         env:
@@ -364,20 +393,15 @@ jobs:
       # ── 10. Save updated state files ──────────────────────────────
       #    Gate reports and approval configs updated during this run
       #    must persist for the next run to see paper_ready=True.
+      # NOTE: Files now in git are excluded — they're owned by main, not cache.
       - name: Save state files cache
         if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v4
         with:
           path: |
-            signals/core_satellite_live_configs.json
-            signals/core_satellite_nested_walkforward.json
             signals/core_satellite_alpha_metrics.json
-            signals/adaptive_factor_weights.json
-            signals/feature_quality_report.json
-            signals/feature_quality_summary.csv
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
-            logs/feature_ic_shortlist.csv
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json

@@ -104,20 +104,18 @@ jobs:
           restore-keys: |
             data-parquets-
 
+      # Files now tracked in git are intentionally excluded — caching them
+      # would overwrite the known-good baseline checked out from git with
+      # a potentially stale cached copy.  See daily_paper_trading.yml for
+      # the full list.
       - name: Restore state cache
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v4
         with:
           path: |
-            signals/core_satellite_live_configs.json
-            signals/core_satellite_nested_walkforward.json
             signals/core_satellite_alpha_metrics.json
-            signals/adaptive_factor_weights.json
-            signals/feature_quality_report.json
-            signals/feature_quality_summary.csv
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
-            logs/feature_ic_shortlist.csv
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json
@@ -182,20 +180,15 @@ jobs:
           path: data/
           key: data-parquets-${{ github.run_id }}
 
+      # Git-tracked files excluded — they're owned by main, not cache.
       - name: Save state cache
         if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v4
         with:
           path: |
-            signals/core_satellite_live_configs.json
-            signals/core_satellite_nested_walkforward.json
             signals/core_satellite_alpha_metrics.json
-            signals/adaptive_factor_weights.json
-            signals/feature_quality_report.json
-            signals/feature_quality_summary.csv
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
-            logs/feature_ic_shortlist.csv
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json
