@@ -88,7 +88,13 @@ def _is_post_pass_column(column: str) -> bool:
     return any(str(column).startswith(prefix) for prefix in POST_PASS_COLUMN_PREFIXES)
 
 
-def research_ticker_incremental(ticker: str, start: str, end: str) -> bool:
+def research_ticker_incremental(
+    ticker: str,
+    start: str,
+    end: str,
+    *,
+    backfill_new_columns: bool = False,
+) -> bool:
     """Incrementally refresh a ticker's parquet — only fetch new days.
 
     PLAIN ENGLISH: Looks at the existing parquet for this ticker.  If it already
@@ -99,7 +105,12 @@ def research_ticker_incremental(ticker: str, start: str, end: str) -> bool:
     Falls back to a full rebuild if:
       - No existing parquet exists
       - The parquet is more than INCREMENTAL_MAX_STALENESS_DAYS behind
-      - The existing parquet has different columns (schema changed)
+      - The existing parquet loses non-post-pass columns
+
+    New feature columns are tail-filled by default instead of forcing a full
+    history rebuild.  That keeps scheduled CI refreshes bounded when a feature
+    ships.  Use --backfill-new-columns when you need research-grade historical
+    values for newly added factors.
 
     Returns True if the parquet is up-to-date after this call.
     """
@@ -179,14 +190,21 @@ def research_ticker_incremental(ticker: str, start: str, end: str) -> bool:
                 ", ".join(sorted(blocking_missing)[:5]),
             )
             return research_ticker(ticker, start, end)
-        # New columns added (e.g. new factor) — full rebuild to fill history
         if new_in_fresh:
+            preview = ", ".join(sorted(new_in_fresh)[:5])
+            if backfill_new_columns:
+                log.info(
+                    "[%s] schema expanded (+%d cols: %s) — full rebuild requested",
+                    ticker, len(new_in_fresh), preview,
+                )
+                return research_ticker(ticker, start, end)
             log.info(
-                "[%s] schema expanded (+%d cols: %s) — full rebuild",
-                ticker, len(new_in_fresh),
-                ", ".join(sorted(new_in_fresh)[:5]),
+                "[%s] schema expanded (+%d cols: %s) — tail-filling incremental window; "
+                "run `python3 research.py --incremental --backfill-new-columns` for full history",
+                ticker, len(new_in_fresh), preview,
             )
-            return research_ticker(ticker, start, end)
+            for col in sorted(new_in_fresh):
+                existing[col] = float("nan")
         if post_pass_missing:
             log.info(
                 "[%s] preserving %d post-pass cols until post-pass refresh: %s",
@@ -195,7 +213,8 @@ def research_ticker_incremental(ticker: str, start: str, end: str) -> bool:
                 ", ".join(sorted(post_pass_missing)[:5]),
             )
             for col in sorted(post_pass_missing):
-                fresh[col] = pd.NA
+                fresh[col] = float("nan")
+        if new_in_fresh or post_pass_missing:
             fresh = fresh.reindex(columns=existing.columns)
 
     # ── Splice: keep old rows before recompute_start, use fresh for the rest ──
@@ -257,6 +276,14 @@ def main():
         help="Only download new days since last parquet date (fast daily refresh for CI).",
     )
     parser.add_argument(
+        "--backfill-new-columns",
+        action="store_true",
+        help=(
+            "With --incremental, full-rebuild tickers when new feature columns appear. "
+            "Slow; use for historical research after feature engineering, not daily CI."
+        ),
+    )
+    parser.add_argument(
         "--xs-only",
         action="store_true",
         help="Skip parquet rebuild; only run the cross-sectional rank post-pass on existing parquets.",
@@ -292,16 +319,18 @@ def main():
     else:
         tickers = [t.upper() for t in WATCHLIST]
 
-    # Choose build function: incremental (fast, for CI daily runs) or full rebuild.
-    # PLAIN ENGLISH: --incremental skips tickers that are already up-to-date and
-    # only downloads missing days for ones that are slightly behind.  This makes
-    # daily CI runs 5-10x faster than a full rebuild.
-    build_fn = research_ticker_incremental if args.incremental else research_ticker
-
     ok = True
     built_tickers: list[str] = []
     for t in tickers:
-        built = build_fn(t, TRAIN_START, TRAIN_END)
+        if args.incremental:
+            built = research_ticker_incremental(
+                t,
+                TRAIN_START,
+                TRAIN_END,
+                backfill_new_columns=bool(args.backfill_new_columns),
+            )
+        else:
+            built = research_ticker(t, TRAIN_START, TRAIN_END)
         if built:
             built_tickers.append(t)
         ok = built and ok

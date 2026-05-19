@@ -601,21 +601,21 @@ def stable_grid_candidate_configs(
     """Return the pinned research grid for alpha-decay baseline testing.
 
     Pins the 14-fold consensus dimensions (h=20, ma=100, score=regime_adaptive,
-    risk=off) and searches only the dimensions that actually vary across folds:
-      overlay (0.5 vs 0.7), shape, weighting, vol_mode, tqqq.
+    weighting=sticky_score, risk=defensive, overlay=0.50) and searches only
+    shape, high-vol mode, and the TQQQ sleeve.
     """
     return iter_candidate_configs(
         strategy=strategy,
         holding_days=(20,),
-        overlay_gross=(0.50, 0.70),
+        overlay_gross=(0.50,),
         ma_windows=(100,),
         high_vol_values=(0.30,),
         high_vol_modes=STABLE_GRID_HIGH_VOL_MODES,
         score_sources=("regime_adaptive",),
         shapes=STABLE_GRID_SHAPES,
-        weightings=("sticky_score", "risk_parity"),
-        tqqq_weights=(0.0, 0.10),
-        risk_control_modes=("off",),
+        weightings=("sticky_score",),
+        tqqq_weights=STABLE_GRID_TQQQ_WEIGHTS,
+        risk_control_modes=("defensive",),
         max_configs=max_configs,
     )
 
@@ -1076,7 +1076,7 @@ def approval_status(result: dict) -> dict:
     # Hard gate on the exact config being published (was a warning before).
     if exact_frequency < min_exact_config_frequency:
         reasons.append(
-            f"exact_config_frequency={exact_frequency:.3f}<{min_exact_config_frequency:.2f}"
+            f"config_frequency<{min_exact_config_frequency:.2f} (exact={exact_frequency:.3f})"
         )
     if mean_oos_sharpe < thresholds["min_mean_oos_sharpe"]:
         reasons.append(f"mean_oos_sharpe<{thresholds['min_mean_oos_sharpe']:.2f}")
@@ -2551,9 +2551,10 @@ def main() -> None:
                         help="Use the exhaustive grid (768 configs) for overnight runs. "
                              "Default is a balanced 192-config grid (~1 hour on laptop)")
     parser.add_argument("--stable-grid", action="store_true",
-                        help="Use the consensus baseline grid (~48 configs): "
+                        help="Use the pinned consensus baseline grid (24 configs): "
                              "pins 14-fold consensus (h=20, ma=100, regime_adaptive, "
-                             "risk=off); tunes overlay, shape, weighting, vol mode, TQQQ.")
+                             "sticky_score, risk=defensive, overlay=0.50); tunes "
+                             "shape, vol mode, and TQQQ.")
     parser.add_argument("--recent-alpha-grid", action="store_true",
                         help="Use the focused recent-alpha research grid (~48 configs): "
                              "h=20, risk off, ma=100, regime_adaptive; tunes "
