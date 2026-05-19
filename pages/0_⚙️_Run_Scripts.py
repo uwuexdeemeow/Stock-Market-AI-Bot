@@ -1,11 +1,17 @@
 """
-Run Scripts — control panel for backend operations
+Run Scripts — full control panel for backend operations
 
-PLAIN ENGLISH: Click into a section, set parameters, click Run.  Output
-streams live below.  Full logs saved to logs/dashboard_*.log.
+PLAIN ENGLISH: Click into a section, set parameters, click Run.  Every
+CLI flag in every backend script has a widget here.  Output streams
+live below.  Full logs saved to logs/dashboard_*.log.
 
-Each script is in a collapsible expander.  Defaults match the most-common
-usage (what GitHub Actions would run).  Tweak the widgets to customize.
+The buttons are grouped by what they do:
+  1. Data refresh    — ETF data, research panel, feature quality
+  2. Signal          — full daily_run OR signal-only
+  3. Trading         — submit / reconcile / status / exec guard
+  4. Diagnostics     — broker health, paper health, gauntlet, analyzer, fill monitor
+  5. Heavy ops       — nested walkforward (hours), publish live config
+  6. Recent logs     — viewer for past dashboard runs
 """
 
 import sys
@@ -20,294 +26,388 @@ st.set_page_config(page_title="Run Scripts", page_icon="⚙️", layout="wide")
 sidebar_refresh()
 st.title("⚙️ Run Backend Scripts")
 st.caption(
-    "Click into a section → set parameters → click Run.  Output streams "
-    "live and is saved to `logs/dashboard_*.log`."
+    "Every backend CLI flag exposed as a widget.  Defaults match the "
+    "GitHub Actions cron behavior — tweak as needed before clicking Run."
 )
 
-# Same Python interpreter as the dashboard — guarantees we hit the same venv
 PY = sys.executable
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 # ─────────────────────────────────────────────────────────────────────
-# Helper — build a run-block inside an expander
+# Helper — render command preview + Run button inside an expander
 # ─────────────────────────────────────────────────────────────────────
 def _run_block(label: str, cmd: list[str], *,
                key: str,
                warning: str | None = None,
                help_text: str | None = None) -> None:
-    """Show the resolved command + a Run button.
-
-    The expander wrapping this is owned by the caller so each script
-    can have its own parameter widgets above the Run button.
-    """
+    """Show resolved command + Run button.  Lives inside an expander."""
     if warning:
         st.warning(warning, icon="⚠️")
     if help_text:
         st.caption(help_text)
     st.code(" ".join(cmd), language="bash")
-    if st.button(f"▶ Run", key=f"run_{key}", type="primary", use_container_width=True):
+    if st.button("▶ Run", key=f"run_{key}", type="primary", use_container_width=True):
         run_script(cmd, label, cwd=PROJECT_ROOT)
         st.cache_data.clear()
 
 
 # ═════════════════════════════════════════════════════════════════════
-# Section 1 — DATA REFRESH
+# SECTION 1 — DATA REFRESH
 # ═════════════════════════════════════════════════════════════════════
 st.markdown("## 📥 Data Refresh")
-st.caption("Pull fresh prices + recompute features.  Run these first if data is stale.")
+st.caption("Pull fresh prices and recompute features.")
 
-# ── refresh_etf_data ──
+# ── refresh_etf_data.py ──────────────────────────────────────────────
 with st.expander("🔁 Refresh ETF data  ·  ~30s"):
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
     with c1:
-        etf_refresh = st.checkbox("--refresh (download new bars)", value=True, key="etf_refresh")
+        etf_refresh = st.checkbox("--refresh", value=True, key="etf_refresh",
+                                   help="Download new bars from yfinance")
     with c2:
-        etf_force = st.checkbox("--force (re-download even if cache fresh)", value=True, key="etf_force")
+        etf_force = st.checkbox("--force", value=True, key="etf_force",
+                                 help="Re-download even if cache is fresh")
+    with c3:
+        etf_json = st.checkbox("--json", value=False, key="etf_json",
+                                help="Output result as JSON")
+    etf_symbols = st.text_input(
+        "--symbols (comma-separated, blank = default list)",
+        value="", key="etf_symbols",
+        help="e.g. SPY,QQQ,TQQQ.  Leave blank to use the standard list.",
+    )
     cmd = [PY, "refresh_etf_data.py"]
     if etf_refresh: cmd.append("--refresh")
     if etf_force:   cmd.append("--force")
-    _run_block("Refresh ETF data", cmd, key="etf",
-               help_text="SPY, QQQ, TQQQ, etc. — used as benchmarks and core positions.")
+    if etf_json:    cmd.append("--json")
+    if etf_symbols.strip():
+        cmd.extend(["--symbols", etf_symbols.strip()])
+    _run_block("Refresh ETF data", cmd, key="etf")
 
 
-# ── research.py ──
+# ── research.py ──────────────────────────────────────────────────────
 with st.expander("📊 Refresh research / factor data  ·  2-5 min (incremental) / 20+ min (full)"):
     research_mode = st.radio(
         "Mode",
-        ["incremental", "full"],
-        index=0,
-        horizontal=True,
-        key="research_mode",
-        help="incremental = only new days since last run.  full = recompute everything (slow).",
+        ["incremental (fast)", "all (full rebuild)", "xs-only (cross-sectional refresh only)", "test (smoke test)"],
+        index=0, horizontal=True, key="research_mode",
+        help="incremental: only new days (fast).  all: rebuild from scratch (slow).  xs-only: skip parquet rebuild, only re-run cross-sectional ranks.  test: smoke test on a few tickers.",
     )
-    cmd = [PY, "research.py", f"--{research_mode}"]
+    c1, c2 = st.columns(2)
+    with c1:
+        research_ticker = st.text_input("--ticker (single ticker)", value="", key="research_ticker",
+                                         help="Build/refresh just one ticker.  Blank = use mode-default universe.")
+    with c2:
+        research_tickers = st.text_input("--tickers (space-separated list)", value="", key="research_tickers",
+                                          help="e.g. AAPL MSFT NVDA")
+
+    cmd = [PY, "research.py"]
+    if "incremental" in research_mode:  cmd.append("--incremental")
+    elif "all" in research_mode:        cmd.append("--all")
+    elif "xs-only" in research_mode:    cmd.append("--xs-only")
+    elif "test" in research_mode:       cmd.append("--test")
+    if research_ticker.strip():
+        cmd.extend(["--ticker", research_ticker.strip()])
+    if research_tickers.strip():
+        cmd.extend(["--tickers", *research_tickers.split()])
     _run_block("Refresh research data", cmd, key="research",
-               help_text=f"Mode: **{research_mode}**.  Updates per-ticker parquet files in `data/`.")
+               help_text="Updates per-ticker parquets in `data/`.  Required before signal generation.")
 
 
-# ── feature_quality_diagnostic ──
+# ── feature_quality_diagnostic.py ────────────────────────────────────
 with st.expander("🎯 Refresh feature quality report  ·  1-2 min"):
-    top_n = st.slider("--top N (how many features to rank)", min_value=10, max_value=100,
+    top_n = st.slider("--top N (features to rank)", min_value=10, max_value=100,
                       value=48, step=2, key="fq_top")
     cmd = [PY, "feature_quality_diagnostic.py", "--top", str(top_n)]
     _run_block("Refresh feature quality", cmd, key="fq",
-               help_text=f"Ranks top **{top_n}** features by predictive power, updates feature_quality_*.json.")
+               help_text=f"Ranks top **{top_n}** features by predictive power.")
 
 
 # ═════════════════════════════════════════════════════════════════════
-# Section 2 — SIGNAL PIPELINE
+# SECTION 2 — SIGNAL PIPELINE
 # ═════════════════════════════════════════════════════════════════════
 st.markdown("## 🎯 Signal Pipeline")
-st.caption("Full daily pipeline OR just regenerate today's signal.")
 
-# ── daily_run.py ──
+# ── daily_run.py ─────────────────────────────────────────────────────
 with st.expander("⚙️ Full daily pipeline (daily_run.py)  ·  3-5 min"):
     c1, c2 = st.columns(2)
     with c1:
-        run_alpaca = st.checkbox("--alpaca", value=True, key="dr_alpaca",
-                                  help="Run the Alpaca submit chain")
-        run_moomoo = st.checkbox("--moomoo", value=False, key="dr_moomoo",
-                                  help="Run the Moomoo submit chain (in addition to Alpaca)")
+        dr_alpaca = st.checkbox("--alpaca", value=True, key="dr_alpaca")
+        dr_moomoo = st.checkbox("--moomoo", value=False, key="dr_moomoo")
+        dr_skip_refresh = st.checkbox("--skip-refresh", value=True, key="dr_skip_refresh",
+                                       help="Skip ETF + research refresh")
+        dr_skip_factor = st.checkbox("--skip-factor-refresh", value=False, key="dr_skip_factor",
+                                      help="Refresh ETFs but skip research/factor recompute")
     with c2:
-        skip_refresh = st.checkbox("--skip-refresh", value=True, key="dr_skip",
-                                    help="Skip ETF + research refresh (use existing data)")
-        dry_run = st.checkbox("--dry-run", value=False, key="dr_dry",
-                               help="Show what would run without executing.  Safe.")
-    c3, c4 = st.columns(2)
-    with c3:
-        force = st.checkbox("--force (ignore weekend/holiday guard)", value=False, key="dr_force")
-        stress = st.checkbox("--stress (also run stress tests)", value=False, key="dr_stress",
-                              help="Adds factor_decay, drawdown_throttle, execution_stress, survivorship steps")
-    with c4:
-        timeout = st.number_input("--timeout (sec per step)", min_value=60, max_value=1800,
-                                   value=600, step=30, key="dr_timeout")
+        dr_dry = st.checkbox("--dry-run", value=False, key="dr_dry",
+                              help="Show plan only — no execution")
+        dr_force = st.checkbox("--force", value=False, key="dr_force",
+                                help="Run even on weekends / holidays")
+        dr_stress = st.checkbox("--stress", value=False, key="dr_stress",
+                                 help="Also run factor_decay, drawdown_throttle, execution_stress, survivorship")
+        dr_report = st.checkbox("--report", value=False, key="dr_report",
+                                 help="Run side-by-side performance report at the end")
+    dr_timeout = st.number_input("--timeout (sec per step)", min_value=60, max_value=1800,
+                                  value=600, step=30, key="dr_timeout")
 
-    cmd = [PY, "daily_run.py", "--timeout", str(int(timeout))]
-    if run_alpaca:  cmd.append("--alpaca")
-    if run_moomoo:  cmd.append("--moomoo")
-    if skip_refresh: cmd.append("--skip-refresh")
-    if dry_run:     cmd.append("--dry-run")
-    if force:       cmd.append("--force")
-    if stress:      cmd.append("--stress")
-
+    cmd = [PY, "daily_run.py", "--timeout", str(int(dr_timeout))]
+    if dr_alpaca:       cmd.append("--alpaca")
+    if dr_moomoo:       cmd.append("--moomoo")
+    if dr_skip_refresh: cmd.append("--skip-refresh")
+    if dr_skip_factor:  cmd.append("--skip-factor-refresh")
+    if dr_dry:          cmd.append("--dry-run")
+    if dr_force:        cmd.append("--force")
+    if dr_stress:       cmd.append("--stress")
+    if dr_report:       cmd.append("--report")
     _run_block("Full daily pipeline", cmd, key="daily_run",
-               warning=(None if dry_run else "Will submit real paper orders if --alpaca and market is open."),
-               help_text="Orchestrates ETF refresh → research → signal → submit → reconcile → health.")
+               warning=(None if dr_dry else "Will submit paper orders if market is open."),
+               help_text="ETF refresh → research → signal → submit → reconcile → health checks.")
 
 
-# ── core_satellite_alpha (signal only) ──
-with st.expander("🎯 Generate signal only (no orders)  ·  ~30s"):
-    st.caption("Just runs core_satellite_alpha.py.  No CLI args needed — reads the approved live config.")
+# ── core_satellite_alpha.py ──────────────────────────────────────────
+with st.expander("🎯 Generate signal only (core_satellite_alpha.py)  ·  ~30s"):
+    c1, c2 = st.columns(2)
+    with c1:
+        sig_ignore_stale = st.checkbox("--ignore-stale", value=False, key="sig_ignore_stale",
+                                         help="Allow signal generation even if data is stale")
+        sig_walkforward = st.checkbox("--walkforward (run nested WF inline)", value=False, key="sig_walkforward",
+                                       help="Run nested walkforward as part of signal generation (SLOW)")
+    with c2:
+        sig_no_walkforward = st.checkbox("--no-walkforward", value=False, key="sig_no_walkforward",
+                                          help="Skip nested walkforward")
+        sig_min_train = st.number_input("--min-train-years", min_value=2, max_value=15,
+                                          value=4, step=1, key="sig_min_train",
+                                          help="Minimum training years required")
+
     cmd = [PY, "core_satellite_alpha.py"]
+    if sig_ignore_stale:    cmd.append("--ignore-stale")
+    if sig_walkforward:     cmd.append("--walkforward")
+    if sig_no_walkforward:  cmd.append("--no-walkforward")
+    if sig_min_train != 4:
+        cmd.extend(["--min-train-years", str(int(sig_min_train))])
     _run_block("Generate signal", cmd, key="signal",
                help_text="Regenerates `signals/core_satellite_alpha_signal.csv`.")
 
 
 # ═════════════════════════════════════════════════════════════════════
-# Section 3 — TRADING ACTIONS
+# SECTION 3 — TRADING ACTIONS
 # ═════════════════════════════════════════════════════════════════════
 st.markdown("## 💸 Trading Actions")
-st.caption("Send/manage orders on the Alpaca paper account.")
 
-# ── alpaca submit ──
+# ── alpaca submit ────────────────────────────────────────────────────
 with st.expander("📤 Submit orders to Alpaca  ·  ~1 min"):
     c1, c2 = st.columns(2)
     with c1:
-        submit_force = st.checkbox("--force (override duplicate-submission guard)",
-                                    value=False, key="submit_force",
-                                    help="Lets you submit again on the same day.")
+        ap_force = st.checkbox("--force", value=False, key="ap_force",
+                                help="Skip drift thresholds AND duplicate-day check")
+        ap_market = st.checkbox("--market-order (default on)", value=True, key="ap_market",
+                                 help="Submit market orders.  Default behavior.")
     with c2:
-        submit_dry = st.checkbox("--dry-run (show plan only)", value=False, key="submit_dry")
+        ap_stale_ok = st.checkbox("--allow-stale-signal", value=False, key="ap_stale",
+                                   help="Allow submission even if signal freshness check fails")
+        ap_signal_age = st.number_input("--max-signal-age-hours", min_value=0.5, max_value=72.0,
+                                         value=24.0, step=0.5, key="ap_signal_age",
+                                         help="Block submit if predicted_at is older than this")
+    ap_factor_age = st.number_input("--max-factor-age-trading-days", min_value=1, max_value=14,
+                                     value=3, step=1, key="ap_factor_age",
+                                     help="Block submit if latest_factor_date is older than this many trading days")
+
     cmd = [PY, "alpaca_paper_trading.py", "--submit"]
-    if submit_force: cmd.append("--force")
-    if submit_dry:   cmd.append("--dry-run")
+    if ap_force:    cmd.append("--force")
+    if not ap_market: pass  # --market-order is default-True; no flag to disable
+    if ap_stale_ok: cmd.append("--allow-stale-signal")
+    cmd.extend(["--max-signal-age-hours", str(float(ap_signal_age))])
+    cmd.extend(["--max-factor-age-trading-days", str(int(ap_factor_age))])
     _run_block("Submit orders", cmd, key="submit",
-               warning=("Will submit paper orders to Alpaca." if not submit_dry else None),
+               warning="Submits paper orders to Alpaca.",
                help_text="Reads today's signal and submits the rebalance orders.")
 
 
-# ── alpaca reconcile ──
+# ── alpaca reconcile ─────────────────────────────────────────────────
 with st.expander("✅ Reconcile fill statuses  ·  ~30s"):
-    st.caption("Checks pending orders for fills/cancellations.  No new orders submitted.  Safe.")
+    st.caption("Checks pending orders for fills/cancellations.  Read-only.")
     cmd = [PY, "alpaca_paper_trading.py", "--reconcile"]
-    _run_block("Reconcile fills", cmd, key="reconcile",
-               help_text="Updates the order log with broker-side status (filled/cancelled/expired).")
+    _run_block("Reconcile fills", cmd, key="reconcile")
 
 
-# ── alpaca status ──
+# ── alpaca status ────────────────────────────────────────────────────
 with st.expander("👀 Show Alpaca account status  ·  ~10s"):
-    st.caption("Read-only print of current positions, cash, equity.")
+    st.caption("Print positions/cash/equity.  No state changes.")
     cmd = [PY, "alpaca_paper_trading.py", "--status"]
-    _run_block("Show account status", cmd, key="status",
-               help_text="Pretty-prints account.  No state changes.")
+    _run_block("Show account status", cmd, key="status")
 
 
-# ── execution_guard ──
-with st.expander("🛡 Execution guard (cancel stale orders, repair stops)  ·  ~15s"):
-    st.caption(
-        "Runs one cycle: repairs ETF protective stops, cancels orders older than threshold, "
-        "checks intraday P&L guard."
-    )
-    cmd = [PY, "execution_guard.py", "--once"]
-    _run_block("Execution guard (once)", cmd, key="exec_guard",
-               help_text="Safe-ish: only cancels obviously-stale orders and re-places stops.")
+# ── execution_guard.py ───────────────────────────────────────────────
+with st.expander("🛡 Execution guard  ·  ~15s"):
+    c1, c2 = st.columns(2)
+    with c1:
+        eg_once = st.checkbox("--once (single cycle, then exit)", value=True, key="eg_once")
+    with c2:
+        eg_dry = st.checkbox("--dry-run (log only, no orders)", value=False, key="eg_dry")
+    cmd = [PY, "execution_guard.py"]
+    if eg_once: cmd.append("--once")
+    if eg_dry:  cmd.append("--dry-run")
+    _run_block("Execution guard", cmd, key="exec_guard",
+               help_text="Repair stops, cancel stale orders, check intraday P&L.")
 
 
 # ═════════════════════════════════════════════════════════════════════
-# Section 4 — DIAGNOSTICS
+# SECTION 4 — DIAGNOSTICS / HEALTH
 # ═════════════════════════════════════════════════════════════════════
 st.markdown("## 🩺 Diagnostics & Health")
-st.caption("Read-only checks.  Safe to run anytime.")
+st.caption("Read-only checks.")
 
-# ── broker_health ──
+# ── broker_health.py ─────────────────────────────────────────────────
 with st.expander("📡 Broker health check  ·  ~10s"):
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
     with c1:
         bh_alpaca = st.checkbox("--alpaca", value=True, key="bh_alpaca")
     with c2:
         bh_moomoo = st.checkbox("--moomoo", value=False, key="bh_moomoo")
+    with c3:
+        bh_json = st.checkbox("--json", value=False, key="bh_json")
     cmd = [PY, "broker_health.py"]
     if bh_alpaca: cmd.append("--alpaca")
     if bh_moomoo: cmd.append("--moomoo")
-    _run_block("Broker health", cmd, key="broker_health",
-               help_text="Pings broker API(s), returns connectivity + equity + latency.")
+    if bh_json:   cmd.append("--json")
+    _run_block("Broker health", cmd, key="broker_health")
 
 
-# ── paper_health ──
+# ── paper_health.py ──────────────────────────────────────────────────
 with st.expander("📋 Paper health summary  ·  ~30s"):
     c1, c2 = st.columns(2)
     with c1:
         ph_broker = st.selectbox("--broker", ["alpaca", "moomoo"], index=0, key="ph_broker")
     with c2:
-        ph_json = st.checkbox("--json (raw JSON output)", value=False, key="ph_json")
+        ph_json = st.checkbox("--json", value=False, key="ph_json")
     cmd = [PY, "paper_health.py", "--broker", ph_broker]
     if ph_json: cmd.append("--json")
     _run_block(f"Paper health ({ph_broker})", cmd, key="paper_health",
-               help_text="Builds drift detection, slippage analysis, concentration check, scorecard.")
+               help_text="Drift detection, slippage, concentration, scorecard.")
 
 
-# ── alpaca_paper_gauntlet ──
+# ── alpaca_paper_gauntlet.py ─────────────────────────────────────────
 with st.expander("🛡 Alpaca paper gauntlet  ·  ~20s"):
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
     with c1:
         g_verbose = st.checkbox("--verbose", value=False, key="g_verbose")
     with c2:
         g_json = st.checkbox("--json", value=False, key="g_json")
+    with c3:
+        g_snapshot = st.checkbox("--snapshot (just equity snap, skip gauntlet)",
+                                  value=False, key="g_snapshot")
     cmd = [PY, "alpaca_paper_gauntlet.py"]
-    if g_verbose: cmd.append("--verbose")
-    if g_json:    cmd.append("--json")
+    if g_verbose:  cmd.append("--verbose")
+    if g_json:     cmd.append("--json")
+    if g_snapshot: cmd.append("--snapshot")
     _run_block("Alpaca paper gauntlet", cmd, key="gauntlet",
-               help_text="Go-live readiness: trading days, fill rate, Sharpe, drawdown, signal age.")
+               help_text="Go-live readiness: trading days, fill rate, Sharpe, drawdown.")
 
 
-# ── walkforward_analyzer ──
+# ── walkforward_analyzer.py ──────────────────────────────────────────
 with st.expander("🔬 Walkforward analyzer  ·  ~5s"):
-    custom_csv = st.text_input("--csv (path to walkforward CSV)",
-                                value="signals/core_satellite_nested_walkforward.csv",
-                                key="wfa_csv")
-    save_json = st.checkbox("--json (also write analyzer JSON report)", value=False, key="wfa_json")
-    cmd = [PY, "walkforward_analyzer.py", "--csv", custom_csv]
-    if save_json: cmd.append("--json")
-    _run_block("Walkforward analyzer", cmd, key="wf_analyzer",
-               help_text="Runs 4 checks: score predictiveness, calibration, concentration vulnerability, config stability.")
-
-
-# ── fill_monitor ──
-with st.expander("📜 Fill monitor (recent orders)  ·  ~10s"):
-    fm_days = st.number_input("--days (look back N trading days)",
-                               min_value=1, max_value=30, value=2, step=1, key="fm_days")
-    cmd = [PY, "fill_monitor.py", "--days", str(int(fm_days))]
-    _run_block("Fill monitor", cmd, key="fill_monitor",
-               help_text="Lists orders from the last N days with their fill status.")
-
-
-# ═════════════════════════════════════════════════════════════════════
-# Section 5 — HEAVY OPERATIONS
-# ═════════════════════════════════════════════════════════════════════
-st.markdown("## 🏋️ Heavy Operations")
-st.caption("Long-running or destructive.  Read the warnings.")
-
-# ── nested walkforward ──
-with st.expander("🔬 Nested walkforward (re-validate strategy)  ·  2-6 HOURS"):
-    st.warning(
-        "Takes hours.  Don't close the dashboard tab while it runs.  "
-        "Consider running on a server / VPS instead.",
-        icon="⚠️",
-    )
+    wfa_csv = st.text_input("--csv", value="signals/core_satellite_nested_walkforward.csv",
+                             key="wfa_csv")
     c1, c2 = st.columns(2)
     with c1:
-        wf_strategy = st.selectbox("--strategy", ["core-alpha", "tqqq", "both"],
-                                    index=0, key="wf_strategy")
-        wf_full = st.checkbox("--full (skip successive-halving screen)",
-                               value=True, key="wf_full",
-                               help="Recommended.  Halving screen risks dropping the true best config.")
-        wf_fast = st.checkbox("--fast (smoke-test grid only)",
-                               value=False, key="wf_fast",
-                               help="48 configs instead of 384.  For quick sanity checks.")
+        wfa_qqq = st.text_input("--qqq (path to QQQ parquet, blank = default)",
+                                 value="", key="wfa_qqq")
     with c2:
-        wf_publish = st.selectbox(
-            "Publish live config?",
-            ["auto", "always (--publish-live-config)", "never (--no-publish-live-config)"],
-            index=0, key="wf_publish",
-            help="auto = publish only when running --full and no --fast/--stable-grid flags.",
-        )
-        wf_max_folds = st.number_input("--max-folds (limit fold count, 0=all)",
-                                        min_value=0, max_value=20, value=0, step=1, key="wf_max_folds")
+        wfa_spy = st.text_input("--spy (path to SPY parquet, blank = default)",
+                                 value="", key="wfa_spy")
+    wfa_json = st.checkbox("--json (also write analyzer JSON)", value=False, key="wfa_json")
+    cmd = [PY, "walkforward_analyzer.py", "--csv", wfa_csv]
+    if wfa_qqq.strip(): cmd.extend(["--qqq", wfa_qqq.strip()])
+    if wfa_spy.strip(): cmd.extend(["--spy", wfa_spy.strip()])
+    if wfa_json:        cmd.append("--json")
+    _run_block("Walkforward analyzer", cmd, key="wf_analyzer",
+               help_text="4 checks: predictiveness, calibration, concentration, config stability.")
 
-    confirm = st.checkbox("I understand this takes hours and may cost CPU/electricity",
-                          key="wf_confirm")
 
+# ── fill_monitor.py ──────────────────────────────────────────────────
+with st.expander("📜 Fill monitor (recent orders)  ·  ~10s"):
+    c1, c2 = st.columns(2)
+    with c1:
+        fm_days = st.number_input("--days", min_value=1, max_value=30, value=2, step=1, key="fm_days")
+    with c2:
+        fm_quiet = st.checkbox("--quiet", value=False, key="fm_quiet",
+                                help="Suppress detailed output")
+    cmd = [PY, "fill_monitor.py", "--days", str(int(fm_days))]
+    if fm_quiet: cmd.append("--quiet")
+    _run_block("Fill monitor", cmd, key="fill_monitor")
+
+
+# ═════════════════════════════════════════════════════════════════════
+# SECTION 5 — HEAVY OPERATIONS
+# ═════════════════════════════════════════════════════════════════════
+st.markdown("## 🏋️ Heavy Operations")
+st.caption("Long-running or destructive.")
+
+# ── nested walkforward ───────────────────────────────────────────────
+with st.expander("🔬 Nested walkforward  ·  2-6 HOURS"):
+    st.warning(
+        "Takes hours.  Don't close the dashboard tab — Streamlit kills the subprocess if you do. "
+        "Consider running on a server/VPS for long jobs.",
+        icon="⚠️",
+    )
+
+    # Grid / strategy controls
+    c1, c2 = st.columns(2)
+    with c1:
+        wf_strategy = st.selectbox("--strategy", ["core-alpha", "tqqq", "both"], index=0, key="wf_strategy")
+        wf_full = st.checkbox("--full (exhaustive 768-config grid)", value=True, key="wf_full")
+        wf_fast = st.checkbox("--fast (smoke ~48 configs, ~15 min)", value=False, key="wf_fast")
+    with c2:
+        wf_stable = st.checkbox("--stable-grid (pinned ~24 configs)", value=False, key="wf_stable")
+        wf_recent = st.checkbox("--recent-alpha-grid (~48 focused configs)", value=False, key="wf_recent")
+        wf_output = st.text_input("--output-prefix", value="core_satellite_nested_walkforward",
+                                   key="wf_output")
+
+    # Year + fold controls
+    c3, c4 = st.columns(2)
+    with c3:
+        wf_start_year = st.number_input("--start-year (blank = auto)", min_value=0, max_value=2099,
+                                         value=0, step=1, key="wf_start_year",
+                                         help="0 means use script default")
+        wf_end_year = st.number_input("--end-year (blank = auto)", min_value=0, max_value=2099,
+                                       value=0, step=1, key="wf_end_year")
+        wf_min_train = st.number_input("--min-train-years", min_value=1, max_value=15,
+                                        value=4, step=1, key="wf_min_train")
+        wf_min_inner = st.number_input("--min-inner-train-years (0 = auto)", min_value=0, max_value=15,
+                                        value=0, step=1, key="wf_min_inner")
+    with c4:
+        wf_max_folds = st.number_input("--max-folds (0 = no limit)", min_value=0, max_value=20,
+                                        value=0, step=1, key="wf_max_folds")
+        wf_max_configs = st.number_input("--max-configs (0 = no limit)", min_value=0, max_value=1000,
+                                          value=0, step=10, key="wf_max_configs")
+        wf_max_specs = st.number_input("--max-specs (0 = use default)", min_value=0, max_value=1000,
+                                        value=0, step=10, key="wf_max_specs")
+
+    # Publish control
+    wf_publish = st.selectbox(
+        "Publish live config?",
+        ["auto", "always (--publish-live-config)", "never (--no-publish-live-config)"],
+        index=0, key="wf_publish",
+    )
+
+    # Build the command
     cmd = [PY, "core_satellite_nested_walkforward.py", "--strategy", wf_strategy]
-    if wf_full:    cmd.append("--full")
-    if wf_fast:    cmd.append("--fast")
-    if "always" in wf_publish:
-        cmd.append("--publish-live-config")
-    elif "never" in wf_publish:
-        cmd.append("--no-publish-live-config")
-    if wf_max_folds > 0:
-        cmd.extend(["--max-folds", str(int(wf_max_folds))])
+    if wf_full:   cmd.append("--full")
+    if wf_fast:   cmd.append("--fast")
+    if wf_stable: cmd.append("--stable-grid")
+    if wf_recent: cmd.append("--recent-alpha-grid")
+    if "always" in wf_publish: cmd.append("--publish-live-config")
+    elif "never" in wf_publish: cmd.append("--no-publish-live-config")
+    if wf_start_year > 0:    cmd.extend(["--start-year", str(int(wf_start_year))])
+    if wf_end_year > 0:      cmd.extend(["--end-year", str(int(wf_end_year))])
+    if wf_min_train != 4:    cmd.extend(["--min-train-years", str(int(wf_min_train))])
+    if wf_min_inner > 0:     cmd.extend(["--min-inner-train-years", str(int(wf_min_inner))])
+    if wf_max_folds > 0:     cmd.extend(["--max-folds", str(int(wf_max_folds))])
+    if wf_max_configs > 0:   cmd.extend(["--max-configs", str(int(wf_max_configs))])
+    if wf_max_specs > 0:     cmd.extend(["--max-specs", str(int(wf_max_specs))])
+    if wf_output != "core_satellite_nested_walkforward":
+        cmd.extend(["--output-prefix", wf_output])
 
+    confirm = st.checkbox("I understand this takes hours", key="wf_confirm")
     if confirm:
         _run_block("Nested walkforward", cmd, key="walkforward",
                    warning="HOURS — don't close this tab.")
@@ -317,11 +417,11 @@ with st.expander("🔬 Nested walkforward (re-validate strategy)  ·  2-6 HOURS"
                   help="Check the confirmation box above to enable.")
 
 
-# ── publish_live_config_from_csv ──
+# ── publish_live_config_from_csv.py ──────────────────────────────────
 with st.expander("📡 Publish live config from walkforward CSV  ·  ~5s"):
     c1, c2 = st.columns(2)
     with c1:
-        publish_source = st.selectbox(
+        pub_source = st.selectbox(
             "--source",
             ["most_common", "latest", "best_sharpe", "top_family"],
             index=0, key="pub_source",
@@ -333,19 +433,19 @@ with st.expander("📡 Publish live config from walkforward CSV  ·  ~5s"):
             ),
         )
     with c2:
-        publish_force = st.checkbox("--force (publish even if approval fails)",
-                                     value=False, key="pub_force")
-        publish_dry = st.checkbox("--dry-run", value=False, key="pub_dry")
-    cmd = [PY, "publish_live_config_from_csv.py", "--source", publish_source]
-    if publish_force: cmd.append("--force")
-    if publish_dry:   cmd.append("--dry-run")
+        pub_force = st.checkbox("--force (publish even if approval fails)",
+                                 value=False, key="pub_force")
+        pub_dry = st.checkbox("--dry-run", value=False, key="pub_dry")
+    cmd = [PY, "publish_live_config_from_csv.py", "--source", pub_source]
+    if pub_force: cmd.append("--force")
+    if pub_dry:   cmd.append("--dry-run")
     _run_block("Publish live config", cmd, key="publish",
-               warning="Overwrites signals/core_satellite_live_configs.json.  Backup auto-saved as .bak.",
-               help_text="Promotes a config from the walkforward CSV to live trading without rerunning the WF.")
+               warning="Overwrites signals/core_satellite_live_configs.json (.bak backup made).",
+               help_text="Promotes a config from the walkforward CSV without rerunning WF.")
 
 
 # ═════════════════════════════════════════════════════════════════════
-# Section 6 — RECENT LOGS
+# SECTION 6 — RECENT LOGS
 # ═════════════════════════════════════════════════════════════════════
 st.markdown("## 📜 Recent Dashboard Runs")
 
