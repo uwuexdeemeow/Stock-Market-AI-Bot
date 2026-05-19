@@ -536,21 +536,101 @@ def fit_sentiment_zscore_stats(frame: pd.DataFrame, columns: list[str] | None = 
     return stats
 
 
+# Trailing-window length for rolling sentiment z-scores.  ~1 trading year —
+# long enough to be statistically stable, short enough to discount
+# multi-year regime shifts (e.g. the meme-stock era's sentiment baseline
+# vs the 2022 bear's).  Env-overridable for experiments.
+SENTIMENT_ZSCORE_ROLLING_WINDOW = int(os.environ.get("SENTIMENT_ZSCORE_ROLLING_WINDOW", "252"))
+SENTIMENT_ZSCORE_MIN_OBS = int(os.environ.get("SENTIMENT_ZSCORE_MIN_OBS", "60"))
+
+
+def _rolling_zscore(
+    series: pd.Series,
+    *,
+    window: int,
+    min_obs: int,
+) -> pd.Series:
+    """Return a point-in-time rolling z-score of `series`.
+
+    PLAIN ENGLISH: For each row, computes (value - mean_of_last_252_days) /
+    std_of_last_252_days using ONLY data up to and including that row.  No
+    forward leakage — safe to use in training AND live prediction.  Early
+    rows where the rolling window has fewer than min_obs observations
+    return 0 (sentiment is treated as neutral when we have no baseline).
+    """
+    s = pd.to_numeric(series, errors="coerce").replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    rmean = s.rolling(window=window, min_periods=min_obs).mean()
+    rstd = s.rolling(window=window, min_periods=min_obs).std(ddof=0)
+    z = (s - rmean) / rstd.where(rstd > 1e-6, 1.0)
+    return z.clip(-5.0, 5.0).fillna(0.0)
+
+
 def apply_sentiment_distribution_matching(
     frame: pd.DataFrame,
     stats: dict[str, dict[str, float]] | None = None,
+    *,
+    use_rolling: bool = True,
+    rolling_window: int = SENTIMENT_ZSCORE_ROLLING_WINDOW,
+    min_obs: int = SENTIMENT_ZSCORE_MIN_OBS,
 ) -> tuple[pd.DataFrame, dict[str, dict[str, float]]]:
+    """Z-score sentiment columns and write them back as ``sent_z_<col>``.
+
+    Two modes:
+
+      use_rolling=True (default, addresses audit #11) — per-ticker
+        trailing-window z-score.  Each row uses ONLY the last
+        `rolling_window` observations of the same ticker.  Adapts to
+        sentiment regime shifts (e.g. post-meme-stock era recalibration)
+        without forward leakage.  The returned ``stats`` dict still
+        contains the global fallback (used when a ticker has fewer than
+        `min_obs` history rows).
+
+      use_rolling=False — legacy behaviour.  Computes a single global
+        mean/std on the entire frame (or uses pre-fit stats) and applies
+        it uniformly.  Kept for backwards compatibility with saved model
+        artefacts that depend on those stats.
+
+    Both modes write ``sent_z_<col>`` features, so downstream code is
+    unchanged.
+    """
     out = frame.copy()
     fitted = stats or fit_sentiment_zscore_stats(out)
+
+    if not use_rolling or "ticker" not in out.columns:
+        # Legacy mode — single global mean/std for the whole frame.
+        for col, st in fitted.items():
+            if col not in out.columns:
+                out[col] = 0.0
+            s = pd.to_numeric(out[col], errors="coerce").replace([np.inf, -np.inf], np.nan).fillna(0.0)
+            mean = float(st.get("mean", 0.0))
+            std = float(st.get("std", 1.0)) or 1.0
+            if not np.isfinite(std) or abs(std) < 1e-6:
+                std = 1.0
+            out[f"sent_z_{col}"] = ((s - mean) / std).clip(-5.0, 5.0)
+        return out, fitted
+
+    # Rolling mode — per-ticker trailing z-score (point-in-time).
+    # We also write the global fallback as a fillna source for new
+    # tickers / early rows where the trailing window is too thin.
+    out = out.sort_values(["ticker", "date"]) if "date" in out.columns else out.sort_values(["ticker"])
     for col, st in fitted.items():
         if col not in out.columns:
             out[col] = 0.0
+        # Global fallback z-score (uses fitted stats — same math as legacy).
         s = pd.to_numeric(out[col], errors="coerce").replace([np.inf, -np.inf], np.nan).fillna(0.0)
         mean = float(st.get("mean", 0.0))
         std = float(st.get("std", 1.0)) or 1.0
         if not np.isfinite(std) or abs(std) < 1e-6:
             std = 1.0
-        out[f"sent_z_{col}"] = ((s - mean) / std).clip(-5.0, 5.0)
+        global_z = ((s - mean) / std).clip(-5.0, 5.0)
+        # Per-ticker rolling z-score (groupby preserves index alignment).
+        rolling_z = out.groupby("ticker", sort=False, group_keys=False)[col].apply(
+            lambda g: _rolling_zscore(g, window=rolling_window, min_obs=min_obs)
+        )
+        # Use rolling where defined, fall back to global where rolling is
+        # NaN (early rows with insufficient history).
+        out[f"sent_z_{col}"] = rolling_z.where(rolling_z.notna(), global_z)
+
     return out, fitted
 
 
