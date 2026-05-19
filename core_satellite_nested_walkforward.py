@@ -1049,27 +1049,35 @@ def approval_status(result: dict) -> dict:
 
     # ── Existing gates (tightened) ──────────────────────────────────────────
     fold_count = int(result.get("fold_count", 0) or 0)
-    config_frequency = float(
+    family_frequency = float(
         result.get(
             "approved_family_frequency",
-            result.get(
-                "approved_config_frequency",
-                result.get("best_config_frequency", result.get("config_stability", 0.0)),
-            ),
+            result.get("best_config_frequency", result.get("config_stability", 0.0)),
         )
         or 0.0
     )
+    # The EXACT config being published must also clear a frequency gate.
+    # Otherwise a config that only appeared once can still pass approval
+    # because its broader family was picked enough times.  (Publish-safety bug
+    # found Oct 2026: an h=20,ov=0.5,vol=percentile config with 7.1% frequency
+    # was getting published because its family had 21.4% frequency.)
+    exact_frequency = float(result.get("approved_config_frequency", family_frequency) or 0.0)
+    # Exact config can clear at half the family threshold (e.g. 10% when
+    # family threshold is 20%).  This requires the SPECIFIC tuning to appear
+    # at least twice in 14 folds, not just be in a popular family.
+    min_exact_config_frequency = thresholds["min_config_frequency"] * 0.5
     mean_oos_sharpe = float(result.get("mean_oos_sharpe", 0.0) or 0.0)
     alpha_hit_rate = float(result.get("oos_positive_alpha_hit_rate", 0.0) or 0.0)
 
     if fold_count < thresholds["min_folds"]:
         reasons.append(f"fold_count<{thresholds['min_folds']:.0f}")
-    if config_frequency < thresholds["min_config_frequency"]:
-        reasons.append(f"config_frequency<{thresholds['min_config_frequency']:.2f}")
-    if "approved_family_frequency" in result:
-        exact_frequency = float(result.get("approved_config_frequency", 0.0) or 0.0)
-        if exact_frequency < thresholds["min_config_frequency"]:
-            warnings.append(f"exact_config_frequency<{thresholds['min_config_frequency']:.2f}")
+    if family_frequency < thresholds["min_config_frequency"]:
+        reasons.append(f"family_frequency<{thresholds['min_config_frequency']:.2f}")
+    # Hard gate on the exact config being published (was a warning before).
+    if exact_frequency < min_exact_config_frequency:
+        reasons.append(
+            f"exact_config_frequency={exact_frequency:.3f}<{min_exact_config_frequency:.2f}"
+        )
     if mean_oos_sharpe < thresholds["min_mean_oos_sharpe"]:
         reasons.append(f"mean_oos_sharpe<{thresholds['min_mean_oos_sharpe']:.2f}")
     if alpha_hit_rate < thresholds["min_oos_alpha_hit_rate"]:
@@ -1091,13 +1099,23 @@ def approval_status(result: dict) -> dict:
             f"worst_oos_drawdown={worst_dd:.1f}%<{thresholds['max_worst_oos_drawdown_pct']:.0f}%"
         )
     if "max_worst_oos_turnover_pct" in thresholds:
-        worst_turnover = float(
-            result.get("approved_family_worst_oos_turnover_pct", result.get("worst_oos_turnover_pct", 0.0))
-            or 0.0
-        )
-        if worst_turnover > thresholds["max_worst_oos_turnover_pct"]:
+        # Two-tier turnover check:
+        # 1. Run-wide worst fold (HARD reject) — if ANY outer fold churned
+        #    above the cap, the strategy is too unstable to deploy.  This
+        #    catches one-off blowups like the 2014 fold at 991% turnover.
+        # 2. Approved family worst (info/secondary) — what specifically
+        #    happened to the published config family.
+        run_wide_worst = float(result.get("worst_oos_turnover_pct", 0.0) or 0.0)
+        family_worst = float(result.get("approved_family_worst_oos_turnover_pct", 0.0) or 0.0)
+        cap = thresholds["max_worst_oos_turnover_pct"]
+        if run_wide_worst > cap:
             reasons.append(
-                f"worst_oos_turnover={worst_turnover:.1f}%>{thresholds['max_worst_oos_turnover_pct']:.0f}%"
+                f"worst_oos_turnover={run_wide_worst:.1f}%>{cap:.0f}%"
+            )
+        elif family_worst > cap:
+            # Run-wide passed but approved family exceeded — still reject.
+            reasons.append(
+                f"approved_family_worst_turnover={family_worst:.1f}%>{cap:.0f}%"
             )
 
     # ── Selection bias gate (new — overfitting detector) ────────────────────
