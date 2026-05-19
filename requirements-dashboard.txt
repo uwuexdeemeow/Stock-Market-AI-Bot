@@ -6,3 +6,10 @@
 
 streamlit>=1.30,<2.0
 plotly>=5.18,<6.0
+# Needed by the GitHub Actions page so the SSL cert chain works on
+# macOS/Windows Python installs that don't ship the system CA store.
+# Also used as a fallback when `requests` isn't available.
+certifi>=2024.0.0
+# Preferred HTTP client for the GitHub API call — handles SSL natively
+# via certifi.  Falls back to urllib + certifi if missing.
+requests>=2.31,<3.0

@@ -61,9 +61,12 @@ with c2:
 # ─────────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=60)
 def fetch_runs(repo: str, workflow: str = "", limit: int = 20) -> dict:
-    """Hit the GitHub API for recent workflow runs."""
-    import urllib.request
-    import json as _json
+    """Hit the GitHub API for recent workflow runs.
+
+    Uses `requests` (which respects the certifi CA bundle by default).
+    Falls back to urllib + certifi SSL context if `requests` isn't
+    installed.  Both routes work without manually setting REQUESTS_CA_BUNDLE.
+    """
     base = f"https://api.github.com/repos/{repo}/actions"
     if workflow:
         url = f"{base}/workflows/{workflow}/runs?per_page={limit}"
@@ -73,17 +76,54 @@ def fetch_runs(repo: str, workflow: str = "", limit: int = 20) -> dict:
     headers = {
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "stock-bot-dashboard",
     }
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
-    req = urllib.request.Request(url, headers=headers)
+    # ── Path 1: requests (preferred — handles SSL via certifi) ─────────
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        import requests
+        r = requests.get(url, headers=headers, timeout=10)
+        if r.status_code == 404:
+            return {"_error": f"404 Not Found — repo {repo!r} or workflow {workflow!r} doesn't exist"}
+        if r.status_code == 403 and "rate limit" in r.text.lower():
+            return {"_error": f"403 Rate limit exceeded.  Set GITHUB_TOKEN to authenticate."}
+        if r.status_code != 200:
+            return {"_error": f"HTTP {r.status_code}: {r.text[:200]}"}
+        return r.json()
+    except ImportError:
+        pass  # requests not installed — try urllib path
+    except Exception as exc:
+        # If requests failed for another reason, try urllib as fallback
+        urllib_err = str(exc)
+
+    # ── Path 2: urllib + explicit certifi CA bundle ────────────────────
+    import urllib.request
+    import json as _json
+    import ssl
+    try:
+        # Build an SSL context that explicitly uses certifi's CA bundle.
+        # macOS Python distributions ship without the system CA chain —
+        # this is the standard fix.
+        try:
+            import certifi
+            ctx = ssl.create_default_context(cafile=certifi.where())
+        except ImportError:
+            ctx = ssl.create_default_context()
+
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
             return _json.loads(resp.read().decode())
     except Exception as exc:
-        return {"_error": str(exc)}
+        msg = str(exc)
+        if "CERTIFICATE_VERIFY_FAILED" in msg:
+            msg += (
+                "\n\nFix: install certifi:  pip install certifi"
+                "\nOr on macOS run:  /Applications/Python\\ 3.x/Install\\ Certificates.command"
+            )
+        return {"_error": msg}
 
 
 # Fetch & render
