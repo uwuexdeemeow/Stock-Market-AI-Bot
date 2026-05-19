@@ -48,7 +48,7 @@ from pathlib import Path
 import pandas as pd
 
 from safe_io import atomic_write_json
-from settings import LOG_DIR
+from settings import LOG_DIR, SIGNAL_DIR
 
 LOGS = Path(LOG_DIR)
 
@@ -651,8 +651,17 @@ def main():
     # would alert "fill_monitor: output file missing".  Write an empty
     # placeholder up front — fill_monitor.py atomic-writes the real result
     # immediately afterwards if it succeeds.
+    #
+    # IMPORTANT: use the SAME absolute path that fill_monitor.py and
+    # monitor_heartbeat.py use (SIGNAL_DIR from settings).  Before this we
+    # had Path("signals") which was relative to whatever CWD the runner
+    # used — on GitHub Actions that could resolve to a different directory
+    # than the absolute SIGNAL_DIR.  Result: stub written to one place,
+    # monitor_heartbeat looking in another.
     try:
-        fm_stub = Path("signals") / "fill_monitor.json"
+        signals_dir = Path(SIGNAL_DIR)
+        signals_dir.mkdir(parents=True, exist_ok=True)
+        fm_stub = signals_dir / "fill_monitor.json"
         if not fm_stub.exists():
             atomic_write_json(
                 {
@@ -671,6 +680,7 @@ def main():
                 },
                 fm_stub,
             )
+            print(f"  ✓ Wrote fill_monitor stub → {fm_stub}")
     except Exception as exc:
         print(f"  ⚠ Could not write fill_monitor stub ({exc}); continuing anyway.")
 
