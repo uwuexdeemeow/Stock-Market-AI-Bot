@@ -11,6 +11,9 @@ from typing import Optional
 
 import streamlit as st
 
+# Importing dashboard.data triggers the load_dotenv() call inside, so
+# GITHUB_TOKEN gets picked up from .env even if you navigate straight here.
+from dashboard import data as _dashboard_data  # noqa: F401 (side effect: load .env)
 from dashboard.components import sidebar_refresh, status_chip
 
 
@@ -54,6 +57,29 @@ with c2:
                                      value="daily_paper_trading.yml",
                                      help="e.g. daily_paper_trading.yml — blank = all workflows",
                                      key="gha_workflow")
+
+# Surface token detection up front — most 404s on private repos are
+# really "no auth" in disguise.
+_token_detected = bool(os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN"))
+if _token_detected:
+    status_chip("GITHUB_TOKEN detected", "ok")
+else:
+    status_chip("GITHUB_TOKEN not set — private repos will return 404", "warn")
+    with st.expander("How to add a token"):
+        st.markdown("""
+1. Open https://github.com/settings/personal-access-tokens/new
+2. **Repository access** → Only select repositories → pick this repo
+3. **Repository permissions** → Actions → **Read-only**
+4. Click **Generate token**, copy the `github_pat_...` value
+5. Add it to your `.env` file:
+   ```
+   GITHUB_TOKEN=github_pat_...
+   ```
+6. Restart Streamlit (Ctrl+C, then `streamlit run dashboard.py`)
+
+Classic tokens also work — at https://github.com/settings/tokens/new
+tick the `repo` scope.
+        """)
 
 
 # ─────────────────────────────────────────────────────────────────────

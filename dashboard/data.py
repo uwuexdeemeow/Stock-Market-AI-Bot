@@ -23,6 +23,19 @@ from typing import Optional
 import pandas as pd
 import streamlit as st
 
+# ── Load .env at module import ─────────────────────────────────────────
+# PLAIN ENGLISH: Streamlit doesn't auto-read .env files like the backend
+# scripts do (those call load_dotenv() explicitly).  We do it here once
+# at import so EVERY page that imports from dashboard.* picks up keys
+# like GITHUB_TOKEN, ALPACA_API_KEY, etc.  Silent no-op if .env missing.
+try:
+    from dotenv import load_dotenv
+    # override=False — anything already set in the OS env wins over .env.
+    # This way "GITHUB_TOKEN=... streamlit run dashboard.py" still works.
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
+except ImportError:
+    pass  # python-dotenv not installed — env vars must come from the OS
+
 
 # ── Paths — single source of truth for "where backend data lives" ──────
 # When you reorganize files, change ONLY these constants.  Pages stay clean.
