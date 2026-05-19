@@ -59,6 +59,18 @@ def _ssl_context() -> ssl.SSLContext:
 TELEGRAM_BOT_TOKEN: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID: str = os.environ.get("TELEGRAM_CHAT_ID", "")
 
+
+def _script_telegram_enabled() -> bool:
+    """Return whether Python scripts may send their own Telegram messages.
+
+    PLAIN ENGLISH: GitHub Actions has a final workflow summary message.  When
+    `STOCKBOT_SCRIPT_TELEGRAM_ENABLED=0`, individual scripts still log alerts
+    and may send email, but they do not create extra Telegram messages.
+    """
+    value = os.environ.get("STOCKBOT_SCRIPT_TELEGRAM_ENABLED", "1").strip().lower()
+    return value not in {"0", "false", "no", "off"}
+
+
 # ── Email config (same env vars that execution_guard / daily_run use) ─
 SMTP_HOST: str = os.environ.get("SMTP_HOST", "")
 SMTP_PORT: str = os.environ.get("SMTP_PORT", "587")
@@ -196,6 +208,9 @@ def send_telegram(message: str, *, parse_mode: str = "HTML") -> bool:
     parse_mode: "HTML" (default) lets you use <b>bold</b>, <i>italic</i>,
                 <code>monospace</code> in messages.  Set to "" for plain text.
     """
+    if not _script_telegram_enabled():
+        _log("Telegram skipped: STOCKBOT_SCRIPT_TELEGRAM_ENABLED=0")
+        return False
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return False
     try:
@@ -230,6 +245,9 @@ def send_telegram_document(file_path: str, *, caption: str = "") -> bool:
 
     Returns True if the file was sent, False otherwise.
     """
+    if not _script_telegram_enabled():
+        _log("Telegram document skipped: STOCKBOT_SCRIPT_TELEGRAM_ENABLED=0")
+        return False
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return False
     from pathlib import Path
@@ -285,6 +303,10 @@ def send_signal_summary_telegram(
     """
     from pathlib import Path
     import pandas as pd
+
+    if not _script_telegram_enabled():
+        _log("Signal summary Telegram skipped: STOCKBOT_SCRIPT_TELEGRAM_ENABLED=0")
+        return False
 
     signal_file = Path(signal_path)
     orders_file = Path(orders_path)
