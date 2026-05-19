@@ -690,10 +690,10 @@ def test_nested_stable_grid_pins_consensus_dimensions():
     assert {p["ma_window"] for p in params} == {100}
     assert {p["high_vol"] for p in params} == {0.30}
     assert {p["score_source"] for p in params} == {"regime_adaptive"}
-    assert {p["weighting"] for p in params} == {"sticky_score"}
-    assert {p["risk_control_mode"] for p in params} == {"defensive"}
+    assert {p["weighting"] for p in params} == {"sticky_score", "risk_parity"}
+    assert {p["risk_control_mode"] for p in params} == {"off"}
     assert {p["shape"] for p in params} == {"top5", "top10", "top15"}
-    assert {p["tqqq_weight"] for p in params} == {0.0, 0.10, 0.20, 0.30}
+    assert {p["tqqq_weight"] for p in params} == {0.0, 0.10}
     assert {p["high_vol_mode"] for p in params} == {"fixed", "percentile"}
 
 

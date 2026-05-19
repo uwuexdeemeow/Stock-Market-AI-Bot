@@ -127,7 +127,7 @@ python3 core_satellite_nested_walkforward.py --no-low-memory    # faster on 32+ 
 | `--max-specs N` | `48` | Maximum number of feature specs to load. Reducing this shrinks the factor panel and speeds up each evaluation, but may drop useful features. |
 | `--output-prefix NAME` | `core_satellite_nested_walkforward` | Prefix for output files. Changes the JSON/CSV filenames under `signals/`. Using a non-default prefix **disables** automatic live config publishing (safety: debug runs shouldn't overwrite production approvals). |
 | `--fast` | off | Use a reduced grid (~32 configs instead of 384) and fewer knob combinations. Good for smoke tests. Still runs proper nested validation — just with fewer candidates. |
-| `--stable-grid` | off | Use the pinned alpha-decay baseline grid (~24 configs): holding days 20, overlay 50%, MA 100, regime-adaptive scoring, sticky-score weighting, defensive risk control; only shape, high-vol mode, and TQQQ weight remain tunable. Auto-publishing is disabled unless `--publish-live-config` is passed. |
+| `--stable-grid` | off | Use the consensus baseline grid (24 configs): pins 14-fold winners (h=20, overlay 50%, MA 100, regime-adaptive scoring, risk=off) and explicitly drops overlay=0.7 because it had much higher turnover and weaker Sharpe/QQQ alpha in the May 2026 run. Tunes shape, sticky-score/risk-parity weighting, vol mode, and TQQQ (0/10%). Auto-publishing is disabled unless `--publish-live-config` is passed. |
 | `--recent-alpha-grid` | off | Use the focused post-2020 alpha grid (~48 configs): holding days 20, MA 100, regime-adaptive scoring, risk control off; tunes overlay 50/70%, top3/top5/top15 concentration, sticky-score/risk-parity weighting, high-vol mode, and 0/10% TQQQ. Auto-publishing is disabled unless `--publish-live-config` is passed. |
 | `--publish-live-config` | auto | Force writing approval state to `signals/core_satellite_live_configs.json`, even for bounded/debug runs. Normally, runs with `--fast`, `--stable-grid`, `--recent-alpha-grid`, `--max-folds`, `--max-configs`, custom `--output-prefix`, or partial year windows do NOT publish (to prevent debug/research runs from overwriting production approvals). |
 | `--no-publish-live-config` | — | Never write approval state. Useful for dry-run full validations where you want to inspect results without affecting production. |
@@ -656,8 +656,10 @@ allocation helps on a risk-adjusted basis.
 
 For alpha-decay diagnosis, `--stable-grid` pins the repeatedly selected
 dimensions (`h=20`, `overlay_gross=0.50`, `ma=100`, `score=regime_adaptive`,
-`weighting=sticky_score`, `risk=defensive`) and tests only shape, high-vol
-mode, and TQQQ weight. This is an A/B research baseline and will not publish
+`risk=off`) and drops `overlay_gross=0.70` because the May 2026 nested
+walkforward showed much higher turnover and weaker Sharpe/QQQ alpha. It tests
+shape, sticky-score vs risk-parity weighting, fixed vs percentile high-vol
+mode, and 0/10% TQQQ. This is an A/B research baseline and will not publish
 live approval state unless forced with `--publish-live-config`.
 
 For post-2020 alpha research, `--recent-alpha-grid` pins `h=20`, `ma=100`,

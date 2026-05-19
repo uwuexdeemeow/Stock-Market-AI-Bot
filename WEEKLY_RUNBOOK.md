@@ -660,8 +660,10 @@ allocation helps on a risk-adjusted basis.
 
 For alpha-decay diagnosis, `--stable-grid` pins the repeatedly selected
 dimensions (`h=20`, `overlay_gross=0.50`, `ma=100`, `score=regime_adaptive`,
-`weighting=sticky_score`, `risk=defensive`) and tests only shape, high-vol
-mode, and TQQQ weight. This is an A/B research baseline and will not publish
+`risk=off`) and drops `overlay_gross=0.70` because the May 2026 nested
+walkforward showed much higher turnover and weaker Sharpe/QQQ alpha. It tests
+shape, sticky-score vs risk-parity weighting, fixed vs percentile high-vol
+mode, and 0/10% TQQQ. This is an A/B research baseline and will not publish
 live approval state unless forced with `--publish-live-config`.
 
 For post-2020 alpha research, `--recent-alpha-grid` pins `h=20`, `ma=100`,
