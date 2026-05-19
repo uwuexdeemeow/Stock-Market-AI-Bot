@@ -598,19 +598,24 @@ def stable_grid_candidate_configs(
     strategy: str = "core-alpha",
     max_configs: int | None = None,
 ) -> list[dict]:
-    """Return the pinned research grid for alpha-decay baseline testing."""
+    """Return the pinned research grid for alpha-decay baseline testing.
+
+    Pins the 14-fold consensus dimensions (h=20, ma=100, score=regime_adaptive,
+    risk=off) and searches only the dimensions that actually vary across folds:
+      overlay (0.5 vs 0.7), shape, weighting, vol_mode, tqqq.
+    """
     return iter_candidate_configs(
         strategy=strategy,
         holding_days=(20,),
-        overlay_gross=(0.50,),
+        overlay_gross=(0.50, 0.70),
         ma_windows=(100,),
         high_vol_values=(0.30,),
         high_vol_modes=STABLE_GRID_HIGH_VOL_MODES,
         score_sources=("regime_adaptive",),
         shapes=STABLE_GRID_SHAPES,
-        weightings=("sticky_score",),
-        tqqq_weights=STABLE_GRID_TQQQ_WEIGHTS,
-        risk_control_modes=("defensive",),
+        weightings=("sticky_score", "risk_parity"),
+        tqqq_weights=(0.0, 0.10),
+        risk_control_modes=("off",),
         max_configs=max_configs,
     )
 
@@ -2528,9 +2533,9 @@ def main() -> None:
                         help="Use the exhaustive grid (768 configs) for overnight runs. "
                              "Default is a balanced 192-config grid (~1 hour on laptop)")
     parser.add_argument("--stable-grid", action="store_true",
-                        help="Use the pinned stable research grid (~24 configs): "
-                             "h=20, ov=0.50, ma=100, regime_adaptive, "
-                             "sticky_score, defensive risk; tunes shape, vol mode, and TQQQ.")
+                        help="Use the consensus baseline grid (~48 configs): "
+                             "pins 14-fold consensus (h=20, ma=100, regime_adaptive, "
+                             "risk=off); tunes overlay, shape, weighting, vol mode, TQQQ.")
     parser.add_argument("--recent-alpha-grid", action="store_true",
                         help="Use the focused recent-alpha research grid (~48 configs): "
                              "h=20, risk off, ma=100, regime_adaptive; tunes "
