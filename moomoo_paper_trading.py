@@ -377,11 +377,12 @@ def _fetch_vol(ticker: str) -> float:
     """
     try:
         from data_provider import download_single, flatten_yf
+        from risk_sizing import annualized_realized_vol
         hist = flatten_yf(download_single(ticker, period="6mo"))
         closes = hist["Close"].dropna()
-        if len(closes) >= 20:
-            vol = float(closes.pct_change().tail(63).std() * np.sqrt(252))
-            return max(0.05, min(1.0, vol))
+        # Stress-aware vol: max of EWMA and rolling so position size
+        # reacts quickly to vol shocks instead of waiting 60+ days.
+        return annualized_realized_vol(closes, default=0.20)
     except Exception:
         pass
     return 0.20

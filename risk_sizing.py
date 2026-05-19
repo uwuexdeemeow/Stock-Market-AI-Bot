@@ -24,8 +24,87 @@ These are pure functions; backtest.py calls them to turn a
 
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import pandas as pd
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Realized-vol estimator — used for position sizing
+# ─────────────────────────────────────────────────────────────────────────
+# A plain 60-day rolling std is the textbook choice but it has a real bug:
+# during a vol shock (Feb 2018 vol-mageddon, March 2020 COVID, Aug 2024
+# JPY-carry unwind), the rolling window mixes the calm "before" days with
+# the violent "after" days for ~60 days.  The vol estimate stays low for
+# weeks while the market is actually moving 4% a day — and position sizes
+# stay oversized through the entire shock.
+#
+# Fix: take max(EWMA, rolling) so the estimate snaps to the higher reading
+# when stress hits.  EWMA with halflife=10 reacts within ~10 days; rolling
+# is the conservative "long memory" floor.  In a calm regime the two are
+# roughly equal; in a shock, EWMA leaps ahead and rules.
+VOL_EWMA_HALFLIFE = float(os.environ.get("VOL_EWMA_HALFLIFE", "10"))
+VOL_ROLLING_WINDOW = int(os.environ.get("VOL_ROLLING_WINDOW", "60"))
+VOL_MIN_OBS = int(os.environ.get("VOL_MIN_OBS", "20"))
+
+
+def annualized_realized_vol(
+    close: "pd.Series",
+    *,
+    halflife: float = VOL_EWMA_HALFLIFE,
+    window: int = VOL_ROLLING_WINDOW,
+    min_obs: int = VOL_MIN_OBS,
+    default: float = 0.20,
+) -> float:
+    """Stress-aware annualised realised vol from a Close-price series.
+
+    Returns the MAX of (EWMA vol, rolling-window vol) annualised by
+    sqrt(252).  In a vol shock the EWMA leaps within ~halflife days while
+    the rolling window lags ~60 days; taking the max makes position sizing
+    react quickly without overshooting in calm regimes.
+
+    Args:
+        close: Close-price series (chronological order).
+        halflife: EWMA halflife in trading days (default 10).
+        window: Rolling-window length in trading days (default 60).
+        min_obs: Minimum observations required; returns `default` below this.
+        default: Vol assumed when data is too thin.
+
+    Returns:
+        Annualised vol in decimal form (e.g. 0.30 = 30%).
+    """
+    if close is None:
+        return float(default)
+    try:
+        prices = pd.Series(close).dropna()
+    except (TypeError, ValueError):
+        return float(default)
+    if len(prices) < min_obs:
+        return float(default)
+
+    returns = prices.pct_change().dropna()
+    if len(returns) < min_obs:
+        return float(default)
+
+    # Annualisation factor for daily returns.  Trading days in a year.
+    ANN = 252 ** 0.5
+
+    rolling_vol = float(returns.tail(window).std() * ANN)
+    # EWMA std — recent days weighted exponentially more.  min_periods
+    # guards against an unstable estimate on the first few rows.
+    ewma_vol_series = returns.ewm(halflife=halflife, min_periods=min_obs).std()
+    if ewma_vol_series.empty or pd.isna(ewma_vol_series.iloc[-1]):
+        return max(0.05, min(1.5, rolling_vol)) if rolling_vol > 0 else float(default)
+    ewma_vol = float(ewma_vol_series.iloc[-1] * ANN)
+
+    # Take the more conservative (higher) reading.  Clamped to a sane
+    # band — 5% floor (silly-low for any tradeable name), 150% ceiling
+    # (probably bad data if vol exceeds that).
+    vol = max(rolling_vol, ewma_vol)
+    if not np.isfinite(vol) or vol <= 0:
+        return float(default)
+    return max(0.05, min(1.5, float(vol)))
 
 
 def vol_target_size(

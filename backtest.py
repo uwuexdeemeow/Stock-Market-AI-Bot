@@ -182,7 +182,7 @@ from pipeline_shared import apply_sentiment_distribution_matching, fit_sentiment
 from ranker_utils import build_rank_groups_from_dates, daily_rank_ic, load_adaptive_factor_weights
 from portfolio_manager import PortfolioRiskManager, ProposedTrade
 from execution_model import realistic_fill_price, commission as calc_commission, capacity_warning
-from risk_sizing import compute_position_size
+from risk_sizing import compute_position_size, annualized_realized_vol
 from experiment_ledger import append_experiment
 
 INITIAL_CAPITAL = 10_000.0
@@ -741,17 +741,23 @@ def atr_position_pct(
 
 
 def historical_annual_vol(price_history: dict[str, pd.DataFrame], ticker: str, dt, lookback: int = 63) -> float:
-    """Annualized realized vol using only prices known at or before dt."""
+    """Annualized realized vol using only prices known at or before dt.
+
+    Delegates to risk_sizing.annualized_realized_vol which returns the MAX
+    of EWMA (halflife≈10d) and rolling (60d) vol.  This sizes positions
+    DOWN within ~10 days of a vol shock instead of waiting for a 60-day
+    rolling window to refresh — the old behaviour kept positions oversized
+    through Feb 2018, March 2020, and Aug 2024.  Lookback arg kept for
+    backwards-compatible signature; the underlying function reads its
+    window from env-overridable settings.
+    """
     if ticker not in price_history:
         return 0.20
     hist = price_history[ticker]
     if "Close" not in hist.columns:
         return 0.20
     closes = hist["Close"].loc[:pd.Timestamp(dt)].dropna()
-    if len(closes) < 20:
-        return 0.20
-    vol = float(closes.pct_change().tail(lookback).std() * np.sqrt(252))
-    return max(0.05, min(1.0, vol))
+    return annualized_realized_vol(closes, window=lookback, default=0.20)
 
 
 def _select_feature_cols_bt(df: pd.DataFrame) -> list[str]:
