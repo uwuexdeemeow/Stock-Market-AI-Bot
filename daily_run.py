@@ -625,6 +625,55 @@ def main():
         print("  Factor refresh: skipped — using latest restored factor data/report")
     print(f"{'═'*60}")
 
+    # Write a "running" stub so monitor_heartbeat (which executes BEFORE the
+    # final results are written at the end of main()) doesn't false-positive
+    # with "daily_run: output file missing".  The stub is overwritten with
+    # the real summary when the run completes.
+    stub_path = LOGS / f"daily_run_{now.strftime('%Y%m%d')}.json"
+    try:
+        atomic_write_json(
+            {
+                "timestamp": now.isoformat(),
+                "status": "running",
+                "steps_total": len(steps),
+                "steps_ok": 0,
+                "steps_failed": 0,
+                "results": [],
+            },
+            stub_path,
+        )
+    except Exception as exc:
+        # Stub-writing is best-effort — don't block the run on it.
+        print(f"  ⚠ Could not write run stub ({exc}); continuing anyway.")
+
+    # Same idea for fill_monitor.json: if fill_monitor.py crashes (e.g. a
+    # broker module fails to import on a fresh runner), monitor_heartbeat
+    # would alert "fill_monitor: output file missing".  Write an empty
+    # placeholder up front — fill_monitor.py atomic-writes the real result
+    # immediately afterwards if it succeeds.
+    try:
+        fm_stub = Path("signals") / "fill_monitor.json"
+        if not fm_stub.exists():
+            atomic_write_json(
+                {
+                    "checked_at": now.isoformat(),
+                    "status": "pending",
+                    "lookback_days": 2,
+                    "total_checked": 0,
+                    "filled": 0,
+                    "cancelled": 0,
+                    "partial": 0,
+                    "unknown": 0,
+                    "not_submitted": 0,
+                    "problems": [],
+                    "fill_rate": 0,
+                    "note": "stub written by daily_run.py before fill_monitor.py ran",
+                },
+                fm_stub,
+            )
+    except Exception as exc:
+        print(f"  ⚠ Could not write fill_monitor stub ({exc}); continuing anyway.")
+
     # Run each step
     results = run_steps(steps, dry_run=bool(args.dry_run), timeout=int(args.timeout))
 
