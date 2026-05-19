@@ -656,7 +656,13 @@ MAX_TOP_TICKER_CONTRIB_SHARE = 0.50
 ROBUST_COST_STRESSES = (2.0, 3.0, 5.0)
 PERIODS_PER_YEAR = 252.0 / HORIZON_DAYS
 _PANEL_DAY_CACHE: dict[int, dict[pd.Timestamp, pd.DataFrame]] = {}
-_ETF_PRICE_CACHE: dict[tuple[tuple[pd.Timestamp, ...], tuple[str, ...]], pd.DataFrame] = {}
+# (key) -> (cached_dataframe, inserted_at_unix_timestamp).  TTL guards
+# against a long-running process (notebook, dashboard, GitHub Actions
+# step that loops) seeing stale ETF prices after new parquet writes —
+# audit #13.  Default 30 min; env-overridable.
+import os as _os, time as _time
+_ETF_PRICE_CACHE_TTL_SEC = int(_os.environ.get("ETF_PRICE_CACHE_TTL_SEC", "1800"))
+_ETF_PRICE_CACHE: dict[tuple[tuple[pd.Timestamp, ...], tuple[str, ...]], tuple[pd.DataFrame, float]] = {}
 
 
 def _regime_preset_with_overlay_gross(regime_preset: dict, overlay_gross: float) -> dict:
@@ -688,7 +694,14 @@ def _cached_etf_prices(price_index: pd.DatetimeIndex, tickers: list[str]) -> pd.
     key = (normalized_dates, tuple(tickers))
     cached = _ETF_PRICE_CACHE.get(key)
     if cached is not None:
-        return cached
+        prices, inserted_at = cached
+        # TTL check — entries older than ETF_PRICE_CACHE_TTL_SEC are
+        # discarded.  Prevents a long-running process (notebook, web
+        # dashboard, looping CI step) from returning yesterday's prices
+        # after new parquet bars are written.
+        if (_time.time() - inserted_at) < _ETF_PRICE_CACHE_TTL_SEC:
+            return prices
+        # else: fall through and re-fetch
     prices = _load_etf_price_frame(pd.DatetimeIndex(normalized_dates), tickers)
     if len(prices) > 1:
         synthetic = [
@@ -701,7 +714,7 @@ def _cached_etf_prices(price_index: pd.DatetimeIndex, tickers: list[str]) -> pd.
             raise RuntimeError(
                 f"ETF price data unavailable for {synthetic}; refusing to run core alpha with synthetic flat prices."
             )
-    _ETF_PRICE_CACHE[key] = prices
+    _ETF_PRICE_CACHE[key] = (prices, _time.time())
     return prices
 
 

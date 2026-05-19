@@ -6,26 +6,64 @@ This module solves that by writing to a temporary file first, then atomically
 renaming it over the target.  On Unix, `os.replace()` is atomic — the file is
 either fully old or fully new, never half-and-half.
 
+Also includes a disk-space guard so writes fail-fast with a clear error
+instead of silently truncating when the disk fills up (a real failure mode
+on GitHub Actions runners and on smaller VPS instances).
+
 HOW TO USE:
     from safe_io import atomic_write_text, atomic_write_csv
 
     atomic_write_text(path, json.dumps(data, indent=2))
     atomic_write_csv(df, path)
-
-KEY CONCEPTS:
-  - Atomic operation: happens all-at-once, never partially.  If the machine
-    crashes during the rename, the old file is still intact.
-  - Temp file: we write to "myfile.csv.tmp" then rename to "myfile.csv".
-    If the crash happens during the write, only the .tmp file is corrupt —
-    the real file is untouched.
 """
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 from typing import Union
 
 import pandas as pd
+
+
+# Minimum free disk space (MiB) required before any atomic write proceeds.
+# Env-overridable.  100 MiB is enough for a full parquet write + room for
+# the .tmp file during rename.  Set to 0 to disable.
+SAFE_IO_MIN_FREE_MIB = int(os.environ.get("SAFE_IO_MIN_FREE_MIB", "100"))
+
+
+class DiskSpaceLow(OSError):
+    """Raised when free disk space is below SAFE_IO_MIN_FREE_MIB."""
+
+
+def _check_free_space(path: Path) -> None:
+    """Fail-fast if the disk holding `path` is nearly full.
+
+    PLAIN ENGLISH: Before any write, peek at how much free space is left
+    on the partition that holds the target file.  If we're below the
+    safety floor, raise an explicit error instead of starting a write
+    that may silently truncate when the disk fills.
+    """
+    if SAFE_IO_MIN_FREE_MIB <= 0:
+        return
+    try:
+        # shutil.disk_usage works for any path that exists; walk up the
+        # tree to find the nearest existing ancestor (the target dir may
+        # not exist yet for first-time writes).
+        probe = path if path.exists() else path.parent
+        while not probe.exists() and probe != probe.parent:
+            probe = probe.parent
+        usage = shutil.disk_usage(str(probe))
+    except OSError:
+        # If we can't probe (e.g. weird filesystem), don't block the write.
+        return
+    free_mib = usage.free / (1024 * 1024)
+    if free_mib < SAFE_IO_MIN_FREE_MIB:
+        raise DiskSpaceLow(
+            f"Refusing to write {path}: only {free_mib:.1f} MiB free on "
+            f"{probe}, need at least {SAFE_IO_MIN_FREE_MIB} MiB. "
+            f"Free up space or lower SAFE_IO_MIN_FREE_MIB."
+        )
 
 
 def atomic_write_text(path: Union[str, Path], content: str, *, encoding: str = "utf-8") -> None:
@@ -38,6 +76,9 @@ def atomic_write_text(path: Union[str, Path], content: str, *, encoding: str = "
     path = Path(path)
     # Create parent directories if they don't exist
     path.parent.mkdir(parents=True, exist_ok=True)
+    # Disk-space guard — refuse to start the write if the partition is
+    # nearly full instead of silently truncating mid-write.
+    _check_free_space(path)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     try:
         tmp_path.write_text(content, encoding=encoding)
@@ -59,6 +100,7 @@ def atomic_write_csv(df: pd.DataFrame, path: Union[str, Path], *, index: bool = 
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    _check_free_space(path)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     try:
         df.to_csv(tmp_path, index=index, **kwargs)

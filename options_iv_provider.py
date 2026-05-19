@@ -210,16 +210,25 @@ def fetch_live_iv_features(ticker: str) -> dict[str, float]:
     Returns a dict of feature_name -> value.  If anything fails, returns
     neutral defaults so the model still works.
     """
-    # Neutral defaults -- returned if API is unavailable
+    # Neutral defaults -- returned if API is unavailable.
+    # iv_source tells you WHICH path produced the IV: 'default' (no real
+    # data), 'tradier_mid_iv' (preferred), 'tradier_smv_vol' (ORATS
+    # smoothed fallback), 'tradier_greeks_mid_iv', 'tradier_bid_iv'
+    # (last-resort, illiquid contracts), or 'no_token' (API key missing).
+    # This is logged to logs/options_iv_source.csv so you can audit why
+    # IV looks weird on a given day without re-running the live fetch.
     result = {
         "iv_atm": 0.25,          # 25% vol is roughly average for large-caps
         "iv_rank": 0.50,         # middle of range
         "put_call_ratio": 1.0,   # neutral
         "iv_skew": 0.0,          # no skew
         "iv_has_real_data": 0.0, # flag: 0 = defaults, 1 = real data
+        "iv_source": "default",  # which path produced the value (diagnostic)
     }
 
     if not TRADIER_API_TOKEN:
+        result["iv_source"] = "no_token"
+        _record_iv_source(ticker, result)
         return result
 
     try:
@@ -266,19 +275,13 @@ def fetch_live_iv_features(ticker: str) -> dict[str, float]:
 
         # Step 7: Extract IV from the chain
         # Tradier provides mid_iv (mid implied vol) and smv_vol (ORATS smoothed)
-        # Prefer mid_iv, fall back to smv_vol, then greeks
-        call_iv = (
-            _safe_float(atm_call.get("mid_iv"))
-            or _safe_float(atm_call.get("smv_vol"))
-            or _safe_float((atm_call.get("greeks") or {}).get("mid_iv"))
-            or _safe_float(atm_call.get("bid_iv"))
-        )
-        put_iv = (
-            _safe_float(atm_put.get("mid_iv"))
-            or _safe_float(atm_put.get("smv_vol"))
-            or _safe_float((atm_put.get("greeks") or {}).get("mid_iv"))
-            or _safe_float(atm_put.get("bid_iv"))
-        )
+        # Prefer mid_iv, fall back to smv_vol, then greeks, then bid_iv.
+        # _iv_with_source returns (value, source_tag) so we can record
+        # which fallback path actually fired — useful for debugging when
+        # IV readings look odd (e.g. an illiquid bid_iv-only fallback
+        # often produces noisy values).
+        call_iv, call_src = _iv_with_source(atm_call)
+        put_iv, put_src = _iv_with_source(atm_put)
 
         if call_iv and put_iv and call_iv > 0 and put_iv > 0:
             # ATM IV = average of call and put IV
@@ -286,6 +289,10 @@ def fetch_live_iv_features(ticker: str) -> dict[str, float]:
             result["iv_atm"] = round(float(np.clip(atm_iv, 0.01, 5.0)), 4)
             result["iv_skew"] = round(float(np.clip(put_iv - call_iv, -1.0, 1.0)), 4)
             result["iv_has_real_data"] = 1.0
+            # Record the WORST-quality of the two paths (mid_iv > smv_vol >
+            # greeks > bid_iv) so the diagnostic flags any contract that
+            # had to use a lower-quality field.
+            result["iv_source"] = call_src if _IV_SOURCE_RANK[call_src] >= _IV_SOURCE_RANK[put_src] else put_src
 
         # Step 8: Put/call ratio from open interest across all strikes
         total_call_oi = sum(int(c.get("open_interest", 0) or 0) for c in calls)
@@ -302,6 +309,7 @@ def fetch_live_iv_features(ticker: str) -> dict[str, float]:
     except Exception as e:
         logger.debug("fetch_live_iv_features(%s) error: %s", ticker, e)
 
+    _record_iv_source(ticker, result)
     return result
 
 
@@ -318,6 +326,76 @@ def _safe_float(val) -> float | None:
         return f if np.isfinite(f) and f > 0 else None
     except (ValueError, TypeError):
         return None
+
+
+# Lower rank = higher quality.  Used to pick the WORST of the call/put
+# source tags for the diagnostic — so if a contract used bid_iv (rank 4)
+# the whole result is flagged that way.
+_IV_SOURCE_RANK = {
+    "tradier_mid_iv": 0,
+    "tradier_smv_vol": 1,
+    "tradier_greeks_mid_iv": 2,
+    "tradier_bid_iv": 3,
+    "default": 4,
+    "no_token": 4,
+}
+
+
+def _iv_with_source(contract: dict) -> tuple[float | None, str]:
+    """Return (iv_value, source_tag) for one option contract.
+
+    Walks the same mid_iv → smv_vol → greeks → bid_iv cascade as before,
+    but reports which step actually produced a usable number.  This is
+    the diagnostic that audit #22 was asking for — when IV looks weird,
+    you can check logs/options_iv_source.csv to see whether the value
+    came from a clean mid_iv or a noisy bid_iv last-resort.
+    """
+    v = _safe_float(contract.get("mid_iv"))
+    if v:
+        return v, "tradier_mid_iv"
+    v = _safe_float(contract.get("smv_vol"))
+    if v:
+        return v, "tradier_smv_vol"
+    v = _safe_float((contract.get("greeks") or {}).get("mid_iv"))
+    if v:
+        return v, "tradier_greeks_mid_iv"
+    v = _safe_float(contract.get("bid_iv"))
+    if v:
+        return v, "tradier_bid_iv"
+    return None, "default"
+
+
+def _record_iv_source(ticker: str, result: dict) -> None:
+    """Append one row to logs/options_iv_source.csv for diagnostics.
+
+    PLAIN ENGLISH: One row per (ticker, day) recording which path
+    produced today's IV.  Lets you grep historical issues — e.g. "why
+    was AAPL's IV 0.95 last Tuesday?" → check this CSV and see it fell
+    through to bid_iv (last-resort fallback on illiquid quotes).
+    Failures here are silently ignored — diagnostics must never break
+    the live signal path.
+    """
+    try:
+        import csv
+        from datetime import datetime as _dt
+        from pathlib import Path as _Path
+        log_path = _Path("logs") / "options_iv_source.csv"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        write_header = not log_path.exists()
+        with open(log_path, "a", newline="") as f:
+            w = csv.writer(f)
+            if write_header:
+                w.writerow(["timestamp", "ticker", "iv_source",
+                            "iv_atm", "iv_has_real_data"])
+            w.writerow([
+                _dt.now().isoformat(timespec="seconds"),
+                ticker.upper(),
+                result.get("iv_source", "unknown"),
+                result.get("iv_atm", 0.0),
+                int(result.get("iv_has_real_data", 0.0)),
+            ])
+    except Exception:
+        pass
 
 
 def _compute_iv_rank(ticker: str, current_iv: float) -> float:
