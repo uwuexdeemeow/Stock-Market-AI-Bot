@@ -328,47 +328,65 @@ def run_step(
         return {"name": name, "status": "skipped", "elapsed": 0.0}
 
     start = datetime.now()
+    # Stream output live so user sees progress instead of waiting for a
+    # silent capture to finish.  Buffer the tail in memory for the final
+    # summary line (failures still print stderr).
+    stdout_tail: list[str] = []
+    stderr_tail: list[str] = []
+    TAIL_SIZE = 200  # keep last 200 lines of each stream for summary/diagnostics
+
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             cmd,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=timeout,
+            bufsize=1,  # line-buffered
             cwd=str(Path(__file__).parent),
         )
+        # Use a background thread for stderr so we don't deadlock when one
+        # stream fills its OS pipe before the other gets drained.
+        import threading
+
+        def _drain(stream, sink: list[str], prefix: str):
+            for line in stream:
+                line = line.rstrip()
+                sink.append(line)
+                if len(sink) > TAIL_SIZE:
+                    sink.pop(0)
+                print(f"  {prefix}{line}", flush=True)
+
+        err_thread = threading.Thread(
+            target=_drain, args=(proc.stderr, stderr_tail, "ERR: "), daemon=True
+        )
+        err_thread.start()
+        _drain(proc.stdout, stdout_tail, "")
+        err_thread.join(timeout=2.0)
+
+        try:
+            proc.wait(timeout=timeout - (datetime.now() - start).total_seconds())
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+            elapsed = (datetime.now() - start).total_seconds()
+            print(f"  ✗ TIMEOUT after {timeout}s")
+            return {"name": name, "status": "timeout", "elapsed": round(elapsed, 1)}
 
         elapsed = (datetime.now() - start).total_seconds()
+        returncode = proc.returncode
 
-        # Print stdout (last 20 lines to keep it readable)
-        if result.stdout:
-            lines = result.stdout.strip().split("\n")
-            if len(lines) > 20:
-                print(f"  ... ({len(lines) - 20} lines omitted)")
-            for line in lines[-20:]:
-                print(f"  {line}")
-
-        if result.returncode != 0:
-            print(f"  ✗ FAILED (exit code {result.returncode})")
-            if result.stderr:
-                # Show last 10 lines of stderr
-                err_lines = result.stderr.strip().split("\n")
-                for line in err_lines[-10:]:
-                    print(f"  ERR: {line}")
+        if returncode != 0:
+            print(f"  ✗ FAILED (exit code {returncode})")
             return {
                 "name": name,
                 "status": "failed",
-                "exit_code": result.returncode,
+                "exit_code": returncode,
                 "elapsed": round(elapsed, 1),
-                "stderr_tail": result.stderr[-500:] if result.stderr else "",
+                "stderr_tail": "\n".join(stderr_tail[-10:]),
             }
 
         print(f"  ✓ OK ({elapsed:.1f}s)")
         return {"name": name, "status": "ok", "elapsed": round(elapsed, 1)}
-
-    except subprocess.TimeoutExpired:
-        elapsed = (datetime.now() - start).total_seconds()
-        print(f"  ✗ TIMEOUT after {timeout}s")
-        return {"name": name, "status": "timeout", "elapsed": round(elapsed, 1)}
 
     except Exception as e:
         elapsed = (datetime.now() - start).total_seconds()
