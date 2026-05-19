@@ -17,6 +17,8 @@ import pandas as pd
 
 from backtest import INITIAL_CAPITAL, _load_etf_price_frame, _newey_west_tstat
 from feature_health import (
+    MAX_CLUSTER_WEIGHT,
+    MIN_ACTIVE_CLUSTERS,
     enrich_feature_specs,
 )
 from robustness_scoring import robustness_score_components
@@ -262,16 +264,24 @@ def attach_scores(panel: pd.DataFrame, specs: list[dict], ml_scores: pd.DataFram
         "active_cluster_count": int(len(cluster_score_cols)),
         "effective_cluster_count": int(len(cluster_score_cols)),
         "max_cluster_weight": round(max(normalized_cluster_weights.values(), default=0.0), 6),
+        "min_active_clusters": int(MIN_ACTIVE_CLUSTERS),
+        "max_cluster_weight_allowed": float(MAX_CLUSTER_WEIGHT),
     })
+    # Re-check the gate after the actual score columns are built.  This matters
+    # because quarantined clusters are removed before capital is allowed.
     feature_health_summary["feature_health_gate_pass"] = bool(
-        feature_health_summary["active_cluster_count"] >= 6
-        and feature_health_summary["max_cluster_weight"] <= 0.25 + 1e-12
+        feature_health_summary["active_cluster_count"] >= MIN_ACTIVE_CLUSTERS
+        and feature_health_summary["max_cluster_weight"] <= MAX_CLUSTER_WEIGHT + 1e-12
     )
     reasons: list[str] = []
-    if feature_health_summary["active_cluster_count"] < 6:
-        reasons.append(f"active_cluster_count {feature_health_summary['active_cluster_count']} < 6")
-    if feature_health_summary["max_cluster_weight"] > 0.25 + 1e-12:
-        reasons.append(f"max_cluster_weight {feature_health_summary['max_cluster_weight']:.3f} > 0.25")
+    if feature_health_summary["active_cluster_count"] < MIN_ACTIVE_CLUSTERS:
+        reasons.append(
+            f"active_cluster_count {feature_health_summary['active_cluster_count']} < {MIN_ACTIVE_CLUSTERS}"
+        )
+    if feature_health_summary["max_cluster_weight"] > MAX_CLUSTER_WEIGHT + 1e-12:
+        reasons.append(
+            f"max_cluster_weight {feature_health_summary['max_cluster_weight']:.3f} > {MAX_CLUSTER_WEIGHT:.2f}"
+        )
     feature_health_summary["feature_health_gate_reasons"] = reasons
     feature_health_summary["quarantined_features"] = [
         r["feature"] for r in feature_rows.values() if r.get("health_state") == "quarantined"

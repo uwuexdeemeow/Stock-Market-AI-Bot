@@ -22,8 +22,11 @@ CORRELATION_CLUSTER_THRESHOLD = 0.70
 DECAY_QUARANTINE_RATIO = 0.50
 DECAY_WATCH_RATIO = 0.80
 STRENGTHENING_RATIO = 1.50
-MIN_ACTIVE_CLUSTERS = 2
-MAX_CLUSTER_WEIGHT = 0.50
+# Live trading needs several independent "signal families" so one crowded idea
+# cannot dominate the overlay.  Keep these shared with alpha_factor_backtest.py
+# so the report and the live capital gate judge the same thing.
+MIN_ACTIVE_CLUSTERS = 6
+MAX_CLUSTER_WEIGHT = 0.25
 
 
 _RANK_PREFIXES = ("xs_rank_market_", "xs_rank_sector_")
