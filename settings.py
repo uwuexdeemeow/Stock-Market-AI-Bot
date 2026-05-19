@@ -305,6 +305,72 @@ SECTOR_MAP = {
     "OMC":  "XLC", "LYV":  "XLC",
 }
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTOR_MAP coverage validation
+# ─────────────────────────────────────────────────────────────────────────────
+# PLAIN ENGLISH: When someone adds a ticker to WATCHLIST or to the survivorship
+# training set, they may forget to add it to SECTOR_MAP.  Unmapped tickers
+# fall to "OTHER" which is a single bucket — so portfolio_manager's sector
+# cap (default 40%) is silently bypassed: 5 unmapped tickers can all sit in
+# "OTHER" without tripping the cap.
+#
+# These helpers catch the gap.  Call validate_sector_map_coverage() at the
+# start of any script that picks from the alpha universe to log a clear
+# warning when new tickers slip through.
+def universe_unmapped_tickers() -> list[str]:
+    """Return alpha-universe tickers that are missing from SECTOR_MAP.
+
+    Universe = WATCHLIST ∪ SURVIVORSHIP_TRAINING_TICKERS.  Order is preserved
+    for stable warning messages.  ETFs (SPY/QQQ/TQQQ etc.) are excluded —
+    they're sized by allocation logic, not sector caps.
+    """
+    etf_tickers = {"SPY", "QQQ", "TQQQ", "IWM", "DIA", "GLD", "TLT", "IEF",
+                   "BIL", "HYG", "EEM", "CPER"}
+    universe = list(WATCHLIST) + list(SURVIVORSHIP_TRAINING_TICKERS)
+    seen: set[str] = set()
+    unmapped: list[str] = []
+    for ticker in universe:
+        t_upper = str(ticker).upper()
+        if t_upper in seen or t_upper in etf_tickers:
+            continue
+        seen.add(t_upper)
+        if t_upper not in SECTOR_MAP:
+            unmapped.append(t_upper)
+    return unmapped
+
+
+def validate_sector_map_coverage(*, raise_on_missing: bool = False) -> dict:
+    """Check SECTOR_MAP covers the alpha universe.
+
+    Returns a dict with the audit result.  When raise_on_missing=True and
+    any ticker is unmapped, raises ValueError — useful for CI / startup
+    checks.  Otherwise prints a warning and returns the gap info so the
+    caller can decide whether to escalate.
+    """
+    unmapped = universe_unmapped_tickers()
+    coverage_pct = 100.0 * (1.0 - len(unmapped) / max(len(WATCHLIST), 1))
+    result = {
+        "watchlist_size": len(WATCHLIST),
+        "sector_map_size": len(SECTOR_MAP),
+        "unmapped_count": len(unmapped),
+        "unmapped_tickers": unmapped,
+        "coverage_pct": round(coverage_pct, 1),
+        "pass": not unmapped,
+    }
+    if unmapped:
+        msg = (
+            f"⚠ SECTOR_MAP coverage gap: {len(unmapped)} alpha-universe "
+            f"ticker(s) missing → falls to 'OTHER' bucket and bypasses "
+            f"sector caps. Missing: {', '.join(unmapped[:15])}"
+            + (f" (+{len(unmapped)-15} more)" if len(unmapped) > 15 else "")
+        )
+        if raise_on_missing:
+            raise ValueError(msg)
+        print(msg)
+    return result
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # NEWS SOURCES
 # ─────────────────────────────────────────────────────────────────────────────

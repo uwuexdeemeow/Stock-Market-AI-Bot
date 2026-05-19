@@ -41,6 +41,7 @@ from settings import (
     SURVIVORSHIP_TRAINING_TICKERS,
     VIX_INVERSION_THRESHOLD,
     WATCHLIST,
+    validate_sector_map_coverage,
 )
 # Atomic signal write — broker readers never see a half-written CSV.
 from safe_io import atomic_write_csv
@@ -2556,6 +2557,11 @@ def main() -> None:
     args = parser.parse_args()
 
     Path(SIGNAL_DIR).mkdir(parents=True, exist_ok=True)
+
+    # Sector-map coverage check — prints a clear warning if any
+    # alpha-universe ticker is missing from SECTOR_MAP.  Unmapped tickers
+    # would fall to the "OTHER" bucket and silently bypass sector caps.
+    validate_sector_map_coverage()
 
     # ── FEATURE QUALITY FILTER ────────────────────────────────────────────────
     # Live signal generation is strict: diagnostics must exist, parse cleanly,

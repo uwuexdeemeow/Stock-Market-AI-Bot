@@ -45,6 +45,9 @@ class PortfolioRiskManager:
         self.max_single_name_exposure = max_single_name_exposure
         self.max_pair_correlation = max_pair_correlation
         self.max_drawdown_halt_pct = max_drawdown_halt_pct
+        # Track tickers we've already warned about so the log isn't spammed
+        # (same ticker showing up day after day with no SECTOR_MAP entry).
+        self._unmapped_warned: set[str] = set()
 
     def _signed(self, signal: str, weight: float) -> float:
         return weight if signal == "LONG" else -weight
@@ -172,6 +175,17 @@ class PortfolioRiskManager:
                 continue
 
             sector = SECTOR_MAP.get(trade.ticker, "OTHER")
+            if sector == "OTHER":
+                # Unmapped ticker — log loudly so it doesn't quietly bypass
+                # the sector cap.  Five "OTHER"-mapped names can stack to
+                # 100% of the portfolio without tripping a 40% sector cap,
+                # which defeats the diversification gate entirely.
+                if trade.ticker not in self._unmapped_warned:
+                    print(
+                        f"  ⚠ SECTOR_MAP missing {trade.ticker} — sector cap "
+                        f"may be bypassed.  Add to settings.SECTOR_MAP."
+                    )
+                    self._unmapped_warned.add(trade.ticker)
             if sector_alloc.get(sector, 0.0) + abs(weight) > self.max_sector_exposure:
                 continue
 
