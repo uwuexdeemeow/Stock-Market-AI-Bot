@@ -27,6 +27,81 @@ METRICS_PATH = Path(SIGNAL_DIR) / "core_satellite_alpha_metrics.json"
 MIN_WEAK_OVERLAY_ALPHA_PCT = -0.1  # warn if overlay alpha below -0.1% (noise floor)
 OVERLAY_ALPHA_BLOCK_THRESHOLD_PCT = 0.0
 
+# ── Notification status ranking ──────────────────────────────────────────
+# Higher number = worse health.  Used to compute transitions (did edge
+# weaken since last run? recover?) so we only alert on state changes
+# instead of spamming the same warning every run.
+_STATUS_SEVERITY = {"ok": 0, "advisory": 1, "warning": 2, "block": 3}
+
+
+def _previous_status() -> str:
+    """Return the edge_health_status from the most recent JSON, or 'ok'."""
+    try:
+        prev = json.loads(OUT_JSON.read_text())
+        return str(prev.get("edge_health_status") or "ok")
+    except (FileNotFoundError, ValueError, OSError):
+        return "ok"
+
+
+def _maybe_notify(new_status: str, prev_status: str, payload: dict) -> None:
+    """Send a Telegram/desktop alert when factor edge health changes.
+
+    PLAIN ENGLISH: This script used to write the decay report to a JSON
+    file with no notification — meaning a "block" state could sit in the
+    file for days unnoticed until someone checked the dashboard.  Now any
+    status change (or arrival at block) fires send_alert() so the user
+    finds out on their phone the same day.
+    """
+    new_rank = _STATUS_SEVERITY.get(new_status, 0)
+    prev_rank = _STATUS_SEVERITY.get(prev_status, 0)
+
+    # Map status → alert priority.  "block" always escalates to critical
+    # even if last run was also a block, so a persistent problem is
+    # surfaced again (in case the user missed yesterday's alert).
+    if new_status == "block":
+        priority = "critical"
+        title = "Factor decay BLOCK"
+        body_prefix = "Real-capital gate is BLOCKED."
+    elif new_rank > prev_rank:
+        # Health worsened (e.g. ok → warning, advisory → block)
+        priority = "warning"
+        title = f"Factor decay: {prev_status} → {new_status}"
+        body_prefix = "Factor edge health deteriorated."
+    elif new_rank < prev_rank:
+        # Health recovered (no alert spam if we're already healthy)
+        priority = "info"
+        title = f"Factor decay: {prev_status} → {new_status} (recovered)"
+        body_prefix = "Factor edge recovered."
+    else:
+        # No change and not a block — skip the alert entirely.
+        return
+
+    # Build a compact message body — the user sees this on their phone.
+    body_lines = [body_prefix]
+    reason = str(payload.get("reason") or "")
+    if reason:
+        body_lines.append(reason)
+    for row in payload.get("rows", []):
+        lookback = row.get("lookback_days")
+        ic = row.get("daily_ic_mean")
+        alpha = row.get("overlay_alpha_sum_pct")
+        if lookback is None:
+            continue
+        try:
+            body_lines.append(
+                f"{int(lookback)}d: IC={float(ic):+.3f}, overlay_α={float(alpha):+.2f}%"
+            )
+        except (TypeError, ValueError):
+            continue
+    body = "\n".join(body_lines)
+
+    try:
+        from notifications import send_alert
+        send_alert(body, title=title, priority=priority)
+    except Exception as exc:
+        # Notifications must never crash the monitor — log and move on.
+        print(f"⚠ Failed to send factor decay notification: {exc}")
+
 
 def edge_health_status(row: dict | pd.Series) -> str:
     """Classify live factor edge health without overreacting to full-rank IC alone."""
@@ -212,6 +287,10 @@ def main() -> None:
         row["warning"] = bool(row["edge_health_status"] in {"warning", "block"})
         rows.append(row)
 
+    # Capture the previous status BEFORE we overwrite OUT_JSON below — we
+    # need it to decide whether to alert on a state transition.
+    previous_status = _previous_status()
+
     out = pd.DataFrame(rows)
     out.to_csv(OUT_CSV, index=False)
     edge_status = aggregate_edge_health_status(rows)
@@ -241,6 +320,10 @@ def main() -> None:
     print(f"Factor decay monitor written -> {OUT_CSV}")
     print(f"Detailed report -> {OUT_JSON}")
     print(out.to_string(index=False))
+
+    # Fire a notification IF status changed (or we're currently in block).
+    # Compared to previous_status captured before the JSON was overwritten.
+    _maybe_notify(edge_status, previous_status, payload)
 
 
 if __name__ == "__main__":
