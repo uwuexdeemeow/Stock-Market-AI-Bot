@@ -144,6 +144,37 @@ def _load_feature_quality_filter(strict: bool = False) -> set[str] | None:
             "Run `python3 feature_quality_diagnostic.py --top 48` and inspect D/F feature grades."
         )
 
+    # ── Sanity check: report shouldn't be drastically smaller than the
+    # IC shortlist.  A "3 features only" report (seen May 19 2026) means
+    # the diagnostic ran against a partial panel during research rebuild.
+    # Loading that stale report would collapse the cluster gate to 2
+    # clusters @ 50% weight and block trading.  Refuse and ask for a
+    # re-run instead of silently using the bad data.
+    if strict:
+        shortlist_path_check = Path("logs/feature_ic_shortlist.csv")
+        expected_floor = int(os.environ.get("FEATURE_QUALITY_MIN_GRADED", "20"))
+        if shortlist_path_check.exists():
+            try:
+                _shortlist_df = pd.read_csv(shortlist_path_check)
+                # Approximate expected size — apply the same target/horizon
+                # filter the spec loader uses (sector_excess / 5d horizon).
+                if {"target", "horizon"}.issubset(_shortlist_df.columns):
+                    _filtered = _shortlist_df[
+                        (_shortlist_df["target"] == "sector_excess")
+                        & (_shortlist_df["horizon"] == 5)
+                    ]
+                    expected_floor = max(expected_floor, int(len(_filtered) * 0.5))
+            except (OSError, pd.errors.EmptyDataError):
+                pass
+        if usable_grade_count < expected_floor:
+            raise SystemExit(
+                f"Live feature quality report only grades {usable_grade_count} features "
+                f"but the shortlist has at least {expected_floor} expected. "
+                f"This usually means the diagnostic ran against a partial panel mid-research-rebuild. "
+                f"Re-run `python3 feature_quality_diagnostic.py --top 48` "
+                f"after the parquet rebuild fully completes."
+            )
+
     shortlist_path = Path("logs/feature_ic_shortlist.csv")
     if shortlist_path.exists():
         try:
