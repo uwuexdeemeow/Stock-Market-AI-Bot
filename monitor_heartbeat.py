@@ -43,11 +43,15 @@ LOGS = Path(LOG_DIR)
 # ─────────────────────────────────────────────────────────────────────────────
 
 MONITORED_FILES: dict[str, Path] = {
-    "paper_health": SIGNALS / "paper_health.json",
+    # paper_health.py writes to alpaca_paper_health.json when --broker alpaca
+    # (which is the default in GitHub Actions).  Check both paths — whichever
+    # exists and is newer wins.
+    "paper_health": [SIGNALS / "alpaca_paper_health.json", SIGNALS / "paper_health.json"],
     "fill_monitor": SIGNALS / "fill_monitor.json",
     "regime_monitor": SIGNALS / "regime_history.json",
     "broker_health": SIGNALS / "broker_health.json",
-    "execution_guard": SIGNALS / "execution_guard_state.json",
+    # execution_guard.py writes to guard_intraday_state.json, not execution_guard_state.json
+    "execution_guard": SIGNALS / "guard_intraday_state.json",
     "daily_run": LOGS / "daily_run_{today}.json",  # special — uses today's date
 }
 
@@ -69,9 +73,16 @@ def check_monitors(*, max_age_hours: float = DEFAULT_MAX_AGE_HOURS) -> dict:
     missing: list[str] = []
 
     for name, path_template in MONITORED_FILES.items():
-        # Handle the daily_run special case (date in filename)
-        if "{today}" in str(path_template):
-            # Check for any file from last 2 days
+        # Some monitors write to different paths depending on broker flag.
+        # When path_template is a list, pick whichever exists and is newest.
+        if isinstance(path_template, list):
+            candidates = [p for p in path_template if p.exists()]
+            if candidates:
+                path = max(candidates, key=lambda p: p.stat().st_mtime)
+            else:
+                path = path_template[0]  # use first as display path when none exist
+        elif "{today}" in str(path_template):
+            # Handle the daily_run special case (date in filename)
             today_str = datetime.now().strftime("%Y%m%d")
             yesterday_str = datetime.fromtimestamp(now - 86400).strftime("%Y%m%d")
             path_today = Path(str(path_template).replace("{today}", today_str))
