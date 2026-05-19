@@ -14,9 +14,9 @@ from dashboard import data
 from dashboard.components import status_chip, sidebar_refresh
 
 
-st.set_page_config(page_title="Features", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Features", page_icon="•", layout="wide")
 sidebar_refresh()
-st.title("🧬 Feature Health")
+st.title("Feature Health")
 
 profile = data.load_feature_health()
 quality = data.load_feature_quality_summary()

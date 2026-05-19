@@ -14,9 +14,9 @@ from dashboard import data
 from dashboard.components import status_chip, sidebar_refresh
 
 
-st.set_page_config(page_title="System Health", page_icon="❤️", layout="wide")
+st.set_page_config(page_title="System Health", page_icon="•", layout="wide")
 sidebar_refresh()
-st.title("❤️ System Health")
+st.title("System Health")
 
 # ── 1. Latest daily run ──────────────────────────────────────────
 st.markdown("### Latest daily pipeline run")

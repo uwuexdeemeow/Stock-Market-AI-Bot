@@ -19,9 +19,9 @@ from dashboard.components import (
 )
 
 
-st.set_page_config(page_title="Signal & Orders", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="Signal & Orders", page_icon="•", layout="wide")
 sidebar_refresh()
-st.title("🎯 Signal & Orders")
+st.title("Signal & Orders")
 
 signal = data.load_current_signal()
 if signal is None:

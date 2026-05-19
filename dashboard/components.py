@@ -35,13 +35,16 @@ def status_chip(label: str, status: str) -> None:
         "fail": COLOR_FAIL,
         "unknown": COLOR_NEUTRAL,
     }
-    icons = {"ok": "✅", "warn": "⚠️", "fail": "❌", "unknown": "❔"}
+    # Minimal indicators — colored dots instead of emoji
     color = colors.get(status, COLOR_NEUTRAL)
-    icon = icons.get(status, "❔")
     st.markdown(
-        f"<span style='background-color:{color}33;color:{color};"
-        f"padding:4px 10px;border-radius:12px;font-weight:600;"
-        f"font-size:14px'>{icon} {label}</span>",
+        f"<span style='background-color:{color}1A;color:{color};"
+        f"padding:4px 12px;border-radius:14px;font-weight:600;"
+        f"font-size:13px;letter-spacing:0.2px;"
+        f"border:1px solid {color}55'>"
+        f"<span style='display:inline-block;width:8px;height:8px;"
+        f"border-radius:50%;background:{color};margin-right:6px;"
+        f"vertical-align:middle'></span>{label}</span>",
         unsafe_allow_html=True,
     )
 
@@ -195,20 +198,21 @@ def positions_pie(weights: dict, title: str = "Position Weights") -> go.Figure:
 
 
 def regime_indicator(regime: str) -> None:
-    """Render a big regime banner: risk_on / neutral / risk_off."""
+    """Render a regime banner: risk_on / neutral / risk_off."""
     colors = {
         "risk_on": "#22c55e",
         "neutral": "#f59e0b",
         "risk_off": "#ef4444",
     }
-    icons = {"risk_on": "🟢", "neutral": "🟡", "risk_off": "🔴"}
     color = colors.get(regime, COLOR_NEUTRAL)
-    icon = icons.get(regime, "❔")
     label = regime.replace("_", " ").upper() if regime else "UNKNOWN"
     st.markdown(
-        f"<div style='background:{color}22;border-left:5px solid {color};"
-        f"padding:12px 16px;border-radius:8px;font-size:18px;font-weight:700'>"
-        f"{icon} REGIME: {label}</div>",
+        f"<div style='background:{color}14;border-left:4px solid {color};"
+        f"padding:14px 18px;border-radius:6px;font-size:15px;font-weight:600;"
+        f"letter-spacing:0.3px;color:{color}'>"
+        f"<span style='font-size:11px;font-weight:500;color:{COLOR_NEUTRAL};"
+        f"text-transform:uppercase;letter-spacing:0.8px'>Regime</span><br/>"
+        f"{label}</div>",
         unsafe_allow_html=True,
     )
 

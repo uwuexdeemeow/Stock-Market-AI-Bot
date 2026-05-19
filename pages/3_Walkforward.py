@@ -15,9 +15,9 @@ from dashboard import data
 from dashboard.components import status_chip, sidebar_refresh
 
 
-st.set_page_config(page_title="Walkforward", page_icon="🔬", layout="wide")
+st.set_page_config(page_title="Walkforward", page_icon="•", layout="wide")
 sidebar_refresh()
-st.title("🔬 Walkforward Validation")
+st.title("Walkforward Validation")
 
 wf_df = data.load_walkforward_results()
 wf_summary = data.load_walkforward_summary() or {}
