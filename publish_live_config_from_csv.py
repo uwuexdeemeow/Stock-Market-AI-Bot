@@ -201,6 +201,10 @@ def build_full_config(params: dict, fold_metrics: dict) -> dict:
     weighting = str(params.get("weighting", "sticky_score"))
     tqqq_weight = float(params.get("tqqq", 0.0))
     risk_mode = str(params.get("risk", "off"))
+    # PLAIN ENGLISH: Manual publishing must not add risk controls that the
+    # nested walkforward did not test.  `risk=off` means both controls stay off.
+    risk_drawdown = 0.15 if risk_mode == "defensive" else 0.0
+    risk_vol_target = 0.15 if risk_mode == "defensive" else 0.0
 
     # The core_preset name encodes most params (used as cache key).
     # Format mirrors what the walkforward writes.
@@ -257,13 +261,10 @@ def build_full_config(params: dict, fold_metrics: dict) -> dict:
         "max_gross_exposure": 1.25,
         "max_single_name_weight": 0.25,
         "holding_days": h,
-        # Drawdown circuit breaker: when portfolio drops 15% from peak,
-        # exit to 100% cash and wait for regime to turn risk_on again.
-        # Was 0.0 (off) — turned on to limit downside since the WF showed
-        # -27.7% worst drawdown.  Stays in cash until regime confirms
-        # recovery rather than letting equity grind further down.
-        "drawdown_circuit_breaker": 0.15,
-        "vol_target": 0.0,
+        # Defensive risk controls only turn on when the selected nested
+        # candidate actually used risk=defensive.
+        "drawdown_circuit_breaker": risk_drawdown,
+        "vol_target": risk_vol_target,
         "tqqq_weight": tqqq_weight,
         "risk_control_mode": risk_mode,
     }
@@ -377,6 +378,60 @@ def compute_aggregate_metrics(df: pd.DataFrame) -> dict:
     }
 
 
+def compute_analyzer_warning_metrics(df: pd.DataFrame) -> dict:
+    """Run the extra analyzer checks and return warning-ready verdicts.
+
+    PLAIN ENGLISH: The normal approval gate checks returns, Sharpe, drawdown,
+    and stability.  The analyzer checks whether the validation process itself
+    looks trustworthy.  We keep these as warnings so paper trading can continue,
+    but the live config records when the walkforward still has research risk.
+    """
+    try:
+        from walkforward_analyzer import (
+            DEFAULT_QQQ_PARQUET,
+            DEFAULT_SPY_PARQUET,
+            check_calibration,
+            check_config_stability,
+            check_concentration_vulnerability,
+            check_score_predictiveness,
+            yearly_market_concentration,
+        )
+
+        pred = check_score_predictiveness(df)
+        calib = check_calibration(df)
+        stab = check_config_stability(df)
+        try:
+            concentration = yearly_market_concentration(DEFAULT_QQQ_PARQUET, DEFAULT_SPY_PARQUET)
+            vuln = check_concentration_vulnerability(df, concentration)
+        except Exception as exc:
+            vuln = {"valid": False, "reason": f"concentration_check_error:{exc.__class__.__name__}"}
+    except Exception as exc:
+        return {
+            "available": False,
+            "reason": f"analyzer_error:{exc.__class__.__name__}",
+            "warnings": [f"walkforward_analyzer_unavailable:{exc.__class__.__name__}"],
+        }
+
+    checks = {
+        "score_predictiveness": pred,
+        "calibration": calib,
+        "concentration_vulnerability": vuln,
+        "config_stability": stab,
+    }
+    warnings = [
+        f"walkforward_analyzer_{str(result.get('verdict')).lower()}:{name}"
+        for name, result in checks.items()
+        if result.get("verdict") in {"FAIL", "WARN"}
+    ]
+    return {
+        "available": True,
+        "checks": checks,
+        "warnings": warnings,
+        "fail_count": sum(1 for result in checks.values() if result.get("verdict") == "FAIL"),
+        "warn_count": sum(1 for result in checks.values() if result.get("verdict") == "WARN"),
+    }
+
+
 def compute_selected_config_metrics(df: pd.DataFrame, selected_config: str) -> dict:
     """Return stability stats for the exact config that would be published."""
     valid = df.dropna(subset=["oos_return_pct"])
@@ -402,6 +457,7 @@ def build_approval(
     force: bool,
     selected_config_metrics: dict | None = None,
     stable_family_metrics: dict | None = None,
+    analyzer_metrics: dict | None = None,
 ) -> dict:
     """Decide approval status based on relaxed thresholds suitable for a
     14-fold walkforward.  The default min_config_frequency was 0.30 but
@@ -421,6 +477,7 @@ def build_approval(
     }
     selected_config_metrics = selected_config_metrics or {}
     stable_family_metrics = stable_family_metrics or {}
+    analyzer_metrics = analyzer_metrics or {}
     selected_freq = float(selected_config_metrics.get("selected_config_frequency", 0.0) or 0.0)
     family_freq = float(stable_family_metrics.get("approved_family_frequency", 0.0) or 0.0)
     family_worst_turnover = float(
@@ -457,6 +514,7 @@ def build_approval(
         reasons.append(
             f"worst_turnover {family_worst_turnover}% > {thresholds['max_worst_oos_turnover_pct']}%"
         )
+    warnings.extend(str(item) for item in analyzer_metrics.get("warnings", []) if str(item))
 
     approved = (len(reasons) == 0) or force
     if force and reasons:
@@ -531,6 +589,7 @@ def publish(source: str, force: bool, dry_run: bool):
     # 3. Compute aggregate metrics for approval gate
     metrics = compute_aggregate_metrics(df)
     selected_metrics = compute_selected_config_metrics(df, row.selected_config)
+    analyzer_metrics = compute_analyzer_warning_metrics(df)
     print("Aggregate metrics (14-fold walkforward):")
     print(f"  Compound return:   {metrics['compound_oos_return_pct']}%")
     print(f"  CAGR:              {metrics['mean_oos_cagr_pct']}%")
@@ -551,10 +610,19 @@ def publish(source: str, force: bool, dry_run: bool):
     print(f"  Worst drawdown:    {metrics['worst_oos_max_drawdown_pct']}%")
     print(f"  Worst turnover:    {metrics['worst_oos_turnover_pct']}%")
     print(f"  Family turnover:   {family_metrics['approved_family_worst_oos_turnover_pct']}%")
+    if analyzer_metrics.get("warnings"):
+        print("  Analyzer warnings: " + ", ".join(str(x) for x in analyzer_metrics["warnings"]))
     print()
 
     # 4. Build approval payload
-    approval = build_approval(metrics, family_signature, force, selected_metrics, family_metrics)
+    approval = build_approval(
+        metrics,
+        family_signature,
+        force,
+        selected_metrics,
+        family_metrics,
+        analyzer_metrics,
+    )
     print(f"Approval verdict: {'✓ APPROVED' if approval['approved'] else '✗ REJECTED'}")
     if approval["reasons"]:
         for r in approval["reasons"]:
@@ -600,6 +668,7 @@ def publish(source: str, force: bool, dry_run: bool):
         "approved_config_fold_count": selected_metrics["selected_config_fold_count"],
         "approved_config_frequency": selected_metrics["selected_config_frequency"],
         "approved_config_years": selected_metrics["selected_config_years"],
+        "walkforward_analyzer": analyzer_metrics,
     }
 
     # Reuse the existing medium_risk_review block — it's from cost stress
@@ -663,6 +732,7 @@ def publish(source: str, force: bool, dry_run: bool):
         "approved_config_fold_count": selected_metrics["selected_config_fold_count"],
         "approved_config_frequency": selected_metrics["selected_config_frequency"],
         "most_common_config": metrics["most_common_config"],
+        "walkforward_analyzer": analyzer_metrics,
         "live_config_approval": approval,
         "approved_live_config": live_payload["approved_live_configs"]["core-alpha"],
         "medium_risk_review": medium_review,

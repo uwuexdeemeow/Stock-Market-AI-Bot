@@ -1,0 +1,48 @@
+# signal_freshness.py
+
+## What This Script Does
+
+`signal_freshness.py` holds shared safety checks for broker signal files.  It
+does not place trades.  Other scripts import it to answer three plain
+questions before trading:
+
+- Is the signal recent enough?
+- Are the factor data dates recent enough?
+- Does the signal match the currently approved live config?
+
+It also reads target weights from the signal into one dictionary.  That keeps
+the broker and the sanity checker from disagreeing about what the portfolio is.
+
+## How To Run It
+
+This file is normally imported by other scripts:
+
+```bash
+python3 alpaca_paper_trading.py --submit
+```
+
+For a quick syntax check:
+
+```bash
+python3 -m py_compile signal_freshness.py
+```
+
+Expected inputs:
+
+- A signal row from `signals/core_satellite_alpha_signal.csv`
+- `signals/core_satellite_live_configs.json` when checking config match
+
+Expected outputs:
+
+- `(True, [])` when checks pass
+- `(False, ["reason"])` when checks fail
+
+## Key Terms
+
+- **Signal**: the daily instruction file that says what weights to hold.
+- **Freshness**: whether the signal and factor data are recent enough to trust.
+- **Live config hash**: a short fingerprint of the approved walkforward config.
+  If this changes, old signals are blocked.
+- **Gross exposure**: the sum of absolute portfolio weights.  A 100% QQQ plus
+  25% stocks portfolio has 125% gross exposure.
+- **Overlay**: the individual stock sleeve around the SPY/QQQ core.

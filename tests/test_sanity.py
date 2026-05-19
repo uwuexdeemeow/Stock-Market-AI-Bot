@@ -754,6 +754,24 @@ def _wf_sig(
     )
 
 
+def test_manual_publish_preserves_risk_mode_controls():
+    off_config = manual_publish.build_full_config(
+        manual_publish.parse_config_signature(_wf_sig(risk="off")),
+        {},
+    )
+    defensive_config = manual_publish.build_full_config(
+        manual_publish.parse_config_signature(_wf_sig(risk="defensive")),
+        {},
+    )
+
+    assert off_config["risk_control_mode"] == "off"
+    assert off_config["drawdown_circuit_breaker"] == 0.0
+    assert off_config["vol_target"] == 0.0
+    assert defensive_config["risk_control_mode"] == "defensive"
+    assert defensive_config["drawdown_circuit_breaker"] == 0.15
+    assert defensive_config["vol_target"] == 0.15
+
+
 def test_stable_family_signature_keeps_tqqq_separate():
     no_tqqq = nested_wf.stable_family_signature_from_config_signature(_wf_sig(tqqq=0.0))
     with_tqqq = nested_wf.stable_family_signature_from_config_signature(_wf_sig(tqqq=0.1))

@@ -149,6 +149,45 @@ class TestParseTargetWeights:
         assert len(weights) == 2
 
 
+class TestSignalSafetyParsing:
+    def test_sanity_reads_current_signal_schema_without_blocking_core_etfs(self):
+        """Core ETF weights can exceed stock caps, but overlay stocks cannot."""
+        from signal_freshness import validate_signal_sanity
+
+        signal = pd.Series({
+            "target_spy_weight": 0.0,
+            "target_qqq_weight": 0.55,
+            "target_tqqq_weight": 0.0,
+            "overlay_weights_json": json.dumps({"AAPL": 0.15, "MSFT": 0.10}),
+        })
+
+        ok, issues = validate_signal_sanity(signal, max_single_weight=0.25)
+
+        assert ok is True
+        assert issues == []
+
+    def test_sanity_fails_closed_when_weights_are_missing(self):
+        from signal_freshness import validate_signal_sanity
+
+        ok, issues = validate_signal_sanity(pd.Series({}))
+
+        assert ok is False
+        assert "missing_target_weights" in issues
+
+    def test_sanity_catches_overlay_concentration_in_current_schema(self):
+        from signal_freshness import validate_signal_sanity
+
+        signal = pd.Series({
+            "target_qqq_weight": 0.40,
+            "overlay_weights_json": json.dumps({"AAPL": 0.35}),
+        })
+
+        ok, issues = validate_signal_sanity(signal, max_single_weight=0.25)
+
+        assert ok is False
+        assert any(issue.startswith("AAPL_weight") for issue in issues)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # WEIGHT SCALING TESTS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -246,6 +285,95 @@ class TestAlpacaSignalFreshness:
         assert ok is False
         assert any(issue.startswith("signal_age") for issue in issues)
         assert any(issue.startswith("factor_age") for issue in issues)
+
+    def test_live_config_hash_match_passes(self, tmp_path, monkeypatch):
+        import alpaca_paper_trading as apt
+        from signal_freshness import live_config_fingerprint
+
+        payload = {
+            "created_at": "2026-05-08T20:00:00+00:00",
+            "source_json": "signals/core_satellite_nested_walkforward.json",
+            "approved_live_configs": {
+                "core-alpha": {
+                    "approved_config_family": "family-a",
+                    "approved_family_signature": "family-a",
+                    "approved_exact_config": "h=20,ov=0.5",
+                    "config": {"holding_days": 20, "risk_control_mode": "off"},
+                }
+            },
+        }
+        live_path = tmp_path / "core_satellite_live_configs.json"
+        live_path.write_text(json.dumps(payload), encoding="utf-8")
+        monkeypatch.setattr(apt, "LIVE_CONFIG_FILE", live_path)
+        now = datetime(2026, 5, 8, 21, 0, tzinfo=timezone.utc)
+        signal = pd.Series({
+            "predicted_at": now.isoformat(),
+            "latest_factor_date": "2026-05-08",
+            "live_config_hash": live_config_fingerprint(payload),
+            "live_config_created_at": payload["created_at"],
+        })
+
+        ok, issues = apt.check_signal_freshness(signal, now=now, check_live_config_match=True)
+
+        assert ok is True
+        assert issues == []
+
+    def test_live_config_hash_mismatch_fails_closed(self, tmp_path, monkeypatch):
+        import alpaca_paper_trading as apt
+
+        payload = {
+            "created_at": "2026-05-08T20:00:00+00:00",
+            "approved_live_configs": {
+                "core-alpha": {
+                    "approved_config_family": "family-a",
+                    "approved_exact_config": "h=20,ov=0.5",
+                    "config": {"holding_days": 20},
+                }
+            },
+        }
+        live_path = tmp_path / "core_satellite_live_configs.json"
+        live_path.write_text(json.dumps(payload), encoding="utf-8")
+        monkeypatch.setattr(apt, "LIVE_CONFIG_FILE", live_path)
+        now = datetime(2026, 5, 8, 21, 0, tzinfo=timezone.utc)
+        signal = pd.Series({
+            "predicted_at": now.isoformat(),
+            "latest_factor_date": "2026-05-08",
+            "live_config_hash": "oldbadbadbadbad",
+            "live_config_created_at": "2026-05-07T20:00:00+00:00",
+        })
+
+        with pytest.raises(RuntimeError, match="live_config_hash_mismatch"):
+            apt.check_signal_freshness(signal, now=now, check_live_config_match=True)
+
+    def test_allow_stale_signal_does_not_bypass_live_config_mismatch(self, tmp_path, monkeypatch):
+        import alpaca_paper_trading as apt
+
+        payload = {
+            "created_at": "2026-05-08T20:00:00+00:00",
+            "approved_live_configs": {
+                "core-alpha": {
+                    "approved_exact_config": "h=20,ov=0.5",
+                    "config": {"holding_days": 20},
+                }
+            },
+        }
+        live_path = tmp_path / "core_satellite_live_configs.json"
+        live_path.write_text(json.dumps(payload), encoding="utf-8")
+        monkeypatch.setattr(apt, "LIVE_CONFIG_FILE", live_path)
+        now = datetime(2026, 5, 8, 21, 0, tzinfo=timezone.utc)
+        signal = pd.Series({
+            "predicted_at": "2026-05-07T20:00:00+00:00",
+            "latest_factor_date": "2026-04-24",
+            "live_config_hash": "oldbadbadbadbad",
+        })
+
+        with pytest.raises(RuntimeError, match="Signal/live config mismatch"):
+            apt.check_signal_freshness(
+                signal,
+                now=now,
+                allow_stale_signal=True,
+                check_live_config_match=True,
+            )
 
 
 def test_alpaca_load_signal_requires_medium_risk_review(tmp_path, monkeypatch):

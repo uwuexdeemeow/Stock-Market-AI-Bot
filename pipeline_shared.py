@@ -77,7 +77,7 @@ def fetch_price_data(ticker: str, start: str, end: str) -> pd.DataFrame:
 def add_technical_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     c, h, lo, v = df["Close"], df["High"], df["Low"], df["Volume"]
-    for lag in [1,3,5,10,20]:
+    for lag in [1,3,5,10,20,60,120]:
         df[f"ret_{lag}d"] = c.pct_change(lag)
     for p in [5,10,20,50,200]:
         ma = c.rolling(p).mean()
@@ -210,6 +210,8 @@ def build_multi_market(ticker: str, dates: pd.DatetimeIndex, start: str, end: st
             result[f"{name}_ret1d"] = close.pct_change(1, fill_method=None).fillna(0)
             result[f"{name}_ret5d"] = close.pct_change(5, fill_method=None).fillna(0)
             result[f"{name}_ret20d"] = close.pct_change(20, fill_method=None).fillna(0)
+            result[f"{name}_ret60d"] = close.pct_change(60, fill_method=None).fillna(0)
+            result[f"{name}_ret120d"] = close.pct_change(120, fill_method=None).fillna(0)
             # Horizon-matched return for the target function — must equal RETURN_HORIZON_DAYS
             # so make_direction_target can shift it forward to get the correct benchmark window.
             if name in ("spy", "sector") and RETURN_HORIZON_DAYS not in (5, 20):
@@ -451,6 +453,7 @@ CONSERVATIVE_FEATURE_PREFIXES = (
     "sector_vs_",      # sector_vs_spy_5d — sector leadership vs broad market
     "sector_ratio_",   # sector_ratio_z20, sector_ratio_z60 — z-score of price/sector_ETF
     "sector_rs_",      # sector_rs_slope_5d, sector_rs_above_ma20 — RS momentum
+    "sector_rel_",     # sector_rel_return_60d, sector_rel_mom_20d — stock vs sector ETF
     "alt_",            # alternative data: EPS revisions, analyst recs, short interest, institutional ownership
 )
 CONSERVATIVE_FEATURE_EXACT = {

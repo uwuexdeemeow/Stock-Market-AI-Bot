@@ -13,6 +13,16 @@ TQQQ weight.  Smaller knobs like holding days and overlay size are ignored for
 the stability count, then the newest fold inside the winning family supplies
 those smaller values.
 
+The publisher now preserves the selected risk mode exactly.  If the winning
+config says `risk=off`, the live config keeps both `drawdown_circuit_breaker`
+and `vol_target` at `0.0`.  If it says `risk=defensive`, both controls are set
+to the defensive values that the nested walkforward tested.
+
+It also records `walkforward_analyzer.py` warnings in the approval payload.
+Those warnings flag research issues such as anti-predictive inner scoring or
+concentration vulnerability, even when the config is still approved for
+paper-size monitoring.
+
 ## How To Run It
 
 Dry-run first:

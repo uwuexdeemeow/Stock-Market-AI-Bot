@@ -63,6 +63,7 @@ FACTOR_NAME_ALLOWLIST = (
     "ret_5d",
     "ret_10d",
     "ret_vs_sector",
+    "sector_rel",
     "ret_vs_spy",
     "ret_vs_qqq",
     "sector_rs_slope",

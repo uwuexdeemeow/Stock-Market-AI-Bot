@@ -33,6 +33,7 @@ from alpha_factor_backtest import (
 from backtest import INITIAL_CAPITAL, _load_etf_price_frame
 from feature_health import enrich_feature_specs
 from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
+from signal_freshness import live_config_fingerprint
 from settings import (
     DATA_DIR,
     SIGNAL_DIR,
@@ -212,7 +213,9 @@ def _validate_live_feature_inputs(specs: list[dict], signal_panel: pd.DataFrame)
 # from the signal and let the next-best candidate take its spot.
 # This only runs during LIVE signal generation, not during backtesting.
 
-SENTIMENT_VETO_ENABLED = True      # set False to skip sentiment checking entirely
+# PLAIN ENGLISH: Keep sentiment veto on by default, but allow offline CI/local
+# dry-runs to disable it instead of waiting on news-feed retries.
+SENTIMENT_VETO_ENABLED = os.environ.get("CORE_ALPHA_SENTIMENT_VETO", "1").strip().lower() not in {"0", "false", "no"}
 SENTIMENT_VETO_THRESHOLD = -0.25   # compound score below this → vetoed
 SENTIMENT_BOOST_WEIGHT = 0.10      # multiply factor score by (1 + sentiment * this)
 
@@ -2019,6 +2022,11 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         "regime_mode": str(metrics.get("regime_mode", "static")),
         "current_regime": current_regime,
         "score_source": metrics["score_source"],
+        "live_config_hash": str(metrics.get("live_config_hash", "")),
+        "live_config_created_at": str(metrics.get("live_config_created_at", "")),
+        "live_config_source_json": str(metrics.get("live_config_source_json", "")),
+        "approved_family_signature": str(metrics.get("approved_family_signature", "")),
+        "approved_exact_config": str(metrics.get("approved_exact_config", "")),
         "target_spy_weight": round(target_spy, 4),
         "target_qqq_weight": round(target_qqq, 4),
         "target_tqqq_weight": round(target_tqqq, 4),
@@ -2338,14 +2346,21 @@ def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
     config = approved.get("config") if isinstance(approved, dict) else None
     if not isinstance(config, dict):
         raise SystemExit(f"Approved live config for {strategy} is missing from {LIVE_CONFIG_PATH}.")
+    # PLAIN ENGLISH: This short hash is the approved config's ID card.  The
+    # broker compares it against the signal so an old signal cannot be traded
+    # after a new walkforward config is published.
+    config_hash = live_config_fingerprint(payload, strategy=strategy)
     return {
         "config": config,
         "approval": approval,
         "approved_config_family": approved.get("approved_config_family"),
+        "approved_family_signature": approved.get("approved_family_signature"),
+        "approved_exact_config": approved.get("approved_exact_config"),
         "source_metrics": approved.get("source_metrics", {}),
         "medium_risk_review": approved.get("medium_risk_review", payload.get("medium_risk_reviews", {}).get(strategy, {})),
         "source_json": payload.get("source_json"),
         "created_at": payload.get("created_at"),
+        "live_config_hash": config_hash,
     }
 
 
@@ -2476,12 +2491,20 @@ def _generate_signal_from_approved_config(
     best_metrics["grid_rows"] = 0
     best_metrics["best_config_source"] = "nested_walkforward_approved_live_config"
     best_metrics["full_sample_grid_used_for_selection"] = False
+    best_metrics["live_config_hash"] = live.get("live_config_hash")
+    best_metrics["live_config_created_at"] = live.get("created_at")
+    best_metrics["live_config_source_json"] = live.get("source_json")
+    best_metrics["approved_family_signature"] = live.get("approved_family_signature") or live.get("approved_config_family")
+    best_metrics["approved_exact_config"] = live.get("approved_exact_config")
     best_metrics["walkforward_approval"] = {
         "approved_config_family": live.get("approved_config_family"),
+        "approved_family_signature": live.get("approved_family_signature"),
+        "approved_exact_config": live.get("approved_exact_config"),
         "approval": live.get("approval", {}),
         "source_metrics": live.get("source_metrics", {}),
         "source_json": live.get("source_json"),
         "created_at": live.get("created_at"),
+        "live_config_hash": live.get("live_config_hash"),
     }
     best_metrics = _apply_nested_live_approval_gates(best_metrics, live, freshness)
     if not bool(freshness.get("fresh", False)):

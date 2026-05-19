@@ -50,6 +50,7 @@ python3 alpaca_paper_trading.py --submit --dry-run
 | File | Source | Purpose |
 |------|--------|---------|
 | `signals/core_satellite_alpha_signal.csv` | `core_satellite_alpha.py` | Target weights for today |
+| `signals/core_satellite_live_configs.json` | nested walkforward / publisher | Approved config ID that the signal must match |
 | `.env` | local | `ALPACA_API_KEY`, `ALPACA_SECRET_KEY` |
 
 ## Outputs
@@ -84,13 +85,19 @@ The script has multiple layers of protection:
 
 1. **Duplicate submission check** — refuses to run `--submit` twice in
    one day unless `--force` is passed.
-2. **Account drawdown halt** — auto-liquidates if portfolio falls 12%
+2. **Live-config match check** — refuses to trade a signal if it was made
+   from an older approved config than the one currently published.  This is
+   not bypassed by `--allow-stale-signal`.
+3. **Signal sanity check** — parses core ETF columns plus overlay JSON and
+   blocks impossible gross exposure, missing weights, shorts, or over-sized
+   overlay stock weights.
+4. **Account drawdown halt** — auto-liquidates if portfolio falls 12%
    from peak (configurable via `PORTFOLIO_DRAWDOWN_HALT_PCT`).
-3. **Spread guard** — skips individual orders when spread > 1.5%
+5. **Spread guard** — skips individual orders when spread > 1.5%
    (configurable via `MAX_SPREAD_PCT`).
-4. **Market-closed prompt** — when run interactively at market close,
+6. **Market-closed prompt** — when run interactively at market close,
    asks confirmation before queueing orders.  In CI/cron it auto-proceeds.
-5. **Core ETF trailing stops** — broker-side stops on SPY/QQQ/TQQQ that
+7. **Core ETF trailing stops** — broker-side stops on SPY/QQQ/TQQQ that
    stay active even if the local machine is offline.
 
 ## When to run

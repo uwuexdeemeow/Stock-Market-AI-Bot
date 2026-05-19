@@ -513,7 +513,7 @@ def strip_sentiment(feature_cols: list[str]) -> list[str]:
         "hl_range", "spread_proxy", "roc_", "drawdown_",
         "weekly_", "monthly_", "tf_alignment", "spy_", "qqq_", "vix_", "macro_", "regime",
         "ret_vs_spy", "ret_vs_qqq", "breadth_", "pct_above_", "concentration_",
-        "factor_",
+        "factor_", "sector_rel_",
         # Cross-sectional rank features (xs_rank_sector_*, xs_rank_market_*).
         "xs_rank_",
     )

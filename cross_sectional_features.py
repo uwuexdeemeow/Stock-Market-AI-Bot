@@ -71,6 +71,12 @@ SOURCE_COLS: list[str] = [
     "factor_liquidity_dollar_vol_20d",    # dollar-volume liquidity
     "factor_illiquidity_amihud_20d",      # Amihud illiquidity proxy
     "factor_52w_high_proximity",          # 52-week high proximity (George & Hwang 2004)
+    "sector_rel_return_20d",              # stock return minus sector ETF return
+    "sector_rel_return_60d",              # medium-term sector-relative strength
+    "sector_rel_return_120d",             # long-term sector-relative strength
+    "sector_rel_mom_20d",                 # stock/sector ratio momentum
+    "sector_rel_mom_60d",                 # slower stock/sector ratio momentum
+    "sector_rel_trend_strength",          # blended stock/sector ratio z-score
     "hvol_20d",        # 20-day historical volatility
     "dist_ma50",       # distance from 50-day moving average (trend strength)
     "dist_ma200",      # distance from 200-day moving average (long-term trend)
@@ -112,6 +118,17 @@ def _percentile_rank(series: pd.Series) -> pd.Series:
     # smallest non-NaN value is closer to 0; cap to [0, 1] for safety.
     ranks = s.rank(method="average", pct=True, na_option="keep")
     return ranks.clip(0.0, 1.0)
+
+
+def _rank_column_names(source_col: str) -> tuple[str, str]:
+    """Return output rank names for a source feature column."""
+    if source_col.startswith("sector_rel_"):
+        # Avoid awkward names like xs_rank_sector_sector_rel_return_20d.
+        sector_col = f"xs_rank_{source_col}"
+    else:
+        sector_col = f"xs_rank_sector_{source_col}"
+    market_col = f"xs_rank_market_{source_col}"
+    return sector_col, market_col
 
 
 def apply_cross_sectional_rank_features(
@@ -194,8 +211,7 @@ def apply_cross_sectional_rank_features(
     for col in source_cols:
         if col not in panel.columns:
             continue
-        sector_col = f"xs_rank_sector_{col}"
-        market_col = f"xs_rank_market_{col}"
+        sector_col, market_col = _rank_column_names(col)
         new_cols.extend([sector_col, market_col])
 
         # Market-wide rank: groupby date only.  Always defined (every date has

@@ -39,6 +39,8 @@ def canonical_feature_root(feature: str) -> str:
             if root.startswith(prefix):
                 root = root[len(prefix):]
                 changed = True
+    if root.startswith("rel_"):
+        root = f"sector_{root}"
 
     match = re.fullmatch(r"ret_vs_(spy|qqq)_(\d+d)", root)
     if match:
