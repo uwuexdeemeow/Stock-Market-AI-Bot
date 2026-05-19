@@ -42,6 +42,8 @@ from settings import (
     VIX_INVERSION_THRESHOLD,
     WATCHLIST,
 )
+# Atomic signal write — broker readers never see a half-written CSV.
+from safe_io import atomic_write_csv
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2094,7 +2096,8 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         ) if sentiment_scores else "{}",
     }
     out = Path(SIGNAL_DIR) / "core_satellite_alpha_signal.csv"
-    pd.DataFrame([row]).to_csv(out, index=False)
+    # Atomic write — broker scripts polling this CSV never see a torn read.
+    atomic_write_csv(pd.DataFrame([row]), out, index=False)
     return out
 
 
@@ -2374,17 +2377,21 @@ def _write_rejection_signal(reasons: list[str]) -> None:
             df["paper_ready"] = False
             df["gates_all_pass"] = False
             df["reason"] = reason_str
-            df.to_csv(signal_path, index=False)
+            atomic_write_csv(df, signal_path, index=False)
             return
         except Exception:
             pass
-    pd.DataFrame([{
-        "paper_signal_type": "core_satellite_alpha",
-        "paper_ready": False,
-        "gates_all_pass": False,
-        "reason": reason_str,
-        "predicted_at": datetime.now().isoformat(),
-    }]).to_csv(signal_path, index=False)
+    atomic_write_csv(
+        pd.DataFrame([{
+            "paper_signal_type": "core_satellite_alpha",
+            "paper_ready": False,
+            "gates_all_pass": False,
+            "reason": reason_str,
+            "predicted_at": datetime.now().isoformat(),
+        }]),
+        signal_path,
+        index=False,
+    )
 
 
 def _apply_nested_live_approval_gates(metrics: dict, live: dict, freshness: dict) -> dict:
@@ -2657,4 +2664,23 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    # PID lock — prevents two copies of core_satellite_alpha.py from racing
+    # to write the same signal CSV (e.g. GitHub Actions firing while the
+    # dashboard runs the script manually).  Atomic writes already prevent
+    # half-written files, but two concurrent runs would still waste compute
+    # and "last writer wins" could publish stale data over fresh data.
+    from safe_io import PidLock, PidLockTaken
+    from pathlib import Path as _Path
+    _lock_path = _Path("logs") / "core_satellite_alpha.lock"
+    try:
+        with PidLock(_lock_path):
+            main()
+    except PidLockTaken as exc:
+        print(
+            f"⛔ Another core_satellite_alpha.py is already running.\n"
+            f"   {exc}\n"
+            f"   Refusing to start a second copy — exiting to prevent a race "
+            f"on signals/core_satellite_alpha_signal.csv."
+        )
+        import sys as _sys
+        _sys.exit(1)

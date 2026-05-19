@@ -80,3 +80,94 @@ def atomic_write_json(data: object, path: Union[str, Path], *, indent: int = 2) 
     import json
     content = json.dumps(data, indent=indent, default=str)
     atomic_write_text(path, content)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Process-level locking
+# ─────────────────────────────────────────────────────────────────────────
+class PidLockTaken(RuntimeError):
+    """Raised when another process already holds the PID lock."""
+
+
+class PidLock:
+    """Cross-platform PID lock for guarding concurrent script execution.
+
+    PLAIN ENGLISH: When you start a script that shouldn't run twice at the
+    same time (e.g. signal generation, broker submission), wrap it with this
+    lock.  If a second copy starts while the first is still running, the
+    second one raises PidLockTaken and exits instead of stomping on the
+    first's output.
+
+    Mechanism: opens a file and acquires an OS-level exclusive lock on its
+    file descriptor.  The lock is automatically released when the process
+    exits — even if it crashes — because the kernel cleans up the file
+    descriptor.  This is safer than checking a "pid in a text file"
+    approach (which leaves stale locks behind after a crash).
+
+    Usage as context manager:
+        with PidLock("logs/signal_gen.lock"):
+            generate_signal()
+
+    Usage manually:
+        lock = PidLock("logs/signal_gen.lock")
+        lock.acquire()
+        try:
+            ...
+        finally:
+            lock.release()
+    """
+
+    def __init__(self, lock_path: Union[str, Path]):
+        self.lock_path = Path(lock_path)
+        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        self._fh = None
+
+    def acquire(self) -> None:
+        """Try to grab the lock; raise PidLockTaken if held by another process."""
+        # Open in 'w' so the file is truncated each time we acquire — the
+        # PID we write inside is purely informational (the actual lock is
+        # the kernel-level flock on the file descriptor).
+        self._fh = open(self.lock_path, "w")
+        try:
+            import sys as _sys
+            if _sys.platform == "win32":
+                # Windows: use msvcrt for file locking (no fcntl available)
+                import msvcrt
+                msvcrt.locking(self._fh.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                # macOS / Linux: use fcntl for file locking
+                import fcntl
+                fcntl.flock(self._fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # Lock held — record our PID for humans reading the lock file.
+            self._fh.write(str(os.getpid()))
+            self._fh.flush()
+        except (IOError, OSError) as exc:
+            # Read the existing PID for the error message (best effort).
+            try:
+                existing_pid = self.lock_path.read_text().strip() or "unknown"
+            except OSError:
+                existing_pid = "unknown"
+            self._fh.close()
+            self._fh = None
+            raise PidLockTaken(
+                f"Lock {self.lock_path} already held by PID {existing_pid}"
+            ) from exc
+
+    def release(self) -> None:
+        """Release the lock (no-op if never acquired)."""
+        if self._fh is None:
+            return
+        try:
+            self._fh.close()
+        except OSError:
+            pass
+        self._fh = None
+        # Don't unlink the lock file — leaves the PID readable after exit
+        # for debugging, and the kernel's flock auto-released on close.
+
+    def __enter__(self) -> "PidLock":
+        self.acquire()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.release()
