@@ -21,6 +21,7 @@ websockets>=9,<11
 yahooquery==2.4.1
 pandas-datareader==0.10.0
 finnhub-python==2.4.27
+exchange_calendars==4.13.2
 
 # NLP / Sentiment
 vaderSentiment==3.3.2
