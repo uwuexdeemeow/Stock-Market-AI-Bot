@@ -2858,6 +2858,18 @@ def main() -> None:
     panel = panel.loc[panel["_date"].notna()].sort_values("_date").reset_index(drop=True)
     for column in panel.select_dtypes(include=["float64"]).columns:
         panel[column] = pd.to_numeric(panel[column], errors="coerce").astype("float32")
+    # ── Defragment the panel before the long fold loop ───────────────────
+    # attach_scores + _ensure_robust_score_columns each call frame.insert
+    # many times to build the cluster/factor score columns.  Pandas keeps
+    # the old buffers around (the PerformanceWarning we see is real), so
+    # the panel ends up as a chain of small fragments instead of one
+    # contiguous block.  Every later .loc/.copy on a fragmented panel
+    # allocates more buffers without dropping the old ones, which is the
+    # main source of the per-fold memory growth.  A single .copy() here
+    # rebuilds the panel as one contiguous block; from then on slices
+    # are clean and pandas can release them.
+    panel = panel.copy()
+    gc.collect()
     # Resolve deprecated strategy aliases: "tqqq" → "core-alpha", "both" → just "core-alpha"
     # (TQQQ is now a grid knob inside core-alpha, not a separate strategy)
     resolved_strategy = _STRATEGY_ALIASES.get(args.strategy, args.strategy)
