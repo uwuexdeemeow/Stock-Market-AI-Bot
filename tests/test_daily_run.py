@@ -60,6 +60,32 @@ def test_skip_factor_refresh_keeps_etf_refresh_and_signal():
     assert names.index("core_satellite_signal") < names.index("alpaca_submit")
 
 
+def test_health_only_uses_synced_signal_without_order_submission():
+    steps = daily_run.build_steps(
+        skip_refresh=False,
+        run_moomoo=False,
+        run_alpaca=True,
+        health_only=True,
+    )
+    names = _names(steps)
+    assert "refresh_etf_data" not in names
+    assert "refresh_factor_data" not in names
+    assert "core_satellite_signal" not in names
+    assert "alpaca_submit" not in names
+    assert "alpaca_execution_guard" not in names
+    assert names == [
+        "fill_monitor",
+        "broker_health",
+        "alpaca_status",
+        "alpaca_reconcile",
+        "alpaca_paper_health",
+        "alpaca_gauntlet",
+        "regime_monitor",
+        "monitor_heartbeat",
+        "log_cleanup",
+    ]
+
+
 def test_factor_data_health_failure_blocks_signal_and_orders(monkeypatch):
     steps = daily_run.build_steps(
         skip_refresh=True,
@@ -179,3 +205,59 @@ def test_startup_stubs_use_signal_dir_and_refresh_existing_fill_file(tmp_path, m
     run_stub = log_dir / "daily_run_20260519.json"
     assert json.loads(run_stub.read_text())["status"] == "running"
     assert f"Wrote fill_monitor stub → {old_fill}" in capsys.readouterr().out
+
+
+def test_sync_latest_github_signals_fetches_branch_and_copies_files(tmp_path, monkeypatch):
+    monkeypatch.setattr(daily_run, "PROJECT_ROOT", tmp_path)
+    calls: list[list[str]] = []
+
+    class FakeProc:
+        def __init__(self, returncode=0, stdout=b"", stderr=b""):
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    remote_files = "\n".join([
+        "signals/core_satellite_alpha_signal.csv",
+        "signals/fill_monitor.json",
+        "logs/daily_run_20260515.json",
+        "logs/daily_run_20260516.json",
+        "logs/daily_run_20260517.json",
+        "logs/daily_run_20260518.json",
+        "logs/daily_run_20260519.json",
+        "logs/daily_run_20260520.json",
+    ]).encode()
+
+    def fake_git(args):
+        calls.append(args)
+        if args[0] == "fetch":
+            return FakeProc()
+        if args[:3] == ["ls-tree", "-r", "--name-only"]:
+            return FakeProc(stdout=remote_files)
+        if args[0] == "show":
+            rel_path = args[1].split(":", 1)[1]
+            if rel_path in {
+                "signals/core_satellite_alpha_signal.csv",
+                "signals/fill_monitor.json",
+                "logs/daily_run_20260516.json",
+                "logs/daily_run_20260517.json",
+                "logs/daily_run_20260518.json",
+                "logs/daily_run_20260519.json",
+                "logs/daily_run_20260520.json",
+            }:
+                return FakeProc(stdout=f"payload:{rel_path}".encode())
+            return FakeProc(returncode=128, stderr=b"missing")
+        raise AssertionError(args)
+
+    monkeypatch.setattr(daily_run, "_git_output", fake_git)
+
+    result = daily_run.sync_latest_github_signals(fetch=True)
+
+    assert result["status"] == "ok"
+    assert (tmp_path / "signals/core_satellite_alpha_signal.csv").read_text() == (
+        "payload:signals/core_satellite_alpha_signal.csv"
+    )
+    assert (tmp_path / "signals/fill_monitor.json").read_text() == "payload:signals/fill_monitor.json"
+    assert not (tmp_path / "logs/daily_run_20260515.json").exists()
+    assert (tmp_path / "logs/daily_run_20260520.json").exists()
+    assert any(call[0] == "fetch" for call in calls)

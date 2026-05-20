@@ -330,10 +330,21 @@ jobs:
             logs/
             signals/core_satellite_alpha_signal.csv
             signals/core_satellite_alpha_orders.csv
+            signals/core_satellite_alpha_metrics.json
+            signals/alpaca_paper_equity.csv
+            signals/alpaca_paper_log.csv
             signals/adaptive_factor_weights.json
             signals/feature_quality_report.json
             signals/feature_quality_summary.csv
             signals/factor_data_health.json
+            signals/factor_decay_monitor.csv
+            signals/fill_monitor.json
+            signals/broker_health.json
+            signals/alpaca_paper_health.json
+            signals/guard_intraday_state.json
+            signals/regime_history.json
+            signals/regime_changes_log.csv
+            signals/monitor_heartbeat.json
           retention-days: 30
 
       # ── 9. Commit signal files back to repo (signals/latest branch) ─
@@ -357,7 +368,17 @@ jobs:
               signals/core_satellite_alpha_signal.csv \
               signals/core_satellite_alpha_orders.csv \
               signals/core_satellite_alpha_metrics.json \
-              signals/alpaca_paper_equity.csv ; do
+              signals/alpaca_paper_equity.csv \
+              signals/alpaca_paper_log.csv \
+              signals/factor_data_health.json \
+              signals/factor_decay_monitor.csv \
+              signals/fill_monitor.json \
+              signals/broker_health.json \
+              signals/alpaca_paper_health.json \
+              signals/guard_intraday_state.json \
+              signals/regime_history.json \
+              signals/regime_changes_log.csv \
+              signals/monitor_heartbeat.json ; do
             if [ -f "$f" ]; then
               git add -f "$f"
               added=$((added + 1))
@@ -367,6 +388,12 @@ jobs:
           done
           # daily_run_*.json logs use a glob — only add what's there
           for f in logs/daily_run_*.json; do
+            if [ -f "$f" ]; then
+              git add -f "$f"
+              added=$((added + 1))
+            fi
+          done
+          for f in logs/factor_decay_monitor.json logs/core_satellite_execution_stress.json logs/core_satellite_survivorship_audit.json logs/alpaca_paper_health_*.json; do
             if [ -f "$f" ]; then
               git add -f "$f"
               added=$((added + 1))
