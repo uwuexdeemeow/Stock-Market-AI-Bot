@@ -1,14 +1,14 @@
 """
 Shared robustness objective for strategy grid selection.
 
-The default objective stays in Sharpe units:
+The original objective stayed in Sharpe units:
 
     score = Sharpe - drawdown penalty - turnover penalty - instability penalty
 
 It does not reward CAGR or total return. Those metrics can still be reported,
 but they should not be the primary optimizer target.
 
-Experimental alternative — set env var ROBUSTNESS_OBJECTIVE=alpha_vs_qqq:
+Alpha alternative — set env var ROBUSTNESS_OBJECTIVE=alpha_vs_qqq:
 
     score = (alpha_vs_qqq_pct / 10) - drawdown penalty - instability penalty
             (NO turnover penalty in this objective)
@@ -24,8 +24,19 @@ Divisor of 10 brings alpha-percent into the same numeric range as
 Sharpe (typical OOS aSPY is 5-30 in pct, vs Sharpe 0.5-3), so the
 existing penalty magnitudes stay roughly proportional.
 
-Switch via env var so we can A/B test without breaking existing tests
-or downstream consumers that expect Sharpe-units.
+Reversible hybrid alternative:
+
+    score = 0.50 * Sharpe + 0.50 * (alpha_vs_qqq_pct / 10)
+            - drawdown penalty - 0.25 * turnover penalty - instability penalty
+
+Hybrid was tested on the recent-alpha grid on 2026-05-21 and came in worse
+than alpha_vs_qqq: lower compound/CAGR/alpha, higher worst turnover, and
+score_predictiveness still FAIL.  Keep it as an opt-in experiment, but make
+alpha_vs_qqq the default again.
+
+Switch per-run with env vars, no code rollback needed:
+    ROBUSTNESS_OBJECTIVE=hybrid        # opt-in blend experiment
+    ROBUSTNESS_OBJECTIVE=sharpe        # original behavior
 """
 from __future__ import annotations
 
@@ -34,17 +45,16 @@ import os
 from typing import Any, Iterable, Mapping, Sequence
 
 
-# Selection objective.  Default flipped to "alpha_vs_qqq" on 2026-05-21
-# after a 14-year A/B test on the nested walkforward:
-#   sharpe:        compound +1787%, mean aSPY 12.8%, hit rate 64%, FAILs on
-#                  score_predictiveness (-0.147) and concentration_vulnerability
-#   alpha_vs_qqq:  compound +3765%, mean aSPY 19.5%, hit rate 86%, score
-#                  predictiveness flips positive, concentration check PASSes
-# Same family wins under both (top3/sticky_score/tqqq=0.0).  The objective
-# change roughly doubled compound return at unchanged Sharpe.  Override via
-# env: ROBUSTNESS_OBJECTIVE=sharpe to revert per-run.
+# Selection objective.  Hybrid A/B on 2026-05-21 was worse than alpha_vs_qqq,
+# so the default stays on the stronger recent walkforward result.  Override
+# via env: ROBUSTNESS_OBJECTIVE=hybrid or sharpe for reversible comparisons.
 DEFAULT_OBJECTIVE = "alpha_vs_qqq"
-_VALID_OBJECTIVES = ("sharpe", "alpha_vs_qqq")
+_VALID_OBJECTIVES = ("sharpe", "alpha_vs_qqq", "hybrid")
+DEFAULT_HYBRID_SHARPE_WEIGHT = 0.50
+DEFAULT_HYBRID_ALPHA_WEIGHT = 0.50
+DEFAULT_HYBRID_TURNOVER_WEIGHT = 0.25
+
+
 def _objective_from_env() -> str:
     raw = (os.environ.get("ROBUSTNESS_OBJECTIVE") or DEFAULT_OBJECTIVE).strip().lower()
     if raw not in _VALID_OBJECTIVES:
@@ -129,15 +139,17 @@ def robustness_score_components(
     """Return the robustness score and its penalty components.
 
     `objective` selects the primary metric:
-      - "sharpe" (default): the original Sharpe-stack objective
+      - "sharpe": the original Sharpe-stack objective
       - "alpha_vs_qqq": experimental — primary metric is alpha vs QQQ
         (the only inner metric that had positive OOS correlation in the
         14-year audit).  Turnover penalty is dropped in this mode
         because inner_mean_turnover came in at +0.19 OOS-Sharpe
         correlation — penalizing it was working against selection.
+      - "hybrid": opt-in experiment that balances Sharpe and QQQ alpha,
+        then applies a mild turnover penalty.
 
     `objective=None` falls through to the env var
-    `ROBUSTNESS_OBJECTIVE` (default "sharpe").
+    `ROBUSTNESS_OBJECTIVE` (default "alpha_vs_qqq").
     """
     if objective is None:
         objective = _objective_from_env()
@@ -163,16 +175,30 @@ def robustness_score_components(
         if value is False:
             instability_penalty += float(instability_flag_penalty)
 
+    alpha_vs_qqq_pct = _as_float(_get(row, "alpha_vs_qqq_pct"), 0.0)
+    alpha_metric = alpha_vs_qqq_pct / 10.0
+
     if objective == "alpha_vs_qqq":
         # Use alpha vs QQQ as primary metric.  Divide by 10 to bring %
         # units into the same range as Sharpe so the drawdown / instability
         # penalties retain their relative magnitudes.
-        alpha_vs_qqq_pct = _as_float(_get(row, "alpha_vs_qqq_pct"), 0.0)
-        primary_metric = alpha_vs_qqq_pct / 10.0
+        primary_metric = alpha_metric
         # Skip turnover penalty in this mode — historical audit showed
         # higher turnover correlated POSITIVELY with OOS Sharpe.
         score = primary_metric - drawdown_penalty - instability_penalty
         turnover_penalty_applied = 0.0
+    elif objective == "hybrid":
+        primary_metric = (
+            DEFAULT_HYBRID_SHARPE_WEIGHT * sharpe
+            + DEFAULT_HYBRID_ALPHA_WEIGHT * alpha_metric
+        )
+        turnover_penalty_applied = DEFAULT_HYBRID_TURNOVER_WEIGHT * turnover_penalty
+        score = (
+            primary_metric
+            - drawdown_penalty
+            - turnover_penalty_applied
+            - instability_penalty
+        )
     else:  # "sharpe" (default)
         primary_metric = sharpe
         score = sharpe - drawdown_penalty - turnover_penalty - instability_penalty
@@ -185,6 +211,8 @@ def robustness_score_components(
         "instability_penalty": round(float(instability_penalty), 4),
         "objective": objective,
         "primary_metric": round(float(primary_metric), 4),
+        "sharpe_component": round(float(sharpe), 4),
+        "alpha_vs_qqq_component": round(float(alpha_metric), 4),
     }
 
 

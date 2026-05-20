@@ -234,7 +234,7 @@ def test_core_satellite_paper_scaling_caps_gross():
 def test_robustness_score_is_sharpe_minus_penalties():
     """Sharpe objective (opt-in via ROBUSTNESS_OBJECTIVE=sharpe).
 
-    Default flipped to alpha_vs_qqq on 2026-05-21 — see
+    Default is alpha_vs_qqq after the hybrid A/B came in worse — see
     robustness_scoring.DEFAULT_OBJECTIVE comment.  This test still
     covers the Sharpe code path because it's the documented opt-in.
     """
@@ -256,7 +256,7 @@ def test_robustness_score_is_sharpe_minus_penalties():
 
 
 def test_robustness_score_alpha_vs_qqq_objective():
-    """Default objective: alpha_vs_qqq / 10 minus drawdown + instability penalties.
+    """Alpha objective: alpha_vs_qqq / 10 minus drawdown + instability penalties.
 
     Turnover penalty is intentionally DROPPED in this mode because the
     14-year audit found turnover correlated POSITIVELY with OOS Sharpe
@@ -271,13 +271,33 @@ def test_robustness_score_alpha_vs_qqq_objective():
         "alpha_vs_qqq_pct": 12.0,
         "subperiod_stability_pass": False,
         "year_alpha_concentration_pass": True,
-    })  # objective defaults to alpha_vs_qqq now
+    })
     assert score["objective"] == "alpha_vs_qqq"
     assert score["primary_metric"] == 1.2    # 12.0 / 10
     assert score["drawdown_penalty"] == 0.4  # (35 - 25) / 25
     assert score["turnover_penalty"] == 0.0  # dropped in this mode
     assert score["instability_penalty"] == 0.25
     assert score["robustness_score"] == round(1.2 - 0.4 - 0.25, 4)
+
+
+def test_robustness_score_hybrid_objective():
+    """Hybrid objective blends Sharpe and QQQ alpha with mild turnover guard."""
+    score = robustness_score_components({
+        "sharpe": 1.2,
+        "max_drawdown_pct": -35.0,
+        "turnover_pct": 1_000.0,
+        "alpha_vs_qqq_pct": 12.0,
+        "subperiod_stability_pass": False,
+        "year_alpha_concentration_pass": True,
+    }, objective="hybrid")
+    expected_turnover_penalty = round(
+        0.25 * ((1_000.0 - DEFAULT_TURNOVER_FREE_PCT) / DEFAULT_TURNOVER_PENALTY_SPAN_PCT),
+        4,
+    )
+    assert score["objective"] == "hybrid"
+    assert score["primary_metric"] == 1.2  # 0.5 * 1.2 + 0.5 * (12/10)
+    assert score["turnover_penalty"] == expected_turnover_penalty
+    assert score["robustness_score"] == round(1.2 - 0.4 - expected_turnover_penalty - 0.25, 4)
 
 
 def test_adaptive_factor_weights_use_forward_return_and_floor(tmp_path):

@@ -1,102 +1,94 @@
-# walkforward_analyzer.py — Validate Walkforward Results
+# walkforward_analyzer.py - Validate Walkforward Results
 
-## What it does (plain English)
+## What it does in plain language
 
-After you run the nested walkforward, this script reads the results CSV
-and tells you whether the strategy actually works — or whether the
-validation is lying to you.
+After you run the nested walkforward, this script reads the results CSV and
+checks whether the strategy validation is trustworthy.
 
-Just looking at "did it beat QQQ?" misses three sneaky failure modes:
+It does not only ask, "Did the strategy beat QQQ?" It also checks whether the
+inner score that selected each config actually predicted the later
+out-of-sample result.
 
-1. **Anti-predictive scoring** — configs that look best in inner folds
-   actually do *worse* on the held-out OOS test. This means the scoring
-   function is broken; you can fix the strategy code all day but if the
-   selector picks the wrong config, you'll never see improvement.
-2. **Calibration disaster** — the inner validation predicts the strategy
-   beats QQQ 100% of the time, but reality is 30%. The model is
-   systematically overconfident.
-3. **Concentration vulnerability** — OOS losses cluster in years where
-   mega-caps dominated the market (QQQ >> SPY). The strategy structurally
-   can't compete with concentrated market momentum.
+The score-predictiveness check is now target-aware. If the selector is using
+the hybrid objective, the analyzer compares the inner score against the OOS
+hybrid objective. If the selector is using `alpha_vs_qqq`, the analyzer checks
+against OOS QQQ-alpha quality. This prevents a noisy scoring model from looking
+healthy just because a different metric happened to improve.
 
-The analyzer runs four checks, prints PASS/WARN/FAIL for each, and tells
-you what to fix first.
+## How to run it
 
-## Why it exists
-
-The previous nested walkforward had:
-
-- Correlation between inner score and OOS Sharpe: **-0.327** (anti-predictive)
-- Inner predicted beating QQQ 100% of folds; reality: 29%
-- All 14 OOS folds picked a different config (zero stability)
-
-If we'd only looked at "compound return = 482%", we'd have thought it
-was working. The analyzer catches what raw return numbers hide.
-
-## How to run
+Default results file:
 
 ```bash
-# Default: reads signals/core_satellite_nested_walkforward.csv
-python3 walkforward_analyzer.py
-
-# Custom file
-python3 walkforward_analyzer.py --csv path/to/results.csv
-
-# Also save a JSON report alongside the CSV
-python3 walkforward_analyzer.py --json
+python walkforward_analyzer.py
 ```
 
-## What the output looks like
+Custom results file:
 
+```bash
+python walkforward_analyzer.py --csv signals/core_satellite_nested_walkforward_alphaqqq.csv
 ```
-── CHECK 1: SCORE PREDICTIVENESS ──
-  Verdict:  [FAIL]
-  Inner score vs OOS Sharpe correlation: -0.327
-  → Inner scoring is anti-predictive — high-scoring configs do WORSE OOS.
 
-── CHECK 2: MODEL CALIBRATION ──
-  Verdict:  [FAIL]
-  Inner predicts beat QQQ: 100.0%
-  OOS actually beats QQQ:  28.6%
-  Overconfidence gap:      71.4 pp
-  Direction accuracy:      28.6% (50% = coin flip)
+Save a JSON report beside the CSV:
 
-── CHECK 3: CONCENTRATION VULNERABILITY ──
-  Verdict:  [FAIL]
-  Correlation: -0.768
-  High-concentration years: [2019, 2020, 2023, ...]
-    Mean OOS alpha vs QQQ: -13.4%
-
-── OVERALL RECOMMENDATION ──
-  PASS=0  WARN=0  FAIL=4
-  → Critical failures detected.  Don't deploy yet.
+```bash
+python walkforward_analyzer.py --json
 ```
+
+Choose which objective the predictiveness check should use:
+
+```bash
+python walkforward_analyzer.py --csv signals/core_satellite_nested_walkforward_alphaqqq.csv --objective alpha_vs_qqq --json
+python walkforward_analyzer.py --csv signals/core_satellite_nested_walkforward_hybrid.csv --objective hybrid --json
+python walkforward_analyzer.py --csv signals/core_satellite_nested_walkforward.csv --objective sharpe --json
+```
+
+## Main checks
+
+1. Score predictiveness
+   - Compares the inner score against the matching OOS objective score.
+   - Also prints extra correlations versus OOS Sharpe and OOS QQQ alpha.
+   - PASS means high inner scores tend to become strong OOS results.
+   - FAIL means the selector is backwards: it likes configs that do worse OOS.
+
+2. Model calibration
+   - Compares how often inner folds expected positive QQQ alpha against how
+     often OOS folds actually delivered positive QQQ alpha.
+   - A large optimism gap means the model is overconfident.
+
+3. Concentration vulnerability
+   - Checks whether the strategy loses alpha when QQQ strongly beats SPY.
+   - This catches strategies that look fine in broad markets but struggle when
+     mega-cap tech dominates.
+
+4. Config stability
+   - Checks whether the walkforward keeps selecting similar configs.
+   - Too much config hopping suggests the selector is chasing noise.
 
 ## Pass / Warn / Fail thresholds
 
 | Check | PASS | WARN | FAIL |
 |-------|------|------|------|
-| Score predictiveness | corr > 0.3 | 0 to 0.3 | < 0 |
-| Calibration | direction >= 60% and gap < 30pp | direction >= 40% | otherwise |
-| Concentration | corr > -0.3 and delta > -5% | corr > -0.5 | otherwise |
-| Config stability | top freq >= 30%, uniqueness < 70% | top freq >= 20% | otherwise |
+| Score predictiveness | corr > 0.3 | 0 to 0.3 | corr < 0 |
+| Calibration | direction >= 60% and gap < 30pp | direction >= 40% and gap < 50pp | otherwise |
+| Concentration | corr > -0.3 and delta > -5% | corr > -0.5 and delta > -10% | otherwise |
+| Config stability | top config freq >= 30% and uniqueness < 70% | top config freq >= 20% | otherwise |
 
-## Key terms (for beginners)
+## Key terms
 
-- **OOS** = out-of-sample. The walkforward tests on years the model never
-  saw during training. OOS results are the real-world performance estimate.
-- **Inner fold** = a year inside the training window that the walkforward
-  treats as a mini test set, used to pick the best config.
-- **Correlation** = -1.0 to +1.0 score for how two variables move together.
-  +1 = always together, -1 = always opposite, 0 = unrelated.
-- **Direction accuracy** = how often the inner score's *sign* (positive
-  or negative alpha) matches OOS reality. 50% is a coin flip.
-- **Concentration proxy** = QQQ return minus SPY return over a year.
-  Positive = mega-cap tech outperformed the broader market.
+- OOS: Out-of-sample. The test period the model did not use for selection.
+- Inner score: The validation score used to choose a config before OOS testing.
+- Objective: The formula used for selection, such as `sharpe`,
+  `alpha_vs_qqq`, or `hybrid`.
+- Correlation: A number from -1 to +1 that shows whether two values move
+  together. Positive is good here; negative means the selector is backwards.
+- QQQ alpha: Strategy return minus QQQ return. Positive means the strategy beat
+  QQQ.
+- Concentration proxy: QQQ return minus SPY return for a year. High values mean
+  mega-cap tech led the market.
 
-## When to run this
+## When to use it
 
-- After every nested walkforward (`core_satellite_nested_walkforward.py`)
-- Before deploying any new config to live trading
-- After making changes to the inner scoring function
-- When CAGR drops year-over-year without obvious cause
+Run this after every nested walkforward and before publishing a live config.
+Also run it after changing `robustness_scoring.py`, because that file controls
+the objective used by config selection.

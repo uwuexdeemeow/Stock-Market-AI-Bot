@@ -38,6 +38,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from robustness_scoring import DEFAULT_OBJECTIVE, robustness_score_components
 from safe_io import configure_console_output
 
 configure_console_output()
@@ -82,37 +83,68 @@ def yearly_market_concentration(
 
 
 # ── Check 1: is the inner score predictive of OOS performance? ──────────
-# A working validation should produce HIGH inner score → HIGH OOS Sharpe.
-# Correlation should be > 0.3 (some signal).  Negative correlation means
-# the scoring system is actively counterproductive.
-def check_score_predictiveness(df: pd.DataFrame) -> dict:
-    """Compute correlation between inner score and OOS Sharpe.
+# A working validation should produce HIGH inner score -> HIGH matching OOS
+# objective score.  The analyzer still prints OOS Sharpe and QQQ-alpha
+# correlations, but the PASS/WARN/FAIL verdict follows the active objective.
+def _oos_objective_target(row: pd.Series, objective: str) -> float:
+    """Compute the OOS score using the same objective as inner selection."""
+    mapped = {
+        "sharpe": row.get("oos_sharpe"),
+        "alpha_vs_qqq_pct": row.get("oos_alpha_vs_qqq_pct"),
+        "max_drawdown_pct": row.get("oos_max_drawdown_pct"),
+        "turnover_pct": row.get("oos_turnover_pct"),
+    }
+    return float(robustness_score_components(mapped, objective=objective)["robustness_score"])
+
+
+def check_score_predictiveness(df: pd.DataFrame, *, objective: str = DEFAULT_OBJECTIVE) -> dict:
+    """Compute whether inner score predicts OOS quality.
+
+    The analyzer still reports Sharpe and QQQ-alpha correlations, but the
+    verdict uses the OOS score built from the active objective.  This avoids
+    declaring victory when a QQQ-alpha selector only improves Sharpe by chance.
+
     Returns a dict with the correlation values and a pass/fail verdict.
     """
-    valid = df.dropna(subset=["inner_score", "oos_sharpe", "inner_mean_score"])
+    valid = df.dropna(subset=[
+        "inner_score",
+        "inner_mean_score",
+        "oos_sharpe",
+        "oos_alpha_vs_qqq_pct",
+        "oos_max_drawdown_pct",
+        "oos_turnover_pct",
+    ]).copy()
     if len(valid) < 4:
         return {"valid": False, "reason": "not enough valid folds"}
 
+    valid["oos_objective_score"] = valid.apply(_oos_objective_target, axis=1, objective=objective)
     corr_inner = valid["inner_score"].corr(valid["oos_sharpe"])
     corr_mean = valid["inner_mean_score"].corr(valid["oos_sharpe"])
+    corr_alpha = valid["inner_score"].corr(valid["oos_alpha_vs_qqq_pct"])
+    corr_objective = valid["inner_score"].corr(valid["oos_objective_score"])
+    corr_mean_objective = valid["inner_mean_score"].corr(valid["oos_objective_score"])
 
     # Verdict thresholds:
     #   > 0.3  = working (PASS)
     #   0 to 0.3 = weak signal (WARN)
     #   < 0     = anti-predictive — broken (FAIL)
-    if corr_inner > 0.3:
+    if corr_objective > 0.3:
         verdict = "PASS"
-    elif corr_inner >= 0:
+    elif corr_objective >= 0:
         verdict = "WARN"
     else:
         verdict = "FAIL"
 
     return {
         "valid": True,
+        "objective": objective,
+        "corr_inner_score_vs_oos_objective": round(corr_objective, 3),
+        "corr_inner_mean_vs_oos_objective": round(corr_mean_objective, 3),
         "corr_inner_score_vs_oos_sharpe": round(corr_inner, 3),
         "corr_inner_mean_vs_oos_sharpe": round(corr_mean, 3),
+        "corr_inner_score_vs_oos_alpha_vs_qqq": round(corr_alpha, 3),
         "verdict": verdict,
-        "interpretation": _interpret_score_corr(corr_inner),
+        "interpretation": _interpret_score_corr(corr_objective),
     }
 
 
@@ -276,7 +308,7 @@ def summary_stats(df: pd.DataFrame) -> dict:
 
 
 # ── Main runner: orchestrate all checks and print a report ──────────────
-def analyze(csv_path: str, qqq_path: str, spy_path: str) -> dict:
+def analyze(csv_path: str, qqq_path: str, spy_path: str, *, objective: str = DEFAULT_OBJECTIVE) -> dict:
     """Run all checks and return a results dict.  Also prints a report."""
     if not os.path.exists(csv_path):
         print(f"✗ File not found: {csv_path}")
@@ -286,6 +318,7 @@ def analyze(csv_path: str, qqq_path: str, spy_path: str) -> dict:
     print(f"\n{'='*70}")
     print(f" WALKFORWARD ANALYZER")
     print(f" Source: {csv_path}")
+    print(f" Objective: {objective}")
     print(f" Folds: {len(df)} ({int(df['fold_year'].min())}-{int(df['fold_year'].max())})")
     print(f"{'='*70}\n")
 
@@ -302,11 +335,13 @@ def analyze(csv_path: str, qqq_path: str, spy_path: str) -> dict:
 
     # Section 2: predictiveness check
     print("\n── CHECK 1: SCORE PREDICTIVENESS ──")
-    pred = check_score_predictiveness(df)
+    pred = check_score_predictiveness(df, objective=objective)
     if pred.get("valid"):
         print(f"  Verdict:  [{pred['verdict']}]")
+        print(f"  Inner score vs OOS objective correlation: {pred['corr_inner_score_vs_oos_objective']}")
+        print(f"  Inner mean vs OOS objective correlation:  {pred['corr_inner_mean_vs_oos_objective']}")
         print(f"  Inner score vs OOS Sharpe correlation: {pred['corr_inner_score_vs_oos_sharpe']}")
-        print(f"  Inner mean vs OOS Sharpe correlation:  {pred['corr_inner_mean_vs_oos_sharpe']}")
+        print(f"  Inner score vs OOS QQQ alpha correlation: {pred['corr_inner_score_vs_oos_alpha_vs_qqq']}")
         print(f"  → {pred['interpretation']}")
     else:
         print(f"  Skipped: {pred.get('reason')}")
@@ -399,10 +434,16 @@ def main():
     parser.add_argument("--csv", default=DEFAULT_CSV, help=f"Walkforward results CSV (default: {DEFAULT_CSV})")
     parser.add_argument("--qqq", default=DEFAULT_QQQ_PARQUET, help="QQQ price parquet")
     parser.add_argument("--spy", default=DEFAULT_SPY_PARQUET, help="SPY price parquet")
+    parser.add_argument(
+        "--objective",
+        default=DEFAULT_OBJECTIVE,
+        choices=("sharpe", "alpha_vs_qqq", "hybrid"),
+        help=f"Objective used for score-predictiveness target (default: {DEFAULT_OBJECTIVE})",
+    )
     parser.add_argument("--json", action="store_true", help="Also write results to JSON")
     args = parser.parse_args()
 
-    results = analyze(args.csv, args.qqq, args.spy)
+    results = analyze(args.csv, args.qqq, args.spy, objective=args.objective)
 
     if args.json:
         out_path = Path(args.csv).with_suffix(".analyzer.json")

@@ -196,6 +196,15 @@ def _auto_detect_workers() -> int:
     chosen = min(cpu_workers, ram_workers, _AUTO_WORKER_CEILING)
     return chosen
 
+# PLAIN ENGLISH: Load .env before reading WALKFORWARD_WORKERS below.
+# settings.py also loads .env later, but the worker default is calculated
+# before settings.py is imported.
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _load_dotenv()
+except Exception:
+    pass
+
 _DEFAULT_WORKERS = _auto_detect_workers()
 _PARALLEL_WORKERS = int(os.getenv("WALKFORWARD_WORKERS", str(_DEFAULT_WORKERS)))
 
@@ -2789,7 +2798,7 @@ def main() -> None:
                         help="Use the consensus baseline grid (24 configs): pins "
                              "14-fold winners (h=20, ma=100, regime_adaptive, "
                              "risk=off, overlay=0.50) and drops ov=0.7 which had "
-                             "562% turnover and 0.95 Sharpe; tunes shape, weighting, "
+                             "562%% turnover and 0.95 Sharpe; tunes shape, weighting, "
                              "vol mode, and tqqq=(0.0, 0.1).")
     parser.add_argument("--recent-alpha-grid", action="store_true",
                         help="Use the focused recent-alpha research grid (~48 configs): "
