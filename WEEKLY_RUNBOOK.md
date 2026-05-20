@@ -523,6 +523,94 @@ automatically, but orders still require market hours.
 
 ---
 
+## Git Sync — Pulling Actions's Work
+
+GitHub Actions runs the trading pipeline daily (`daily_paper_trading.yml`)
+and commits its outputs to a dedicated `signals/latest` branch.  Your
+local repo does NOT auto-pull those.  Run these to stay in sync.
+
+### Daily, before any local work
+
+```bash
+# 1. Pull code changes from main (if you've been pushing fixes)
+git fetch origin
+git checkout main && git pull --ff-only origin main
+
+# 2. Pull yesterday's signal artifacts from Actions
+git fetch origin signals/latest
+git checkout origin/signals/latest -- signals/ logs/
+
+# 3. Verify the dashboard inputs are fresh
+ls -la signals/alpaca_paper_log.csv signals/monitor_heartbeat.json logs/daily_run_*.json | tail -5
+```
+
+### Confirm today's Actions run actually fired
+
+```bash
+# Quick: most recent commit on signals/latest should be today's daily-run commit
+git log origin/signals/latest -1 --format="%ai %s"
+
+# Deep: use gh CLI if installed
+gh run list --workflow=daily_paper_trading.yml --limit 5
+gh run list --workflow=factor_data_refresh.yml --limit 5
+```
+
+If `gh` is not installed: open the repo on GitHub → Actions tab → check
+the latest "Daily Paper Trading" run status.  Yesterday's pipeline
+commit on `signals/latest` is the second-best signal that today's run
+already happened.
+
+### After local research / code changes
+
+```bash
+# Stage and commit code changes (NEVER -A — pick specific files)
+git add path/to/changed_file.py path/to/Documentation/doc_file.md
+git commit -m "<imperative summary>"
+
+# Push your branch to origin (most of the time you're on main)
+git push origin main
+```
+
+**Do NOT push to `signals/latest`** — that branch is owned by the
+workflow, which force-pushes to it.  Your manual changes there would
+be overwritten.
+
+### Resolving "data drift" between local and Actions
+
+If `factor_data_health.py --strict` complains that the local panel is
+stale, you have two options:
+
+- **A. Pull from Actions cache** (no can do — cache is Actions-only)
+- **B. Refresh locally** (the only reliable path):
+
+```bash
+python refresh_local_research_data.py
+```
+
+See `Documentation/doc_refresh_local_research_data.md` for the full
+runbook.  Routine refresh is ~5–10 min; quarterly refresh with
+`--pairs` is ~30 min.
+
+### Recovering from a bad merge / rebase
+
+```bash
+# What's about to change locally?
+git status
+git diff --stat HEAD
+
+# Discard local changes to one file
+git restore path/to/file.py
+
+# Hard reset main to origin (DESTRUCTIVE — confirms first)
+git fetch origin main
+git reset --hard origin/main
+```
+
+`git reset --hard` deletes uncommitted local changes — use only when
+you're sure.
+
+---
+
 ## Weekly Trust Checks
 
 Run these once per week, or after any strategy/data change:
