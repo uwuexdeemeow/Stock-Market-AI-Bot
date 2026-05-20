@@ -2169,13 +2169,26 @@ def run_nested_walkforward(
 
         # ── Fallback: if no config passed the 60% stress gate, relax ──
         # A missing year (NaN) is worse than a suboptimal config.  If the
-        # primary pass found nothing, re-run with stress gate disabled.
-        # The config won't be "stress-approved" but at least we get an
-        # OOS result to evaluate whether the strategy works at all.
+        # primary pass found nothing, re-run with stress gate disabled
+        # AND halving disabled (the halving-survivors all failed, so
+        # the bottom 75% deserve a look).  The config won't be
+        # "stress-approved" but at least we get an OOS result to
+        # evaluate whether the strategy works at all.
+        #
+        # Use the same parallel pool the primary pass used — running
+        # the fallback sequentially in the main process was the source
+        # of the "stuck in relaxed-stress retry" symptom on Windows:
+        # the main process kept accumulating panel slices / cost-stress
+        # evaluations until its working set swapped the laptop into
+        # paging-hell.  Reusing the pool isolates that memory back into
+        # short-lived workers.
         if best_config is None:
             print(f"    ⚠ No config passed strict inner gates — retrying with relaxed stress gate...", flush=True)
-            selected = _run_sequential_full_eval_relaxed(
-                panel, configs, inner_folds, low_memory,
+            selected = select_config_from_inner_folds(
+                panel, configs, inner_folds, eval_cache=eval_cache,
+                low_memory=low_memory, n_workers=n_workers,
+                skip_halving=True,
+                skip_stress_gate=True,
                 prior_selected_sigs=prior_sigs,
             )
             best_config = selected.get("config")
