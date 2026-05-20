@@ -1002,6 +1002,46 @@ def test_inner_selection_rejects_configs_above_turnover_cap(monkeypatch):
     assert selected["metrics"]["inner_mean_turnover_pct"] == 100.0
 
 
+def test_inner_selection_momentum_bonus_disabled_after_audit(monkeypatch):
+    config = {"name": "sticky", "nested_params": {"holding_days": 10}}
+    folds = [
+        InnerFold(
+            validation_year=2022,
+            train_end=pd.Timestamp("2021-12-31"),
+            validation_start=pd.Timestamp("2022-01-01"),
+            validation_end=pd.Timestamp("2022-12-31"),
+        ),
+        InnerFold(
+            validation_year=2023,
+            train_end=pd.Timestamp("2022-12-31"),
+            validation_start=pd.Timestamp("2023-01-01"),
+            validation_end=pd.Timestamp("2023-12-31"),
+        ),
+    ]
+
+    def fake_evaluate_window(panel, config, start, end):
+        return {
+            "sharpe": 1.0,
+            "total_return_pct": 10.0,
+            "max_drawdown_pct": -5.0,
+            "turnover_pct": 100.0,
+            "alpha_vs_spy_pct": 2.0,
+            "alpha_vs_qqq_pct": 2.0,
+            "alpha_vs_blend_pct": 2.0,
+        }
+
+    monkeypatch.setattr(nested_wf, "evaluate_window", fake_evaluate_window)
+    prior_sig = nested_wf.config_signature(config)
+    selected = select_config_from_inner_folds(
+        pd.DataFrame(),
+        [config],
+        folds,
+        prior_selected_sigs=[prior_sig, prior_sig, prior_sig],
+    )
+
+    assert selected["metrics"]["inner_config_momentum_bonus"] == 0.0
+
+
 def test_inner_selection_can_treat_stress_gate_as_diagnostic(monkeypatch):
     configs = [{"name": "research_candidate", "nested_params": {"holding_days": 20}}]
     folds = [

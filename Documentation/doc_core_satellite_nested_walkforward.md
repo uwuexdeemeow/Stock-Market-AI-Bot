@@ -101,9 +101,11 @@ python3 core_satellite_nested_walkforward.py --no-publish-live-config
   old weight crushed concentrated configs (top3) because their per-year
   variance is naturally higher.  At 0.10 it's a tiebreaker, not a
   dominant force.
-- **Config momentum bonus** (line ~1295) — +0.15 score boost for
-  configs that match recent outer-fold winners.  Prevents random
-  config-hopping between years.
+- **Config momentum bonus disabled** — this used to add +0.15 for
+  configs that matched recent outer-fold winners.  The
+  `score_predictiveness_audit.py` report showed that bonus was
+  anti-predictive on the alphaqqq walkforward, so the field remains in
+  reports but the bonus is now 0.0.
 - **Cost-stress fallback** — if no config passes the 60% stress pass
   ratio, the fallback path retries with a relaxed gate so we get a
   result rather than a NaN year.

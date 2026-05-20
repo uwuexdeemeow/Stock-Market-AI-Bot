@@ -8,6 +8,7 @@ benchmark-relative variants.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import re
 from pathlib import Path
@@ -310,3 +311,116 @@ def feature_health_summary_from_specs(specs: list[dict]) -> dict:
         write_outputs=False,
     )
     return dict(profile.get("summary", {}))
+
+
+def _format_feature_list(features: list[str], limit: int) -> str:
+    """Return a short comma-separated feature list for console output."""
+    if not features:
+        return "none"
+    shown = features[:limit]
+    suffix = "" if len(features) <= limit else f", ... (+{len(features) - limit} more)"
+    return ", ".join(shown) + suffix
+
+
+def _print_profile_summary(profile: dict, *, output_dir: Path, limit: int) -> None:
+    """Print the health profile in a human-readable CLI summary."""
+    summary = dict(profile.get("summary") or {})
+    clusters = list(profile.get("clusters") or [])
+    gate_pass = bool(summary.get("feature_health_gate_pass"))
+    status = "PASS" if gate_pass else "FAIL"
+
+    print("\nFEATURE HEALTH")
+    print("=" * 70)
+    print(f"Gate:                 {status}")
+    print(f"Raw features:         {summary.get('raw_feature_count', 0)}")
+    print(f"Clusters:             {summary.get('cluster_count', 0)}")
+    print(f"Active clusters:      {summary.get('active_cluster_count', 0)} / {MIN_ACTIVE_CLUSTERS} min")
+    print(f"Max cluster weight:   {summary.get('max_cluster_weight', 0)} / {MAX_CLUSTER_WEIGHT:.2f} max")
+
+    reasons = list(summary.get("feature_health_gate_reasons") or [])
+    if reasons:
+        print("Gate reasons:")
+        for reason in reasons:
+            print(f"  - {reason}")
+
+    quarantined = [str(x) for x in summary.get("quarantined_features", [])]
+    watchlist = [str(x) for x in summary.get("watchlist_features", [])]
+    print(f"Quarantined features: {len(quarantined)}")
+    print(f"  {_format_feature_list(quarantined, limit)}")
+    print(f"Watchlist features:   {len(watchlist)}")
+    print(f"  {_format_feature_list(watchlist, limit)}")
+
+    ranked_clusters = sorted(
+        clusters,
+        key=lambda row: float(row.get("effective_weight", 0.0) or 0.0),
+        reverse=True,
+    )
+    print("\nTop active clusters")
+    for cluster in ranked_clusters[:limit]:
+        weight = float(cluster.get("effective_weight", 0.0) or 0.0)
+        if weight <= 0:
+            continue
+        contributors = [str(x) for x in cluster.get("contributing_features", [])]
+        print(
+            f"  {cluster.get('cluster_id')}: weight={weight:.3f}, "
+            f"state={cluster.get('health_state')}, "
+            f"features={_format_feature_list(contributors, 3)}"
+        )
+
+    print("\nWrote:")
+    print(f"  {output_dir / 'feature_health_profile.json'}")
+    print(f"  {output_dir / 'feature_health_profile.csv'}")
+
+
+def main() -> None:
+    """CLI entry point for refreshing and printing the feature health profile."""
+    parser = argparse.ArgumentParser(
+        description=(
+            "Refresh feature-health clustering/quarantine outputs and print "
+            "a short gate summary."
+        )
+    )
+    parser.add_argument(
+        "--max-specs",
+        type=int,
+        default=48,
+        help="Maximum feature specs to load from the factor shortlist.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=SIGNAL_DIR,
+        help="Directory for feature_health_profile.json/csv.",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=8,
+        help="Maximum features/clusters to print in each summary section.",
+    )
+    parser.add_argument(
+        "--no-write",
+        action="store_true",
+        help="Print the summary without writing profile files.",
+    )
+    args = parser.parse_args()
+
+    # PLAIN ENGLISH: Use the same feature loader as the backtest/live strategy
+    # so this command audits the exact feature set the strategy would score.
+    from alpha_factor_backtest import load_feature_specs
+
+    specs = load_feature_specs(max_specs=int(args.max_specs))
+    if not specs:
+        raise SystemExit(
+            "No feature specs found. Run feature research first or check logs/feature_ic_shortlist.csv."
+        )
+    output_dir = Path(args.output_dir)
+    profile = build_feature_health_profile(
+        [str(spec.get("feature", "")) for spec in specs],
+        output_dir=output_dir,
+        write_outputs=not bool(args.no_write),
+    )
+    _print_profile_summary(profile, output_dir=output_dir, limit=max(1, int(args.limit)))
+
+
+if __name__ == "__main__":
+    main()

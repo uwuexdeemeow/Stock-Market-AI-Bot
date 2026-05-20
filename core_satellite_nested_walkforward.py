@@ -1624,17 +1624,13 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
 
     stable_score -= qqq_penalty
 
-    # ── Config momentum bonus ──────────────────────────────────────────
-    # Prevent random config-hopping between outer folds.  If this config
-    # was selected in recent prior outer folds, give it a small bonus.
-    # This creates "stickiness" — a config that worked recently gets the
-    # benefit of the doubt, which reduces the 14-unique-in-14-folds noise
-    # problem.
-    #
-    # Bonus = +0.15 if this config matches ≥50% of the last 3 selections.
-    # 0.15 is large enough to break ties but small enough that a config
-    # with genuinely better inner-fold performance will still win.
-    CONFIG_MOMENTUM_BONUS = 0.15
+    # ── Config momentum bonus (disabled) ───────────────────────────────
+    # This used to add +0.15 when a config matched recent selections.
+    # The score_predictiveness_audit showed that bonus was anti-predictive
+    # on the alphaqqq walkforward, so keep the field for reporting but set
+    # the bonus to zero.  Config stability is still measured after the run;
+    # it just no longer pushes selection during the run.
+    CONFIG_MOMENTUM_BONUS = 0.0
     momentum_bonus = 0.0
     if prior_selected_sigs:
         this_sig = config_signature(config)

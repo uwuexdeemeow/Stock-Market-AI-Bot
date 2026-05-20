@@ -13,7 +13,28 @@ The live safety gate currently requires:
 If the gate fails, real-capital overlay trading should stay blocked until the factor set is healthier.
 
 ## How To Run It
-Usually this script is called by `alpha_factor_backtest.py`, `core_satellite_alpha.py`, or diagnostics. To refresh the health profile from the default factor specs, run the normal research/backtest command that builds scores:
+Usually this script is called by `alpha_factor_backtest.py`, `core_satellite_alpha.py`, or diagnostics.
+
+To refresh the health profile directly and print a short summary:
+
+```bash
+python3 feature_health.py
+```
+
+Useful options:
+
+```bash
+# Use fewer shortlisted features
+python3 feature_health.py --max-specs 24
+
+# Print more clusters/features in the console summary
+python3 feature_health.py --limit 15
+
+# Preview without rewriting the JSON/CSV profile files
+python3 feature_health.py --no-write
+```
+
+To refresh the health profile as part of the normal research/backtest command that builds scores:
 
 ```bash
 python3 alpha_factor_backtest.py
@@ -23,6 +44,15 @@ Expected outputs:
 
 - `signals/feature_health_profile.json`
 - `signals/feature_health_profile.csv`
+
+The direct command now prints:
+
+- Whether the feature-health gate passed
+- Number of raw features and feature clusters
+- Number of active clusters
+- Maximum cluster weight
+- Quarantined and watchlist features
+- Top active clusters and their weights
 
 ## Key Concepts
 - Feature: A numeric signal used to rank stocks.

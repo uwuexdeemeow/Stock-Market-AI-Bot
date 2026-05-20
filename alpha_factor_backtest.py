@@ -85,7 +85,7 @@ FACTOR_NAME_ALLOWLIST = (
 )
 
 
-def load_feature_specs(max_specs: int = 48) -> list[dict]:
+def load_feature_specs(max_specs: int = 48, *, write_health_outputs: bool = True) -> list[dict]:
     path = Path("logs/feature_ic_shortlist.csv")
     if not path.exists():
         fallback = [
@@ -97,7 +97,7 @@ def load_feature_specs(max_specs: int = 48) -> list[dict]:
             {"feature": "ret_vs_sector_5d", "preferred_direction": "low_is_good"},
             {"feature": "factor_52w_high_proximity", "preferred_direction": "high_is_good"},
         ]
-        enriched, _profile = enrich_feature_specs(fallback)
+        enriched, _profile = enrich_feature_specs(fallback, write_outputs=write_health_outputs)
         return enriched
     df = pd.read_csv(path)
     df = df[(df.get("target") == "sector_excess") & (df.get("horizon") == HORIZON_DAYS)].copy()
@@ -121,7 +121,7 @@ def load_feature_specs(max_specs: int = 48) -> list[dict]:
         })
         if len(specs) >= max_specs:
             break
-    enriched, _profile = enrich_feature_specs(specs)
+    enriched, _profile = enrich_feature_specs(specs, write_outputs=write_health_outputs)
     return enriched
 
 

@@ -10,6 +10,10 @@ feature correlation.
 The daily signal generator reads this report before trading. If the report is
 missing, stale, or says too many features are weak, the bot blocks trading.
 
+Regime warnings are labeled by the weak side. For example, a feature with
+`bull_ic=0.0047` and `bear_ic=0.0086` is reported as "weaker in bull markets",
+not "bull-only".
+
 ## How To Run It
 
 ```bash
@@ -26,6 +30,9 @@ Outputs:
 
 - `signals/feature_quality_report.json` — detailed feature diagnostics.
 - `signals/feature_quality_summary.csv` — compact table of grades and metrics.
+
+Note: `--top` limits the diagnostic feature set only. It no longer rewrites the
+live `feature_health_profile` with a partial feature set.
 
 ## Key Terms
 

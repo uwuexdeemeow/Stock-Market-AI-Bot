@@ -4,7 +4,7 @@ feature_quality_diagnostic.py — Deep analysis of alpha factor quality.
 This script addresses the "shallow predictive edge" problem by computing:
 1. Rolling IC stability (does the factor work consistently or just in bursts?)
 2. IC decay by horizon (does the signal persist or is it just noise?)
-3. Regime-conditional IC (does the factor only work in bull markets?)
+3. Regime-conditional IC (does the factor weaken in bull or bear markets?)
 4. Feature correlation clusters (are we double-counting the same signal?)
 5. Turnover-adjusted IC (after transaction costs, is there still edge?)
 
@@ -214,6 +214,26 @@ def regime_conditional_ic(
         "regime_ratio": round(regime_ratio, 4),
         "regime_stable": bool(regime_stable),
     }
+
+
+def regime_sensitivity_label(regime: dict) -> str:
+    """Describe which market regime is weak for a factor.
+
+    PLAIN ENGLISH: The old report called every unstable factor "bull only."
+    That was misleading when bear IC was actually stronger than bull IC.
+    This helper names the weak side directly.
+    """
+    bull_ic = float(regime.get("bull_ic", 0.0) or 0.0)
+    bear_ic = float(regime.get("bear_ic", 0.0) or 0.0)
+    if bull_ic > 0 and bear_ic <= 0:
+        return "bull-only"
+    if bear_ic > 0 and bull_ic <= 0:
+        return "bear-only"
+    if bull_ic > bear_ic:
+        return "weaker in bear markets"
+    if bear_ic > bull_ic:
+        return "weaker in bull markets"
+    return "regime-sensitive"
 
 
 def ic_decay_curve(panel: pd.DataFrame, feature_col: str, horizons: list[int] | None = None) -> dict:
@@ -473,7 +493,7 @@ def main():
     args = parser.parse_args()
 
     print("Loading factor panel...")
-    specs = load_feature_specs(max_specs=args.top)
+    specs = load_feature_specs(max_specs=args.top, write_health_outputs=False)
     # The quality report only needs raw feature columns plus forward returns.
     # PLAIN ENGLISH: Do not call the full score builder here; that also creates
     # walkforward/regime scores for trading, which is much slower and not needed
@@ -599,10 +619,14 @@ def main():
         for r in d_features:
             print(f"      {r['feature'][:50]} (IC={r['mean_ic']:.4f})")
     if regime_weak:
-        print(f"  ⚠ {len(regime_weak)} features ONLY work in bull markets:")
+        print(f"  ⚠ {len(regime_weak)} regime-sensitive features:")
         for r in regime_weak:
             rc = r["regime_conditional"]
-            print(f"      {r['feature'][:50]} (bull={rc['bull_ic']:.4f}, bear={rc['bear_ic']:.4f})")
+            label = regime_sensitivity_label(rc)
+            print(
+                f"      {r['feature'][:50]} ({label}; "
+                f"bull={rc['bull_ic']:.4f}, bear={rc['bear_ic']:.4f})"
+            )
 
     # Save report
     report = {
@@ -614,6 +638,7 @@ def main():
             "keep": [r["feature"] for r in results if r["grade"] in ("A", "B")],
             "reduce_weight": [r["feature"] for r in results if r["grade"] == "C"],
             "consider_dropping": [r["feature"] for r in results if r["grade"] in ("D", "F")],
+            "regime_sensitive": [r["feature"] for r in regime_weak],
             "regime_dependent": [r["feature"] for r in regime_weak],
         },
     }
