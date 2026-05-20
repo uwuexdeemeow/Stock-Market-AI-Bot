@@ -79,13 +79,26 @@ import numpy as np
 import pandas as pd
 
 # ── Parallel workers for config evaluation ──────────────────────────
-# Each worker evaluates one config across all inner folds.  On macOS
+# Each worker evaluates one config across all inner folds.  On macOS/Linux
 # we use fork so the large panel DataFrame is shared via copy-on-write
-# (no pickling).  Set WALKFORWARD_WORKERS=1 to disable parallelism.
+# (no pickling).  On Windows we use spawn — each child reloads the panel
+# from scratch and pays the full ~5-7 GB allocation, so the per-worker
+# cost is much higher than on Unix.  Set WALKFORWARD_WORKERS=1 to disable
+# parallelism.
 #
-# Memory rule of thumb: each worker needs ~1.5-2 GB headroom for
-# panel slices, equity curves, benchmarks, and trade logs.  On a
-# 16 GB laptop, 3-4 workers is the safe max.  On 32 GB+, use all cores.
+# Memory rule of thumb (empirically measured from a 32 GB Windows laptop
+# that OOM-swapped at ~24 GB working set with the auto-detected pool):
+#   - Main process: ~6-8 GB once the panel + score caches are warm
+#   - Each Windows spawn worker: ~4-5 GB (own copy of panel, no COW)
+#   - Each Linux/macOS fork worker: ~1.5-2 GB (panel shared via COW)
+# A 16 GB laptop should run sequential (1 worker).  A 32 GB Windows
+# laptop tops out around 3-4 workers.  A 64 GB Linux box can use 6-8.
+
+# Hard ceiling on auto-detected workers regardless of RAM/CPU.  Beyond
+# this the pool overhead and contention on shared resources (disk reads,
+# Python GIL inside numpy) start eating the gains, so set --workers
+# explicitly if you genuinely want more parallelism.
+_AUTO_WORKER_CEILING = 4
 
 def _auto_detect_workers() -> int:
     """Pick a safe worker count based on available RAM.
@@ -94,6 +107,10 @@ def _auto_detect_workers() -> int:
     its own DataFrames during evaluate_window().  Later folds (bigger
     training windows) use more memory per worker.  This function caps
     workers so total usage stays under ~80% of physical RAM.
+
+    On Windows the multiprocessing context is spawn, so children do NOT
+    share the parent's panel — each one re-imports and re-loads.  The
+    per-worker headroom is set higher on Windows to reflect that.
     """
     cpu_workers = max(1, (os.cpu_count() or 1) - 1)
     try:
@@ -137,11 +154,22 @@ def _auto_detect_workers() -> int:
     except Exception:
         total_gb = 16.0
 
-    # Reserve 4 GB for OS + VS Code + main process, allocate ~2 GB per worker
-    usable_gb = max(1, total_gb - 4)
-    ram_workers = max(1, int(usable_gb / 2))
+    # Reserve enough for OS + main process + browser/IDE, then divide the
+    # remainder by per-worker headroom.  Windows spawn pays ~2x the cost
+    # of Linux/macOS fork because each child re-loads the panel.
+    if _sys.platform == "win32":
+        main_reserve_gb = 10.0   # OS + main process + browser/IDE on Windows
+        per_worker_gb = 5.0      # spawn worker: own copy of panel + caches
+    else:
+        main_reserve_gb = 6.0    # OS + main process on Unix
+        per_worker_gb = 2.0      # fork worker: panel shared via COW
+    usable_gb = max(0.0, total_gb - main_reserve_gb)
+    ram_workers = max(1, int(usable_gb / per_worker_gb))
 
-    chosen = min(cpu_workers, ram_workers)
+    # Hard ceiling — see comment on _AUTO_WORKER_CEILING.  If you have a
+    # big box and genuinely want more workers, pass --workers or set
+    # WALKFORWARD_WORKERS=N to override.
+    chosen = min(cpu_workers, ram_workers, _AUTO_WORKER_CEILING)
     return chosen
 
 _DEFAULT_WORKERS = _auto_detect_workers()
