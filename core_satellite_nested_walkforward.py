@@ -98,24 +98,35 @@ import pandas as pd
 # this the pool overhead and contention on shared resources (disk reads,
 # Python GIL inside numpy) start eating the gains, so set --workers
 # explicitly if you genuinely want more parallelism.
-_AUTO_WORKER_CEILING = 4
+#
+# Why 3 not 4? Auto-detect now sizes against AVAILABLE physical RAM —
+# what's free RIGHT NOW with Chrome/Discord/IDE running — not total RAM.
+# On a 31 GB Windows laptop with a typical desktop load (~15 GB taken),
+# available is ~16 GB, which budgets cleanly for 3 workers + main.
+_AUTO_WORKER_CEILING = 3
 
 def _auto_detect_workers() -> int:
-    """Pick a safe worker count based on available RAM.
+    """Pick a safe worker count based on AVAILABLE RAM, not total RAM.
 
-    Each forked worker inherits the panel via copy-on-write but creates
-    its own DataFrames during evaluate_window().  Later folds (bigger
-    training windows) use more memory per worker.  This function caps
-    workers so total usage stays under ~80% of physical RAM.
+    The old version divided total_phys by per_worker_gb.  On a Windows
+    laptop with Chrome/IDE eating 15+ GB before the script even starts,
+    that left no headroom — the pool would spawn, immediately consume
+    every spare byte, and tip the OS into swap-thrash that crashed the
+    whole machine.  Sizing against AvailPhys (memory currently free)
+    reflects the budget we can actually use.
 
     On Windows the multiprocessing context is spawn, so children do NOT
     share the parent's panel — each one re-imports and re-loads.  The
     per-worker headroom is set higher on Windows to reflect that.
     """
     cpu_workers = max(1, (os.cpu_count() or 1) - 1)
+    avail_gb = None
     try:
         if _sys.platform == "win32":
-            # Windows: use ctypes to query physical RAM
+            # Windows: use ctypes to query physical RAM.  We pick the
+            # smaller of "AvailPhys" (free right now) and "TotalPhys *
+            # 0.6" (defends against the system reporting unrealistically
+            # high availability after a recent burst of frees).
             import ctypes
             kernel32 = ctypes.windll.kernel32
             class _MEMORYSTATUSEX(ctypes.Structure):
@@ -131,39 +142,51 @@ def _auto_detect_workers() -> int:
             stat = _MEMORYSTATUSEX()
             stat.dwLength = ctypes.sizeof(stat)
             kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
-            total_gb = stat.ullTotalPhys / (1024 ** 3)
+            avail_gb = min(
+                stat.ullAvailPhys / (1024 ** 3),
+                stat.ullTotalPhys / (1024 ** 3) * 0.6,
+            )
         elif _sys.platform == "darwin":
-            # macOS: sysctl returns total physical RAM in bytes.
+            # macOS: use vm_stat to get free + inactive pages (these are
+            # reclaimable, so they count as "available" to a new pool).
             import subprocess
             _clean_env = {k: v for k, v in os.environ.items()
                           if not k.startswith("Malloc")}
-            raw = subprocess.check_output(["sysctl", "-n", "hw.memsize"],
-                                           timeout=5, text=True,
-                                           env=_clean_env,
-                                           stderr=subprocess.DEVNULL).strip()
-            total_gb = int(raw) / (1024 ** 3)
+            raw = subprocess.check_output(["vm_stat"], timeout=5,
+                                          text=True, env=_clean_env,
+                                          stderr=subprocess.DEVNULL)
+            page_size = 4096
+            free_pages = 0
+            inactive_pages = 0
+            for line in raw.splitlines():
+                if line.startswith("Pages free:"):
+                    free_pages = int(line.split()[2].rstrip("."))
+                elif line.startswith("Pages inactive:"):
+                    inactive_pages = int(line.split()[2].rstrip("."))
+            avail_gb = (free_pages + inactive_pages) * page_size / (1024 ** 3)
         else:
-            # Linux: read /proc/meminfo
+            # Linux: /proc/meminfo MemAvailable is the kernel's best
+            # estimate of reclaimable memory.
             with open("/proc/meminfo") as f:
                 for line in f:
-                    if line.startswith("MemTotal:"):
-                        total_gb = int(line.split()[1]) / (1024 ** 2)
+                    if line.startswith("MemAvailable:"):
+                        avail_gb = int(line.split()[1]) / (1024 ** 2)
                         break
-                else:
-                    total_gb = 16.0
     except Exception:
-        total_gb = 16.0
+        avail_gb = None
+    if not avail_gb or avail_gb <= 0:
+        avail_gb = 8.0  # conservative fallback
 
-    # Reserve enough for OS + main process + browser/IDE, then divide the
-    # remainder by per-worker headroom.  Windows spawn pays ~2x the cost
-    # of Linux/macOS fork because each child re-loads the panel.
+    # Reserve main-process headroom out of AVAILABLE, then split the
+    # remainder by per-worker cost.  Windows spawn pays ~2x the cost of
+    # Linux/macOS fork because each child re-loads the panel.
     if _sys.platform == "win32":
-        main_reserve_gb = 10.0   # OS + main process + browser/IDE on Windows
-        per_worker_gb = 5.0      # spawn worker: own copy of panel + caches
+        main_reserve_gb = 4.0    # main process working set growth budget
+        per_worker_gb = 6.0      # spawn worker: panel + caches + GC slack
     else:
-        main_reserve_gb = 6.0    # OS + main process on Unix
-        per_worker_gb = 2.0      # fork worker: panel shared via COW
-    usable_gb = max(0.0, total_gb - main_reserve_gb)
+        main_reserve_gb = 3.0    # main process working set growth budget
+        per_worker_gb = 2.5      # fork worker: panel shared via COW
+    usable_gb = max(0.0, avail_gb - main_reserve_gb)
     ram_workers = max(1, int(usable_gb / per_worker_gb))
 
     # Hard ceiling — see comment on _AUTO_WORKER_CEILING.  If you have a
@@ -2182,11 +2205,26 @@ def run_nested_walkforward(
         # evaluations until its working set swapped the laptop into
         # paging-hell.  Reusing the pool isolates that memory back into
         # short-lived workers.
+        #
+        # Belt-and-braces memory hygiene before re-spawning the pool:
+        #   1. Force GC so the primary pass's pickled return values,
+        #      halving-survivor metrics, and any DataFrame ref-cycles
+        #      get released before fallback workers reload the panel.
+        #   2. Halve worker count for fallback.  Even with the primary
+        #      pool dead, main process working set is at its peak right
+        #      now — spinning up the full n_workers count again would
+        #      briefly demand peak_main + n_workers × per_worker_cost
+        #      of RAM all at once, which is what tipped the laptop into
+        #      swap-thrash even after the per-worker auto-detect fix.
         if best_config is None:
             print(f"    ⚠ No config passed strict inner gates — retrying with relaxed stress gate...", flush=True)
+            gc.collect()
+            fallback_workers = max(1, n_workers // 2)
+            if fallback_workers < n_workers:
+                print(f"    (fallback running on {fallback_workers} workers to keep memory headroom)", flush=True)
             selected = select_config_from_inner_folds(
                 panel, configs, inner_folds, eval_cache=eval_cache,
-                low_memory=low_memory, n_workers=n_workers,
+                low_memory=low_memory, n_workers=fallback_workers,
                 skip_halving=True,
                 skip_stress_gate=True,
                 prior_selected_sigs=prior_sigs,
