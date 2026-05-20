@@ -333,24 +333,24 @@ def _ckpt_path(strategy: str) -> Path:
     return Path(SIGNAL_DIR) / f"walkforward_checkpoint_{strategy.replace('-', '_')}.json"
 
 
-def _ckpt_key(strategy: str, min_train_years: int, configs: list, start_year, end_year) -> str:
-    """A short fingerprint that changes when the grid or fold range changes.
+def _ckpt_key_blob(strategy: str, min_train_years: int, configs: list, *, include_year_slice: bool, start_year=None, end_year=None) -> str:
+    """Internal: build the JSON blob hashed into the checkpoint key.
 
-    If the fingerprint changes we discard the old checkpoint automatically so
-    stale progress from a different grid is never mixed in.
+    `include_year_slice=True` reproduces the pre-2026-05-20 fingerprint
+    that included start_year/end_year — used only to recognize legacy
+    checkpoints during the deprecation window so the user doesn't lose
+    in-flight progress when upgrading.
     """
-    import hashlib, json as _json
+    import json as _json
     from robustness_scoring import (
         DEFAULT_TURNOVER_FREE_PCT,
         DEFAULT_TURNOVER_PENALTY_SPAN_PCT,
     )
     sigs = sorted(config_signature(c) for c in configs)
-    blob = _json.dumps({
+    payload = {
         "strategy": strategy,
         "min_train_years": min_train_years,
         "configs": sigs,
-        "start_year": start_year,
-        "end_year": end_year,
         # Selection-filter knobs: changing any of these invalidates the
         # checkpoint so we never silently reuse fold selections made
         # under different turnover/cost-stress rules.
@@ -358,8 +358,47 @@ def _ckpt_key(strategy: str, min_train_years: int, configs: list, start_year, en
         "max_inner_worst_turnover_pct": MAX_INNER_WORST_TURNOVER_PCT,
         "turnover_free_pct": DEFAULT_TURNOVER_FREE_PCT,
         "turnover_penalty_span_pct": DEFAULT_TURNOVER_PENALTY_SPAN_PCT,
-    }, sort_keys=True)
+    }
+    if include_year_slice:
+        payload["start_year"] = start_year
+        payload["end_year"] = end_year
+    return _json.dumps(payload, sort_keys=True)
+
+
+def _ckpt_key(strategy: str, min_train_years: int, configs: list, start_year, end_year) -> str:
+    """A short fingerprint that changes when the grid or selection rules change.
+
+    If the fingerprint changes we discard the old checkpoint automatically so
+    stale progress from a different grid is never mixed in.
+
+    NOTE: start_year / end_year deliberately NOT in the fingerprint.  They
+    only filter which outer folds are processed in this invocation — each
+    individual fold's computation is identical regardless of slice.  Keeping
+    them out of the fingerprint lets the user split a long run into
+    short-lived processes (e.g. one fold per process via --exit-after-folds)
+    without invalidating the checkpoint, which is the only reliable way to
+    work around the main-process memory growth on memory-constrained boxes.
+    """
+    del start_year, end_year  # intentionally unused — see docstring
+    import hashlib
+    blob = _ckpt_key_blob(strategy, min_train_years, configs, include_year_slice=False)
     return hashlib.md5(blob.encode()).hexdigest()[:12]
+
+
+def _legacy_ckpt_keys(strategy: str, min_train_years: int, configs: list) -> set[str]:
+    """Return the set of legacy fingerprints a pre-upgrade checkpoint may carry.
+
+    Before 2026-05-20 the fingerprint included start_year and end_year.  A
+    user upgrading mid-run would lose their progress unless we accept the
+    old keys during load.  We only need to cover the no-slice case
+    (start=None, end=None) since splitting a run by year was unusable
+    before this change.
+    """
+    import hashlib
+    blob = _ckpt_key_blob(strategy, min_train_years, configs,
+                          include_year_slice=True,
+                          start_year=None, end_year=None)
+    return {hashlib.md5(blob.encode()).hexdigest()[:12]}
 
 
 def _save_checkpoint(strategy: str, key: str, fold_rows: list, selected_configs: list, inner_details: list) -> None:
@@ -382,8 +421,15 @@ def _save_checkpoint(strategy: str, key: str, fold_rows: list, selected_configs:
     tmp.replace(path)
 
 
-def _load_checkpoint(strategy: str, key: str) -> dict | None:
-    """Return a checkpoint dict if it exists and its key matches, else None."""
+def _load_checkpoint(strategy: str, key: str, *, accept_keys: set[str] | None = None) -> dict | None:
+    """Return a checkpoint dict if it exists and its key matches, else None.
+
+    `accept_keys` is an extra set of fingerprints that are considered
+    valid for THIS load only (used to honor legacy checkpoints during a
+    fingerprint schema migration).  The on-disk key is rewritten to the
+    current `key` value before return, so subsequent saves overwrite
+    with the new schema.
+    """
     import json as _json
     path = _ckpt_path(strategy)
     if not path.exists():
@@ -392,9 +438,22 @@ def _load_checkpoint(strategy: str, key: str) -> dict | None:
         payload = _json.loads(path.read_text())
     except Exception:
         return None
-    if payload.get("key") != key:
-        return None  # Grid or settings changed — start fresh
-    return payload
+    on_disk_key = payload.get("key")
+    if on_disk_key == key:
+        return payload
+    if accept_keys and on_disk_key in accept_keys:
+        # Legacy checkpoint accepted under migration rules.  Upgrade the
+        # in-memory copy so callers see the new key, and overwrite the
+        # file so the next save uses the new schema.
+        payload["key"] = key
+        try:
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(_json.dumps(payload, indent=2, default=str))
+            tmp.replace(path)
+        except Exception:
+            pass
+        return payload
+    return None  # Grid or settings changed — start fresh
 # Legacy constants — kept for backward compat, updated to new base values.
 MIN_LIVE_APPROVAL_FOLDS = 3
 MIN_LIVE_CONFIG_FREQUENCY = 0.50
@@ -2029,6 +2088,7 @@ def run_nested_walkforward(
     low_memory: bool = False,
     n_workers: int = 1,
     resume: bool = True,
+    exit_after_folds: int | None = None,
 ) -> dict:
     strategy = str(_STRATEGY_ALIASES.get(strategy, strategy))
     if strategy not in STRATEGIES:
@@ -2125,7 +2185,10 @@ def run_nested_walkforward(
     # If a checkpoint exists with a matching fingerprint we restore completed
     # folds from disk and skip them in the loop below — saving hours of work.
     ckpt_key = _ckpt_key(strategy, min_train_years, configs, start_year, end_year)
-    ckpt = _load_checkpoint(strategy, ckpt_key) if resume else None
+    ckpt = _load_checkpoint(
+        strategy, ckpt_key,
+        accept_keys=_legacy_ckpt_keys(strategy, min_train_years, configs),
+    ) if resume else None
     completed_years: set[int] = set()
     if ckpt:
         fold_rows       = ckpt.get("fold_rows", [])
@@ -2142,11 +2205,26 @@ def run_nested_walkforward(
         print(f"Nested walk-forward ({strategy}): {len(splits)} folds, {len(configs)} candidate configs per fold")
     # ─────────────────────────────────────────────────────────────────────
 
+    # Counter for --exit-after-folds.  This counts folds COMPUTED in
+    # the current invocation, not folds skipped via checkpoint resume.
+    folds_done_this_run = 0
     for split in splits:
         # ── Skip folds completed in a previous run ────────────────────────
         if split.outer_year in completed_years:
             print(f"  {split.outer_year}: already done (loaded from checkpoint) ✓")
             continue
+        # ─────────────────────────────────────────────────────────────────
+        # ── Memory-safety exit: stop after N folds in this invocation ───
+        # Use this when the main-process working set grows too large to
+        # process the full run in one Python process.  Re-invoke with the
+        # same --resume and you'll pick up where this batch left off, on
+        # a fresh interpreter with a fresh heap.
+        if exit_after_folds is not None and folds_done_this_run >= int(exit_after_folds):
+            print(
+                f"  --exit-after-folds={exit_after_folds} reached; "
+                f"saving checkpoint and exiting.  Re-run with --resume to continue."
+            )
+            break
         # ─────────────────────────────────────────────────────────────────
         outer_train_years = list(range(split.train_start.year, split.train_end.year + 1))
         inner_train_years_required = (
@@ -2342,6 +2420,21 @@ def run_nested_walkforward(
             except Exception as _ckpt_err:
                 print(f"  [checkpoint save failed: {_ckpt_err}]")
         # ────────────────────────────────────────────────────────────────────
+        folds_done_this_run += 1
+
+    # If we broke out via --exit-after-folds before all folds finished,
+    # don't build a final summary — the data is incomplete.  The
+    # checkpoint is already saved; user will re-invoke to keep going.
+    completed_after = {int(r["outer_year"]) for r in fold_rows if r.get("valid") is not False or r.get("outer_year") is not None}
+    remaining = [s for s in splits if s.outer_year not in completed_after]
+    if exit_after_folds is not None and remaining:
+        return {
+            "valid": False,
+            "reason": "exit_after_folds_partial",
+            "folds_done_this_run": folds_done_this_run,
+            "remaining_outer_years": [s.outer_year for s in remaining],
+            "folds": fold_rows,
+        }
 
     valid_rows = [row for row in fold_rows if row.get("valid")]
     if not valid_rows:
@@ -2657,6 +2750,21 @@ def main() -> None:
     parser.add_argument("--end-year", type=int, default=None)
     parser.add_argument("--max-configs", type=int, default=None, help="Debug/smoke limit for candidate configs")
     parser.add_argument("--max-folds", type=int, default=None, help="Debug/smoke limit for outer folds")
+    parser.add_argument(
+        "--exit-after-folds",
+        type=int,
+        default=None,
+        help=(
+            "Memory-safety throttle: stop this Python process after N folds "
+            "have been COMPUTED in this invocation (folds skipped via "
+            "--resume don't count).  The checkpoint is saved before exit, "
+            "so re-invoking with --resume continues from where this batch "
+            "stopped — but in a fresh interpreter, which resets any "
+            "main-process memory growth that built up over earlier folds.  "
+            "Use this on memory-constrained boxes where the full 14-fold "
+            "run won't fit in one process."
+        ),
+    )
     parser.add_argument("--max-specs", type=int, default=DEFAULT_MAX_SPECS)
     parser.add_argument("--output-prefix", default=DEFAULT_OUTPUT_PREFIX)
     parser.add_argument("--fast", action="store_true",
@@ -2777,6 +2885,7 @@ def main() -> None:
             low_memory=bool(args.low_memory),
             n_workers=int(args.workers),
             resume=bool(args.resume),
+            exit_after_folds=args.exit_after_folds,
         )
         # ── Free memory between strategies ─────────────────────────────
         # Each strategy run creates thousands of temporary DataFrames.
@@ -2786,13 +2895,32 @@ def main() -> None:
         # ── Delete checkpoint on successful completion ──────────────────
         # A finished run is its own record (the JSON/CSV outputs).  Remove
         # the checkpoint so the NEXT run starts fresh instead of replaying
-        # a stale partial state.
-        if args.resume:
+        # a stale partial state.  Do NOT delete when --exit-after-folds
+        # returned a partial result — we need the checkpoint for the
+        # next invocation to resume.
+        partial = bool(
+            strategy_results[strategy].get("reason") == "exit_after_folds_partial"
+        )
+        if args.resume and not partial:
             ckpt_file = _ckpt_path(strategy)
             try:
                 ckpt_file.unlink(missing_ok=True)
             except Exception:
                 pass
+    # If any strategy exited early via --exit-after-folds, print remaining
+    # work and stop here.  Don't try to build a final summary or publish
+    # a live config from incomplete data.
+    partial_strategies = [
+        s for s, r in strategy_results.items()
+        if r.get("reason") == "exit_after_folds_partial"
+    ]
+    if partial_strategies:
+        for strategy in partial_strategies:
+            r = strategy_results[strategy]
+            print(f"\n[partial] {strategy}: {r.get('folds_done_this_run')} fold(s) done this run; "
+                  f"remaining: {r.get('remaining_outer_years')}")
+            print(f"  re-run the same command to continue from checkpoint.")
+        return
     result = _combine_strategy_results(strategy_results) if len(strategy_results) > 1 else next(iter(strategy_results.values()))
     publish_live_config, publish_reason = live_config_publish_decision(args)
     json_path, csv_path = write_outputs(
