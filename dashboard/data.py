@@ -137,8 +137,52 @@ def load_order_plan() -> pd.DataFrame:
 # ── ALPACA STATE (live broker positions, equity, fills) ───────────────
 @st.cache_data(ttl=30)
 def load_alpaca_status() -> dict | None:
-    """Return the latest Alpaca account snapshot."""
-    return _read_json_safe(ALPACA_STATUS)
+    """Return the latest Alpaca account snapshot.
+
+    Primary source is `signals/alpaca_daily_status.json` written by
+    `alpaca_paper_trading.py --status`.  That file is committed by the
+    daily workflow, so a fresh `pull_daily` will land it.
+
+    Fallback: if the status file is missing (older `signals/latest`
+    snapshots before the workflow started committing it, or a
+    workflow that crashed before the status step), borrow the equity
+    fields from `signals/alpaca_paper_health.json` which the workflow
+    has been committing for longer.  paper_health.json includes
+    `account_equity` and a `concentration.position_count` so we can
+    populate enough of the snapshot to keep the dashboard's account
+    summary card from showing zeros.
+    """
+    status = _read_json_safe(ALPACA_STATUS)
+    if status and float(status.get("account_equity") or 0) > 0:
+        return status
+
+    # ── Fallback path ───────────────────────────────────────────────
+    # paper_health.json's account_equity is the same dollar value the
+    # status file would have written, written by the same broker
+    # snapshot call earlier in the daily pipeline.  Cash and invested
+    # aren't tracked there, so we leave them None (the summary card
+    # already degrades gracefully when those are missing).
+    health = _read_json_safe(ALPACA_HEALTH) or {}
+    health_equity = float(health.get("account_equity") or 0)
+    if health_equity <= 0:
+        # Neither source has data — return whatever (possibly empty)
+        # status dict we got so the caller can decide what to display.
+        return status
+    concentration = health.get("concentration") or {}
+    fallback = dict(status or {})
+    fallback["account_equity"] = health_equity
+    # Best-effort position count; concentration.position_count is the
+    # one paper_health publishes.  Default to 0 if absent.
+    fallback.setdefault("position_count", int(concentration.get("position_count") or 0))
+    fallback.setdefault("broker", "alpaca")
+    fallback.setdefault(
+        "generated_at",
+        health.get("generated_at") or health.get("as_of") or "",
+    )
+    # Mark the source so the dashboard can show a small "fallback"
+    # badge if it wants to.
+    fallback["_source"] = "alpaca_paper_health.json (fallback)"
+    return fallback
 
 
 @st.cache_data(ttl=60)

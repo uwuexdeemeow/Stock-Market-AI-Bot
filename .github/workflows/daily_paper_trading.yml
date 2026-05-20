@@ -333,6 +333,7 @@ jobs:
             signals/core_satellite_alpha_metrics.json
             signals/alpaca_paper_equity.csv
             signals/alpaca_paper_log.csv
+            signals/alpaca_daily_status.json
             signals/adaptive_factor_weights.json
             signals/feature_quality_report.json
             signals/feature_quality_summary.csv
@@ -370,6 +371,7 @@ jobs:
               signals/core_satellite_alpha_metrics.json \
               signals/alpaca_paper_equity.csv \
               signals/alpaca_paper_log.csv \
+              signals/alpaca_daily_status.json \
               signals/factor_data_health.json \
               signals/factor_decay_monitor.csv \
               signals/fill_monitor.json \

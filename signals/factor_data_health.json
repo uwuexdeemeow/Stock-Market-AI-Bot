@@ -1,0 +1,543 @@
+{
+  "computed_at": "2026-05-20T12:12:43.179318",
+  "as_of_date": "2026-05-20",
+  "warn_trading_days": 5,
+  "block_trading_days": 10,
+  "required_ticker_count": 62,
+  "optional_ticker_count": 2,
+  "required_present_count": 62,
+  "missing_tickers": [],
+  "unreadable_tickers": [],
+  "stale_tickers": [],
+  "blocked_tickers": [],
+  "optional_present_count": 0,
+  "optional_missing_tickers": [
+    "BBBY",
+    "FRC"
+  ],
+  "optional_unreadable_tickers": [],
+  "oldest_latest_factor_date": "2026-05-15",
+  "newest_latest_factor_date": "2026-05-18",
+  "max_age_trading_days": 3,
+  "factor_data_ready": true,
+  "factor_data_fresh": true,
+  "feature_quality": {
+    "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/feature_quality_report.json",
+    "summary_path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/feature_quality_summary.csv",
+    "exists": true,
+    "summary_exists": true,
+    "ready": true,
+    "reason": "ok",
+    "feature_count": 42,
+    "mtime": "2026-05-20T12:11:27.151992",
+    "stale_vs_factor_data": false
+  },
+  "adaptive_weights": {
+    "adaptive_weight_status": "adaptive",
+    "adaptive_weight_reason": "loaded",
+    "adaptive_weights_file": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/adaptive_factor_weights.json",
+    "adaptive_weight_age_days": 0.131,
+    "adaptive_weight_computed_at": "2026-05-19T20:50:40"
+  },
+  "signal_ready": true,
+  "trade_ready": true,
+  "reasons": [],
+  "tickers": {
+    "AAPL": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/AAPL.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "ABBV": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/ABBV.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 3363,
+      "columns": 223
+    },
+    "AEP": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/AEP.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "AMAT": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/AMAT.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "AMD": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/AMD.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "AMT": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/AMT.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-18",
+      "age_trading_days": 2,
+      "rows": 4118,
+      "columns": 223
+    },
+    "AMZN": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/AMZN.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "APD": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/APD.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-18",
+      "age_trading_days": 2,
+      "rows": 4118,
+      "columns": 223
+    },
+    "AVGO": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/AVGO.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "BAC": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/BAC.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "BKNG": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/BKNG.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "C": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/C.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "CAT": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/CAT.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "CCI": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/CCI.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-18",
+      "age_trading_days": 2,
+      "rows": 4118,
+      "columns": 223
+    },
+    "CHTR": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/CHTR.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-18",
+      "age_trading_days": 2,
+      "rows": 4117,
+      "columns": 223
+    },
+    "CMCSA": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/CMCSA.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-18",
+      "age_trading_days": 2,
+      "rows": 4118,
+      "columns": 223
+    },
+    "COP": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/COP.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "COST": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/COST.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "CVX": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/CVX.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "DE": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/DE.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "DIS": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/DIS.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-18",
+      "age_trading_days": 2,
+      "rows": 4118,
+      "columns": 223
+    },
+    "DUK": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/DUK.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "EOG": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/EOG.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "EQIX": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/EQIX.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-18",
+      "age_trading_days": 2,
+      "rows": 4118,
+      "columns": 223
+    },
+    "EXC": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/EXC.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "FCX": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/FCX.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-18",
+      "age_trading_days": 2,
+      "rows": 4118,
+      "columns": 223
+    },
+    "GE": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/GE.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "GOOGL": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/GOOGL.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "GS": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/GS.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "HD": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/HD.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "HON": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/HON.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "HSY": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/HSY.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "IFF": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/IFF.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-18",
+      "age_trading_days": 2,
+      "rows": 4118,
+      "columns": 223
+    },
+    "INTC": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/INTC.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "JNJ": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/JNJ.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "JPM": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/JPM.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "KO": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/KO.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "LIN": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/LIN.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-18",
+      "age_trading_days": 2,
+      "rows": 4118,
+      "columns": 223
+    },
+    "LLY": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/LLY.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "LYV": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/LYV.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-18",
+      "age_trading_days": 2,
+      "rows": 4118,
+      "columns": 223
+    },
+    "MA": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/MA.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "META": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/META.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 3518,
+      "columns": 223
+    },
+    "MRK": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/MRK.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "MSFT": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/MSFT.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "MU": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/MU.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "NEE": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/NEE.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "NEM": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/NEM.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-18",
+      "age_trading_days": 2,
+      "rows": 4118,
+      "columns": 223
+    },
+    "NFLX": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/NFLX.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-18",
+      "age_trading_days": 2,
+      "rows": 4118,
+      "columns": 223
+    },
+    "NVDA": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/NVDA.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "PEP": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/PEP.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "PG": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/PG.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "PLD": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/PLD.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-18",
+      "age_trading_days": 2,
+      "rows": 4118,
+      "columns": 223
+    },
+    "PSA": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/PSA.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-18",
+      "age_trading_days": 2,
+      "rows": 4118,
+      "columns": 223
+    },
+    "RTX": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/RTX.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "SHW": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/SHW.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-18",
+      "age_trading_days": 2,
+      "rows": 4118,
+      "columns": 223
+    },
+    "SLB": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/SLB.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "SO": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/SO.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "TSLA": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/TSLA.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 3995,
+      "columns": 223
+    },
+    "UNH": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/UNH.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "V": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/V.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "WMT": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/WMT.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    },
+    "XOM": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/XOM.parquet",
+      "status": "ok",
+      "latest_date": "2026-05-15",
+      "age_trading_days": 3,
+      "rows": 4117,
+      "columns": 223
+    }
+  }
+}

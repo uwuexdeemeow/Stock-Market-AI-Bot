@@ -1,0 +1,45 @@
+{
+  "checked_at": "2026-05-20T12:16:13+00:00",
+  "max_age_hours": 36,
+  "all_ok": true,
+  "stale_monitors": [],
+  "missing_monitors": [],
+  "monitors": {
+    "paper_health": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_paper_health.json",
+      "exists": true,
+      "age_hours": 0.0,
+      "status": "fresh"
+    },
+    "fill_monitor": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/fill_monitor.json",
+      "exists": true,
+      "age_hours": 0.1,
+      "status": "fresh"
+    },
+    "regime_monitor": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/regime_history.json",
+      "exists": true,
+      "age_hours": 0.0,
+      "status": "fresh"
+    },
+    "broker_health": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/broker_health.json",
+      "exists": true,
+      "age_hours": 0.1,
+      "status": "fresh"
+    },
+    "execution_guard": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/guard_intraday_state.json",
+      "exists": true,
+      "age_hours": 0.0,
+      "status": "fresh"
+    },
+    "daily_run": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/logs/daily_run_20260520.json",
+      "exists": true,
+      "age_hours": 0.1,
+      "status": "fresh"
+    }
+  }
+}
