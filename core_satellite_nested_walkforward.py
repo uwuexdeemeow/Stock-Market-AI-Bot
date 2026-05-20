@@ -234,9 +234,19 @@ DEFAULT_OUTPUT_PREFIX = "core_satellite_nested_walkforward"
 DEFAULT_MAX_SPECS = 48
 DEFAULT_MIN_TRAIN_YEARS = 3
 # Hard cap on mean inner-fold turnover. Configs above this are rejected.
-# Raised from 400→600 because ov=0.70 configs naturally churn more and
-# the SOFT penalty in robustness_scoring.py already handles the economics.
-MAX_INNER_MEAN_TURNOVER_PCT = 600.0
+# Lowered from 600→450 because the OOS turnover regularly spikes ~1.5–2x
+# above the inner mean (e.g. 2014 fold: inner=466 → OOS=904, blowing
+# through the run-wide 600% gate in live_config_approval).  Capping inner
+# mean at 450 keeps the OOS worst comfortably below 600 even with a 30%
+# regime spike, so a single bad outer year can't disqualify the whole run.
+MAX_INNER_MEAN_TURNOVER_PCT = 450.0
+# Hard cap on the single worst inner-fold turnover.  A candidate can have
+# an acceptable average turnover and still have one frantic year that
+# would be painful to execute live.  Set to 525 in step with the mean cap
+# above — a candidate that already churns ~525% on a single inner fold is
+# almost certain to exceed 600% on the OOS year and trip the run-wide
+# live_config_approval turnover gate.
+MAX_INNER_WORST_TURNOVER_PCT = 525.0
 # "defensive" adds drawdown circuit breakers and vol targeting.
 # Historical walkforward data shows 5/7 years selected defensive —
 # it was incorrectly excluded from the default grid.  Now included.
@@ -279,6 +289,10 @@ def _ckpt_key(strategy: str, min_train_years: int, configs: list, start_year, en
     stale progress from a different grid is never mixed in.
     """
     import hashlib, json as _json
+    from robustness_scoring import (
+        DEFAULT_TURNOVER_FREE_PCT,
+        DEFAULT_TURNOVER_PENALTY_SPAN_PCT,
+    )
     sigs = sorted(config_signature(c) for c in configs)
     blob = _json.dumps({
         "strategy": strategy,
@@ -286,6 +300,13 @@ def _ckpt_key(strategy: str, min_train_years: int, configs: list, start_year, en
         "configs": sigs,
         "start_year": start_year,
         "end_year": end_year,
+        # Selection-filter knobs: changing any of these invalidates the
+        # checkpoint so we never silently reuse fold selections made
+        # under different turnover/cost-stress rules.
+        "max_inner_mean_turnover_pct": MAX_INNER_MEAN_TURNOVER_PCT,
+        "max_inner_worst_turnover_pct": MAX_INNER_WORST_TURNOVER_PCT,
+        "turnover_free_pct": DEFAULT_TURNOVER_FREE_PCT,
+        "turnover_penalty_span_pct": DEFAULT_TURNOVER_PENALTY_SPAN_PCT,
     }, sort_keys=True)
     return hashlib.md5(blob.encode()).hexdigest()[:12]
 
@@ -1424,11 +1445,18 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
     if not skip_stress_gate and stress_ratio < MIN_STRESS_PASS_RATIO:
         return None
 
-    mean_turnover_pct = float(np.mean([
+    turnover_values = [
         float(m.get("turnover_pct", 0.0) or 0.0)
         for m in fold_metrics
-    ]))
+    ]
+    mean_turnover_pct = float(np.mean(turnover_values))
+    worst_turnover_pct = float(np.max(turnover_values)) if turnover_values else 0.0
     if mean_turnover_pct > MAX_INNER_MEAN_TURNOVER_PCT:
+        return None
+    # Reject candidates whose single worst inner-fold turnover already
+    # blows past the cap — these will almost certainly trip the run-wide
+    # 600% OOS turnover gate in live_config_approval.
+    if worst_turnover_pct > MAX_INNER_WORST_TURNOVER_PCT:
         return None
 
     mean_score = float(np.mean(fold_scores))

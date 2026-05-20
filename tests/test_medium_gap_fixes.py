@@ -65,14 +65,46 @@ def test_factor_decay_classifies_nonpositive_top_bucket_as_warning():
     assert factor_decay_monitor.edge_health_status(row) == "warning"
 
 
-def test_factor_decay_classifies_negative_overlay_alpha_as_block():
+def test_factor_decay_classifies_material_negative_overlay_alpha_as_block():
+    """Real block fires only when the sample is wide enough AND the
+    cumulative drawdown is materially negative.  This is the canonical
+    120-day window shape: 4+ overlay trades and a meaningful loss."""
+    row = {
+        "daily_ic_mean": 0.05,
+        "top_bucket_excess_return_pct": 0.5,
+        "overlay_alpha_sum_pct": -2.5,
+        "overlay_periods": 5,
+    }
+
+    assert factor_decay_monitor.edge_health_status(row) == "block"
+
+
+def test_factor_decay_thin_sample_negative_overlay_does_not_block():
+    """A 60-day window typically has only 1–2 overlay trades at
+    holding_days=20.  A single bad trade pushes cumulative overlay
+    alpha well below zero but is too thin to call "block" — it should
+    downgrade to advisory/warning instead of halting live trading."""
+    row = {
+        "daily_ic_mean": -0.05,
+        "top_bucket_excess_return_pct": 0.5,
+        "overlay_alpha_sum_pct": -2.5,
+        "overlay_periods": 2,
+    }
+
+    assert factor_decay_monitor.edge_health_status(row) != "block"
+
+
+def test_factor_decay_small_negative_overlay_with_sample_does_not_block():
+    """Magnitude gate: even with 4+ periods, a -0.1% cumulative is noise
+    and must not trigger a real-capital block."""
     row = {
         "daily_ic_mean": 0.05,
         "top_bucket_excess_return_pct": 0.5,
         "overlay_alpha_sum_pct": -0.1,
+        "overlay_periods": 6,
     }
 
-    assert factor_decay_monitor.edge_health_status(row) == "block"
+    assert factor_decay_monitor.edge_health_status(row) != "block"
 
 
 def _passing_survivorship():

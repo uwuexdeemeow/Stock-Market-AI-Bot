@@ -19,10 +19,15 @@ DEFAULT_DRAWDOWN_TOLERANCE_PCT = 25.0
 # penalized.  Old value was 5000% which was basically no penalty — the
 # optimizer had no reason to avoid churn.  400% = ~1.6x annual turnover
 # for a 10-day holding period, reasonable for an active strategy.
-# The span (how quickly penalty ramps) is set so that 1000% turnover
-# costs ~0.15 Sharpe units — enough to matter but not kill high-alpha configs.
+#
+# SPAN was 4000 (gentle: 1000% turnover → only 0.15 Sharpe penalty), but
+# selection still chose churny candidates whose OOS turnover spiked above
+# the run-wide 600% live-approval gate.  Tightened to 1500 so 1000%
+# turnover now costs 0.40 Sharpe units — large enough to push the
+# optimizer toward lower-turnover variants of the same strategy family,
+# while still letting a clearly-superior high-alpha config win.
 DEFAULT_TURNOVER_FREE_PCT = 400.0
-DEFAULT_TURNOVER_PENALTY_SPAN_PCT = 4_000.0
+DEFAULT_TURNOVER_PENALTY_SPAN_PCT = 1_500.0
 DEFAULT_INSTABILITY_FLAG_PENALTY = 0.25
 
 INSTABILITY_FLAGS = (

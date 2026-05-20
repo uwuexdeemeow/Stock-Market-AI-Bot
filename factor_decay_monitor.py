@@ -25,7 +25,24 @@ OUT_JSON = Path(LOG_DIR) / "factor_decay_monitor.json"
 TRADES_PATH = Path(SIGNAL_DIR) / "core_satellite_alpha_trades.csv"
 METRICS_PATH = Path(SIGNAL_DIR) / "core_satellite_alpha_metrics.json"
 MIN_WEAK_OVERLAY_ALPHA_PCT = -0.1  # warn if overlay alpha below -0.1% (noise floor)
-OVERLAY_ALPHA_BLOCK_THRESHOLD_PCT = 0.0
+# Block threshold (negative). The old value of 0.0 fired "block" on any
+# negative cumulative overlay alpha, no matter how thin the sample.  With
+# holding_days=20 the 60-day window often has only ~2 trades, so one bad
+# month flipped the cumulative negative and tripped the gate — a false
+# positive.  Require a meaningfully large drawdown PLUS a minimum sample.
+OVERLAY_ALPHA_BLOCK_THRESHOLD_PCT = -1.5
+# Minimum overlay trade count before "block" can fire on a window.  Set
+# to 4 so the 60-day window (which usually has only 2 trades at 20-day
+# holding) can still surface a "warning" early indicator but cannot
+# escalate to "block" off a single bad trade.  120-day windows naturally
+# have ≥4 trades and remain the canonical block source.
+MIN_BLOCK_OVERLAY_PERIODS = 4
+# Minimum overlay trade count before a *warning* fires on overlay alpha.
+# With only 1–2 trades the cumulative is dominated by single-trade noise,
+# so we suppress the overlay-alpha-based warning and let the row fall
+# through to the IC-based "advisory" check.  This preserves IC as the
+# early-warning signal without letting a single trade trigger a gate.
+MIN_WARNING_OVERLAY_PERIODS = 3
 
 # ── Notification status ranking ──────────────────────────────────────────
 # Higher number = worse health.  Used to compute transitions (did edge
@@ -104,15 +121,43 @@ def _maybe_notify(new_status: str, prev_status: str, payload: dict) -> None:
 
 
 def edge_health_status(row: dict | pd.Series) -> str:
-    """Classify live factor edge health without overreacting to full-rank IC alone."""
+    """Classify live factor edge health without overreacting to full-rank IC alone.
+
+    PLAIN ENGLISH: We have multiple recency lookbacks (60d, 120d, ...).
+    Each one returns one of {pass, advisory, warning, block}.  The
+    aggregate is the worst.  "block" must require enough evidence —
+    otherwise a single bad trade in a thin 60-day window (~2 trades at
+    20-day holding) is enough to halt live trading on noise.  The
+    minimum-period gate below prevents that.
+    """
     rank_ic = pd.to_numeric(pd.Series([row.get("daily_ic_mean")]), errors="coerce").iloc[0]
     top_excess = pd.to_numeric(pd.Series([row.get("top_bucket_excess_return_pct")]), errors="coerce").iloc[0]
     overlay_alpha = pd.to_numeric(pd.Series([row.get("overlay_alpha_sum_pct")]), errors="coerce").iloc[0]
-    if pd.notna(overlay_alpha) and float(overlay_alpha) < OVERLAY_ALPHA_BLOCK_THRESHOLD_PCT:
+    try:
+        overlay_periods = int(float(row.get("overlay_periods", 0) or 0))
+    except (TypeError, ValueError):
+        overlay_periods = 0
+    # Two-stage block check:
+    #   1. Sample size must clear MIN_BLOCK_OVERLAY_PERIODS — otherwise the
+    #      cumulative overlay alpha is too sample-dependent to act on.
+    #   2. Magnitude must be more negative than OVERLAY_ALPHA_BLOCK_THRESHOLD_PCT
+    #      so a tiny negative drift doesn't trip a paper-only restriction.
+    if (
+        pd.notna(overlay_alpha)
+        and overlay_periods >= MIN_BLOCK_OVERLAY_PERIODS
+        and float(overlay_alpha) < OVERLAY_ALPHA_BLOCK_THRESHOLD_PCT
+    ):
         return "block"
     if pd.isna(top_excess) or float(top_excess) <= 0.0:
         return "warning"
-    if pd.notna(overlay_alpha) and float(overlay_alpha) <= MIN_WEAK_OVERLAY_ALPHA_PCT:
+    # Only fire an overlay-alpha warning when the sample is large enough
+    # for the cumulative to mean something.  With <3 trades in the window
+    # the alpha is one-trade dominated and would create false warnings.
+    if (
+        pd.notna(overlay_alpha)
+        and overlay_periods >= MIN_WARNING_OVERLAY_PERIODS
+        and float(overlay_alpha) <= MIN_WEAK_OVERLAY_ALPHA_PCT
+    ):
         return "warning"
     if pd.notna(rank_ic) and float(rank_ic) < 0.0:
         return "advisory"

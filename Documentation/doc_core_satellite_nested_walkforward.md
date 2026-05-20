@@ -113,6 +113,19 @@ python3 core_satellite_nested_walkforward.py --no-publish-live-config
   families (`score`, `shape`, `weighting`, `risk`, `tqqq`) instead of only
   exact configs.  This avoids promoting a one-off latest-year winner while
   still letting small tuning knobs come from the freshest fold.
+- **Tightened turnover gates** — inner mean cap 600→450%, new inner worst
+  cap 525%, and the soft penalty span 4000→1500 (so 1000% turnover now
+  costs 0.4 Sharpe instead of 0.15).  Earlier runs let configs with
+  inner-mean ~466% win selection, then those configs spiked to 904%
+  turnover OOS — blowing through the run-wide 600% live-approval gate
+  and dragging cost-stress alpha into negative territory at 5× costs.
+  The new caps are sized so OOS turnover stays under 600% even with a
+  ~1.3× regime spike on top of the inner mean.
+- **Checkpoint fingerprint includes selection filters** — `_ckpt_key`
+  now hashes the turnover caps and penalty span alongside the strategy
+  and grid.  Changing any of those values automatically invalidates the
+  old checkpoint instead of silently reusing fold selections that were
+  made under different rules.
 
 ## Output to validate
 
