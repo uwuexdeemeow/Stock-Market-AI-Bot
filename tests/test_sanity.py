@@ -232,13 +232,19 @@ def test_core_satellite_paper_scaling_caps_gross():
 
 
 def test_robustness_score_is_sharpe_minus_penalties():
+    """Sharpe objective (opt-in via ROBUSTNESS_OBJECTIVE=sharpe).
+
+    Default flipped to alpha_vs_qqq on 2026-05-21 — see
+    robustness_scoring.DEFAULT_OBJECTIVE comment.  This test still
+    covers the Sharpe code path because it's the documented opt-in.
+    """
     score = robustness_score_components({
         "sharpe": 1.2,
         "max_drawdown_pct": -35.0,
         "turnover_pct": 15_000.0,
         "subperiod_stability_pass": False,
         "year_alpha_concentration_pass": True,
-    })
+    }, objective="sharpe")
     assert score["drawdown_penalty"] == 0.4
     expected_turnover_penalty = round(
         (15_000.0 - DEFAULT_TURNOVER_FREE_PCT) / DEFAULT_TURNOVER_PENALTY_SPAN_PCT,
@@ -247,6 +253,31 @@ def test_robustness_score_is_sharpe_minus_penalties():
     assert score["turnover_penalty"] == expected_turnover_penalty
     assert score["instability_penalty"] == 0.25
     assert score["robustness_score"] == round(1.2 - 0.4 - expected_turnover_penalty - 0.25, 4)
+
+
+def test_robustness_score_alpha_vs_qqq_objective():
+    """Default objective: alpha_vs_qqq / 10 minus drawdown + instability penalties.
+
+    Turnover penalty is intentionally DROPPED in this mode because the
+    14-year audit found turnover correlated POSITIVELY with OOS Sharpe
+    (+0.19) — penalizing it was hurting selection.  See
+    robustness_scoring.DEFAULT_OBJECTIVE comment for the full A/B
+    summary.
+    """
+    score = robustness_score_components({
+        "sharpe": 1.2,                       # ignored in this objective
+        "max_drawdown_pct": -35.0,
+        "turnover_pct": 15_000.0,            # would penalize 9.7 under sharpe
+        "alpha_vs_qqq_pct": 12.0,
+        "subperiod_stability_pass": False,
+        "year_alpha_concentration_pass": True,
+    })  # objective defaults to alpha_vs_qqq now
+    assert score["objective"] == "alpha_vs_qqq"
+    assert score["primary_metric"] == 1.2    # 12.0 / 10
+    assert score["drawdown_penalty"] == 0.4  # (35 - 25) / 25
+    assert score["turnover_penalty"] == 0.0  # dropped in this mode
+    assert score["instability_penalty"] == 0.25
+    assert score["robustness_score"] == round(1.2 - 0.4 - 0.25, 4)
 
 
 def test_adaptive_factor_weights_use_forward_return_and_floor(tmp_path):
@@ -890,15 +921,19 @@ def test_inner_selection_scores_validation_folds_only(monkeypatch):
         calls.append((config["name"], pd.Timestamp(start), pd.Timestamp(end)))
         assert pd.Timestamp(start).year in {2022, 2023}
         assert pd.Timestamp(end).year in {2022, 2023}
-        sharpe = 0.1 if config["name"] == "train_fit" else 1.0
+        is_winner = config["name"] != "train_fit"
+        # Make BOTH the Sharpe-stack metric and the alpha_vs_qqq metric
+        # higher for the winner.  The test passes regardless of which
+        # objective is active in robustness_scoring (default flipped
+        # from "sharpe" to "alpha_vs_qqq" on 2026-05-21).
         return {
-            "sharpe": sharpe,
-            "total_return_pct": sharpe,
+            "sharpe": 1.0 if is_winner else 0.1,
+            "total_return_pct": 1.0 if is_winner else 0.1,
             "max_drawdown_pct": -5.0,
             "turnover_pct": 100.0,
-            "alpha_vs_spy_pct": 1.0,
-            "alpha_vs_qqq_pct": 1.0,
-            "alpha_vs_blend_pct": 1.0,
+            "alpha_vs_spy_pct": 5.0 if is_winner else 0.5,
+            "alpha_vs_qqq_pct": 5.0 if is_winner else 0.5,
+            "alpha_vs_blend_pct": 5.0 if is_winner else 0.5,
         }
 
     monkeypatch.setattr(nested_wf, "evaluate_window", fake_evaluate_window)

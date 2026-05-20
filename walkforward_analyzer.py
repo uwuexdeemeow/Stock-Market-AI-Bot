@@ -38,6 +38,10 @@ from pathlib import Path
 
 import pandas as pd
 
+from safe_io import configure_console_output
+
+configure_console_output()
+
 # Default paths — where the walkforward script saves its outputs.
 DEFAULT_CSV = "signals/core_satellite_nested_walkforward.csv"
 DEFAULT_QQQ_PARQUET = "data/QQQ.parquet"

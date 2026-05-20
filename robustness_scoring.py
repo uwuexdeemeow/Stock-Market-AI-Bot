@@ -34,10 +34,16 @@ import os
 from typing import Any, Iterable, Mapping, Sequence
 
 
-# Selection objective.  Default keeps the original Sharpe-based score so
-# existing tests and live config flow are unchanged unless the user
-# opts in via env var.
-DEFAULT_OBJECTIVE = "sharpe"
+# Selection objective.  Default flipped to "alpha_vs_qqq" on 2026-05-21
+# after a 14-year A/B test on the nested walkforward:
+#   sharpe:        compound +1787%, mean aSPY 12.8%, hit rate 64%, FAILs on
+#                  score_predictiveness (-0.147) and concentration_vulnerability
+#   alpha_vs_qqq:  compound +3765%, mean aSPY 19.5%, hit rate 86%, score
+#                  predictiveness flips positive, concentration check PASSes
+# Same family wins under both (top3/sticky_score/tqqq=0.0).  The objective
+# change roughly doubled compound return at unchanged Sharpe.  Override via
+# env: ROBUSTNESS_OBJECTIVE=sharpe to revert per-run.
+DEFAULT_OBJECTIVE = "alpha_vs_qqq"
 _VALID_OBJECTIVES = ("sharpe", "alpha_vs_qqq")
 def _objective_from_env() -> str:
     raw = (os.environ.get("ROBUSTNESS_OBJECTIVE") or DEFAULT_OBJECTIVE).strip().lower()
