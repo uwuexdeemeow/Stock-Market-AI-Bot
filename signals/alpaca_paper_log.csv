@@ -1,4 +1,0 @@
-submitted_at,order_id,ticker,side,quantity,price,trade_value,target_weight,fill_status,filled_qty
-2026-05-20T12:16:06.069925+00:00,ae4d9234-aebc-482a-be56-f8564b811dd3,CAT,sell,7,860.745,6025.215,0.0,new,0.0
-2026-05-20T12:16:06.069925+00:00,9fef7ab3-52bb-4593-8dde-65c5b3cd477c,LYV,sell,26,163.14,4241.639999999999,0.0,new,0.0
-2026-05-20T12:16:06.069925+00:00,378ea73b-e60a-47ab-bf0c-6730f9e8f13c,FCX,buy,104,58.65,6099.599999999999,0.1758,new,0.0
