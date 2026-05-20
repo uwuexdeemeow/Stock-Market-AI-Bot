@@ -50,6 +50,13 @@ python3 daily_run.py --alpaca --timeout 600
 # Dry-run — show what would run without executing
 python3 daily_run.py --dry-run
 
+# Local dashboard refresh only — pull GitHub Actions signal files, then run
+# Alpaca health checks without submitting new orders
+python3 daily_run.py --health-only
+
+# Same health-only mode, but use whatever files already exist locally
+python3 daily_run.py --health-only --no-github-sync
+
 # Force-run on weekends/holidays
 python3 daily_run.py --force
 
@@ -65,6 +72,7 @@ python3 daily_run.py --alpaca --moomoo --report
 | File | What's in it |
 |------|--------------|
 | `logs/daily_run_YYYYMMDD.json` | Per-step results, timings, errors |
+| `logs/local_health_YYYYMMDD.json` | Local `--health-only` results |
 | All artifacts from each step | See individual script docs |
 
 ## Schedule
@@ -97,6 +105,11 @@ The workflow file `.github/workflows/daily_paper_trading.yml` invokes
 - **Consolidated Telegram in GitHub Actions** — the workflow sets
   `STOCKBOT_SCRIPT_TELEGRAM_ENABLED=0`, so scripts do not send their own
   Telegram alerts.  The workflow sends one final summary instead.
+- **Health-only mode** — `python3 daily_run.py --health-only` is for your
+  laptop after GitHub Actions already traded.  It first fetches the
+  `signals/latest` branch and copies signal/dashboard files into local
+  `signals/` and `logs/`, then runs health checks without `alpaca_submit` or
+  `core_satellite_signal`.
 - **Per-step timeout** — default 5 min per step (10 min recommended
   for research.py).
 - **Internal Telegram alert** — sends a warning when any step fails,
@@ -121,6 +134,8 @@ The workflow file `.github/workflows/daily_paper_trading.yml` invokes
 - `alpaca_paper_health` step (May 19, 2026) — added so drift detection
   vs walkforward runs daily on the Alpaca pipeline.  Previously only
   ran with `--moomoo` and was silently dead in Alpaca-only mode.
+- `--health-only` mode (May 20, 2026) — added for local dashboard refresh
+  when GitHub Actions is responsible for the real daily trading run.
 
 ## When something goes wrong
 

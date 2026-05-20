@@ -50,7 +50,39 @@ import pandas as pd
 from safe_io import atomic_write_json
 from settings import LOG_DIR, SIGNAL_DIR
 
+PROJECT_ROOT = Path(__file__).resolve().parent
 LOGS = Path(LOG_DIR)
+
+# Files copied from the GitHub Actions `signals/latest` branch for local
+# health-only checks.  PLAIN ENGLISH: GitHub does the real daily trading run;
+# this list brings the resulting signal/dashboard files back onto your laptop
+# so local status.py and monitor_heartbeat.py read the same state.
+SIGNALS_LATEST_REF = "origin/signals/latest"
+SIGNALS_LATEST_BRANCH = "signals/latest"
+GITHUB_SIGNAL_SYNC_FILES = (
+    "signals/core_satellite_alpha_signal.csv",
+    "signals/core_satellite_alpha_orders.csv",
+    "signals/core_satellite_alpha_metrics.json",
+    "signals/alpaca_paper_equity.csv",
+    "signals/alpaca_paper_log.csv",
+    "signals/factor_data_health.json",
+    "signals/factor_decay_monitor.csv",
+    "logs/factor_decay_monitor.json",
+    "logs/core_satellite_execution_stress.json",
+    "logs/core_satellite_survivorship_audit.json",
+    "signals/fill_monitor.json",
+    "signals/broker_health.json",
+    "signals/alpaca_paper_health.json",
+    "signals/paper_health.json",
+    "signals/guard_intraday_state.json",
+    "signals/regime_history.json",
+    "signals/regime_changes_log.csv",
+    "signals/monitor_heartbeat.json",
+)
+GITHUB_SIGNAL_SYNC_PREFIXES = (
+    "logs/daily_run_",
+    "logs/alpaca_paper_health_",
+)
 
 
 def _configure_console_output() -> None:
@@ -190,6 +222,12 @@ FACTOR_DATA_HEALTH_STEP = Step(
     critical=True,
 )
 
+ALPACA_STATUS_STEP = Step(
+    "alpaca_status",
+    [sys.executable, "alpaca_paper_trading.py", "--status"],
+    "Sync Alpaca paper account status/equity without submitting orders",
+)
+
 # Steps for Moomoo core-satellite strategy
 MOOMOO_STEPS = [
     Step(
@@ -253,6 +291,22 @@ ALPACA_STEPS = [
         [sys.executable, "alpaca_paper_gauntlet.py"],
         "Run Alpaca paper gauntlet health check",
     ),
+]
+
+# Local health-only mode must not submit fresh orders.  It can still sync
+# broker state, reconcile existing orders, and rebuild health dashboards.
+ALPACA_HEALTH_ONLY_STEPS = [
+    ALPACA_STATUS_STEP,
+    ALPACA_STEPS[1],  # alpaca_reconcile
+    ALPACA_STEPS[3],  # alpaca_paper_health
+    ALPACA_STEPS[4],  # alpaca_gauntlet
+]
+
+MOOMOO_HEALTH_ONLY_STEPS = [
+    MOOMOO_STEPS[1],  # moomoo_status
+    MOOMOO_STEPS[3],  # moomoo_health
+    MOOMOO_STEPS[4],  # moomoo_gauntlet
+    MOOMOO_STEPS[5],  # moomoo_daily_check
 ]
 
 # Regime change monitor — runs after BOTH strategies generate signals.
@@ -404,10 +458,42 @@ def build_steps(
     skip_factor_refresh: bool = False,
     run_moomoo: bool,
     run_alpaca: bool,
+    health_only: bool = False,
     stress: bool = False,
     report: bool = False,
 ) -> list[Step]:
     steps: list[Step] = []
+    if health_only:
+        steps.append(FILL_MONITOR_STEP)
+        if run_moomoo or run_alpaca:
+            health_flags = []
+            if run_alpaca:
+                health_flags.append("--alpaca")
+            if run_moomoo:
+                health_flags.append("--moomoo")
+            steps.append(Step(
+                "broker_health",
+                [sys.executable, "broker_health.py"] + health_flags,
+                f"Pre-flight broker connectivity check ({', '.join(health_flags)})",
+                critical=False,
+            ))
+        if run_moomoo:
+            steps.extend(MOOMOO_HEALTH_ONLY_STEPS)
+        if run_alpaca:
+            steps.extend(ALPACA_HEALTH_ONLY_STEPS)
+        steps.append(REGIME_MONITOR_STEP)
+        steps.append(MONITOR_HEARTBEAT_STEP)
+        steps.append(LOG_CLEANUP_STEP)
+        if stress:
+            steps.extend(STRESS_STEPS)
+        if report:
+            steps.append(Step(
+                "performance_report",
+                [sys.executable, "paper_report.py"],
+                "Generate side-by-side Moomoo vs Alpaca performance report",
+            ))
+        return steps
+
     if not skip_refresh:
         steps.append(ETF_REFRESH_STEP)
         if not skip_factor_refresh:
@@ -449,6 +535,120 @@ def build_steps(
     return steps
 
 
+def _git_output(args: list[str]) -> subprocess.CompletedProcess:
+    """Run git and capture bytes so CSV/JSON files copy exactly.
+
+    PLAIN ENGLISH: `git show branch:path` gives us the file as it exists on
+    GitHub's signals/latest branch.  We save those bytes locally.
+    """
+    return subprocess.run(
+        ["git", *args],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        check=False,
+    )
+
+
+def _latest_remote_signal_files(ref: str = SIGNALS_LATEST_REF) -> list[str]:
+    """List recent daily logs and health files available on the remote branch."""
+    proc = _git_output(["ls-tree", "-r", "--name-only", ref])
+    if proc.returncode != 0:
+        return []
+    all_files = proc.stdout.decode("utf-8", errors="replace").splitlines()
+    selected = set(GITHUB_SIGNAL_SYNC_FILES)
+    for prefix in GITHUB_SIGNAL_SYNC_PREFIXES:
+        matches = sorted(path for path in all_files if path.startswith(prefix))
+        selected.update(matches[-5:])
+    return sorted(selected)
+
+
+def sync_latest_github_signals(*, dry_run: bool = False, fetch: bool = True) -> dict:
+    """Copy latest GitHub Actions signal/dashboard files into the local tree.
+
+    PLAIN ENGLISH: Your laptop did not run the real trading job, GitHub did.
+    This function fetches the `signals/latest` branch and copies the latest
+    signal files, health JSONs, and daily run log into local `signals/`/`logs/`
+    so the local dashboard reflects the automated run.
+    """
+    start = datetime.now()
+    copied: list[str] = []
+    missing: list[str] = []
+    errors: list[str] = []
+
+    print(f"\n{'─'*60}")
+    print("  [github_signal_sync] Download latest signal/dashboard files from GitHub")
+    print(f"  Source: {SIGNALS_LATEST_BRANCH}")
+
+    if dry_run:
+        print("  ⏭  DRY RUN — skipped")
+        return {"name": "github_signal_sync", "status": "skipped", "elapsed": 0.0}
+
+    if fetch:
+        fetch_proc = _git_output([
+            "fetch",
+            "--quiet",
+            "origin",
+            f"+{SIGNALS_LATEST_BRANCH}:refs/remotes/{SIGNALS_LATEST_REF}",
+        ])
+        if fetch_proc.returncode != 0:
+            message = fetch_proc.stderr.decode("utf-8", errors="replace").strip() or "git fetch failed"
+            print(f"  ✗ FAILED fetch: {message}")
+            return {
+                "name": "github_signal_sync",
+                "status": "failed",
+                "elapsed": round((datetime.now() - start).total_seconds(), 1),
+                "error": message[:500],
+            }
+
+    remote_files = _latest_remote_signal_files()
+    if not remote_files:
+        message = f"no files found on {SIGNALS_LATEST_REF}; run GitHub Actions once or check the branch"
+        print(f"  ✗ FAILED: {message}")
+        return {
+            "name": "github_signal_sync",
+            "status": "failed",
+            "elapsed": round((datetime.now() - start).total_seconds(), 1),
+            "error": message,
+        }
+
+    for rel_path in remote_files:
+        show_proc = _git_output(["show", f"{SIGNALS_LATEST_REF}:{rel_path}"])
+        if show_proc.returncode != 0:
+            missing.append(rel_path)
+            continue
+        try:
+            out_path = PROJECT_ROOT / rel_path
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_bytes(show_proc.stdout)
+            copied.append(rel_path)
+        except OSError as exc:
+            errors.append(f"{rel_path}: {exc}")
+
+    elapsed = round((datetime.now() - start).total_seconds(), 1)
+    if errors:
+        print(f"  ✗ FAILED ({len(errors)} write errors, {len(copied)} copied)")
+        return {
+            "name": "github_signal_sync",
+            "status": "failed",
+            "elapsed": elapsed,
+            "copied_count": len(copied),
+            "missing_count": len(missing),
+            "error": "; ".join(errors[:3]),
+        }
+
+    print(f"  ✓ OK ({elapsed:.1f}s) — copied {len(copied)} files")
+    if missing:
+        print(f"  ⚠ Missing on {SIGNALS_LATEST_REF}: {', '.join(missing[:5])}")
+    return {
+        "name": "github_signal_sync",
+        "status": "ok",
+        "elapsed": elapsed,
+        "copied_count": len(copied),
+        "missing_count": len(missing),
+        "copied_files": copied,
+    }
+
+
 def run_steps(steps: list[Step], *, dry_run: bool, timeout: int) -> list[dict]:
     results: list[dict] = []
     blocked_by: str | None = None
@@ -478,7 +678,7 @@ def run_steps(steps: list[Step], *, dry_run: bool, timeout: int) -> list[dict]:
     return results
 
 
-def _write_startup_stubs(now: datetime, steps: list[Step]) -> None:
+def _write_startup_stubs(now: datetime, steps: list[Step], *, write_daily_stub: bool = True) -> None:
     """Write fresh watchdog files before the first step runs.
 
     PLAIN ENGLISH: `monitor_heartbeat.py` runs before `daily_run.py` writes the
@@ -489,22 +689,23 @@ def _write_startup_stubs(now: datetime, steps: list[Step]) -> None:
     # final results are written at the end of main()) doesn't false-positive
     # with "daily_run: output file missing".  The stub is overwritten with
     # the real summary when the run completes.
-    stub_path = LOGS / f"daily_run_{now.strftime('%Y%m%d')}.json"
-    try:
-        atomic_write_json(
-            {
-                "timestamp": now.isoformat(),
-                "status": "running",
-                "steps_total": len(steps),
-                "steps_ok": 0,
-                "steps_failed": 0,
-                "results": [],
-            },
-            stub_path,
-        )
-    except Exception as exc:
-        # Stub-writing is best-effort — don't block the run on it.
-        print(f"  ⚠ Could not write run stub ({exc}); continuing anyway.")
+    if write_daily_stub:
+        stub_path = LOGS / f"daily_run_{now.strftime('%Y%m%d')}.json"
+        try:
+            atomic_write_json(
+                {
+                    "timestamp": now.isoformat(),
+                    "status": "running",
+                    "steps_total": len(steps),
+                    "steps_ok": 0,
+                    "steps_failed": 0,
+                    "results": [],
+                },
+                stub_path,
+            )
+        except Exception as exc:
+            # Stub-writing is best-effort — don't block the run on it.
+            print(f"  ⚠ Could not write run stub ({exc}); continuing anyway.")
 
     # Same idea for fill_monitor.json: if fill_monitor.py crashes (e.g. a
     # broker module fails to import on a fresh runner), monitor_heartbeat
@@ -586,6 +787,10 @@ def main():
                         help="Also run the side-by-side performance report at the end")
     parser.add_argument("--stress", action="store_true",
                         help="Also run stress tests (factor decay, drawdown throttle, execution, survivorship)")
+    parser.add_argument("--health-only", action="store_true",
+                        help="Local dashboard refresh only: sync GitHub signals/latest, then run health checks without submitting orders")
+    parser.add_argument("--no-github-sync", action="store_true",
+                        help="With --health-only, skip downloading signal/dashboard files from GitHub")
     parser.add_argument("--skip-refresh", action="store_true",
                         help="Skip data refresh steps (use existing factor/ETF data as-is)")
     parser.add_argument("--skip-factor-refresh", action="store_true",
@@ -622,7 +827,7 @@ def main():
     # PLAIN ENGLISH: No point downloading data or submitting orders when
     # the stock market is closed.  We check if today is a weekday and not
     # a US market holiday.  Use --force to override (e.g. for testing).
-    if not args.dry_run and not args.force:
+    if not args.dry_run and not args.force and not args.health_only:
         today = datetime.now()
         # Saturday = 5, Sunday = 6
         if today.weekday() >= 5:
@@ -654,7 +859,7 @@ def main():
     _missing_keys: list[str] = []
     if not args.dry_run:
         import os as _os
-        if (args.alpaca or (not args.alpaca and not args.moomoo)):
+        if args.alpaca or args.health_only or (not args.alpaca and not args.moomoo):
             if not _os.environ.get("ALPACA_API_KEY", "").strip():
                 _missing_keys.append("ALPACA_API_KEY")
             if not _os.environ.get("ALPACA_SECRET_KEY", "").strip():
@@ -666,14 +871,21 @@ def main():
 
     # Determine which steps to run
     # If neither --moomoo nor --alpaca specified, run both
-    run_moomoo = args.moomoo or (not args.moomoo and not args.alpaca)
-    run_alpaca = args.alpaca or (not args.moomoo and not args.alpaca)
+    if args.health_only and not args.moomoo and not args.alpaca:
+        # GitHub Actions is Alpaca-only in this repo.  Default local
+        # health-only to Alpaca so laptops without Moomoo installed still work.
+        run_moomoo = False
+        run_alpaca = True
+    else:
+        run_moomoo = args.moomoo or (not args.moomoo and not args.alpaca)
+        run_alpaca = args.alpaca or (not args.moomoo and not args.alpaca)
 
     steps = build_steps(
         skip_refresh=bool(args.skip_refresh),
         skip_factor_refresh=bool(args.skip_factor_refresh),
         run_moomoo=bool(run_moomoo),
         run_alpaca=bool(run_alpaca),
+        health_only=bool(args.health_only),
         stress=bool(args.stress),
         report=bool(args.report),
     )
@@ -690,14 +902,22 @@ def main():
         print(f"  Alpaca: core-satellite unified signal")
     if args.dry_run:
         print(f"  ⚠ DRY RUN MODE — nothing will execute")
+    if args.health_only:
+        print("  Mode: health-only local dashboard refresh (no order submission)")
+        if not args.no_github_sync:
+            print("  GitHub sync: enabled — pulling signals/latest first")
     if args.skip_factor_refresh and not args.skip_refresh:
         print("  Factor refresh: skipped — using latest restored factor data/report")
     print(f"{'═'*60}")
 
-    _write_startup_stubs(now, steps)
+    pre_results: list[dict] = []
+    if args.health_only and not args.no_github_sync:
+        pre_results.append(sync_latest_github_signals(dry_run=bool(args.dry_run)))
+
+    _write_startup_stubs(now, steps, write_daily_stub=not bool(args.health_only))
 
     # Run each step
-    results = run_steps(steps, dry_run=bool(args.dry_run), timeout=int(args.timeout))
+    results = pre_results + run_steps(steps, dry_run=bool(args.dry_run), timeout=int(args.timeout))
 
     # Summary
     ok = sum(1 for r in results if r["status"] == "ok")
@@ -732,9 +952,11 @@ def main():
 
     # Save run log
     import json
-    log_path = LOGS / f"daily_run_{now.strftime('%Y%m%d')}.json"
+    log_prefix = "local_health" if args.health_only else "daily_run"
+    log_path = LOGS / f"{log_prefix}_{now.strftime('%Y%m%d')}.json"
     run_log = {
         "timestamp": now.isoformat(),
+        "mode": "health_only" if args.health_only else "daily_run",
         "steps_total": len(results),
         "steps_ok": ok,
         "steps_failed": failed + errors + blocked,

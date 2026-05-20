@@ -24,6 +24,7 @@ python3 daily_run.py --alpaca     # only run Alpaca steps
 python3 daily_run.py --stress     # also run stress tests
 python3 daily_run.py --report     # also run side-by-side performance report
 python3 daily_run.py --skip-refresh  # skip data download (use existing data)
+python3 daily_run.py --health-only   # local dashboard refresh after GitHub Actions trades
 python3 daily_run.py --force      # run even on weekends/holidays
 ```
 
@@ -37,6 +38,8 @@ python3 daily_run.py --force      # run even on weekends/holidays
 | `--report` | After the normal pipeline, also run `paper_report.py` for a side-by-side Moomoo vs Alpaca performance comparison. |
 | `--stress` | After the normal pipeline, also run 4 stress tests: factor decay, drawdown throttle, execution stress, survivorship audit. |
 | `--skip-refresh` | Skip steps 1-2 (ETF data download + factor panel refresh). Use when data is already fresh and you just want to resubmit orders. |
+| `--health-only` | Fetch the latest `signals/latest` files from GitHub, then run local health checks without generating a new signal or submitting orders. Defaults to Alpaca-only. |
+| `--no-github-sync` | With `--health-only`, skip the GitHub file download and use local files as-is. |
 | `--force` | Run even on weekends and US market holidays. Normally the script auto-skips non-trading days. |
 | `--timeout N` | Max seconds each step is allowed to run before being killed (default: 300). Increase if `research.py` is slow on your machine. |
 
