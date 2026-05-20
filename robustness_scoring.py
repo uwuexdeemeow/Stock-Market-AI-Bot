@@ -1,17 +1,51 @@
 """
 Shared robustness objective for strategy grid selection.
 
-The objective intentionally stays in Sharpe units:
+The default objective stays in Sharpe units:
 
     score = Sharpe - drawdown penalty - turnover penalty - instability penalty
 
 It does not reward CAGR or total return. Those metrics can still be reported,
 but they should not be the primary optimizer target.
+
+Experimental alternative — set env var ROBUSTNESS_OBJECTIVE=alpha_vs_qqq:
+
+    score = (alpha_vs_qqq_pct / 10) - drawdown penalty - instability penalty
+            (NO turnover penalty in this objective)
+
+Rationale: a per-fold audit on the 14-year walkforward CSV found that
+`inner_mean_alpha_vs_qqq` was the only metric with positive correlation
+to OOS Sharpe (+0.121), while the current Sharpe-stack scored -0.147
+(slightly anti-predictive after the best-of-N selection bias).  Also,
+`inner_mean_turnover` came in at +0.189 OOS-Sharpe correlation —
+hinting that the turnover penalty was actively hurting selection.
+
+Divisor of 10 brings alpha-percent into the same numeric range as
+Sharpe (typical OOS aSPY is 5-30 in pct, vs Sharpe 0.5-3), so the
+existing penalty magnitudes stay roughly proportional.
+
+Switch via env var so we can A/B test without breaking existing tests
+or downstream consumers that expect Sharpe-units.
 """
 from __future__ import annotations
 
 import math
+import os
 from typing import Any, Iterable, Mapping, Sequence
+
+
+# Selection objective.  Default keeps the original Sharpe-based score so
+# existing tests and live config flow are unchanged unless the user
+# opts in via env var.
+DEFAULT_OBJECTIVE = "sharpe"
+_VALID_OBJECTIVES = ("sharpe", "alpha_vs_qqq")
+def _objective_from_env() -> str:
+    raw = (os.environ.get("ROBUSTNESS_OBJECTIVE") or DEFAULT_OBJECTIVE).strip().lower()
+    if raw not in _VALID_OBJECTIVES:
+        raise ValueError(
+            f"ROBUSTNESS_OBJECTIVE={raw!r} not in {_VALID_OBJECTIVES}"
+        )
+    return raw
 
 
 DEFAULT_DRAWDOWN_TOLERANCE_PCT = 25.0
@@ -84,8 +118,24 @@ def robustness_score_components(
     turnover_penalty_span_pct: float = DEFAULT_TURNOVER_PENALTY_SPAN_PCT,
     instability_flag_penalty: float = DEFAULT_INSTABILITY_FLAG_PENALTY,
     instability_flags: tuple[str, ...] = INSTABILITY_FLAGS,
+    objective: str | None = None,
 ) -> dict[str, float]:
-    """Return the robustness score and its penalty components."""
+    """Return the robustness score and its penalty components.
+
+    `objective` selects the primary metric:
+      - "sharpe" (default): the original Sharpe-stack objective
+      - "alpha_vs_qqq": experimental — primary metric is alpha vs QQQ
+        (the only inner metric that had positive OOS correlation in the
+        14-year audit).  Turnover penalty is dropped in this mode
+        because inner_mean_turnover came in at +0.19 OOS-Sharpe
+        correlation — penalizing it was working against selection.
+
+    `objective=None` falls through to the env var
+    `ROBUSTNESS_OBJECTIVE` (default "sharpe").
+    """
+    if objective is None:
+        objective = _objective_from_env()
+
     sharpe = _as_float(_get(row, "sharpe"), 0.0)
 
     max_drawdown_pct = _as_float(_get(row, "max_drawdown_pct"), 0.0)
@@ -107,12 +157,28 @@ def robustness_score_components(
         if value is False:
             instability_penalty += float(instability_flag_penalty)
 
-    score = sharpe - drawdown_penalty - turnover_penalty - instability_penalty
+    if objective == "alpha_vs_qqq":
+        # Use alpha vs QQQ as primary metric.  Divide by 10 to bring %
+        # units into the same range as Sharpe so the drawdown / instability
+        # penalties retain their relative magnitudes.
+        alpha_vs_qqq_pct = _as_float(_get(row, "alpha_vs_qqq_pct"), 0.0)
+        primary_metric = alpha_vs_qqq_pct / 10.0
+        # Skip turnover penalty in this mode — historical audit showed
+        # higher turnover correlated POSITIVELY with OOS Sharpe.
+        score = primary_metric - drawdown_penalty - instability_penalty
+        turnover_penalty_applied = 0.0
+    else:  # "sharpe" (default)
+        primary_metric = sharpe
+        score = sharpe - drawdown_penalty - turnover_penalty - instability_penalty
+        turnover_penalty_applied = turnover_penalty
+
     return {
         "robustness_score": round(float(score), 4),
         "drawdown_penalty": round(float(drawdown_penalty), 4),
-        "turnover_penalty": round(float(turnover_penalty), 4),
+        "turnover_penalty": round(float(turnover_penalty_applied), 4),
         "instability_penalty": round(float(instability_penalty), 4),
+        "objective": objective,
+        "primary_metric": round(float(primary_metric), 4),
     }
 
 
