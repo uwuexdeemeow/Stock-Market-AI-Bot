@@ -93,7 +93,7 @@ def _feature_quality_status(
         return status
 
     try:
-        payload = json.loads(report_path.read_text())
+        payload = json.loads(report_path.read_text(encoding="utf-8", errors="replace"))
     except Exception as exc:
         status["reason"] = f"invalid_json:{exc}"
         return status

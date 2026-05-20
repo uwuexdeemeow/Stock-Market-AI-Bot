@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 
 from broker_interface import Broker, Order, Position, Fill
-from safe_io import atomic_write_csv, atomic_write_json
+from safe_io import atomic_write_csv, atomic_write_json, configure_console_output
 from settings import SIGNAL_DIR
 from signal_freshness import (
     extract_signal_weights,
@@ -50,6 +50,8 @@ from alpaca_protection import (
     cancel_core_etf_protective_stops,
     repair_core_etf_protective_stops,
 )
+
+configure_console_output()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIG — all from environment variables
@@ -1019,7 +1021,7 @@ def _maybe_auto_clear_halt(broker: AlpacaBroker) -> bool:
     # This prevents clearing the same day the halt fired — gives you time
     # to review what happened.
     try:
-        sentinel_text = _HALT_SENTINEL_FILE.read_text()
+        sentinel_text = _HALT_SENTINEL_FILE.read_text(encoding="utf-8", errors="replace")
         # Parse the timestamp from the first line: "Emergency liquidation triggered at 2026-05-14T..."
         ts_str = sentinel_text.split("at ")[-1].split("\n")[0].strip()
         halt_time = datetime.fromisoformat(ts_str)

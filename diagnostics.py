@@ -9,9 +9,10 @@ import json
 import os
 import platform
 import shutil
-import subprocess
 import sys
 from pathlib import Path
+
+from safe_io import run_utf8
 
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
@@ -41,7 +42,7 @@ def detect_acceleration_backend():
     try:
         nvidia_smi = shutil.which("nvidia-smi")
         if nvidia_smi:
-            smi = subprocess.run([nvidia_smi, "--query-gpu=name", "--format=csv,noheader"], capture_output=True, text=True, timeout=5)
+            smi = run_utf8([nvidia_smi, "--query-gpu=name", "--format=csv,noheader"], capture_output=True, timeout=5)
             if smi.returncode == 0:
                 names = [x.strip() for x in smi.stdout.splitlines() if x.strip()]
                 if names:

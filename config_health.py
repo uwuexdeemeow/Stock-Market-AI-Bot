@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 from datetime import datetime, timezone
 from importlib import metadata
@@ -12,6 +11,7 @@ from pathlib import Path
 from packaging.requirements import Requirement
 from packaging.version import Version
 
+from safe_io import run_utf8
 from settings import LOG_DIR
 
 
@@ -47,7 +47,7 @@ def _requirement_ok(dist_name: str, spec: str) -> dict:
 
 
 def _pip_check() -> dict:
-    result = subprocess.run([sys.executable, "-m", "pip", "check"], text=True, capture_output=True)
+    result = run_utf8([sys.executable, "-m", "pip", "check"], capture_output=True)
     return {
         "ok": result.returncode == 0,
         "stdout": result.stdout.strip(),

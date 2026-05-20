@@ -39,7 +39,7 @@ SHORTLIST_BASE = Path("logs/feature_ic_shortlist.csv.gitbase")
 def _read_n_features() -> int:
     """Return the number of graded features in the current report, or 0."""
     try:
-        data = json.loads(REPORT.read_text())
+        data = json.loads(REPORT.read_text(encoding="utf-8", errors="replace"))
     except (OSError, ValueError) as exc:
         print(f"Could not read {REPORT}: {exc}")
         return 0

@@ -46,10 +46,6 @@ Usage:
 """
 from __future__ import annotations
 
-# `subprocess.run` is the modern Python way to spawn another program
-# and wait for it to finish.  We use it to launch the walkforward
-# script repeatedly in fresh Python interpreters.
-import subprocess
 # `sys` gives us access to the Python executable path (`sys.executable`)
 # and the command-line arguments the user typed (`sys.argv`).  Using
 # sys.executable rather than hard-coding "python" makes the script
@@ -66,6 +62,8 @@ from pathlib import Path
 # `time` lets us measure how long each batch takes so the user sees
 # progress reporting.
 import time
+
+from safe_io import run_utf8
 
 
 # Where the walkforward writes its per-fold checkpoint file.  This
@@ -165,12 +163,12 @@ def main() -> int:
         cmd = _build_inner_command(forwarded_args, wrapper_args.batch_size)
         print(f"\n[batched] batch {batch_idx}/{wrapper_args.max_batches}: launching subprocess")
         print(f"          cmd: {' '.join(cmd)}")
-        # `subprocess.run` with no `capture_output` lets the inner
+        # `run_utf8` with no `capture_output` lets the inner
         # script's stdout/stderr go straight to the user's terminal —
         # they see the same logging they'd see without the wrapper.
         # `check=False` because we want to inspect the return code
         # ourselves, not raise on non-zero exit.
-        result = subprocess.run(cmd, check=False)
+        result = run_utf8(cmd, check=False)
         batch_elapsed = time.time() - batch_started_at
 
         # The subprocess may exit non-zero for legitimate reasons (e.g.

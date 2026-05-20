@@ -54,7 +54,7 @@ _STATUS_SEVERITY = {"ok": 0, "advisory": 1, "warning": 2, "block": 3}
 def _previous_status() -> str:
     """Return the edge_health_status from the most recent JSON, or 'ok'."""
     try:
-        prev = json.loads(OUT_JSON.read_text())
+        prev = json.loads(OUT_JSON.read_text(encoding="utf-8", errors="replace"))
         return str(prev.get("edge_health_status") or "ok")
     except (FileNotFoundError, ValueError, OSError):
         return "ok"
@@ -175,7 +175,7 @@ def aggregate_edge_health_status(rows: list[dict]) -> str:
 def _selected_config() -> dict:
     if not METRICS_PATH.exists():
         raise SystemExit("Missing signals/core_satellite_alpha_metrics.json. Run core_satellite_alpha.py first.")
-    metrics = json.loads(METRICS_PATH.read_text())
+    metrics = json.loads(METRICS_PATH.read_text(encoding="utf-8", errors="replace"))
     keys = (
         "regime_mode",
         "score_source",

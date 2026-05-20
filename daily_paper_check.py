@@ -16,6 +16,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from safe_io import run_utf8
 from settings import LOG_DIR, SIGNAL_DIR
 
 
@@ -38,10 +39,9 @@ def _run_step(name: str, cmd: list[str], *, timeout: int) -> dict:
     print(f"\n[{name}] {' '.join(cmd)}")
     started = datetime.now(timezone.utc)
     try:
-        result = subprocess.run(
+        result = run_utf8(
             cmd,
             cwd=ROOT,
-            text=True,
             capture_output=True,
             timeout=timeout,
         )

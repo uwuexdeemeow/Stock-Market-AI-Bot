@@ -53,7 +53,7 @@ def _load_selected_config() -> dict:
     metrics_path = Path(SIGNAL_DIR) / "core_satellite_alpha_metrics.json"
     if not metrics_path.exists():
         raise SystemExit("Missing signals/core_satellite_alpha_metrics.json. Run core_satellite_alpha.py first.")
-    metrics = json.loads(metrics_path.read_text())
+    metrics = json.loads(metrics_path.read_text(encoding="utf-8", errors="replace"))
     return {key: metrics[key] for key in CONFIG_KEYS if key in metrics}
 
 

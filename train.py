@@ -21,7 +21,6 @@ import json
 import logging
 import os
 import pickle
-import subprocess
 import sys
 from datetime import datetime
 
@@ -50,6 +49,7 @@ from labels import (
 from model_quality import evaluate_model_quality, update_scaler_metadata, upsert_quality_report
 from nested_cv import nested_walk_forward_search
 from pipeline_shared import apply_sentiment_distribution_matching, fit_sentiment_zscore_stats
+from safe_io import run_utf8
 from settings import (
     DATA_DIR,
     MODEL_DIR,
@@ -2452,7 +2452,7 @@ def main() -> None:
 
     if not args.skip_leakage_audit:
         audit_cmd = [sys.executable, "leakage_audit.py"]
-        audit = subprocess.run(audit_cmd, cwd=os.path.dirname(os.path.abspath(__file__)), capture_output=True, text=True)
+        audit = run_utf8(audit_cmd, cwd=os.path.dirname(os.path.abspath(__file__)), capture_output=True)
         if audit.stdout:
             log.info("Leakage audit output:\n%s", audit.stdout.strip())
         if audit.stderr:

@@ -2,10 +2,23 @@
 settings.py — XGBoost-only unified settings
 """
 import os
+import sys
 from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()  # loads .env file from project root into os.environ
+
+
+def _configure_console_output() -> None:
+    """Keep Windows cp1252 consoles from crashing on Unicode status text."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except Exception:
+            pass
+
+
+_configure_console_output()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # API / GENERAL

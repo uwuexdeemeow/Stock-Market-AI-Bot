@@ -47,7 +47,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from safe_io import atomic_write_json
+from safe_io import atomic_write_json, popen_utf8
 from settings import LOG_DIR, SIGNAL_DIR
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -394,11 +394,10 @@ def run_step(
     TAIL_SIZE = 200  # keep last 200 lines of each stream for summary/diagnostics
 
     try:
-        proc = subprocess.Popen(
+        proc = popen_utf8(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
             bufsize=1,  # line-buffered
             cwd=str(Path(__file__).parent),
         )

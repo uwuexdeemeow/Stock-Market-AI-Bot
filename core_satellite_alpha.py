@@ -1789,7 +1789,7 @@ def _select_live_status_path() -> tuple[Path, str]:
     # Both exist — compare generated_at JSON values.
     def _ts(path: Path) -> str:
         try:
-            payload = json.loads(path.read_text())
+            payload = json.loads(path.read_text(encoding="utf-8", errors="replace"))
             return str(payload.get("generated_at", ""))
         except Exception:
             return ""
@@ -1902,7 +1902,7 @@ def _load_live_sticky_overlay_state(
 
     if status_path.exists():
         try:
-            status = json.loads(status_path.read_text())
+            status = json.loads(status_path.read_text(encoding="utf-8", errors="replace"))
         except Exception:
             status = None
         if isinstance(status, dict):
@@ -2349,7 +2349,7 @@ def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
             "Run `python3 core_satellite_nested_walkforward.py --strategy core-alpha` first."
         )
     try:
-        payload = json.loads(LIVE_CONFIG_PATH.read_text())
+        payload = json.loads(LIVE_CONFIG_PATH.read_text(encoding="utf-8", errors="replace"))
     except json.JSONDecodeError as exc:
         raise SystemExit(f"Invalid approved live config file {LIVE_CONFIG_PATH}: {exc}") from exc
 

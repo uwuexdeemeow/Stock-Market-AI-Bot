@@ -89,8 +89,8 @@ def load_walkforward_predictions() -> dict:
     if not LIVE_CONFIG_FILE.exists():
         return {}
     try:
-        payload = json.loads(LIVE_CONFIG_FILE.read_text())
-    except (json.JSONDecodeError, OSError):
+        payload = json.loads(LIVE_CONFIG_FILE.read_text(encoding="utf-8", errors="replace"))
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
         return {}
     live = payload.get("approved_live_configs", {}).get("core-alpha", {})
     return live.get("source_metrics", {})

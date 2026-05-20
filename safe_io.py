@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Union
 
@@ -124,6 +125,83 @@ def atomic_write_json(data: object, path: Union[str, Path], *, indent: int = 2) 
     atomic_write_text(path, content)
 
 
+def configure_console_output() -> None:
+    """Make Python prints survive older Windows code pages.
+
+    PLAIN ENGLISH: Some Windows terminals use cp1252, which cannot print
+    common status symbols. Replacing unsupported characters is better than
+    crashing a trading run.
+    """
+    import sys
+
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except Exception:
+            pass
+
+
+configure_console_output()
+
+
+def utf8_subprocess_env(env: dict[str, str] | None = None) -> dict[str, str]:
+    """Return environment variables that keep child Python output UTF-8.
+
+    PLAIN ENGLISH: Parent scripts often read child script output through a
+    pipe. This tells child Python processes to write UTF-8 so the parent can
+    decode the output consistently on Windows, macOS, and Linux.
+    """
+    child_env = os.environ.copy()
+    if env:
+        child_env.update(env)
+    child_env["PYTHONIOENCODING"] = "utf-8"
+    return child_env
+
+
+def run_utf8(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
+    """Run a subprocess with UTF-8 text decoding.
+
+    PLAIN ENGLISH: Use this instead of `subprocess.run(..., text=True)` when
+    capturing output. Bad bytes become replacement characters instead of a
+    UnicodeDecodeError.
+    """
+    env = kwargs.pop("env", None)
+    return subprocess.run(
+        cmd,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=utf8_subprocess_env(env),
+        **kwargs,
+    )
+
+
+def popen_utf8(cmd: list[str], **kwargs) -> subprocess.Popen:
+    """Start a subprocess whose text output is decoded as UTF-8 safely."""
+    env = kwargs.pop("env", None)
+    return subprocess.Popen(
+        cmd,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=utf8_subprocess_env(env),
+        **kwargs,
+    )
+
+
+def check_output_utf8(cmd: list[str], **kwargs) -> str:
+    """Return subprocess output decoded as UTF-8 safely."""
+    env = kwargs.pop("env", None)
+    return subprocess.check_output(
+        cmd,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=utf8_subprocess_env(env),
+        **kwargs,
+    )
+
+
 # ─────────────────────────────────────────────────────────────────────────
 # Process-level locking
 # ─────────────────────────────────────────────────────────────────────────
@@ -186,7 +264,7 @@ class PidLock:
         except (IOError, OSError) as exc:
             # Read the existing PID for the error message (best effort).
             try:
-                existing_pid = self.lock_path.read_text().strip() or "unknown"
+                existing_pid = self.lock_path.read_text(encoding="utf-8", errors="replace").strip() or "unknown"
             except OSError:
                 existing_pid = "unknown"
             self._fh.close()

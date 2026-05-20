@@ -16,6 +16,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from safe_io import popen_utf8
+
 
 # ── Color palette (consistent across pages) ────────────────────────────
 COLOR_OK = "#22c55e"      # green
@@ -417,11 +419,10 @@ def run_script(cmd: list[str], label: str, *,
 
     # Run the subprocess with line-buffered output
     try:
-        proc = subprocess.Popen(
+        proc = popen_utf8(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            text=True,
             bufsize=1,
             cwd=str(cwd) if cwd else None,
             env={**__import__("os").environ, "PYTHONUNBUFFERED": "1"},

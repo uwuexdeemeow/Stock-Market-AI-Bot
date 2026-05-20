@@ -16,6 +16,7 @@ from typing import Any
 
 import pandas as pd
 
+from safe_io import check_output_utf8
 from settings import LOG_DIR
 
 LEDGER_JSONL = os.path.join(LOG_DIR, "experiment_ledger.jsonl")
@@ -24,10 +25,9 @@ LEDGER_CSV = os.path.join(LOG_DIR, "experiment_ledger.csv")
 
 def _git_sha() -> str:
     try:
-        return subprocess.check_output(
+        return check_output_utf8(
             ["git", "rev-parse", "--short", "HEAD"],
             stderr=subprocess.DEVNULL,
-            text=True,
         ).strip()
     except Exception:
         return "unknown"

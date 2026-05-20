@@ -165,7 +165,7 @@ def load_adaptive_factor_weights(
     }
 
     try:
-        payload = _json.loads(Path(adaptive_weights_file).read_text())
+        payload = _json.loads(Path(adaptive_weights_file).read_text(encoding="utf-8", errors="replace"))
         weights_raw = payload.get("weights", {})
         missing = [col for col in factor_cols if col not in weights_raw]
         if missing:

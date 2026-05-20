@@ -68,6 +68,8 @@ import time
 # `pathlib.Path` for cleaner file existence checks at the end.
 from pathlib import Path
 
+from safe_io import run_utf8
+
 
 # Each Step is just a name + the argv to run + whether a failure here
 # should abort the whole script.  Keeping these as plain tuples keeps
@@ -113,7 +115,7 @@ def _run_step(step: Step, dry_run: bool) -> tuple[bool, float]:
     try:
         # check=False so we can inspect the return code ourselves —
         # critical-vs-non-critical handling lives in the caller.
-        result = subprocess.run(
+        result = run_utf8(
             step.argv,
             check=False,
             timeout=step.timeout_seconds,

@@ -150,11 +150,12 @@ def _auto_detect_workers() -> int:
             # macOS: use vm_stat to get free + inactive pages (these are
             # reclaimable, so they count as "available" to a new pool).
             import subprocess
+            from safe_io import check_output_utf8
             _clean_env = {k: v for k, v in os.environ.items()
                           if not k.startswith("Malloc")}
-            raw = subprocess.check_output(["vm_stat"], timeout=5,
-                                          text=True, env=_clean_env,
-                                          stderr=subprocess.DEVNULL)
+            raw = check_output_utf8(["vm_stat"], timeout=5,
+                                    env=_clean_env,
+                                    stderr=subprocess.DEVNULL)
             page_size = 4096
             free_pages = 0
             inactive_pages = 0
@@ -435,7 +436,7 @@ def _load_checkpoint(strategy: str, key: str, *, accept_keys: set[str] | None = 
     if not path.exists():
         return None
     try:
-        payload = _json.loads(path.read_text())
+        payload = _json.loads(path.read_text(encoding="utf-8", errors="replace"))
     except Exception:
         return None
     on_disk_key = payload.get("key")
@@ -2657,8 +2658,8 @@ def write_outputs(
     existing_payload: dict = {}
     if LIVE_CONFIG_PATH.exists():
         try:
-            existing_payload = json.loads(LIVE_CONFIG_PATH.read_text())
-        except (json.JSONDecodeError, OSError):
+            existing_payload = json.loads(LIVE_CONFIG_PATH.read_text(encoding="utf-8", errors="replace"))
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError):
             existing_payload = {}
     merged_approvals = dict(existing_payload.get("approvals", {}))
     merged_configs = dict(existing_payload.get("approved_live_configs", {}))

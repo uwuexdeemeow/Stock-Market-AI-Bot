@@ -15,6 +15,7 @@ import streamlit as st
 # GITHUB_TOKEN gets picked up from .env even if you navigate straight here.
 from dashboard import data as _dashboard_data  # noqa: F401 (side effect: load .env)
 from dashboard.components import sidebar_refresh, status_chip
+from safe_io import run_utf8
 
 
 st.set_page_config(page_title="GitHub Actions", page_icon="•", layout="wide")
@@ -29,10 +30,9 @@ st.title("GitHub Actions")
 def _detect_repo() -> Optional[str]:
     """Read .git/config to find the GitHub repo (owner/name)."""
     try:
-        import subprocess
-        r = subprocess.run(
+        r = run_utf8(
             ["git", "config", "--get", "remote.origin.url"],
-            capture_output=True, text=True, timeout=2,
+            capture_output=True, timeout=2,
         )
         url = r.stdout.strip()
         if "github.com" not in url:
