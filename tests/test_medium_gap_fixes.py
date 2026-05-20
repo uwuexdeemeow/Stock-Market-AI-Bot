@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import gc
 import sys
 import types
+import weakref
 
 import pandas as pd
 
@@ -10,6 +12,27 @@ import core_satellite_alpha as csa
 import core_satellite_nested_walkforward as nwf
 import factor_decay_monitor
 import paper_gauntlet
+
+
+def test_panel_day_cache_rebuilds_when_dataframe_id_entry_is_stale():
+    """A recycled DataFrame id must not return a day map from an old panel."""
+    csa.clear_panel_day_cache()
+    date = pd.Timestamp("2024-01-01")
+
+    old_panel = pd.DataFrame({"date": [date], "sentinel": [-1]})
+    old_ref = weakref.ref(old_panel)
+    old_map = {date: old_panel}
+    del old_panel
+    gc.collect()
+
+    panel = pd.DataFrame({"date": [date], "sentinel": [42]})
+    csa._PANEL_DAY_CACHE[id(panel)] = (old_ref, old_map)
+
+    day_map = csa._panel_day_map(panel)
+
+    assert int(day_map[date]["sentinel"].iloc[0]) == 42
+    assert len(csa._PANEL_DAY_CACHE) <= csa._MAX_PANEL_DAY_ENTRIES
+    csa.clear_panel_day_cache()
 
 
 def test_paper_gauntlet_excludes_fresh_open_orders_from_matured_fill_rate(monkeypatch):

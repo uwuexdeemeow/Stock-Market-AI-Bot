@@ -241,6 +241,7 @@ from core_satellite_alpha import (
     SHAPES,
     WEIGHTING_MODES,
     _ensure_robust_score_columns,
+    clear_panel_day_cache,
     evaluate,
 )
 from settings import LOG_DIR, SIGNAL_DIR
@@ -940,6 +941,7 @@ def evaluate_window(panel: pd.DataFrame, config: dict, start: pd.Timestamp, end:
         metrics = None
         equity = None
         trades = None
+        clear_panel_day_cache()
         eval_panel = None  # drop the panel slice reference too
 
 
@@ -2412,6 +2414,16 @@ def run_nested_walkforward(
         # Holding onto them just balloons RAM — clearing after each fold
         # keeps peak memory at one-fold-worth rather than all-folds-worth.
         eval_cache.clear()
+        # Also release the per-panel day-map cache from core_satellite_alpha.
+        # That cache is bounded at _MAX_PANEL_DAY_ENTRIES (default 4) so it
+        # already self-limits during a fold, but explicitly clearing between
+        # folds prevents one fold's slice DataFrames from staying alive into
+        # the next fold via cached entries that the next fold won't reuse.
+        try:
+            from core_satellite_alpha import clear_panel_day_cache
+            clear_panel_day_cache()
+        except ImportError:
+            pass  # older builds of core_satellite_alpha may lack this helper
         gc.collect()
 
         # ── Checkpoint: persist this fold so a crash loses at most one fold ──

@@ -686,7 +686,37 @@ MAX_POSITIVE_YEAR_ALPHA_SHARE = 0.35
 MAX_TOP_TICKER_CONTRIB_SHARE = 0.50
 ROBUST_COST_STRESSES = (2.0, 3.0, 5.0)
 PERIODS_PER_YEAR = 252.0 / HORIZON_DAYS
-_PANEL_DAY_CACHE: dict[int, dict[pd.Timestamp, pd.DataFrame]] = {}
+# ── Per-panel day-map cache ────────────────────────────────────────────
+# `_panel_day_map(panel)` splits a panel into `{date: day_frame}` so the
+# main strategy loop can do O(1) lookups instead of re-filtering by date
+# every rebalance.  Building the map is ~50-200 MB depending on panel
+# size, which is why we cache it.
+#
+# The naive cache (`dict[id(panel), mapped]`, unbounded) was responsible
+# for the nested-walkforward memory leak: `evaluate_window` creates a
+# NEW sliced DataFrame each call (`panel.loc[panel["_date"] <= end_ts]`)
+# so every call had a different `id()` and missed the cache, but the
+# cache held STRONG references to all prior `mapped` dicts (which in
+# turn referenced their slice DataFrames via groupby).  After 960
+# evaluate_window calls per outer fold the cache held ~960 day maps,
+# each ~150-200 MB → main process working set ballooned past physical
+# RAM.
+#
+# Fix: bounded LRU eviction plus weak identity checks.  Keep only the most
+# recent _MAX_PANEL_DAY_ENTRIES panels; anything older falls off and its
+# mapped dict becomes eligible for GC.  The weakref matters because Python can
+# reuse `id(panel)` after a DataFrame is freed.  If that happens, we rebuild
+# instead of accidentally returning a day map for an old, different panel.
+import collections as _collections
+import weakref as _weakref
+try:
+    _MAX_PANEL_DAY_ENTRIES = max(1, int(os.environ.get("PANEL_DAY_CACHE_MAX_ENTRIES", "4")))
+except ValueError:
+    _MAX_PANEL_DAY_ENTRIES = 4
+_PANEL_DAY_CACHE: _collections.OrderedDict[
+    int,
+    tuple[_weakref.ReferenceType[pd.DataFrame], dict[pd.Timestamp, pd.DataFrame]],
+] = _collections.OrderedDict()
 # (key) -> (cached_dataframe, inserted_at_unix_timestamp).  TTL guards
 # against a long-running process (notebook, dashboard, GitHub Actions
 # step that loops) seeing stale ETF prices after new parquet writes —
@@ -711,13 +741,37 @@ def _regime_preset_with_overlay_gross(regime_preset: dict, overlay_gross: float)
 
 
 def _panel_day_map(panel: pd.DataFrame) -> dict[pd.Timestamp, pd.DataFrame]:
+    """Return a `{date: day_frame}` view of `panel`, cached per panel.
+
+    Cache is an OrderedDict bounded at `_MAX_PANEL_DAY_ENTRIES` — when
+    we exceed that count, the least-recently-used entry is evicted.
+    Each entry also stores a weak reference to the exact DataFrame object
+    that created it, so a recycled Python object id cannot return stale data.
+    """
     cache_key = id(panel)
     cached = _PANEL_DAY_CACHE.get(cache_key)
     if cached is not None:
-        return cached
+        cached_panel_ref, cached_map = cached
+        if cached_panel_ref() is panel:
+            # move_to_end marks this entry as most-recently-used so the
+            # next evict-on-overflow drops something staler.
+            _PANEL_DAY_CACHE.move_to_end(cache_key)
+            return cached_map
+        # Same integer id, different DataFrame.  Drop the stale map before
+        # rebuilding so the caller never receives rows from an old panel.
+        _PANEL_DAY_CACHE.pop(cache_key, None)
     mapped = {pd.Timestamp(dt): day for dt, day in panel.groupby("date", sort=True)}
-    _PANEL_DAY_CACHE[cache_key] = mapped
+    _PANEL_DAY_CACHE[cache_key] = (_weakref.ref(panel), mapped)
+    # Evict the oldest entry if we're over the bound.  popitem(last=False)
+    # drops from the FRONT, which is the LRU since we move_to_end on hit.
+    while len(_PANEL_DAY_CACHE) > _MAX_PANEL_DAY_ENTRIES:
+        _PANEL_DAY_CACHE.popitem(last=False)
     return mapped
+
+
+def clear_panel_day_cache() -> None:
+    """Release cached day maps after memory-heavy validation batches."""
+    _PANEL_DAY_CACHE.clear()
 
 
 def _cached_etf_prices(price_index: pd.DatetimeIndex, tickers: list[str]) -> pd.DataFrame:
