@@ -1002,7 +1002,7 @@ def test_inner_selection_rejects_configs_above_turnover_cap(monkeypatch):
     assert selected["metrics"]["inner_mean_turnover_pct"] == 100.0
 
 
-def test_inner_selection_momentum_bonus_disabled_after_audit(monkeypatch):
+def test_inner_selection_momentum_bonus_still_enabled_after_ab(monkeypatch):
     config = {"name": "sticky", "nested_params": {"holding_days": 10}}
     folds = [
         InnerFold(
@@ -1039,7 +1039,118 @@ def test_inner_selection_momentum_bonus_disabled_after_audit(monkeypatch):
         prior_selected_sigs=[prior_sig, prior_sig, prior_sig],
     )
 
-    assert selected["metrics"]["inner_config_momentum_bonus"] == 0.0
+    assert selected["metrics"]["inner_config_momentum_bonus"] == 0.15
+
+
+def test_inner_selection_can_use_median_score_aggregation(monkeypatch):
+    config = {"name": "median_candidate", "nested_params": {"holding_days": 10}}
+    folds = [
+        InnerFold(
+            validation_year=year,
+            train_end=pd.Timestamp(f"{year - 1}-12-31"),
+            validation_start=pd.Timestamp(f"{year}-01-01"),
+            validation_end=pd.Timestamp(f"{year}-12-31"),
+        )
+        for year in (2021, 2022, 2023)
+    ]
+    alpha_by_year = {2021: 1.0, 2022: 2.0, 2023: 30.0}
+
+    def fake_evaluate_window(panel, config, start, end):
+        alpha = alpha_by_year[pd.Timestamp(start).year]
+        return {
+            "sharpe": 1.0,
+            "total_return_pct": alpha,
+            "max_drawdown_pct": -5.0,
+            "turnover_pct": 100.0,
+            "alpha_vs_spy_pct": alpha,
+            "alpha_vs_qqq_pct": alpha,
+            "alpha_vs_blend_pct": alpha,
+        }
+
+    monkeypatch.setattr(nested_wf, "evaluate_window", fake_evaluate_window)
+    monkeypatch.setenv("WALKFORWARD_INNER_AGG", "median")
+    selected = select_config_from_inner_folds(pd.DataFrame(), [config], folds)
+
+    assert selected["metrics"]["inner_score_aggregation"] == "median"
+    assert selected["metrics"]["inner_mean_score"] == 1.1
+    assert selected["metrics"]["inner_median_score"] == 0.2
+    assert selected["score"] < selected["metrics"]["inner_mean_score"]
+
+
+def test_walkforward_checkpoint_key_changes_with_inner_aggregation(monkeypatch):
+    configs = [{"name": "a", "nested_params": {"holding_days": 10}}]
+    monkeypatch.setenv("WALKFORWARD_INNER_AGG", "mean")
+    mean_key = nested_wf._ckpt_key("core-alpha", 3, configs, None, None)
+    monkeypatch.setenv("WALKFORWARD_INNER_AGG", "median")
+    median_key = nested_wf._ckpt_key("core-alpha", 3, configs, None, None)
+
+    assert mean_key != median_key
+
+
+def test_inner_selection_can_bonus_prior_config_family(monkeypatch):
+    config = {
+        "name": "same_family_new_knobs",
+        "nested_params": {
+            "holding_days": 10,
+            "overlay_gross": 0.7,
+            "ma_window": 100,
+            "high_vol_mode": "fixed",
+            "high_vol": 0.3,
+            "score_source": "regime_adaptive",
+            "shape": "top5",
+            "weighting": "sticky_score",
+            "tqqq_weight": 0.0,
+            "risk_control_mode": "off",
+        },
+    }
+    folds = [
+        InnerFold(
+            validation_year=year,
+            train_end=pd.Timestamp(f"{year - 1}-12-31"),
+            validation_start=pd.Timestamp(f"{year}-01-01"),
+            validation_end=pd.Timestamp(f"{year}-12-31"),
+        )
+        for year in (2022, 2023)
+    ]
+
+    def fake_evaluate_window(panel, config, start, end):
+        return {
+            "sharpe": 1.0,
+            "total_return_pct": 10.0,
+            "max_drawdown_pct": -5.0,
+            "turnover_pct": 100.0,
+            "alpha_vs_spy_pct": 2.0,
+            "alpha_vs_qqq_pct": 2.0,
+            "alpha_vs_blend_pct": 2.0,
+        }
+
+    monkeypatch.setattr(nested_wf, "evaluate_window", fake_evaluate_window)
+    monkeypatch.setenv("WALKFORWARD_FAMILY_CONSENSUS_BONUS", "0.12")
+    selected = select_config_from_inner_folds(
+        pd.DataFrame(),
+        [config],
+        folds,
+        prior_selected_sigs=[
+            _wf_sig(h=20, ov=0.5),
+            _wf_sig(shape="top10"),
+            _wf_sig(h=20, ov=0.7, vol_mode="percentile"),
+        ],
+    )
+
+    assert selected["metrics"]["inner_family_consensus_weight"] == 0.12
+    assert selected["metrics"]["inner_family_consensus_match_count"] == 2
+    assert selected["metrics"]["inner_family_consensus_window_count"] == 3
+    assert selected["metrics"]["inner_family_consensus_bonus"] == 0.08
+
+
+def test_walkforward_checkpoint_key_changes_with_family_consensus(monkeypatch):
+    configs = [{"name": "a", "nested_params": {"holding_days": 10}}]
+    monkeypatch.setenv("WALKFORWARD_FAMILY_CONSENSUS_BONUS", "0")
+    no_bonus_key = nested_wf._ckpt_key("core-alpha", 3, configs, None, None)
+    monkeypatch.setenv("WALKFORWARD_FAMILY_CONSENSUS_BONUS", "0.10")
+    family_bonus_key = nested_wf._ckpt_key("core-alpha", 3, configs, None, None)
+
+    assert no_bonus_key != family_bonus_key
 
 
 def test_inner_selection_can_treat_stress_gate_as_diagnostic(monkeypatch):

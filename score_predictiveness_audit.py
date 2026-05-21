@@ -294,7 +294,10 @@ def print_audit(audit: pd.DataFrame, summary: dict, *, limit: int) -> None:
         row = audit[audit["metric"].eq("inner_config_momentum_bonus")].iloc[0]
         corr = row.get("pearson_oos_objective")
         if corr is not None and corr < 0:
-            print("  Momentum bonus points the wrong way in this run; disable or reduce it before rerun.")
+            print(
+                "  Momentum bonus screens as suspicious on selected folds, "
+                "but no-momentum A/B was worse; don't remove it without a better replacement."
+            )
     if "inner_mean_turnover_pct" in set(audit["metric"]):
         row = audit[audit["metric"].eq("inner_mean_turnover_pct")].iloc[0]
         corr = row.get("pearson_oos_objective")

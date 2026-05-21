@@ -207,6 +207,45 @@ except Exception:
 
 _DEFAULT_WORKERS = _auto_detect_workers()
 _PARALLEL_WORKERS = int(os.getenv("WALKFORWARD_WORKERS", str(_DEFAULT_WORKERS)))
+_VALID_INNER_AGGREGATIONS = ("mean", "median")
+FAMILY_CONSENSUS_WINDOW = 5
+
+
+def inner_score_aggregation_from_env() -> str:
+    """Return the inner-fold score aggregation selected for this run.
+
+    PLAIN ENGLISH: Inner folds are small yearly tests. The default keeps the
+    historical mean selector. The median option is a reversible experiment
+    that reduces the influence of one unusually good or bad inner year.
+    """
+    aggregation = str(os.getenv("WALKFORWARD_INNER_AGG", "mean")).strip().lower()
+    if aggregation not in _VALID_INNER_AGGREGATIONS:
+        raise ValueError(
+            f"WALKFORWARD_INNER_AGG={aggregation!r} not in {_VALID_INNER_AGGREGATIONS}"
+        )
+    return aggregation
+
+
+def family_consensus_bonus_from_env() -> float:
+    """Return the optional prior-family selector bonus for this run.
+
+    PLAIN ENGLISH: The usual selector score decides which config wins. This
+    optional experiment gives a small extra score to configs whose broader
+    family already appeared in earlier outer folds. A value of 0 keeps the
+    old behavior.
+    """
+    raw = str(os.getenv("WALKFORWARD_FAMILY_CONSENSUS_BONUS", "0")).strip()
+    try:
+        bonus = float(raw)
+    except ValueError as exc:
+        raise ValueError(
+            f"WALKFORWARD_FAMILY_CONSENSUS_BONUS={raw!r} must be a number"
+        ) from exc
+    if bonus < 0.0 or bonus > 1.0:
+        raise ValueError(
+            "WALKFORWARD_FAMILY_CONSENSUS_BONUS must stay between 0 and 1"
+        )
+    return bonus
 
 # Module-level references set before forking so workers inherit them
 # via copy-on-write.  Only the main process writes these; workers read.
@@ -369,6 +408,8 @@ def _ckpt_key_blob(strategy: str, min_train_years: int, configs: list, *, includ
         "max_inner_worst_turnover_pct": MAX_INNER_WORST_TURNOVER_PCT,
         "turnover_free_pct": DEFAULT_TURNOVER_FREE_PCT,
         "turnover_penalty_span_pct": DEFAULT_TURNOVER_PENALTY_SPAN_PCT,
+        "inner_score_aggregation": inner_score_aggregation_from_env(),
+        "family_consensus_bonus": family_consensus_bonus_from_env(),
     }
     if include_year_slice:
         payload["start_year"] = start_year
@@ -1582,6 +1623,9 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
         return None
 
     mean_score = float(np.mean(fold_scores))
+    median_score = float(np.median(fold_scores))
+    aggregation = inner_score_aggregation_from_env()
+    aggregate_score = median_score if aggregation == "median" else mean_score
     score_std = float(np.std(fold_scores, ddof=0)) if len(fold_scores) > 1 else 0.0
     # Stability penalty: mildly prefer configs that score consistently
     # across folds.  Was 0.35 which crushed concentrated configs (top3)
@@ -1592,7 +1636,7 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
     # A config with std=1.5 now loses only 0.15 points — still meaningful
     # but won't override a 0.3+ Sharpe advantage.
     STABILITY_PENALTY_WEIGHT = 0.10
-    stable_score = mean_score - STABILITY_PENALTY_WEIGHT * score_std
+    stable_score = aggregate_score - STABILITY_PENALTY_WEIGHT * score_std
 
     # ── QQQ opportunity-cost penalty (v2 — strengthened) ────────────
     # If you can't beat QQQ, why not just hold QQQ?  This penalizes
@@ -1624,13 +1668,13 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
 
     stable_score -= qqq_penalty
 
-    # ── Config momentum bonus (disabled) ───────────────────────────────
-    # This used to add +0.15 when a config matched recent selections.
-    # The score_predictiveness_audit showed that bonus was anti-predictive
-    # on the alphaqqq walkforward, so keep the field for reporting but set
-    # the bonus to zero.  Config stability is still measured after the run;
-    # it just no longer pushes selection during the run.
-    CONFIG_MOMENTUM_BONUS = 0.0
+    # ── Config momentum bonus ──────────────────────────────────────────
+    # Prevent random config-hopping between outer folds.  If this config
+    # was selected in recent prior outer folds, give it a small bonus.
+    # A selected-config audit made this look suspicious, but the actual
+    # no-momentum walkforward A/B was worse (lower CAGR/alpha, higher
+    # turnover, worse score predictiveness), so the bonus stays enabled.
+    CONFIG_MOMENTUM_BONUS = 0.15
     momentum_bonus = 0.0
     if prior_selected_sigs:
         this_sig = config_signature(config)
@@ -1640,11 +1684,37 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
             momentum_bonus = CONFIG_MOMENTUM_BONUS
             stable_score += momentum_bonus
 
+    # Family consensus bonus: exact configs can differ on smaller knobs like
+    # holding days or overlay size while still sharing the same broad behavior.
+    # This experiment rewards families that already repeated in earlier outer
+    # folds, but only after two prior matches so one lucky year cannot steer it.
+    family_consensus_weight = family_consensus_bonus_from_env()
+    family_consensus_bonus = 0.0
+    family_match_count = 0
+    family_window_count = 0
+    if family_consensus_weight > 0.0 and prior_selected_sigs:
+        this_family = stable_family_signature(config)
+        recent_family_sigs = [
+            stable_family_signature_from_config_signature(sig)
+            for sig in prior_selected_sigs[-FAMILY_CONSENSUS_WINDOW:]
+        ]
+        family_window_count = len(recent_family_sigs)
+        family_match_count = sum(
+            1 for family_sig in recent_family_sigs if family_sig == this_family
+        )
+        if family_match_count >= 2 and family_window_count > 0:
+            family_consensus_bonus = (
+                family_consensus_weight * family_match_count / family_window_count
+            )
+            stable_score += family_consensus_bonus
+
     return {
         "config": config,
         "score": stable_score,
         "metrics": {
             "inner_mean_score": round(mean_score, 4),
+            "inner_median_score": round(median_score, 4),
+            "inner_score_aggregation": aggregation,
             "inner_score_std": round(score_std, 4),
             "inner_stability_adjusted_score": round(stable_score, 4),
             "inner_fold_count": int(len(fold_scores)),
@@ -1655,6 +1725,10 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
             "inner_mean_alpha_vs_qqq_pct": round(mean_alpha_vs_qqq, 2),
             "inner_qqq_opportunity_cost_penalty": round(qqq_penalty, 4),
             "inner_config_momentum_bonus": round(momentum_bonus, 4),
+            "inner_family_consensus_weight": round(family_consensus_weight, 4),
+            "inner_family_consensus_bonus": round(family_consensus_bonus, 4),
+            "inner_family_consensus_match_count": int(family_match_count),
+            "inner_family_consensus_window_count": int(family_window_count),
             "inner_mean_turnover_pct": round(mean_turnover_pct, 2),
             "inner_cost_stress_approval_pass": bool(stress_ratio >= MIN_STRESS_PASS_RATIO),
             "inner_stress_pass_ratio": round(stress_ratio, 2),
@@ -2365,6 +2439,8 @@ def run_nested_walkforward(
             "train_end": str(split.train_end.date()),
             "inner_score": round(float(selected["score"]), 4),
             "inner_mean_score": inner_metrics["inner_mean_score"],
+            "inner_median_score": inner_metrics["inner_median_score"],
+            "inner_score_aggregation": inner_metrics["inner_score_aggregation"],
             "inner_score_std": inner_metrics["inner_score_std"],
             "failed_evaluations": int(selected.get("failed_evaluations", 0)),
             "candidate_configs": int(len(configs)),

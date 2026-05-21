@@ -49,6 +49,15 @@ That means it is best for identifying suspicious score components, not for
 proving a replacement selector by itself. After changing a component, rerun the
 nested walkforward and analyzer.
 
+Example: the selected-config audit flagged the momentum bonus as suspicious,
+but the no-momentum walkforward A/B performed worse. Treat audit findings as
+hypotheses that need full walkforward confirmation.
+
+The family fields are useful for the next selector A/B too. If stable family
+frequency looks more helpful than exact-config frequency, try the opt-in
+`WALKFORWARD_FAMILY_CONSENSUS_BONUS` walkforward experiment and compare its
+analyzer results before changing the default.
+
 ## Key Concepts
 
 - Inner score: The validation score used to choose a config before OOS testing.

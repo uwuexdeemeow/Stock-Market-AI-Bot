@@ -46,6 +46,12 @@ python3 core_satellite_nested_walkforward.py --strategy core-alpha --full
 # Parallel evaluation (faster on multi-core machines)
 WALKFORWARD_WORKERS=4 python3 core_satellite_nested_walkforward.py
 
+# Reversible inner-score aggregation A/B (default is mean)
+WALKFORWARD_INNER_AGG=median python3 core_satellite_nested_walkforward.py --no-publish-live-config
+
+# Reversible family-consensus A/B (default bonus is 0)
+WALKFORWARD_FAMILY_CONSENSUS_BONUS=0.10 python3 core_satellite_nested_walkforward.py --no-publish-live-config
+
 # Don't push the winning config to live (research mode)
 python3 core_satellite_nested_walkforward.py --no-publish-live-config
 ```
@@ -101,11 +107,18 @@ python3 core_satellite_nested_walkforward.py --no-publish-live-config
   old weight crushed concentrated configs (top3) because their per-year
   variance is naturally higher.  At 0.10 it's a tiebreaker, not a
   dominant force.
-- **Config momentum bonus disabled** — this used to add +0.15 for
-  configs that matched recent outer-fold winners.  The
-  `score_predictiveness_audit.py` report showed that bonus was
-  anti-predictive on the alphaqqq walkforward, so the field remains in
-  reports but the bonus is now 0.0.
+- **Config momentum bonus kept** — a selected-config audit made this +0.15
+  bonus look suspicious, but the actual no-momentum walkforward A/B came in
+  worse: lower CAGR/alpha, higher turnover, and worse score predictiveness.
+  The bonus remains enabled while we investigate deeper selector issues.
+- **Inner aggregation switch** — set `WALKFORWARD_INNER_AGG=median` for a
+  reversible selector A/B that uses the median inner-fold score instead of the
+  historical mean. The default remains `mean`.
+- **Family consensus switch** — set `WALKFORWARD_FAMILY_CONSENSUS_BONUS=0.10`
+  for a reversible selector A/B that gives a small boost to broad config
+  families repeated in earlier outer folds. A broad family keeps the scoring,
+  shape, weighting, risk, and TQQQ choices while allowing small tuning knobs to
+  vary. The default bonus is `0`, so the current selector stays unchanged.
 - **Cost-stress fallback** — if no config passes the 60% stress pass
   ratio, the fallback path retries with a relaxed gate so we get a
   result rather than a NaN year.
