@@ -387,22 +387,49 @@ from datetime import datetime as _datetime
 
 def run_script(cmd: list[str], label: str, *,
                cwd: str | _Path | None = None,
-               max_lines_shown: int = 200) -> dict:
+               max_lines_shown: int = 200,
+               output_container=None,
+               height: int = 400,
+               expanded: bool = True,
+               wrap_in_expander: bool = True) -> dict:
     """Run a subprocess and stream its output into the Streamlit UI.
 
     PLAIN ENGLISH: Click a button → this function fires the command,
     captures its output line by line, and shows it live in the page.
     Also tees the full output to logs/dashboard_*.log for later review.
 
+    UI layout (added 2026-05-22 — fixed the "output pushes the entire
+    page down" problem):
+
+      - The whole panel is wrapped in `st.expander` so the user can
+        collapse it after the run completes (or while it's running)
+        without losing the live tail.
+      - The streamed text lives in `st.container(height=N, border=True)`
+        which gives a FIXED-HEIGHT scrollable box.  Lines beyond N
+        pixels of content scroll INSIDE the box instead of pushing the
+        rest of the page down — so other dashboard widgets stay in
+        place regardless of how chatty the script gets.
+      - Pass `output_container` to render the whole panel inside an
+        existing layout container (e.g. `col1, col2 = st.columns([1,3])`
+        ; `script_button(..., output_container=col2)`).  Defaults to
+        the current Streamlit layout root if not provided.
+
+    Other parameters:
+        height           : pixel height of the scrollable output box
+                           (default 400 — fits a 5-row excerpt + headers
+                           on most laptops without dwarfing the page).
+        expanded         : whether the expander starts open (default
+                           True so the user immediately sees streaming
+                           output).
+        max_lines_shown  : how many tail-lines to keep in the in-memory
+                           buffer that gets re-rendered.  Older lines
+                           are still in the log file, just not in the UI.
+
     Returns a dict with:
         success    : bool
         returncode : int
         log_file   : Path
         line_count : int
-
-    The page calls this synchronously — Streamlit blocks until the
-    command exits.  For a script that takes hours (nested walkforward)
-    use run_script_async() instead (TODO).
     """
     # Where to save the live log file
     log_dir = _Path(cwd or ".") / "logs"
@@ -411,48 +438,79 @@ def run_script(cmd: list[str], label: str, *,
     safe_label = "".join(ch if ch.isalnum() or ch in "_-" else "_" for ch in label.lower())
     log_file = log_dir / f"dashboard_{stamp}_{safe_label}.log"
 
-    # Header box showing the command being executed
-    st.info(f"▶ **{label}**\n```\n{' '.join(cmd)}\n```")
-    # Live output area
-    output_box = st.empty()
-    lines: list[str] = []
+    # Choose the layout root.  If the caller passed an `output_container`
+    # we render the whole panel inside it (useful for side-by-side
+    # layouts where the button lives in a narrow left column and the
+    # output occupies a wider right column).  Otherwise default to
+    # `st` (the page root).
+    layout_root = output_container if output_container is not None else st
 
-    # Run the subprocess with line-buffered output
-    try:
-        proc = popen_utf8(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            bufsize=1,
-            cwd=str(cwd) if cwd else None,
-            env={**__import__("os").environ, "PYTHONUNBUFFERED": "1"},
-        )
-    except FileNotFoundError as e:
-        st.error(f"✗ Command not found: {e}")
-        return {"success": False, "returncode": -1, "log_file": log_file, "line_count": 0}
-
-    with open(log_file, "w", encoding="utf-8") as f:
-        if proc.stdout is None:
-            proc.wait()
-        else:
-            for raw in iter(proc.stdout.readline, ""):
-                line = raw.rstrip("\n")
-                lines.append(line)
-                f.write(raw)
-                f.flush()
-                # Throttle UI updates — only redraw every 5 lines (or last lines)
-                # to avoid Streamlit slowdown on bursty output.
-                if len(lines) % 5 == 0 or len(line) > 80:
-                    output_box.code("\n".join(lines[-max_lines_shown:]), language="text")
-            proc.stdout.close()
-        rc = proc.wait()
-
-    # Final redraw + verdict
-    output_box.code("\n".join(lines[-max_lines_shown:]) or "(no output)", language="text")
-    if rc == 0:
-        st.success(f"✓ **{label}** finished successfully  ·  {len(lines)} lines  ·  log: `{log_file.name}`")
+    # Pick the outer wrapper.  When the caller is ALREADY inside an
+    # `st.expander` (pages/0_Run_Scripts.py wraps each script in its
+    # own expander), we can't open another one — Streamlit forbids
+    # nested expanders.  Use a plain container in that case; the
+    # caller's outer expander handles collapse, this function just
+    # owns the bounded-height streaming box.
+    if wrap_in_expander:
+        wrapper_cm = layout_root.expander(f"▶ {label}", expanded=expanded)
     else:
-        st.error(f"✗ **{label}** failed with exit code {rc}  ·  log: `{log_file.name}`")
+        wrapper_cm = layout_root.container()
+
+    with wrapper_cm:
+        # Command line as a small caption so the user sees what's
+        # running without it eating vertical space.
+        st.caption(f"`{' '.join(cmd)}`")
+
+        # ── Fixed-height scrollable container ─────────────────────
+        # `height=N` clips the visible region; content scrolls INSIDE
+        # it.  Without this the streaming output would grow the page
+        # by hundreds of pixels per run and push everything else down.
+        output_container_inner = st.container(height=height, border=True)
+        output_box = output_container_inner.empty()
+
+        # Status message lives OUTSIDE the bounded container so the
+        # success/fail verdict stays visible even if the user scrolls
+        # the output buffer to the top.
+        status_box = st.empty()
+
+        lines: list[str] = []
+
+        # Run the subprocess with line-buffered output
+        try:
+            proc = popen_utf8(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                bufsize=1,
+                cwd=str(cwd) if cwd else None,
+                env={**__import__("os").environ, "PYTHONUNBUFFERED": "1"},
+            )
+        except FileNotFoundError as e:
+            status_box.error(f"✗ Command not found: {e}")
+            return {"success": False, "returncode": -1, "log_file": log_file, "line_count": 0}
+
+        with open(log_file, "w", encoding="utf-8") as f:
+            if proc.stdout is None:
+                proc.wait()
+            else:
+                for raw in iter(proc.stdout.readline, ""):
+                    line = raw.rstrip("\n")
+                    lines.append(line)
+                    f.write(raw)
+                    f.flush()
+                    # Throttle UI updates — only redraw every 5 lines (or last lines)
+                    # to avoid Streamlit slowdown on bursty output.
+                    if len(lines) % 5 == 0 or len(line) > 80:
+                        output_box.code("\n".join(lines[-max_lines_shown:]), language="text")
+                proc.stdout.close()
+            rc = proc.wait()
+
+        # Final redraw + verdict
+        output_box.code("\n".join(lines[-max_lines_shown:]) or "(no output)", language="text")
+        if rc == 0:
+            status_box.success(f"✓ **{label}** finished successfully  ·  {len(lines)} lines  ·  log: `{log_file.name}`")
+        else:
+            status_box.error(f"✗ **{label}** failed with exit code {rc}  ·  log: `{log_file.name}`")
 
     return {
         "success": rc == 0,
@@ -466,13 +524,27 @@ def script_button(label: str, cmd: list[str], *,
                   key: str | None = None,
                   help_text: str | None = None,
                   expected_runtime: str = "fast",
-                  destructive: bool = False) -> None:
+                  destructive: bool = False,
+                  output_container=None,
+                  output_height: int = 400,
+                  output_expanded: bool = True) -> None:
     """Render a button that runs a script when clicked.
 
     expected_runtime: free-text label ("fast", "1-3 min", "hours") —
         shown as a small caption so the user knows what to expect.
     destructive: if True, the button uses a warning style.  Use for
         submit/order operations that send real orders.
+    output_container: optional Streamlit container (st.empty, column,
+        etc.) where the streamed output should land.  Default behavior
+        renders the output directly below the button.  Pass a column
+        when you want a left-controls / right-output layout:
+            col_btn, col_out = st.columns([1, 3])
+            with col_btn: script_button("Refresh", cmd,
+                                        output_container=col_out)
+    output_height: pixel height of the bounded scrollable output box
+        (forwarded to run_script — default 400).
+    output_expanded: whether the output expander starts open
+        (forwarded to run_script — default True).
     """
     btn_label = label
     if expected_runtime and expected_runtime != "fast":
@@ -481,7 +553,14 @@ def script_button(label: str, cmd: list[str], *,
         btn_label = f"⚠️  {btn_label}"
 
     if st.button(btn_label, key=key, help=help_text, use_container_width=True):
-        run_script(cmd, label, cwd=_Path(__file__).resolve().parent.parent)
+        run_script(
+            cmd,
+            label,
+            cwd=_Path(__file__).resolve().parent.parent,
+            output_container=output_container,
+            height=output_height,
+            expanded=output_expanded,
+        )
         # Invalidate cached data after any script run — chances are some
         # signal/log file just changed and the dashboard should reflect it.
         st.cache_data.clear()

@@ -167,7 +167,18 @@ def _render_script_card(script: Script) -> None:
 
         run_key = f"run_btn_{script.stem}"
         if st.button("Run", key=run_key, type="primary", use_container_width=True):
-            run_script(cmd, script.display_name, cwd=PROJECT_ROOT)
+            # This call lives INSIDE the per-script outer expander
+            # (`with st.expander(header, ...)` above), so pass
+            # wrap_in_expander=False — Streamlit forbids nested
+            # expanders.  The outer expander handles collapse; the
+            # inner fixed-height container handles the no-push-down
+            # behavior.
+            run_script(
+                cmd, script.display_name,
+                cwd=PROJECT_ROOT,
+                wrap_in_expander=False,
+                height=400,
+            )
             st.cache_data.clear()
 
 
