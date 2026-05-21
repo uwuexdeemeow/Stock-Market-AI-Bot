@@ -36,7 +36,7 @@ LIVE_CONFIG_PATH = SIGNAL_DIR / "core_satellite_live_configs.json"
 SIGNAL_PATH = SIGNAL_DIR / "core_satellite_alpha_signal.csv"
 METRICS_PATH = SIGNAL_DIR / "core_satellite_alpha_metrics.json"
 ORDERS_PATH = SIGNAL_DIR / "core_satellite_alpha_orders.csv"
-PAPER_STATUS_PATH = SIGNAL_DIR / "paper_daily_status.json"
+PAPER_STATUS_PATH = SIGNAL_DIR / "alpaca_daily_status.json"
 EQUITY_PATH = SIGNAL_DIR / "alpaca_paper_equity.csv"
 TRADE_LOG_PATH = SIGNAL_DIR / "alpaca_paper_log.csv"
 FACTOR_DECAY_PATH = SIGNAL_DIR / "factor_decay_monitor.csv"
@@ -235,7 +235,7 @@ def render_equity() -> dict:
     info = {"section": "Equity"}
     row = _load_csv_last_row(EQUITY_PATH)
     if not row:
-        # Try paper_daily_status.json as fallback
+        # Try the latest Alpaca status snapshot as fallback.
         status = _load_json(PAPER_STATUS_PATH)
         if status and "account_equity" in status:
             equity = float(status["account_equity"])
@@ -267,7 +267,7 @@ def render_equity() -> dict:
 
 
 def render_positions() -> dict:
-    """Current positions from paper_daily_status."""
+    """Current positions from the Alpaca daily status snapshot."""
     info = {"section": "Positions"}
     status = _load_json(PAPER_STATUS_PATH)
     if not status or "positions" not in status:

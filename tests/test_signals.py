@@ -53,8 +53,8 @@ def _nonempty_gate_reason(signal) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Required columns in the unified core-satellite signal (includes TQQQ when
-# the nested walkforward grid search determines it helps).  Both Moomoo and
-# Alpaca read this same signal file.
+# the nested walkforward grid search determines it helps).  Alpaca reads
+# this same signal file.
 UNIFIED_REQUIRED_COLUMNS = [
     "paper_signal_type",
     "paper_ready",
@@ -76,7 +76,7 @@ CORE_SAT_REQUIRED_COLUMNS = UNIFIED_REQUIRED_COLUMNS
 
 
 class TestUnifiedSignalFile:
-    """Validate the unified signal CSV that both Moomoo and Alpaca read."""
+    """Validate the unified signal CSV that Alpaca reads."""
 
     @pytest.fixture
     def signal_path(self):
@@ -198,7 +198,7 @@ class TestUnifiedSignalFile:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class TestCoreSatelliteSignalFile:
-    """Validate the core-satellite signal CSV that Moomoo reads."""
+    """Validate the core-satellite signal CSV that Alpaca reads."""
 
     @pytest.fixture
     def signal_path(self):

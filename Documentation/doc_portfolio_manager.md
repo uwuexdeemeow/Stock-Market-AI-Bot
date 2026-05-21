@@ -6,7 +6,7 @@
 
 Think of it like a financial compliance officer who reviews every trade before it hits the market.
 
-You don't run this script directly — `backtest.py`, `predict.py`, and `moomoo_paper_trading.py` use it.
+You don't run this script directly — `backtest.py`, `predict.py`, and the paper-trading pipeline use it.
 
 ---
 

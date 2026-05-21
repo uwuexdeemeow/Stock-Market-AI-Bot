@@ -37,11 +37,11 @@
 - [ ] `data_validation.validate_price_frame` called on every feed; bad data raises.
 - [ ] `drift_monitor.check_drift` runs daily; snapshot_baseline captured at train time.
 - [ ] Monitoring: logs shipped somewhere (Loki / Datadog / CloudWatch) and an alert fires on any `rc != 0`.
-- [ ] `broker_interface.Broker` is the only thing live-trading code imports — no direct Moomoo imports outside the adapter.
+- [ ] Alpaca paper-trading credentials, connectivity, and guard checks pass.
 
 ## 7. Paper Gauntlet (Phase 5)
 - [ ] ≥60 trading days of continuous paper trading completed.
-- [ ] `python paper_gauntlet.py` → `all_gates_passed = true`.
+- [ ] `python alpaca_paper_gauntlet.py` → `all_gates_passed = true`.
 - [ ] Manual review of 20 random trades: fills, sizing, stops all look sane.
 
 ## 8. Business / Personal

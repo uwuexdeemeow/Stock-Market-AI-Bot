@@ -30,12 +30,6 @@ from core_satellite_alpha import (
     _top_count,
     check_factor_freshness,
 )
-from moomoo_paper_trading import (
-    build_core_satellite_orders,
-    _order_status_bucket,
-    core_satellite_target_weights,
-    _round_us_limit_price,
-)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -352,6 +346,7 @@ class TestFactorFreshness:
 # 6. ORDER BUILDING — converting target weights into buy/sell orders
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@pytest.mark.skip(reason="Legacy broker order-builder tests removed from the Alpaca-only path")
 class TestOrderBuilding:
     """
     PLAIN ENGLISH: Given target portfolio weights and current positions,
@@ -461,6 +456,7 @@ class TestOrderBuilding:
 # 7. LIMIT PRICE ROUNDING — US stock rules
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@pytest.mark.skip(reason="Legacy broker limit-price tests removed from the Alpaca-only path")
 class TestLimitPriceRounding:
     """
     PLAIN ENGLISH: US stocks above $1 must be priced in pennies.
@@ -488,6 +484,7 @@ class TestLimitPriceRounding:
 # 8. TARGET WEIGHT EXTRACTION — parsing signal into weights dict
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@pytest.mark.skip(reason="Legacy broker signal-parser tests removed from the Alpaca-only path")
 class TestTargetWeights:
     """
     PLAIN ENGLISH: The signal CSV has core ETF weights and overlay stock
@@ -527,9 +524,10 @@ class TestTargetWeights:
 # 9. ORDER STATUS BUCKETING — classify broker order states
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@pytest.mark.skip(reason="Legacy broker order-status tests removed from the Alpaca-only path")
 class TestOrderStatusBucket:
     """
-    PLAIN ENGLISH: Moomoo reports order status in various strings.
+    PLAIN ENGLISH: Legacy paper execution reported order status strings here.
     We bucket them into simple categories: filled, partial, cancelled,
     pending, etc.
     """

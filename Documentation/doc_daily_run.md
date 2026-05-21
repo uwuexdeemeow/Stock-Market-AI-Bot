@@ -35,11 +35,8 @@ watchdog/housekeeping steps still run so their output files stay fresh.
 # Default — run everything
 python3 daily_run.py
 
-# Alpaca only (Moomoo skipped)
+# Explicit Alpaca run
 python3 daily_run.py --alpaca
-
-# Both brokers
-python3 daily_run.py --alpaca --moomoo
 
 # Skip data refresh (use existing parquets — useful if you already ran research.py manually)
 python3 daily_run.py --alpaca --skip-refresh
@@ -63,8 +60,6 @@ python3 daily_run.py --force
 # Also run stress tests (factor decay, drawdown throttle, execution, survivorship)
 python3 daily_run.py --alpaca --stress
 
-# Side-by-side comparison report (Alpaca vs Moomoo if both ran)
-python3 daily_run.py --alpaca --moomoo --report
 ```
 
 ## Outputs
@@ -131,9 +126,8 @@ The workflow file `.github/workflows/daily_paper_trading.yml` invokes
 
 ## Recent additions
 
-- `alpaca_paper_health` step (May 19, 2026) — added so drift detection
-  vs walkforward runs daily on the Alpaca pipeline.  Previously only
-  ran with `--moomoo` and was silently dead in Alpaca-only mode.
+- `alpaca_paper_health` step (May 19, 2026) runs drift detection against
+  walkforward results on the Alpaca pipeline.
 - `--health-only` mode (May 20, 2026) — added for local dashboard refresh
   when GitHub Actions is responsible for the real daily trading run.
 

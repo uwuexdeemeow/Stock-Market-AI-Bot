@@ -1,6 +1,5 @@
 """
-broker_interface.py — Abstract broker so the rest of the system isn't married
-to Moomoo.
+broker_interface.py - Shared broker shapes used by paper-trading adapters.
 """
 
 from __future__ import annotations

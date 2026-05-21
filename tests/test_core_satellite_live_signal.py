@@ -76,7 +76,7 @@ def test_live_sticky_state_uses_alpaca_status_and_filters_core_tickers(tmp_path)
 
 
 def test_live_sticky_state_falls_back_to_previous_signal_when_status_unusable(tmp_path):
-    status_path = tmp_path / "paper_daily_status.json"
+    status_path = tmp_path / "alpaca_daily_status.json"
     status_path.write_text("{not-json", encoding="utf-8")
     signal_path = tmp_path / "core_satellite_alpha_signal.csv"
     pd.DataFrame([{
@@ -228,6 +228,7 @@ def test_strict_feature_quality_ignores_newer_etf_parquets(tmp_path, monkeypatch
     data_dir = tmp_path / "data"
     signal_dir.mkdir()
     data_dir.mkdir()
+    monkeypatch.setenv("FEATURE_QUALITY_MIN_GRADED", "1")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(csa, "SIGNAL_DIR", str(signal_dir))
     monkeypatch.setattr(csa, "DATA_DIR", str(data_dir))

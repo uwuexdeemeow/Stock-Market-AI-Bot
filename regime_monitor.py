@@ -11,7 +11,7 @@ it sends a macOS notification and logs the transition.  This way you know
 immediately when your strategy is shifting gears, without checking logs.
 
 Usage:
-    python3 regime_monitor.py          # check both strategies and alert on change
+    python3 regime_monitor.py          # check the paper signal and alert on change
     python3 regime_monitor.py --quiet  # only print if there's a change
 
 How it works:
@@ -38,11 +38,8 @@ SIGNALS = Path(SIGNAL_DIR)
 # the last known regime for each strategy so we can detect changes.
 REGIME_HISTORY_PATH = SIGNALS / "regime_history.json"
 
-# Signal files for each strategy
-# Both brokers now read the same unified signal file.  Two entries kept so
-# regime_history.json preserves per-broker tracking if they ever diverge.
+# Signal files for each strategy.
 SIGNAL_FILES = {
-    "moomoo_core_satellite": SIGNALS / "core_satellite_alpha_signal.csv",
     "alpaca_core_satellite": SIGNALS / "core_satellite_alpha_signal.csv",
 }
 
@@ -109,8 +106,8 @@ def check_regime_changes(*, quiet: bool = False) -> list[dict]:
     """
     Check all strategies for regime changes and alert if any changed.
 
-    PLAIN ENGLISH: For each strategy (Moomoo and Alpaca), read the current
-    signal file, compare the regime to what we saw last time, and if it
+    PLAIN ENGLISH: Read the Alpaca paper signal, compare the regime to
+    what we saw last time, and if it
     changed, send a notification and update the history.
 
     Returns a list of change records (empty if nothing changed).

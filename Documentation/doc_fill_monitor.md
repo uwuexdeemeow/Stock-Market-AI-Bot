@@ -19,7 +19,7 @@ python3 fill_monitor.py --quiet
 
 Inputs:
 
-- `signals/paper_trades.csv` — local paper order log.
+- `signals/alpaca_paper_log.csv` — Alpaca paper order log.
 - `--days` — how far back to check.
 - `--quiet` — suppress normal output unless there are problems.
 

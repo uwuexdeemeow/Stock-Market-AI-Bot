@@ -119,10 +119,10 @@ linearly cuts gross/net exposure budgets toward zero before the hard halt.
 
 ## Phase 5 — Paper gauntlet & go-live gate
 
-### `paper_gauntlet.py`
-**What:** Reads `signals/paper_equity.csv` + `signals/paper_trades.csv`, benchmarks vs SPY, computes:
+### `alpaca_paper_gauntlet.py`
+**What:** Reads `signals/alpaca_paper_equity.csv` + `signals/alpaca_paper_log.csv`, benchmarks vs SPY, computes:
 - net Sharpe, max drawdown, Newey-West t-stat vs SPY, realized vs modeled slippage ratio.
-**Run:** `python paper_gauntlet.py`
+**Run:** `python alpaca_paper_gauntlet.py`
 **Gate criteria:** see `GO_LIVE_CHECKLIST.md`.
 
 ### `GO_LIVE_CHECKLIST.md`
@@ -149,9 +149,9 @@ predict.py + risk_sizing + execution_model  → daily signals
   ↓
 portfolio_manager.py  → risk approval (soft DD band, hard halt)
   ↓
-moomoo_paper_trading.py via broker_interface abstraction
+alpaca_paper_trading.py via broker_interface abstraction
   ↓  (daily: drift_monitor.check_drift)
-paper_gauntlet.py (≥60 days)  →  GO_LIVE_CHECKLIST.md
+alpaca_paper_gauntlet.py (≥60 days)  →  GO_LIVE_CHECKLIST.md
   ↓ (only if every box checked)
 LIVE (start at 10% target size)
 ```

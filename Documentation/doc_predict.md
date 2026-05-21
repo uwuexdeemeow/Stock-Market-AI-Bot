@@ -54,5 +54,5 @@ train.py → models/
                ↓
           predict.py → signals/signals.csv
                               ↓
-                    moomoo_paper_trading.py
+                    alpaca_paper_trading.py
 ```

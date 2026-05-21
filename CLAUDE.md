@@ -35,14 +35,10 @@ survivorship_audit.py, walkforward_analyzer.py
 
 **Live paper trading (Alpaca)**
 alpaca_paper_gauntlet.py, alpaca_paper_trading.py, alpaca_protection.py,
-broker_health.py, broker_interface.py, daily_paper_check.py,
-daily_run.py, execution_guard.py, execution_model.py, fill_monitor.py,
-paper_gauntlet.py, paper_health.py, paper_report.py, paper_scorecard.py,
+broker_health.py, broker_interface.py, daily_run.py, execution_guard.py,
+execution_model.py, fill_monitor.py, paper_health.py, paper_scorecard.py,
 publish_live_config_from_csv.py, refresh_etf_data.py, risk_sizing.py,
 signal_freshness.py, status.py, trade_rules.py
-
-**Live paper trading (Moomoo, secondary)**
-moomoo_paper_trading.py
 
 **Infrastructure**
 config_health.py, data_provider.py, data_validation.py,

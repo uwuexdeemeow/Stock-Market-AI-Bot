@@ -47,8 +47,6 @@ DATED_PATTERN_PREFIXES = [
     "daily_run_",
     "paper_health_",
     "alpaca_paper_gauntlet_",
-    "daily_paper_check_",
-    "moomoo_paper_gauntlet_",
 ]
 
 # Signal files that accumulate and can be cleaned

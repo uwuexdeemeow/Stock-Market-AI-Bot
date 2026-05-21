@@ -43,9 +43,7 @@ LOGS = Path(LOG_DIR)
 # ─────────────────────────────────────────────────────────────────────────────
 
 MONITORED_FILES: dict[str, Path] = {
-    # paper_health.py writes to alpaca_paper_health.json when --broker alpaca
-    # (which is the default in GitHub Actions).  Check both paths — whichever
-    # exists and is newer wins.
+    # paper_health.py writes the Alpaca health summary on each daily run.
     "paper_health": SIGNALS / "alpaca_paper_health.json",
     "fill_monitor": SIGNALS / "fill_monitor.json",
     "regime_monitor": SIGNALS / "regime_history.json",

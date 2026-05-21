@@ -40,23 +40,15 @@ from paper_health import (
     _drift_breakdown,
     _equity_sanity_checks,
     _execution_slippage,
+    _filter_current_signal_trades,
     _go_live_scorecard,
     _open_position_attribution,
     _position_concentration,
     _stale_open_order_alerts,
 )
-import moomoo_paper_trading
-from moomoo_paper_trading import (
-    _find_broker_order_match,
-    _order_status_bucket,
-    build_submit_readiness_report,
-    evaluate_broker_submit_preflight,
-)
-import paper_gauntlet
-import daily_paper_check
+import alpaca_paper_gauntlet
 import core_satellite_nested_walkforward as nested_wf
 import publish_live_config_from_csv as manual_publish
-from daily_paper_check import _after_fill_verdict, _prune_snapshots, _verdict
 from refresh_etf_data import _validate_etf_frame
 from config_health import _requirement_ok
 from core_satellite_nested_walkforward import (
@@ -1208,17 +1200,16 @@ def test_signal_timestamp_is_timezone_aware():
     assert ts.tzinfo is not None
 
 
-def test_gauntlet_counts_local_signal_fills(monkeypatch):
-    monkeypatch.setattr(paper_gauntlet, "DEFAULT_SIGNAL_TIMEZONE", "Asia/Singapore")
+def test_alpaca_health_filters_local_signal_fills():
     trades = pd.DataFrame({
         "submitted": [True],
         "submitted_at": ["2026-05-04T14:57:29+00:00"],
         "fill_status": ["filled"],
     })
     status = {"signal_predicted_at": "2026-05-04 22:45"}
-    current = paper_gauntlet._filter_current_signal_trades(trades, status)
+    current = _filter_current_signal_trades(trades, status)
     assert len(current) == 1
-    assert paper_gauntlet._order_fill_stats(current)["fill_rate"] == 1.0
+    assert alpaca_paper_gauntlet._order_fill_stats(current)["fill_rate"] == 1.0
 
 
 def test_execution_slippage_is_adverse_by_side():
@@ -1298,33 +1289,6 @@ def test_health_concentration_core_only_keeps_overlay_fields_neutral():
     assert concentration["overlay_ticker_concentration_warning"] is False
 
 
-def test_moomoo_status_bucket_accepts_common_filled_variants():
-    assert _order_status_bucket("FILLED_ALL", 0, 0) == "filled"
-    assert _order_status_bucket("ALL_TRADED", 0, 0) == "filled"
-    assert _order_status_bucket("SUBMITTED", 0, 10) == "open"
-    assert _order_status_bucket("CANCELLED_ALL", 0, 10) == "cancelled"
-
-
-def test_reconcile_fallback_matches_by_ticker_side_and_qty():
-    trade = pd.Series({
-        "ticker": "MU",
-        "action": "BUY",
-        "broker_qty": 25,
-        "submitted_at": "2026-05-08T13:30:00+00:00",
-    })
-    orders = pd.DataFrame([{
-        "order_id": "123456789",
-        "code": "US.MU",
-        "trd_side": "BUY",
-        "qty": 25,
-        "updated_time": "2026-05-08 13:31:00",
-    }])
-    match, match_type = _find_broker_order_match(trade, orders)
-    assert match is not None
-    assert match_type == "ticker_side_qty"
-    assert str(match["order_id"]) == "123456789"
-
-
 def test_open_position_attribution_skips_zero_priced_positions():
     attribution = _open_position_attribution(
         {
@@ -1341,108 +1305,7 @@ def test_open_position_attribution_skips_zero_priced_positions():
     assert attribution["by_ticker"]["MU"]["open_pnl"] == 50.0
 
 
-def test_daily_check_verdict_waits_for_open_orders():
-    verdict, reasons = _verdict(
-        {
-            "current_signal_open_orders": 2,
-            "approved_for_real_capital": False,
-            "readiness_flags": {
-                "strategy_ready": True,
-                "signal_fresh": True,
-                "broker_synced": True,
-                "account_aligned": False,
-                "slippage_ok": True,
-                "drawdown_ok": True,
-                "concentration_ok": True,
-            },
-        },
-        [{"name": "health", "status": "ok"}],
-    )
-    assert verdict == "WAIT_FOR_OPEN_ORDERS"
-    assert "current_signal_open_orders=2" in reasons
-
-
-def test_after_fill_verdict_distinguishes_open_and_aligned():
-    open_verdict, _ = _after_fill_verdict(
-        {"current_signal_open_orders": 1, "readiness_flags": {"broker_synced": True, "account_aligned": False}},
-        [{"name": "sync", "status": "ok"}],
-    )
-    aligned_verdict, _ = _after_fill_verdict(
-        {"current_signal_open_orders": 0, "readiness_flags": {"broker_synced": True, "account_aligned": True}},
-        [{"name": "sync", "status": "ok"}],
-    )
-    assert open_verdict == "STILL_OPEN"
-    assert aligned_verdict == "ALIGNED"
-
-
-def test_prune_snapshots_removes_only_old_timestamped_dirs(tmp_path, monkeypatch):
-    root = tmp_path / "paper_snapshots"
-    old_dir = root / "20250101T000000Z"
-    new_dir = root / "20260501T000000Z"
-    odd_dir = root / "keep_me"
-    old_dir.mkdir(parents=True)
-    new_dir.mkdir()
-    odd_dir.mkdir()
-    monkeypatch.setattr(daily_paper_check, "LOGS", tmp_path)
-    result = _prune_snapshots(keep_days=30, now=datetime(2026, 5, 9, tzinfo=timezone.utc))
-    assert not old_dir.exists()
-    assert new_dir.exists()
-    assert odd_dir.exists()
-    assert str(old_dir) in result["removed"]
-
-
-def test_submit_readiness_blocks_over_gross_and_closed_market(monkeypatch):
-    monkeypatch.setattr(moomoo_paper_trading, "us_regular_market_is_open", lambda: (False, "closed for test"))
-    report = build_submit_readiness_report(
-        signal=pd.Series({"paper_ready": True, "gates_all_pass": True}),
-        orders=pd.DataFrame([{
-            "ticker": "QQQ",
-            "action": "BUY",
-            "target_weight": 1.25,
-            "order_value": 1000.0,
-            "reason": "rebalance_to_target",
-        }]),
-        freshness_ok=True,
-        freshness_issues=[],
-        submit_allowed=True,
-        max_submit_gross_exposure=1.0,
-    )
-    assert report["can_submit_during_regular_market"] is False
-    assert any("target gross" in item for item in report["blockers"])
-    assert "closed for test" in report["blockers"]
-
-
-def test_submit_preflight_blocks_current_signal_open_orders(monkeypatch):
-    monkeypatch.setattr(moomoo_paper_trading, "us_regular_market_is_open", lambda: (True, "open for test"))
-    monkeypatch.setattr(
-        moomoo_paper_trading,
-        "current_signal_open_orders",
-        lambda signal: pd.DataFrame([{"ticker": "CAT", "fill_status": "open"}]),
-    )
-    ok, blockers = evaluate_broker_submit_preflight(
-        signal=pd.Series({"paper_ready": True, "gates_all_pass": True}),
-        orders=pd.DataFrame([{
-            "ticker": "CAT",
-            "action": "BUY",
-            "target_weight": 1.0,
-            "order_value": 1000.0,
-            "reason": "rebalance_to_target",
-        }]),
-        freshness_ok=True,
-        freshness_issues=[],
-        submit_allowed=True,
-        allow_stale_signal=False,
-        allow_closed_market_submit=False,
-        allow_leverage_submit=False,
-        allow_submit_with_open_orders=False,
-        max_submit_gross_exposure=1.0,
-    )
-    assert ok is False
-    assert any("open paper orders" in blocker for blocker in blockers)
-
-
-def test_current_order_lifecycle_summarizes_open_quantity(monkeypatch):
-    monkeypatch.setattr(paper_gauntlet, "DEFAULT_SIGNAL_TIMEZONE", "Asia/Singapore")
+def test_current_order_lifecycle_summarizes_open_quantity():
     trades = pd.DataFrame([{
         "ticker": "CAT",
         "action": "BUY",

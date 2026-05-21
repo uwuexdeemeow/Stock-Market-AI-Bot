@@ -8,9 +8,7 @@ submission steps so stale signals do not get traded.
 Usage:
     python3 daily_run.py              # run everything
     python3 daily_run.py --dry-run    # show what would run without executing
-    python3 daily_run.py --moomoo     # only run Moomoo steps
-    python3 daily_run.py --alpaca     # only run Alpaca steps
-    python3 daily_run.py --report     # also run the side-by-side performance report
+    python3 daily_run.py --alpaca     # explicit Alpaca run
     python3 daily_run.py --stress     # also run stress tests (decay, drawdown, execution, survivorship)
 
 Daily workflow (runs in order):
@@ -18,20 +16,14 @@ Daily workflow (runs in order):
     2.  research.py --incremental          → refresh factor panel (optional in CI)
     3.  feature_quality_diagnostic.py      → refresh live feature quality report (optional in CI)
     4.  fill_monitor.py --days 2           → verify yesterday's fills before placing new orders
-    5.  broker_health.py                   → pre-flight ping of Alpaca + Moomoo (alerts if down)
-    6.  core_satellite_alpha.py            → generate unified signal (both brokers)
-    7.  moomoo_paper_trading.py --submit   → submit to Moomoo (auto-syncs fills, trails stops)
-    8.  moomoo_paper_trading.py --status   → sync equity/positions, save daily status
-    9.  moomoo_paper_trading.py --execution-guard → repair Moomoo ETF stops
+    5.  broker_health.py                   → pre-flight ping of Alpaca (alerts if down)
+    6.  core_satellite_alpha.py            → generate the Alpaca paper signal
+    7.  alpaca_paper_trading.py --submit   → submit to Alpaca
+    8.  alpaca_paper_trading.py --reconcile → check if Alpaca orders filled
+    9.  execution_guard.py --once          → repair ETF stops, stale orders, P&L guard
     10. paper_health.py                    → build deep health summary (slippage, drift, risk)
-    11. paper_gauntlet.py                  → check Moomoo gauntlet gates
-    12. daily_paper_check.py --skip-status --skip-sync  → read-only verdict
-    13. alpaca_paper_trading.py --submit   → submit to Alpaca (reads same signal as Moomoo)
-    14. alpaca_paper_trading.py --reconcile → check if Alpaca orders filled
-    15. execution_guard.py --once          → repair ETF stops, stale orders, P&L guard
-    16. alpaca_paper_gauntlet.py           → check Alpaca health
-    17. regime_monitor.py                  → detect and alert on regime changes
-    18. paper_report.py                    → side-by-side strategy comparison (optional, --report)
+    11. alpaca_paper_gauntlet.py           → check Alpaca health
+    12. regime_monitor.py                  → detect and alert on regime changes
 
 Schedule with cron (9:30 AM ET on weekdays):
     30 9 * * 1-5 cd "/path/to/Stock Market AI Bot" && python3 daily_run.py >> logs/daily_run.log 2>&1

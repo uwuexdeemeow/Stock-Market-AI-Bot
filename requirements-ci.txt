@@ -1,5 +1,5 @@
 # Slim requirements for GitHub Actions CI daily run.
-# Excludes torch, transformers, moomoo (not needed for Alpaca-only daily pipeline).
+# Excludes torch and transformers for the Alpaca-only daily pipeline.
 # This keeps CI install time under 60 seconds and avoids the 2 GB PyTorch wheel.
 
 # Core data & ML

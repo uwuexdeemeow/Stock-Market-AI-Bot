@@ -99,13 +99,13 @@ def check_recent_fills(*, lookback_days: int = 1, quiet: bool = False) -> dict:
     """
     if not PAPER_TRADES_FILE.exists():
         if not quiet:
-            print(f"  No paper_trades.csv found — nothing to check")
+            print(f"  No alpaca_paper_log.csv found — nothing to check")
         return _empty_result(lookback_days=lookback_days, reason="alpaca_paper_log_missing")
 
     trades = pd.read_csv(PAPER_TRADES_FILE)
     if trades.empty:
         if not quiet:
-            print(f"  paper_trades.csv is empty — nothing to check")
+            print(f"  alpaca_paper_log.csv is empty — nothing to check")
         return _empty_result(lookback_days=lookback_days, reason="alpaca_paper_log_empty")
 
     # Filter to recent trades only
@@ -122,7 +122,7 @@ def check_recent_fills(*, lookback_days: int = 1, quiet: bool = False) -> dict:
 
     if ts_col is None:
         if not quiet:
-            print(f"  No timestamp column found in paper_trades.csv — checking all rows")
+            print(f"  No timestamp column found in alpaca_paper_log.csv — checking all rows")
         recent = trades
     else:
         parsed = trades[ts_col].apply(_parse_timestamp)

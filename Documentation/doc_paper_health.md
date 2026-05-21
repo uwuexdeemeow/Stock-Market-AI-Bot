@@ -35,19 +35,14 @@ This script catches those.
 ## How to run
 
 ```bash
-# Default — evaluates Moomoo paper account (backward compatibility)
+# Build the Alpaca paper health report
 python3 paper_health.py
 
-# Evaluate Alpaca paper account (most common now)
-python3 paper_health.py --broker alpaca
-
 # Print JSON instead of formatted report
-python3 paper_health.py --broker alpaca --json
+python3 paper_health.py --json
 ```
 
-## Inputs (broker-dependent)
-
-When `--broker alpaca`:
+## Inputs
 
 | File | What it reads |
 |------|---------------|
@@ -56,20 +51,12 @@ When `--broker alpaca`:
 | `signals/alpaca_daily_status.json` | Current positions/equity |
 | `signals/core_satellite_nested_walkforward.json` | Backtest expectations to compare against |
 
-When `--broker moomoo` (default):
-
-| File | What it reads |
-|------|---------------|
-| `signals/paper_trades.csv` | Order log |
-| `signals/paper_equity.csv` | Equity history |
-| `signals/paper_daily_status.json` | Current state |
-
 ## Outputs
 
 | File | What's in it |
 |------|--------------|
-| `signals/{broker}_paper_health.json` | Full health summary (alpaca or moomoo) |
-| `logs/{broker}_paper_health_YYYYMMDD.json` | Dated snapshot |
+| `signals/alpaca_paper_health.json` | Full Alpaca health summary |
+| `logs/alpaca_paper_health_YYYYMMDD.json` | Dated snapshot |
 | Telegram alert | Sent when warnings fire (drift, drawdown, concentration) |
 
 ## Drift detection — the headline feature
