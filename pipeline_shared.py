@@ -44,7 +44,17 @@ def flatten_yf(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def fetch_price_data(ticker: str, start: str, end: str) -> pd.DataFrame:
-    """Download price data with automatic fallback (yfinance → yahooquery → Stooq)."""
+    """Download price data with automatic fallback (yfinance → yahooquery → Stooq).
+
+    Reads the local parquet cache FIRST for speed, but falls through to
+    the network when the cache doesn't reach within ~1 trading day of the
+    requested `end`.  Without this freshness check, `research.py
+    --incremental` silently no-ops: the incremental path slices the
+    existing (stale) local parquet, sees a non-empty result, and never
+    fetches the new bars it was supposed to download.  Symptom in the
+    wild: parquet mtime updates but `last_bar` stays the same after a
+    research refresh.  Fixed 2026-05-22.
+    """
     price_cols = ["Open", "High", "Low", "Close", "Volume"]
     local_path = os.path.join(DATA_DIR, f"{ticker.upper()}.parquet")
     if os.path.exists(local_path):
@@ -59,7 +69,31 @@ def fetch_price_data(ticker: str, start: str, end: str) -> pd.DataFrame:
                     out = out[out.index < pd.Timestamp(end)]
                 out = out.dropna().copy()
                 if not out.empty:
-                    return out
+                    # ── Freshness check ───────────────────────────────
+                    # Only honor the cached slice if it actually reaches
+                    # within ~1 trading day of the requested `end`.  When
+                    # the caller is the incremental refresher, `end` is
+                    # today and `out`'s last bar may be days behind — in
+                    # that case we MUST fall through to the network or
+                    # the refresh is a silent no-op.
+                    if end:
+                        try:
+                            end_ts = pd.Timestamp(end)
+                            last_bar = out.index.max()
+                            # 3-day buffer covers weekends + 1 trading-
+                            # day clock skew.  Cache stays the path of
+                            # last resort during research, full
+                            # backtests, etc., where end is historical.
+                            if (end_ts - last_bar).days > 3:
+                                raise _CacheStale()
+                        except _CacheStale:
+                            pass  # fall through to remote
+                        else:
+                            return out
+                    else:
+                        return out
+        except _CacheStale:
+            pass
         except Exception:
             pass
 
@@ -73,6 +107,10 @@ def fetch_price_data(ticker: str, start: str, end: str) -> pd.DataFrame:
     if not all(c in df.columns for c in price_cols):
         return pd.DataFrame()
     return df[price_cols].dropna().copy()
+
+
+class _CacheStale(Exception):
+    """Signal that the local parquet cache is too old to satisfy `end`."""
 
 def add_technical_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
