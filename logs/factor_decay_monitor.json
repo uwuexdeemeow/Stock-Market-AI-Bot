@@ -1,0 +1,49 @@
+{
+  "generated_at": "2026-05-22T00:20:47.699086",
+  "purpose": "factor_decay_monitor",
+  "as_of": "2026-04-15",
+  "selected_score_source": "regime_adaptive",
+  "rows": [
+    {
+      "lookback_days": 60,
+      "daily_ic_mean": -0.12548,
+      "daily_ic_positive_rate": 0.3415,
+      "top_bucket_excess_return_pct": 1.7961,
+      "observations": 2542,
+      "overlay_periods": 2,
+      "overlay_return_sum_pct": 2.378,
+      "overlay_hit_rate": 0.5,
+      "overlay_alpha_sum_pct": 2.378,
+      "top_selected_ticker": "AMAT",
+      "top_selected_count": 1,
+      "as_of": "2026-04-15",
+      "rank_ic_warning": true,
+      "overlay_alpha_warning": false,
+      "edge_health_status": "advisory",
+      "warning": false
+    },
+    {
+      "lookback_days": 120,
+      "daily_ic_mean": -0.20107,
+      "daily_ic_positive_rate": 0.2439,
+      "top_bucket_excess_return_pct": 2.0979,
+      "observations": 5084,
+      "overlay_periods": 4,
+      "overlay_return_sum_pct": 11.9403,
+      "overlay_hit_rate": 0.75,
+      "overlay_alpha_sum_pct": 11.9403,
+      "top_selected_ticker": "AMAT",
+      "top_selected_count": 3,
+      "as_of": "2026-04-15",
+      "rank_ic_warning": true,
+      "overlay_alpha_warning": false,
+      "edge_health_status": "advisory",
+      "warning": false
+    }
+  ],
+  "edge_health_status": "advisory",
+  "warning": false,
+  "advisory": true,
+  "real_capital_block": false,
+  "reason": "rank IC is weak/negative but top-bucket edge and overlay alpha remain positive"
+}
