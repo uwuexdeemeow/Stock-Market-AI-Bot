@@ -284,17 +284,67 @@ def file_status_table() -> pd.DataFrame:
         "Feature quality": FEATURE_QUALITY,
         "Broker health": BROKER_HEALTH,
     }
+
+    # ── Per-file expected-cadence freshness ──────────────────────────────
+    # PLAIN ENGLISH: Different files update on different schedules.  The
+    # Alpaca paper log fires once per trading day (~24h cycle), so flagging
+    # it "🔴 old" at 24 hours guarantees that every dashboard view right
+    # before the next morning's cron paints the whole panel red even when
+    # everything is healthy.  Walkforward outputs only update monthly, so
+    # the old 24-hour rule kept them permanently red.
+    #
+    # Each entry below carries (fresh_minutes, stale_minutes) thresholds:
+    #   age < fresh           → 🟢 fresh
+    #   fresh ≤ age < stale   → 🟡 stale (expected window — about to refresh)
+    #   age ≥ stale           → 🔴 old (missed expected refresh)
+    #
+    # Defaults reflect the actual update cadence of each file.  Add or
+    # adjust entries here when a new file is plumbed into the panel.
+    FRESHNESS_THRESHOLDS = {
+        # Walkforward outputs — monthly cadence.  Give 35 days fresh,
+        # 60 days stale before flagging red.
+        "Walkforward CSV":   (45 * 1440, 60 * 1440),
+        "Walkforward JSON":  (45 * 1440, 60 * 1440),
+        # Today's signal + orders + Alpaca log all update once per
+        # weekday cron.  Fresh window covers cron-to-cron (~26 h
+        # buffer for weekends).  Red only after a full missed day.
+        "Today's signal":    (26 * 60, 72 * 60),
+        "Order plan":        (26 * 60, 72 * 60),
+        "Alpaca orders log": (26 * 60, 72 * 60),
+        "Alpaca equity":     (26 * 60, 72 * 60),
+        "Alpaca status":     (26 * 60, 72 * 60),
+        "Alpaca health":     (26 * 60, 72 * 60),
+        "Broker health":     (26 * 60, 72 * 60),
+        # Feature health + quality update on the factor-data-refresh
+        # cron (also daily) but commits to signals/latest only after
+        # the trade workflow finishes.  Same 26h/72h works.
+        "Feature health":    (26 * 60, 72 * 60),
+        "Feature quality":   (26 * 60, 72 * 60),
+    }
+    # Default for any file not explicitly listed above — sensible 24h/72h.
+    DEFAULT_FRESH_MINUTES = 26 * 60
+    DEFAULT_STALE_MINUTES = 72 * 60
+
     rows = []
     for label, path in files.items():
         if path.exists():
             age_min = _file_age_minutes(path) or 0
             size_kb = path.stat().st_size / 1024
+            fresh_thresh, stale_thresh = FRESHNESS_THRESHOLDS.get(
+                label, (DEFAULT_FRESH_MINUTES, DEFAULT_STALE_MINUTES),
+            )
+            if age_min < fresh_thresh:
+                status = "🟢 fresh"
+            elif age_min < stale_thresh:
+                status = "🟡 stale"
+            else:
+                status = "🔴 old"
             rows.append({
                 "File": label,
                 "Path": str(path.relative_to(PROJECT_ROOT)),
                 "Age (min)": round(age_min, 1),
                 "Size (KB)": round(size_kb, 1),
-                "Status": "🟢 fresh" if age_min < 60 else "🟡 stale" if age_min < 1440 else "🔴 old",
+                "Status": status,
             })
         else:
             rows.append({
