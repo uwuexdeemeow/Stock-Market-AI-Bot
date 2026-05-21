@@ -105,7 +105,7 @@ def check_acceleration():
 
 def check_imports():
     hdr("IMPORTS")
-    modules = ["torch", "xgboost", "shap", "numpy", "pandas", "sklearn", "pyarrow", "moomoo"]
+    modules = ["torch", "xgboost", "shap", "numpy", "pandas", "sklearn", "pyarrow"]
     for mod in modules:
         try:
             m = importlib.import_module(mod)

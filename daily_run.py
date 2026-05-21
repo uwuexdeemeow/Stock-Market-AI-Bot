@@ -73,7 +73,6 @@ GITHUB_SIGNAL_SYNC_FILES = (
     "signals/fill_monitor.json",
     "signals/broker_health.json",
     "signals/alpaca_paper_health.json",
-    "signals/paper_health.json",
     "signals/guard_intraday_state.json",
     "signals/regime_history.json",
     "signals/regime_changes_log.csv",
@@ -204,14 +203,14 @@ FILL_MONITOR_STEP = Step(
 BROKER_HEALTH_STEP = Step(
     "broker_health",
     [sys.executable, "broker_health.py"],
-    "Pre-flight broker connectivity check (Alpaca + Moomoo)",
+    "Pre-flight Alpaca connectivity check",
     critical=False,  # don't block pipeline — just alert if a broker is down
 )
 
 CORE_SATELLITE_SIGNAL_STEP = Step(
     "core_satellite_signal",
     [sys.executable, "core_satellite_alpha.py"],
-    "Generate unified core-satellite signal for all brokers",
+    "Generate core-satellite signal for Alpaca paper trading",
     critical=True,
 )
 
@@ -228,42 +227,7 @@ ALPACA_STATUS_STEP = Step(
     "Sync Alpaca paper account status/equity without submitting orders",
 )
 
-# Steps for Moomoo core-satellite strategy
-MOOMOO_STEPS = [
-    Step(
-        "moomoo_submit",
-        [sys.executable, "moomoo_paper_trading.py", "--submit"],
-        "Submit orders to Moomoo paper trading (auto-syncs fills)",
-    ),
-    Step(
-        "moomoo_status",
-        [sys.executable, "moomoo_paper_trading.py", "--status"],
-        "Sync Moomoo equity/positions and save daily status",
-    ),
-    Step(
-        "moomoo_execution_guard",
-        [sys.executable, "moomoo_paper_trading.py", "--execution-guard"],
-        "Repair Moomoo core ETF stop-limit protection",
-    ),
-    Step(
-        "moomoo_health",
-        [sys.executable, "paper_health.py"],
-        "Build deep Moomoo health summary (slippage, concentration, equity risk, P&L)",
-    ),
-    Step(
-        "moomoo_gauntlet",
-        [sys.executable, "paper_gauntlet.py"],
-        "Run Moomoo paper gauntlet health check",
-    ),
-    Step(
-        "moomoo_daily_check",
-        [sys.executable, "daily_paper_check.py", "--skip-status", "--skip-sync"],
-        "Read-only verdict check (status/sync already done above)",
-    ),
-]
-
-# Steps for Alpaca strategy (reads the same unified signal as Moomoo —
-# core_satellite_alpha_signal.csv includes TQQQ weight when the nested
+# Alpaca steps. core_satellite_alpha_signal.csv includes TQQQ weight when the nested
 # walkforward grid search determines it helps on a risk-adjusted basis).
 ALPACA_STEPS = [
     Step(
@@ -283,7 +247,7 @@ ALPACA_STEPS = [
     ),
     Step(
         "alpaca_paper_health",
-        [sys.executable, "paper_health.py", "--broker", "alpaca"],
+        [sys.executable, "paper_health.py"],
         "Build deep health summary for Alpaca (slippage, drift vs walkforward, risk)",
     ),
     Step(
@@ -302,14 +266,7 @@ ALPACA_HEALTH_ONLY_STEPS = [
     ALPACA_STEPS[4],  # alpaca_gauntlet
 ]
 
-MOOMOO_HEALTH_ONLY_STEPS = [
-    MOOMOO_STEPS[1],  # moomoo_status
-    MOOMOO_STEPS[3],  # moomoo_health
-    MOOMOO_STEPS[4],  # moomoo_gauntlet
-    MOOMOO_STEPS[5],  # moomoo_daily_check
-]
-
-# Regime change monitor — runs after BOTH strategies generate signals.
+# Regime change monitor runs after the Alpaca signal is generated.
 # PLAIN ENGLISH: Checks if the market regime (risk_on/neutral/risk_off)
 # changed since yesterday and sends you a notification if it did.
 REGIME_MONITOR_STEP = Step(
@@ -455,29 +412,20 @@ def build_steps(
     *,
     skip_refresh: bool,
     skip_factor_refresh: bool = False,
-    run_moomoo: bool,
-    run_alpaca: bool,
+    run_alpaca: bool = True,
     health_only: bool = False,
     stress: bool = False,
-    report: bool = False,
 ) -> list[Step]:
     steps: list[Step] = []
     if health_only:
         steps.append(FILL_MONITOR_STEP)
-        if run_moomoo or run_alpaca:
-            health_flags = []
-            if run_alpaca:
-                health_flags.append("--alpaca")
-            if run_moomoo:
-                health_flags.append("--moomoo")
+        if run_alpaca:
             steps.append(Step(
                 "broker_health",
-                [sys.executable, "broker_health.py"] + health_flags,
-                f"Pre-flight broker connectivity check ({', '.join(health_flags)})",
+                [sys.executable, "broker_health.py"],
+                "Pre-flight Alpaca connectivity check",
                 critical=False,
             ))
-        if run_moomoo:
-            steps.extend(MOOMOO_HEALTH_ONLY_STEPS)
         if run_alpaca:
             steps.extend(ALPACA_HEALTH_ONLY_STEPS)
         steps.append(REGIME_MONITOR_STEP)
@@ -485,12 +433,6 @@ def build_steps(
         steps.append(LOG_CLEANUP_STEP)
         if stress:
             steps.extend(STRESS_STEPS)
-        if report:
-            steps.append(Step(
-                "performance_report",
-                [sys.executable, "paper_report.py"],
-                "Generate side-by-side Moomoo vs Alpaca performance report",
-            ))
         return steps
 
     if not skip_refresh:
@@ -498,25 +440,15 @@ def build_steps(
         if not skip_factor_refresh:
             steps.extend(FACTOR_REFRESH_STEPS)
     steps.append(FILL_MONITOR_STEP)
-    if run_moomoo or run_alpaca:
-        # Pass broker flags so broker_health.py only checks the brokers
-        # we're actually using.  Without this, it imports moomoo_api even
-        # when running Alpaca-only (breaks on CI where moomoo isn't installed).
-        health_flags = []
-        if run_alpaca:
-            health_flags.append("--alpaca")
-        if run_moomoo:
-            health_flags.append("--moomoo")
+    if run_alpaca:
         steps.append(Step(
             "broker_health",
-            [sys.executable, "broker_health.py"] + health_flags,
-            f"Pre-flight broker connectivity check ({', '.join(health_flags)})",
+            [sys.executable, "broker_health.py"],
+            "Pre-flight Alpaca connectivity check",
             critical=False,
         ))
         steps.append(FACTOR_DATA_HEALTH_STEP)
         steps.append(CORE_SATELLITE_SIGNAL_STEP)
-    if run_moomoo:
-        steps.extend(MOOMOO_STEPS)
     if run_alpaca:
         steps.extend(ALPACA_STEPS)
     steps.append(REGIME_MONITOR_STEP)
@@ -525,12 +457,6 @@ def build_steps(
     steps.append(LOG_CLEANUP_STEP)
     if stress:
         steps.extend(STRESS_STEPS)
-    if report:
-        steps.append(Step(
-            "performance_report",
-            [sys.executable, "paper_report.py"],
-            "Generate side-by-side Moomoo vs Alpaca performance report",
-        ))
     return steps
 
 
@@ -778,12 +704,8 @@ def main():
     )
     parser.add_argument("--dry-run", action="store_true",
                         help="Show what would run without executing")
-    parser.add_argument("--moomoo", action="store_true",
-                        help="Only run Moomoo steps")
     parser.add_argument("--alpaca", action="store_true",
-                        help="Only run Alpaca steps")
-    parser.add_argument("--report", action="store_true",
-                        help="Also run the side-by-side performance report at the end")
+                        help="Run Alpaca paper-trading steps (also the default)")
     parser.add_argument("--stress", action="store_true",
                         help="Also run stress tests (factor decay, drawdown throttle, execution, survivorship)")
     parser.add_argument("--health-only", action="store_true",
@@ -858,35 +780,25 @@ def main():
     _missing_keys: list[str] = []
     if not args.dry_run:
         import os as _os
-        if args.alpaca or args.health_only or (not args.alpaca and not args.moomoo):
-            if not _os.environ.get("ALPACA_API_KEY", "").strip():
-                _missing_keys.append("ALPACA_API_KEY")
-            if not _os.environ.get("ALPACA_SECRET_KEY", "").strip():
-                _missing_keys.append("ALPACA_SECRET_KEY")
+        if not _os.environ.get("ALPACA_API_KEY", "").strip():
+            _missing_keys.append("ALPACA_API_KEY")
+        if not _os.environ.get("ALPACA_SECRET_KEY", "").strip():
+            _missing_keys.append("ALPACA_SECRET_KEY")
         if _missing_keys:
             print(f"⛔ Missing required environment variables: {', '.join(_missing_keys)}")
             print("  Set them in your .env file or shell profile before running.")
             sys.exit(1)
 
-    # Determine which steps to run
-    # If neither --moomoo nor --alpaca specified, run both
-    if args.health_only and not args.moomoo and not args.alpaca:
-        # GitHub Actions is Alpaca-only in this repo.  Default local
-        # health-only to Alpaca so laptops without Moomoo installed still work.
-        run_moomoo = False
-        run_alpaca = True
-    else:
-        run_moomoo = args.moomoo or (not args.moomoo and not args.alpaca)
-        run_alpaca = args.alpaca or (not args.moomoo and not args.alpaca)
+    # PLAIN ENGLISH: This repo uses Alpaca for paper execution now. The
+    # explicit --alpaca flag remains accepted for workflow readability.
+    run_alpaca = True
 
     steps = build_steps(
         skip_refresh=bool(args.skip_refresh),
         skip_factor_refresh=bool(args.skip_factor_refresh),
-        run_moomoo=bool(run_moomoo),
         run_alpaca=bool(run_alpaca),
         health_only=bool(args.health_only),
         stress=bool(args.stress),
-        report=bool(args.report),
     )
 
     # Header
@@ -895,8 +807,6 @@ def main():
     print(f"  DAILY PAPER TRADING RUN")
     print(f"  {now.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"  Steps: {len(steps)}")
-    if run_moomoo:
-        print(f"  Moomoo: core-satellite")
     if run_alpaca:
         print(f"  Alpaca: core-satellite unified signal")
     if args.dry_run:

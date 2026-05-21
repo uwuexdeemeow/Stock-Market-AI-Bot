@@ -5,7 +5,7 @@ PLAIN ENGLISH: After the sell-wait-buy fix, buy orders go out after sells
 settle.  But sometimes orders still don't fill — maybe the limit price was
 too tight, the stock was halted, or the broker rejected it.
 
-This script reads the paper_trades.csv log and checks if any recent orders
+This script reads the Alpaca paper order log and checks if any recent orders
 are still unfilled (cancelled, partial, or missing).  If it finds problems,
 it sends a macOS notification so you know to investigate.
 
@@ -33,7 +33,7 @@ from settings import SIGNAL_DIR
 
 SIGNALS = Path(SIGNAL_DIR)
 
-PAPER_TRADES_FILE = SIGNALS / "paper_trades.csv"
+PAPER_TRADES_FILE = SIGNALS / "alpaca_paper_log.csv"
 FILL_MONITOR_LOG = SIGNALS / "fill_monitor.json"
 
 
@@ -83,7 +83,7 @@ def _parse_timestamp(value: object) -> pd.Timestamp | None:
 
 def check_recent_fills(*, lookback_days: int = 1, quiet: bool = False) -> dict:
     """
-    Check paper_trades.csv for unfilled orders from recent days.
+    Check the Alpaca paper log for unfilled orders from recent days.
 
     PLAIN ENGLISH: Reads the trade log, filters to orders submitted in the
     last N days, and checks each one's fill_status.  Returns a summary
@@ -100,13 +100,13 @@ def check_recent_fills(*, lookback_days: int = 1, quiet: bool = False) -> dict:
     if not PAPER_TRADES_FILE.exists():
         if not quiet:
             print(f"  No paper_trades.csv found — nothing to check")
-        return _empty_result(lookback_days=lookback_days, reason="paper_trades_missing")
+        return _empty_result(lookback_days=lookback_days, reason="alpaca_paper_log_missing")
 
     trades = pd.read_csv(PAPER_TRADES_FILE)
     if trades.empty:
         if not quiet:
             print(f"  paper_trades.csv is empty — nothing to check")
-        return _empty_result(lookback_days=lookback_days, reason="paper_trades_empty")
+        return _empty_result(lookback_days=lookback_days, reason="alpaca_paper_log_empty")
 
     # Filter to recent trades only
     # PLAIN ENGLISH: We only care about orders from the last N days.

@@ -50,8 +50,8 @@ def _live_panel() -> pd.DataFrame:
     })
 
 
-def test_live_sticky_state_uses_moomoo_status_and_filters_core_tickers(tmp_path):
-    status_path = tmp_path / "paper_daily_status.json"
+def test_live_sticky_state_uses_alpaca_status_and_filters_core_tickers(tmp_path):
+    status_path = tmp_path / "alpaca_daily_status.json"
     _write_status(
         status_path,
         equity=1000.0,
@@ -68,7 +68,7 @@ def test_live_sticky_state_uses_moomoo_status_and_filters_core_tickers(tmp_path)
         signal_path=tmp_path / "missing_signal.csv",
     )
 
-    assert state["source"] == "moomoo_daily_status"
+    assert state["source"] == "alpaca_daily_status"
     assert state["used"] is True
     assert state["held_tickers"] == {"CAT", "MU"}
     assert round(float(state["prev_overlay"]["CAT"]), 6) == 0.10
@@ -111,7 +111,7 @@ def test_write_paper_signal_retains_and_blends_live_sticky_holding(tmp_path, mon
     monkeypatch.setattr(csa, "SENTIMENT_VETO_ENABLED", False)
     monkeypatch.setattr(csa, "_paper_signal_timestamp", lambda: "2026-05-13T22:00+08:00")
     _write_status(
-        tmp_path / "paper_daily_status.json",
+        tmp_path / "alpaca_daily_status.json",
         equity=1000.0,
         position_values={"QQQ": 500.0, "HELD": 100.0},
     )
@@ -123,7 +123,7 @@ def test_write_paper_signal_retains_and_blends_live_sticky_holding(tmp_path, mon
     assert "HELD" in overlay
     assert "CCC" not in overlay
     assert float(overlay["HELD"]) > 0.15
-    assert row["sticky_holdings_source"] == "moomoo_daily_status"
+    assert row["sticky_holdings_source"] == "alpaca_daily_status"
     assert bool(row["sticky_holdings_used"]) is True
     assert row["sticky_held_tickers"] == "HELD"
     sticky_prev = json.loads(str(row["sticky_prev_overlay_json"]))

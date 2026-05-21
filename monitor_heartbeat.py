@@ -46,7 +46,7 @@ MONITORED_FILES: dict[str, Path] = {
     # paper_health.py writes to alpaca_paper_health.json when --broker alpaca
     # (which is the default in GitHub Actions).  Check both paths — whichever
     # exists and is newer wins.
-    "paper_health": [SIGNALS / "alpaca_paper_health.json", SIGNALS / "paper_health.json"],
+    "paper_health": SIGNALS / "alpaca_paper_health.json",
     "fill_monitor": SIGNALS / "fill_monitor.json",
     "regime_monitor": SIGNALS / "regime_history.json",
     "broker_health": SIGNALS / "broker_health.json",

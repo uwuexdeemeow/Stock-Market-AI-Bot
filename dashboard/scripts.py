@@ -45,11 +45,11 @@ SCRIPT_CATEGORIES: dict[str, set[str]] = {
     },
     "Live paper trading": {
         "alpaca_paper_gauntlet", "alpaca_paper_trading", "alpaca_protection",
-        "broker_health", "broker_interface", "daily_paper_check",
+        "broker_health", "broker_interface",
         "daily_run", "execution_guard", "execution_model", "fill_monitor",
-        "paper_gauntlet", "paper_health", "paper_report", "paper_scorecard",
+        "paper_health", "paper_scorecard",
         "publish_live_config_from_csv", "refresh_etf_data", "risk_sizing",
-        "signal_freshness", "status", "trade_rules", "moomoo_paper_trading",
+        "signal_freshness", "status", "trade_rules",
     },
     "Infrastructure": {
         "config_health", "data_provider", "data_validation",

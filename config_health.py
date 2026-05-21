@@ -20,7 +20,6 @@ REQUIRED_PACKAGES = {
     "yfinance": "==0.2.40",
     "websockets": ">=9,<11",
     "alpaca-trade-api": "==3.2.0",
-    "moomoo-api": ">=10",
 }
 
 
@@ -61,7 +60,6 @@ def build_config_health(*, run_pip_check: bool = True) -> dict:
     env_checks = {
         "paper_mode_strategy": os.environ.get("PAPER_MODE_STRATEGY", ""),
         "paper_signal_timezone": os.environ.get("PAPER_SIGNAL_TIMEZONE", os.environ.get("TZ", "")),
-        "moomoo_unlock_pwd_set": bool(os.environ.get("MOOMOO_UNLOCK_PWD", "")),
         "alpaca_api_key_set": bool(os.environ.get("ALPACA_API_KEY", "")),
     }
     pip = _pip_check() if run_pip_check else {"ok": True, "stdout": "skipped", "stderr": "", "returncode": 0}

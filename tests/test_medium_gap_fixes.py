@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 import gc
-import sys
-import types
 import weakref
 
 import pandas as pd
@@ -11,7 +9,6 @@ import pandas as pd
 import core_satellite_alpha as csa
 import core_satellite_nested_walkforward as nwf
 import factor_decay_monitor
-import paper_gauntlet
 
 
 def test_panel_day_cache_rebuilds_when_dataframe_id_entry_is_stale():
@@ -33,39 +30,6 @@ def test_panel_day_cache_rebuilds_when_dataframe_id_entry_is_stale():
     assert int(day_map[date]["sentinel"].iloc[0]) == 42
     assert len(csa._PANEL_DAY_CACHE) <= csa._MAX_PANEL_DAY_ENTRIES
     csa.clear_panel_day_cache()
-
-
-def test_paper_gauntlet_excludes_fresh_open_orders_from_matured_fill_rate(monkeypatch):
-    monkeypatch.setattr(paper_gauntlet, "OPEN_ORDER_STALE_SECONDS", 3600)
-    now = pd.Timestamp("2026-05-14T15:00:00+00:00")
-    trades = pd.DataFrame([
-        {"submitted": True, "fill_status": "filled", "submitted_at": "2026-05-14T14:00:00+00:00"},
-        {"submitted": True, "fill_status": "open", "submitted_at": "2026-05-14T14:59:00+00:00"},
-    ])
-
-    stats = paper_gauntlet._order_fill_stats(trades, now=now)
-
-    assert stats["submitted_orders"] == 2
-    assert stats["matured_submitted_orders"] == 1
-    assert stats["active_open_orders"] == 1
-    assert stats["stale_open_orders"] == 0
-    assert stats["matured_fill_rate"] == 1.0
-    assert stats["open_orders_pending"] is True
-
-
-def test_paper_gauntlet_counts_stale_open_orders_against_matured_fill_rate(monkeypatch):
-    monkeypatch.setattr(paper_gauntlet, "OPEN_ORDER_STALE_SECONDS", 60)
-    now = pd.Timestamp("2026-05-14T15:00:00+00:00")
-    trades = pd.DataFrame([
-        {"submitted": True, "fill_status": "filled", "submitted_at": "2026-05-14T14:00:00+00:00"},
-        {"submitted": True, "fill_status": "open", "submitted_at": "2026-05-14T14:00:00+00:00"},
-    ])
-
-    stats = paper_gauntlet._order_fill_stats(trades, now=now)
-
-    assert stats["matured_submitted_orders"] == 2
-    assert stats["stale_open_orders"] == 1
-    assert stats["matured_fill_rate"] == 0.5
 
 
 def test_factor_decay_classifies_negative_rank_ic_positive_edge_as_advisory():
@@ -215,57 +179,3 @@ def test_live_gate_requires_medium_risk_review_pass():
     assert any("medium_risk_review_failed" in reason for reason in out["live_gate_reasons"])
 
 
-def test_open_order_repair_resubmits_stale_order_with_lineage(tmp_path, monkeypatch):
-    fake_moomoo = types.SimpleNamespace(
-        RET_OK=0,
-        TrdEnv=types.SimpleNamespace(SIMULATE="SIMULATE"),
-        ModifyOrderOp=types.SimpleNamespace(CANCEL="CANCEL"),
-        OrderType=types.SimpleNamespace(NORMAL="NORMAL"),
-        TrdSide=types.SimpleNamespace(BUY="BUY", SELL="SELL"),
-    )
-    monkeypatch.setitem(sys.modules, "moomoo", fake_moomoo)
-    import moomoo_paper_trading as mpt
-
-    class Ctx:
-        def __init__(self):
-            self.cancelled = []
-            self.placed = []
-
-        def modify_order(self, _op, order_id, _qty, _price, **_kwargs):
-            self.cancelled.append(str(order_id))
-            return 0, "cancelled"
-
-        def place_order(self, **kwargs):
-            self.placed.append(kwargs)
-            return 0, pd.DataFrame([{"order_id": "child-1", "order_status": "SUBMITTED"}])
-
-        def close(self):
-            pass
-
-    ctx = Ctx()
-    monkeypatch.setattr(mpt, "SIGNAL_DIR", tmp_path)
-    monkeypatch.setattr(mpt, "connect_moomoo_trade_context", lambda: ctx)
-    monkeypatch.setattr(mpt, "maybe_unlock_moomoo_trade", lambda _ctx: (True, "ok"))
-    monkeypatch.setattr(mpt, "MOOMOO_OPEN_ORDER_REPAIR_AFTER_SECONDS", 60)
-    pd.DataFrame([{
-        "ticker": "CAT",
-        "action": "BUY",
-        "price": 100.0,
-        "delta_shares": 10,
-        "limit_price": 100.1,
-        "submitted": True,
-        "fill_status": "open",
-        "submitted_at": "2026-05-14T14:00:00+00:00",
-        "broker_order_id": "parent-1",
-        "broker_order_type": "NORMAL",
-    }]).to_csv(tmp_path / "paper_trades.csv", index=False)
-
-    repaired = mpt.repair_open_paper_orders(now=pd.Timestamp("2026-05-14T15:00:00+00:00"))
-
-    assert ctx.cancelled == ["parent-1"]
-    assert len(ctx.placed) == 1
-    assert repaired.iloc[0]["repair_parent_order_id"] == "parent-1"
-    assert repaired.iloc[0]["repair_attempt"] == 1
-    assert repaired.iloc[0]["broker_order_id"] == "child-1"
-    logged = pd.read_csv(tmp_path / "paper_trades.csv")
-    assert len(logged) == 2

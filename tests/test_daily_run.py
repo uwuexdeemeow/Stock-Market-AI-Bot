@@ -10,18 +10,15 @@ def _names(steps):
     return [step.name for step in steps]
 
 
-def test_default_steps_include_one_shared_signal_before_brokers():
+def test_default_steps_include_one_shared_signal_before_alpaca():
     steps = daily_run.build_steps(
         skip_refresh=False,
-        run_moomoo=True,
         run_alpaca=True,
     )
     names = _names(steps)
     assert names.count("core_satellite_signal") == 1
     assert names.index("factor_data_health") < names.index("core_satellite_signal")
-    assert names.index("core_satellite_signal") < names.index("moomoo_submit")
     assert names.index("core_satellite_signal") < names.index("alpaca_submit")
-    assert "moomoo_signal" not in names
 
 
 def test_daily_refresh_forces_etf_download():
@@ -33,21 +30,18 @@ def test_daily_refresh_forces_etf_download():
 def test_alpaca_only_still_generates_shared_signal():
     steps = daily_run.build_steps(
         skip_refresh=True,
-        run_moomoo=False,
         run_alpaca=True,
     )
     names = _names(steps)
     assert names.count("core_satellite_signal") == 1
     assert names.index("factor_data_health") < names.index("core_satellite_signal")
     assert names.index("core_satellite_signal") < names.index("alpaca_submit")
-    assert "moomoo_submit" not in names
 
 
 def test_skip_factor_refresh_keeps_etf_refresh_and_signal():
     steps = daily_run.build_steps(
         skip_refresh=False,
         skip_factor_refresh=True,
-        run_moomoo=False,
         run_alpaca=True,
     )
     names = _names(steps)
@@ -63,7 +57,6 @@ def test_skip_factor_refresh_keeps_etf_refresh_and_signal():
 def test_health_only_uses_synced_signal_without_order_submission():
     steps = daily_run.build_steps(
         skip_refresh=False,
-        run_moomoo=False,
         run_alpaca=True,
         health_only=True,
     )
@@ -89,7 +82,6 @@ def test_health_only_uses_synced_signal_without_order_submission():
 def test_factor_data_health_failure_blocks_signal_and_orders(monkeypatch):
     steps = daily_run.build_steps(
         skip_refresh=True,
-        run_moomoo=False,
         run_alpaca=True,
     )
     called: list[str] = []
@@ -111,7 +103,6 @@ def test_factor_data_health_failure_blocks_signal_and_orders(monkeypatch):
 def test_core_signal_failure_blocks_broker_steps(monkeypatch):
     steps = [
         daily_run.CORE_SATELLITE_SIGNAL_STEP,
-        *daily_run.MOOMOO_STEPS[:1],
         *daily_run.ALPACA_STEPS[:1],
     ]
     called: list[str] = []
@@ -125,15 +116,13 @@ def test_core_signal_failure_blocks_broker_steps(monkeypatch):
     monkeypatch.setattr(daily_run, "run_step", fake_run_step)
     results = daily_run.run_steps(steps, dry_run=False, timeout=1)
     assert called == ["core_satellite_signal"]
-    assert [r["status"] for r in results] == ["failed", "blocked", "blocked"]
+    assert [r["status"] for r in results] == ["failed", "blocked"]
     assert results[1]["blocked_by"] == "core_satellite_signal"
-    assert results[2]["blocked_by"] == "core_satellite_signal"
 
 
 def test_refresh_failure_blocks_all_later_steps(monkeypatch):
     steps = daily_run.build_steps(
         skip_refresh=False,
-        run_moomoo=True,
         run_alpaca=True,
     )
     called: list[str] = []

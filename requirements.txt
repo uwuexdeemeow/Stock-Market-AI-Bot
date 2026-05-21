@@ -40,7 +40,6 @@ requests==2.33.1
 httpx==0.28.1
 
 # Broker
-moomoo_api==10.3.6308
 alpaca-trade-api==3.2.0
 
 # Utilities

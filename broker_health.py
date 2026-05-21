@@ -1,14 +1,13 @@
 """Broker connectivity health check.
 
-PLAIN ENGLISH: This script pings both Alpaca and Moomoo to make sure they
-are reachable BEFORE the daily pipeline tries to submit orders.  If a
+PLAIN ENGLISH: This script pings Alpaca to make sure it is reachable
+BEFORE the daily pipeline tries to submit orders.  If the broker is down, you
 broker is down, you get a Telegram alert immediately instead of waiting
 for the order submission to time out 5 minutes later.
 
 HOW TO RUN:
-  python3 broker_health.py              # check both brokers
-  python3 broker_health.py --alpaca     # check Alpaca only
-  python3 broker_health.py --moomoo     # check Moomoo only
+  python3 broker_health.py              # check Alpaca
+  python3 broker_health.py --alpaca     # explicit Alpaca check
   python3 broker_health.py --json       # output results as JSON
 
 KEY CONCEPTS:
@@ -65,65 +64,8 @@ def check_alpaca() -> dict:
     return result
 
 
-def check_moomoo() -> dict:
-    """Ping Moomoo OpenD paper account.
-
-    PLAIN ENGLISH: Try to connect to the Moomoo OpenD gateway (which must
-    be running on your machine) and fetch account equity.  If OpenD is not
-    running, the connection will fail.
-    Returns a dict with: broker, healthy (bool), equity, latency_ms, error.
-    """
-    result = {
-        "broker": "moomoo",
-        "healthy": False,
-        "equity": None,
-        "latency_ms": None,
-        "error": None,
-        "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    }
-    ctx = None
-    try:
-        start = time.monotonic()
-        from moomoo_paper_trading import (
-            connect_moomoo_trade_context,
-            fetch_moomoo_positions_and_prices,
-        )
-        ctx = connect_moomoo_trade_context()
-
-        # Try to fetch positions as a connectivity test
-        from moomoo import TrdEnv
-        ret, data = ctx.accinfo_query(trd_env=TrdEnv.SIMULATE, refresh_cache=True)
-        latency = (time.monotonic() - start) * 1000
-
-        if ret == 0 and data is not None and not data.empty:
-            # Try to extract equity from account info
-            for col in ("total_assets", "net_assets", "total_equity", "equity"):
-                if col in data.columns:
-                    val = data[col].iloc[0]
-                    if val and float(val) > 0:
-                        result["equity"] = round(float(val), 2)
-                        break
-            result["healthy"] = True
-        else:
-            result["healthy"] = True  # connection worked, just no data
-        result["latency_ms"] = round(latency, 1)
-    except ImportError as exc:
-        result["error"] = f"moomoo-api not installed: {exc}"
-    except ConnectionRefusedError:
-        result["error"] = "Moomoo OpenD not running — start OpenD app first"
-    except Exception as exc:
-        result["error"] = str(exc)[:300]
-    finally:
-        if ctx is not None:
-            try:
-                ctx.close()
-            except Exception:
-                pass
-    return result
-
-
-def check_all(*, alpaca: bool = True, moomoo: bool = True) -> dict:
-    """Run health checks for requested brokers.
+def check_all(*, alpaca: bool = True) -> dict:
+    """Run the Alpaca health check when requested.
 
     PLAIN ENGLISH: Pings each broker, collects the results, and determines
     if any broker is down.  If a broker is unreachable, sends a Telegram
@@ -134,9 +76,6 @@ def check_all(*, alpaca: bool = True, moomoo: bool = True) -> dict:
     results = {}
     if alpaca:
         results["alpaca"] = check_alpaca()
-    if moomoo:
-        results["moomoo"] = check_moomoo()
-
     all_healthy = all(r["healthy"] for r in results.values())
     down_brokers = [name for name, r in results.items() if not r["healthy"]]
 
@@ -172,22 +111,15 @@ def check_all(*, alpaca: bool = True, moomoo: bool = True) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Pre-flight broker connectivity check. "
-        "Pings Alpaca and Moomoo to verify they are reachable."
+        description="Pre-flight Alpaca connectivity check."
     )
     parser.add_argument("--alpaca", action="store_true",
                         help="Check Alpaca only")
-    parser.add_argument("--moomoo", action="store_true",
-                        help="Check Moomoo only")
     parser.add_argument("--json", action="store_true",
                         help="Output results as JSON")
     args = parser.parse_args()
 
-    # If neither flag set, check both
-    do_alpaca = args.alpaca or (not args.alpaca and not args.moomoo)
-    do_moomoo = args.moomoo or (not args.alpaca and not args.moomoo)
-
-    summary = check_all(alpaca=do_alpaca, moomoo=do_moomoo)
+    summary = check_all(alpaca=True)
 
     if args.json:
         print(json.dumps(summary, indent=2))

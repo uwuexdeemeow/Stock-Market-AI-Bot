@@ -38,8 +38,6 @@ LOGS = Path(LOG_DIR)
 # ── Data sources ──────────────────────────────────────────────────────────────
 # Paper equity: daily snapshots of Alpaca account value
 ALPACA_EQUITY_FILE = SIGNALS / "alpaca_paper_equity.csv"
-# Moomoo equity (if running both brokers)
-MOOMOO_EQUITY_FILE = SIGNALS / "paper_equity.csv"
 # Walkforward predictions
 LIVE_CONFIG_FILE = SIGNALS / "core_satellite_live_configs.json"
 # Trade log
@@ -48,12 +46,12 @@ ALPACA_TRADE_LOG = SIGNALS / "alpaca_paper_log.csv"
 DATA_DIR = Path(os.environ.get("DATA_DIR", "data"))
 
 
-def load_paper_equity(broker: str = "alpaca") -> pd.DataFrame:
+def load_paper_equity() -> pd.DataFrame:
     """Load paper trading equity curve.
 
     Returns DataFrame with columns: date, equity
     """
-    path = ALPACA_EQUITY_FILE if broker == "alpaca" else MOOMOO_EQUITY_FILE
+    path = ALPACA_EQUITY_FILE
     if not path.exists():
         return pd.DataFrame(columns=["date", "equity"])
     df = pd.read_csv(path)
@@ -106,7 +104,7 @@ def load_trade_log() -> pd.DataFrame:
     return df
 
 
-def compute_scorecard(broker: str = "alpaca") -> dict:
+def compute_scorecard() -> dict:
     """Compute the full paper trading scorecard.
 
     Returns a dict with:
@@ -116,7 +114,7 @@ def compute_scorecard(broker: str = "alpaca") -> dict:
         - health_flags: warnings if something looks wrong
         - slippage: execution quality metrics
     """
-    equity_df = load_paper_equity(broker)
+    equity_df = load_paper_equity()
     predictions = load_walkforward_predictions()
 
     if equity_df.empty or len(equity_df) < 2:
@@ -274,7 +272,7 @@ def compute_scorecard(broker: str = "alpaca") -> dict:
     return {
         "status": "ok" if not health_flags else "warning",
         "generated_at": datetime.now().isoformat(),
-        "broker": broker,
+        "broker": "alpaca",
         "live_metrics": live_metrics,
         "predicted_metrics": {
             "mean_oos_sharpe": predictions.get("mean_oos_sharpe"),
@@ -290,12 +288,12 @@ def compute_scorecard(broker: str = "alpaca") -> dict:
     }
 
 
-def reset_scorecard(broker: str = "alpaca") -> None:
+def reset_scorecard() -> None:
     """Clear equity history to start fresh.
 
     Backs up existing file with timestamp suffix before deleting.
     """
-    path = ALPACA_EQUITY_FILE if broker == "alpaca" else MOOMOO_EQUITY_FILE
+    path = ALPACA_EQUITY_FILE
     if path.exists():
         backup = path.with_suffix(f".bak_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
         path.rename(backup)
@@ -377,17 +375,15 @@ def main():
                         help="Clear equity history and start fresh")
     parser.add_argument("--json", action="store_true",
                         help="Output as JSON")
-    parser.add_argument("--broker", default="alpaca", choices=["alpaca", "moomoo"],
-                        help="Which broker to check (default: alpaca)")
     parser.add_argument("--verbose", action="store_true",
                         help="Show daily equity breakdown")
     args = parser.parse_args()
 
     if args.reset:
-        reset_scorecard(args.broker)
+        reset_scorecard()
         return
 
-    scorecard = compute_scorecard(args.broker)
+    scorecard = compute_scorecard()
 
     if args.json:
         print(json.dumps(scorecard, indent=2, default=str))
@@ -395,7 +391,7 @@ def main():
         print_scorecard(scorecard)
 
         if args.verbose and scorecard.get("status") != "insufficient_data":
-            equity_df = load_paper_equity(args.broker)
+            equity_df = load_paper_equity()
             if not equity_df.empty:
                 print("  DAILY EQUITY")
                 print(f"  {'─' * 45}")

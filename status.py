@@ -240,7 +240,7 @@ def render_equity() -> dict:
         if status and "account_equity" in status:
             equity = float(status["account_equity"])
             info["equity"] = equity
-            info["line"] = f"Paper Equity:    ${equity:,.2f} (from moomoo status)"
+            info["line"] = f"Paper Equity:    ${equity:,.2f} (from Alpaca status)"
             return info
         info["line"] = f"Paper Equity:    {dim('no equity data')}"
         return info

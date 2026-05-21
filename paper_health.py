@@ -4,11 +4,12 @@ import argparse
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
 
-import paper_gauntlet
+import alpaca_paper_gauntlet
 from safe_io import atomic_write_json
 from settings import DATA_DIR, LOG_DIR, SECTOR_MAP, SIGNAL_DIR, WATCHLIST
 
@@ -16,38 +17,15 @@ from settings import DATA_DIR, LOG_DIR, SECTOR_MAP, SIGNAL_DIR, WATCHLIST
 SIGNALS = Path(SIGNAL_DIR)
 LOGS = Path(LOG_DIR)
 # ── Broker-specific file paths ─────────────────────────────────────────
-# PLAIN ENGLISH: paper_health.py originally only worked for Moomoo
-# (because it read paper_trades.csv etc.).  Now it supports both brokers
-# via --broker CLI flag — Alpaca runs swap the paths to alpaca_paper_*.
-# The defaults below remain Moomoo so existing import sites are unchanged.
-PAPER_TRADES = SIGNALS / "paper_trades.csv"
-PAPER_EQUITY = SIGNALS / "paper_equity.csv"
-PAPER_STATUS = SIGNALS / "paper_daily_status.json"
-PAPER_HEALTH = SIGNALS / "paper_health.json"
+# PLAIN ENGLISH: Alpaca writes these paper-trading files.  This health
+# report turns those raw logs into a summary for the daily runner.
+PAPER_TRADES = SIGNALS / "alpaca_paper_log.csv"
+PAPER_EQUITY = SIGNALS / "alpaca_paper_equity.csv"
+PAPER_STATUS = SIGNALS / "alpaca_daily_status.json"
+PAPER_HEALTH = SIGNALS / "alpaca_paper_health.json"
 CORE_ORDER_PLAN = SIGNALS / "core_satellite_alpha_orders.csv"
 
 
-def _set_broker_paths(broker: str) -> None:
-    """Swap file paths globally based on which broker is being checked.
-
-    Called from main() once at startup.  Other functions reference the
-    module-level globals so this is the single switch point.
-    """
-    global PAPER_TRADES, PAPER_EQUITY, PAPER_STATUS, PAPER_HEALTH
-    broker = broker.lower().strip()
-    if broker == "alpaca":
-        PAPER_TRADES = SIGNALS / "alpaca_paper_log.csv"
-        PAPER_EQUITY = SIGNALS / "alpaca_paper_equity.csv"
-        PAPER_STATUS = SIGNALS / "alpaca_daily_status.json"
-        PAPER_HEALTH = SIGNALS / "alpaca_paper_health.json"
-    elif broker == "moomoo":
-        # Defaults — explicit reassignment so re-runs don't carry over Alpaca paths.
-        PAPER_TRADES = SIGNALS / "paper_trades.csv"
-        PAPER_EQUITY = SIGNALS / "paper_equity.csv"
-        PAPER_STATUS = SIGNALS / "paper_daily_status.json"
-        PAPER_HEALTH = SIGNALS / "paper_health.json"
-    else:
-        raise ValueError(f"Unknown --broker value: {broker!r} (expected 'alpaca' or 'moomoo')")
 MAX_SLIPPAGE_WARN_BPS = float(__import__("os").environ.get("PAPER_HEALTH_MAX_AVG_SLIPPAGE_BPS", "10"))
 MAX_DRAWDOWN_WARN_PCT = float(__import__("os").environ.get("PAPER_HEALTH_MAX_DRAWDOWN_WARN_PCT", "-5"))
 MAX_TICKER_WEIGHT_WARN = float(__import__("os").environ.get("PAPER_HEALTH_MAX_TICKER_WEIGHT", "0.35"))
@@ -60,6 +38,10 @@ CORE_TICKERS = {
     for item in __import__("os").environ.get("PAPER_HEALTH_CORE_TICKERS", "SPY,QQQ,TQQQ").split(",")
     if item.strip()
 }
+DEFAULT_SIGNAL_TIMEZONE = __import__("os").environ.get(
+    "PAPER_SIGNAL_TIMEZONE",
+    __import__("os").environ.get("TZ", "Asia/Singapore"),
+)
 
 # ── Backtest-vs-live drift detection ──────────────────────────────────
 # Path to the walkforward results that contain the backtested OOS metrics
@@ -165,8 +147,38 @@ def _slippage_summary(trades: pd.DataFrame) -> dict:
     }
 
 
+def _signal_timezone():
+    """Return the timezone used by signal timestamps without an offset."""
+    try:
+        return ZoneInfo(str(DEFAULT_SIGNAL_TIMEZONE))
+    except Exception:
+        return datetime.now().astimezone().tzinfo or timezone.utc
+
+
+def _parse_signal_predicted_at(value: object) -> pd.Timestamp:
+    """Convert the signal time into UTC so order times can be compared."""
+    ts = pd.to_datetime(value, errors="coerce")
+    if pd.isna(ts):
+        return pd.NaT
+    out = pd.Timestamp(ts)
+    if out.tzinfo is None:
+        out = out.tz_localize(_signal_timezone())
+    return out.tz_convert("UTC")
+
+
+def _filter_current_signal_trades(trades: pd.DataFrame, status: dict) -> pd.DataFrame:
+    """Keep trade rows submitted after the current signal was generated."""
+    if trades.empty or "submitted_at" not in trades.columns:
+        return trades
+    signal_ts = _parse_signal_predicted_at(status.get("signal_predicted_at", ""))
+    if pd.isna(signal_ts):
+        return trades
+    submitted_ts = pd.to_datetime(trades["submitted_at"], errors="coerce", utc=True)
+    return trades[submitted_ts >= signal_ts].copy()
+
+
 def _current_order_lifecycle(trades: pd.DataFrame, status: dict) -> list[dict]:
-    current = paper_gauntlet._filter_current_signal_trades(trades, status)
+    current = _filter_current_signal_trades(trades, status)
     if current.empty:
         return []
     rows: list[dict] = []
@@ -539,29 +551,29 @@ def _go_live_scorecard(health: dict) -> dict:
         },
         {
             "name": "paper_equity_days",
-            "passed": int(health.get("paper_equity_days", 0) or 0) >= int(paper_gauntlet.MIN_PORTFOLIO_EQUITY_DAYS),
+            "passed": int(health.get("paper_equity_days", 0) or 0) >= int(alpaca_paper_gauntlet.MIN_TRADING_DAYS),
             "actual": int(health.get("paper_equity_days", 0) or 0),
-            "target": int(paper_gauntlet.MIN_PORTFOLIO_EQUITY_DAYS),
+            "target": int(alpaca_paper_gauntlet.MIN_TRADING_DAYS),
         },
         {
             "name": "fill_rate",
-            "passed": float(health.get("fill_rate", 0.0) or 0.0) >= float(paper_gauntlet.MIN_PORTFOLIO_FILL_RATE),
+            "passed": float(health.get("fill_rate", 0.0) or 0.0) >= float(alpaca_paper_gauntlet.MIN_FILL_RATE),
             "actual": round(float(health.get("fill_rate", 0.0) or 0.0), 4),
-            "target": float(paper_gauntlet.MIN_PORTFOLIO_FILL_RATE),
+            "target": float(alpaca_paper_gauntlet.MIN_FILL_RATE),
         },
         {
             "name": "max_drift_abs",
             "passed": health.get("max_drift_abs") is not None
-            and float(health.get("max_drift_abs") or 0.0) <= float(paper_gauntlet.MAX_PORTFOLIO_DRIFT),
+            and float(health.get("max_drift_abs") or 0.0) <= float(alpaca_paper_gauntlet.MAX_DRIFT),
             "actual": health.get("max_drift_abs"),
-            "target": float(paper_gauntlet.MAX_PORTFOLIO_DRIFT),
+            "target": float(alpaca_paper_gauntlet.MAX_DRIFT),
         },
         {
             "name": "avg_slippage_bps",
             "passed": slippage.get("avg_slippage_bps") is None
-            or float(slippage.get("avg_slippage_bps") or 0.0) <= float(paper_gauntlet.MAX_AVG_SLIPPAGE_BPS),
+            or float(slippage.get("avg_slippage_bps") or 0.0) <= float(MAX_SLIPPAGE_WARN_BPS),
             "actual": slippage.get("avg_slippage_bps"),
-            "target": float(paper_gauntlet.MAX_AVG_SLIPPAGE_BPS),
+            "target": float(MAX_SLIPPAGE_WARN_BPS),
         },
         {
             "name": "drawdown_ok",
@@ -739,8 +751,8 @@ def build_health() -> dict:
     equity = _read_csv(PAPER_EQUITY)
     orders = _read_csv(CORE_ORDER_PLAN)
     status = _read_json(PAPER_STATUS)
-    gauntlet = paper_gauntlet.evaluate_paper()
-    current_signal_trades = paper_gauntlet._filter_current_signal_trades(trades, status)
+    gauntlet = alpaca_paper_gauntlet.evaluate_alpaca_paper()
+    current_signal_trades = _filter_current_signal_trades(trades, status)
 
     fill_status = (
         trades.get("fill_status", pd.Series(dtype=str))
@@ -914,26 +926,15 @@ def print_health(health: dict) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Summarize paper-trading health (Alpaca or Moomoo).")
+    parser = argparse.ArgumentParser(description="Summarize Alpaca paper-trading health.")
     parser.add_argument("--json", action="store_true", help="Print the health summary as JSON.")
-    parser.add_argument(
-        "--broker",
-        choices=["alpaca", "moomoo"],
-        default="moomoo",
-        help="Which broker's paper-trading state to evaluate. Default: moomoo (backwards compat).",
-    )
     args = parser.parse_args()
 
-    # Swap file paths BEFORE building health — everything downstream
-    # reads the module globals.
-    _set_broker_paths(args.broker)
-
     health = build_health()
-    health["broker"] = args.broker  # tag the report so consumers know which one
+    health["broker"] = "alpaca"
     atomic_write_json(health, PAPER_HEALTH)
     LOGS.mkdir(parents=True, exist_ok=True)
-    # Different dated filename per broker so they don't clobber each other.
-    dated = LOGS / f"{args.broker}_paper_health_{datetime.now().strftime('%Y%m%d')}.json"
+    dated = LOGS / f"alpaca_paper_health_{datetime.now().strftime('%Y%m%d')}.json"
     atomic_write_json(health, dated)
     if args.json:
         print(json.dumps(health, indent=2))

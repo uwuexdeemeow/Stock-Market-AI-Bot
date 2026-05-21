@@ -1773,8 +1773,8 @@ def _scale_paper_targets_to_gross(
     Convert a research allocation into a broker-safe paper allocation.
 
     Backtests may intentionally test 1.25x gross exposure, but paper order
-    submission should default to <= 1.00x gross so Moomoo does not reject/cancel
-    buy orders because of insufficient buying power.
+    submission should default to <= 1.00x gross so the broker does not
+    reject buy orders because of insufficient buying power.
 
     Returns: (target_spy, target_qqq, target_tqqq, overlay, raw_gross, scale, scaled)
     """
@@ -1797,75 +1797,15 @@ def _core_satellite_signal_path() -> Path:
     return Path(SIGNAL_DIR) / "core_satellite_alpha_signal.csv"
 
 
-def _paper_daily_status_path() -> Path:
-    return Path(SIGNAL_DIR) / "paper_daily_status.json"
-
-
 def _alpaca_daily_status_path() -> Path:
-    """Alpaca's parallel of paper_daily_status.json.
-
-    Written by alpaca_paper_trading.snapshot_status() after every submit
-    and reconcile.  When present and fresher than Moomoo's file, this
-    takes precedence so the sticky overlay reflects Alpaca's actual
-    positions (not Moomoo's stale paper account).
-    """
+    """Return the Alpaca status snapshot used by sticky live holdings."""
     return Path(SIGNAL_DIR) / "alpaca_daily_status.json"
 
 
 def _select_live_status_path() -> tuple[Path, str]:
-    """Pick which broker status file to use for sticky overlay.
-
-    Returns (path, reason).  Logic:
-      1. If only one of the files exists, use that one.
-      2. If both exist, use whichever has the more recent generated_at
-         timestamp inside it (not file mtime — JSON value, which the
-         writer updated atomically).
-      3. If neither has a valid timestamp, fall back to file mtime.
-      4. Tie-breaker: prefer Alpaca (current live broker per env).
-
-    PLAIN ENGLISH: Tomorrow's signal needs to know what was bought
-    yesterday so it doesn't churn unnecessarily.  This picks the
-    broker that's actually running, not the one that ran 3 weeks ago.
-    """
-    import os
-    alpaca_path = _alpaca_daily_status_path()
-    moomoo_path = _paper_daily_status_path()
-    alpaca_exists = alpaca_path.exists()
-    moomoo_exists = moomoo_path.exists()
-
-    if alpaca_exists and not moomoo_exists:
-        return alpaca_path, "alpaca_only_present"
-    if moomoo_exists and not alpaca_exists:
-        return moomoo_path, "moomoo_only_present"
-    if not alpaca_exists and not moomoo_exists:
-        return moomoo_path, "neither_present"  # fall-through; caller handles missing
-
-    # Both exist — compare generated_at JSON values.
-    def _ts(path: Path) -> str:
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8", errors="replace"))
-            return str(payload.get("generated_at", ""))
-        except Exception:
-            return ""
-
-    alpaca_ts = _ts(alpaca_path)
-    moomoo_ts = _ts(moomoo_path)
-    if alpaca_ts and moomoo_ts:
-        # ISO-8601 strings sort lexicographically by time
-        if alpaca_ts >= moomoo_ts:
-            return alpaca_path, f"alpaca_fresher ({alpaca_ts} >= {moomoo_ts})"
-        return moomoo_path, f"moomoo_fresher ({moomoo_ts} > {alpaca_ts})"
-    if alpaca_ts and not moomoo_ts:
-        return alpaca_path, "alpaca_has_timestamp"
-    if moomoo_ts and not alpaca_ts:
-        return moomoo_path, "moomoo_has_timestamp"
-
-    # Neither has a JSON timestamp — fall back to file mtime, prefer Alpaca on tie.
-    am = alpaca_path.stat().st_mtime
-    mm = moomoo_path.stat().st_mtime
-    if am >= mm:
-        return alpaca_path, "alpaca_mtime_newer_or_equal"
-    return moomoo_path, "moomoo_mtime_newer"
+    """Use Alpaca account state as the sticky live-holdings source."""
+    path = _alpaca_daily_status_path()
+    return path, "alpaca_status_present" if path.exists() else "alpaca_status_missing"
 
 
 def _empty_live_sticky_state(reason: str, source: str = "none") -> dict:
@@ -1939,13 +1879,8 @@ def _load_live_sticky_overlay_state(
 ) -> dict:
     """Return live overlay holdings for sticky live selection.
 
-    Picks between Moomoo's paper_daily_status.json and Alpaca's
-    alpaca_daily_status.json based on which has the fresher
-    `generated_at` timestamp.  Falls back to the prior unified signal
-    overlay if neither status file is usable.
-
-    The selection logic is in _select_live_status_path() — see its
-    docstring for the precedence rules.
+    Reads Alpaca's daily status first.  If that file has no usable
+    holdings, it falls back to the prior unified signal overlay.
     """
     if status_path is None:
         status_path, _selection_reason = _select_live_status_path()
@@ -1965,7 +1900,7 @@ def _load_live_sticky_overlay_state(
             except Exception:
                 equity = 0.0
             position_values = status.get("position_values", {})
-            broker = str(status.get("broker", "moomoo"))
+            broker = str(status.get("broker", "alpaca"))
             if isinstance(position_values, dict) and equity > 0 and np.isfinite(equity):
                 prev_overlay = _overlay_series_from_values(position_values, equity)
                 source_tag = f"{broker}_daily_status"
