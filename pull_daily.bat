@@ -21,6 +21,12 @@ git checkout origin/signals/latest -- signals/ logs/
 if errorlevel 1 goto :error
 
 echo [pull_daily] un-staging signal/log files...
+
+
+
+
+
+]\
 git reset HEAD signals/ logs/ >nul 2>&1
 
 echo.
