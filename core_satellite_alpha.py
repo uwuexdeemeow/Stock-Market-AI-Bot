@@ -1138,6 +1138,15 @@ def _blended_score_col(
 
 
 def _score_col_for_regime(source: str, regime: str) -> str:
+    if source == "regime_adaptive_riskoff_guard":
+        # PLAIN ENGLISH: Risk-on and neutral keep the established route.  Only
+        # risk-off uses a score-health guard that chooses the defensive score
+        # or the walk-forward score from trailing, shifted IC history.
+        if regime == "risk_on":
+            return "factor_risk_on_score"
+        if regime == "risk_off":
+            return "factor_defensive_guard_score"
+        return "factor_walkforward_score"
     if source == "regime_adaptive_consensus":
         if regime == "risk_on":
             return "factor_risk_on_consensus_score"

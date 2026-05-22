@@ -26,6 +26,7 @@ from core_satellite_alpha import (
     _paper_signal_timestamp,
     _resolve_allocation,
     _scale_paper_targets_to_gross,
+    _score_col_for_regime,
     _select_sticky_holdings,
     _top_count,
 )
@@ -72,6 +73,7 @@ from feature_quality_diagnostic import (
     find_return_column,
     ic_decay_curve,
 )
+from alpha_factor_backtest import attach_trailing_score_guard
 from walkforward_analyzer import check_fold_completeness
 
 
@@ -804,6 +806,42 @@ def test_nested_low_turnover_grid_keeps_top3_and_adds_top10():
     assert {p["weighting"] for p in params} == {"sticky_score", "risk_parity"}
     assert {p["tqqq_weight"] for p in params} == {0.0, 0.10}
     assert {p["high_vol_mode"] for p in params} == {"fixed", "percentile"}
+
+
+def test_riskoff_score_guard_keeps_risk_on_route_unchanged():
+    assert _score_col_for_regime("regime_adaptive_riskoff_guard", "risk_on") == "factor_risk_on_score"
+    assert _score_col_for_regime("regime_adaptive_riskoff_guard", "neutral") == "factor_walkforward_score"
+    assert _score_col_for_regime("regime_adaptive_riskoff_guard", "risk_off") == "factor_defensive_guard_score"
+
+
+def test_trailing_score_guard_waits_for_shifted_history_before_fallback():
+    dates = pd.bdate_range("2024-01-01", periods=4)
+    rows = []
+    for dt in dates:
+        for rank in range(1, 7):
+            rows.append({
+                "date": dt,
+                "primary": float(rank),
+                "fallback": float(rank),
+                "forward_return": float(rank),
+            })
+    panel = pd.DataFrame(rows)
+    panel["primary"] = 1.0 - panel["primary"]
+
+    guarded = attach_trailing_score_guard(
+        panel,
+        primary_col="primary",
+        fallback_col="fallback",
+        output_col="guarded",
+        lookback_days=2,
+        min_periods=2,
+        shift_days=1,
+    )
+
+    first_two = guarded[guarded["date"].isin(dates[:2])]
+    later = guarded[guarded["date"].isin(dates[2:])]
+    assert first_two["guarded"].equals(first_two["primary"])
+    assert later["guarded"].equals(later["fallback"])
 
 
 def test_selector_diagnostic_rebuilds_exact_config_signature():

@@ -366,6 +366,72 @@ def attach_regime_factor_scores(
         out["factor_defensive_score"] = pd.concat([out["factor_defensive_score"], reversal_score], axis=1).mean(axis=1, skipna=True)
     out["factor_risk_on_score"] = out["factor_risk_on_score"].fillna(out["factor_walkforward_score"])
     out["factor_defensive_score"] = out["factor_defensive_score"].fillna(out["factor_walkforward_score"])
+    out = attach_trailing_score_guard(
+        out,
+        primary_col="factor_defensive_score",
+        fallback_col="factor_walkforward_score",
+        output_col="factor_defensive_guard_score",
+    )
+    return out
+
+
+def _daily_score_ic(panel: pd.DataFrame, score_col: str, return_col: str, dates: pd.DatetimeIndex) -> pd.Series:
+    """Return one cross-sectional Spearman IC value per panel date."""
+    if score_col not in panel.columns or return_col not in panel.columns:
+        return pd.Series(np.nan, index=dates, dtype=float)
+    daily_ic = (
+        panel[["date", score_col, return_col]]
+        .dropna()
+        .groupby("date")
+        .apply(
+            lambda group: (
+                group[score_col].corr(group[return_col], method="spearman")
+                if group[score_col].nunique() > 1 and group[return_col].nunique() > 1
+                else np.nan
+            )
+        )
+    )
+    return daily_ic.reindex(dates).astype(float)
+
+
+def attach_trailing_score_guard(
+    panel: pd.DataFrame,
+    *,
+    primary_col: str,
+    fallback_col: str,
+    output_col: str,
+    return_col: str = "forward_return",
+    lookback_days: int = 504,
+    min_periods: int = 126,
+    shift_days: int = HORIZON_DAYS,
+) -> pd.DataFrame:
+    """Choose between two score columns using leak-safe trailing rank IC.
+
+    PLAIN ENGLISH: A score is healthy when higher-ranked stocks later earn
+    higher returns.  This helper measures that relationship on past dates only.
+    It switches to the fallback score only when the fallback's trailing IC is
+    both positive and better than the primary score's trailing IC.
+    """
+    out = panel.copy()
+    if primary_col not in out.columns:
+        out[output_col] = pd.to_numeric(out.get(fallback_col), errors="coerce")
+        return out
+    out[output_col] = pd.to_numeric(out[primary_col], errors="coerce")
+    if fallback_col not in out.columns or return_col not in out.columns:
+        return out
+
+    dates = pd.DatetimeIndex(sorted(out["date"].unique()))
+    primary_ic = _daily_score_ic(out, primary_col, return_col, dates)
+    fallback_ic = _daily_score_ic(out, fallback_col, return_col, dates)
+    # Shift by the return horizon before making a same-day score decision.
+    # Without this shift, today's guard would inspect returns that are not
+    # known until the forward-return label finishes in the future.
+    primary_trailing = primary_ic.rolling(lookback_days, min_periods=min_periods).mean().shift(shift_days)
+    fallback_trailing = fallback_ic.rolling(lookback_days, min_periods=min_periods).mean().shift(shift_days)
+    use_fallback_by_date = (fallback_trailing > primary_trailing) & (fallback_trailing > 0.0)
+    use_fallback = out["date"].map(use_fallback_by_date).fillna(False).astype(bool)
+    out.loc[use_fallback, output_col] = pd.to_numeric(out.loc[use_fallback, fallback_col], errors="coerce")
+    out[output_col] = out[output_col].fillna(pd.to_numeric(out[primary_col], errors="coerce"))
     return out
 
 

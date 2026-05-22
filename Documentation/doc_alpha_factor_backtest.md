@@ -20,6 +20,9 @@ Common output files are written under `signals/`. Exact filenames can vary depen
 ## Key Concepts
 - Factor score: A combined ranking score built from multiple market features.
 - Cross-sectional ranking: Comparing stocks against each other on the same date.
+- Trailing score guard: A leak-safe chooser that compares two rankings using
+  past rank IC only, shifts the decision past the forward-return horizon, and
+  can fall back when the normal score has weaker recent evidence.
 - Overlay: The satellite stock-picking sleeve that sits on top of the core ETF exposure.
 - Gate: A risk check that can block live capital even when the script still produces research output.
 - Feature-health summary: Metadata explaining whether the current feature set is diverse enough for live use.

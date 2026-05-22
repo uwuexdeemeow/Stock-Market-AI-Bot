@@ -54,6 +54,11 @@ Expected outputs:
 - **Satellite / overlay**: individual stock picks added around the ETF core.
 - **Regime**: market state such as risk-on, neutral, or risk-off.
 - **Factor score**: a ranking number made from market features.
+- **Research score route**: an explicit score-source experiment.  For example,
+  `regime_adaptive_riskoff_guard` keeps normal risk-on and neutral scores but
+  lets the risk-off score-health guard choose between defensive and
+  walk-forward rankings from shifted trailing history.  It keeps the live
+  default unchanged until fixed validation proves whether the route is useful.
 - **Sentiment veto**: optional live-news check that can remove a selected stock
   when fresh headlines are strongly negative.
 - **Nested walkforward approval**: the validation result that decides whether a
