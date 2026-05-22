@@ -49,6 +49,8 @@ from paper_health import (
 import alpaca_paper_gauntlet
 import core_satellite_nested_walkforward as nested_wf
 import publish_live_config_from_csv as manual_publish
+import validate_fixed_live_config as fixed_validator
+import walkforward_selector_diagnostics as selector_diag
 from refresh_etf_data import _validate_etf_frame
 from config_health import _requirement_ok
 from core_satellite_nested_walkforward import (
@@ -70,6 +72,7 @@ from feature_quality_diagnostic import (
     find_return_column,
     ic_decay_curve,
 )
+from walkforward_analyzer import check_fold_completeness
 
 
 def _price_frame(n=100, start="2024-01-01"):
@@ -524,12 +527,36 @@ def test_nested_write_outputs_only_publishes_live_config_when_requested(tmp_path
     assert "both" not in live["approved_live_configs"]
 
 
+def test_nested_write_outputs_keeps_research_results_unique(tmp_path, monkeypatch):
+    monkeypatch.setattr(nested_wf, "SIGNAL_DIR", str(tmp_path))
+    result = {"strategy": "core-alpha", "folds": []}
+
+    first_default, _ = nested_wf.write_outputs(result, publish_live_config=False)
+    second_default, _ = nested_wf.write_outputs(result, publish_live_config=False)
+    named, _ = nested_wf.write_outputs(
+        result,
+        output_prefix=r"signals\wf_named_research.json",
+        publish_live_config=False,
+    )
+    named_repeat, _ = nested_wf.write_outputs(
+        result,
+        output_prefix=r"signals\wf_named_research.json",
+        publish_live_config=False,
+    )
+
+    assert first_default.name != f"{nested_wf.DEFAULT_OUTPUT_PREFIX}.json"
+    assert first_default != second_default
+    assert named.name == "wf_named_research.json"
+    assert named_repeat != named
+
+
 def test_nested_publish_decision_defaults_to_publish_only_for_full_runs():
     full = Namespace(
         publish_live_config=None,
         fast=False,
         stable_grid=False,
         recent_alpha_grid=False,
+        low_turnover_grid=False,
         max_folds=None,
         max_configs=None,
         start_year=None,
@@ -557,6 +584,11 @@ def test_nested_publish_decision_defaults_to_publish_only_for_full_runs():
     publish, reason = nested_wf.live_config_publish_decision(recent_alpha)
     assert publish is False
     assert "--recent-alpha-grid" in reason
+
+    low_turnover = Namespace(**{**vars(full), "low_turnover_grid": True})
+    publish, reason = nested_wf.live_config_publish_decision(low_turnover)
+    assert publish is False
+    assert "--low-turnover-grid" in reason
 
     forced = Namespace(**{**vars(smoke), "publish_live_config": True})
     assert nested_wf.live_config_publish_decision(forced) == (True, "forced_by_--publish-live-config")
@@ -755,6 +787,97 @@ def test_nested_recent_alpha_grid_focuses_new_regime_dimensions():
     assert {p["weighting"] for p in params} == {"sticky_score", "risk_parity"}
     assert {p["tqqq_weight"] for p in params} == {0.0, 0.10}
     assert {p["high_vol_mode"] for p in params} == {"fixed", "percentile"}
+
+
+def test_nested_low_turnover_grid_keeps_top3_and_adds_top10():
+    configs = nested_wf.low_turnover_grid_candidate_configs()
+
+    assert len(configs) == 64
+    params = [config["nested_params"] for config in configs]
+    assert {p["holding_days"] for p in params} == {20}
+    assert {p["overlay_gross"] for p in params} == {0.25, 0.50}
+    assert {p["ma_window"] for p in params} == {100}
+    assert {p["high_vol"] for p in params} == {0.30}
+    assert {p["score_source"] for p in params} == {"regime_adaptive"}
+    assert {p["risk_control_mode"] for p in params} == {"off"}
+    assert {p["shape"] for p in params} == {"top3", "top5", "top10", "top15"}
+    assert {p["weighting"] for p in params} == {"sticky_score", "risk_parity"}
+    assert {p["tqqq_weight"] for p in params} == {0.0, 0.10}
+    assert {p["high_vol_mode"] for p in params} == {"fixed", "percentile"}
+
+
+def test_selector_diagnostic_rebuilds_exact_config_signature():
+    signature = (
+        "h=20,ov=0.25,ma=100,vol=percentile:0.3,"
+        "score=regime_adaptive,shape=top3,weighting=risk_parity,"
+        "tqqq=0.0,risk=off"
+    )
+
+    config = selector_diag.config_from_signature(signature)
+
+    assert nested_wf.config_signature(config) == signature
+
+
+def test_selector_diagnostic_fixed_summary_compounds_outer_rows():
+    rows = [
+        {
+            "valid": True,
+            "oos_total_return_pct": 10.0,
+            "oos_cagr_pct": 10.0,
+            "oos_sharpe": 1.0,
+            "oos_alpha_vs_qqq_pct": 2.0,
+            "oos_turnover_pct": 100.0,
+            "oos_max_drawdown_pct": -5.0,
+        },
+        {
+            "valid": True,
+            "oos_total_return_pct": -5.0,
+            "oos_cagr_pct": -5.0,
+            "oos_sharpe": 0.5,
+            "oos_alpha_vs_qqq_pct": -1.0,
+            "oos_turnover_pct": 150.0,
+            "oos_max_drawdown_pct": -8.0,
+        },
+    ]
+
+    summary = selector_diag._summary_for_rows(rows, label="fixed", signature="sig")
+
+    assert summary["compound_oos_return_pct"] == 4.5
+    assert summary["beat_qqq_folds"] == 1
+    assert summary["worst_oos_turnover_pct"] == 150.0
+
+
+def test_fixed_validator_approves_repeat_fixed_rows_with_passed_reviews():
+    signature = _wf_sig(shape="top3", vol_mode="percentile")
+    config = selector_diag.config_from_signature(signature)
+    rows = [
+        {
+            "valid": True,
+            "fold_year": year,
+            "outer_year": year,
+            "oos_total_return_pct": 10.0,
+            "oos_cagr_pct": 10.0,
+            "oos_sharpe": 1.0,
+            "oos_max_drawdown_pct": -8.0,
+            "oos_turnover_pct": 150.0,
+            "oos_alpha_vs_spy_pct": 5.0,
+            "oos_alpha_vs_qqq_pct": 3.0,
+            "oos_alpha_vs_blend_pct": 4.0,
+            "fixed_cost_stress_approval_pass": True,
+        }
+        for year in range(2021, 2027)
+    ]
+
+    summary = fixed_validator._fixed_summary(
+        rows,
+        signature=signature,
+        config=config,
+        review={"pass": True, "reasons": []},
+    )
+
+    assert summary["fixed_cost_stress_pass_ratio"] == 1.0
+    assert summary["live_config_approval"]["approved"] is True
+    assert summary["approved_live_config"]["approved_exact_config"] == signature
 
 
 def test_nested_live_approval_uses_specific_config_frequency_and_turnover():
@@ -992,6 +1115,7 @@ def test_inner_selection_rejects_configs_above_turnover_cap(monkeypatch):
 
     assert selected["config"]["name"] == "lower_sharpe_clean"
     assert selected["metrics"]["inner_mean_turnover_pct"] == 100.0
+    assert selected["selection_diagnostics"]["rejection_counts"]["mean_turnover_cap"] == 1
 
 
 def test_inner_selection_momentum_bonus_still_enabled_after_ab(monkeypatch):
@@ -1191,8 +1315,25 @@ def test_inner_selection_can_treat_stress_gate_as_diagnostic(monkeypatch):
     )
 
     assert strict["config"] is None
+    assert strict["selection_diagnostics"]["rejection_counts"]["cost_stress_gate"] == 1
     assert relaxed["config"]["name"] == "research_candidate"
     assert relaxed["metrics"]["inner_cost_stress_approval_pass"] is False
+
+
+def test_walkforward_analyzer_fails_incomplete_fold_rows():
+    result = check_fold_completeness(
+        pd.DataFrame(
+            {
+                "fold_year": [2024, 2025],
+                "oos_return_pct": [12.0, np.nan],
+                "reason": [None, "no_valid_inner_config"],
+            }
+        )
+    )
+
+    assert result["verdict"] == "FAIL"
+    assert result["failed_years"] == [2025]
+    assert result["reason_counts"] == {"no_valid_inner_config": 1}
 
 
 def test_signal_timestamp_is_timezone_aware():

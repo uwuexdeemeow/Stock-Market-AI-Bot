@@ -308,6 +308,33 @@ def summary_stats(df: pd.DataFrame) -> dict:
 
 
 # ── Main runner: orchestrate all checks and print a report ──────────────
+def check_fold_completeness(df: pd.DataFrame) -> dict:
+    """Fail a walkforward result when any requested fold has no OOS result."""
+    if "oos_return_pct" not in df:
+        return {"valid": False, "reason": "missing_oos_return_pct"}
+
+    failed = df[df["oos_return_pct"].isna()].copy()
+    failed_years = (
+        pd.to_numeric(failed.get("fold_year"), errors="coerce")
+        .dropna()
+        .astype(int)
+        .tolist()
+    )
+    reason_counts = {}
+    if "reason" in failed:
+        reason_counts = {
+            str(reason): int(count)
+            for reason, count in failed["reason"].fillna("missing_reason").value_counts().items()
+        }
+    return {
+        "valid": True,
+        "failed_folds": int(len(failed)),
+        "failed_years": failed_years,
+        "reason_counts": reason_counts,
+        "verdict": "FAIL" if len(failed) else "PASS",
+    }
+
+
 def analyze(csv_path: str, qqq_path: str, spy_path: str, *, objective: str = DEFAULT_OBJECTIVE) -> dict:
     """Run all checks and return a results dict.  Also prints a report."""
     if not os.path.exists(csv_path):
@@ -332,6 +359,18 @@ def analyze(csv_path: str, qqq_path: str, spy_path: str, *, objective: str = DEF
     print(f"  Mean alpha vs QQQ: {summary.get('mean_alpha_vs_qqq_pct')}%")
     print(f"  Beat QQQ:          {summary.get('beat_qqq_count')}/{summary.get('valid_folds')} years")
     print(f"  Worst drawdown:    {summary.get('worst_drawdown_pct')}%")
+
+    # Missing OOS folds can make the remaining averages look healthier than
+    # the full test, so show that failure before interpreting score checks.
+    print("\n-- CHECK 0: FOLD COMPLETENESS --")
+    completeness = check_fold_completeness(df)
+    if completeness.get("valid"):
+        print(f"  Verdict:  [{completeness['verdict']}]")
+        if completeness["failed_folds"]:
+            print(f"  Missing OOS folds: {completeness['failed_years']}")
+            print(f"  Reasons:           {completeness['reason_counts']}")
+    else:
+        print(f"  Skipped: {completeness.get('reason')}")
 
     # Section 2: predictiveness check
     print("\n── CHECK 1: SCORE PREDICTIVENESS ──")
@@ -391,6 +430,7 @@ def analyze(csv_path: str, qqq_path: str, spy_path: str, *, objective: str = DEF
     # Section 6: overall recommendation
     print("\n── OVERALL RECOMMENDATION ──")
     verdicts = [
+        completeness.get("verdict"),
         pred.get("verdict"),
         calib.get("verdict"),
         vuln.get("verdict"),
@@ -408,6 +448,7 @@ def analyze(csv_path: str, qqq_path: str, spy_path: str, *, objective: str = DEF
     else:
         print("  → Critical failures detected.  Don't deploy yet — fix the FAIL checks first.")
         for label, result in [
+            ("fold completeness", completeness),
             ("score predictiveness", pred),
             ("model calibration", calib),
             ("concentration vulnerability", vuln),
@@ -420,6 +461,7 @@ def analyze(csv_path: str, qqq_path: str, spy_path: str, *, objective: str = DEF
 
     return {
         "summary": summary,
+        "fold_completeness": completeness,
         "score_predictiveness": pred,
         "calibration": calib,
         "concentration_vulnerability": vuln,

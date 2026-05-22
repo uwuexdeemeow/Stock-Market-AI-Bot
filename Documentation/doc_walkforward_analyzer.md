@@ -45,23 +45,29 @@ python walkforward_analyzer.py --csv signals/core_satellite_nested_walkforward.c
 
 ## Main checks
 
-1. Score predictiveness
+1. Fold completeness
+   - Fails the report when any requested walkforward fold has no OOS result.
+   - Prints missing fold years and their saved failure reasons.
+   - This prevents a partial run from looking deployable just because hard
+     years dropped out.
+
+2. Score predictiveness
    - Compares the inner score against the matching OOS objective score.
    - Also prints extra correlations versus OOS Sharpe and OOS QQQ alpha.
    - PASS means high inner scores tend to become strong OOS results.
    - FAIL means the selector is backwards: it likes configs that do worse OOS.
 
-2. Model calibration
+3. Model calibration
    - Compares how often inner folds expected positive QQQ alpha against how
      often OOS folds actually delivered positive QQQ alpha.
    - A large optimism gap means the model is overconfident.
 
-3. Concentration vulnerability
+4. Concentration vulnerability
    - Checks whether the strategy loses alpha when QQQ strongly beats SPY.
    - This catches strategies that look fine in broad markets but struggle when
      mega-cap tech dominates.
 
-4. Config stability
+5. Config stability
    - Checks whether the walkforward keeps selecting similar configs.
    - Too much config hopping suggests the selector is chasing noise.
 
@@ -69,6 +75,7 @@ python walkforward_analyzer.py --csv signals/core_satellite_nested_walkforward.c
 
 | Check | PASS | WARN | FAIL |
 |-------|------|------|------|
+| Fold completeness | no missing OOS folds | - | any missing OOS fold |
 | Score predictiveness | corr > 0.3 | 0 to 0.3 | corr < 0 |
 | Calibration | direction >= 60% and gap < 30pp | direction >= 40% and gap < 50pp | otherwise |
 | Concentration | corr > -0.3 and delta > -5% | corr > -0.5 and delta > -10% | otherwise |

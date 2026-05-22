@@ -362,6 +362,8 @@ RECENT_ALPHA_GRID_OVERLAY_GROSS = (0.50, 0.70)
 RECENT_ALPHA_GRID_TQQQ_WEIGHTS = (0.0, 0.10)
 RECENT_ALPHA_GRID_WEIGHTINGS = ("sticky_score", "risk_parity")
 RECENT_ALPHA_GRID_HIGH_VOL_MODES = ("fixed", "percentile")
+LOW_TURNOVER_GRID_OVERLAY_GROSS = (0.25, 0.50)
+LOW_TURNOVER_GRID_SHAPES = ("top3", "top5", "top10", "top15")
 # Survivorship gate thresholds — tuned for the limited audit data reality:
 # Only 5 of 17 known failed tickers have local parquet data.  With a
 # 147-ticker universe, random chance alone would select them ~20 times.
@@ -843,6 +845,28 @@ def recent_alpha_grid_candidate_configs(
 # very similar date ranges so the same parquet gets read thousands of
 # times.  This module-level cache stores the raw ETF price Series
 # (pre-normalisation) so disk I/O only happens once per process.
+def low_turnover_grid_candidate_configs(
+    *,
+    strategy: str = "core-alpha",
+    max_configs: int | None = None,
+) -> list[dict]:
+    """Return a lower-overlay research grid for turnover gate experiments."""
+    return iter_candidate_configs(
+        strategy=strategy,
+        holding_days=(20,),
+        overlay_gross=LOW_TURNOVER_GRID_OVERLAY_GROSS,
+        ma_windows=(100,),
+        high_vol_values=(0.30,),
+        high_vol_modes=RECENT_ALPHA_GRID_HIGH_VOL_MODES,
+        score_sources=("regime_adaptive",),
+        shapes=LOW_TURNOVER_GRID_SHAPES,
+        weightings=RECENT_ALPHA_GRID_WEIGHTINGS,
+        tqqq_weights=RECENT_ALPHA_GRID_TQQQ_WEIGHTS,
+        risk_control_modes=("off",),
+        max_configs=max_configs,
+    )
+
+
 _BENCH_RAW_CACHE: dict[str, pd.Series] | None = None
 
 
@@ -1483,6 +1507,57 @@ def _screen_worker(config_low_memory: tuple[dict, bool]) -> dict | None:
     return _screen_one_config(config, _SHARED_PANEL, _SHARED_SCREEN_FOLD, low_memory)
 
 
+def _empty_inner_selection_result() -> dict:
+    """Return the selector result shape used before any config wins."""
+    return {
+        "config": None,
+        "score": -np.inf,
+        "metrics": {},
+        "fold_metrics": [],
+        "failed_evaluations": 0,
+        "selection_diagnostics": {
+            "evaluated_configs": 0,
+            "valid_configs": 0,
+            "rejection_counts": {},
+            "rejection_examples": {},
+        },
+    }
+
+
+def _rejected_inner_config(
+    reason: str,
+    *,
+    failed_evaluations: int = 0,
+    rejection_metrics: dict | None = None,
+) -> dict:
+    """Keep the reason a config was rejected instead of losing it as None."""
+    rejected = _empty_inner_selection_result()
+    rejected["failed_evaluations"] = int(failed_evaluations)
+    rejected["rejection_reason"] = str(reason)
+    rejected["rejection_metrics"] = dict(rejection_metrics or {})
+    return rejected
+
+
+def _record_inner_selection_diagnostic(diagnostics: dict, result: dict | None) -> bool:
+    """Count why each candidate did or did not survive inner selection."""
+    diagnostics["evaluated_configs"] = int(diagnostics.get("evaluated_configs", 0)) + 1
+    if result is None:
+        reason = "missing_result"
+        metrics = {}
+    elif result.get("config") is None:
+        reason = str(result.get("rejection_reason") or "no_config")
+        metrics = dict(result.get("rejection_metrics") or {})
+    else:
+        diagnostics["valid_configs"] = int(diagnostics.get("valid_configs", 0)) + 1
+        return True
+
+    counts = diagnostics.setdefault("rejection_counts", {})
+    counts[reason] = int(counts.get(reason, 0)) + 1
+    # One compact example per reason explains a dead fold without bloating JSON.
+    diagnostics.setdefault("rejection_examples", {}).setdefault(reason, metrics)
+    return False
+
+
 def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
                           low_memory: bool, best_score_so_far: float = -np.inf,
                           skip_stress_gate: bool = False,
@@ -1541,7 +1616,11 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
             # Subtract a small stability penalty (optimistic: assume 0 std)
             if optimistic_mean < best_score_so_far:
                 # Can't catch up — bail out early
-                return None
+                return _rejected_inner_config(
+                    "early_termination",
+                    failed_evaluations=failed,
+                    rejection_metrics={"completed_inner_folds": int(len(fold_scores))},
+                )
 
         # GC every 3 folds — not every fold.  Each fold creates equity
         # curves + trade logs but they're small (~100 KB each).  GC
@@ -1598,7 +1677,11 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
         )
 
     if not fold_scores:
-        return None
+        return _rejected_inner_config(
+            "no_valid_inner_fold_scores",
+            failed_evaluations=failed,
+            rejection_metrics={"inner_fold_count": int(n_total_folds)},
+        )
 
     # Reject if fewer than 60% of inner folds passed cost stress.
     # This replaces the old "all must pass" rule.
@@ -1606,7 +1689,15 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
     # no config passes the gate — better to have a config than NaN).
     stress_ratio = stress_passed / stress_tested if stress_tested > 0 else 0.0
     if not skip_stress_gate and stress_ratio < MIN_STRESS_PASS_RATIO:
-        return None
+        return _rejected_inner_config(
+            "cost_stress_gate",
+            failed_evaluations=failed,
+            rejection_metrics={
+                "stress_pass_ratio": round(float(stress_ratio), 4),
+                "stress_passed": int(stress_passed),
+                "stress_tested": int(stress_tested),
+            },
+        )
 
     turnover_values = [
         float(m.get("turnover_pct", 0.0) or 0.0)
@@ -1615,12 +1706,26 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
     mean_turnover_pct = float(np.mean(turnover_values))
     worst_turnover_pct = float(np.max(turnover_values)) if turnover_values else 0.0
     if mean_turnover_pct > MAX_INNER_MEAN_TURNOVER_PCT:
-        return None
+        return _rejected_inner_config(
+            "mean_turnover_cap",
+            failed_evaluations=failed,
+            rejection_metrics={
+                "inner_mean_turnover_pct": round(mean_turnover_pct, 2),
+                "cap_pct": float(MAX_INNER_MEAN_TURNOVER_PCT),
+            },
+        )
     # Reject candidates whose single worst inner-fold turnover already
     # blows past the cap — these will almost certainly trip the run-wide
     # 600% OOS turnover gate in live_config_approval.
     if worst_turnover_pct > MAX_INNER_WORST_TURNOVER_PCT:
-        return None
+        return _rejected_inner_config(
+            "worst_turnover_cap",
+            failed_evaluations=failed,
+            rejection_metrics={
+                "inner_worst_turnover_pct": round(worst_turnover_pct, 2),
+                "cap_pct": float(MAX_INNER_WORST_TURNOVER_PCT),
+            },
+        )
 
     mean_score = float(np.mean(fold_scores))
     median_score = float(np.median(fold_scores))
@@ -1843,13 +1948,7 @@ def select_config_from_inner_folds(
     skip_stress_gate: bool = False,
     prior_selected_sigs: list[str] | None = None,
 ) -> dict:
-    best: dict = {
-        "config": None,
-        "score": -np.inf,
-        "metrics": {},
-        "fold_metrics": [],
-        "failed_evaluations": 0,
-    }
+    best: dict = _empty_inner_selection_result()
     _n_configs = len(configs)
 
     # ── Successive halving: screen → prune → full eval ────────────
@@ -1997,13 +2096,9 @@ def _run_parallel_full_eval(
 ) -> dict:
     """Phase 2 parallel: full evaluation with early termination."""
     global _SHARED_PANEL, _SHARED_INNER_FOLDS, _SHARED_PRIOR_SIGS
-    best: dict = {
-        "config": None,
-        "score": -np.inf,
-        "metrics": {},
-        "fold_metrics": [],
-        "failed_evaluations": 0,
-    }
+    best: dict = _empty_inner_selection_result()
+    diagnostics = best["selection_diagnostics"]
+    failed_evaluations = 0
     _n_configs = len(configs)
     # Reduce workers for Phase 2 to prevent swap thrashing.
     # Phase 2 is much heavier per-worker than Phase 1 screening.
@@ -2040,17 +2135,18 @@ def _run_parallel_full_eval(
                     print(f"    [{completed}/{_n_configs} configs, "
                           f"{elapsed:.0f}s elapsed, ~{eta:.0f}s remaining, "
                           f"{actual_workers} workers]", flush=True)
-                if result is None:
+                failed_evaluations += int((result or {}).get("failed_evaluations", 0))
+                if not _record_inner_selection_diagnostic(diagnostics, result):
                     continue
                 if result["score"] > float(best["score"]):
                     best = result
-                else:
-                    best["failed_evaluations"] += result.get("failed_evaluations", 0)
     finally:
         _SHARED_PANEL = None
         _SHARED_INNER_FOLDS = None
         _SHARED_PRIOR_SIGS = None
         gc.collect()
+    best["selection_diagnostics"] = diagnostics
+    best["failed_evaluations"] = failed_evaluations
     return best
 
 
@@ -2068,13 +2164,9 @@ def _run_sequential_full_eval_relaxed(
     valid config — better to have a non-stress-approved config than a
     blank year (NaN).
     """
-    best: dict = {
-        "config": None,
-        "score": -np.inf,
-        "metrics": {},
-        "fold_metrics": [],
-        "failed_evaluations": 0,
-    }
+    best: dict = _empty_inner_selection_result()
+    diagnostics = best["selection_diagnostics"]
+    failed_evaluations = 0
     _n_configs = len(configs)
     _t0 = time.time()
     for cfg_idx, config in enumerate(configs):
@@ -2088,10 +2180,13 @@ def _run_sequential_full_eval_relaxed(
                                        best_score_so_far=float(best["score"]),
                                        skip_stress_gate=True,
                                        prior_selected_sigs=prior_selected_sigs)
-        if result is None:
+        failed_evaluations += int((result or {}).get("failed_evaluations", 0))
+        if not _record_inner_selection_diagnostic(diagnostics, result):
             continue
         if result["score"] > float(best["score"]):
             best = result
+    best["selection_diagnostics"] = diagnostics
+    best["failed_evaluations"] = failed_evaluations
     return best
 
 
@@ -2104,13 +2199,9 @@ def _run_sequential_full_eval(
     skip_stress_gate: bool = False,
 ) -> dict:
     """Phase 2 sequential: full evaluation with early termination."""
-    best: dict = {
-        "config": None,
-        "score": -np.inf,
-        "metrics": {},
-        "fold_metrics": [],
-        "failed_evaluations": 0,
-    }
+    best: dict = _empty_inner_selection_result()
+    diagnostics = best["selection_diagnostics"]
+    failed_evaluations = 0
     _n_configs = len(configs)
     _GC_EVERY_N_CONFIGS = 1 if low_memory else 8
     _t0 = time.time()
@@ -2132,12 +2223,13 @@ def _run_sequential_full_eval(
         if (cfg_idx + 1) % _GC_EVERY_N_CONFIGS == 0:
             gc.collect()
 
-        if result is None:
+        failed_evaluations += int((result or {}).get("failed_evaluations", 0))
+        if not _record_inner_selection_diagnostic(diagnostics, result):
             continue
         if result["score"] > float(best["score"]):
             best = result
-        else:
-            best["failed_evaluations"] += result.get("failed_evaluations", 0)
+    best["selection_diagnostics"] = diagnostics
+    best["failed_evaluations"] = failed_evaluations
     return best
 
 
@@ -2167,6 +2259,7 @@ def run_nested_walkforward(
     full: bool = False,
     stable_grid: bool = False,
     recent_alpha_grid: bool = False,
+    low_turnover_grid: bool = False,
     low_memory: bool = False,
     n_workers: int = 1,
     resume: bool = True,
@@ -2225,6 +2318,14 @@ def run_nested_walkforward(
         # tests whether overlay aggression, concentration, weighting, vol
         # mode, and a small TQQQ sleeve are truly robust.
         configs = recent_alpha_grid_candidate_configs(
+            strategy=strategy,
+            max_configs=max_configs,
+        )
+    elif low_turnover_grid:
+        # Lower the overlay search range while keeping recent top3 winners.
+        # top10 is added to test whether more names lower turnover without
+        # giving away too much alpha.
+        configs = low_turnover_grid_candidate_configs(
             strategy=strategy,
             max_configs=max_configs,
         )
@@ -2348,6 +2449,7 @@ def run_nested_walkforward(
             prior_selected_sigs=prior_sigs,
         )
         print()  # newline after progress \r
+        strict_selection_diagnostics = selected.get("selection_diagnostics", {})
         best_config = selected.get("config")
 
         # ── Fallback: if no config passed the 60% stress gate, relax ──
@@ -2402,6 +2504,8 @@ def run_nested_walkforward(
                     "reason": "no_valid_inner_config",
                     "failed_evaluations": int(selected.get("failed_evaluations", 0)),
                     "inner_fold_count": int(len(inner_folds)),
+                    "strict_inner_selection_diagnostics": strict_selection_diagnostics,
+                    "relaxed_inner_selection_diagnostics": selected.get("selection_diagnostics", {}),
                 }
             )
             continue
@@ -2444,6 +2548,7 @@ def run_nested_walkforward(
             "inner_score_std": inner_metrics["inner_score_std"],
             "failed_evaluations": int(selected.get("failed_evaluations", 0)),
             "candidate_configs": int(len(configs)),
+            "inner_selection_diagnostics": selected.get("selection_diagnostics", {}),
             "selected_config": config_signature(best_config),
             "holding_days": params["holding_days"],
             "overlay_gross": params["overlay_gross"],
@@ -2716,6 +2821,37 @@ def _json_default(obj):
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
+def _safe_output_prefix(output_prefix: str) -> str:
+    """Turn a user prefix or path-like prefix into one safe file stem."""
+    raw = str(output_prefix or DEFAULT_OUTPUT_PREFIX).replace("\\", "/")
+    leaf = raw.rsplit("/", 1)[-1]
+    if leaf.lower().endswith((".csv", ".json")):
+        leaf = leaf.rsplit(".", 1)[0]
+    safe_prefix = "".join(ch for ch in leaf if ch.isalnum() or ch in {"_", "-"}).strip("_-")
+    return safe_prefix or DEFAULT_OUTPUT_PREFIX
+
+
+def _research_output_prefix(signal_dir: Path, output_prefix: str) -> str:
+    """Choose a research file stem that cannot overwrite earlier results."""
+    requested = _safe_output_prefix(output_prefix)
+    if requested == DEFAULT_OUTPUT_PREFIX:
+        requested = f"{requested}_research"
+
+    json_path = signal_dir / f"{requested}.json"
+    csv_path = signal_dir / f"{requested}.csv"
+    if not json_path.exists() and not csv_path.exists():
+        return requested
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamped = f"{requested}_{stamp}"
+    candidate = stamped
+    suffix = 1
+    while (signal_dir / f"{candidate}.json").exists() or (signal_dir / f"{candidate}.csv").exists():
+        suffix += 1
+        candidate = f"{stamped}_{suffix:02d}"
+    return candidate
+
+
 def write_outputs(
     result: dict,
     *,
@@ -2724,9 +2860,9 @@ def write_outputs(
 ) -> tuple[Path, Path]:
     signal_dir = Path(SIGNAL_DIR)
     signal_dir.mkdir(parents=True, exist_ok=True)
-    safe_prefix = "".join(ch for ch in output_prefix if ch.isalnum() or ch in {"_", "-"}).strip("_-")
-    if not safe_prefix:
-        safe_prefix = "core_satellite_nested_walkforward"
+    safe_prefix = _safe_output_prefix(output_prefix)
+    if not publish_live_config:
+        safe_prefix = _research_output_prefix(signal_dir, safe_prefix)
     json_path = signal_dir / f"{safe_prefix}.json"
     csv_path = signal_dir / f"{safe_prefix}.csv"
     json_path.write_text(json.dumps(result, indent=2, default=_json_default))
@@ -2792,6 +2928,8 @@ def live_config_publish_decision(args: argparse.Namespace) -> tuple[bool, str]:
         debug_reasons.append("--stable-grid")
     if bool(getattr(args, "recent_alpha_grid", False)):
         debug_reasons.append("--recent-alpha-grid")
+    if bool(getattr(args, "low_turnover_grid", False)):
+        debug_reasons.append("--low-turnover-grid")
     if getattr(args, "max_folds", None) is not None:
         debug_reasons.append("--max-folds")
     if getattr(args, "max_configs", None) is not None:
@@ -2860,7 +2998,14 @@ def main() -> None:
         ),
     )
     parser.add_argument("--max-specs", type=int, default=DEFAULT_MAX_SPECS)
-    parser.add_argument("--output-prefix", default=DEFAULT_OUTPUT_PREFIX)
+    parser.add_argument(
+        "--output-prefix",
+        default=DEFAULT_OUTPUT_PREFIX,
+        help=(
+            "File stem for JSON/CSV outputs. Non-published research runs never "
+            "overwrite an existing result; repeated stems get a timestamp suffix."
+        ),
+    )
     parser.add_argument("--fast", action="store_true",
                         help="Use a smaller grid (~48 configs) for quick smoke tests (~15 min)")
     parser.add_argument("--full", action="store_true",
@@ -2876,6 +3021,10 @@ def main() -> None:
                         help="Use the focused recent-alpha research grid (~48 configs): "
                              "h=20, risk off, ma=100, regime_adaptive; tunes "
                              "overlay aggression, shape, weighting, vol mode, and TQQQ.")
+    parser.add_argument("--low-turnover-grid", action="store_true",
+                        help="Use the lower-turnover research grid (~64 configs): "
+                             "h=20, risk off, ma=100, regime_adaptive; tunes "
+                             "ov=(0.25, 0.50), shape, weighting, vol mode, and TQQQ.")
     publish_group = parser.add_mutually_exclusive_group()
     publish_group.add_argument(
         "--publish-live-config",
@@ -2931,8 +3080,11 @@ def main() -> None:
         ),
     )
     args = parser.parse_args()
-    if sum(bool(flag) for flag in (args.fast, args.full, args.stable_grid, args.recent_alpha_grid)) > 1:
-        parser.error("Choose at most one grid mode: --fast, --full, --stable-grid, or --recent-alpha-grid")
+    if sum(bool(flag) for flag in (args.fast, args.full, args.stable_grid, args.recent_alpha_grid, args.low_turnover_grid)) > 1:
+        parser.error(
+            "Choose at most one grid mode: --fast, --full, --stable-grid, "
+            "--recent-alpha-grid, or --low-turnover-grid"
+        )
 
     # Force the 'spawn' start method so child workers do NOT inherit PyArrow's
     # background ThreadPool.  With 'fork' (the macOS default before Python 3.12)
@@ -2988,6 +3140,7 @@ def main() -> None:
             full=bool(args.full),
             stable_grid=bool(args.stable_grid),
             recent_alpha_grid=bool(args.recent_alpha_grid),
+            low_turnover_grid=bool(args.low_turnover_grid),
             low_memory=bool(args.low_memory),
             n_workers=int(args.workers),
             resume=bool(args.resume),

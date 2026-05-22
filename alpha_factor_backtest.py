@@ -207,6 +207,7 @@ def attach_scores(panel: pd.DataFrame, specs: list[dict], ml_scores: pd.DataFram
     out = panel.copy()
     score_cols: list[str] = []
     score_by_feature: dict[str, str] = {}
+    score_frames: dict[str, pd.Series] = {}
     for spec in specs:
         col = spec["feature"]
         if col not in out.columns:
@@ -214,14 +215,16 @@ def attach_scores(panel: pd.DataFrame, specs: list[dict], ml_scores: pd.DataFram
         raw = pd.to_numeric(out[col], errors="coerce").replace([np.inf, -np.inf], np.nan)
         rank = raw.groupby(out["date"]).rank(pct=True)
         raw_rank_col = f"_raw_rank_{col}"
-        out[raw_rank_col] = rank
+        score_frames[raw_rank_col] = rank
         oriented = 1.0 - rank if spec.get("preferred_direction") == "low_is_good" else rank
         score_col = f"_score_{col}"
-        out[score_col] = oriented
+        score_frames[score_col] = oriented
         score_cols.append(score_col)
         score_by_feature[col] = score_col
     if not score_cols:
         raise SystemExit("None of the selected factor columns are available in data/*.parquet.")
+    # Add rank columns as one block so pandas keeps a compact DataFrame layout.
+    out = pd.concat([out, pd.DataFrame(score_frames, index=out.index)], axis=1).copy()
 
     cluster_rows = {c["cluster_id"]: c for c in profile.get("clusters", [])}
     feature_rows = {r["feature"]: r for r in profile.get("features", [])}
@@ -229,6 +232,7 @@ def attach_scores(panel: pd.DataFrame, specs: list[dict], ml_scores: pd.DataFram
     cluster_weight_raw: dict[str, float] = {}
     cluster_features: dict[str, list[str]] = {}
     cluster_score_by_id: dict[str, str] = {}
+    cluster_frames: dict[str, pd.Series] = {}
     for cluster_id, cluster in cluster_rows.items():
         contributing = [
             feature
@@ -238,11 +242,13 @@ def attach_scores(panel: pd.DataFrame, specs: list[dict], ml_scores: pd.DataFram
         if not contributing:
             continue
         cluster_col = f"_cluster_score_{cluster_id}"
-        out[cluster_col] = out[[score_by_feature[f] for f in contributing]].mean(axis=1, skipna=True)
+        cluster_frames[cluster_col] = out[[score_by_feature[f] for f in contributing]].mean(axis=1, skipna=True)
         cluster_score_cols.append(cluster_col)
         cluster_score_by_id[cluster_id] = cluster_col
         cluster_features[cluster_id] = contributing
         cluster_weight_raw[cluster_id] = float(cluster.get("raw_weight", 0.0) or 0.0)
+    if cluster_frames:
+        out = pd.concat([out, pd.DataFrame(cluster_frames, index=out.index)], axis=1).copy()
 
     total_cluster_weight = sum(w for w in cluster_weight_raw.values() if w > 0)
     if cluster_score_cols and total_cluster_weight > 0:

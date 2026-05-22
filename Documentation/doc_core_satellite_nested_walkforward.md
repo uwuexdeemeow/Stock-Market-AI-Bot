@@ -53,7 +53,10 @@ WALKFORWARD_INNER_AGG=median python3 core_satellite_nested_walkforward.py --no-p
 WALKFORWARD_FAMILY_CONSENSUS_BONUS=0.10 python3 core_satellite_nested_walkforward.py --no-publish-live-config
 
 # Don't push the winning config to live (research mode)
-python3 core_satellite_nested_walkforward.py --no-publish-live-config
+python3 core_satellite_nested_walkforward.py --output-prefix wf_my_research_run --no-publish-live-config
+
+# Lower-turnover research: keep recent top3 configs but avoid ov=0.70
+python3 core_satellite_nested_walkforward.py --low-turnover-grid --output-prefix wf_low_turnover --no-publish-live-config
 ```
 
 ## Inputs
@@ -72,6 +75,18 @@ python3 core_satellite_nested_walkforward.py --no-publish-live-config
 | `signals/core_satellite_nested_walkforward.json` | Same + aggregate stats + approval verdict |
 | `signals/core_satellite_live_configs.json` | The winning config (only if approval passes) |
 | `signals/walkforward_checkpoint_core_alpha.json` | Resume state if the run is interrupted |
+
+Non-published research runs keep separate JSON and CSV outputs. If the same
+`--output-prefix` is reused, the script adds a timestamp suffix instead of
+overwriting the older research result. If a path-like prefix such as
+`signals/wf_trial` is passed, only `wf_trial` is used as the file stem under
+`signals/`. When the run finishes, the summary prints the exact `json:` and
+`csv:` filenames it wrote.
+
+If a fold says `no_valid_inner_config`, open the JSON output for that fold.
+Its strict and relaxed inner-selection diagnostics now count which candidate
+configs were rejected by the cost-stress gate, the mean-turnover cap, the
+worst-turnover cap, or evaluation failures.
 
 ## Key concepts
 
