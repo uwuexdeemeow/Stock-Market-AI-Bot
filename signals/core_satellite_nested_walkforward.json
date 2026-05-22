@@ -1,22 +1,22 @@
 {
   "valid": true,
-  "created_at": "2026-05-20T17:36:23+00:00",
+  "created_at": "2026-05-21T20:06:49+00:00",
   "method": "nested_walk_forward_yearly_outer_multi_inner_validation",
   "strategy": "core-alpha",
   "manual_publish": true,
   "manual_publish_source": "publish_live_config_from_csv.py",
   "fold_count": 14,
   "failed_fold_count": 0,
-  "compound_oos_return_pct": 3765.16,
-  "mean_oos_cagr_pct": 29.83,
-  "mean_oos_return_pct": 32.43,
-  "mean_oos_sharpe": 1.452,
-  "mean_oos_max_drawdown_pct": -10.92,
+  "compound_oos_return_pct": 4561.67,
+  "mean_oos_cagr_pct": 31.58,
+  "mean_oos_return_pct": 33.92,
+  "mean_oos_sharpe": 1.573,
+  "mean_oos_max_drawdown_pct": -10.75,
   "worst_oos_max_drawdown_pct": -28.02,
-  "worst_oos_turnover_pct": 601.15,
-  "mean_oos_alpha_vs_spy_pct": 19.48,
-  "mean_oos_alpha_vs_qqq_pct": 12.8,
-  "oos_positive_alpha_hit_rate": 0.786,
+  "worst_oos_turnover_pct": 650.98,
+  "mean_oos_alpha_vs_spy_pct": 20.97,
+  "mean_oos_alpha_vs_qqq_pct": 14.29,
+  "oos_positive_alpha_hit_rate": 0.857,
   "best_config_frequency": 0.2143,
   "approved_family_signature": "score=regime_adaptive,shape=top3,weighting=sticky_score,risk=off,tqqq=0.0",
   "approved_family_fold_count": 5,
@@ -26,28 +26,32 @@
   "approved_exact_config": "h=20,ov=0.5,ma=100,vol=percentile:0.3,score=regime_adaptive,shape=top3,weighting=sticky_score,tqqq=0.0,risk=off",
   "approved_config_fold_count": 3,
   "approved_config_frequency": 0.2143,
-  "most_common_config": "h=20,ov=0.7,ma=100,vol=fixed:0.3,score=regime_adaptive,shape=top5,weighting=sticky_score,tqqq=0.0,risk=off",
+  "most_common_config": "h=20,ov=0.5,ma=100,vol=percentile:0.3,score=regime_adaptive,shape=top3,weighting=risk_parity,tqqq=0.0,risk=off",
   "walkforward_analyzer": {
     "available": true,
     "checks": {
       "score_predictiveness": {
         "valid": true,
-        "corr_inner_score_vs_oos_sharpe": 0.061,
-        "corr_inner_mean_vs_oos_sharpe": 0.129,
-        "verdict": "WARN",
-        "interpretation": "Inner scoring is barely better than random \u2014 close to noise."
+        "objective": "alpha_vs_qqq",
+        "corr_inner_score_vs_oos_objective": -0.318,
+        "corr_inner_mean_vs_oos_objective": -0.277,
+        "corr_inner_score_vs_oos_sharpe": 0.074,
+        "corr_inner_mean_vs_oos_sharpe": 0.09,
+        "corr_inner_score_vs_oos_alpha_vs_qqq": -0.316,
+        "verdict": "FAIL",
+        "interpretation": "Inner scoring is anti-predictive \u2014 high-scoring configs do WORSE OOS. Validation methodology is broken."
       },
       "calibration": {
         "valid": true,
         "inner_predicts_beat_qqq_pct": 100.0,
-        "oos_actually_beat_qqq_pct": 78.6,
-        "overconfidence_gap_pct": 21.4,
-        "direction_accuracy_pct": 78.6,
+        "oos_actually_beat_qqq_pct": 85.7,
+        "overconfidence_gap_pct": 14.3,
+        "direction_accuracy_pct": 85.7,
         "verdict": "PASS"
       },
       "concentration_vulnerability": {
         "valid": true,
-        "correlation_conc_vs_oos_alpha": -0.17,
+        "correlation_conc_vs_oos_alpha": -0.221,
         "high_concentration_years": [
           2014,
           2015,
@@ -57,7 +61,7 @@
           2023,
           2026
         ],
-        "high_conc_mean_oos_alpha_pct": 11.16,
+        "high_conc_mean_oos_alpha_pct": 11.73,
         "low_concentration_years": [
           2013,
           2016,
@@ -67,25 +71,26 @@
           2024,
           2025
         ],
-        "low_conc_mean_oos_alpha_pct": 14.43,
-        "delta_pct": -3.27,
-        "verdict": "PASS"
+        "low_conc_mean_oos_alpha_pct": 16.84,
+        "delta_pct": -5.11,
+        "verdict": "WARN"
       },
       "config_stability": {
         "valid": true,
-        "unique_configs": 7,
+        "unique_configs": 8,
         "total_folds": 14,
-        "uniqueness_ratio": 0.5,
-        "top_config": "h=20,ov=0.7,ma=100,vol=fixed:0.3,score=regime_adaptive,shape=top5,weighting=sticky_score,tqqq=0.0,risk=off",
+        "uniqueness_ratio": 0.571,
+        "top_config": "h=20,ov=0.5,ma=100,vol=percentile:0.3,score=regime_adaptive,shape=top3,weighting=risk_parity,tqqq=0.0,risk=off",
         "top_config_frequency": 0.214,
         "verdict": "WARN"
       }
     },
     "warnings": [
-      "walkforward_analyzer_warn:score_predictiveness",
+      "walkforward_analyzer_fail:score_predictiveness",
+      "walkforward_analyzer_warn:concentration_vulnerability",
       "walkforward_analyzer_warn:config_stability"
     ],
-    "fail_count": 0,
+    "fail_count": 1,
     "warn_count": 2
   },
   "live_config_approval": {
@@ -113,11 +118,12 @@
     "approved_config_fold_count": 3,
     "approved_config_frequency": 0.2143,
     "warnings": [
-      "walkforward_analyzer_warn:score_predictiveness",
+      "walkforward_analyzer_fail:score_predictiveness",
+      "walkforward_analyzer_warn:concentration_vulnerability",
       "walkforward_analyzer_warn:config_stability"
     ],
     "source": "manual_csv_publish",
-    "created_at": "2026-05-20T17:36:23+00:00"
+    "created_at": "2026-05-21T20:06:49+00:00"
   },
   "approved_live_config": {
     "strategy": "core-alpha",
@@ -202,29 +208,29 @@
         2025,
         2026
       ],
-      "approved_family_mean_oos_sharpe": 1.585,
-      "approved_family_mean_oos_max_drawdown_pct": -10.54,
+      "approved_family_mean_oos_sharpe": 1.978,
+      "approved_family_mean_oos_max_drawdown_pct": -10.09,
       "approved_family_worst_oos_turnover_pct": 601.15,
-      "mean_oos_sharpe": 1.452,
-      "mean_oos_cagr_pct": 29.83,
-      "mean_oos_alpha_vs_spy_pct": 19.48,
-      "mean_oos_alpha_vs_qqq_pct": 12.8,
-      "oos_positive_alpha_hit_rate": 0.786,
+      "mean_oos_sharpe": 1.573,
+      "mean_oos_cagr_pct": 31.58,
+      "mean_oos_alpha_vs_spy_pct": 20.97,
+      "mean_oos_alpha_vs_qqq_pct": 14.29,
+      "oos_positive_alpha_hit_rate": 0.857,
       "cost_stress_approval_pass": true,
       "required_cost_stresses": [
         2.0,
         3.0,
         5.0
       ],
-      "mean_oos_max_drawdown_pct": -10.92,
+      "mean_oos_max_drawdown_pct": -10.75,
       "worst_oos_max_drawdown_pct": -28.02,
-      "worst_oos_turnover_pct": 601.15,
+      "worst_oos_turnover_pct": 650.98,
       "worst_oos_return_pct": -9.45,
-      "selection_bias_gap_sharpe": 0.075,
+      "selection_bias_gap_sharpe": -0.033,
       "medium_risk_review_pass": true,
       "selected_fold_year": 2026,
-      "selected_fold_sharpe": 0.802,
-      "selected_fold_return_pct": 4.86,
+      "selected_fold_sharpe": 2.2,
+      "selected_fold_return_pct": 14.63,
       "approved_exact_config": "h=20,ov=0.5,ma=100,vol=percentile:0.3,score=regime_adaptive,shape=top3,weighting=sticky_score,tqqq=0.0,risk=off",
       "approved_config_fold_count": 3,
       "approved_config_frequency": 0.2143,
@@ -238,22 +244,26 @@
         "checks": {
           "score_predictiveness": {
             "valid": true,
-            "corr_inner_score_vs_oos_sharpe": 0.061,
-            "corr_inner_mean_vs_oos_sharpe": 0.129,
-            "verdict": "WARN",
-            "interpretation": "Inner scoring is barely better than random \u2014 close to noise."
+            "objective": "alpha_vs_qqq",
+            "corr_inner_score_vs_oos_objective": -0.318,
+            "corr_inner_mean_vs_oos_objective": -0.277,
+            "corr_inner_score_vs_oos_sharpe": 0.074,
+            "corr_inner_mean_vs_oos_sharpe": 0.09,
+            "corr_inner_score_vs_oos_alpha_vs_qqq": -0.316,
+            "verdict": "FAIL",
+            "interpretation": "Inner scoring is anti-predictive \u2014 high-scoring configs do WORSE OOS. Validation methodology is broken."
           },
           "calibration": {
             "valid": true,
             "inner_predicts_beat_qqq_pct": 100.0,
-            "oos_actually_beat_qqq_pct": 78.6,
-            "overconfidence_gap_pct": 21.4,
-            "direction_accuracy_pct": 78.6,
+            "oos_actually_beat_qqq_pct": 85.7,
+            "overconfidence_gap_pct": 14.3,
+            "direction_accuracy_pct": 85.7,
             "verdict": "PASS"
           },
           "concentration_vulnerability": {
             "valid": true,
-            "correlation_conc_vs_oos_alpha": -0.17,
+            "correlation_conc_vs_oos_alpha": -0.221,
             "high_concentration_years": [
               2014,
               2015,
@@ -263,7 +273,7 @@
               2023,
               2026
             ],
-            "high_conc_mean_oos_alpha_pct": 11.16,
+            "high_conc_mean_oos_alpha_pct": 11.73,
             "low_concentration_years": [
               2013,
               2016,
@@ -273,25 +283,26 @@
               2024,
               2025
             ],
-            "low_conc_mean_oos_alpha_pct": 14.43,
-            "delta_pct": -3.27,
-            "verdict": "PASS"
+            "low_conc_mean_oos_alpha_pct": 16.84,
+            "delta_pct": -5.11,
+            "verdict": "WARN"
           },
           "config_stability": {
             "valid": true,
-            "unique_configs": 7,
+            "unique_configs": 8,
             "total_folds": 14,
-            "uniqueness_ratio": 0.5,
-            "top_config": "h=20,ov=0.7,ma=100,vol=fixed:0.3,score=regime_adaptive,shape=top5,weighting=sticky_score,tqqq=0.0,risk=off",
+            "uniqueness_ratio": 0.571,
+            "top_config": "h=20,ov=0.5,ma=100,vol=percentile:0.3,score=regime_adaptive,shape=top3,weighting=risk_parity,tqqq=0.0,risk=off",
             "top_config_frequency": 0.214,
             "verdict": "WARN"
           }
         },
         "warnings": [
-          "walkforward_analyzer_warn:score_predictiveness",
+          "walkforward_analyzer_fail:score_predictiveness",
+          "walkforward_analyzer_warn:concentration_vulnerability",
           "walkforward_analyzer_warn:config_stability"
         ],
-        "fail_count": 0,
+        "fail_count": 1,
         "warn_count": 2
       }
     },
