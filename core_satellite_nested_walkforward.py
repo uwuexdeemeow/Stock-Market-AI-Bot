@@ -384,7 +384,10 @@ STABLE_GRID_TQQQ_WEIGHTS = (0.0, 0.10)
 STABLE_GRID_SHAPES = ("top5", "top10", "top15")
 STABLE_GRID_HIGH_VOL_MODES = ("fixed", "percentile")
 RECENT_ALPHA_GRID_SHAPES = ("top3", "top5", "top15")
-RECENT_ALPHA_GRID_OVERLAY_GROSS = (0.50, 0.70)
+# Include 0.60 because fixed-config validation showed it adds recent alpha
+# while staying below the live turnover gate.  Keep 0.50 as the current
+# conservative anchor and 0.70 as the stressier upper bound.
+RECENT_ALPHA_GRID_OVERLAY_GROSS = (0.50, 0.60, 0.70)
 RECENT_ALPHA_GRID_TQQQ_WEIGHTS = (0.0, 0.10)
 RECENT_ALPHA_GRID_WEIGHTINGS = ("sticky_score", "risk_parity")
 RECENT_ALPHA_GRID_HIGH_VOL_MODES = ("fixed", "percentile")

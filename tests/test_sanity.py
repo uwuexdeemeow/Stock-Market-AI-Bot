@@ -777,10 +777,10 @@ def test_nested_stable_grid_pins_consensus_dimensions():
 def test_nested_recent_alpha_grid_focuses_new_regime_dimensions():
     configs = nested_wf.recent_alpha_grid_candidate_configs()
 
-    assert len(configs) == 48
+    assert len(configs) == 72
     params = [config["nested_params"] for config in configs]
     assert {p["holding_days"] for p in params} == {20}
-    assert {p["overlay_gross"] for p in params} == {0.50, 0.70}
+    assert {p["overlay_gross"] for p in params} == {0.50, 0.60, 0.70}
     assert {p["ma_window"] for p in params} == {100}
     assert {p["high_vol"] for p in params} == {0.30}
     assert {p["score_source"] for p in params} == {"regime_adaptive"}
@@ -893,7 +893,7 @@ def test_selector_replay_grid_can_include_riskoff_guard_route():
     )
     params = [config["nested_params"] for config in configs]
 
-    assert len(configs) == 96
+    assert len(configs) == 144
     assert {p["score_source"] for p in params} == {
         "regime_adaptive",
         "regime_adaptive_riskoff_guard",
