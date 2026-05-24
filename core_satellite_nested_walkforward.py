@@ -855,7 +855,7 @@ def recent_alpha_grid_candidate_configs(
         overlay_gross=RECENT_ALPHA_GRID_OVERLAY_GROSS,
         ma_windows=(100,),
         high_vol_values=(0.30,),
-        high_vol_modes=("fixed",),
+        high_vol_modes=RECENT_ALPHA_GRID_HIGH_VOL_MODES,
         score_sources=("regime_adaptive",),
         shapes=RECENT_ALPHA_GRID_SHAPES,
         weightings=RECENT_ALPHA_GRID_WEIGHTINGS,

@@ -58,9 +58,6 @@ WALKFORWARD_MAX_INNER_WORST_TURNOVER_PCT=525 python3 core_satellite_nested_walkf
 # Don't push the winning config to live (research mode)
 python3 core_satellite_nested_walkforward.py --output-prefix wf_my_research_run --no-publish-live-config
 
-# Recent-alpha fixed-vol research grid
-python3 core_satellite_nested_walkforward.py --recent-alpha-grid --output-prefix wf_recent_alpha_fixed --no-publish-live-config
-
 # Lower-turnover research: keep recent top3 configs but avoid ov=0.70
 python3 core_satellite_nested_walkforward.py --low-turnover-grid --output-prefix wf_low_turnover --no-publish-live-config
 ```

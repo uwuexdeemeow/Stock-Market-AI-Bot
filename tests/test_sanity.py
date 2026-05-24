@@ -777,7 +777,7 @@ def test_nested_stable_grid_pins_consensus_dimensions():
 def test_nested_recent_alpha_grid_focuses_new_regime_dimensions():
     configs = nested_wf.recent_alpha_grid_candidate_configs()
 
-    assert len(configs) == 24
+    assert len(configs) == 48
     params = [config["nested_params"] for config in configs]
     assert {p["holding_days"] for p in params} == {20}
     assert {p["overlay_gross"] for p in params} == {0.50, 0.70}
@@ -788,7 +788,7 @@ def test_nested_recent_alpha_grid_focuses_new_regime_dimensions():
     assert {p["shape"] for p in params} == {"top3", "top5", "top15"}
     assert {p["weighting"] for p in params} == {"sticky_score", "risk_parity"}
     assert {p["tqqq_weight"] for p in params} == {0.0, 0.10}
-    assert {p["high_vol_mode"] for p in params} == {"fixed"}
+    assert {p["high_vol_mode"] for p in params} == {"fixed", "percentile"}
 
 
 def test_nested_low_turnover_grid_keeps_top3_and_adds_top10():
