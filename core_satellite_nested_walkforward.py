@@ -847,7 +847,7 @@ def recent_alpha_grid_candidate_configs(
 
     This grid keeps the dimensions the latest 14-fold run favored while
     leaving only the newer-regime uncertainty open: overlay aggression,
-    concentration, weighting, high-vol mode, score route, and a small TQQQ sleeve.
+    concentration, weighting, high-vol mode, and a small TQQQ sleeve.
     """
     return iter_candidate_configs(
         strategy=strategy,
@@ -856,7 +856,7 @@ def recent_alpha_grid_candidate_configs(
         ma_windows=(100,),
         high_vol_values=(0.30,),
         high_vol_modes=RECENT_ALPHA_GRID_HIGH_VOL_MODES,
-        score_sources=("regime_adaptive", "regime_adaptive_riskoff_guard"),
+        score_sources=("regime_adaptive",),
         shapes=RECENT_ALPHA_GRID_SHAPES,
         weightings=RECENT_ALPHA_GRID_WEIGHTINGS,
         tqqq_weights=RECENT_ALPHA_GRID_TQQQ_WEIGHTS,
