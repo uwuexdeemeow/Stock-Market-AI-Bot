@@ -1,0 +1,264 @@
+name: Shadow Paper Journal
+
+on:
+  schedule:
+    # 9:55 AM New York, shortly after the normal paper workflow.
+    - cron: "55 13 * * 1-5"
+    - cron: "55 14 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Run even on weekends/holidays"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      ignore_stale:
+        description: "Allow stale factor data for debugging"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: write
+
+jobs:
+  shadow-paper-journal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: New York schedule gate
+        id: ny_schedule_gate
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          NY_OFFSET="$(TZ=America/New_York date +%z)"
+          TRIGGER="${{ github.event.schedule }}"
+          if [ "${TRIGGER}" = "55 13 * * 1-5" ] && [ "${NY_OFFSET}" = "-0400" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          elif [ "${TRIGGER}" = "55 14 * * 1-5" ] && [ "${NY_OFFSET}" = "-0500" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout repository
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip packages
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-ci-${{ hashFiles('requirements-ci.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-ci-
+
+      - name: Install dependencies
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements-ci.txt
+
+      - name: Cache data directory
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: data/
+          key: data-parquets-shadow-${{ github.run_id }}
+          restore-keys: |
+            data-parquets-
+
+      - name: Cache shadow journal state
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            signals/core_satellite_alpha_metrics.json
+            signals/factor_data_health.json
+            signals/factor_decay_monitor.csv
+            signals/shadow_paper_journal.csv
+            logs/factor_decay_monitor.json
+            logs/core_satellite_execution_stress.json
+            logs/core_satellite_survivorship_audit.json
+          key: shadow-state-files-${{ github.run_id }}
+          restore-keys: |
+            shadow-state-files-
+            state-files-
+
+      - name: Restore prior shadow journal from signals/latest
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        run: |
+          git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest || true
+          mkdir -p signals
+          if git show origin/signals/latest:signals/shadow_paper_journal.csv > signals/shadow_paper_journal.csv 2>/dev/null; then
+            echo "Restored existing shadow journal from signals/latest."
+          else
+            echo "No prior shadow journal found on signals/latest."
+          fi
+
+      - name: Create .env from secrets
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        run: |
+          cat <<'ENVEOF' > .env
+          ALPACA_API_KEY=${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY=${{ secrets.ALPACA_SECRET_KEY }}
+          FINNHUB_API_KEY=${{ secrets.FINNHUB_API_KEY }}
+          TRADIER_API_TOKEN=${{ secrets.TRADIER_API_TOKEN }}
+          TRADIER_USE_SANDBOX=0
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
+          STOCKBOT_SCRIPT_TELEGRAM_ENABLED=0
+          PAPER_MODE_STRATEGY=core_satellite_alpha
+          PAPER_SIGNAL_TIMEZONE=Asia/Singapore
+          SENTIMENT_ENGINE_LEVEL=vader
+          ENVEOF
+
+      - name: Weekend and holiday guard
+        id: calendar_gate
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        shell: bash
+        run: |
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            echo "Force requested; skipping calendar guard."
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          set +e
+          python3 - <<'PY'
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          import daily_run
+
+          now = datetime.now(ZoneInfo("America/New_York"))
+          if now.weekday() >= 5:
+              print("Weekend in New York; skipping shadow journal.")
+              raise SystemExit(2)
+          if daily_run._is_us_market_holiday(now):
+              print("NYSE holiday; skipping shadow journal.")
+              raise SystemExit(2)
+          PY
+          code=$?
+          set -e
+          if [ "$code" = "2" ]; then
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$code" != "0" ]; then
+            exit "$code"
+          fi
+          echo "should_run=true" >> "$GITHUB_OUTPUT"
+
+      - name: Refresh ETF prices
+        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        run: python3 refresh_etf_data.py --refresh --force
+        env:
+          PYTHONUNBUFFERED: "1"
+
+      - name: Rebuild factor cache if restore is incomplete
+        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        run: |
+          if python3 factor_data_health.py --strict --no-write; then
+            echo "Restored factor cache is trade-ready."
+          else
+            echo "Restored factor cache is missing or stale; rebuilding."
+            cp signals/feature_quality_report.json signals/feature_quality_report.json.gitbase 2>/dev/null || true
+            cp signals/feature_quality_summary.csv signals/feature_quality_summary.csv.gitbase 2>/dev/null || true
+            cp logs/feature_ic_shortlist.csv logs/feature_ic_shortlist.csv.gitbase 2>/dev/null || true
+
+            python3 research.py --incremental
+            python3 feature_quality_diagnostic.py --top 48
+            python3 ci_check_feature_report.py --min-features 20
+
+            rm -f signals/feature_quality_report.json.gitbase \
+                  signals/feature_quality_summary.csv.gitbase \
+                  logs/feature_ic_shortlist.csv.gitbase
+            python3 factor_data_health.py --strict
+          fi
+        env:
+          PYTHONUNBUFFERED: "1"
+
+      - name: Sync Alpaca status for sticky holdings
+        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        run: python3 alpaca_paper_trading.py --status
+        env:
+          PYTHONUNBUFFERED: "1"
+
+      - name: Run shadow paper journal
+        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        run: |
+          FLAGS=""
+          if [ "${{ github.event.inputs.ignore_stale }}" = "true" ]; then
+            FLAGS="$FLAGS --ignore-stale"
+          fi
+          python3 shadow_paper_journal.py $FLAGS
+        env:
+          PYTHONUNBUFFERED: "1"
+
+      - name: Upload shadow journal artifact
+        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: shadow-paper-journal-${{ github.run_number }}
+          path: |
+            signals/shadow_paper_journal.csv
+            signals/alpaca_daily_status.json
+          retention-days: 60
+
+      - name: Commit shadow journal to repo
+        if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -f signals/shadow_paper_journal.csv ]; then
+            cp signals/shadow_paper_journal.csv /tmp/shadow_paper_journal.csv
+            git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest || true
+            git checkout -B signals/latest origin/signals/latest 2>/dev/null || git checkout -B signals/latest
+            mkdir -p signals
+            cp /tmp/shadow_paper_journal.csv signals/shadow_paper_journal.csv
+            git add -f signals/shadow_paper_journal.csv
+            git commit -m "signals: $(date -u +%Y-%m-%d) shadow paper journal #${{ github.run_number }}" || echo "No shadow journal changes to commit"
+            git push origin signals/latest --force
+          else
+            echo "No shadow journal file produced."
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Save data cache
+        if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: data/
+          key: data-parquets-shadow-${{ github.run_id }}
+
+      - name: Save shadow journal state cache
+        if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            signals/core_satellite_alpha_metrics.json
+            signals/factor_data_health.json
+            signals/factor_decay_monitor.csv
+            signals/shadow_paper_journal.csv
+            logs/factor_decay_monitor.json
+            logs/core_satellite_execution_stress.json
+            logs/core_satellite_survivorship_audit.json
+          key: shadow-state-files-${{ github.run_id }}

@@ -1,0 +1,350 @@
+"""
+shadow_paper_journal.py - record a paper-only signal for a shadow config.
+
+PLAIN ENGLISH:
+This script lets us watch a candidate live config without sending orders.
+It temporarily points the normal core-satellite signal generator at a shadow
+walkforward payload, captures the generated target weights, appends one row to
+``signals/shadow_paper_journal.csv``, then restores the real live signal files.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+from copy import deepcopy
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+import core_satellite_alpha as csa
+import core_satellite_nested_walkforward as nested
+from safe_io import atomic_write_csv, atomic_write_json, configure_console_output
+from settings import SIGNAL_DIR
+
+
+configure_console_output()
+
+SHADOW_NAME = "percentile_ov060"
+SHADOW_JOURNAL_PATH = Path(SIGNAL_DIR) / "shadow_paper_journal.csv"
+SHADOW_LIVE_CONFIG_PATH = Path(SIGNAL_DIR) / "shadow_core_satellite_live_configs.json"
+
+# This is the candidate we validated but did NOT promote to paper trading.
+SHADOW_CONFIG_SIGNATURE = (
+    "h=20,ov=0.6,ma=100,vol=percentile:0.3,"
+    "score=regime_adaptive,shape=top3,weighting=sticky_score,tqqq=0.0,risk=off"
+)
+
+# Fresh validation source: signals/wf_autoresearch_percentile060_full_20260524.json
+# Keep these numbers in the shadow payload so the normal live gates can inspect
+# the same approval-style fields they inspect for the current paper config.
+SHADOW_SOURCE_METRICS = {
+    "fold_count": 14,
+    "best_config_frequency": 1.0,
+    "approved_family_fold_count": 14,
+    "approved_family_frequency": 1.0,
+    "approved_family_worst_oos_turnover_pct": 583.04,
+    "approved_family_mean_oos_max_drawdown_pct": -11.41,
+    "approved_family_mean_oos_sharpe": 1.597,
+    "mean_oos_sharpe": 1.597,
+    "mean_oos_cagr_pct": 39.63,
+    "mean_oos_alpha_vs_spy_pct": 24.04,
+    "mean_oos_alpha_vs_qqq_pct": 17.0,
+    "oos_positive_alpha_hit_rate": 0.857,
+    "cost_stress_approval_pass": True,
+    "fixed_cost_stress_pass_ratio": 0.857,
+    "required_cost_stresses": [2.0, 3.0, 5.0],
+    "mean_oos_max_drawdown_pct": -11.41,
+    "worst_oos_max_drawdown_pct": -27.77,
+    "worst_oos_turnover_pct": 583.04,
+    "worst_oos_return_pct": -11.15,
+    "selection_bias_gap_sharpe": 0.0,
+    "approved_config_fold_count": 14,
+    "approved_config_frequency": 1.0,
+    "medium_risk_review_pass": True,
+}
+
+
+def _utc_now_text() -> str:
+    """Return a compact UTC timestamp for journal/audit fields."""
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _shadow_candidate_config() -> dict[str, Any]:
+    """Build the exact candidate config through the production grid helper."""
+    configs = nested.iter_candidate_configs(
+        strategy="core-alpha",
+        holding_days=(20,),
+        overlay_gross=(0.60,),
+        ma_windows=(100,),
+        high_vol_values=(0.30,),
+        high_vol_modes=("percentile",),
+        score_sources=("regime_adaptive",),
+        shapes=("top3",),
+        weightings=("sticky_score",),
+        tqqq_weights=(0.0,),
+        risk_control_modes=("off",),
+    )
+    if len(configs) != 1:
+        raise RuntimeError(f"Expected exactly one shadow config, got {len(configs)}")
+    config = configs[0]
+    signature = nested.config_signature(config)
+    if signature != SHADOW_CONFIG_SIGNATURE:
+        raise RuntimeError(f"Shadow config drifted: {signature} != {SHADOW_CONFIG_SIGNATURE}")
+    return config
+
+
+def _default_medium_risk_review(base_payload: dict[str, Any]) -> dict[str, Any]:
+    """Reuse existing medium-risk review shape, falling back to pass for shadow tracking."""
+    current = (
+        ((base_payload.get("approved_live_configs", {}) or {}).get("core-alpha", {}) or {})
+        .get("medium_risk_review")
+    )
+    if isinstance(current, dict) and current.get("pass") is True:
+        review = deepcopy(current)
+        review["note"] = "inherited current medium-risk review shape for shadow paper tracking"
+        return review
+    return {
+        "pass": True,
+        "reasons": [],
+        "note": "shadow paper tracking only; fixed validation passed live approval gates",
+    }
+
+
+def build_shadow_live_payload(
+    base_payload: dict[str, Any],
+    *,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    """Build a temporary live-config JSON payload for the shadow candidate."""
+    candidate = _shadow_candidate_config()
+    family = nested.stable_family_signature(candidate)
+    created = created_at or _utc_now_text()
+    thresholds = (
+        ((base_payload.get("approvals", {}) or {}).get("core-alpha", {}) or {})
+        .get("thresholds")
+        or nested._APPROVAL_THRESHOLDS["core-alpha"]
+    )
+    approval = {
+        "approved": True,
+        "reasons": [],
+        "thresholds": deepcopy(thresholds),
+        "warnings": [],
+        "strategy": "core-alpha",
+        "approved_config_family": family,
+        "approved_family_signature": family,
+        "approved_family_fold_count": 14,
+        "approved_family_frequency": 1.0,
+        "approved_exact_config": SHADOW_CONFIG_SIGNATURE,
+        "approved_config_fold_count": 14,
+        "approved_config_frequency": 1.0,
+        "source": "shadow_fixed_config_validation",
+        "created_at": created,
+    }
+    medium_review = _default_medium_risk_review(base_payload)
+    approved_live = {
+        "strategy": "core-alpha",
+        "approved_config_family": family,
+        "approved_family_signature": family,
+        "approved_exact_config": SHADOW_CONFIG_SIGNATURE,
+        "config": nested.live_signal_config(candidate),
+        "source_metrics": deepcopy(SHADOW_SOURCE_METRICS),
+        "medium_risk_review": medium_review,
+    }
+    return {
+        "created_at": created,
+        "source_json": "signals/wf_autoresearch_percentile060_full_20260524.json",
+        "method": "shadow_fixed_config_outer_walkforward_validation",
+        "shadow": True,
+        "shadow_name": SHADOW_NAME,
+        "approvals": {"core-alpha": approval},
+        "approved_live_configs": {"core-alpha": approved_live},
+        "medium_risk_reviews": {"core-alpha": medium_review},
+    }
+
+
+def _snapshot_paths(paths: list[Path]) -> dict[Path, bytes | None]:
+    """Remember file bytes so the shadow run can put normal outputs back."""
+    snapshots: dict[Path, bytes | None] = {}
+    for path in paths:
+        snapshots[path] = path.read_bytes() if path.exists() else None
+    return snapshots
+
+
+def _restore_paths(snapshots: dict[Path, bytes | None]) -> None:
+    """Restore files that the normal signal generator overwrote for shadow use."""
+    for path, content in snapshots.items():
+        if content is None:
+            path.unlink(missing_ok=True)
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+
+
+def _first_signal_row(signal_path: Path) -> dict[str, Any]:
+    """Read the single-row signal CSV written by core_satellite_alpha.py."""
+    if not signal_path.exists():
+        raise FileNotFoundError(f"Shadow signal missing: {signal_path}")
+    rows = pd.read_csv(signal_path).to_dict(orient="records")
+    if not rows:
+        raise RuntimeError(f"Shadow signal empty: {signal_path}")
+    return rows[0]
+
+
+def _journal_row(signal: dict[str, Any], metrics: dict[str, Any]) -> dict[str, Any]:
+    """Flatten the generated signal into one append-only journal row."""
+    return {
+        "journaled_at": _utc_now_text(),
+        "run_date": datetime.now(timezone.utc).date().isoformat(),
+        "shadow_name": SHADOW_NAME,
+        "shadow_config_signature": SHADOW_CONFIG_SIGNATURE,
+        "paper_ready": signal.get("paper_ready"),
+        "gates_all_pass": signal.get("gates_all_pass"),
+        "reason": signal.get("reason"),
+        "current_regime": signal.get("current_regime"),
+        "latest_factor_date": signal.get("latest_factor_date"),
+        "predicted_at": signal.get("predicted_at"),
+        "gross_exposure": signal.get("gross_exposure"),
+        "core_gross": signal.get("core_gross"),
+        "overlay_gross": signal.get("overlay_gross"),
+        "raw_overlay_gross": signal.get("raw_overlay_gross"),
+        "target_spy_weight": signal.get("target_spy_weight"),
+        "target_qqq_weight": signal.get("target_qqq_weight"),
+        "target_tqqq_weight": signal.get("target_tqqq_weight"),
+        "target_cash_weight": signal.get("target_cash_weight"),
+        "overlay_tickers": signal.get("overlay_tickers"),
+        "overlay_weights_json": signal.get("overlay_weights_json"),
+        "raw_overlay_weights_json": signal.get("raw_overlay_weights_json"),
+        "sticky_holdings_source": signal.get("sticky_holdings_source"),
+        "sticky_holdings_used": signal.get("sticky_holdings_used"),
+        "sticky_held_tickers": signal.get("sticky_held_tickers"),
+        "live_config_hash": signal.get("live_config_hash"),
+        "walkforward_approval_pass": signal.get("walkforward_approval_pass"),
+        "nested_cost_stress_approval_pass": signal.get("nested_cost_stress_approval_pass"),
+        "medium_risk_review_pass": signal.get("medium_risk_review_pass"),
+        "feature_health_gate_pass": signal.get("feature_health_gate_pass"),
+        "source_mean_oos_alpha_vs_qqq_pct": SHADOW_SOURCE_METRICS["mean_oos_alpha_vs_qqq_pct"],
+        "source_mean_oos_sharpe": SHADOW_SOURCE_METRICS["mean_oos_sharpe"],
+        "source_worst_oos_drawdown_pct": SHADOW_SOURCE_METRICS["worst_oos_max_drawdown_pct"],
+        "source_worst_oos_turnover_pct": SHADOW_SOURCE_METRICS["worst_oos_turnover_pct"],
+        "backtest_sharpe": metrics.get("sharpe"),
+        "backtest_max_drawdown_pct": metrics.get("max_drawdown_pct"),
+        "backtest_total_return_pct": metrics.get("total_return_pct"),
+    }
+
+
+def append_shadow_journal(
+    row: dict[str, Any],
+    *,
+    journal_path: Path = SHADOW_JOURNAL_PATH,
+    replace_today: bool = True,
+) -> Path:
+    """Append the row, replacing today's prior shadow row by default."""
+    journal_path = Path(journal_path)
+    journal_path.parent.mkdir(parents=True, exist_ok=True)
+    new_row = pd.DataFrame([row])
+    if journal_path.exists():
+        existing = pd.read_csv(journal_path)
+        if replace_today and {"run_date", "shadow_config_signature"}.issubset(existing.columns):
+            mask = (
+                (existing["run_date"].astype(str) == str(row["run_date"]))
+                & (existing["shadow_config_signature"].astype(str) == str(row["shadow_config_signature"]))
+            )
+            existing = existing.loc[~mask].copy()
+        out = pd.concat([existing, new_row], ignore_index=True, sort=False)
+    else:
+        out = new_row
+    atomic_write_csv(out, journal_path, index=False)
+    return journal_path
+
+
+def run_shadow_journal(
+    *,
+    journal_path: Path = SHADOW_JOURNAL_PATH,
+    restore_signal_artifacts: bool = True,
+    replace_today: bool = True,
+    ignore_stale: bool = False,
+) -> Path:
+    """Generate the shadow signal, journal it, and keep live files untouched."""
+    signal_dir = Path(SIGNAL_DIR)
+    live_config_path = signal_dir / "core_satellite_live_configs.json"
+    base_payload = json.loads(live_config_path.read_text(encoding="utf-8"))
+    shadow_payload = build_shadow_live_payload(base_payload)
+    atomic_write_json(shadow_payload, SHADOW_LIVE_CONFIG_PATH)
+
+    touched = [
+        signal_dir / "core_satellite_alpha_signal.csv",
+        signal_dir / "core_satellite_alpha_metrics.json",
+        signal_dir / "core_satellite_alpha_equity.csv",
+        signal_dir / "core_satellite_alpha_trades.csv",
+    ]
+    snapshots = _snapshot_paths(touched)
+    original_live_path = csa.LIVE_CONFIG_PATH
+
+    try:
+        csa.LIVE_CONFIG_PATH = SHADOW_LIVE_CONFIG_PATH
+
+        # The next block mirrors core_satellite_alpha.main() but swaps only the
+        # live-config payload.  That means the shadow signal uses the same
+        # features, freshness gates, sticky holdings, and signal writer.
+        csa.validate_sector_map_coverage()
+        quality_filter = csa._load_feature_quality_filter(strict=True)
+        specs = csa._apply_live_feature_quality_filter(csa.load_feature_specs(), quality_filter)
+        ml_scores = csa.load_prediction_scores()
+        panel = csa._ensure_robust_score_columns(
+            csa.attach_scores(csa.load_factor_panel(specs), specs, ml_scores)
+        )
+        signal_panel = csa._ensure_robust_score_columns(
+            csa.attach_scores(csa.load_factor_panel(specs, require_forward_returns=False), specs, ml_scores)
+        )
+        csa._validate_live_feature_inputs(specs, signal_panel)
+        freshness = csa.check_factor_freshness(signal_panel, ignore_stale=ignore_stale)
+        if freshness["blocked"]:
+            raise SystemExit(f"Aborting shadow journal: {freshness['message']}")
+
+        _summary, metrics, signal_path = csa._generate_signal_from_approved_config(
+            panel=panel,
+            signal_panel=signal_panel,
+            specs=specs,
+            freshness=freshness,
+        )
+        signal = _first_signal_row(signal_path)
+        journal_row = _journal_row(signal, metrics)
+        return append_shadow_journal(
+            journal_row,
+            journal_path=journal_path,
+            replace_today=replace_today,
+        )
+    finally:
+        csa.LIVE_CONFIG_PATH = original_live_path
+        SHADOW_LIVE_CONFIG_PATH.unlink(missing_ok=True)
+        if restore_signal_artifacts:
+            _restore_paths(snapshots)
+
+
+def main() -> None:
+    """CLI entry point for GitHub Actions and manual local shadow runs."""
+    parser = argparse.ArgumentParser(description="Append today's shadow config signal to a paper journal.")
+    parser.add_argument("--journal-path", default=str(SHADOW_JOURNAL_PATH))
+    parser.add_argument("--ignore-stale", action="store_true", help="Allow stale factor data for manual debugging.")
+    parser.add_argument("--append-duplicate", action="store_true", help="Keep duplicate same-day rows.")
+    parser.add_argument(
+        "--no-restore-signal-artifacts",
+        action="store_true",
+        help="Leave generated shadow signal files in signals/ for debugging.",
+    )
+    args = parser.parse_args()
+
+    path = run_shadow_journal(
+        journal_path=Path(args.journal_path),
+        restore_signal_artifacts=not args.no_restore_signal_artifacts,
+        replace_today=not args.append_duplicate,
+        ignore_stale=bool(args.ignore_stale),
+    )
+    print(f"Shadow paper journal updated: {path}")
+    print(f"Shadow config: {SHADOW_CONFIG_SIGNATURE}")
+
+
+if __name__ == "__main__":
+    main()

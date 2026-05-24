@@ -65,6 +65,7 @@ GITHUB_SIGNAL_SYNC_FILES = (
     "signals/fill_monitor.json",
     "signals/broker_health.json",
     "signals/alpaca_paper_health.json",
+    "signals/shadow_paper_journal.csv",
     "signals/guard_intraday_state.json",
     "signals/regime_history.json",
     "signals/regime_changes_log.csv",
