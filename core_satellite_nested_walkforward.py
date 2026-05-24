@@ -2470,7 +2470,7 @@ def run_nested_walkforward(
         selected = select_config_from_inner_folds(
             panel, configs, inner_folds, eval_cache=eval_cache,
             low_memory=low_memory, n_workers=n_workers,
-            skip_halving=full or bool(recent_alpha_grid),
+            skip_halving=full,
             skip_stress_gate=skip_inner_stress_gate,
             prior_selected_sigs=prior_sigs,
         )

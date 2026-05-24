@@ -86,10 +86,6 @@ overwriting the older research result. If a path-like prefix such as
 `signals/`. When the run finishes, the summary prints the exact `json:` and
 `csv:` filenames it wrote.
 
-The recent-alpha grid skips one-fold successive-halving screening because the
-grid is already small.  That avoids dropping candidates on one noisy inner
-year before the full five-fold selector can judge them.
-
 If a fold says `no_valid_inner_config`, open the JSON output for that fold.
 Its strict and relaxed inner-selection diagnostics now count which candidate
 configs were rejected by the cost-stress gate, the mean-turnover cap, the
