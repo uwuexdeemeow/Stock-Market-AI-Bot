@@ -26,17 +26,17 @@ from settings import SIGNAL_DIR
 
 configure_console_output()
 
-SHADOW_NAME = "percentile_ov060"
+SHADOW_NAME = "riskoff_guard"
 SHADOW_JOURNAL_PATH = Path(SIGNAL_DIR) / "shadow_paper_journal.csv"
 SHADOW_LIVE_CONFIG_PATH = Path(SIGNAL_DIR) / "shadow_core_satellite_live_configs.json"
 
 # This is the candidate we validated but did NOT promote to paper trading.
 SHADOW_CONFIG_SIGNATURE = (
-    "h=20,ov=0.6,ma=100,vol=percentile:0.3,"
-    "score=regime_adaptive,shape=top3,weighting=sticky_score,tqqq=0.0,risk=off"
+    "h=20,ov=0.5,ma=100,vol=percentile:0.3,"
+    "score=regime_adaptive_riskoff_guard,shape=top3,weighting=sticky_score,tqqq=0.0,risk=off"
 )
 
-# Fresh validation source: signals/wf_autoresearch_percentile060_full_20260524.json
+# Fresh validation source: signals/wf_autoresearch_riskguard_full_20260524.json
 # Keep these numbers in the shadow payload so the normal live gates can inspect
 # the same approval-style fields they inspect for the current paper config.
 SHADOW_SOURCE_METRICS = {
@@ -44,21 +44,21 @@ SHADOW_SOURCE_METRICS = {
     "best_config_frequency": 1.0,
     "approved_family_fold_count": 14,
     "approved_family_frequency": 1.0,
-    "approved_family_worst_oos_turnover_pct": 583.04,
-    "approved_family_mean_oos_max_drawdown_pct": -11.41,
-    "approved_family_mean_oos_sharpe": 1.597,
-    "mean_oos_sharpe": 1.597,
-    "mean_oos_cagr_pct": 39.63,
-    "mean_oos_alpha_vs_spy_pct": 24.04,
-    "mean_oos_alpha_vs_qqq_pct": 17.0,
+    "approved_family_worst_oos_turnover_pct": 533.29,
+    "approved_family_mean_oos_max_drawdown_pct": -10.71,
+    "approved_family_mean_oos_sharpe": 1.667,
+    "mean_oos_sharpe": 1.667,
+    "mean_oos_cagr_pct": 38.93,
+    "mean_oos_alpha_vs_spy_pct": 22.86,
+    "mean_oos_alpha_vs_qqq_pct": 15.82,
     "oos_positive_alpha_hit_rate": 0.857,
     "cost_stress_approval_pass": True,
     "fixed_cost_stress_pass_ratio": 0.857,
     "required_cost_stresses": [2.0, 3.0, 5.0],
-    "mean_oos_max_drawdown_pct": -11.41,
-    "worst_oos_max_drawdown_pct": -27.77,
-    "worst_oos_turnover_pct": 583.04,
-    "worst_oos_return_pct": -11.15,
+    "mean_oos_max_drawdown_pct": -10.71,
+    "worst_oos_max_drawdown_pct": -27.56,
+    "worst_oos_turnover_pct": 533.29,
+    "worst_oos_return_pct": -11.13,
     "selection_bias_gap_sharpe": 0.0,
     "approved_config_fold_count": 14,
     "approved_config_frequency": 1.0,
@@ -76,11 +76,11 @@ def _shadow_candidate_config() -> dict[str, Any]:
     configs = nested.iter_candidate_configs(
         strategy="core-alpha",
         holding_days=(20,),
-        overlay_gross=(0.60,),
+        overlay_gross=(0.50,),
         ma_windows=(100,),
         high_vol_values=(0.30,),
         high_vol_modes=("percentile",),
-        score_sources=("regime_adaptive",),
+        score_sources=("regime_adaptive_riskoff_guard",),
         shapes=("top3",),
         weightings=("sticky_score",),
         tqqq_weights=(0.0,),
@@ -154,7 +154,7 @@ def build_shadow_live_payload(
     }
     return {
         "created_at": created,
-        "source_json": "signals/wf_autoresearch_percentile060_full_20260524.json",
+        "source_json": "signals/wf_autoresearch_riskguard_full_20260524.json",
         "method": "shadow_fixed_config_outer_walkforward_validation",
         "shadow": True,
         "shadow_name": SHADOW_NAME,

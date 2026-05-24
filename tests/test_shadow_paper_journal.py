@@ -13,9 +13,10 @@ def test_shadow_payload_builds_expected_candidate_from_grid():
 
     assert payload["shadow"] is True
     assert approved["approved_exact_config"] == spj.SHADOW_CONFIG_SIGNATURE
-    assert approved["config"]["overlay_gross"] == 0.6
+    assert approved["config"]["overlay_gross"] == 0.5
     assert approved["config"]["high_vol_mode"] == "percentile"
-    assert approved["source_metrics"]["mean_oos_alpha_vs_qqq_pct"] == 17.0
+    assert approved["config"]["score_source"] == "regime_adaptive_riskoff_guard"
+    assert approved["source_metrics"]["mean_oos_alpha_vs_qqq_pct"] == 15.82
     assert payload["approvals"]["core-alpha"]["approved"] is True
 
 
@@ -50,5 +51,5 @@ def test_journal_row_carries_signal_and_validation_metrics():
 
     assert row["shadow_name"] == spj.SHADOW_NAME
     assert row["paper_ready"] is True
-    assert row["source_worst_oos_drawdown_pct"] == -27.77
+    assert row["source_worst_oos_drawdown_pct"] == -27.56
     assert row["backtest_sharpe"] == 1.2
