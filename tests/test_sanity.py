@@ -74,7 +74,7 @@ from feature_quality_diagnostic import (
     ic_decay_curve,
 )
 from alpha_factor_backtest import attach_trailing_score_guard
-from walkforward_analyzer import check_fold_completeness
+from walkforward_analyzer import check_fold_completeness, check_score_predictiveness, summary_stats
 
 
 def _price_frame(n=100, start="2024-01-01"):
@@ -885,6 +885,159 @@ def test_selector_diagnostic_fixed_summary_compounds_outer_rows():
     assert summary["worst_oos_turnover_pct"] == 150.0
 
 
+def test_selector_replay_grid_can_include_riskoff_guard_route():
+    configs = selector_diag._grid_configs(
+        "recent-alpha",
+        max_configs=None,
+        include_riskoff_guard_score=True,
+    )
+    params = [config["nested_params"] for config in configs]
+
+    assert len(configs) == 96
+    assert {p["score_source"] for p in params} == {
+        "regime_adaptive",
+        "regime_adaptive_riskoff_guard",
+    }
+
+
+def test_selector_replay_grid_cap_keeps_guard_pair_visible():
+    configs = selector_diag._grid_configs(
+        "recent-alpha",
+        max_configs=2,
+        include_riskoff_guard_score=True,
+    )
+    params = [config["nested_params"] for config in configs]
+
+    assert [p["score_source"] for p in params] == [
+        "regime_adaptive",
+        "regime_adaptive_riskoff_guard",
+    ]
+    assert params[0]["tqqq_weight"] == params[1]["tqqq_weight"]
+
+
+def test_selector_replay_rows_include_config_knobs_and_rejections(monkeypatch):
+    panel = pd.DataFrame({"date": pd.to_datetime(["2022-01-03", "2023-01-03"])})
+    config = {
+        "name": "too_much_turnover",
+        "nested_params": {
+            "holding_days": 20,
+            "overlay_gross": 0.5,
+            "ma_window": 100,
+            "high_vol": 0.3,
+            "high_vol_mode": "fixed",
+            "score_source": "regime_adaptive_riskoff_guard",
+            "shape": "top5",
+            "weighting": "sticky_score",
+            "tqqq_weight": 0.0,
+            "risk_control_mode": "off",
+        },
+    }
+
+    monkeypatch.setattr(selector_diag, "_grid_configs", lambda *args, **kwargs: [config])
+    monkeypatch.setattr(
+        nested_wf,
+        "build_fold_splits",
+        lambda *args, **kwargs: [
+            nested_wf.FoldSplit(
+                outer_year=2023,
+                train_start=pd.Timestamp("2020-01-01"),
+                train_end=pd.Timestamp("2022-12-31"),
+                inner_train_end=pd.Timestamp("2021-12-31"),
+                inner_validation_year=2022,
+                inner_validation_start=pd.Timestamp("2022-01-01"),
+                inner_validation_end=pd.Timestamp("2022-12-31"),
+                outer_start=pd.Timestamp("2023-01-01"),
+                outer_end=pd.Timestamp("2023-12-31"),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        selector_diag,
+        "_recent_inner_folds",
+        lambda *args, **kwargs: [
+            nested_wf.InnerFold(
+                validation_year=2022,
+                train_end=pd.Timestamp("2021-12-31"),
+                validation_start=pd.Timestamp("2022-01-01"),
+                validation_end=pd.Timestamp("2022-12-31"),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        nested_wf,
+        "_evaluate_one_config",
+        lambda *args, **kwargs: nested_wf._rejected_inner_config(
+            "mean_turnover_cap",
+            rejection_metrics={"inner_mean_turnover_pct": 900.0},
+        ),
+    )
+
+    result = selector_diag.run_candidate_replay(
+        panel,
+        grid="recent-alpha",
+        max_configs=None,
+        min_train_years=3,
+        min_inner_train_years=None,
+        start_year=2023,
+        end_year=2023,
+        skip_stress_gate=False,
+        objective="alpha_vs_qqq",
+        include_riskoff_guard_score=True,
+    )
+
+    row = result["folds"][0]
+    assert result["include_riskoff_guard_score"] is True
+    assert result["yearly_rank_correlations"][0]["rejection_counts"] == {"mean_turnover_cap": 1}
+    assert row["score_source"] == "regime_adaptive_riskoff_guard"
+    assert row["shape"] == "top5"
+    assert row["rejection_reason"] == "mean_turnover_cap"
+
+
+def test_selector_replay_fast_inner_score_only_avoids_cost_stress(monkeypatch):
+    config = {
+        "name": "fast_candidate",
+        "nested_params": {
+            "holding_days": 20,
+            "score_source": "regime_adaptive",
+        },
+    }
+    folds = [
+        nested_wf.InnerFold(
+            validation_year=2022,
+            train_end=pd.Timestamp("2021-12-31"),
+            validation_start=pd.Timestamp("2022-01-01"),
+            validation_end=pd.Timestamp("2022-12-31"),
+        ),
+        nested_wf.InnerFold(
+            validation_year=2023,
+            train_end=pd.Timestamp("2022-12-31"),
+            validation_start=pd.Timestamp("2023-01-01"),
+            validation_end=pd.Timestamp("2023-12-31"),
+        ),
+    ]
+    calls = []
+
+    def fake_evaluate_window(panel, config, start, end):
+        calls.append((start, end))
+        return {
+            "sharpe": 1.0,
+            "total_return_pct": 12.0,
+            "max_drawdown_pct": -5.0,
+            "turnover_pct": 100.0,
+            "alpha_vs_spy_pct": 4.0,
+            "alpha_vs_qqq_pct": 3.0,
+            "alpha_vs_blend_pct": 3.5,
+        }
+
+    monkeypatch.setattr(nested_wf, "evaluate_window", fake_evaluate_window)
+    selected = selector_diag._evaluate_inner_score_only(config, pd.DataFrame(), folds)
+
+    assert selected["config"]["name"] == "fast_candidate"
+    assert selected["metrics"]["inner_fold_count"] == 2
+    assert selected["metrics"]["inner_cost_stress_approval_pass"] is None
+    assert len(calls) == 2
+
+
 def test_fixed_validator_approves_repeat_fixed_rows_with_passed_reviews():
     signature = _wf_sig(shape="top3", vol_mode="percentile")
     config = selector_diag.config_from_signature(signature)
@@ -1307,6 +1460,19 @@ def test_walkforward_checkpoint_key_changes_with_family_consensus(monkeypatch):
     assert no_bonus_key != family_bonus_key
 
 
+def test_walkforward_env_float_validates_numeric_bounds(monkeypatch):
+    monkeypatch.setenv("WF_TEST_FLOAT", "550")
+    assert nested_wf._walkforward_env_float("WF_TEST_FLOAT", 525.0, min_value=0.0) == 550.0
+
+    monkeypatch.setenv("WF_TEST_FLOAT", "-1")
+    try:
+        nested_wf._walkforward_env_float("WF_TEST_FLOAT", 525.0, min_value=0.0)
+    except ValueError as exc:
+        assert ">= 0.0" in str(exc)
+    else:
+        raise AssertionError("negative walkforward env value should fail")
+
+
 def test_inner_selection_can_treat_stress_gate_as_diagnostic(monkeypatch):
     configs = [{"name": "research_candidate", "nested_params": {"holding_days": 20}}]
     folds = [
@@ -1372,6 +1538,42 @@ def test_walkforward_analyzer_fails_incomplete_fold_rows():
     assert result["verdict"] == "FAIL"
     assert result["failed_years"] == [2025]
     assert result["reason_counts"] == {"no_valid_inner_config": 1}
+
+
+def test_walkforward_analyzer_accepts_fixed_baseline_return_alias():
+    result = summary_stats(
+        pd.DataFrame(
+            {
+                "outer_year": [2024, 2025],
+                "oos_total_return_pct": [10.0, -5.0],
+                "oos_sharpe": [1.2, 0.4],
+                "oos_alpha_vs_qqq_pct": [3.0, -2.0],
+                "oos_alpha_vs_spy_pct": [4.0, -1.0],
+                "oos_max_drawdown_pct": [-5.0, -12.0],
+            }
+        )
+    )
+
+    assert result["valid_folds"] == 2
+    assert result["compound_return_pct"] == 4.5
+
+
+def test_walkforward_analyzer_skips_score_check_when_inner_columns_missing():
+    result = check_score_predictiveness(
+        pd.DataFrame(
+            {
+                "fold_year": [2024, 2025, 2026, 2027],
+                "oos_total_return_pct": [10.0, 8.0, 6.0, 4.0],
+                "oos_sharpe": [1.0, 0.9, 0.8, 0.7],
+                "oos_alpha_vs_qqq_pct": [3.0, 2.0, 1.0, 0.5],
+                "oos_max_drawdown_pct": [-5.0, -6.0, -7.0, -8.0],
+                "oos_turnover_pct": [100.0, 110.0, 120.0, 130.0],
+            }
+        )
+    )
+
+    assert result["valid"] is False
+    assert "inner_score" in result["reason"]
 
 
 def test_signal_timestamp_is_timezone_aware():

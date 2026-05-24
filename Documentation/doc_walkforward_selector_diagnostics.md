@@ -28,6 +28,16 @@ python3 walkforward_selector_diagnostics.py --start-year 2024 --end-year 2024 re
   --grid low-turnover \
   --max-configs 16 \
   --output-prefix wf_selector_replay_2024
+
+# Same idea, but include the experimental risk-off score guard route.
+# This does not change the live nested grid; it only audits the extra route.
+python3 walkforward_selector_diagnostics.py --start-year 2024 --end-year 2024 replay \
+  --grid recent-alpha \
+  --max-configs 24 \
+  --skip-stress-gate \
+  --fast-inner-score-only \
+  --include-riskoff-guard-score \
+  --output-prefix wf_selector_replay_guard_2024
 ```
 
 ## Inputs
@@ -44,8 +54,16 @@ reused, the shared research writer adds a timestamp so older runs stay intact.
 
 - Fixed mode JSON includes summary stats for every fixed config.
 - Fixed mode CSV has one row per fixed config and outer year.
-- Replay mode JSON includes yearly and pooled rank correlations.
-- Replay mode CSV has one row per candidate and outer year.
+- Replay mode JSON includes yearly and pooled rank correlations plus rejection
+  counts for configs killed by gates such as turnover caps.
+- Replay mode CSV has one row per candidate and outer year, including the key
+  config knobs (`score_source`, `shape`, `weighting`, `overlay_gross`, etc.)
+  so failed candidates can be grouped without parsing the signature text.
+
+`--fast-inner-score-only` is a quick research mode.  It scores the inner folds
+with the base objective but skips cost-stress variants, so it is useful for
+checking whether inner ranks line up with OOS ranks.  Leave it off when you
+need an exact replay of nested selection gates.
 
 ## Key terms
 

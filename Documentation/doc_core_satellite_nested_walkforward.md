@@ -52,6 +52,9 @@ WALKFORWARD_INNER_AGG=median python3 core_satellite_nested_walkforward.py --no-p
 # Reversible family-consensus A/B (default bonus is 0)
 WALKFORWARD_FAMILY_CONSENSUS_BONUS=0.10 python3 core_satellite_nested_walkforward.py --no-publish-live-config
 
+# Reversible turnover-gate A/B (defaults: mean=450, worst=550)
+WALKFORWARD_MAX_INNER_WORST_TURNOVER_PCT=525 python3 core_satellite_nested_walkforward.py --recent-alpha-grid --no-publish-live-config
+
 # Don't push the winning config to live (research mode)
 python3 core_satellite_nested_walkforward.py --output-prefix wf_my_research_run --no-publish-live-config
 
@@ -143,8 +146,8 @@ worst-turnover cap, or evaluation failures.
   families (`score`, `shape`, `weighting`, `risk`, `tqqq`) instead of only
   exact configs.  This avoids promoting a one-off latest-year winner while
   still letting small tuning knobs come from the freshest fold.
-- **Tightened turnover gates** — inner mean cap 600→450%, new inner worst
-  cap 525%, and the soft penalty span 4000→1500 (so 1000% turnover now
+- **Tightened turnover gates** — inner mean cap 600→450%, inner worst
+  cap 550%, and the soft penalty span 4000→1500 (so 1000% turnover now
   costs 0.4 Sharpe instead of 0.15).  Earlier runs let configs with
   inner-mean ~466% win selection, then those configs spiked to 904%
   turnover OOS — blowing through the run-wide 600% live-approval gate

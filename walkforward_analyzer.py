@@ -49,6 +49,24 @@ DEFAULT_QQQ_PARQUET = "data/QQQ.parquet"
 DEFAULT_SPY_PARQUET = "data/SPY.parquet"
 
 
+def normalize_walkforward_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Copy common research-output aliases into the canonical analyzer names."""
+    out = df.copy()
+    aliases = {
+        "fold_year": "outer_year",
+        "oos_return_pct": "oos_total_return_pct",
+    }
+    for target, source in aliases.items():
+        if target not in out.columns and source in out.columns:
+            out[target] = out[source]
+    return out
+
+
+def _missing_columns(df: pd.DataFrame, columns: list[str]) -> list[str]:
+    """List required columns that are absent before pandas dropna is called."""
+    return [column for column in columns if column not in df.columns]
+
+
 # ── Helper: compute yearly QQQ vs SPY return gap as concentration proxy ──
 # When QQQ heavily beats SPY in a year, mega-cap tech dominated the market.
 # Our diversified picks struggle in those years, so we want to know which
@@ -106,14 +124,19 @@ def check_score_predictiveness(df: pd.DataFrame, *, objective: str = DEFAULT_OBJ
 
     Returns a dict with the correlation values and a pass/fail verdict.
     """
-    valid = df.dropna(subset=[
+    df = normalize_walkforward_columns(df)
+    required = [
         "inner_score",
         "inner_mean_score",
         "oos_sharpe",
         "oos_alpha_vs_qqq_pct",
         "oos_max_drawdown_pct",
         "oos_turnover_pct",
-    ]).copy()
+    ]
+    missing = _missing_columns(df, required)
+    if missing:
+        return {"valid": False, "reason": f"missing columns: {', '.join(missing)}"}
+    valid = df.dropna(subset=required).copy()
     if len(valid) < 4:
         return {"valid": False, "reason": "not enough valid folds"}
 
@@ -167,7 +190,12 @@ def _interpret_score_corr(corr: float) -> str:
 #   - direction_accuracy: how often the SIGN matched
 def check_calibration(df: pd.DataFrame) -> dict:
     """Compare inner predictions vs OOS reality for alpha vs QQQ."""
-    valid = df.dropna(subset=["inner_mean_alpha_vs_qqq_pct", "oos_alpha_vs_qqq_pct"])
+    df = normalize_walkforward_columns(df)
+    required = ["inner_mean_alpha_vs_qqq_pct", "oos_alpha_vs_qqq_pct"]
+    missing = _missing_columns(df, required)
+    if missing:
+        return {"valid": False, "reason": f"missing columns: {', '.join(missing)}"}
+    valid = df.dropna(subset=required)
     if len(valid) < 4:
         return {"valid": False, "reason": "not enough valid folds"}
 
@@ -210,6 +238,10 @@ def check_concentration_vulnerability(
     concentration: pd.DataFrame,
 ) -> dict:
     """Check whether OOS losses cluster in high-concentration years."""
+    df = normalize_walkforward_columns(df)
+    missing = _missing_columns(df, ["fold_year", "oos_alpha_vs_qqq_pct"])
+    if missing:
+        return {"valid": False, "reason": f"missing columns: {', '.join(missing)}"}
     valid = df.dropna(subset=["oos_alpha_vs_qqq_pct"]).set_index("fold_year")
     merged = valid[["oos_alpha_vs_qqq_pct"]].join(concentration, how="inner")
     if len(merged) < 4:
@@ -252,6 +284,10 @@ def check_concentration_vulnerability(
 # Random hopping = pure noise in the selector.
 def check_config_stability(df: pd.DataFrame) -> dict:
     """Count unique configs and frequency of the most common one."""
+    df = normalize_walkforward_columns(df)
+    missing = _missing_columns(df, ["selected_config"])
+    if missing:
+        return {"valid": False, "reason": f"missing columns: {', '.join(missing)}"}
     valid = df.dropna(subset=["selected_config"])
     if len(valid) < 3:
         return {"valid": False, "reason": "not enough valid folds"}
@@ -285,6 +321,17 @@ def check_config_stability(df: pd.DataFrame) -> dict:
 # ── Summary statistics: the simple numbers ──────────────────────────────
 def summary_stats(df: pd.DataFrame) -> dict:
     """Compute compound return, CAGR, mean Sharpe, etc."""
+    df = normalize_walkforward_columns(df)
+    required = [
+        "oos_return_pct",
+        "oos_sharpe",
+        "oos_alpha_vs_qqq_pct",
+        "oos_alpha_vs_spy_pct",
+        "oos_max_drawdown_pct",
+    ]
+    missing = _missing_columns(df, required)
+    if missing:
+        return {"missing_columns": missing}
     valid = df.dropna(subset=["oos_return_pct"])
     if len(valid) < 1:
         return {}
@@ -310,6 +357,7 @@ def summary_stats(df: pd.DataFrame) -> dict:
 # ── Main runner: orchestrate all checks and print a report ──────────────
 def check_fold_completeness(df: pd.DataFrame) -> dict:
     """Fail a walkforward result when any requested fold has no OOS result."""
+    df = normalize_walkforward_columns(df)
     if "oos_return_pct" not in df:
         return {"valid": False, "reason": "missing_oos_return_pct"}
 
@@ -341,7 +389,7 @@ def analyze(csv_path: str, qqq_path: str, spy_path: str, *, objective: str = DEF
         print(f"✗ File not found: {csv_path}")
         sys.exit(1)
 
-    df = pd.read_csv(csv_path)
+    df = normalize_walkforward_columns(pd.read_csv(csv_path))
     print(f"\n{'='*70}")
     print(f" WALKFORWARD ANALYZER")
     print(f" Source: {csv_path}")

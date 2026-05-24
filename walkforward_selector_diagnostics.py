@@ -184,18 +184,110 @@ def run_fixed_baseline(
     }
 
 
-def _grid_configs(name: str, *, max_configs: int | None) -> list[dict]:
-    """Load the candidate grid requested by the replay audit."""
-    if name == "low-turnover":
-        return nested.low_turnover_grid_candidate_configs(max_configs=max_configs)
-    if name == "recent-alpha":
-        return nested.recent_alpha_grid_candidate_configs(max_configs=max_configs)
-    if name == "stable":
-        return nested.stable_grid_candidate_configs(max_configs=max_configs)
-    return nested.iter_candidate_configs(
-        score_sources=("regime_adaptive",),
-        max_configs=max_configs,
+def _score_sources(include_riskoff_guard_score: bool) -> tuple[str, ...]:
+    """Return score routes for replay, optionally adding the risk-off guard."""
+    sources = ["regime_adaptive"]
+    if include_riskoff_guard_score:
+        sources.append("regime_adaptive_riskoff_guard")
+    return tuple(sources)
+
+
+def _without_score_route_key(config: dict) -> tuple[Any, ...]:
+    """Group configs that differ only by score route for bounded A/B replay."""
+    params = dict(config.get("nested_params") or {})
+    return (
+        params.get("holding_days"),
+        params.get("overlay_gross"),
+        params.get("ma_window"),
+        params.get("high_vol"),
+        params.get("high_vol_mode"),
+        params.get("shape"),
+        params.get("weighting"),
+        params.get("tqqq_weight"),
+        params.get("risk_control_mode"),
     )
+
+
+def _interleave_score_routes(configs: list[dict], score_sources: tuple[str, ...]) -> list[dict]:
+    """Keep paired score-route configs adjacent before applying --max-configs."""
+    grouped: dict[tuple[Any, ...], dict[str, dict]] = {}
+    order: list[tuple[Any, ...]] = []
+    for config in configs:
+        key = _without_score_route_key(config)
+        if key not in grouped:
+            grouped[key] = {}
+            order.append(key)
+        source = str((config.get("nested_params") or {}).get("score_source"))
+        grouped[key][source] = config
+
+    interleaved: list[dict] = []
+    for key in order:
+        by_source = grouped[key]
+        for source in score_sources:
+            if source in by_source:
+                interleaved.append(by_source[source])
+    return interleaved
+
+
+def _bounded_configs(configs: list[dict], max_configs: int | None) -> list[dict]:
+    """Apply the optional CLI cap after any research-only reordering."""
+    if max_configs is None:
+        return configs
+    return configs[: max(0, int(max_configs))]
+
+
+def _grid_configs(
+    name: str,
+    *,
+    max_configs: int | None,
+    include_riskoff_guard_score: bool = False,
+) -> list[dict]:
+    """Load the candidate grid requested by the replay audit."""
+    score_sources = _score_sources(include_riskoff_guard_score)
+    if name == "low-turnover":
+        configs = nested.iter_candidate_configs(
+            holding_days=(20,),
+            overlay_gross=nested.LOW_TURNOVER_GRID_OVERLAY_GROSS,
+            ma_windows=(100,),
+            high_vol_values=(0.30,),
+            high_vol_modes=nested.RECENT_ALPHA_GRID_HIGH_VOL_MODES,
+            score_sources=score_sources,
+            shapes=nested.LOW_TURNOVER_GRID_SHAPES,
+            weightings=nested.RECENT_ALPHA_GRID_WEIGHTINGS,
+            tqqq_weights=nested.RECENT_ALPHA_GRID_TQQQ_WEIGHTS,
+            risk_control_modes=("off",),
+        )
+    elif name == "recent-alpha":
+        configs = nested.iter_candidate_configs(
+            holding_days=(20,),
+            overlay_gross=nested.RECENT_ALPHA_GRID_OVERLAY_GROSS,
+            ma_windows=(100,),
+            high_vol_values=(0.30,),
+            high_vol_modes=nested.RECENT_ALPHA_GRID_HIGH_VOL_MODES,
+            score_sources=score_sources,
+            shapes=nested.RECENT_ALPHA_GRID_SHAPES,
+            weightings=nested.RECENT_ALPHA_GRID_WEIGHTINGS,
+            tqqq_weights=nested.RECENT_ALPHA_GRID_TQQQ_WEIGHTS,
+            risk_control_modes=("off",),
+        )
+    elif name == "stable":
+        configs = nested.iter_candidate_configs(
+            holding_days=(20,),
+            overlay_gross=(0.50,),
+            ma_windows=(100,),
+            high_vol_values=(0.30,),
+            high_vol_modes=nested.STABLE_GRID_HIGH_VOL_MODES,
+            score_sources=score_sources,
+            shapes=nested.STABLE_GRID_SHAPES,
+            weightings=("sticky_score", "risk_parity"),
+            tqqq_weights=nested.STABLE_GRID_TQQQ_WEIGHTS,
+            risk_control_modes=("off",),
+        )
+    else:
+        configs = nested.iter_candidate_configs(score_sources=score_sources)
+    if include_riskoff_guard_score:
+        configs = _interleave_score_routes(configs, score_sources)
+    return _bounded_configs(configs, max_configs)
 
 
 def _recent_inner_folds(split: nested.FoldSplit, *, min_train_years: int, min_inner_train_years: int | None) -> list[nested.InnerFold]:
@@ -208,11 +300,115 @@ def _recent_inner_folds(split: nested.FoldSplit, *, min_train_years: int, min_in
 
 def _corr(rows: pd.DataFrame, left: str, right: str, *, method: str) -> float | None:
     """Return a rounded correlation for one replay fold."""
+    if rows.empty or left not in rows.columns or right not in rows.columns:
+        return None
     pair = rows[[left, right]].dropna()
     if len(pair) < 4 or pair[left].nunique() < 2 or pair[right].nunique() < 2:
         return None
     value = pair[left].corr(pair[right], method=method)
     return round(float(value), 4) if pd.notna(value) else None
+
+
+def _evaluate_inner_score_only(config: dict, panel: pd.DataFrame, inner_folds: list[nested.InnerFold]) -> dict | None:
+    """Cheap replay path: score inner folds without running cost-stress variants."""
+    fold_scores: list[float] = []
+    fold_metrics: list[dict[str, Any]] = []
+    failed = 0
+    for fold in inner_folds:
+        try:
+            metrics = nested.evaluate_window(
+                panel,
+                nested.config_with_cost_stress(config, nested.BASE_COST_STRESS),
+                fold.validation_start,
+                fold.validation_end,
+            )
+        except (KeyError, RuntimeError, ValueError, ZeroDivisionError):
+            failed += 1
+            continue
+
+        score = nested.inner_selection_score(metrics)
+        fold_scores.append(float(score))
+        fold_metrics.append(
+            {
+                "validation_year": int(fold.validation_year),
+                "score": round(float(score), 4),
+                "sharpe": metrics.get("sharpe"),
+                "return_pct": metrics.get("total_return_pct"),
+                "max_drawdown_pct": metrics.get("max_drawdown_pct"),
+                "turnover_pct": metrics.get("turnover_pct"),
+                "alpha_vs_spy_pct": metrics.get("alpha_vs_spy_pct"),
+                "alpha_vs_qqq_pct": metrics.get("alpha_vs_qqq_pct"),
+                "alpha_vs_blend_pct": metrics.get("alpha_vs_blend_pct"),
+            }
+        )
+
+    if not fold_scores:
+        return nested._rejected_inner_config(
+            "no_valid_inner_fold_scores",
+            failed_evaluations=failed,
+            rejection_metrics={"inner_fold_count": int(len(inner_folds))},
+        )
+
+    turnover_values = [float(row.get("turnover_pct", 0.0) or 0.0) for row in fold_metrics]
+    mean_turnover_pct = float(np.mean(turnover_values))
+    worst_turnover_pct = float(np.max(turnover_values)) if turnover_values else 0.0
+    if mean_turnover_pct > nested.MAX_INNER_MEAN_TURNOVER_PCT:
+        return nested._rejected_inner_config(
+            "mean_turnover_cap",
+            failed_evaluations=failed,
+            rejection_metrics={
+                "inner_mean_turnover_pct": round(mean_turnover_pct, 2),
+                "cap_pct": float(nested.MAX_INNER_MEAN_TURNOVER_PCT),
+            },
+        )
+    if worst_turnover_pct > nested.MAX_INNER_WORST_TURNOVER_PCT:
+        return nested._rejected_inner_config(
+            "worst_turnover_cap",
+            failed_evaluations=failed,
+            rejection_metrics={
+                "inner_worst_turnover_pct": round(worst_turnover_pct, 2),
+                "cap_pct": float(nested.MAX_INNER_WORST_TURNOVER_PCT),
+            },
+        )
+
+    mean_score = float(np.mean(fold_scores))
+    median_score = float(np.median(fold_scores))
+    aggregation = nested.inner_score_aggregation_from_env()
+    aggregate_score = median_score if aggregation == "median" else mean_score
+    score_std = float(np.std(fold_scores, ddof=0)) if len(fold_scores) > 1 else 0.0
+    alpha_vs_qqq_values = [
+        float(row.get("alpha_vs_qqq_pct", 0.0) or 0.0)
+        for row in fold_metrics
+    ]
+    mean_alpha_vs_qqq = float(np.mean(alpha_vs_qqq_values)) if alpha_vs_qqq_values else 0.0
+    qqq_penalty = max(0.0, -mean_alpha_vs_qqq * 0.05)
+    if len(alpha_vs_qqq_values) >= 3 and all(value < 0 for value in alpha_vs_qqq_values):
+        qqq_penalty *= 1.5
+    stable_score = aggregate_score - 0.10 * score_std - qqq_penalty
+
+    return {
+        "config": config,
+        "score": stable_score,
+        "metrics": {
+            "inner_mean_score": round(mean_score, 4),
+            "inner_median_score": round(median_score, 4),
+            "inner_score_aggregation": aggregation,
+            "inner_score_std": round(score_std, 4),
+            "inner_stability_adjusted_score": round(stable_score, 4),
+            "inner_fold_count": int(len(fold_scores)),
+            "inner_failed_fold_count": int(failed),
+            "inner_mean_sharpe": round(float(np.mean([float(row.get("sharpe", 0.0) or 0.0) for row in fold_metrics])), 4),
+            "inner_mean_return_pct": round(float(np.mean([float(row.get("return_pct", 0.0) or 0.0) for row in fold_metrics])), 2),
+            "inner_mean_alpha_vs_spy_pct": round(float(np.mean([float(row.get("alpha_vs_spy_pct", 0.0) or 0.0) for row in fold_metrics])), 2),
+            "inner_mean_alpha_vs_qqq_pct": round(mean_alpha_vs_qqq, 2),
+            "inner_qqq_opportunity_cost_penalty": round(qqq_penalty, 4),
+            "inner_mean_turnover_pct": round(mean_turnover_pct, 2),
+            "inner_cost_stress_approval_pass": None,
+            "inner_stress_pass_ratio": None,
+        },
+        "fold_metrics": fold_metrics,
+        "failed_evaluations": failed,
+    }
 
 
 def run_candidate_replay(
@@ -226,9 +422,15 @@ def run_candidate_replay(
     end_year: int | None,
     skip_stress_gate: bool,
     objective: str,
+    include_riskoff_guard_score: bool = False,
+    fast_inner_score_only: bool = False,
 ) -> dict:
     """Replay candidates to test whether inner ranks match OOS ranks."""
-    configs = _grid_configs(grid, max_configs=max_configs)
+    configs = _grid_configs(
+        grid,
+        max_configs=max_configs,
+        include_riskoff_guard_score=include_riskoff_guard_score,
+    )
     splits = nested.build_fold_splits(
         panel,
         min_train_years=min_train_years,
@@ -248,21 +450,35 @@ def run_candidate_replay(
         year_rows: list[dict[str, Any]] = []
         for idx, config in enumerate(configs, start=1):
             signature = nested.config_signature(config)
-            inner = nested._evaluate_one_config(
-                config,
-                panel,
-                inner_folds,
-                low_memory=True,
-                best_score_so_far=-np.inf,
-                skip_stress_gate=skip_stress_gate,
-                prior_selected_sigs=None,
-            )
+            params = dict(config.get("nested_params") or {})
+            if fast_inner_score_only:
+                inner = _evaluate_inner_score_only(config, panel, inner_folds)
+            else:
+                inner = nested._evaluate_one_config(
+                    config,
+                    panel,
+                    inner_folds,
+                    low_memory=True,
+                    best_score_so_far=-np.inf,
+                    skip_stress_gate=skip_stress_gate,
+                    prior_selected_sigs=None,
+                )
             row: dict[str, Any] = {
                 "valid": False,
                 "fold_year": int(split.outer_year),
                 "outer_year": int(split.outer_year),
                 "candidate_index": int(idx),
                 "selected_config": signature,
+                "holding_days": params.get("holding_days"),
+                "overlay_gross": params.get("overlay_gross"),
+                "ma_window": params.get("ma_window"),
+                "high_vol": params.get("high_vol"),
+                "high_vol_mode": params.get("high_vol_mode"),
+                "score_source": params.get("score_source"),
+                "shape": params.get("shape"),
+                "weighting": params.get("weighting"),
+                "tqqq_weight": params.get("tqqq_weight"),
+                "risk_control_mode": params.get("risk_control_mode"),
             }
             if not inner or inner.get("config") is None:
                 row["rejection_reason"] = (inner or {}).get("rejection_reason", "missing_inner_result")
@@ -303,6 +519,10 @@ def run_candidate_replay(
                 "fold_year": int(split.outer_year),
                 "candidate_count": int(len(frame)),
                 "valid_candidate_count": int(len(valid)),
+                "rejection_counts": {
+                    str(reason): int(count)
+                    for reason, count in frame["rejection_reason"].dropna().value_counts().items()
+                } if "rejection_reason" in frame else {},
                 "pearson_inner_vs_oos_objective": _corr(valid, "inner_score", "oos_objective_score", method="pearson"),
                 "spearman_inner_vs_oos_objective": _corr(valid, "inner_score", "oos_objective_score", method="spearman"),
                 "spearman_inner_vs_oos_qqq_alpha": _corr(valid, "inner_score", "oos_alpha_vs_qqq_pct", method="spearman"),
@@ -316,6 +536,9 @@ def run_candidate_replay(
         "method": "candidate_inner_to_outer_selector_replay",
         "objective": objective,
         "grid": grid,
+        "include_riskoff_guard_score": bool(include_riskoff_guard_score),
+        "fast_inner_score_only": bool(fast_inner_score_only),
+        "score_sources": list(_score_sources(include_riskoff_guard_score)),
         "candidate_config_count": int(len(configs)),
         "yearly_rank_correlations": yearly,
         "pooled_pearson_inner_vs_oos_objective": _corr(valid_frame, "inner_score", "oos_objective_score", method="pearson"),
@@ -373,6 +596,11 @@ def _print_replay(result: dict) -> None:
     print("=" * 72)
     table = pd.DataFrame(result.get("yearly_rank_correlations", []))
     print(table.to_string(index=False) if not table.empty else "No replay rows.")
+    for row in result.get("yearly_rank_correlations", []):
+        counts = row.get("rejection_counts") or {}
+        if counts:
+            compact = ", ".join(f"{reason}={count}" for reason, count in counts.items())
+            print(f"  {row.get('fold_year')} rejections: {compact}")
     print(f"\nPooled Pearson inner score vs OOS objective:  {result.get('pooled_pearson_inner_vs_oos_objective')}")
     print(f"Pooled Spearman inner score vs OOS objective: {result.get('pooled_spearman_inner_vs_oos_objective')}")
 
@@ -396,7 +624,24 @@ def main() -> None:
     replay.add_argument("--max-configs", type=int, default=16)
     replay.add_argument("--min-inner-train-years", type=int, default=None)
     replay.add_argument("--skip-stress-gate", action="store_true")
+    replay.add_argument(
+        "--fast-inner-score-only",
+        action="store_true",
+        help=(
+            "Replay inner ranks without evaluating cost-stress variants. "
+            "Use this for quick score-predictiveness probes; exact nested "
+            "selection still requires leaving this off."
+        ),
+    )
     replay.add_argument("--objective", default=DEFAULT_OBJECTIVE, choices=("alpha_vs_qqq", "sharpe", "hybrid"))
+    replay.add_argument(
+        "--include-riskoff-guard-score",
+        action="store_true",
+        help=(
+            "Also replay the regime_adaptive_riskoff_guard score route. "
+            "This is research-only and does not alter the nested walkforward grid."
+        ),
+    )
     replay.add_argument("--output-prefix", default=DEFAULT_REPLAY_PREFIX)
 
     args = parser.parse_args()
@@ -422,6 +667,8 @@ def main() -> None:
             end_year=args.end_year,
             skip_stress_gate=bool(args.skip_stress_gate),
             objective=str(args.objective),
+            include_riskoff_guard_score=bool(args.include_riskoff_guard_score),
+            fast_inner_score_only=bool(args.fast_inner_score_only),
         )
         _print_replay(result)
     json_path, csv_path = _write_research(result, str(args.output_prefix))

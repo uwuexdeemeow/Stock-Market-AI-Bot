@@ -247,6 +247,18 @@ def family_consensus_bonus_from_env() -> float:
         )
     return bonus
 
+
+def _walkforward_env_float(name: str, default: float, *, min_value: float | None = None) -> float:
+    """Read a numeric walkforward env var while keeping defaults explicit."""
+    raw = str(os.getenv(name, str(default))).strip()
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name}={raw!r} must be a number") from exc
+    if min_value is not None and value < min_value:
+        raise ValueError(f"{name} must be >= {min_value}")
+    return value
+
 # Module-level references set before forking so workers inherit them
 # via copy-on-write.  Only the main process writes these; workers read.
 # On Windows (spawn), these are set by _init_pool_worker in each child.
@@ -340,14 +352,28 @@ DEFAULT_MIN_TRAIN_YEARS = 3
 # through the run-wide 600% gate in live_config_approval).  Capping inner
 # mean at 450 keeps the OOS worst comfortably below 600 even with a 30%
 # regime spike, so a single bad outer year can't disqualify the whole run.
-MAX_INNER_MEAN_TURNOVER_PCT = 450.0
+# PLAIN ENGLISH: Set WALKFORWARD_MAX_INNER_MEAN_TURNOVER_PCT for reversible
+# research if the cap is rejecting otherwise-good fixed configs.
+MAX_INNER_MEAN_TURNOVER_PCT = _walkforward_env_float(
+    "WALKFORWARD_MAX_INNER_MEAN_TURNOVER_PCT",
+    450.0,
+    min_value=0.0,
+)
 # Hard cap on the single worst inner-fold turnover.  A candidate can have
 # an acceptable average turnover and still have one frantic year that
-# would be painful to execute live.  Set to 525 in step with the mean cap
-# above — a candidate that already churns ~525% on a single inner fold is
-# almost certain to exceed 600% on the OOS year and trip the run-wide
-# live_config_approval turnover gate.
-MAX_INNER_WORST_TURNOVER_PCT = 525.0
+# would be painful to execute live.  Set below the 600% live-approval cap so a
+# candidate must still leave turnover headroom before it can be selected.  The
+# first 2024 replay audit showed the
+# old 525 cap rejected the approved fixed-live family at 533.25% inner worst
+# turnover even though its OOS turnover stayed below the 600% live gate.  550
+# keeps the gate below live approval while not blocking that stable family.
+# PLAIN ENGLISH: Set WALKFORWARD_MAX_INNER_WORST_TURNOVER_PCT to A/B a wider
+# worst-year allowance without editing the script again.
+MAX_INNER_WORST_TURNOVER_PCT = _walkforward_env_float(
+    "WALKFORWARD_MAX_INNER_WORST_TURNOVER_PCT",
+    550.0,
+    min_value=0.0,
+)
 # "defensive" adds drawdown circuit breakers and vol targeting.
 # Historical walkforward data shows 5/7 years selected defensive —
 # it was incorrectly excluded from the default grid.  Now included.

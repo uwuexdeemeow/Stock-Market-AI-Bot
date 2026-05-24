@@ -29,6 +29,12 @@ Custom results file:
 python walkforward_analyzer.py --csv signals/core_satellite_nested_walkforward_alphaqqq.csv
 ```
 
+Research baseline files are supported too.  If a CSV was produced by
+`walkforward_selector_diagnostics.py fixed`, the analyzer maps
+`oos_total_return_pct` to `oos_return_pct` and prints the checks that can be
+computed.  Score predictiveness and calibration are skipped when the file has
+no inner-score columns, because a fixed baseline has no selector.
+
 Save a JSON report beside the CSV:
 
 ```bash
