@@ -16,6 +16,8 @@ It computes:
 5. **Stale orders** — orders that have been open too long.
 6. **Big equity moves** — sanity check for daily P&L over a threshold.
 7. **Go-live scorecard** — 11 individual readiness checks.
+8. **Factor data age** - how many completed NYSE sessions have passed
+   since the newest cached factor data.
 
 If anything is off, the script warns via Telegram (and writes the
 detail to JSON for later inspection).
@@ -50,6 +52,7 @@ python3 paper_health.py --json
 | `signals/alpaca_paper_equity.csv` | Daily equity history |
 | `signals/alpaca_daily_status.json` | Current positions/equity |
 | `signals/core_satellite_nested_walkforward.json` | Backtest expectations to compare against |
+| `data/*.parquet` | Cached factor price/features used to check data freshness |
 
 ## Outputs
 
@@ -107,5 +110,7 @@ the comparison is meaningless noise.
 - Drift detector: still gathering data (< 10 days) OR within thresholds
 - Drawdown: less than the warning threshold
 - No stale open orders
+- Factor data age is based on completed NYSE sessions, so weekends and
+  market holidays do not create false stale-data warnings.
 - No single position over 35%, no sector over 50%
 - Slippage average under 10 bps

@@ -41,6 +41,7 @@ from paper_health import (
     _drift_breakdown,
     _equity_sanity_checks,
     _execution_slippage,
+    _factor_data_status,
     _filter_current_signal_trades,
     _go_live_scorecard,
     _open_position_attribution,
@@ -1775,6 +1776,21 @@ def test_go_live_scorecard_tracks_progress_not_just_fail():
     names = {item["name"]: item for item in scorecard["criteria"]}
     assert names["paper_equity_days"]["passed"] is False
     assert names["strategy_ready"]["passed"] is True
+
+
+def test_paper_health_factor_data_age_uses_nyse_holidays(tmp_path, monkeypatch):
+    import paper_health
+
+    frame = pd.DataFrame({"Close": [100.0, 101.0]}, index=pd.to_datetime(["2024-06-17", "2024-06-18"]))
+    frame.to_parquet(tmp_path / "CAT.parquet")
+    monkeypatch.setattr(paper_health, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(paper_health, "WATCHLIST", ["CAT"])
+
+    status = _factor_data_status(now=datetime(2024, 6, 19, 22, tzinfo=timezone.utc))
+
+    assert status["latest_data_date"] == "2024-06-18"
+    assert status["age_trading_days"] == 0
+    assert status["missing_or_unreadable_count"] == 0
 
 
 def test_equity_sanity_flags_large_moves_and_duplicates():

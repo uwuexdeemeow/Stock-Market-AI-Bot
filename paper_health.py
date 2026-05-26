@@ -10,7 +10,9 @@ import numpy as np
 import pandas as pd
 
 import alpaca_paper_gauntlet
+from factor_data_health import trading_day_age
 from safe_io import atomic_write_json
+from signal_freshness import latest_completed_us_trading_day
 from settings import DATA_DIR, LOG_DIR, SECTOR_MAP, SIGNAL_DIR, WATCHLIST
 
 
@@ -464,7 +466,7 @@ def _open_position_attribution(status: dict, trades: pd.DataFrame) -> dict:
     }
 
 
-def _factor_data_status() -> dict:
+def _factor_data_status(*, now: datetime | None = None) -> dict:
     latest_dates: list[pd.Timestamp] = []
     missing = []
     for ticker in WATCHLIST:
@@ -480,10 +482,10 @@ def _factor_data_status() -> dict:
         except Exception:
             missing.append(ticker.upper())
     latest = max(latest_dates) if latest_dates else pd.NaT
-    completed_day = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
+    completed_day = latest_completed_us_trading_day(now)
     age_days = None
     if not pd.isna(latest):
-        age_days = int(len(pd.bdate_range(latest + pd.tseries.offsets.BDay(1), completed_day)))
+        age_days = trading_day_age(latest, now=completed_day)
     return {
         "latest_data_date": None if pd.isna(latest) else str(latest.date()),
         "age_trading_days": age_days,
