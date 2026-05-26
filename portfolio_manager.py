@@ -233,10 +233,19 @@ class PortfolioRiskManager:
             if trade.ticker in held_tickers:
                 continue
 
-            weight = min(max(float(trade.requested_position_pct), 0.0), self.max_single_name_exposure)
+            signal = str(trade.signal).upper().strip()
+            if signal not in {"LONG", "SHORT"}:
+                continue
+            try:
+                requested_weight = float(trade.requested_position_pct)
+            except (TypeError, ValueError):
+                continue
+            if not np.isfinite(requested_weight):
+                continue
+            weight = min(max(requested_weight, 0.0), self.max_single_name_exposure)
             if weight <= 0:
                 continue
-            signed = self._signed(trade.signal, weight)
+            signed = self._signed(signal, weight)
 
             # Enforce gross/net caps INCLUDING existing open positions.
             if gross + abs(weight) > soft_gross:

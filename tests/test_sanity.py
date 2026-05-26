@@ -206,6 +206,23 @@ def test_portfolio_correlation_vix_stress_floor_blocks_pairs():
     assert [trade.ticker for trade in approved] == ["AAPL"]
 
 
+def test_portfolio_risk_skips_invalid_trade_weight_and_signal():
+    manager = PortfolioRiskManager(max_pair_correlation=0.85)
+    candidates = [
+        ProposedTrade("BADW", pd.Timestamp("2024-06-01"), "LONG", 0.95, 1.0, float("nan")),
+        ProposedTrade("BADS", pd.Timestamp("2024-06-01"), "BUY", 0.94, 1.0, 0.10),
+        ProposedTrade("AAPL", pd.Timestamp("2024-06-01"), "LONG", 0.90, 1.0, 0.10),
+    ]
+
+    approved = manager.approve_day(
+        candidates,
+        {"AAPL": _price_from_returns(np.array([0.005, -0.004] * 20, dtype=float))},
+        pd.Series([10_000.0], index=[pd.Timestamp("2024-06-01")]),
+    )
+
+    assert [trade.ticker for trade in approved] == ["AAPL"]
+
+
 def test_validation_rejects_bad():
     import pytest
     good = _price_frame()

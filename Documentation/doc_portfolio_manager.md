@@ -44,6 +44,7 @@ approved = manager.approve_day([trade], price_history, equity_curve)
 | **Max single name** | 20% | One stock dominating the portfolio |
 | **Max pair correlation** | 0.85 | Owning two stocks that always move together |
 | **Max drawdown halt** | 15% | Hard stop: stop all trading if portfolio drops 15% from peak |
+| **Trade input validation** | fail closed | Blocks invalid signal text or non-finite requested weights before exposure math |
 | **Soft de-risking band** | 8–15% DD | Gradually reduces exposure as drawdown grows toward the hard stop |
 
 ---
