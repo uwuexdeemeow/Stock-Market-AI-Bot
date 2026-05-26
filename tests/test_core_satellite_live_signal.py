@@ -191,6 +191,22 @@ def test_nested_live_gate_blocks_stale_factor_data():
     assert out["factor_data_freshness"] == freshness
 
 
+def test_factor_freshness_uses_nyse_holiday_calendar():
+    pytest.importorskip("exchange_calendars")
+    panel = pd.DataFrame({"date": [pd.Timestamp("2024-06-18")]})
+
+    freshness = csa.check_factor_freshness(
+        panel,
+        warn_days=0,
+        block_days=1,
+        now=pd.Timestamp("2024-06-19T22:00:00Z"),
+    )
+
+    assert freshness["age_trading_days"] == 0
+    assert freshness["fresh"] is True
+    assert freshness["blocked"] is False
+
+
 def test_strict_feature_quality_missing_report_raises(tmp_path, monkeypatch):
     monkeypatch.setattr(csa, "SIGNAL_DIR", str(tmp_path))
 

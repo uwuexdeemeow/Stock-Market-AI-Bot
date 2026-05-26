@@ -33,7 +33,7 @@ from alpha_factor_backtest import (
 from backtest import INITIAL_CAPITAL, _load_etf_price_frame
 from feature_health import enrich_feature_specs
 from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
-from signal_freshness import live_config_fingerprint
+from signal_freshness import latest_completed_us_trading_day, live_config_fingerprint
 from settings import (
     DATA_DIR,
     SIGNAL_DIR,
@@ -363,11 +363,27 @@ STALE_WARN_TRADING_DAYS = 5    # warn if factor data older than this
 STALE_BLOCK_TRADING_DAYS = 10  # refuse to generate signal if older than this
 
 
+def _count_nyse_sessions(start: object, end: object) -> int:
+    """Count real NYSE sessions in an inclusive date window."""
+    start_ts = pd.Timestamp(start).normalize()
+    end_ts = pd.Timestamp(end).normalize()
+    if start_ts > end_ts:
+        return 0
+    try:
+        import exchange_calendars as xcals
+
+        calendar = xcals.get_calendar("XNYS")
+        return int(len(calendar.sessions_in_range(start_ts, end_ts)))
+    except Exception:
+        return int(sum(1 for day in pd.date_range(start_ts, end_ts, freq="D") if day.weekday() < 5))
+
+
 def check_factor_freshness(
     panel: pd.DataFrame,
     warn_days: int = STALE_WARN_TRADING_DAYS,
     block_days: int = STALE_BLOCK_TRADING_DAYS,
     ignore_stale: bool = False,
+    now: datetime | pd.Timestamp | None = None,
 ) -> dict:
     """
     Check how old the factor panel data is.
@@ -385,14 +401,14 @@ def check_factor_freshness(
             message: str — human-readable status
     """
     latest = pd.Timestamp(panel["date"].max())
-    today = pd.Timestamp.now().normalize()
+    today = latest_completed_us_trading_day(now=now)
 
-    # Count trading days between latest data and today using business day range
+    # Count real NYSE sessions so weekends/holidays do not create false age.
     # (excludes weekends, but not holidays — close enough for a safety check)
     if latest >= today:
         age = 0
     else:
-        age = len(pd.bdate_range(latest + pd.tseries.offsets.BDay(1), today))
+        age = _count_nyse_sessions(latest + pd.Timedelta(days=1), today)
 
     result = {
         "latest_date": str(latest.date()),

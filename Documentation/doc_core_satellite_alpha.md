@@ -12,6 +12,10 @@ For live or paper trading, it loads the approved config from
 config hash and creation time so the broker can reject old signals after a new
 config is published.
 
+Before writing the signal, it checks factor-data freshness against the latest
+completed NYSE session so weekends and holidays do not create false stale-data
+warnings.
+
 ## How To Run It
 
 Generate the daily signal:
