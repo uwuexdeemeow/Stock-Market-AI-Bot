@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 import time as time_module
@@ -152,7 +153,15 @@ def _account_float(account: Any, field: str) -> float | None:
         value = float(raw)
     except Exception:
         return None
-    return value if value > 0 else None
+    return value if math.isfinite(value) and value > 0 else None
+
+
+def _positive_finite(value: Any) -> float | None:
+    try:
+        out = float(value)
+    except Exception:
+        return None
+    return out if math.isfinite(out) and out > 0 else None
 
 
 def guard_core_etf_protection(broker: AlpacaBroker, state: dict, *, dry_run: bool) -> None:
@@ -251,14 +260,20 @@ def guard_intraday_pnl(
     state.setdefault("pnl_halt_blocked_alert_sent", False)
 
     account = broker._api.get_account()
-    current_equity = _account_float(account, "equity") or broker.get_equity()
+    current_equity = _account_float(account, "equity")
+    if current_equity is None:
+        current_equity = _positive_finite(broker.get_equity())
+    if current_equity is None:
+        send_alert("Intraday P&L guard skipped: invalid current broker equity")
+        return
+
     stored_baseline = state.get("baseline_equity")
-    baseline = float(stored_baseline) if stored_baseline else None
+    baseline = _positive_finite(stored_baseline) if stored_baseline else None
     baseline_source = state.get("baseline_source")
-    if baseline is None or baseline <= 0:
+    if baseline is None:
         baseline = _account_float(account, "last_equity")
         baseline_source = "alpaca_last_equity"
-    if baseline is None or baseline <= 0:
+    if baseline is None:
         baseline = current_equity
         baseline_source = "current_equity_fallback"
 
@@ -267,7 +282,7 @@ def guard_intraday_pnl(
 
     previous_high = state.get("intraday_high")
     try:
-        intraday_high = max(float(previous_high or 0), float(baseline), float(current_equity))
+        intraday_high = max(_positive_finite(previous_high) or 0.0, float(baseline), float(current_equity))
     except Exception:
         intraday_high = max(float(baseline), float(current_equity))
     state["intraday_high"] = round(intraday_high, 2)

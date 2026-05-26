@@ -14,6 +14,8 @@ It has three jobs:
 - Monitor intraday account P&L while the laptop is awake. If the loss reaches
   the halt threshold during market hours, it calls the existing Alpaca emergency
   liquidation function.
+- Validate broker equity numbers before P&L math. NaN/inf or unreadable equity
+  values trigger an alert and skip that P&L cycle instead of writing bad state.
 
 ## How To Run
 
@@ -108,6 +110,8 @@ stops from reserving shares and blocking rebalance sell orders.
   stay open.
 - **P&L baseline**: The guard prefers Alpaca `last_equity`, which is the prior
   close equity, instead of treating the laptop startup time as the market open.
+- **Invalid equity**: A missing, NaN, infinite, or non-positive broker equity
+  value. The guard alerts and refuses to calculate P&L from it.
 - **Halt sentinel**: Emergency liquidation uses
   `signals/alpaca_halt_active.txt` to avoid firing repeatedly. Remove it only
   after reviewing the halt.

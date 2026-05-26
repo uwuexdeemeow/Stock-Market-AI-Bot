@@ -167,3 +167,28 @@ def test_pnl_halt_closed_market_alerts_without_liquidating(monkeypatch):
     assert state["pnl_halt_sent"] is not True
     assert state["pnl_halt_blocked_alert_sent"] is True
     assert alerts
+
+
+def test_pnl_guard_skips_invalid_current_equity(monkeypatch):
+    import execution_guard
+
+    account = SimpleNamespace(equity="nan", last_equity="100000")
+    broker = FakeBroker(account=account, market_open=True)
+    calls = []
+    alerts = []
+    monkeypatch.setattr(execution_guard, "_emergency_liquidate", lambda _broker: calls.append("liquidate"))
+    monkeypatch.setattr(execution_guard, "send_alert", lambda msg: alerts.append(msg))
+    monkeypatch.setattr(execution_guard, "log", lambda _msg: None)
+    state = {"date": "2026-05-12", "baseline_equity": "not-a-number"}
+
+    execution_guard.guard_intraday_pnl(
+        broker,
+        state,
+        dry_run=False,
+        market_open=True,
+        force_market_closed=False,
+    )
+
+    assert calls == []
+    assert alerts == ["Intraday P&L guard skipped: invalid current broker equity"]
+    assert "intraday_high" not in state
