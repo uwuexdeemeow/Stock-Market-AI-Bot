@@ -108,10 +108,13 @@ jobs:
         run: |
           git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest || true
           mkdir -p signals
-          if git show origin/signals/latest:signals/shadow_paper_journal.csv > signals/shadow_paper_journal.csv 2>/dev/null; then
+          tmp_journal="$(mktemp)"
+          if git show origin/signals/latest:signals/shadow_paper_journal.csv > "$tmp_journal" 2>/dev/null && [ -s "$tmp_journal" ]; then
+            mv "$tmp_journal" signals/shadow_paper_journal.csv
             echo "Restored existing shadow journal from signals/latest."
           else
-            echo "No prior shadow journal found on signals/latest."
+            rm -f "$tmp_journal" signals/shadow_paper_journal.csv
+            echo "No non-empty prior shadow journal found on signals/latest."
           fi
 
       - name: Create .env from secrets
