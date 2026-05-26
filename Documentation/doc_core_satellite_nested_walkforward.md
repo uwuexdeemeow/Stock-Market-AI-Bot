@@ -65,11 +65,6 @@ python3 core_satellite_nested_walkforward.py --output-prefix wf_my_research_run 
 python3 core_satellite_nested_walkforward.py --low-turnover-grid --output-prefix wf_low_turnover --no-publish-live-config
 ```
 
-The stable grid now tests the concentration overlay guard as part of its
-consensus candidate.  That guard is meant to reduce stock overlay exposure when
-mega-cap concentration is high and rotate the freed exposure back into QQQ/SPY
-core exposure.
-
 ## Inputs
 
 | File | Source | Purpose |

@@ -31,7 +31,6 @@ from alpha_factor_backtest import (
     subperiod_metrics,
 )
 from backtest import INITIAL_CAPITAL, _load_etf_price_frame
-from concentration_overlay import dynamic_overlay_multiplier
 from feature_health import enrich_feature_specs
 from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
 from signal_freshness import latest_completed_us_trading_day, live_config_fingerprint
@@ -1396,27 +1395,6 @@ def _sticky_overlay_weights(
     return blended.astype(float)
 
 
-def _apply_concentration_overlay_rotation(
-    *,
-    core_gross: float,
-    overlay_gross: float,
-    panel_row,
-    config: dict,
-) -> tuple[float, float, float]:
-    """Reduce overlay in concentrated markets and rotate freed exposure to core ETFs."""
-    if not bool(config.get("concentration_overlay_enabled", False)):
-        return float(core_gross), float(overlay_gross), 1.0
-    base_overlay = max(0.0, float(overlay_gross))
-    if base_overlay <= 0.0:
-        return float(core_gross), 0.0, 1.0
-    multiplier = float(np.clip(dynamic_overlay_multiplier(panel_row), 0.0, 1.0))
-    effective_overlay = base_overlay * multiplier
-    freed = max(0.0, base_overlay - effective_overlay)
-    max_gross = float(config.get("max_gross_exposure", MAX_GROSS_EXPOSURE))
-    rotated_core = min(max_gross - effective_overlay, float(core_gross) + freed)
-    return max(0.0, float(rotated_core)), float(effective_overlay), multiplier
-
-
 def _exit_floor_for_regime(config: dict, regime: str) -> float:
     base = float(config.get("exit_rank_floor", 0.80))
     if str(config.get("adaptive_exit_mode", "fixed")) != "regime":
@@ -1582,13 +1560,6 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
         if "feature_health_overlay_allowed" in day.columns and not bool(day["feature_health_overlay_allowed"].iloc[0]):
             overlay_gross = 0.0
 
-        core_gross, overlay_gross, concentration_overlay_mult = _apply_concentration_overlay_rotation(
-            core_gross=core_gross,
-            overlay_gross=overlay_gross,
-            panel_row=day.iloc[0],
-            config=config,
-        )
-
         # PLAIN ENGLISH: If score blending is enabled, we mix risk_on and
         # risk_off scores based on how "risk_on" the market really is (0-1).
         # This avoids the jarring overnight flip from all-momentum to all-defensive.
@@ -1697,7 +1668,6 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
             "core_weights_json": json.dumps({str(k): round(float(v), 6) for k, v in core_weights.items()}, sort_keys=True),
             "core_gross": core_gross,
             "overlay_gross": overlay_gross,
-            "concentration_overlay_mult": concentration_overlay_mult,
             "gross_exposure": core_gross + float(overlay.abs().sum()),
             "top_overlay_weight": float(overlay.abs().max()) if not overlay.empty else 0.0,
             "effective_overlay_names": effective_overlay_names,
@@ -2032,14 +2002,8 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
     if not feature_health_gate_pass:
         overlay_gross = 0.0
         feature_health_reason = "feature_health_gate_failed"
-    day = panel[panel["date"] == latest_date]
-    core_gross, overlay_gross, concentration_overlay_mult = _apply_concentration_overlay_rotation(
-        core_gross=core_gross,
-        overlay_gross=overlay_gross,
-        panel_row=day.iloc[0] if not day.empty else {},
-        config=metrics,
-    )
     score_col = _score_col_for_regime(str(metrics["score_source"]), current_regime)
+    day = panel[panel["date"] == latest_date]
     sticky_state = _load_live_sticky_overlay_state()
     held_tickers = set(sticky_state["held_tickers"])
     prev_overlay = sticky_state["prev_overlay"]
@@ -2136,7 +2100,6 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         "paper_weights_scaled": bool(paper_scaled),
         "overlay_gross": round(float(paper_overlay.abs().sum()), 4),
         "raw_overlay_gross": round(float(overlay.abs().sum()), 4),
-        "concentration_overlay_mult": round(float(concentration_overlay_mult), 4),
         "core_gross": round(abs(target_spy) + abs(target_qqq) + abs(target_tqqq), 4),
         "raw_core_gross": round(core_gross, 4),
         "max_single_name_weight": round(float(metrics.get("max_single_name_weight", MAX_SINGLE_NAME_WEIGHT)), 4),

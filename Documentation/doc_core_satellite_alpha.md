@@ -16,10 +16,6 @@ Before writing the signal, it checks factor-data freshness against the latest
 completed NYSE session so weekends and holidays do not create false stale-data
 warnings.
 
-When a config enables the concentration overlay guard, the script reduces the
-stock-picking overlay during mega-cap concentration and rotates that freed
-exposure into the ETF core instead of leaving it idle.
-
 ## How To Run It
 
 Generate the daily signal:
@@ -69,9 +65,6 @@ Expected outputs:
   default unchanged until fixed validation proves whether the route is useful.
 - **Sentiment veto**: optional live-news check that can remove a selected stock
   when fresh headlines are strongly negative.
-- **Concentration overlay guard**: lowers individual-stock overlay exposure
-  when QQQ-style mega-cap concentration is high, then shifts the freed sleeve
-  back into the core ETF allocation.
 - **Nested walkforward approval**: the validation result that decides whether a
   config is allowed to generate paper/live signals.
 - **Live config hash**: a short ID for the approved config used to create the
