@@ -4,6 +4,7 @@ import argparse
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -18,8 +19,67 @@ MIN_ROWS = 252
 MAX_AGE_BUSINESS_DAYS = 5
 
 
-def _completed_day() -> pd.Timestamp:
-    return pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
+def _nyse_calendar():
+    """Load the NYSE calendar when available."""
+    try:
+        import exchange_calendars as xcals
+
+        return xcals.get_calendar("XNYS")
+    except Exception:
+        return None
+
+
+def _latest_weekday_on_or_before(day: object) -> pd.Timestamp:
+    ts = pd.Timestamp(day).normalize()
+    while ts.weekday() >= 5:
+        ts -= pd.Timedelta(days=1)
+    return ts
+
+
+def _latest_nyse_session_on_or_before(day: object) -> pd.Timestamp:
+    ts = pd.Timestamp(day).normalize()
+    calendar = _nyse_calendar()
+    if calendar is not None:
+        for _ in range(14):
+            if calendar.is_session(ts):
+                return ts
+            ts -= pd.Timedelta(days=1)
+        return ts
+    return _latest_weekday_on_or_before(ts)
+
+
+def _completed_day(now: datetime | pd.Timestamp | None = None) -> pd.Timestamp:
+    now_ts = pd.Timestamp(now or datetime.now(timezone.utc))
+    if now_ts.tzinfo is None:
+        now_ts = now_ts.tz_localize("UTC")
+    else:
+        now_ts = now_ts.tz_convert("UTC")
+    eastern_ts = now_ts.to_pydatetime().astimezone(ZoneInfo("America/New_York"))
+    current_day = pd.Timestamp(eastern_ts.date())
+    calendar = _nyse_calendar()
+    if calendar is not None:
+        if not calendar.is_session(current_day):
+            return _latest_nyse_session_on_or_before(current_day - pd.Timedelta(days=1))
+        if now_ts < calendar.session_close(current_day):
+            return _latest_nyse_session_on_or_before(current_day - pd.Timedelta(days=1))
+        return current_day
+    if eastern_ts.weekday() >= 5:
+        return _latest_weekday_on_or_before(current_day - pd.Timedelta(days=1))
+    close_ts = eastern_ts.replace(hour=16, minute=0, second=0, microsecond=0)
+    if eastern_ts < close_ts:
+        return _latest_weekday_on_or_before(current_day - pd.Timedelta(days=1))
+    return current_day
+
+
+def _count_trading_sessions(start: object, end: object) -> int:
+    start_ts = pd.Timestamp(start).normalize()
+    end_ts = pd.Timestamp(end).normalize()
+    if start_ts > end_ts:
+        return 0
+    calendar = _nyse_calendar()
+    if calendar is not None:
+        return int(len(calendar.sessions_in_range(start_ts, end_ts)))
+    return int(sum(1 for day in pd.date_range(start_ts, end_ts, freq="D") if day.weekday() < 5))
 
 
 def _validate_etf_frame(frame: pd.DataFrame, *, symbol: str, max_age_business_days: int = MAX_AGE_BUSINESS_DAYS) -> dict:
@@ -44,7 +104,7 @@ def _validate_etf_frame(frame: pd.DataFrame, *, symbol: str, max_age_business_da
     if pd.isna(latest):
         issues.append("missing_latest_date")
     else:
-        age = int(len(pd.bdate_range(latest + pd.tseries.offsets.BDay(1), _completed_day())))
+        age = _count_trading_sessions(latest + pd.Timedelta(days=1), _completed_day())
         if age > int(max_age_business_days):
             issues.append(f"stale_{age}_bdays")
     return {
