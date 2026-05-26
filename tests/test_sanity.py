@@ -116,6 +116,8 @@ def test_risk_sizing_nonnegative():
     assert 0 < fractional_kelly(0.60) < 1  # 60% win rate → positive edge → size up
     assert fractional_kelly(0.60) < fractional_kelly(0.70)  # more edge → larger bet
     assert position_size_with_stop(100_000, 100, 2.0) > 0
+    assert position_size_with_stop(-100_000, 100, 2.0) == 0
+    assert position_size_with_stop(100_000, 100, 2.0, risk_per_trade=-0.01) == 0
 
 
 def test_execution_costs_sane():

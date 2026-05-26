@@ -205,6 +205,8 @@ def position_size_with_stop(
     any single trade. Given how far the stop is from entry, we calculate
     exactly how many shares we can buy so a stop-out costs us exactly 1%.
     """
+    if equity <= 0 or risk_per_trade <= 0:
+        return 0
     stop_dist = k_atr * atr
     if stop_dist <= 0 or entry_price <= 0:
         return 0
