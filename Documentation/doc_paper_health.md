@@ -18,6 +18,8 @@ It computes:
 7. **Go-live scorecard** — 11 individual readiness checks.
 8. **Factor data age** - how many completed NYSE sessions have passed
    since the newest cached factor data.
+9. **Open position attribution** - current open P&L by ticker, skipping
+   malformed broker quantities or values instead of crashing the report.
 
 If anything is off, the script warns via Telegram (and writes the
 detail to JSON for later inspection).

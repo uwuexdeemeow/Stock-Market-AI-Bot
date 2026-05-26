@@ -408,8 +408,16 @@ def _position_concentration(status: dict) -> dict:
 
 
 def _open_position_attribution(status: dict, trades: pd.DataFrame) -> dict:
-    positions = {str(k).upper(): float(v or 0.0) for k, v in dict(status.get("positions", {}) or {}).items()}
-    position_values = {str(k).upper(): float(v or 0.0) for k, v in dict(status.get("position_values", {}) or {}).items()}
+    positions: dict[str, float] = {}
+    for ticker, raw_qty in dict(status.get("positions", {}) or {}).items():
+        qty = _finite_float(raw_qty)
+        if qty is not None and qty > 0:
+            positions[str(ticker).upper()] = qty
+    position_values: dict[str, float] = {}
+    for ticker, raw_value in dict(status.get("position_values", {}) or {}).items():
+        value = _finite_float(raw_value)
+        if value is not None:
+            position_values[str(ticker).upper()] = value
     if not positions or trades.empty:
         return {
             "data_available": False,

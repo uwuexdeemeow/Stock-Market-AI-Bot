@@ -1727,6 +1727,23 @@ def test_open_position_attribution_skips_zero_priced_positions():
     assert attribution["by_ticker"]["MU"]["open_pnl"] == 50.0
 
 
+def test_open_position_attribution_skips_malformed_position_values():
+    attribution = _open_position_attribution(
+        {
+            "positions": {"QQQ": "bad-qty", "MU": 5},
+            "position_values": {"QQQ": "bad-value", "MU": 550.0},
+        },
+        pd.DataFrame([
+            {"ticker": "QQQ", "action": "BUY", "fill_status": "filled", "broker_dealt_avg_price": 100.0},
+            {"ticker": "MU", "action": "BUY", "fill_status": "filled", "broker_dealt_avg_price": 100.0},
+        ]),
+    )
+
+    assert attribution["data_available"] is True
+    assert "QQQ" not in attribution["by_ticker"]
+    assert attribution["by_ticker"]["MU"]["open_pnl"] == 50.0
+
+
 def test_current_order_lifecycle_summarizes_open_quantity():
     trades = pd.DataFrame([{
         "ticker": "CAT",
