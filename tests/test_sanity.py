@@ -110,6 +110,10 @@ def test_triple_barrier_outputs_in_set():
 def test_risk_sizing_nonnegative():
     assert vol_target_size(100_000, 0.20) > 0
     assert vol_target_size(100_000, 0.0) == 0
+    assert vol_target_size(float("nan"), 0.20) == 0
+    assert vol_target_size(100_000, float("inf")) == 0
+    assert fractional_kelly(float("nan")) == 0
+    assert fractional_kelly(1.5) == 0
     # fractional_kelly takes p_win (win probability), not an edge offset.
     # p_win <= 0.5 → no edge → returns 0.  p_win > 0.5 → returns positive fraction.
     assert fractional_kelly(0.40) == 0   # 40% win rate → below 50% → no bet
@@ -118,6 +122,8 @@ def test_risk_sizing_nonnegative():
     assert fractional_kelly(0.60) < fractional_kelly(0.70)  # more edge → larger bet
     assert position_size_with_stop(100_000, 100, 2.0) > 0
     assert position_size_with_stop(-100_000, 100, 2.0) == 0
+    assert position_size_with_stop(float("nan"), 100, 2.0) == 0
+    assert position_size_with_stop(100_000, 100, float("inf")) == 0
     assert position_size_with_stop(100_000, 100, 2.0, risk_per_trade=-0.01) == 0
 
 

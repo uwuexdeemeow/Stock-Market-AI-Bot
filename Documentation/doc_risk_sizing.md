@@ -10,8 +10,9 @@ It includes:
 - Kelly-style confidence sizing, kept conservative by default
 - ATR stop sizing, so one stopped trade risks only a chosen slice of equity
 
-Invalid account equity or invalid risk budgets return zero shares instead of
-negative share counts.
+Invalid account equity, invalid risk budgets, and non-finite numeric inputs
+like NaN/inf return zero size instead of producing negative, infinite, or
+crashing share counts.
 
 ## How to Run It
 

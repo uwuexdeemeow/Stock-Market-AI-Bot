@@ -49,6 +49,15 @@ VOL_ROLLING_WINDOW = int(os.environ.get("VOL_ROLLING_WINDOW", "60"))
 VOL_MIN_OBS = int(os.environ.get("VOL_MIN_OBS", "20"))
 
 
+def _finite_float(value: float) -> float | None:
+    """Return a finite float, or None when the input is unusable."""
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return None
+    return out if np.isfinite(out) else None
+
+
 def annualized_realized_vol(
     close: "pd.Series",
     *,
@@ -132,13 +141,26 @@ def vol_target_size(
     Returns:
         Dollar notional to allocate (equity × weight).
     """
-    if asset_vol_annual <= 0 or np.isnan(asset_vol_annual):
+    equity_val = _finite_float(equity)
+    asset_vol_val = _finite_float(asset_vol_annual)
+    target_vol_val = _finite_float(target_vol_annual)
+    max_weight_val = _finite_float(max_weight)
+    if (
+        equity_val is None
+        or asset_vol_val is None
+        or target_vol_val is None
+        or max_weight_val is None
+        or equity_val <= 0
+        or asset_vol_val <= 0
+        or target_vol_val <= 0
+        or max_weight_val <= 0
+    ):
         # No vol data — return 0; caller will fall back to base_pct
         return 0.0
     # weight = target_vol / asset_vol  →  higher vol → smaller weight
-    weight = target_vol_annual / asset_vol_annual
-    weight = min(weight, max_weight)   # never exceed the hard per-name cap
-    return float(equity * weight)
+    weight = target_vol_val / asset_vol_val
+    weight = min(weight, max_weight_val)   # never exceed the hard per-name cap
+    return float(equity_val * weight)
 
 
 def fractional_kelly(
@@ -171,13 +193,24 @@ def fractional_kelly(
         Kelly fraction in [0, 1] — multiply by max_pct to get a position bump.
     """
     # Below 50% win rate the Kelly formula gives a negative bet → don't size up
-    if p_win <= 0.5 or win_loss_ratio <= 0:
+    p_win_val = _finite_float(p_win)
+    win_loss_val = _finite_float(win_loss_ratio)
+    fraction_val = _finite_float(fraction)
+    if (
+        p_win_val is None
+        or win_loss_val is None
+        or fraction_val is None
+        or p_win_val <= 0.5
+        or p_win_val > 1.0
+        or win_loss_val <= 0
+        or fraction_val <= 0
+    ):
         return 0.0
-    p_lose = 1.0 - p_win
+    p_lose = 1.0 - p_win_val
     # Standard Kelly formula: (p×b − q) / b
-    full_kelly = (p_win * win_loss_ratio - p_lose) / win_loss_ratio
+    full_kelly = (p_win_val * win_loss_val - p_lose) / win_loss_val
     # Apply safety fraction and clamp to valid range
-    return float(max(0.0, min(1.0, full_kelly * fraction)))
+    return float(max(0.0, min(1.0, full_kelly * fraction_val)))
 
 
 def atr_stop(entry_price: float, atr: float, k: float = 2.0, side: str = "long") -> float:
@@ -205,12 +238,26 @@ def position_size_with_stop(
     any single trade. Given how far the stop is from entry, we calculate
     exactly how many shares we can buy so a stop-out costs us exactly 1%.
     """
-    if equity <= 0 or risk_per_trade <= 0:
+    equity_val = _finite_float(equity)
+    entry_val = _finite_float(entry_price)
+    atr_val = _finite_float(atr)
+    risk_val = _finite_float(risk_per_trade)
+    k_val = _finite_float(k_atr)
+    if (
+        equity_val is None
+        or entry_val is None
+        or atr_val is None
+        or risk_val is None
+        or k_val is None
+        or equity_val <= 0
+        or risk_val <= 0
+        or k_val <= 0
+    ):
         return 0
-    stop_dist = k_atr * atr
-    if stop_dist <= 0 or entry_price <= 0:
+    stop_dist = k_val * atr_val
+    if stop_dist <= 0 or entry_val <= 0:
         return 0
-    dollars_at_risk = equity * risk_per_trade
+    dollars_at_risk = equity_val * risk_val
     return int(dollars_at_risk // stop_dist)
 
 
