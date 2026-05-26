@@ -262,6 +262,17 @@ class TestAlpacaSignalFreshness:
         with pytest.raises(RuntimeError, match="signal_age"):
             apt.check_signal_freshness(signal, now=now)
 
+    def test_future_predicted_at_fails_closed(self):
+        import alpaca_paper_trading as apt
+
+        now = datetime(2026, 5, 8, 21, 0, tzinfo=timezone.utc)
+        signal = pd.Series({
+            "predicted_at": "2026-05-08T21:10:00+00:00",
+            "latest_factor_date": "2026-05-08",
+        })
+        with pytest.raises(RuntimeError, match="signal_from_future"):
+            apt.check_signal_freshness(signal, now=now)
+
     def test_stale_latest_factor_date_fails_closed(self):
         import alpaca_paper_trading as apt
 

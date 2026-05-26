@@ -13,6 +13,7 @@ import pandas as pd
 
 DEFAULT_SIGNAL_TIMEZONE = os.environ.get("PAPER_SIGNAL_TIMEZONE", os.environ.get("TZ", "Asia/Singapore"))
 CORE_ETFS = {"SPY", "QQQ", "TQQQ", "BIL", "IEF", "GLD"}
+MAX_SIGNAL_FUTURE_MINUTES = float(os.environ.get("MAX_SIGNAL_FUTURE_MINUTES", "5"))
 
 
 def _signal_timezone(default_timezone: str | None = None):
@@ -120,7 +121,10 @@ def validate_signal_freshness(
         issues.append("missing_predicted_at")
     else:
         age_hours = (now_ts - predicted_ts).total_seconds() / 3600.0
-        if age_hours > float(max_signal_age_hours):
+        if age_hours < -(MAX_SIGNAL_FUTURE_MINUTES / 60.0):
+            future_minutes = abs(age_hours) * 60.0
+            issues.append(f"signal_from_future_{future_minutes:.1f}m_gt_{MAX_SIGNAL_FUTURE_MINUTES:.1f}m")
+        elif age_hours > float(max_signal_age_hours):
             issues.append(f"signal_age_{age_hours:.1f}h_gt_{float(max_signal_age_hours):.1f}h")
 
     latest_factor_date = signal.get("latest_factor_date", "")

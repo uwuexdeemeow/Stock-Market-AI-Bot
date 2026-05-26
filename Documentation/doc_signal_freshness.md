@@ -7,6 +7,7 @@ does not place trades.  Other scripts import it to answer three plain
 questions before trading:
 
 - Is the signal recent enough?
+- Is the signal timestamp believable, not far in the future?
 - Are the factor data dates recent enough?
 - Does the signal match the currently approved live config?
 
@@ -15,6 +16,10 @@ the broker and the sanity checker from disagreeing about what the portfolio is.
 
 Factor-data age is counted using real NYSE sessions.  Weekends and market
 holidays do not make yesterday's valid factor data look stale.
+
+Signal timestamps more than `MAX_SIGNAL_FUTURE_MINUTES` minutes ahead of the
+runner clock fail closed.  The default tolerance is 5 minutes to allow small
+clock skew without accepting a bad future-dated signal.
 
 ## How To Run It
 
