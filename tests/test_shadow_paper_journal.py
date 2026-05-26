@@ -39,6 +39,23 @@ def test_append_shadow_journal_replaces_same_day_same_config(tmp_path):
     assert out.iloc[0]["overlay_tickers"] == "NVDA"
 
 
+def test_append_shadow_journal_handles_empty_existing_file(tmp_path):
+    journal = tmp_path / "shadow_paper_journal.csv"
+    journal.touch()
+    row = {
+        "run_date": "2026-05-25",
+        "shadow_config_signature": spj.SHADOW_CONFIG_SIGNATURE,
+        "paper_ready": True,
+        "overlay_tickers": "AAPL,MSFT",
+    }
+
+    spj.append_shadow_journal(row, journal_path=journal)
+
+    out = pd.read_csv(journal)
+    assert len(out) == 1
+    assert out.iloc[0]["shadow_config_signature"] == spj.SHADOW_CONFIG_SIGNATURE
+
+
 def test_journal_row_carries_signal_and_validation_metrics():
     signal = {
         "paper_ready": True,

@@ -29,6 +29,8 @@ Expected output:
 - `signals/shadow_paper_journal.csv` gets one row for today.
 - `signals/core_satellite_alpha_signal.csv` is restored after the shadow run.
 - No Alpaca orders are submitted.
+- If the journal file exists but is empty, the script starts a fresh journal
+  instead of crashing.
 
 ## Key Concepts
 

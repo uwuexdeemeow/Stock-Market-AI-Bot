@@ -245,7 +245,15 @@ def append_shadow_journal(
     journal_path.parent.mkdir(parents=True, exist_ok=True)
     new_row = pd.DataFrame([row])
     if journal_path.exists():
-        existing = pd.read_csv(journal_path)
+        # GitHub Actions can restore a zero-byte journal on first run.  Treat
+        # that the same as "no history yet" instead of crashing pandas.
+        if journal_path.stat().st_size == 0:
+            existing = pd.DataFrame()
+        else:
+            try:
+                existing = pd.read_csv(journal_path)
+            except pd.errors.EmptyDataError:
+                existing = pd.DataFrame()
         if replace_today and {"run_date", "shadow_config_signature"}.issubset(existing.columns):
             mask = (
                 (existing["run_date"].astype(str) == str(row["run_date"]))
