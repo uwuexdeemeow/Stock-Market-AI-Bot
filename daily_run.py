@@ -351,8 +351,8 @@ def run_step(
             bufsize=1,  # line-buffered
             cwd=str(Path(__file__).parent),
         )
-        # Use a background thread for stderr so we don't deadlock when one
-        # stream fills its OS pipe before the other gets drained.
+        # Use background threads for both streams so a quiet or long-running
+        # child process is still governed by the timeout below.
         import threading
 
         def _drain(stream, sink: list[str], prefix: str):
@@ -363,22 +363,28 @@ def run_step(
                     sink.pop(0)
                 print(f"  {prefix}{line}", flush=True)
 
+        out_thread = threading.Thread(
+            target=_drain, args=(proc.stdout, stdout_tail, ""), daemon=True
+        )
         err_thread = threading.Thread(
             target=_drain, args=(proc.stderr, stderr_tail, "ERR: "), daemon=True
         )
+        out_thread.start()
         err_thread.start()
-        _drain(proc.stdout, stdout_tail, "")
-        err_thread.join(timeout=2.0)
 
         try:
-            proc.wait(timeout=timeout - (datetime.now() - start).total_seconds())
+            proc.wait(timeout=max(0.0, float(timeout)))
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
+            out_thread.join(timeout=2.0)
+            err_thread.join(timeout=2.0)
             elapsed = (datetime.now() - start).total_seconds()
             print(f"  ✗ TIMEOUT after {timeout}s")
             return {"name": name, "status": "timeout", "elapsed": round(elapsed, 1)}
 
+        out_thread.join(timeout=2.0)
+        err_thread.join(timeout=2.0)
         elapsed = (datetime.now() - start).total_seconds()
         returncode = proc.returncode
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import time
 from datetime import datetime
 
 import daily_run
@@ -156,6 +158,19 @@ def test_refresh_factor_data_uses_longer_step_timeout(monkeypatch):
     daily_run.run_steps([step], dry_run=False, timeout=1)
 
     assert captured["refresh_factor_data"] == 1800
+
+
+def test_run_step_timeout_stops_quiet_process():
+    start = time.monotonic()
+    result = daily_run.run_step(
+        "quiet_timeout",
+        [sys.executable, "-c", "import time; time.sleep(3)"],
+        "Quiet process should still time out",
+        timeout=1,
+    )
+
+    assert result["status"] == "timeout"
+    assert time.monotonic() - start < 2.5
 
 
 def test_dry_run_skipped_critical_steps_do_not_block(monkeypatch):
