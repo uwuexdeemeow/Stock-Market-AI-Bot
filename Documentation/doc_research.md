@@ -21,11 +21,19 @@ python research.py --ticker AAPL
 
 # Quick test with just AAPL
 python research.py --test
+
+# Fast daily refresh: only update tickers missing the latest completed session
+python research.py --incremental
 ```
 
 **Expected output:**
 - `data/AAPL.parquet` (one file per ticker)
 - `logs/research.log` with row/column counts and any errors
+
+`--incremental` treats the `end` date as exclusive, just like Yahoo Finance.
+On weekends and NYSE holidays, it checks the latest completed NYSE session first.
+If every selected ticker already reaches that session, it exits without running
+the slow per-ticker rebuild/download loop.
 
 ---
 

@@ -74,6 +74,54 @@ def test_research_xs_only_exits_nonzero_on_bad_summary(monkeypatch):
     assert exc.value.code == 1
 
 
+def test_incremental_skips_closed_market_when_latest_session_present(tmp_path, monkeypatch):
+    research = _load_research_module()
+    monkeypatch.setattr(research, "DATA_DIR", str(tmp_path))
+
+    existing = pd.DataFrame(
+        {"Open": [10.0], "Close": [10.5]},
+        index=pd.to_datetime(["2024-01-05"]),
+    )
+    existing.to_parquet(tmp_path / "AAA.parquet", index=True)
+
+    monkeypatch.setattr(
+        research,
+        "build_research_feature_frame",
+        lambda *args, **kwargs: pytest.fail("closed-market current parquet should not rebuild"),
+    )
+
+    assert research.research_ticker_incremental("AAA", "2024-01-01", "2024-01-07") is True
+
+
+def test_closed_market_noop_detects_all_tickers_current(tmp_path, monkeypatch):
+    research = _load_research_module()
+    monkeypatch.setattr(research, "DATA_DIR", str(tmp_path))
+
+    for ticker in ["AAA", "BBB"]:
+        pd.DataFrame(
+            {"Open": [10.0], "Close": [10.5]},
+            index=pd.to_datetime(["2024-01-05"]),
+        ).to_parquet(tmp_path / f"{ticker}.parquet", index=True)
+
+    assert research._closed_market_incremental_noop(["AAA", "BBB"], "2024-01-07") is True
+
+
+def test_closed_market_noop_allows_refresh_when_ticker_stale(tmp_path, monkeypatch):
+    research = _load_research_module()
+    monkeypatch.setattr(research, "DATA_DIR", str(tmp_path))
+
+    pd.DataFrame(
+        {"Open": [10.0], "Close": [10.5]},
+        index=pd.to_datetime(["2024-01-05"]),
+    ).to_parquet(tmp_path / "AAA.parquet", index=True)
+    pd.DataFrame(
+        {"Open": [9.0], "Close": [9.5]},
+        index=pd.to_datetime(["2024-01-04"]),
+    ).to_parquet(tmp_path / "BBB.parquet", index=True)
+
+    assert research._closed_market_incremental_noop(["AAA", "BBB"], "2024-01-07") is False
+
+
 def test_incremental_preserves_xs_rank_postpass_columns_without_full_rebuild(tmp_path, monkeypatch):
     research = _load_research_module()
     monkeypatch.setattr(research, "DATA_DIR", str(tmp_path))

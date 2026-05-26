@@ -43,6 +43,23 @@ def flatten_yf(df: pd.DataFrame) -> pd.DataFrame:
         df.columns = df.columns.get_level_values(0)
     return df
 
+
+def _expected_price_bar_before_end(end: str) -> pd.Timestamp:
+    """Return the latest NYSE bar expected before an exclusive provider end."""
+    ts = pd.Timestamp(end).normalize() - pd.Timedelta(days=1)
+    try:
+        import exchange_calendars as xcals
+
+        nyse = xcals.get_calendar("XNYS")
+        for _ in range(14):
+            if nyse.is_session(ts):
+                return ts
+            ts -= pd.Timedelta(days=1)
+    except Exception:
+        pass
+    return (pd.Timestamp(end).normalize() - pd.tseries.offsets.BDay(1)).normalize()
+
+
 def fetch_price_data(ticker: str, start: str, end: str) -> pd.DataFrame:
     """Download price data with automatic fallback (yfinance → yahooquery → Stooq).
 
@@ -78,13 +95,11 @@ def fetch_price_data(ticker: str, start: str, end: str) -> pd.DataFrame:
                     # the refresh is a silent no-op.
                     if end:
                         try:
-                            end_ts = pd.Timestamp(end)
-                            last_bar = out.index.max()
-                            # 3-day buffer covers weekends + 1 trading-
-                            # day clock skew.  Cache stays the path of
-                            # last resort during research, full
-                            # backtests, etc., where end is historical.
-                            if (end_ts - last_bar).days > 3:
+                            expected_last_bar = _expected_price_bar_before_end(end)
+                            last_bar = pd.Timestamp(out.index.max()).normalize()
+                            # Compare against the expected business-day bar
+                            # so a stale cache cannot hide behind weekends.
+                            if last_bar < expected_last_bar:
                                 raise _CacheStale()
                         except _CacheStale:
                             pass  # fall through to remote

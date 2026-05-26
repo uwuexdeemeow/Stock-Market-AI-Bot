@@ -8,6 +8,9 @@ import argparse
 import logging
 import os
 import sys
+from datetime import timedelta
+
+import pandas as pd
 
 from settings import (
     DATA_DIR,
@@ -83,6 +86,94 @@ INCREMENTAL_MAX_STALENESS_DAYS = 30
 POST_PASS_COLUMN_PREFIXES = ("xs_rank_",)
 
 
+def _normalise_date(value: object) -> pd.Timestamp:
+    """Convert any date-like value to a midnight Timestamp for day comparisons."""
+    return pd.Timestamp(value).normalize()
+
+
+def _is_nyse_session(day: object) -> bool:
+    """Return True when `day` is a regular NYSE trading session."""
+    ts = _normalise_date(day)
+    try:
+        import exchange_calendars as xcals
+
+        return bool(xcals.get_calendar("XNYS").is_session(ts))
+    except Exception:
+        # Fallback keeps the script usable if exchange_calendars is missing.
+        return ts.weekday() < 5
+
+
+def _latest_nyse_session_on_or_before(day: object) -> pd.Timestamp:
+    """Find the latest completed NYSE session on or before `day`."""
+    ts = _normalise_date(day)
+    for _ in range(14):
+        if _is_nyse_session(ts):
+            return ts
+        ts -= pd.Timedelta(days=1)
+    return _normalise_date(day) - pd.tseries.offsets.BDay(1)
+
+
+def _provider_end_after_session(session: object) -> pd.Timestamp:
+    """Provider end dates are exclusive, so ask for the business day after target."""
+    return _normalise_date(session) + pd.tseries.offsets.BDay(1)
+
+
+def _incremental_target_dates(end: object) -> tuple[pd.Timestamp, pd.Timestamp, bool]:
+    """Return (latest_completed_session, provider_end, requested_day_closed)."""
+    requested = _normalise_date(end)
+    target_session = _latest_nyse_session_on_or_before(requested - pd.Timedelta(days=1))
+    provider_end = _provider_end_after_session(target_session)
+    return target_session, provider_end, not _is_nyse_session(requested)
+
+
+def _latest_existing_parquet_date(ticker: str) -> pd.Timestamp | None:
+    """Read one ticker parquet and return its latest saved date, if usable."""
+    path = os.path.join(DATA_DIR, f"{ticker.upper()}.parquet")
+    if not os.path.exists(path):
+        return None
+    try:
+        df = pd.read_parquet(path)
+        if df.empty:
+            return None
+        return _normalise_date(pd.DatetimeIndex(df.index).max())
+    except Exception:
+        return None
+
+
+def _closed_market_incremental_noop(tickers: list[str], end: object) -> bool:
+    """Skip closed-market incremental runs when every selected ticker is current."""
+    target_session, _provider_end, market_closed = _incremental_target_dates(end)
+    if not market_closed:
+        return False
+
+    missing_or_stale: list[str] = []
+    for ticker in tickers:
+        latest = _latest_existing_parquet_date(ticker)
+        if latest is None or latest < target_session:
+            missing_or_stale.append(ticker)
+
+    if not missing_or_stale:
+        log.info(
+            "Market closed for %s; all %d ticker parquets already reach %s. Nothing to refresh.",
+            _normalise_date(end).date(),
+            len(tickers),
+            target_session.date(),
+        )
+        return True
+
+    preview = ", ".join(missing_or_stale[:10])
+    suffix = f", ... +{len(missing_or_stale) - 10} more" if len(missing_or_stale) > 10 else ""
+    log.info(
+        "Market closed for %s; refreshing %d stale/missing ticker parquets toward %s: %s%s",
+        _normalise_date(end).date(),
+        len(missing_or_stale),
+        target_session.date(),
+        preview,
+        suffix,
+    )
+    return False
+
+
 def _is_post_pass_column(column: str) -> bool:
     """Return True for columns rebuilt by research post-pass stages."""
     return any(str(column).startswith(prefix) for prefix in POST_PASS_COLUMN_PREFIXES)
@@ -94,6 +185,7 @@ def research_ticker_incremental(
     end: str,
     *,
     backfill_new_columns: bool = False,
+    target_end: object | None = None,
 ) -> bool:
     """Incrementally refresh a ticker's parquet — only fetch new days.
 
@@ -114,32 +206,32 @@ def research_ticker_incremental(
 
     Returns True if the parquet is up-to-date after this call.
     """
-    import pandas as pd
-    from datetime import datetime, timedelta
-
     out_path = os.path.join(DATA_DIR, f"{ticker}.parquet")
+    target_session, provider_end, market_closed = _incremental_target_dates(end)
+    if target_end is not None:
+        target_session = _normalise_date(target_end)
+        provider_end = _provider_end_after_session(target_session)
 
     # ── Check if parquet exists and how stale it is ─────────────────────────
     if not os.path.exists(out_path):
         log.info("[%s] no existing parquet — full rebuild", ticker)
-        return research_ticker(ticker, start, end)
+        return research_ticker(ticker, start, str(provider_end.date()))
 
     try:
         existing = pd.read_parquet(out_path)
     except Exception as exc:
         log.warning("[%s] existing parquet unreadable (%s) — full rebuild", ticker, exc)
-        return research_ticker(ticker, start, end)
+        return research_ticker(ticker, start, str(provider_end.date()))
 
     if existing.empty or not isinstance(existing.index, pd.DatetimeIndex):
         log.info("[%s] existing parquet empty or no DatetimeIndex — full rebuild", ticker)
-        return research_ticker(ticker, start, end)
+        return research_ticker(ticker, start, str(provider_end.date()))
 
-    last_date = existing.index.max()
-    today = pd.Timestamp(end)
-    staleness_days = (today - last_date).days
+    last_date = _normalise_date(existing.index.max())
+    staleness_days = max(0, int((target_session - last_date).days))
 
-    # Already up-to-date (within 1 calendar day = same or next trading day)
-    if staleness_days <= 1:
+    # Already reaches the latest real trading session.
+    if last_date >= target_session:
         log.info("[%s] already up-to-date (last=%s) — skipped", ticker, last_date.date())
         return True
 
@@ -149,7 +241,7 @@ def research_ticker_incremental(
             "[%s] stale by %d days (max=%d) — full rebuild",
             ticker, staleness_days, INCREMENTAL_MAX_STALENESS_DAYS,
         )
-        return research_ticker(ticker, start, end)
+        return research_ticker(ticker, start, str(provider_end.date()))
 
     # ── Incremental path: rebuild from (last_date - recompute_window) to today ─
     # We need a generous lookback because features like 252-day rolling max need
@@ -160,13 +252,13 @@ def research_ticker_incremental(
         recompute_start = pd.Timestamp(start)
 
     log.info(
-        "[%s] incremental: last=%s, stale=%dd, recomputing from %s",
-        ticker, last_date.date(), staleness_days, recompute_start.date(),
+        "[%s] incremental: last=%s, target=%s, stale=%dd, recomputing from %s",
+        ticker, last_date.date(), target_session.date(), staleness_days, recompute_start.date(),
     )
 
     # Build features for the recompute window + new days
     fresh = build_research_feature_frame(
-        ticker, str(recompute_start.date()), end
+        ticker, str(recompute_start.date()), str(provider_end.date())
     )
     if fresh.empty:
         log.error("[%s] incremental build returned empty — keeping existing", ticker)
@@ -189,7 +281,7 @@ def research_ticker_incremental(
                 len(blocking_missing),
                 ", ".join(sorted(blocking_missing)[:5]),
             )
-            return research_ticker(ticker, start, end)
+            return research_ticker(ticker, start, str(provider_end.date()))
         if new_in_fresh:
             preview = ", ".join(sorted(new_in_fresh)[:5])
             if backfill_new_columns:
@@ -197,7 +289,7 @@ def research_ticker_incremental(
                     "[%s] schema expanded (+%d cols: %s) — full rebuild requested",
                     ticker, len(new_in_fresh), preview,
                 )
-                return research_ticker(ticker, start, end)
+                return research_ticker(ticker, start, str(provider_end.date()))
             log.info(
                 "[%s] schema expanded (+%d cols: %s) — tail-filling incremental window; "
                 "run `python3 research.py --incremental --backfill-new-columns` for full history",
@@ -319,6 +411,19 @@ def main():
     else:
         tickers = [t.upper() for t in WATCHLIST]
 
+    if args.incremental and _closed_market_incremental_noop(tickers, TRAIN_END):
+        sys.exit(0)
+
+    incremental_target_end = None
+    if args.incremental:
+        incremental_target_end, _provider_end, market_closed = _incremental_target_dates(TRAIN_END)
+        if market_closed:
+            log.info(
+                "Market closed for %s; incremental target is latest NYSE session %s",
+                _normalise_date(TRAIN_END).date(),
+                incremental_target_end.date(),
+            )
+
     ok = True
     built_tickers: list[str] = []
     for t in tickers:
@@ -328,6 +433,7 @@ def main():
                 TRAIN_START,
                 TRAIN_END,
                 backfill_new_columns=bool(args.backfill_new_columns),
+                target_end=incremental_target_end,
             )
         else:
             built = research_ticker(t, TRAIN_START, TRAIN_END)
