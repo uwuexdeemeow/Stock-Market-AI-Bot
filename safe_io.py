@@ -21,6 +21,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+from uuid import uuid4
 from pathlib import Path
 from typing import Union
 
@@ -35,6 +36,15 @@ SAFE_IO_MIN_FREE_MIB = int(os.environ.get("SAFE_IO_MIN_FREE_MIB", "100"))
 
 class DiskSpaceLow(OSError):
     """Raised when free disk space is below SAFE_IO_MIN_FREE_MIB."""
+
+
+def _atomic_tmp_path(path: Path) -> Path:
+    """Return a unique temp path next to the final file.
+
+    PLAIN ENGLISH: Each write gets its own temporary filename so a stale temp
+    file or a second running process cannot overwrite our in-progress write.
+    """
+    return path.with_name(f".{path.name}.{os.getpid()}.{uuid4().hex}.tmp")
 
 
 def _check_free_space(path: Path) -> None:
@@ -80,7 +90,7 @@ def atomic_write_text(path: Union[str, Path], content: str, *, encoding: str = "
     # Disk-space guard — refuse to start the write if the partition is
     # nearly full instead of silently truncating mid-write.
     _check_free_space(path)
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path = _atomic_tmp_path(path)
     try:
         tmp_path.write_text(content, encoding=encoding)
         os.replace(str(tmp_path), str(path))  # atomic on POSIX
@@ -102,7 +112,7 @@ def atomic_write_csv(df: pd.DataFrame, path: Union[str, Path], *, index: bool = 
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     _check_free_space(path)
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path = _atomic_tmp_path(path)
     try:
         df.to_csv(tmp_path, index=index, **kwargs)
         os.replace(str(tmp_path), str(path))  # atomic on POSIX
