@@ -216,6 +216,21 @@ def test_validation_rejects_bad():
         validate_price_frame(bad, "TEST", max_lag_days=10_000)
 
 
+def test_price_validation_uses_latest_completed_nyse_session():
+    import pytest
+    pytest.importorskip("exchange_calendars")
+
+    frame = _price_frame(n=260)
+    frame.index = pd.bdate_range(end="2024-06-18", periods=len(frame))
+
+    validate_price_frame(
+        frame,
+        "TEST",
+        max_lag_days=0,
+        now=pd.Timestamp("2024-06-19T22:00:00Z"),
+    )
+
+
 def test_core_satellite_paper_scaling_caps_gross():
     overlay = pd.Series({"AMAT": 0.233333, "C": 0.138866, "MU": 0.327801})
     spy, qqq, tqqq, paper_overlay, raw_gross, scale, scaled = _scale_paper_targets_to_gross(
