@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import time
 from datetime import datetime, timezone
@@ -52,7 +53,9 @@ def check_alpaca() -> dict:
         start = time.monotonic()
         from alpaca_paper_trading import AlpacaBroker
         broker = AlpacaBroker()
-        equity = broker.get_equity()
+        equity = float(broker.get_equity())
+        if not math.isfinite(equity) or equity <= 0:
+            raise RuntimeError("invalid broker equity")
         latency = (time.monotonic() - start) * 1000
         result["healthy"] = True
         result["equity"] = round(equity, 2)
