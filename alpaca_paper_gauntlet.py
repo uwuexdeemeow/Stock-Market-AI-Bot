@@ -34,6 +34,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from signal_freshness import parse_signal_timestamp
 from settings import LOG_DIR, SIGNAL_DIR
 
 
@@ -227,7 +228,7 @@ def _get_equity_data(equity_df: pd.DataFrame, trades: pd.DataFrame) -> tuple[pd.
 # SIGNAL FRESHNESS — is the signal up to date?
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _check_signal_freshness() -> dict:
+def _check_signal_freshness(*, now: datetime | None = None) -> dict:
     """
     Check if the TQQQ signal file is recent enough.
 
@@ -248,11 +249,17 @@ def _check_signal_freshness() -> dict:
         if not predicted_at or predicted_at == "nan":
             return {"fresh": False, "reason": "no predicted_at in signal", "signal_age_hours": None}
 
-        ts = pd.to_datetime(predicted_at, errors="coerce")
+        ts = parse_signal_timestamp(predicted_at)
         if pd.isna(ts):
             return {"fresh": False, "reason": f"cannot parse predicted_at: {predicted_at}", "signal_age_hours": None}
 
-        age_hours = (datetime.now() - ts.to_pydatetime().replace(tzinfo=None)).total_seconds() / 3600
+        now_ts = pd.Timestamp(now or datetime.now(timezone.utc))
+        if now_ts.tzinfo is None:
+            now_ts = now_ts.tz_localize("UTC")
+        else:
+            now_ts = now_ts.tz_convert("UTC")
+
+        age_hours = (now_ts - ts).total_seconds() / 3600
         fresh = age_hours <= MAX_SIGNAL_AGE_HOURS
         return {
             "fresh": fresh,

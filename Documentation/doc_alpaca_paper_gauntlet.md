@@ -75,8 +75,10 @@ python3 alpaca_paper_gauntlet.py --snapshot
   spread guard caught them, or some other broker rejection.
 - **Portfolio drift** — how far current positions are from target
   weights.  Drift > 5% means rebalancing hasn't been keeping up.
-- **Signal age** — how old the latest signal CSV is.  Older than 36
-  hours means the daily pipeline isn't running.
+- **Signal age** — how old the latest signal CSV is.  The age check
+  compares timezone-aware UTC timestamps, so a UTC signal does not look
+  stale just because the runner machine is in another timezone.  Older
+  than 36 hours means the daily pipeline isn't running.
 
 ## When to run
 

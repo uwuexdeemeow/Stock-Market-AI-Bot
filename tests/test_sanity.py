@@ -1811,6 +1811,23 @@ def test_etf_validator_rejects_flat_recent_close():
     assert "flat_recent_close" in report["issues"]
 
 
+def test_alpaca_gauntlet_signal_freshness_uses_timezone_aware_age(tmp_path, monkeypatch):
+    signal_path = tmp_path / "signal.csv"
+    pd.DataFrame([{
+        "predicted_at": "2026-05-26T14:00:00+00:00",
+        "current_regime": "bull",
+        "tqqq_weight_config": 0.0,
+    }]).to_csv(signal_path, index=False)
+    monkeypatch.setattr(alpaca_paper_gauntlet, "ALPACA_SIGNAL", signal_path)
+
+    status = alpaca_paper_gauntlet._check_signal_freshness(
+        now=datetime(2026, 5, 26, 16, 0, tzinfo=timezone.utc)
+    )
+
+    assert status["fresh"] is True
+    assert status["signal_age_hours"] == 2.0
+
+
 def test_config_health_requirement_detects_installed_package():
     check = _requirement_ok("yfinance", ">=0")
     assert check["ok"] is True
