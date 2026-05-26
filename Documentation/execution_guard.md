@@ -10,6 +10,7 @@ It has three jobs:
 
 - Repair broker-side trailing stops for core ETFs (`SPY`, `QQQ`, `TQQQ`). These
   orders live at Alpaca, so they remain in place when the laptop is offline.
+  Invalid trail percentages are rejected before any broker order is submitted.
 - Cancel stale open orders that are not trailing stops.
 - Monitor intraday account P&L while the laptop is awake. If the loss reaches
   the halt threshold during market hours, it calls the existing Alpaca emergency
@@ -103,6 +104,7 @@ stops from reserving shares and blocking rebalance sell orders.
 
 - **Broker-side trailing stop**: A stop order stored at Alpaca. It follows the
   price upward and sells if the ETF falls by the configured trail percentage.
+  The configured trail must be finite and between 0% and 100%.
 - **Local guard**: Code running on the laptop. It only works while the laptop is
   awake and connected.
 - **Stale order**: A normal open order that has been waiting longer than the

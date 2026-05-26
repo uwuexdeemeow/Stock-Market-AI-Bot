@@ -143,6 +143,26 @@ def test_repair_does_not_submit_replacement_when_cancel_fails():
     assert result["errors"][0]["error"] == "could_not_cancel_existing_protective_stop"
 
 
+def test_repair_skips_invalid_trailing_stop_config(monkeypatch):
+    import alpaca_protection as protection
+
+    monkeypatch.setattr(protection, "CORE_PROTECTION_TRAIL_PCT", float("nan"))
+    broker = FakeBroker(
+        positions=[Position("SPY", 12, 500.0)],
+        orders=[],
+    )
+
+    result = protection.repair_core_etf_protective_stops(
+        broker,
+        tickers={"SPY"},
+        logger=lambda _msg: None,
+    )
+
+    assert broker.placed == []
+    assert broker.cancelled == []
+    assert result["errors"] == [{"ticker": "SPY", "error": "invalid_core_trail_pct"}]
+
+
 def test_pnl_halt_closed_market_alerts_without_liquidating(monkeypatch):
     import execution_guard
 

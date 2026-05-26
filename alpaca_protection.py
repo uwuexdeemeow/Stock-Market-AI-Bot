@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import re
+import math
 from datetime import datetime, timezone
 from typing import Any, Callable
 
@@ -43,6 +44,14 @@ CORE_PROTECTION_CLIENT_PREFIX = os.environ.get("GUARD_CORE_STOP_CLIENT_PREFIX", 
 def core_trail_pct(ticker: str) -> float:
     """Return the trailing stop percentage for a core ETF ticker."""
     return TQQQ_PROTECTION_TRAIL_PCT if str(ticker).upper() == "TQQQ" else CORE_PROTECTION_TRAIL_PCT
+
+
+def _valid_trail_pct(value: Any) -> float | None:
+    try:
+        out = float(value)
+    except Exception:
+        return None
+    return out if math.isfinite(out) and 0.0 < out <= 1.0 else None
 
 
 def _attr(obj: Any, name: str, default: Any = None) -> Any:
@@ -223,7 +232,14 @@ def repair_core_etf_protective_stops(
                     })
             continue
 
-        expected_trail = core_trail_pct(ticker)
+        expected_trail = _valid_trail_pct(core_trail_pct(ticker))
+        if expected_trail is None:
+            result["errors"].append({
+                "ticker": ticker,
+                "error": "invalid_core_trail_pct",
+            })
+            _log(logger, f"skipped: invalid core ETF trail percent for {ticker}")
+            continue
         stop_qty = sum(order_qty(order) for order in ticker_stops)
         qty_matches = abs(stop_qty - float(pos.quantity)) < 1e-6
         trail_matches = all(_trail_matches(order, expected_trail) for order in ticker_stops)
