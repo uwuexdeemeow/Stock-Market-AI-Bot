@@ -443,6 +443,23 @@ def test_generate_orders_rejects_nonpositive_broker_equity():
         apt.generate_orders(broker, {"SPY": 0.5}, force=True)
 
 
+def test_generate_orders_rejects_nonfinite_broker_equity():
+    import alpaca_paper_trading as apt
+
+    broker = _OrderBroker(equity=float("nan"), prices={"SPY": 500.0})
+
+    with pytest.raises(RuntimeError, match="Invalid broker equity"):
+        apt.generate_orders(broker, {"SPY": 0.5}, force=True)
+
+
+def test_generate_orders_skips_nonfinite_prices():
+    import alpaca_paper_trading as apt
+
+    broker = _OrderBroker(equity=100_000.0, prices={"SPY": float("inf")})
+
+    assert apt.generate_orders(broker, {"SPY": 0.5}, force=True) == []
+
+
 class TestDuplicatePrevention:
     """Test that _already_submitted_today works correctly."""
 

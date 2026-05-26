@@ -489,7 +489,7 @@ def generate_orders(
         equity = float(broker.get_equity())
     except (TypeError, ValueError):
         raise RuntimeError("Invalid broker equity; refusing to generate orders")
-    if equity <= 0:
+    if not np.isfinite(equity) or equity <= 0:
         raise RuntimeError("Invalid broker equity; refusing to generate orders")
     positions = broker.get_position_map()
 
@@ -499,7 +499,7 @@ def generate_orders(
     skipped_tickers: list[str] = []
     for ticker in all_tickers:
         px = broker.get_last_price(ticker)
-        if px > 0:
+        if np.isfinite(px) and px > 0:
             prices[ticker] = px
         else:
             skipped_tickers.append(ticker)

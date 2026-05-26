@@ -91,13 +91,16 @@ The script has multiple layers of protection:
 3. **Signal sanity check** — parses core ETF columns plus overlay JSON and
    blocks impossible gross exposure, missing weights, shorts, or over-sized
    overlay stock weights.
-4. **Account drawdown halt** — auto-liquidates if portfolio falls 12%
+4. **Numeric order-planning guard** - refuses invalid/non-finite broker
+   equity and skips tickers with invalid/non-finite prices before converting
+   weights into share orders.
+5. **Account drawdown halt** — auto-liquidates if portfolio falls 12%
    from peak (configurable via `PORTFOLIO_DRAWDOWN_HALT_PCT`).
-5. **Spread guard** — skips individual orders when spread > 1.5%
+6. **Spread guard** — skips individual orders when spread > 1.5%
    (configurable via `MAX_SPREAD_PCT`).
-6. **Market-closed prompt** — when run interactively at market close,
+7. **Market-closed prompt** — when run interactively at market close,
    asks confirmation before queueing orders.  In CI/cron it auto-proceeds.
-7. **Core ETF trailing stops** — broker-side stops on SPY/QQQ/TQQQ that
+8. **Core ETF trailing stops** — broker-side stops on SPY/QQQ/TQQQ that
    stay active even if the local machine is offline.
 
 ## When to run
