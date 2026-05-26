@@ -205,6 +205,18 @@ class TestScaleWeights:
         scaled = scale_weights({}, max_gross=1.0)
         assert len(scaled) == 0
 
+    def test_nonfinite_weights_are_dropped_before_scaling(self):
+        from alpaca_paper_trading import scale_weights
+
+        scaled = scale_weights({"SPY": 0.80, "BAD": float("inf"), "NAN": float("nan")}, max_gross=0.40)
+
+        assert scaled == {"SPY": 0.40}
+
+    def test_nonfinite_max_gross_returns_empty(self):
+        from alpaca_paper_trading import scale_weights
+
+        assert scale_weights({"SPY": 0.80}, max_gross=float("nan")) == {}
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ALPACA SIGNAL FRESHNESS TESTS

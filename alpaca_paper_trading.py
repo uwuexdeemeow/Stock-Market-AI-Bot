@@ -461,11 +461,27 @@ def scale_weights(weights: dict[str, float], max_gross: float) -> dict[str, floa
     leverage), but you only want to invest 100%, this scales everything down
     proportionally.
     """
-    gross = sum(abs(w) for w in weights.values())
-    if gross <= max_gross + 1e-9 or gross <= 0:
-        return dict(weights)
-    scale = max_gross / gross
-    return {t: w * scale for t, w in weights.items()}
+    try:
+        max_gross_val = float(max_gross)
+    except (TypeError, ValueError):
+        return {}
+    if not np.isfinite(max_gross_val) or max_gross_val <= 0:
+        return {}
+
+    clean: dict[str, float] = {}
+    for ticker, weight in weights.items():
+        try:
+            weight_val = float(weight)
+        except (TypeError, ValueError):
+            continue
+        if np.isfinite(weight_val):
+            clean[str(ticker).upper()] = weight_val
+
+    gross = sum(abs(w) for w in clean.values())
+    if gross <= max_gross_val + 1e-9 or gross <= 0:
+        return clean
+    scale = max_gross_val / gross
+    return {t: w * scale for t, w in clean.items()}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

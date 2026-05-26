@@ -92,8 +92,9 @@ The script has multiple layers of protection:
    blocks impossible gross exposure, missing weights, shorts, or over-sized
    overlay stock weights.
 4. **Numeric order-planning guard** - refuses invalid/non-finite broker
-   equity and skips tickers with invalid/non-finite prices before converting
-   weights into share orders.
+   equity, drops invalid signal weights during gross-exposure scaling, and
+   skips tickers with invalid/non-finite prices before converting weights
+   into share orders.
 5. **Account drawdown halt** — auto-liquidates if portfolio falls 12%
    from peak (configurable via `PORTFOLIO_DRAWDOWN_HALT_PCT`).
 6. **Spread guard** — skips individual orders when spread > 1.5%
