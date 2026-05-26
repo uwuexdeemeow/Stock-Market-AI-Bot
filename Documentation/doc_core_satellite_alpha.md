@@ -16,6 +16,11 @@ Before writing the signal, it checks factor-data freshness against the latest
 completed NYSE session so weekends and holidays do not create false stale-data
 warnings.
 
+Research configs can optionally use a **concentration overlay target**.  That
+rule reads the trailing 120-trading-day QQQ-vs-SPY return gap.  If QQQ is
+strongly leading SPY, the config can raise the overlay gross for a compact
+top-three basket; otherwise it can keep a smaller overlay in broader markets.
+
 ## How To Run It
 
 Generate the daily signal:
@@ -57,6 +62,8 @@ Expected outputs:
 - **Core**: the ETF part of the portfolio, usually SPY/QQQ/TQQQ.
 - **Satellite / overlay**: individual stock picks added around the ETF core.
 - **Regime**: market state such as risk-on, neutral, or risk-off.
+- **Concentration overlay target**: a rule that changes overlay size based on
+  whether QQQ is strongly leading SPY.
 - **Factor score**: a ranking number made from market features.
 - **Research score route**: an explicit score-source experiment.  For example,
   `regime_adaptive_riskoff_guard` keeps normal risk-on and neutral scores but

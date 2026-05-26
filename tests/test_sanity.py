@@ -20,6 +20,7 @@ from risk_sizing import vol_target_size, fractional_kelly, position_size_with_st
 from execution_model import realistic_fill_price, commission, capacity_warning, sqrt_impact_bps
 from data_validation import validate_price_frame
 from core_satellite_alpha import (
+    _apply_concentration_overlay_target,
     _core_tickers_for_config,
     _notify_earnings_blackout_if_needed,
     _overlay_weights,
@@ -803,7 +804,7 @@ def test_nested_candidate_grid_includes_requested_tuning_dimensions():
 def test_nested_stable_grid_pins_consensus_dimensions():
     configs = nested_wf.stable_grid_candidate_configs()
 
-    assert len(configs) == 24
+    assert len(configs) == 32
     params = [config["nested_params"] for config in configs]
     assert {p["holding_days"] for p in params} == {20}
     assert {p["overlay_gross"] for p in params} == {0.50}
@@ -813,9 +814,42 @@ def test_nested_stable_grid_pins_consensus_dimensions():
     assert {p["score_source"] for p in params} == {"regime_adaptive"}
     assert {p["weighting"] for p in params} == {"sticky_score", "risk_parity"}
     assert {p["risk_control_mode"] for p in params} == {"off"}
-    assert {p["shape"] for p in params} == {"top5", "top10", "top15"}
-    assert {p["tqqq_weight"] for p in params} == {0.0, 0.10}
+    assert {p["shape"] for p in params} == {"top3", "top5", "top10", "top15"}
+    assert {p["tqqq_weight"] for p in params} == {0.0, 0.10, 0.30}
     assert {p["high_vol_mode"] for p in params} == {"fixed", "percentile"}
+    dynamic = [p for p in params if p.get("concentration_overlay_mode") == "qqq_spy_dynamic"]
+    assert len(dynamic) == 8
+    assert {p["shape"] for p in dynamic} == {"top3"}
+    assert {p["tqqq_weight"] for p in dynamic} == {0.0, 0.30}
+    assert {p["concentration_overlay_low_gross"] for p in dynamic} == {0.30}
+    assert {p["concentration_overlay_high_gross"] for p in dynamic} == {0.70}
+    assert all("conc_ov=qqq_spy_dynamic:0.3-0.7" in nested_wf.config_signature(config) for config in configs if config.get("concentration_overlay_mode"))
+
+
+def test_concentration_overlay_target_scales_with_qqq_spy_gap():
+    dt = pd.Timestamp("2024-01-31")
+    indicators = pd.DataFrame(
+        {"concentration_qqq_spy_120d": [0.10]},
+        index=pd.DatetimeIndex([dt]),
+    )
+    overlay_gross, target, gap = _apply_concentration_overlay_target(
+        dt,
+        core_gross=0.55,
+        overlay_gross=0.50,
+        regime_indicators=indicators,
+        config={
+            "concentration_overlay_mode": "qqq_spy_dynamic",
+            "concentration_overlay_low_gross": 0.30,
+            "concentration_overlay_high_gross": 0.70,
+            "concentration_overlay_threshold": 0.05,
+            "concentration_overlay_span": 0.05,
+            "max_gross_exposure": 1.25,
+        },
+    )
+
+    assert round(gap, 6) == 0.10
+    assert round(target, 6) == 0.70
+    assert round(overlay_gross, 6) == 0.70
 
 
 def test_nested_recent_alpha_grid_focuses_new_regime_dimensions():

@@ -383,6 +383,13 @@ FULL_TQQQ_WEIGHTS = (0.0, 0.10, 0.20, 0.30)
 STABLE_GRID_TQQQ_WEIGHTS = (0.0, 0.10)
 STABLE_GRID_SHAPES = ("top5", "top10", "top15")
 STABLE_GRID_HIGH_VOL_MODES = ("fixed", "percentile")
+STABLE_GRID_CONCENTRATION_OVERLAY = {
+    "concentration_overlay_mode": "qqq_spy_dynamic",
+    "concentration_overlay_low_gross": 0.30,
+    "concentration_overlay_high_gross": 0.70,
+    "concentration_overlay_threshold": 0.05,
+    "concentration_overlay_span": 0.05,
+}
 RECENT_ALPHA_GRID_SHAPES = ("top3", "top5", "top15")
 # Include 0.60 because fixed-config validation showed it adds recent alpha
 # while staying below the live turnover gate.  Keep 0.50 as the current
@@ -825,7 +832,7 @@ def stable_grid_candidate_configs(
     which won 0/14 folds.  Keeps the dimensions that actually vary across
     winners: shape, weighting, vol mode, and tqqq=(0.0, 0.1).
     """
-    return iter_candidate_configs(
+    configs = iter_candidate_configs(
         strategy=strategy,
         holding_days=(20,),
         overlay_gross=(0.50,),
@@ -839,6 +846,28 @@ def stable_grid_candidate_configs(
         risk_control_modes=("off",),
         max_configs=max_configs,
     )
+    dynamic_configs = iter_candidate_configs(
+        strategy=strategy,
+        holding_days=(20,),
+        overlay_gross=(0.50,),
+        ma_windows=(100,),
+        high_vol_values=(0.30,),
+        high_vol_modes=STABLE_GRID_HIGH_VOL_MODES,
+        score_sources=("regime_adaptive",),
+        shapes=("top3",),
+        weightings=("sticky_score", "risk_parity"),
+        tqqq_weights=(0.0, 0.30),
+        risk_control_modes=("off",),
+        max_configs=None,
+    )
+    for config in dynamic_configs:
+        config.update(STABLE_GRID_CONCENTRATION_OVERLAY)
+        nested = config.setdefault("nested_params", {})
+        nested["concentration_overlay_mode"] = STABLE_GRID_CONCENTRATION_OVERLAY["concentration_overlay_mode"]
+        nested["concentration_overlay_low_gross"] = STABLE_GRID_CONCENTRATION_OVERLAY["concentration_overlay_low_gross"]
+        nested["concentration_overlay_high_gross"] = STABLE_GRID_CONCENTRATION_OVERLAY["concentration_overlay_high_gross"]
+    configs.extend(dynamic_configs)
+    return configs[: int(max_configs)] if max_configs is not None else configs
 
 
 def recent_alpha_grid_candidate_configs(
@@ -991,6 +1020,11 @@ def evaluate_window(panel: pd.DataFrame, config: dict, start: pd.Timestamp, end:
                 max_per_sector=int(config.get("max_per_sector", 2)),
                 earnings_blackout_days=int(config.get("earnings_blackout_days", 0)),
                 drawdown_circuit_breaker=float(config.get("drawdown_circuit_breaker", 0.0)),
+                concentration_overlay_mode=str(config.get("concentration_overlay_mode", "off")),
+                concentration_overlay_low_gross=float(config.get("concentration_overlay_low_gross", 0.30)),
+                concentration_overlay_high_gross=float(config.get("concentration_overlay_high_gross", 0.70)),
+                concentration_overlay_threshold=float(config.get("concentration_overlay_threshold", 0.05)),
+                concentration_overlay_span=float(config.get("concentration_overlay_span", 0.05)),
                 quiet=True,
             )
         else:
@@ -1116,12 +1150,21 @@ def nested_cost_stress_approval(
 
 def config_signature(config: dict) -> str:
     p = config.get("nested_params", {})
+    concentration_overlay = p.get("concentration_overlay_mode", config.get("concentration_overlay_mode"))
+    concentration_part = ""
+    if concentration_overlay:
+        concentration_part = (
+            f",conc_ov={concentration_overlay}:"
+            f"{p.get('concentration_overlay_low_gross', config.get('concentration_overlay_low_gross'))}-"
+            f"{p.get('concentration_overlay_high_gross', config.get('concentration_overlay_high_gross'))}"
+        )
     return (
         f"h={p.get('holding_days')},ov={p.get('overlay_gross')},"
         f"ma={p.get('ma_window')},vol={p.get('high_vol_mode')}:{p.get('high_vol')},"
         f"score={p.get('score_source')},shape={p.get('shape')},"
         f"weighting={p.get('weighting')},tqqq={p.get('tqqq_weight')},"
         f"risk={p.get('risk_control_mode', config.get('risk_control_mode', 'off'))}"
+        f"{concentration_part}"
     )
 
 
@@ -1156,13 +1199,16 @@ def stable_family_signature_from_config_signature(signature: str) -> str:
     non-leveraged configs from being counted as the same family.
     """
     parsed = _parse_config_signature(signature)
-    return (
+    family = (
         f"score={parsed.get('score')},"
         f"shape={parsed.get('shape')},"
         f"weighting={parsed.get('weighting')},"
         f"risk={parsed.get('risk', 'off')},"
         f"tqqq={_stable_family_float(parsed.get('tqqq', 0.0))}"
     )
+    if parsed.get("conc_ov"):
+        family = f"{family},conc_ov={parsed.get('conc_ov')}"
+    return family
 
 
 def stable_family_signature(config: dict) -> str:

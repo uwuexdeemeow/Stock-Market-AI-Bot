@@ -68,6 +68,7 @@ from core_satellite_alpha import (
     _compute_regime_strength,
     _blended_score_col,
     _regime_preset_with_overlay_gross,
+    _apply_concentration_overlay_target,
     check_factor_freshness,
     MAX_SINGLE_NAME_WEIGHT,
     COST_STRESS_MULTIPLIERS,
@@ -306,6 +307,11 @@ def run_tqqq_backtest(
     max_per_sector: int = 2,
     earnings_blackout_days: int = 0,
     drawdown_circuit_breaker: float = 0.0,
+    concentration_overlay_mode: str = "off",
+    concentration_overlay_low_gross: float = 0.30,
+    concentration_overlay_high_gross: float = 0.70,
+    concentration_overlay_threshold: float = 0.05,
+    concentration_overlay_span: float = 0.05,
     quiet: bool = False,
 ) -> dict:
     """
@@ -361,6 +367,11 @@ def run_tqqq_backtest(
         "drawdown_circuit_breaker": drawdown_circuit_breaker,
         "cost_stress": cost_stress,
         "holding_days": holding_days,
+        "concentration_overlay_mode": concentration_overlay_mode,
+        "concentration_overlay_low_gross": concentration_overlay_low_gross,
+        "concentration_overlay_high_gross": concentration_overlay_high_gross,
+        "concentration_overlay_threshold": concentration_overlay_threshold,
+        "concentration_overlay_span": concentration_overlay_span,
     }
 
     # ── Resolve dates and load prices ───────────────────────────────────
@@ -417,6 +428,8 @@ def run_tqqq_backtest(
     total_turnover = 0.0
     total_cost = 0.0
     ticker_contrib: dict[str, float] = {}
+    concentration_overlay_adjustment_sum = 0.0
+    concentration_overlay_active_count = 0
 
     # ── Drawdown circuit breaker state ─────────────────────────────────
     # PLAIN ENGLISH: Same as alpha strategy — track peak equity, go to cash
@@ -471,6 +484,19 @@ def run_tqqq_backtest(
                 overlay_gross *= vol_scale
 
         # Factor overlay — exact same logic as core-satellite
+        overlay_before_concentration = overlay_gross
+        overlay_gross, concentration_overlay_target, concentration_gap = _apply_concentration_overlay_target(
+            pd.Timestamp(dt),
+            core_gross,
+            overlay_gross,
+            regime_indicators,
+            config,
+        )
+        concentration_overlay_adjustment = overlay_gross - overlay_before_concentration
+        concentration_overlay_adjustment_sum += concentration_overlay_adjustment
+        if abs(concentration_overlay_adjustment) > 1e-12:
+            concentration_overlay_active_count += 1
+
         # PLAIN ENGLISH: If score_blend is enabled, we blend risk_on and risk_off
         # scores proportionally based on regime "strength" (0-1).  Otherwise we
         # hard-switch to the right score column for the current regime.
@@ -560,6 +586,9 @@ def run_tqqq_backtest(
             "strategy_ret": strategy_ret,
             "n_overlay": len(overlay),
             "tqqq_weight_used": float(core_weights.get("TQQQ", 0.0)),
+            "concentration_overlay_target": concentration_overlay_target,
+            "concentration_overlay_adjustment": concentration_overlay_adjustment,
+            "concentration_qqq_spy_120d": concentration_gap,
         })
         prev_overlay = overlay
 
@@ -606,6 +635,11 @@ def run_tqqq_backtest(
         "estimated_cost_pct": round(total_cost * 100.0, 4),
         "n_rebalances": len(trades),
         "regime_counts": regime_counts,
+        "concentration_overlay_active_rebalances": int(concentration_overlay_active_count),
+        "avg_concentration_overlay_adjustment": round(
+            float(concentration_overlay_adjustment_sum / max(len(trades), 1)),
+            4,
+        ),
         "benchmark_comparisons": comps,
         "benchmark_stats": bench_stats,
         "subperiods": subs,

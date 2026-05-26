@@ -58,6 +58,9 @@ WALKFORWARD_MAX_INNER_WORST_TURNOVER_PCT=525 python3 core_satellite_nested_walkf
 # Don't push the winning config to live (research mode)
 python3 core_satellite_nested_walkforward.py --output-prefix wf_my_research_run --no-publish-live-config
 
+# Stable approval grid, including a small top3 dynamic-overlay challenger
+python3 core_satellite_nested_walkforward.py --stable-grid --no-publish-live-config
+
 # Recent-alpha research now includes ov=0.60 between the conservative 0.50
 # anchor and the higher-turnover 0.70 stress point.
 
@@ -146,9 +149,14 @@ worst-turnover cap, or evaluation failures.
 - **min_config_frequency** (line ~334) — relaxed from 0.30 → 0.20
   because 14-fold walk-forwards naturally have more config diversity.
 - **Stable family promotion** — live approval now counts repeatable config
-  families (`score`, `shape`, `weighting`, `risk`, `tqqq`) instead of only
+  families (`score`, `shape`, `weighting`, `risk`, `tqqq`, `conc_ov`) instead of only
   exact configs.  This avoids promoting a one-off latest-year winner while
   still letting small tuning knobs come from the freshest fold.
+- **Dynamic concentration overlay challenger** — the stable grid includes eight
+  extra top3 candidates with `conc_ov=qqq_spy_dynamic:0.3-0.7`, split across
+  TQQQ off and a 30% risk-on TQQQ sleeve.  They use a smaller overlay in normal
+  markets and can scale toward 0.70 gross only when QQQ has strongly beaten SPY
+  over the prior 120 trading days.
 - **Tightened turnover gates** — inner mean cap 600→450%, inner worst
   cap 550%, and the soft penalty span 4000→1500 (so 1000% turnover now
   costs 0.4 Sharpe instead of 0.15).  Earlier runs let configs with

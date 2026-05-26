@@ -910,6 +910,11 @@ def _load_regime_indicators(rebalance_dates: pd.DatetimeIndex, exit_dates: pd.Da
     out["spy_trend_ok"] = prices["SPY"] >= prices["SPY"].rolling(200, min_periods=50).mean()
     out["qqq_trend_ok"] = prices["QQQ"] >= prices["QQQ"].rolling(ma_window, min_periods=50).mean()
     out["qqq_realized_vol"] = prices["QQQ"].pct_change().rolling(20, min_periods=10).std().mul(np.sqrt(252))
+    # PLAIN ENGLISH: Positive values mean QQQ has beaten SPY over roughly the
+    # last six months.  That is a simple proxy for a narrow mega-cap-led market.
+    out["concentration_qqq_spy_120d"] = (
+        prices["QQQ"].pct_change(120) - prices["SPY"].pct_change(120)
+    ).fillna(0.0)
 
     if high_vol_mode == "percentile":
         # PLAIN ENGLISH: Instead of a fixed number, compare today's vol to
@@ -994,6 +999,42 @@ def _load_regime_indicators(rebalance_dates: pd.DatetimeIndex, exit_dates: pd.Da
         out["high_vol"] = confirmed_vol
 
     return out.ffill().bfill()
+
+
+def _apply_concentration_overlay_target(
+    dt: pd.Timestamp,
+    core_gross: float,
+    overlay_gross: float,
+    regime_indicators: pd.DataFrame | None,
+    config: dict,
+) -> tuple[float, float, float]:
+    """Return overlay gross adjusted for QQQ-led concentration regimes.
+
+    PLAIN ENGLISH: When QQQ is strongly beating SPY, the market is usually led
+    by a few mega-cap growth names.  A small, concentrated overlay can work in
+    that regime, but a broad overlay can lag the benchmark.  This rule lets a
+    config use a smaller overlay in normal/broad markets and a larger overlay
+    only when the QQQ-vs-SPY gap says concentration is high.
+    """
+    if str(config.get("concentration_overlay_mode", "off")) != "qqq_spy_dynamic":
+        return float(overlay_gross), float(overlay_gross), 0.0
+    if regime_indicators is None or regime_indicators.empty:
+        return float(overlay_gross), float(overlay_gross), 0.0
+
+    try:
+        row = regime_indicators.loc[pd.Timestamp(dt)]
+    except KeyError:
+        row = regime_indicators.reindex([pd.Timestamp(dt)], method="ffill").iloc[0]
+    gap = float(row.get("concentration_qqq_spy_120d", 0.0) or 0.0)
+    low = float(config.get("concentration_overlay_low_gross", 0.30))
+    high = float(config.get("concentration_overlay_high_gross", 0.70))
+    threshold = float(config.get("concentration_overlay_threshold", 0.05))
+    span = max(float(config.get("concentration_overlay_span", 0.05)), 1e-9)
+    strength = float(np.clip((gap - threshold) / span, 0.0, 1.0))
+    target = low + (high - low) * strength
+    max_overlay = max(0.0, float(config.get("max_gross_exposure", MAX_GROSS_EXPOSURE)) - float(core_gross))
+    adjusted = float(np.clip(target, 0.0, max_overlay))
+    return adjusted, target, gap
 
 
 def _resolve_allocation(dt: pd.Timestamp, config: dict, regime_indicators: pd.DataFrame | None) -> tuple[str, dict[str, float], float, float]:
@@ -1490,6 +1531,8 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
     total_turnover = 0.0
     total_cost = 0.0
     ticker_contrib: dict[str, float] = {}
+    concentration_overlay_adjustment_sum = 0.0
+    concentration_overlay_active_count = 0
 
     # ── Drawdown circuit breaker state ─────────────────────────────────
     # PLAIN ENGLISH: Track the highest equity we've ever had.  If current
@@ -1559,6 +1602,19 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
 
         if "feature_health_overlay_allowed" in day.columns and not bool(day["feature_health_overlay_allowed"].iloc[0]):
             overlay_gross = 0.0
+
+        overlay_before_concentration = overlay_gross
+        overlay_gross, concentration_overlay_target, concentration_gap = _apply_concentration_overlay_target(
+            pd.Timestamp(dt),
+            core_gross,
+            overlay_gross,
+            regime_indicators,
+            config,
+        )
+        concentration_overlay_adjustment = overlay_gross - overlay_before_concentration
+        concentration_overlay_adjustment_sum += concentration_overlay_adjustment
+        if abs(concentration_overlay_adjustment) > 1e-12:
+            concentration_overlay_active_count += 1
 
         # PLAIN ENGLISH: If score blending is enabled, we mix risk_on and
         # risk_off scores based on how "risk_on" the market really is (0-1).
@@ -1668,6 +1724,9 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
             "core_weights_json": json.dumps({str(k): round(float(v), 6) for k, v in core_weights.items()}, sort_keys=True),
             "core_gross": core_gross,
             "overlay_gross": overlay_gross,
+            "concentration_overlay_target": concentration_overlay_target,
+            "concentration_overlay_adjustment": concentration_overlay_adjustment,
+            "concentration_qqq_spy_120d": concentration_gap,
             "gross_exposure": core_gross + float(overlay.abs().sum()),
             "top_overlay_weight": float(overlay.abs().max()) if not overlay.empty else 0.0,
             "effective_overlay_names": effective_overlay_names,
@@ -1702,6 +1761,11 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
         "top_ticker_overlay_contributor": top_ticker,
         "top_ticker_overlay_contribution_share": round(top_ticker_share, 3),
         "n_rebalances": int(len(trades)),
+        "concentration_overlay_active_rebalances": int(concentration_overlay_active_count),
+        "avg_concentration_overlay_adjustment": round(
+            float(concentration_overlay_adjustment_sum / max(len(trades), 1)),
+            4,
+        ),
     }
     if "regime" in trades.columns:
         extra["regime_counts"] = {str(k): int(v) for k, v in trades["regime"].value_counts().sort_index().items()}
@@ -2002,6 +2066,20 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
     if not feature_health_gate_pass:
         overlay_gross = 0.0
         feature_health_reason = "feature_health_gate_failed"
+    overlay_before_concentration = overlay_gross
+    overlay_gross, concentration_overlay_target, concentration_gap = _apply_concentration_overlay_target(
+        latest_date,
+        core_gross,
+        overlay_gross,
+        regime_indicators,
+        metrics,
+    )
+    metrics["concentration_overlay_target"] = round(float(concentration_overlay_target), 6)
+    metrics["concentration_overlay_adjustment"] = round(
+        float(overlay_gross - overlay_before_concentration),
+        6,
+    )
+    metrics["concentration_qqq_spy_120d"] = round(float(concentration_gap), 6)
     score_col = _score_col_for_regime(str(metrics["score_source"]), current_regime)
     day = panel[panel["date"] == latest_date]
     sticky_state = _load_live_sticky_overlay_state()
