@@ -4,6 +4,7 @@ import json
 import os
 
 import pandas as pd
+import pytest
 
 import factor_data_health as fdh
 
@@ -22,6 +23,43 @@ def _write_feature_quality(path, *, mtime: int = 2_000_000_000) -> None:
         encoding="utf-8",
     )
     os.utime(path, (mtime, mtime))
+
+
+def test_trading_day_age_uses_nyse_holiday_calendar():
+    pytest.importorskip("exchange_calendars")
+
+    # Juneteenth 2024 was a Wednesday, but the NYSE was closed. The factor
+    # cache should age by one session from Jun 18 to Jun 20, not two weekdays.
+    age = fdh.trading_day_age(pd.Timestamp("2024-06-18"), now=pd.Timestamp("2024-06-20"))
+
+    assert age == 1
+
+
+def test_factor_data_health_does_not_warn_on_nyse_holiday_gap(tmp_path, monkeypatch):
+    pytest.importorskip("exchange_calendars")
+
+    data_dir = tmp_path / "data"
+    signal_dir = tmp_path / "signals"
+    data_dir.mkdir()
+    signal_dir.mkdir()
+    monkeypatch.setattr(fdh, "ADAPTIVE_WEIGHTS_FILE", str(signal_dir / "missing_adaptive.json"))
+
+    _write_parquet(data_dir / "AAA.parquet", "2024-06-18")
+    _write_feature_quality(signal_dir / "feature_quality_report.json")
+
+    manifest = fdh.build_factor_data_health(
+        data_dir=data_dir,
+        signal_dir=signal_dir,
+        tickers=["AAA"],
+        optional_tickers=[],
+        warn_days=1,
+        block_days=10,
+        now=pd.Timestamp("2024-06-20"),
+    )
+
+    assert manifest["max_age_trading_days"] == 1
+    assert manifest["stale_tickers"] == []
+    assert manifest["trade_ready"] is True
 
 
 def test_factor_data_health_trade_ready_with_fresh_required_data(tmp_path, monkeypatch):

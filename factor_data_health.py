@@ -41,13 +41,30 @@ def _as_timestamp(value) -> pd.Timestamp:
     return ts.normalize()
 
 
+def _count_nyse_sessions(start: pd.Timestamp, end: pd.Timestamp) -> int:
+    """Count real NYSE trading sessions in an inclusive date window."""
+    start = _as_timestamp(start)
+    end = _as_timestamp(end)
+    if start > end:
+        return 0
+    try:
+        import exchange_calendars as xcals
+
+        nyse = xcals.get_calendar("XNYS")
+        return int(len(nyse.sessions_in_range(start, end)))
+    except Exception:
+        # If the calendar package is unavailable, fall back to weekdays. This
+        # keeps the health check usable, but the normal path handles holidays.
+        return int(sum(1 for day in pd.date_range(start, end, freq="D") if day.weekday() < 5))
+
+
 def trading_day_age(latest: pd.Timestamp, *, now: pd.Timestamp | None = None) -> int:
-    """Count simple business days since latest factor data."""
+    """Count NYSE sessions since latest factor data."""
     latest = _as_timestamp(latest)
     today = _as_timestamp(pd.Timestamp.now() if now is None else now)
     if latest >= today:
         return 0
-    return int(len(pd.bdate_range(latest + pd.tseries.offsets.BDay(1), today)))
+    return _count_nyse_sessions(latest + pd.Timedelta(days=1), today)
 
 
 def _latest_parquet_date(path: Path) -> tuple[pd.Timestamp, int, int]:
