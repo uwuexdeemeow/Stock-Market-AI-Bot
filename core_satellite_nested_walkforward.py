@@ -726,6 +726,7 @@ def iter_candidate_configs(
     weightings: Iterable[str] = WEIGHTING_MODES,
     tqqq_weights: Iterable[float] = DEFAULT_TQQQ_WEIGHTS,
     risk_control_modes: Iterable[str] = RISK_CONTROL_MODES,
+    concentration_overlay_enabled: Iterable[bool] = (False,),
     max_configs: int | None = None,
 ) -> list[dict]:
     strategy = str(_STRATEGY_ALIASES.get(strategy, strategy))
@@ -735,7 +736,7 @@ def iter_candidate_configs(
     # whether any TQQQ allocation helps on a risk-adjusted basis.
     base = REGIME_PRESETS[BASE_REGIME]
     configs: list[dict] = []
-    for hold, overlay, ma_window, high_vol_mode, score_source, shape, weighting, tqqq_weight, risk_control_mode in itertools.product(
+    for hold, overlay, ma_window, high_vol_mode, score_source, shape, weighting, tqqq_weight, risk_control_mode, concentration_enabled in itertools.product(
         holding_days,
         overlay_gross,
         ma_windows,
@@ -745,6 +746,7 @@ def iter_candidate_configs(
         weightings,
         tqqq_weights,
         risk_control_modes,
+        concentration_overlay_enabled,
     ):
         hv_options = high_vol_values if str(high_vol_mode) == "fixed" else (base.get("high_vol", 0.30),)
         for high_vol in hv_options:
@@ -757,6 +759,21 @@ def iter_candidate_configs(
                 tqqq_weight=float(tqqq_weight),
             )
             risk_on = preset["risk_on"]
+            nested_params = {
+                "holding_days": int(hold),
+                "overlay_gross": round(float(overlay), 4),
+                "risk_on_overlay_gross": round(float(overlay), 4),
+                "ma_window": int(ma_window),
+                "high_vol": round(float(high_vol), 4),
+                "high_vol_mode": str(high_vol_mode),
+                "score_source": str(score_source),
+                "shape": str(shape),
+                "weighting": str(weighting),
+                "tqqq_weight": round(float(tqqq_weight), 4),
+                "risk_control_mode": str(risk_control_mode),
+            }
+            if bool(concentration_enabled):
+                nested_params["concentration_overlay"] = "on"
             config = {
                 "strategy": strategy,
                 "core_preset": (
@@ -785,21 +802,10 @@ def iter_candidate_configs(
                 "max_single_name_weight": MAX_SINGLE_NAME_WEIGHT,
                 "holding_days": int(hold),
                 "risk_control_mode": str(risk_control_mode),
+                "concentration_overlay_enabled": bool(concentration_enabled),
                 "drawdown_circuit_breaker": 0.15 if str(risk_control_mode) == "defensive" else 0.0,
                 "vol_target": 0.15 if str(risk_control_mode) == "defensive" else 0.0,
-                "nested_params": {
-                    "holding_days": int(hold),
-                    "overlay_gross": round(float(overlay), 4),
-                    "risk_on_overlay_gross": round(float(overlay), 4),
-                    "ma_window": int(ma_window),
-                    "high_vol": round(float(high_vol), 4),
-                    "high_vol_mode": str(high_vol_mode),
-                    "score_source": str(score_source),
-                    "shape": str(shape),
-                    "weighting": str(weighting),
-                    "tqqq_weight": round(float(tqqq_weight), 4),
-                    "risk_control_mode": str(risk_control_mode),
-                },
+                "nested_params": nested_params,
             }
             configs.append(config)
             if max_configs is not None and len(configs) >= int(max_configs):
@@ -837,6 +843,7 @@ def stable_grid_candidate_configs(
         weightings=("sticky_score", "risk_parity"),
         tqqq_weights=STABLE_GRID_TQQQ_WEIGHTS,
         risk_control_modes=("off",),
+        concentration_overlay_enabled=(True,),
         max_configs=max_configs,
     )
 
@@ -1122,6 +1129,7 @@ def config_signature(config: dict) -> str:
         f"score={p.get('score_source')},shape={p.get('shape')},"
         f"weighting={p.get('weighting')},tqqq={p.get('tqqq_weight')},"
         f"risk={p.get('risk_control_mode', config.get('risk_control_mode', 'off'))}"
+        + (f",conc={p.get('concentration_overlay')}" if "concentration_overlay" in p else "")
     )
 
 
@@ -1162,6 +1170,7 @@ def stable_family_signature_from_config_signature(signature: str) -> str:
         f"weighting={parsed.get('weighting')},"
         f"risk={parsed.get('risk', 'off')},"
         f"tqqq={_stable_family_float(parsed.get('tqqq', 0.0))}"
+        + (f",conc={parsed.get('conc')}" if "conc" in parsed else "")
     )
 
 

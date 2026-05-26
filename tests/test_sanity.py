@@ -20,6 +20,7 @@ from risk_sizing import vol_target_size, fractional_kelly, position_size_with_st
 from execution_model import realistic_fill_price, commission, capacity_warning, sqrt_impact_bps
 from data_validation import validate_price_frame
 from core_satellite_alpha import (
+    _apply_concentration_overlay_rotation,
     _core_tickers_for_config,
     _notify_earnings_blackout_if_needed,
     _overlay_weights,
@@ -816,6 +817,21 @@ def test_nested_stable_grid_pins_consensus_dimensions():
     assert {p["shape"] for p in params} == {"top5", "top10", "top15"}
     assert {p["tqqq_weight"] for p in params} == {0.0, 0.10}
     assert {p["high_vol_mode"] for p in params} == {"fixed", "percentile"}
+    assert {p["concentration_overlay"] for p in params} == {"on"}
+
+
+def test_concentration_overlay_rotation_moves_freed_overlay_to_core():
+    core_gross, overlay_gross, mult = _apply_concentration_overlay_rotation(
+        core_gross=0.75,
+        overlay_gross=0.50,
+        panel_row={"concentration_qqq_vs_eqw_20d": 20.0},
+        config={"concentration_overlay_enabled": True, "max_gross_exposure": 1.25},
+    )
+
+    assert round(mult, 3) == 0.3
+    assert round(overlay_gross, 3) == 0.15
+    assert round(core_gross, 3) == 1.10
+    assert round(core_gross + overlay_gross, 3) == 1.25
 
 
 def test_nested_recent_alpha_grid_focuses_new_regime_dimensions():
