@@ -211,6 +211,34 @@ class TestScaleWeights:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class TestAlpacaSignalFreshness:
+    def test_latest_completed_us_trading_day_skips_nyse_holiday(self):
+        pytest.importorskip("exchange_calendars")
+        from signal_freshness import latest_completed_us_trading_day
+
+        now = datetime(2024, 6, 19, 22, 0, tzinfo=timezone.utc)
+
+        assert latest_completed_us_trading_day(now=now) == pd.Timestamp("2024-06-18")
+
+    def test_signal_freshness_allows_prior_session_on_nyse_holiday(self):
+        pytest.importorskip("exchange_calendars")
+        from signal_freshness import validate_signal_freshness
+
+        now = datetime(2024, 6, 19, 22, 0, tzinfo=timezone.utc)
+        signal = pd.Series({
+            "predicted_at": now.isoformat(),
+            "latest_factor_date": "2024-06-18",
+        })
+
+        ok, issues = validate_signal_freshness(
+            signal,
+            max_signal_age_hours=24,
+            max_factor_age_trading_days=0,
+            now=now,
+        )
+
+        assert ok is True
+        assert issues == []
+
     def test_fresh_signal_passes(self):
         import alpaca_paper_trading as apt
 

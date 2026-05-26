@@ -13,6 +13,9 @@ questions before trading:
 It also reads target weights from the signal into one dictionary.  That keeps
 the broker and the sanity checker from disagreeing about what the portfolio is.
 
+Factor-data age is counted using real NYSE sessions.  Weekends and market
+holidays do not make yesterday's valid factor data look stale.
+
 ## How To Run It
 
 This file is normally imported by other scripts:
@@ -41,6 +44,7 @@ Expected outputs:
 
 - **Signal**: the daily instruction file that says what weights to hold.
 - **Freshness**: whether the signal and factor data are recent enough to trust.
+- **Trading session**: a real NYSE market day.  Holidays are skipped.
 - **Live config hash**: a short fingerprint of the approved walkforward config.
   If this changes, old signals are blocked.
 - **Gross exposure**: the sum of absolute portfolio weights.  A 100% QQQ plus

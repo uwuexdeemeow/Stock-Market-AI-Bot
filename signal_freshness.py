@@ -32,15 +32,71 @@ def parse_signal_timestamp(value: object, *, default_timezone: str | None = None
     return out.tz_convert("UTC")
 
 
+def _nyse_calendar():
+    """Load the NYSE calendar when the optional calendar package is available."""
+    try:
+        import exchange_calendars as xcals
+
+        return xcals.get_calendar("XNYS")
+    except Exception:
+        return None
+
+
+def _latest_weekday_on_or_before(day: object) -> pd.Timestamp:
+    """Fallback calendar: find the latest Monday-Friday date."""
+    ts = pd.Timestamp(day).normalize()
+    while ts.weekday() >= 5:
+        ts -= pd.Timedelta(days=1)
+    return ts
+
+
+def _latest_nyse_session_on_or_before(day: object) -> pd.Timestamp:
+    """Find the latest real NYSE session on or before `day`."""
+    ts = pd.Timestamp(day).normalize()
+    calendar = _nyse_calendar()
+    if calendar is not None:
+        for _ in range(14):
+            if calendar.is_session(ts):
+                return ts
+            ts -= pd.Timedelta(days=1)
+        return ts
+    return _latest_weekday_on_or_before(ts)
+
+
+def _count_us_trading_sessions(start: object, end: object) -> int:
+    """Count real NYSE sessions in an inclusive window."""
+    start_ts = pd.Timestamp(start).normalize()
+    end_ts = pd.Timestamp(end).normalize()
+    if start_ts > end_ts:
+        return 0
+    calendar = _nyse_calendar()
+    if calendar is not None:
+        return int(len(calendar.sessions_in_range(start_ts, end_ts)))
+    return int(sum(1 for day in pd.date_range(start_ts, end_ts, freq="D") if day.weekday() < 5))
+
+
 def latest_completed_us_trading_day(now: datetime | None = None) -> pd.Timestamp:
     eastern = ZoneInfo("America/New_York")
-    ts = (now or datetime.now(timezone.utc)).astimezone(eastern)
+    now_ts = pd.Timestamp(now or datetime.now(timezone.utc))
+    if now_ts.tzinfo is None:
+        now_ts = now_ts.tz_localize("UTC")
+    else:
+        now_ts = now_ts.tz_convert("UTC")
+    ts = now_ts.to_pydatetime().astimezone(eastern)
     current_day = pd.Timestamp(ts.date())
+    calendar = _nyse_calendar()
+    if calendar is not None:
+        if not calendar.is_session(current_day):
+            return _latest_nyse_session_on_or_before(current_day - pd.Timedelta(days=1))
+        close_ts = calendar.session_close(current_day)
+        if now_ts < close_ts:
+            return _latest_nyse_session_on_or_before(current_day - pd.Timedelta(days=1))
+        return current_day
     if ts.weekday() >= 5:
-        return current_day - pd.tseries.offsets.BDay(1)
+        return _latest_weekday_on_or_before(current_day - pd.Timedelta(days=1))
     close_ts = ts.replace(hour=16, minute=0, second=0, microsecond=0)
     if ts < close_ts:
-        return current_day - pd.tseries.offsets.BDay(1)
+        return _latest_weekday_on_or_before(current_day - pd.Timedelta(days=1))
     return current_day
 
 
@@ -73,7 +129,7 @@ def validate_signal_freshness(
         issues.append("missing_latest_factor_date")
     else:
         completed_us_day = latest_completed_us_trading_day(now=now)
-        age_days = len(pd.bdate_range(pd.Timestamp(factor_ts) + pd.tseries.offsets.BDay(1), completed_us_day))
+        age_days = _count_us_trading_sessions(pd.Timestamp(factor_ts) + pd.Timedelta(days=1), completed_us_day)
         if age_days > int(max_factor_age_trading_days):
             issues.append(f"factor_age_{age_days}_bdays_gt_{int(max_factor_age_trading_days)}")
     return not issues, issues
