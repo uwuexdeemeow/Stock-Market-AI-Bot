@@ -1,0 +1,22 @@
+{
+  "active": true,
+  "artifact_root": "D:\\Stock Market AI Bot\\autoresearch-results",
+  "launch_path": null,
+  "log_path": null,
+  "primary_repo": "D:\\Stock Market AI Bot",
+  "repo_targets": [
+    {
+      "path": "D:\\Stock Market AI Bot",
+      "role": "primary",
+      "scope": "core_satellite_nested_walkforward.py,walkforward_selector_diagnostics.py,walkforward_analyzer.py,tests/test_sanity.py,Documentation/*.md,.env.example"
+    }
+  ],
+  "results_path": "D:\\Stock Market AI Bot\\autoresearch-results\\results.tsv",
+  "runtime_path": null,
+  "session_mode": "foreground",
+  "state_path": "D:\\Stock Market AI Bot\\autoresearch-results\\state.json",
+  "updated_at": "2026-05-24T15:34:39Z",
+  "verify_cwd": "primary_repo",
+  "version": 2,
+  "workspace_root": "D:\\Stock Market AI Bot"
+}

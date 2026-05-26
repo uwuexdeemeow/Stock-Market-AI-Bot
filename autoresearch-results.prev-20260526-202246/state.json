@@ -1,0 +1,101 @@
+{
+  "config": {
+    "artifact_root": "D:\\Stock Market AI Bot\\autoresearch-results",
+    "direction": "higher",
+    "goal": "Improve short nested walkforward results without touching the live paper trading config.",
+    "guard": "python -m pytest tests\\test_sanity.py -q",
+    "iterations": null,
+    "metric": "research_score",
+    "parallel_mode": "serial",
+    "primary_metric_key": "research_score",
+    "primary_repo": "D:\\Stock Market AI Bot",
+    "repos": [
+      {
+        "path": "D:\\Stock Market AI Bot",
+        "role": "primary",
+        "scope": "core_satellite_nested_walkforward.py,walkforward_selector_diagnostics.py,walkforward_analyzer.py,tests/test_sanity.py,Documentation/*.md,.env.example"
+      }
+    ],
+    "required_keep_criteria": [
+      {
+        "metric_key": "fail_count",
+        "operator": "==",
+        "target": 0
+      },
+      {
+        "metric_key": "valid_folds",
+        "operator": ">=",
+        "target": 6
+      }
+    ],
+    "rollback_policy": null,
+    "scope": "core_satellite_nested_walkforward.py,walkforward_selector_diagnostics.py,walkforward_analyzer.py,tests/test_sanity.py,Documentation/*.md,.env.example",
+    "session_mode": "foreground",
+    "stop_condition": null,
+    "verify": "python core_satellite_nested_walkforward.py --strategy core-alpha --recent-alpha-grid --start-year 2021 --end-year 2026 --output-prefix wf_autoresearch_trial --no-publish-live-config --no-resume --workers 4 && python walkforward_analyzer.py --csv signals\\wf_autoresearch_trial.csv --objective alpha_vs_qqq --json",
+    "verify_cwd": "primary_repo",
+    "verify_format": "metrics_json",
+    "web_search": "disabled",
+    "workspace_root": "D:\\Stock Market AI Bot"
+  },
+  "mode": "loop",
+  "run_tag": "",
+  "state": {
+    "baseline_metric": 5017.73,
+    "best_iteration": 5,
+    "best_metric": 5017.89,
+    "blocked": 0,
+    "consecutive_discards": 0,
+    "crashes": 0,
+    "current_acceptance": true,
+    "current_labels": [
+      "selector-grid",
+      "mid-overlay"
+    ],
+    "current_metric": 5017.89,
+    "current_metrics": {
+      "fail_count": 0,
+      "mean_alpha_vs_qqq_pct": 20.44,
+      "mean_oos_sharpe": 1.497,
+      "pass_count": 5,
+      "research_score": 5017.89,
+      "valid_folds": 6,
+      "warn_count": 0,
+      "worst_drawdown_pct": -17.52
+    },
+    "current_required_keep_satisfied": true,
+    "discards": 3,
+    "iteration": 5,
+    "keeps": 1,
+    "last_commit": "2b951ea2ad2113b383787ee1a55b8bfdcd03a705",
+    "last_repo_commits": {
+      "D:\\Stock Market AI Bot": "2b951ea2ad2113b383787ee1a55b8bfdcd03a705"
+    },
+    "last_status": "keep",
+    "last_trial_acceptance": true,
+    "last_trial_commit": "2b951ea2ad2113b383787ee1a55b8bfdcd03a705",
+    "last_trial_labels": [
+      "selector-grid",
+      "mid-overlay"
+    ],
+    "last_trial_metric": 5017.89,
+    "last_trial_metrics": {
+      "fail_count": 0,
+      "mean_alpha_vs_qqq_pct": 20.44,
+      "mean_oos_sharpe": 1.497,
+      "pass_count": 5,
+      "research_score": 5017.89,
+      "valid_folds": 6,
+      "warn_count": 0,
+      "worst_drawdown_pct": -17.52
+    },
+    "last_trial_repo_commits": {
+      "D:\\Stock Market AI Bot": "2b951ea2ad2113b383787ee1a55b8bfdcd03a705"
+    },
+    "last_trial_required_keep_satisfied": true,
+    "no_ops": 0,
+    "pivot_count": 0
+  },
+  "updated_at": "2026-05-24T19:30:36Z",
+  "version": 1
+}

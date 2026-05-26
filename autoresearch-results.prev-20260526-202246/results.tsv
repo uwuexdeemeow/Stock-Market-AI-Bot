@@ -1,0 +1,25 @@
+# environment: windows cpu=12 ram=31GB free_ram=8GB disk_free=1381GB python=3.12.10 network=disabled_by_policy
+# metric_direction: higher
+# mode: loop
+# parallel: serial
+# web_search: disabled
+# workspace_root: D:\Stock Market AI Bot
+# artifact_root: D:\Stock Market AI Bot\autoresearch-results
+# primary_repo: D:\Stock Market AI Bot
+# goal: Improve short nested walkforward results without touching the live paper trading config.
+# scope: core_satellite_nested_walkforward.py,walkforward_selector_diagnostics.py,walkforward_analyzer.py,tests/test_sanity.py,Documentation/*.md,.env.example
+# repos_json: [{"path":"D:\\Stock Market AI Bot","role":"primary","scope":"core_satellite_nested_walkforward.py,walkforward_selector_diagnostics.py,walkforward_analyzer.py,tests/test_sanity.py,Documentation/*.md,.env.example"}]
+# metric: research_score
+# verify: python core_satellite_nested_walkforward.py --strategy core-alpha --recent-alpha-grid --start-year 2021 --end-year 2026 --output-prefix wf_autoresearch_trial --no-publish-live-config --no-resume --workers 4 && python walkforward_analyzer.py --csv signals\wf_autoresearch_trial.csv --objective alpha_vs_qqq --json
+# verify_cwd: primary_repo
+# verify_format: metrics_json
+# primary_metric_key: research_score
+# guard: python -m pytest tests\test_sanity.py -q
+# required_keep_criteria_json: [{"metric_key":"fail_count","operator":"==","target":0},{"metric_key":"valid_folds","operator":">=","target":6}]
+iteration	commit	metric	delta	guard	status	description
+0	bf23a9ecfd60b16995b7e77f534a5709f4c1ce98	5017.73	0	-	baseline	Baseline short recent-alpha nested walkforward 2021-2026: all analyzer gates pass; live config not published.
+1	d32ca24abed61a2a598db5a0b2a46c9983008dc4	5015.78	-1.95	-	discard	[labels: score-route] Riskoff guard route in recent-alpha grid passed gates but reduced QQQ alpha and research score; reverted trial commit.
+2	68d5ed52ac443a88b58f7fd942f492a17119f941	-953.43	-5971.16	-	discard	[labels: high-vol-mode] Fixed-vol-only recent-alpha grid failed fold completeness; reverted trial commit.
+3	0eae5eb263160ab01c60307fed16bfa3339a40bd	5017.73	0	pass	discard	[labels: runtime, selector] Disabling recent-alpha halving matched baseline results and ran faster, but did not improve retained research score; reverted trial commit.
+4	0eae5eb263160ab01c60307fed16bfa3339a40bd	5017.73	0	-	refine	[labels: refine] [REFINE] Grid/selector tweaks did not improve retained score; switch to fixed-config validation and promotion comparison without changing live config.
+5	2b951ea2ad2113b383787ee1a55b8bfdcd03a705	5017.89	+0.16	pass	keep	[labels: selector-grid, mid-overlay] Added ov=0.60 to recent-alpha grid; short nested 2021-2026 passed all analyzer gates and improved research score, compound return, QQQ alpha, and turnover versus baseline.
