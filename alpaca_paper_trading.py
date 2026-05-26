@@ -485,7 +485,12 @@ def generate_orders(
     Only generates orders if the difference ("drift") is big enough to
     matter — avoids tiny trades that cost more than they're worth.
     """
-    equity = broker.get_equity()
+    try:
+        equity = float(broker.get_equity())
+    except (TypeError, ValueError):
+        raise RuntimeError("Invalid broker equity; refusing to generate orders")
+    if equity <= 0:
+        raise RuntimeError("Invalid broker equity; refusing to generate orders")
     positions = broker.get_position_map()
 
     # Get current prices for all relevant tickers

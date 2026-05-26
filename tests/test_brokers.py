@@ -407,6 +407,31 @@ def test_alpaca_load_signal_requires_medium_risk_review(tmp_path, monkeypatch):
 # DUPLICATE ORDER PREVENTION TESTS
 # ─────────────────────────────────────────────────────────────────────────────
 
+class _OrderBroker:
+    def __init__(self, *, equity=100_000.0, positions=None, prices=None):
+        self._equity = equity
+        self._positions = dict(positions or {})
+        self._prices = dict(prices or {})
+
+    def get_equity(self):
+        return self._equity
+
+    def get_position_map(self):
+        return dict(self._positions)
+
+    def get_last_price(self, ticker):
+        return float(self._prices.get(ticker, 100.0))
+
+
+def test_generate_orders_rejects_nonpositive_broker_equity():
+    import alpaca_paper_trading as apt
+
+    broker = _OrderBroker(equity=0.0, prices={"SPY": 500.0})
+
+    with pytest.raises(RuntimeError, match="Invalid broker equity"):
+        apt.generate_orders(broker, {"SPY": 0.5}, force=True)
+
+
 class TestDuplicatePrevention:
     """Test that _already_submitted_today works correctly."""
 
