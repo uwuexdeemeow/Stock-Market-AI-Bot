@@ -17,7 +17,7 @@ import pandas as pd
 
 from labels import forward_return, vol_normalized_return, triple_barrier
 from risk_sizing import vol_target_size, fractional_kelly, position_size_with_stop
-from execution_model import realistic_fill_price, commission, capacity_warning
+from execution_model import realistic_fill_price, commission, capacity_warning, sqrt_impact_bps
 from data_validation import validate_price_frame
 from core_satellite_alpha import (
     _core_tickers_for_config,
@@ -132,6 +132,9 @@ def test_execution_costs_sane():
     assert px > 100  # buying costs more than mid
     assert commission(100) > 0
     assert capacity_warning(100_000, 1_000_000) is True
+    assert sqrt_impact_bps(float("nan"), 1_000_000) == 0.0
+    assert sqrt_impact_bps(1_000, float("inf")) == 0.0
+    assert sqrt_impact_bps(1_000, 0) == 0.0
 
 
 def _price_from_returns(values, start="2024-01-01"):

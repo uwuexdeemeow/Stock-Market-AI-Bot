@@ -23,6 +23,15 @@ import pandas as pd
 from settings import COMMISSION_PER_SHARE, SLIPPAGE_BASE_PCT
 
 
+def _finite_float(value: float) -> float | None:
+    """Convert a value to a normal finite float, or None when it is unusable."""
+    try:
+        out = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return out if math.isfinite(out) else None
+
+
 def bid_ask_spread_cost(
     mid: float,
     spread_bps: float = 5.0,
@@ -45,9 +54,14 @@ def bid_ask_spread_cost(
 def sqrt_impact_bps(order_shares: float, adv_shares: float, k: float = 10.0) -> float:
     """Almgren-style square-root market impact in basis points.
     adv_shares = average daily volume. k=10 is a conservative retail default."""
-    if adv_shares <= 0:
+    order_val = _finite_float(order_shares)
+    adv_val = _finite_float(adv_shares)
+    k_val = _finite_float(k)
+    if order_val is None or adv_val is None or k_val is None:
         return 0.0
-    return float(k * math.sqrt(max(order_shares, 0) / adv_shares) * 100)
+    if adv_val <= 0 or order_val <= 0 or k_val < 0:
+        return 0.0
+    return float(k_val * math.sqrt(order_val / adv_val) * 100)
 
 
 def realistic_fill_price(
