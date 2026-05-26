@@ -311,32 +311,31 @@ class TestFactorFreshness:
 
     def test_fresh_data_passes(self):
         """Data from today should be fresh"""
-        today = pd.Timestamp.now().normalize().strftime("%Y-%m-%d")
-        result = check_factor_freshness(self._panel_with_date(today))
+        now = datetime(2024, 6, 19, 22, 0, tzinfo=timezone.utc)
+        result = check_factor_freshness(self._panel_with_date("2024-06-18"), now=now)
         assert result["fresh"] is True
         assert result["blocked"] is False
 
     def test_warn_zone_not_blocked(self):
         """Data 7 trading days old: warn but don't block"""
-        # Go back ~10 calendar days to get ~7 trading days
-        old_date = (pd.Timestamp.now().normalize() - pd.tseries.offsets.BDay(7)).strftime("%Y-%m-%d")
-        result = check_factor_freshness(self._panel_with_date(old_date), warn_days=5, block_days=10)
+        now = datetime(2024, 6, 28, 22, 0, tzinfo=timezone.utc)
+        result = check_factor_freshness(self._panel_with_date("2024-06-18"), warn_days=5, block_days=10, now=now)
         assert result["fresh"] is False
         assert result["blocked"] is False
         assert "WARNING" in result["message"]
 
     def test_block_zone_blocks(self):
         """Data 15 trading days old: block signal generation"""
-        old_date = (pd.Timestamp.now().normalize() - pd.tseries.offsets.BDay(15)).strftime("%Y-%m-%d")
-        result = check_factor_freshness(self._panel_with_date(old_date), warn_days=5, block_days=10)
+        now = datetime(2024, 6, 28, 22, 0, tzinfo=timezone.utc)
+        result = check_factor_freshness(self._panel_with_date("2024-06-07"), warn_days=5, block_days=10, now=now)
         assert result["blocked"] is True
         assert "BLOCKED" in result["message"]
 
     def test_ignore_stale_overrides_block(self):
         """--ignore-stale flag should override the block"""
-        old_date = (pd.Timestamp.now().normalize() - pd.tseries.offsets.BDay(15)).strftime("%Y-%m-%d")
+        now = datetime(2024, 6, 28, 22, 0, tzinfo=timezone.utc)
         result = check_factor_freshness(
-            self._panel_with_date(old_date), warn_days=5, block_days=10, ignore_stale=True
+            self._panel_with_date("2024-06-07"), warn_days=5, block_days=10, ignore_stale=True, now=now
         )
         assert result["blocked"] is False
         assert "OVERRIDE" in result["message"]
