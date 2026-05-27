@@ -19,6 +19,7 @@ import gc
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from copy import deepcopy
 from typing import Any
 
 import numpy as np
@@ -36,6 +37,32 @@ configure_console_output()
 DEFAULT_BASELINE_PREFIX = "wf_fixed_config_baseline"
 DEFAULT_REPLAY_PREFIX = "wf_candidate_selector_replay"
 MAX_REPLAY_INNER_FOLDS = 5
+
+
+def _apply_concentration_overlay_signature(config: dict, conc_ov: str | None) -> dict:
+    """Attach concentration-overlay fields parsed from a config signature."""
+    if not conc_ov:
+        return config
+    if ":" not in conc_ov or "-" not in conc_ov:
+        raise ValueError(f"conc_ov must look like mode:low-high, got {conc_ov!r}")
+    mode, gross_range = str(conc_ov).split(":", 1)
+    low, high = gross_range.split("-", 1)
+    out = deepcopy(config)
+    overlay = {
+        "concentration_overlay_mode": str(mode),
+        "concentration_overlay_low_gross": float(low),
+        "concentration_overlay_high_gross": float(high),
+        "concentration_overlay_threshold": float(
+            nested.STABLE_GRID_CONCENTRATION_OVERLAY.get("concentration_overlay_threshold", 0.05)
+        ),
+        "concentration_overlay_span": float(
+            nested.STABLE_GRID_CONCENTRATION_OVERLAY.get("concentration_overlay_span", 0.05)
+        ),
+    }
+    out.update(overlay)
+    params = out.setdefault("nested_params", {})
+    params.update(overlay)
+    return out
 
 
 def config_from_signature(signature: str, *, strategy: str = "core-alpha") -> dict:
@@ -65,6 +92,7 @@ def config_from_signature(signature: str, *, strategy: str = "core-alpha") -> di
         risk_control_modes=(str(parsed["risk"]),),
     )
     for config in configs:
+        config = _apply_concentration_overlay_signature(config, parsed.get("conc_ov"))
         if nested.config_signature(config) == str(signature):
             return config
     raise ValueError(f"Signature did not recreate an exact candidate: {signature}")

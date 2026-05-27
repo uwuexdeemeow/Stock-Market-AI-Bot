@@ -9,6 +9,9 @@ It has two modes:
 
 1. `fixed` evaluates one or more fixed config signatures on every outer test
    year.  That gives a boring baseline to compare against the yearly selector.
+   It can rebuild normal signatures and concentration-overlay signatures such
+   as `conc_ov=qqq_spy_dynamic:0.3-0.7`, so dynamic-overlay winners can be
+   validated as fixed challengers too.
 2. `replay` evaluates candidate configs on inner folds and then on the matching
    outer year.  It reports whether configs with better inner scores also rank
    better out of sample.

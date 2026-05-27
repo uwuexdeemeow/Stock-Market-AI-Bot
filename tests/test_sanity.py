@@ -939,6 +939,21 @@ def test_selector_diagnostic_rebuilds_exact_config_signature():
     assert nested_wf.config_signature(config) == signature
 
 
+def test_selector_diagnostic_rebuilds_concentration_overlay_signature():
+    signature = (
+        "h=20,ov=0.5,ma=100,vol=fixed:0.3,"
+        "score=regime_adaptive,shape=top3,weighting=sticky_score,"
+        "tqqq=0.3,risk=off,conc_ov=qqq_spy_dynamic:0.3-0.7"
+    )
+
+    config = selector_diag.config_from_signature(signature)
+
+    assert nested_wf.config_signature(config) == signature
+    assert config["concentration_overlay_mode"] == "qqq_spy_dynamic"
+    assert config["concentration_overlay_low_gross"] == 0.3
+    assert config["concentration_overlay_high_gross"] == 0.7
+
+
 def test_selector_diagnostic_fixed_summary_compounds_outer_rows():
     rows = [
         {
