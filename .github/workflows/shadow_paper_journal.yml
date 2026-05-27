@@ -95,6 +95,7 @@ jobs:
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
             signals/shadow_paper_journal.csv
+            signals/shadow_paper_equity.csv
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json
@@ -103,19 +104,21 @@ jobs:
             shadow-state-files-
             state-files-
 
-      - name: Restore prior shadow journal from signals/latest
+      - name: Restore prior shadow files from signals/latest
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest || true
           mkdir -p signals
-          tmp_journal="$(mktemp)"
-          if git show origin/signals/latest:signals/shadow_paper_journal.csv > "$tmp_journal" 2>/dev/null && [ -s "$tmp_journal" ]; then
-            mv "$tmp_journal" signals/shadow_paper_journal.csv
-            echo "Restored existing shadow journal from signals/latest."
-          else
-            rm -f "$tmp_journal" signals/shadow_paper_journal.csv
-            echo "No non-empty prior shadow journal found on signals/latest."
-          fi
+          for f in signals/shadow_paper_journal.csv signals/shadow_paper_equity.csv; do
+            tmp_file="$(mktemp)"
+            if git show "origin/signals/latest:${f}" > "$tmp_file" 2>/dev/null && [ -s "$tmp_file" ]; then
+              mv "$tmp_file" "$f"
+              echo "Restored existing ${f} from signals/latest."
+            else
+              rm -f "$tmp_file" "$f"
+              echo "No non-empty prior ${f} found on signals/latest."
+            fi
+          done
 
       - name: Create .env from secrets
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
@@ -222,6 +225,7 @@ jobs:
           name: shadow-paper-journal-${{ github.run_number }}
           path: |
             signals/shadow_paper_journal.csv
+            signals/shadow_paper_equity.csv
             signals/alpaca_daily_status.json
           retention-days: 60
 
@@ -230,17 +234,26 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if [ -f signals/shadow_paper_journal.csv ]; then
-            cp signals/shadow_paper_journal.csv /tmp/shadow_paper_journal.csv
+          tmp_shadow_dir="$(mktemp -d)"
+          for f in signals/shadow_paper_journal.csv signals/shadow_paper_equity.csv; do
+            if [ -f "$f" ]; then
+              cp "$f" "$tmp_shadow_dir/$(basename "$f")"
+            fi
+          done
+          if [ -f "$tmp_shadow_dir/shadow_paper_journal.csv" ] || [ -f "$tmp_shadow_dir/shadow_paper_equity.csv" ]; then
             git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest || true
             git checkout -B signals/latest origin/signals/latest 2>/dev/null || git checkout -B signals/latest
             mkdir -p signals
-            cp /tmp/shadow_paper_journal.csv signals/shadow_paper_journal.csv
-            git add -f signals/shadow_paper_journal.csv
+            for f in shadow_paper_journal.csv shadow_paper_equity.csv; do
+              if [ -f "$tmp_shadow_dir/$f" ]; then
+                cp "$tmp_shadow_dir/$f" "signals/$f"
+                git add -f "signals/$f"
+              fi
+            done
             git commit -m "signals: $(date -u +%Y-%m-%d) shadow paper journal #${{ github.run_number }}" || echo "No shadow journal changes to commit"
             git push origin signals/latest --force
           else
-            echo "No shadow journal file produced."
+            echo "No shadow files produced."
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -261,6 +274,7 @@ jobs:
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
             signals/shadow_paper_journal.csv
+            signals/shadow_paper_equity.csv
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json

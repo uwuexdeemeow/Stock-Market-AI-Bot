@@ -55,6 +55,11 @@ with hero_right:
 # ── Account summary ────────────────────────────────────────────────────
 summary = data.compute_account_summary()
 account_summary_card(summary)
+live_refresh = summary.get("live_refresh") or {}
+if live_refresh.get("ok"):
+    st.caption(f"Live Alpaca refresh · {live_refresh.get('refreshed_at', '')}")
+elif live_refresh.get("error"):
+    st.caption(f"Live Alpaca refresh unavailable · using cached files · {live_refresh.get('error')}")
 
 st.divider()
 
@@ -121,7 +126,6 @@ with st.expander("Data freshness · click to expand"):
     st.dataframe(data.file_status_table(), use_container_width=True, hide_index=True)
 
 st.caption(
-    "Cached for 30–60 seconds. Use **Refresh** in the sidebar to force a "
-    "reread. When the daily run completes (~9:35 AM ET) files update and "
-    "the dashboard reflects it on the next auto-refresh."
+    "Dashboard refreshes live Alpaca paper equity every 30 seconds by default. "
+    "Use the sidebar controls to change the interval or force a reread."
 )

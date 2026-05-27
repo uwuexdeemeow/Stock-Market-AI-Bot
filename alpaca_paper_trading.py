@@ -1149,6 +1149,10 @@ def main():
     print_account_status(broker)
 
     if args.status:
+        # PLAIN ENGLISH: A dashboard "status refresh" should update the files
+        # the dashboard reads, not just print numbers to the terminal.
+        snapshot_equity(broker)
+        snapshot_status(broker)
         return
 
     # ── Reconcile mode: check fill statuses of pending orders ──────────
@@ -1157,6 +1161,7 @@ def main():
         # Refresh status snapshot too — reconcile may have updated positions
         # via filled orders, and we want the signal to see the new state on
         # tomorrow's run.
+        snapshot_equity(broker)
         snapshot_status(broker)
         return
 

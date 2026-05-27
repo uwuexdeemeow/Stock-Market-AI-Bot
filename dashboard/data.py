@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import pandas as pd
@@ -60,6 +60,22 @@ FEATURE_QUALITY = SIGNALS_DIR / "feature_quality_summary.csv"
 BROKER_HEALTH = SIGNALS_DIR / "broker_health.json"
 REGIME_HEARTBEAT = SIGNALS_DIR / "monitor_heartbeat.json"
 
+def _env_int(name: str, default: int) -> int:
+    """Read an integer env var, falling back if the value is blank or invalid."""
+    try:
+        return int(os.environ.get(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
+DASHBOARD_LIVE_ALPACA = os.environ.get("DASHBOARD_LIVE_ALPACA", "1").strip().lower() not in {
+    "0",
+    "false",
+    "no",
+    "off",
+}
+DASHBOARD_LIVE_ALPACA_TTL_SECONDS = _env_int("DASHBOARD_LIVE_ALPACA_TTL_SECONDS", 30)
+
 
 # ── Helpers — graceful fallbacks for missing files ────────────────────
 def _read_json_safe(path: Path) -> dict | list | None:
@@ -90,6 +106,38 @@ def _file_age_minutes(path: Path) -> Optional[float]:
         return None
     mtime = datetime.fromtimestamp(path.stat().st_mtime)
     return (datetime.now() - mtime).total_seconds() / 60.0
+
+
+@st.cache_data(ttl=DASHBOARD_LIVE_ALPACA_TTL_SECONDS, show_spinner=False)
+def refresh_live_alpaca_snapshot() -> dict:
+    """Refresh local Alpaca snapshot files directly from the paper broker.
+
+    PLAIN ENGLISH: Most dashboard widgets read local CSV/JSON files.  This
+    helper asks Alpaca for the current paper-account equity and positions, then
+    rewrites those local files.  That makes the dashboard "live" without
+    waiting for `alpaca_paper_trading.py --reconcile`.
+    """
+    if not DASHBOARD_LIVE_ALPACA:
+        return {"ok": False, "skipped": True, "reason": "DASHBOARD_LIVE_ALPACA=0"}
+    try:
+        from alpaca_paper_trading import AlpacaBroker, snapshot_equity, snapshot_status
+
+        broker = AlpacaBroker()
+        snapshot_equity(broker)
+        snapshot_status(broker)
+        return {
+            "ok": True,
+            "refreshed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "source": "alpaca_api",
+        }
+    except Exception as exc:
+        # Never break the dashboard if credentials are missing or Alpaca is down.
+        # The callers will fall back to the most recent files on disk.
+        return {
+            "ok": False,
+            "error": str(exc),
+            "refreshed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
 
 
 # ── LIVE CONFIG (which config is currently approved for live trading) ─
@@ -152,8 +200,11 @@ def load_alpaca_status() -> dict | None:
     populate enough of the snapshot to keep the dashboard's account
     summary card from showing zeros.
     """
+    live_refresh = refresh_live_alpaca_snapshot()
     status = _read_json_safe(ALPACA_STATUS)
     if status and float(status.get("account_equity") or 0) > 0:
+        if live_refresh:
+            status["_live_refresh"] = live_refresh
         return status
 
     # ── Fallback path ───────────────────────────────────────────────
@@ -167,6 +218,8 @@ def load_alpaca_status() -> dict | None:
     if health_equity <= 0:
         # Neither source has data — return whatever (possibly empty)
         # status dict we got so the caller can decide what to display.
+        if status is not None and live_refresh:
+            status["_live_refresh"] = live_refresh
         return status
     concentration = health.get("concentration") or {}
     fallback = dict(status or {})
@@ -182,12 +235,14 @@ def load_alpaca_status() -> dict | None:
     # Mark the source so the dashboard can show a small "fallback"
     # badge if it wants to.
     fallback["_source"] = "alpaca_paper_health.json (fallback)"
+    fallback["_live_refresh"] = live_refresh
     return fallback
 
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=30)
 def load_alpaca_equity_history() -> pd.DataFrame:
     """Return the equity-over-time CSV for charting."""
+    refresh_live_alpaca_snapshot()
     df = _read_csv_safe(ALPACA_EQUITY)
     if df.empty:
         return df
@@ -398,4 +453,6 @@ def compute_account_summary() -> dict:
         "peak_equity": peak,
         "current_drawdown_pct": current_dd_pct,
         "generated_at": status.get("generated_at"),
+        "source": status.get("_source", "alpaca_daily_status.json"),
+        "live_refresh": status.get("_live_refresh"),
     }

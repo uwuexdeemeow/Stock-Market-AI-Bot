@@ -2,89 +2,89 @@
   "n_features": 24,
   "return_col": "fwd_sector_excess_5",
   "n_tickers": 147,
-  "n_dates": 4122,
-  "elapsed_seconds": 890.5,
-  "created_at": "2026-05-26T12:19:37+00:00",
+  "n_dates": 4123,
+  "elapsed_seconds": 504.1,
+  "created_at": "2026-05-27T14:45:09+00:00",
   "features": [
     {
       "feature": "factor_liquidity_dollar_vol_20d",
-      "aggregate_ic": -0.016923,
-      "aggregate_t_stat": -11.28,
-      "n_ic_days": 4113,
+      "aggregate_ic": -0.017041,
+      "aggregate_t_stat": -11.34,
+      "n_ic_days": 4114,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.012431,
-            "t_stat": -2.17,
-            "hit_rate": 0.4787,
-            "n_days": 4113
+            "ic": -0.013028,
+            "t_stat": -2.27,
+            "hit_rate": 0.4784,
+            "n_days": 4114
           },
           "XLC": {
-            "ic": -0.01651,
-            "t_stat": -3.18,
-            "hit_rate": 0.4753,
-            "n_days": 4113
+            "ic": -0.016329,
+            "t_stat": -3.16,
+            "hit_rate": 0.475,
+            "n_days": 4114
           },
           "XLE": {
-            "ic": -0.039836,
-            "t_stat": -7.18,
-            "hit_rate": 0.4632,
-            "n_days": 4113
+            "ic": -0.040775,
+            "t_stat": -7.33,
+            "hit_rate": 0.4628,
+            "n_days": 4114
           },
           "XLF": {
-            "ic": -0.004688,
-            "t_stat": -1.13,
-            "hit_rate": 0.4965,
-            "n_days": 4113
+            "ic": -0.004957,
+            "t_stat": -1.19,
+            "hit_rate": 0.4961,
+            "n_days": 4114
           },
           "XLI": {
-            "ic": -0.021438,
-            "t_stat": -4.99,
-            "hit_rate": 0.4717,
-            "n_days": 4113
+            "ic": -0.020842,
+            "t_stat": -4.85,
+            "hit_rate": 0.473,
+            "n_days": 4114
           },
           "XLK": {
-            "ic": -0.001711,
-            "t_stat": -0.37,
-            "hit_rate": 0.4841,
-            "n_days": 4113
+            "ic": -0.001508,
+            "t_stat": -0.33,
+            "hit_rate": 0.4849,
+            "n_days": 4114
           },
           "XLP": {
-            "ic": 0.010774,
-            "t_stat": 2.11,
-            "hit_rate": 0.505,
-            "n_days": 4113
+            "ic": 0.010656,
+            "t_stat": 2.09,
+            "hit_rate": 0.5046,
+            "n_days": 4114
           },
           "XLRE": {
-            "ic": -0.004571,
-            "t_stat": -0.77,
-            "hit_rate": 0.4987,
-            "n_days": 4113
+            "ic": -0.003733,
+            "t_stat": -0.63,
+            "hit_rate": 0.4995,
+            "n_days": 4114
           },
           "XLU": {
-            "ic": 0.003574,
-            "t_stat": 0.66,
-            "hit_rate": 0.5026,
-            "n_days": 4113
+            "ic": 0.003485,
+            "t_stat": 0.65,
+            "hit_rate": 0.5022,
+            "n_days": 4114
           },
           "XLV": {
-            "ic": -0.022364,
-            "t_stat": -4.86,
-            "hit_rate": 0.4598,
-            "n_days": 4113
+            "ic": -0.023106,
+            "t_stat": -5.03,
+            "hit_rate": 0.4584,
+            "n_days": 4114
           },
           "XLY": {
-            "ic": -0.003896,
-            "t_stat": -0.77,
-            "hit_rate": 0.4998,
+            "ic": -0.004183,
+            "t_stat": -0.83,
+            "hit_rate": 0.4995,
             "n_days": 4098
           }
         },
         "best_sector": "XLP",
         "worst_sector": "XLE",
-        "best_sector_ic": 0.010774,
-        "worst_sector_ic": -0.039836,
-        "sector_dispersion": 0.013487,
+        "best_sector_ic": 0.010656,
+        "worst_sector_ic": -0.040775,
+        "sector_dispersion": 0.013695,
         "sector_specific": true
       },
       "time_trend": {
@@ -93,162 +93,162 @@
             "period": 1,
             "start": "2010-01-08 00:00:00",
             "end": "2014-02-07 00:00:00",
-            "mean_ic": -0.026723,
+            "mean_ic": -0.02674,
             "n_days": 1028
           },
           {
             "period": 2,
             "start": "2014-02-10 00:00:00",
             "end": "2018-03-09 00:00:00",
-            "mean_ic": -0.024577,
+            "mean_ic": -0.024583,
             "n_days": 1028
           },
           {
             "period": 3,
             "start": "2018-03-12 00:00:00",
             "end": "2022-04-07 00:00:00",
-            "mean_ic": -0.008392,
+            "mean_ic": -0.0084,
             "n_days": 1028
           },
           {
             "period": 4,
             "start": "2022-04-08 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.00801,
-            "n_days": 1029
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.00846,
+            "n_days": 1030
           }
         ],
-        "trend_slope": 0.007232,
-        "recent_vs_full_ratio": 0.4733,
+        "trend_slope": 0.007102,
+        "recent_vs_full_ratio": 0.4964,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 20,
         "current_horizon": 5,
-        "ic_at_current": -0.016923,
-        "ic_at_optimal": -0.030491,
+        "ic_at_current": -0.017041,
+        "ic_at_optimal": -0.030434,
         "horizon_mismatch": true,
         "horizon_ics": {
-          "5": -0.016923,
-          "10": -0.023943,
-          "20": -0.030491
+          "5": -0.017041,
+          "10": -0.02393,
+          "20": -0.030434
         }
       },
       "recent_health": {
-        "recent_ic": -0.009844,
-        "full_ic": -0.016923,
-        "recent_t_stat": -1.33,
-        "recent_vs_full_ratio": 0.5817,
+        "recent_ic": -0.010301,
+        "full_ic": -0.017041,
+        "recent_t_stat": -1.38,
+        "recent_vs_full_ratio": 0.6045,
         "decaying": false,
         "strengthening": false
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.016778,
-          "high_vol_ic": -0.01877,
-          "spread": 0.001992
+          "low_vol_ic": -0.019094,
+          "high_vol_ic": -0.020943,
+          "spread": 0.001849
         },
         "yield_curve": {
-          "normal_ic": -0.018905,
-          "inverted_ic": -0.005631,
-          "spread": 0.013274
+          "normal_ic": -0.019193,
+          "inverted_ic": -0.00613,
+          "spread": 0.013063
         },
         "earnings": {
-          "near_ic": -0.02264,
-          "far_ic": -0.010577,
-          "spread": 0.012063
+          "near_ic": -0.022626,
+          "far_ic": -0.010726,
+          "spread": 0.0119
         },
         "most_variable_condition": "yield_curve",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.017708,
-        "bear_ic": -0.014193,
-        "bull_days": 3195,
-        "bear_days": 918,
-        "regime_ratio": 0.8015,
+        "bull_ic": -0.017679,
+        "bear_ic": -0.014809,
+        "bull_days": 3200,
+        "bear_days": 914,
+        "regime_ratio": 0.8377,
         "regime_stable": false
       }
     },
     {
       "feature": "xs_rank_market_factor_liquidity_dollar_vol_20d",
-      "aggregate_ic": -0.019817,
-      "aggregate_t_stat": -13.62,
-      "n_ic_days": 4117,
+      "aggregate_ic": -0.020011,
+      "aggregate_t_stat": -13.74,
+      "n_ic_days": 4118,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.01435,
-            "t_stat": -2.53,
-            "hit_rate": 0.4775,
-            "n_days": 4117
+            "ic": -0.014584,
+            "t_stat": -2.57,
+            "hit_rate": 0.4779,
+            "n_days": 4118
           },
           "XLC": {
-            "ic": -0.014839,
-            "t_stat": -2.79,
-            "hit_rate": 0.4775,
-            "n_days": 4117
+            "ic": -0.014567,
+            "t_stat": -2.75,
+            "hit_rate": 0.4779,
+            "n_days": 4118
           },
           "XLE": {
-            "ic": -0.038616,
-            "t_stat": -7.34,
-            "hit_rate": 0.4586,
-            "n_days": 4117
+            "ic": -0.038763,
+            "t_stat": -7.37,
+            "hit_rate": 0.458,
+            "n_days": 4118
           },
           "XLF": {
-            "ic": -0.01028,
-            "t_stat": -2.5,
-            "hit_rate": 0.4899,
-            "n_days": 4117
+            "ic": -0.010695,
+            "t_stat": -2.59,
+            "hit_rate": 0.4896,
+            "n_days": 4118
           },
           "XLI": {
-            "ic": -0.023755,
-            "t_stat": -5.6,
-            "hit_rate": 0.4576,
-            "n_days": 4117
+            "ic": -0.023885,
+            "t_stat": -5.63,
+            "hit_rate": 0.4575,
+            "n_days": 4118
           },
           "XLK": {
-            "ic": -0.008818,
-            "t_stat": -1.87,
-            "hit_rate": 0.4651,
-            "n_days": 4117
+            "ic": -0.008571,
+            "t_stat": -1.82,
+            "hit_rate": 0.466,
+            "n_days": 4118
           },
           "XLP": {
-            "ic": 0.010064,
-            "t_stat": 1.95,
-            "hit_rate": 0.5123,
-            "n_days": 4117
+            "ic": 0.00987,
+            "t_stat": 1.92,
+            "hit_rate": 0.5124,
+            "n_days": 4118
           },
           "XLRE": {
-            "ic": -0.008814,
+            "ic": -0.008798,
             "t_stat": -1.54,
-            "hit_rate": 0.4834,
-            "n_days": 4117
+            "hit_rate": 0.4835,
+            "n_days": 4118
           },
           "XLU": {
-            "ic": -0.000967,
-            "t_stat": -0.18,
-            "hit_rate": 0.496,
-            "n_days": 4117
+            "ic": -0.000726,
+            "t_stat": -0.13,
+            "hit_rate": 0.4959,
+            "n_days": 4118
           },
           "XLV": {
-            "ic": -0.03041,
-            "t_stat": -6.89,
-            "hit_rate": 0.4484,
-            "n_days": 4117
+            "ic": -0.030928,
+            "t_stat": -7.01,
+            "hit_rate": 0.4473,
+            "n_days": 4118
           },
           "XLY": {
-            "ic": -0.012082,
-            "t_stat": -2.4,
-            "hit_rate": 0.4844,
+            "ic": -0.012568,
+            "t_stat": -2.5,
+            "hit_rate": 0.4842,
             "n_days": 4102
           }
         },
         "best_sector": "XLP",
         "worst_sector": "XLE",
-        "best_sector_ic": 0.010064,
-        "worst_sector_ic": -0.038616,
-        "sector_dispersion": 0.012761,
+        "best_sector_ic": 0.00987,
+        "worst_sector_ic": -0.038763,
+        "sector_dispersion": 0.01284,
         "sector_specific": true
       },
       "time_trend": {
@@ -257,162 +257,162 @@
             "period": 1,
             "start": "2010-01-04 00:00:00",
             "end": "2014-02-04 00:00:00",
-            "mean_ic": -0.026775,
+            "mean_ic": -0.026781,
             "n_days": 1029
           },
           {
             "period": 2,
             "start": "2014-02-05 00:00:00",
             "end": "2018-03-07 00:00:00",
-            "mean_ic": -0.027518,
+            "mean_ic": -0.027506,
             "n_days": 1029
           },
           {
             "period": 3,
             "start": "2018-03-08 00:00:00",
             "end": "2022-04-06 00:00:00",
-            "mean_ic": -0.012975,
+            "mean_ic": -0.01298,
             "n_days": 1029
           },
           {
             "period": 4,
             "start": "2022-04-07 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.01201,
-            "n_days": 1030
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.012791,
+            "n_days": 1031
           }
         ],
-        "trend_slope": 0.005884,
-        "recent_vs_full_ratio": 0.606,
+        "trend_slope": 0.00565,
+        "recent_vs_full_ratio": 0.6392,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 20,
         "current_horizon": 5,
-        "ic_at_current": -0.019817,
-        "ic_at_optimal": -0.036134,
+        "ic_at_current": -0.020011,
+        "ic_at_optimal": -0.036247,
         "horizon_mismatch": true,
         "horizon_ics": {
-          "5": -0.019817,
-          "10": -0.027992,
-          "20": -0.036134
+          "5": -0.020011,
+          "10": -0.028072,
+          "20": -0.036247
         }
       },
       "recent_health": {
-        "recent_ic": -0.019024,
-        "full_ic": -0.019817,
-        "recent_t_stat": -2.74,
-        "recent_vs_full_ratio": 0.9599,
+        "recent_ic": -0.019548,
+        "full_ic": -0.020011,
+        "recent_t_stat": -2.79,
+        "recent_vs_full_ratio": 0.9769,
         "decaying": false,
         "strengthening": false
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.020919,
-          "high_vol_ic": -0.019923,
-          "spread": 0.000997
+          "low_vol_ic": -0.022852,
+          "high_vol_ic": -0.021772,
+          "spread": 0.00108
         },
         "yield_curve": {
-          "normal_ic": -0.021413,
-          "inverted_ic": -0.010712,
-          "spread": 0.010701
+          "normal_ic": -0.021586,
+          "inverted_ic": -0.011347,
+          "spread": 0.010239
         },
         "earnings": {
-          "near_ic": -0.02264,
-          "far_ic": -0.013892,
-          "spread": 0.008748
+          "near_ic": -0.022626,
+          "far_ic": -0.014152,
+          "spread": 0.008474
         },
         "most_variable_condition": "yield_curve",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.020691,
-        "bear_ic": -0.016791,
-        "bull_days": 3195,
-        "bear_days": 922,
-        "regime_ratio": 0.8115,
+        "bull_ic": -0.020663,
+        "bear_ic": -0.017737,
+        "bull_days": 3200,
+        "bear_days": 918,
+        "regime_ratio": 0.8584,
         "regime_stable": false
       }
     },
     {
       "feature": "xs_rank_market_factor_illiquidity_amihud_20d",
-      "aggregate_ic": 0.019644,
-      "aggregate_t_stat": 10.8,
-      "n_ic_days": 4117,
+      "aggregate_ic": 0.019673,
+      "aggregate_t_stat": 10.82,
+      "n_ic_days": 4118,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": 0.002297,
-            "t_stat": 0.41,
-            "hit_rate": 0.495,
-            "n_days": 4117
+            "ic": 0.00215,
+            "t_stat": 0.38,
+            "hit_rate": 0.4951,
+            "n_days": 4118
           },
           "XLC": {
-            "ic": 0.01583,
-            "t_stat": 2.88,
-            "hit_rate": 0.5271,
-            "n_days": 4117
+            "ic": 0.016134,
+            "t_stat": 2.93,
+            "hit_rate": 0.5274,
+            "n_days": 4118
           },
           "XLE": {
-            "ic": 0.047445,
-            "t_stat": 8.23,
-            "hit_rate": 0.5414,
-            "n_days": 4117
+            "ic": 0.047173,
+            "t_stat": 8.19,
+            "hit_rate": 0.541,
+            "n_days": 4118
           },
           "XLF": {
-            "ic": 0.016786,
-            "t_stat": 4.28,
-            "hit_rate": 0.5183,
-            "n_days": 4117
+            "ic": 0.016845,
+            "t_stat": 4.29,
+            "hit_rate": 0.5182,
+            "n_days": 4118
           },
           "XLI": {
-            "ic": 0.028628,
-            "t_stat": 6.33,
-            "hit_rate": 0.5307,
-            "n_days": 4117
+            "ic": 0.0288,
+            "t_stat": 6.37,
+            "hit_rate": 0.5311,
+            "n_days": 4118
           },
           "XLK": {
-            "ic": 0.01021,
-            "t_stat": 2.07,
-            "hit_rate": 0.5217,
-            "n_days": 4117
+            "ic": 0.009637,
+            "t_stat": 1.95,
+            "hit_rate": 0.5209,
+            "n_days": 4118
           },
           "XLP": {
-            "ic": -0.007893,
+            "ic": -0.007887,
             "t_stat": -1.51,
-            "hit_rate": 0.4909,
-            "n_days": 4117
+            "hit_rate": 0.4917,
+            "n_days": 4118
           },
           "XLRE": {
-            "ic": 0.004511,
-            "t_stat": 0.79,
-            "hit_rate": 0.4996,
-            "n_days": 4117
+            "ic": 0.005439,
+            "t_stat": 0.95,
+            "hit_rate": 0.5007,
+            "n_days": 4118
           },
           "XLU": {
-            "ic": 0.009506,
-            "t_stat": 1.71,
-            "hit_rate": 0.5123,
-            "n_days": 4117
+            "ic": 0.009549,
+            "t_stat": 1.72,
+            "hit_rate": 0.5134,
+            "n_days": 4118
           },
           "XLV": {
-            "ic": 0.033723,
-            "t_stat": 7.37,
-            "hit_rate": 0.5497,
-            "n_days": 4117
+            "ic": 0.033922,
+            "t_stat": 7.42,
+            "hit_rate": 0.5495,
+            "n_days": 4118
           },
           "XLY": {
-            "ic": 0.015467,
-            "t_stat": 3.13,
+            "ic": 0.015583,
+            "t_stat": 3.15,
             "hit_rate": 0.5193,
             "n_days": 4102
           }
         },
         "best_sector": "XLE",
         "worst_sector": "XLP",
-        "best_sector_ic": 0.047445,
-        "worst_sector_ic": -0.007893,
-        "sector_dispersion": 0.014862,
+        "best_sector_ic": 0.047173,
+        "worst_sector_ic": -0.007887,
+        "sector_dispersion": 0.014813,
         "sector_specific": true
       },
       "time_trend": {
@@ -421,162 +421,162 @@
             "period": 1,
             "start": "2010-01-04 00:00:00",
             "end": "2014-02-04 00:00:00",
-            "mean_ic": 0.027403,
+            "mean_ic": 0.027419,
             "n_days": 1029
           },
           {
             "period": 2,
             "start": "2014-02-05 00:00:00",
             "end": "2018-03-07 00:00:00",
-            "mean_ic": 0.025212,
+            "mean_ic": 0.025207,
             "n_days": 1029
           },
           {
             "period": 3,
             "start": "2018-03-08 00:00:00",
             "end": "2022-04-06 00:00:00",
-            "mean_ic": 0.011068,
+            "mean_ic": 0.011053,
             "n_days": 1029
           },
           {
             "period": 4,
             "start": "2022-04-07 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": 0.014899,
-            "n_days": 1030
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": 0.015022,
+            "n_days": 1031
           }
         ],
-        "trend_slope": -0.005166,
-        "recent_vs_full_ratio": 0.7584,
+        "trend_slope": -0.005134,
+        "recent_vs_full_ratio": 0.7636,
         "trending_down": true
       },
       "holding_period": {
         "optimal_horizon": 20,
         "current_horizon": 5,
-        "ic_at_current": 0.019644,
-        "ic_at_optimal": 0.038198,
+        "ic_at_current": 0.019673,
+        "ic_at_optimal": 0.038121,
         "horizon_mismatch": true,
         "horizon_ics": {
-          "5": 0.019644,
-          "10": 0.028595,
-          "20": 0.038198
+          "5": 0.019673,
+          "10": 0.028544,
+          "20": 0.038121
         }
       },
       "recent_health": {
-        "recent_ic": 0.030016,
-        "full_ic": 0.019644,
-        "recent_t_stat": 3.3,
-        "recent_vs_full_ratio": 1.528,
+        "recent_ic": 0.032198,
+        "full_ic": 0.019673,
+        "recent_t_stat": 3.48,
+        "recent_vs_full_ratio": 1.6367,
         "decaying": false,
         "strengthening": true
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": 0.018394,
-          "high_vol_ic": 0.020578,
-          "spread": 0.002184
+          "low_vol_ic": 0.019576,
+          "high_vol_ic": 0.02197,
+          "spread": 0.002394
         },
         "yield_curve": {
-          "normal_ic": 0.021607,
-          "inverted_ic": 0.008448,
-          "spread": 0.013159
+          "normal_ic": 0.021577,
+          "inverted_ic": 0.00837,
+          "spread": 0.013207
         },
         "earnings": {
-          "near_ic": 0.042284,
-          "far_ic": 0.013135,
-          "spread": 0.029149
+          "near_ic": 0.042276,
+          "far_ic": 0.013203,
+          "spread": 0.029074
         },
         "most_variable_condition": "earnings",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": 0.018552,
-        "bear_ic": 0.023431,
-        "bull_days": 3195,
-        "bear_days": 922,
-        "regime_ratio": 1.263,
+        "bull_ic": 0.01852,
+        "bear_ic": 0.023691,
+        "bull_days": 3200,
+        "bear_days": 918,
+        "regime_ratio": 1.2792,
         "regime_stable": true
       }
     },
     {
       "feature": "factor_illiquidity_amihud_20d",
-      "aggregate_ic": 0.016295,
-      "aggregate_t_stat": 9.06,
-      "n_ic_days": 4112,
+      "aggregate_ic": 0.016372,
+      "aggregate_t_stat": 9.1,
+      "n_ic_days": 4113,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": 0.002131,
-            "t_stat": 0.37,
-            "hit_rate": 0.4934,
-            "n_days": 4112
+            "ic": 0.002022,
+            "t_stat": 0.35,
+            "hit_rate": 0.4933,
+            "n_days": 4113
           },
           "XLC": {
-            "ic": 0.01071,
-            "t_stat": 2.03,
-            "hit_rate": 0.5209,
-            "n_days": 4112
+            "ic": 0.011134,
+            "t_stat": 2.11,
+            "hit_rate": 0.521,
+            "n_days": 4113
           },
           "XLE": {
-            "ic": 0.047756,
+            "ic": 0.047769,
             "t_stat": 8.15,
-            "hit_rate": 0.546,
-            "n_days": 4112
+            "hit_rate": 0.5463,
+            "n_days": 4113
           },
           "XLF": {
-            "ic": 0.009641,
-            "t_stat": 2.43,
-            "hit_rate": 0.5041,
-            "n_days": 4112
+            "ic": 0.009827,
+            "t_stat": 2.48,
+            "hit_rate": 0.504,
+            "n_days": 4113
           },
           "XLI": {
-            "ic": 0.024799,
-            "t_stat": 5.64,
-            "hit_rate": 0.5377,
-            "n_days": 4112
+            "ic": 0.024889,
+            "t_stat": 5.66,
+            "hit_rate": 0.5376,
+            "n_days": 4113
           },
           "XLK": {
-            "ic": 0.007107,
+            "ic": 0.007108,
             "t_stat": 1.51,
-            "hit_rate": 0.5229,
-            "n_days": 4112
+            "hit_rate": 0.5227,
+            "n_days": 4113
           },
           "XLP": {
-            "ic": -0.010028,
-            "t_stat": -1.94,
-            "hit_rate": 0.4857,
-            "n_days": 4112
+            "ic": -0.009945,
+            "t_stat": -1.92,
+            "hit_rate": 0.4858,
+            "n_days": 4113
           },
           "XLRE": {
-            "ic": -0.001512,
-            "t_stat": -0.25,
-            "hit_rate": 0.4925,
-            "n_days": 4112
+            "ic": -0.000927,
+            "t_stat": -0.15,
+            "hit_rate": 0.4931,
+            "n_days": 4113
           },
           "XLU": {
-            "ic": 0.00175,
-            "t_stat": 0.32,
-            "hit_rate": 0.5024,
-            "n_days": 4112
+            "ic": 0.001906,
+            "t_stat": 0.35,
+            "hit_rate": 0.5018,
+            "n_days": 4113
           },
           "XLV": {
-            "ic": 0.024617,
-            "t_stat": 5.18,
-            "hit_rate": 0.5394,
-            "n_days": 4112
+            "ic": 0.024639,
+            "t_stat": 5.19,
+            "hit_rate": 0.5393,
+            "n_days": 4113
           },
           "XLY": {
-            "ic": 0.00508,
-            "t_stat": 1.02,
+            "ic": 0.005151,
+            "t_stat": 1.04,
             "hit_rate": 0.5018,
             "n_days": 4097
           }
         },
         "best_sector": "XLE",
         "worst_sector": "XLP",
-        "best_sector_ic": 0.047756,
-        "worst_sector_ic": -0.010028,
-        "sector_dispersion": 0.015201,
+        "best_sector_ic": 0.047769,
+        "worst_sector_ic": -0.009945,
+        "sector_dispersion": 0.015152,
         "sector_specific": true
       },
       "time_trend": {
@@ -585,162 +585,162 @@
             "period": 1,
             "start": "2010-01-11 00:00:00",
             "end": "2014-02-10 00:00:00",
-            "mean_ic": 0.026549,
+            "mean_ic": 0.026556,
             "n_days": 1028
           },
           {
             "period": 2,
             "start": "2014-02-11 00:00:00",
             "end": "2018-03-12 00:00:00",
-            "mean_ic": 0.022562,
+            "mean_ic": 0.022546,
             "n_days": 1028
           },
           {
             "period": 3,
             "start": "2018-03-13 00:00:00",
             "end": "2022-04-08 00:00:00",
-            "mean_ic": 0.006758,
+            "mean_ic": 0.006765,
             "n_days": 1028
           },
           {
             "period": 4,
             "start": "2022-04-11 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": 0.009312,
-            "n_days": 1028
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": 0.009626,
+            "n_days": 1029
           }
         ],
-        "trend_slope": -0.006751,
-        "recent_vs_full_ratio": 0.5715,
+        "trend_slope": -0.006657,
+        "recent_vs_full_ratio": 0.588,
         "trending_down": true
       },
       "holding_period": {
         "optimal_horizon": 20,
         "current_horizon": 5,
-        "ic_at_current": 0.016295,
-        "ic_at_optimal": 0.031599,
+        "ic_at_current": 0.016372,
+        "ic_at_optimal": 0.031619,
         "horizon_mismatch": true,
         "horizon_ics": {
-          "5": 0.016295,
-          "10": 0.024132,
-          "20": 0.031599
+          "5": 0.016372,
+          "10": 0.024193,
+          "20": 0.031619
         }
       },
       "recent_health": {
-        "recent_ic": 0.019067,
-        "full_ic": 0.016295,
-        "recent_t_stat": 2.12,
-        "recent_vs_full_ratio": 1.1701,
+        "recent_ic": 0.021183,
+        "full_ic": 0.016372,
+        "recent_t_stat": 2.31,
+        "recent_vs_full_ratio": 1.2939,
         "decaying": false,
         "strengthening": false
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": 0.014397,
-          "high_vol_ic": 0.018644,
-          "spread": 0.004247
+          "low_vol_ic": 0.015558,
+          "high_vol_ic": 0.020419,
+          "spread": 0.004862
         },
         "yield_curve": {
-          "normal_ic": 0.018565,
-          "inverted_ic": 0.003368,
-          "spread": 0.015196
+          "normal_ic": 0.018743,
+          "inverted_ic": 0.003511,
+          "spread": 0.015232
         },
         "earnings": {
-          "near_ic": 0.042284,
-          "far_ic": 0.009421,
-          "spread": 0.032864
+          "near_ic": 0.042276,
+          "far_ic": 0.009494,
+          "spread": 0.032782
         },
         "most_variable_condition": "earnings",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": 0.015582,
-        "bear_ic": 0.018782,
-        "bull_days": 3195,
-        "bear_days": 917,
-        "regime_ratio": 1.2054,
+        "bull_ic": 0.015542,
+        "bear_ic": 0.019281,
+        "bull_days": 3200,
+        "bear_days": 913,
+        "regime_ratio": 1.2406,
         "regime_stable": true
       }
     },
     {
       "feature": "dist_ma5",
-      "aggregate_ic": -0.01553,
-      "aggregate_t_stat": -7.91,
-      "n_ic_days": 4113,
+      "aggregate_ic": -0.015563,
+      "aggregate_t_stat": -7.92,
+      "n_ic_days": 4114,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.006902,
-            "t_stat": -1.14,
-            "hit_rate": 0.4957,
-            "n_days": 4113
+            "ic": -0.007254,
+            "t_stat": -1.2,
+            "hit_rate": 0.4954,
+            "n_days": 4114
           },
           "XLC": {
-            "ic": -0.030786,
-            "t_stat": -5.21,
-            "hit_rate": 0.461,
-            "n_days": 4113
+            "ic": -0.030728,
+            "t_stat": -5.2,
+            "hit_rate": 0.4609,
+            "n_days": 4114
           },
           "XLE": {
-            "ic": -0.001106,
-            "t_stat": -0.18,
-            "hit_rate": 0.4955,
-            "n_days": 4113
+            "ic": -0.001372,
+            "t_stat": -0.23,
+            "hit_rate": 0.4956,
+            "n_days": 4114
           },
           "XLF": {
-            "ic": -0.006728,
-            "t_stat": -1.33,
-            "hit_rate": 0.4858,
-            "n_days": 4113
+            "ic": -0.007091,
+            "t_stat": -1.4,
+            "hit_rate": 0.4854,
+            "n_days": 4114
           },
           "XLI": {
-            "ic": -0.021182,
-            "t_stat": -4.35,
-            "hit_rate": 0.4729,
-            "n_days": 4113
+            "ic": -0.020829,
+            "t_stat": -4.27,
+            "hit_rate": 0.4735,
+            "n_days": 4114
           },
           "XLK": {
-            "ic": -0.020413,
-            "t_stat": -4.33,
-            "hit_rate": 0.4743,
-            "n_days": 4113
+            "ic": -0.020399,
+            "t_stat": -4.32,
+            "hit_rate": 0.4747,
+            "n_days": 4114
           },
           "XLP": {
-            "ic": -0.016731,
-            "t_stat": -3.21,
-            "hit_rate": 0.4795,
-            "n_days": 4113
+            "ic": -0.016991,
+            "t_stat": -3.26,
+            "hit_rate": 0.4793,
+            "n_days": 4114
           },
           "XLRE": {
-            "ic": -0.019411,
-            "t_stat": -3.22,
-            "hit_rate": 0.4865,
-            "n_days": 4113
+            "ic": -0.01873,
+            "t_stat": -3.1,
+            "hit_rate": 0.4874,
+            "n_days": 4114
           },
           "XLU": {
-            "ic": -0.042459,
-            "t_stat": -7.6,
-            "hit_rate": 0.459,
-            "n_days": 4113
+            "ic": -0.042227,
+            "t_stat": -7.55,
+            "hit_rate": 0.4587,
+            "n_days": 4114
           },
           "XLV": {
-            "ic": -0.020692,
-            "t_stat": -4.61,
-            "hit_rate": 0.477,
-            "n_days": 4113
+            "ic": -0.020575,
+            "t_stat": -4.58,
+            "hit_rate": 0.4772,
+            "n_days": 4114
           },
           "XLY": {
-            "ic": -0.016098,
-            "t_stat": -3.21,
+            "ic": -0.01602,
+            "t_stat": -3.19,
             "hit_rate": 0.4732,
             "n_days": 4098
           }
         },
         "best_sector": "XLE",
         "worst_sector": "XLU",
-        "best_sector_ic": -0.001106,
-        "worst_sector_ic": -0.042459,
-        "sector_dispersion": 0.010979,
+        "best_sector_ic": -0.001372,
+        "worst_sector_ic": -0.042227,
+        "sector_dispersion": 0.010805,
         "sector_specific": true
       },
       "time_trend": {
@@ -749,152 +749,152 @@
             "period": 1,
             "start": "2010-01-08 00:00:00",
             "end": "2014-02-07 00:00:00",
-            "mean_ic": -0.022655,
+            "mean_ic": -0.022656,
             "n_days": 1028
           },
           {
             "period": 2,
             "start": "2014-02-10 00:00:00",
             "end": "2018-03-09 00:00:00",
-            "mean_ic": -0.017371,
+            "mean_ic": -0.01737,
             "n_days": 1028
           },
           {
             "period": 3,
             "start": "2018-03-12 00:00:00",
             "end": "2022-04-07 00:00:00",
-            "mean_ic": -0.012263,
+            "mean_ic": -0.012259,
             "n_days": 1028
           },
           {
             "period": 4,
             "start": "2022-04-08 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.009836,
-            "n_days": 1029
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.009978,
+            "n_days": 1030
           }
         ],
-        "trend_slope": 0.004356,
-        "recent_vs_full_ratio": 0.6334,
+        "trend_slope": 0.004314,
+        "recent_vs_full_ratio": 0.6411,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.01553,
-        "ic_at_optimal": -0.01553,
+        "ic_at_current": -0.015563,
+        "ic_at_optimal": -0.015563,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.01553,
-          "10": -0.012318,
-          "20": -0.008931
+          "5": -0.015563,
+          "10": -0.01234,
+          "20": -0.008879
         }
       },
       "recent_health": {
-        "recent_ic": -0.012807,
-        "full_ic": -0.01553,
-        "recent_t_stat": -1.0,
-        "recent_vs_full_ratio": 0.8247,
+        "recent_ic": -0.015564,
+        "full_ic": -0.015563,
+        "recent_t_stat": -1.2,
+        "recent_vs_full_ratio": 1.0001,
         "decaying": false,
         "strengthening": false
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.007188,
-          "high_vol_ic": -0.023479,
-          "spread": 0.016292
+          "low_vol_ic": -0.00683,
+          "high_vol_ic": -0.02417,
+          "spread": 0.01734
         },
         "yield_curve": {
-          "normal_ic": -0.017372,
-          "inverted_ic": -0.005032,
-          "spread": 0.012339
+          "normal_ic": -0.017105,
+          "inverted_ic": -0.005499,
+          "spread": 0.011606
         },
         "earnings": {
-          "near_ic": -0.018074,
-          "far_ic": -0.015089,
-          "spread": 0.002984
+          "near_ic": -0.018063,
+          "far_ic": -0.01512,
+          "spread": 0.002944
         },
         "most_variable_condition": "vix",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.01171,
-        "bear_ic": -0.028825,
-        "bull_days": 3195,
-        "bear_days": 918,
-        "regime_ratio": 2.4616,
+        "bull_ic": -0.011732,
+        "bear_ic": -0.028974,
+        "bull_days": 3200,
+        "bear_days": 914,
+        "regime_ratio": 2.4696,
         "regime_stable": false
       }
     },
     {
       "feature": "ret_3d",
-      "aggregate_ic": -0.014637,
-      "aggregate_t_stat": -7.42,
-      "n_ic_days": 4114,
+      "aggregate_ic": -0.014685,
+      "aggregate_t_stat": -7.44,
+      "n_ic_days": 4115,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.007129,
-            "t_stat": -1.16,
-            "hit_rate": 0.492,
-            "n_days": 4114
+            "ic": -0.00744,
+            "t_stat": -1.21,
+            "hit_rate": 0.4919,
+            "n_days": 4115
           },
           "XLC": {
-            "ic": -0.028936,
-            "t_stat": -4.88,
-            "hit_rate": 0.4662,
-            "n_days": 4114
+            "ic": -0.02867,
+            "t_stat": -4.84,
+            "hit_rate": 0.4666,
+            "n_days": 4115
           },
           "XLE": {
-            "ic": -0.002526,
-            "t_stat": -0.41,
-            "hit_rate": 0.492,
-            "n_days": 4114
+            "ic": -0.003122,
+            "t_stat": -0.51,
+            "hit_rate": 0.4919,
+            "n_days": 4115
           },
           "XLF": {
-            "ic": -0.006326,
-            "t_stat": -1.25,
-            "hit_rate": 0.4866,
-            "n_days": 4114
+            "ic": -0.006527,
+            "t_stat": -1.29,
+            "hit_rate": 0.4865,
+            "n_days": 4115
           },
           "XLI": {
-            "ic": -0.020312,
-            "t_stat": -4.17,
-            "hit_rate": 0.4665,
-            "n_days": 4114
+            "ic": -0.020226,
+            "t_stat": -4.15,
+            "hit_rate": 0.4666,
+            "n_days": 4115
           },
           "XLK": {
-            "ic": -0.019278,
-            "t_stat": -4.1,
-            "hit_rate": 0.4669,
-            "n_days": 4114
+            "ic": -0.019328,
+            "t_stat": -4.11,
+            "hit_rate": 0.4671,
+            "n_days": 4115
           },
           "XLP": {
-            "ic": -0.016608,
-            "t_stat": -3.17,
-            "hit_rate": 0.4798,
-            "n_days": 4114
+            "ic": -0.016822,
+            "t_stat": -3.2,
+            "hit_rate": 0.4795,
+            "n_days": 4115
           },
           "XLRE": {
-            "ic": -0.014433,
-            "t_stat": -2.38,
-            "hit_rate": 0.4878,
-            "n_days": 4114
+            "ic": -0.013808,
+            "t_stat": -2.28,
+            "hit_rate": 0.4887,
+            "n_days": 4115
           },
           "XLU": {
-            "ic": -0.041247,
-            "t_stat": -7.36,
-            "hit_rate": 0.4543,
-            "n_days": 4114
+            "ic": -0.041399,
+            "t_stat": -7.38,
+            "hit_rate": 0.4539,
+            "n_days": 4115
           },
           "XLV": {
-            "ic": -0.020268,
+            "ic": -0.020292,
             "t_stat": -4.52,
-            "hit_rate": 0.475,
-            "n_days": 4114
+            "hit_rate": 0.4751,
+            "n_days": 4115
           },
           "XLY": {
-            "ic": -0.013336,
+            "ic": -0.01329,
             "t_stat": -2.65,
             "hit_rate": 0.4833,
             "n_days": 4099
@@ -902,9 +902,9 @@
         },
         "best_sector": "XLE",
         "worst_sector": "XLU",
-        "best_sector_ic": -0.002526,
-        "worst_sector_ic": -0.041247,
-        "sector_dispersion": 0.010433,
+        "best_sector_ic": -0.003122,
+        "worst_sector_ic": -0.041399,
+        "sector_dispersion": 0.010333,
         "sector_specific": true
       },
       "time_trend": {
@@ -913,162 +913,162 @@
             "period": 1,
             "start": "2010-01-07 00:00:00",
             "end": "2014-02-06 00:00:00",
-            "mean_ic": -0.022689,
+            "mean_ic": -0.022692,
             "n_days": 1028
           },
           {
             "period": 2,
             "start": "2014-02-07 00:00:00",
             "end": "2018-03-08 00:00:00",
-            "mean_ic": -0.014331,
+            "mean_ic": -0.014333,
             "n_days": 1028
           },
           {
             "period": 3,
             "start": "2018-03-09 00:00:00",
             "end": "2022-04-06 00:00:00",
-            "mean_ic": -0.012033,
+            "mean_ic": -0.012032,
             "n_days": 1028
           },
           {
             "period": 4,
             "start": "2022-04-07 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.009506,
-            "n_days": 1030
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.009698,
+            "n_days": 1031
           }
         ],
-        "trend_slope": 0.004185,
-        "recent_vs_full_ratio": 0.6494,
+        "trend_slope": 0.004128,
+        "recent_vs_full_ratio": 0.6604,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.014637,
-        "ic_at_optimal": -0.014637,
+        "ic_at_current": -0.014685,
+        "ic_at_optimal": -0.014685,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.014637,
-          "10": -0.011879,
-          "20": -0.008538
+          "5": -0.014685,
+          "10": -0.011887,
+          "20": -0.00846
         }
       },
       "recent_health": {
-        "recent_ic": -0.01694,
-        "full_ic": -0.014637,
-        "recent_t_stat": -1.35,
-        "recent_vs_full_ratio": 1.1574,
+        "recent_ic": -0.019278,
+        "full_ic": -0.014685,
+        "recent_t_stat": -1.51,
+        "recent_vs_full_ratio": 1.3127,
         "decaying": false,
         "strengthening": false
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.007349,
-          "high_vol_ic": -0.021572,
-          "spread": 0.014222
+          "low_vol_ic": -0.007301,
+          "high_vol_ic": -0.021953,
+          "spread": 0.014652
         },
         "yield_curve": {
-          "normal_ic": -0.016374,
-          "inverted_ic": -0.004738,
-          "spread": 0.011636
+          "normal_ic": -0.016038,
+          "inverted_ic": -0.005384,
+          "spread": 0.010653
         },
         "earnings": {
-          "near_ic": -0.015793,
-          "far_ic": -0.013987,
-          "spread": 0.001807
+          "near_ic": -0.015789,
+          "far_ic": -0.014047,
+          "spread": 0.001742
         },
         "most_variable_condition": "vix",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.010977,
-        "bear_ic": -0.027363,
-        "bull_days": 3195,
-        "bear_days": 919,
-        "regime_ratio": 2.4928,
+        "bull_ic": -0.011002,
+        "bear_ic": -0.027565,
+        "bull_days": 3200,
+        "bear_days": 915,
+        "regime_ratio": 2.5054,
         "regime_stable": false
       }
     },
     {
       "feature": "dist_ma10",
-      "aggregate_ic": -0.014863,
-      "aggregate_t_stat": -7.39,
-      "n_ic_days": 4108,
+      "aggregate_ic": -0.015029,
+      "aggregate_t_stat": -7.46,
+      "n_ic_days": 4109,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.00631,
-            "t_stat": -1.03,
-            "hit_rate": 0.4854,
-            "n_days": 4108
+            "ic": -0.007081,
+            "t_stat": -1.15,
+            "hit_rate": 0.4845,
+            "n_days": 4109
           },
           "XLC": {
-            "ic": -0.024391,
-            "t_stat": -4.16,
-            "hit_rate": 0.471,
-            "n_days": 4108
+            "ic": -0.024657,
+            "t_stat": -4.2,
+            "hit_rate": 0.4709,
+            "n_days": 4109
           },
           "XLE": {
-            "ic": -0.001756,
-            "t_stat": -0.29,
-            "hit_rate": 0.4968,
-            "n_days": 4108
+            "ic": -0.002659,
+            "t_stat": -0.43,
+            "hit_rate": 0.496,
+            "n_days": 4109
           },
           "XLF": {
-            "ic": -0.008708,
-            "t_stat": -1.68,
-            "hit_rate": 0.4893,
-            "n_days": 4108
+            "ic": -0.008902,
+            "t_stat": -1.72,
+            "hit_rate": 0.4892,
+            "n_days": 4109
           },
           "XLI": {
-            "ic": -0.007902,
-            "t_stat": -1.62,
-            "hit_rate": 0.491,
-            "n_days": 4108
+            "ic": -0.007624,
+            "t_stat": -1.57,
+            "hit_rate": 0.4911,
+            "n_days": 4109
           },
           "XLK": {
-            "ic": -0.021009,
-            "t_stat": -4.49,
-            "hit_rate": 0.4635,
-            "n_days": 4108
+            "ic": -0.021054,
+            "t_stat": -4.5,
+            "hit_rate": 0.4636,
+            "n_days": 4109
           },
           "XLP": {
-            "ic": -0.022035,
-            "t_stat": -4.21,
-            "hit_rate": 0.4657,
-            "n_days": 4108
+            "ic": -0.021791,
+            "t_stat": -4.16,
+            "hit_rate": 0.4658,
+            "n_days": 4109
           },
           "XLRE": {
-            "ic": -0.02557,
-            "t_stat": -4.28,
-            "hit_rate": 0.4744,
-            "n_days": 4108
+            "ic": -0.025545,
+            "t_stat": -4.27,
+            "hit_rate": 0.4751,
+            "n_days": 4109
           },
           "XLU": {
-            "ic": -0.04703,
-            "t_stat": -8.4,
-            "hit_rate": 0.4579,
-            "n_days": 4108
+            "ic": -0.047367,
+            "t_stat": -8.45,
+            "hit_rate": 0.4575,
+            "n_days": 4109
           },
           "XLV": {
-            "ic": -0.020739,
-            "t_stat": -4.59,
-            "hit_rate": 0.4788,
-            "n_days": 4108
+            "ic": -0.021123,
+            "t_stat": -4.67,
+            "hit_rate": 0.4785,
+            "n_days": 4109
           },
           "XLY": {
-            "ic": -0.017156,
-            "t_stat": -3.41,
-            "hit_rate": 0.4825,
+            "ic": -0.017214,
+            "t_stat": -3.42,
+            "hit_rate": 0.4823,
             "n_days": 4093
           }
         },
         "best_sector": "XLE",
         "worst_sector": "XLU",
-        "best_sector_ic": -0.001756,
-        "worst_sector_ic": -0.04703,
-        "sector_dispersion": 0.011914,
+        "best_sector_ic": -0.002659,
+        "worst_sector_ic": -0.047367,
+        "sector_dispersion": 0.011825,
         "sector_specific": true
       },
       "time_trend": {
@@ -1077,14 +1077,14 @@
             "period": 1,
             "start": "2010-01-15 00:00:00",
             "end": "2014-02-13 00:00:00",
-            "mean_ic": -0.019809,
+            "mean_ic": -0.019813,
             "n_days": 1027
           },
           {
             "period": 2,
             "start": "2014-02-14 00:00:00",
             "end": "2018-03-14 00:00:00",
-            "mean_ic": -0.016684,
+            "mean_ic": -0.016682,
             "n_days": 1027
           },
           {
@@ -1097,142 +1097,142 @@
           {
             "period": 4,
             "start": "2022-04-12 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.006702,
-            "n_days": 1027
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.007372,
+            "n_days": 1028
           }
         ],
-        "trend_slope": 0.003975,
-        "recent_vs_full_ratio": 0.4509,
+        "trend_slope": 0.003775,
+        "recent_vs_full_ratio": 0.4905,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.014863,
-        "ic_at_optimal": -0.014863,
+        "ic_at_current": -0.015029,
+        "ic_at_optimal": -0.015029,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.014863,
-          "10": -0.01305,
-          "20": -0.008905
+          "5": -0.015029,
+          "10": -0.01301,
+          "20": -0.008775
         }
       },
       "recent_health": {
-        "recent_ic": -0.016024,
-        "full_ic": -0.014863,
-        "recent_t_stat": -1.34,
-        "recent_vs_full_ratio": 1.0781,
+        "recent_ic": -0.019912,
+        "full_ic": -0.015029,
+        "recent_t_stat": -1.62,
+        "recent_vs_full_ratio": 1.3249,
         "decaying": false,
         "strengthening": false
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.002993,
-          "high_vol_ic": -0.025319,
-          "spread": 0.022326
+          "low_vol_ic": -0.003758,
+          "high_vol_ic": -0.026242,
+          "spread": 0.022484
         },
         "yield_curve": {
-          "normal_ic": -0.017822,
-          "inverted_ic": 0.001974,
-          "spread": 0.019796
+          "normal_ic": -0.017928,
+          "inverted_ic": 0.001075,
+          "spread": 0.019003
         },
         "earnings": {
-          "near_ic": -0.005314,
-          "far_ic": -0.01478,
-          "spread": 0.009466
+          "near_ic": -0.005313,
+          "far_ic": -0.014954,
+          "spread": 0.009641
         },
         "most_variable_condition": "vix",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.009784,
-        "bear_ic": -0.032637,
-        "bull_days": 3195,
-        "bear_days": 913,
-        "regime_ratio": 3.3358,
+        "bull_ic": -0.009939,
+        "bear_ic": -0.032951,
+        "bull_days": 3200,
+        "bear_days": 909,
+        "regime_ratio": 3.3154,
         "regime_stable": false
       }
     },
     {
       "feature": "ret_5d",
-      "aggregate_ic": -0.01406,
-      "aggregate_t_stat": -7.11,
-      "n_ic_days": 4112,
+      "aggregate_ic": -0.014058,
+      "aggregate_t_stat": -7.1,
+      "n_ic_days": 4113,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.00559,
-            "t_stat": -0.92,
-            "hit_rate": 0.4861,
-            "n_days": 4112
+            "ic": -0.006037,
+            "t_stat": -1.0,
+            "hit_rate": 0.4855,
+            "n_days": 4113
           },
           "XLC": {
-            "ic": -0.025298,
-            "t_stat": -4.34,
-            "hit_rate": 0.4706,
-            "n_days": 4112
+            "ic": -0.025048,
+            "t_stat": -4.3,
+            "hit_rate": 0.4712,
+            "n_days": 4113
           },
           "XLE": {
-            "ic": -0.004709,
-            "t_stat": -0.77,
-            "hit_rate": 0.4908,
-            "n_days": 4112
+            "ic": -0.00529,
+            "t_stat": -0.87,
+            "hit_rate": 0.4902,
+            "n_days": 4113
           },
           "XLF": {
-            "ic": -0.004167,
-            "t_stat": -0.81,
-            "hit_rate": 0.4961,
-            "n_days": 4112
+            "ic": -0.004369,
+            "t_stat": -0.85,
+            "hit_rate": 0.496,
+            "n_days": 4113
           },
           "XLI": {
-            "ic": -0.012638,
-            "t_stat": -2.59,
-            "hit_rate": 0.483,
-            "n_days": 4112
+            "ic": -0.012241,
+            "t_stat": -2.51,
+            "hit_rate": 0.4831,
+            "n_days": 4113
           },
           "XLK": {
-            "ic": -0.02068,
-            "t_stat": -4.41,
-            "hit_rate": 0.4677,
-            "n_days": 4112
+            "ic": -0.020662,
+            "t_stat": -4.4,
+            "hit_rate": 0.468,
+            "n_days": 4113
           },
           "XLP": {
-            "ic": -0.018511,
-            "t_stat": -3.55,
-            "hit_rate": 0.4754,
-            "n_days": 4112
+            "ic": -0.018719,
+            "t_stat": -3.59,
+            "hit_rate": 0.4748,
+            "n_days": 4113
           },
           "XLRE": {
-            "ic": -0.020737,
-            "t_stat": -3.41,
-            "hit_rate": 0.4776,
-            "n_days": 4112
+            "ic": -0.020004,
+            "t_stat": -3.29,
+            "hit_rate": 0.4782,
+            "n_days": 4113
           },
           "XLU": {
-            "ic": -0.044151,
-            "t_stat": -7.91,
-            "hit_rate": 0.4574,
-            "n_days": 4112
+            "ic": -0.043562,
+            "t_stat": -7.79,
+            "hit_rate": 0.4573,
+            "n_days": 4113
           },
           "XLV": {
-            "ic": -0.020152,
-            "t_stat": -4.52,
-            "hit_rate": 0.4837,
-            "n_days": 4112
+            "ic": -0.020023,
+            "t_stat": -4.49,
+            "hit_rate": 0.4843,
+            "n_days": 4113
           },
           "XLY": {
-            "ic": -0.014482,
+            "ic": -0.014492,
             "t_stat": -2.87,
-            "hit_rate": 0.4818,
+            "hit_rate": 0.4816,
             "n_days": 4097
           }
         },
         "best_sector": "XLF",
         "worst_sector": "XLU",
-        "best_sector_ic": -0.004167,
-        "worst_sector_ic": -0.044151,
-        "sector_dispersion": 0.010936,
+        "best_sector_ic": -0.004369,
+        "worst_sector_ic": -0.043562,
+        "sector_dispersion": 0.010658,
         "sector_specific": true
       },
       "time_trend": {
@@ -1241,7 +1241,7 @@
             "period": 1,
             "start": "2010-01-11 00:00:00",
             "end": "2014-02-10 00:00:00",
-            "mean_ic": -0.019638,
+            "mean_ic": -0.019639,
             "n_days": 1028
           },
           {
@@ -1255,148 +1255,148 @@
             "period": 3,
             "start": "2018-03-13 00:00:00",
             "end": "2022-04-08 00:00:00",
-            "mean_ic": -0.01371,
+            "mean_ic": -0.013711,
             "n_days": 1028
           },
           {
             "period": 4,
             "start": "2022-04-11 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.007376,
-            "n_days": 1028
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.007374,
+            "n_days": 1029
           }
         ],
-        "trend_slope": 0.003859,
+        "trend_slope": 0.00386,
         "recent_vs_full_ratio": 0.5246,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.01406,
-        "ic_at_optimal": -0.01406,
+        "ic_at_current": -0.014058,
+        "ic_at_optimal": -0.014058,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.01406,
-          "10": -0.011641,
-          "20": -0.008113
+          "5": -0.014058,
+          "10": -0.011534,
+          "20": -0.00795
         }
       },
       "recent_health": {
-        "recent_ic": -0.017822,
-        "full_ic": -0.01406,
-        "recent_t_stat": -1.48,
-        "recent_vs_full_ratio": 1.2676,
+        "recent_ic": -0.021283,
+        "full_ic": -0.014058,
+        "recent_t_stat": -1.72,
+        "recent_vs_full_ratio": 1.514,
         "decaying": false,
-        "strengthening": false
+        "strengthening": true
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.006869,
-          "high_vol_ic": -0.022437,
-          "spread": 0.015568
+          "low_vol_ic": -0.00676,
+          "high_vol_ic": -0.023323,
+          "spread": 0.016563
         },
         "yield_curve": {
-          "normal_ic": -0.016776,
-          "inverted_ic": 0.001414,
-          "spread": 0.01819
+          "normal_ic": -0.016686,
+          "inverted_ic": 0.000771,
+          "spread": 0.017457
         },
         "earnings": {
-          "near_ic": -0.017522,
-          "far_ic": -0.013432,
-          "spread": 0.00409
+          "near_ic": -0.017516,
+          "far_ic": -0.013412,
+          "spread": 0.004104
         },
         "most_variable_condition": "yield_curve",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.009099,
-        "bear_ic": -0.031343,
-        "bull_days": 3195,
-        "bear_days": 917,
-        "regime_ratio": 3.4445,
+        "bull_ic": -0.009209,
+        "bear_ic": -0.031054,
+        "bull_days": 3200,
+        "bear_days": 913,
+        "regime_ratio": 3.3722,
         "regime_stable": false
       }
     },
     {
       "feature": "xs_rank_market_ret_5d",
-      "aggregate_ic": -0.014076,
+      "aggregate_ic": -0.014095,
       "aggregate_t_stat": -7.15,
-      "n_ic_days": 4117,
+      "n_ic_days": 4118,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.006779,
-            "t_stat": -1.12,
-            "hit_rate": 0.4848,
-            "n_days": 4117
+            "ic": -0.007146,
+            "t_stat": -1.18,
+            "hit_rate": 0.4845,
+            "n_days": 4118
           },
           "XLC": {
-            "ic": -0.026444,
-            "t_stat": -4.55,
-            "hit_rate": 0.4681,
-            "n_days": 4117
+            "ic": -0.026278,
+            "t_stat": -4.52,
+            "hit_rate": 0.4684,
+            "n_days": 4118
           },
           "XLE": {
-            "ic": -0.004732,
-            "t_stat": -0.78,
-            "hit_rate": 0.4933,
-            "n_days": 4117
+            "ic": -0.005047,
+            "t_stat": -0.83,
+            "hit_rate": 0.4927,
+            "n_days": 4118
           },
           "XLF": {
-            "ic": -0.003487,
-            "t_stat": -0.69,
-            "hit_rate": 0.496,
-            "n_days": 4117
+            "ic": -0.003793,
+            "t_stat": -0.75,
+            "hit_rate": 0.4956,
+            "n_days": 4118
           },
           "XLI": {
-            "ic": -0.012457,
-            "t_stat": -2.55,
-            "hit_rate": 0.4851,
-            "n_days": 4117
+            "ic": -0.012284,
+            "t_stat": -2.52,
+            "hit_rate": 0.4852,
+            "n_days": 4118
           },
           "XLK": {
-            "ic": -0.021293,
-            "t_stat": -4.59,
-            "hit_rate": 0.4651,
-            "n_days": 4117
+            "ic": -0.021246,
+            "t_stat": -4.57,
+            "hit_rate": 0.4658,
+            "n_days": 4118
           },
           "XLP": {
-            "ic": -0.018224,
-            "t_stat": -3.5,
-            "hit_rate": 0.4773,
-            "n_days": 4117
+            "ic": -0.018545,
+            "t_stat": -3.55,
+            "hit_rate": 0.4764,
+            "n_days": 4118
           },
           "XLRE": {
-            "ic": -0.02151,
-            "t_stat": -3.58,
-            "hit_rate": 0.4809,
-            "n_days": 4117
+            "ic": -0.021193,
+            "t_stat": -3.52,
+            "hit_rate": 0.4813,
+            "n_days": 4118
           },
           "XLU": {
-            "ic": -0.043403,
-            "t_stat": -7.8,
-            "hit_rate": 0.4586,
-            "n_days": 4117
+            "ic": -0.042847,
+            "t_stat": -7.68,
+            "hit_rate": 0.4585,
+            "n_days": 4118
           },
           "XLV": {
-            "ic": -0.019539,
-            "t_stat": -4.38,
-            "hit_rate": 0.48,
-            "n_days": 4117
+            "ic": -0.019359,
+            "t_stat": -4.34,
+            "hit_rate": 0.4801,
+            "n_days": 4118
           },
           "XLY": {
-            "ic": -0.015217,
-            "t_stat": -3.02,
-            "hit_rate": 0.482,
+            "ic": -0.015128,
+            "t_stat": -3.01,
+            "hit_rate": 0.4822,
             "n_days": 4102
           }
         },
         "best_sector": "XLF",
         "worst_sector": "XLU",
-        "best_sector_ic": -0.003487,
-        "worst_sector_ic": -0.043403,
-        "sector_dispersion": 0.010834,
+        "best_sector_ic": -0.003793,
+        "worst_sector_ic": -0.042847,
+        "sector_dispersion": 0.010595,
         "sector_specific": true
       },
       "time_trend": {
@@ -1405,14 +1405,14 @@
             "period": 1,
             "start": "2010-01-04 00:00:00",
             "end": "2014-02-04 00:00:00",
-            "mean_ic": -0.019387,
+            "mean_ic": -0.019392,
             "n_days": 1029
           },
           {
             "period": 2,
             "start": "2014-02-05 00:00:00",
             "end": "2018-03-07 00:00:00",
-            "mean_ic": -0.015801,
+            "mean_ic": -0.015799,
             "n_days": 1029
           },
           {
@@ -1425,142 +1425,142 @@
           {
             "period": 4,
             "start": "2022-04-07 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.007589,
-            "n_days": 1030
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.007667,
+            "n_days": 1031
           }
         ],
-        "trend_slope": 0.003766,
-        "recent_vs_full_ratio": 0.5391,
+        "trend_slope": 0.003744,
+        "recent_vs_full_ratio": 0.5439,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.014076,
-        "ic_at_optimal": -0.014076,
+        "ic_at_current": -0.014095,
+        "ic_at_optimal": -0.014095,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.014076,
-          "10": -0.01157,
-          "20": -0.007911
+          "5": -0.014095,
+          "10": -0.011524,
+          "20": -0.0078
         }
       },
       "recent_health": {
-        "recent_ic": -0.017289,
-        "full_ic": -0.014076,
-        "recent_t_stat": -1.45,
-        "recent_vs_full_ratio": 1.2283,
+        "recent_ic": -0.020636,
+        "full_ic": -0.014095,
+        "recent_t_stat": -1.68,
+        "recent_vs_full_ratio": 1.464,
         "decaying": false,
         "strengthening": false
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.007074,
-          "high_vol_ic": -0.022559,
-          "spread": 0.015484
+          "low_vol_ic": -0.006969,
+          "high_vol_ic": -0.023468,
+          "spread": 0.016498
         },
         "yield_curve": {
-          "normal_ic": -0.016695,
-          "inverted_ic": 0.000863,
-          "spread": 0.017557
+          "normal_ic": -0.016623,
+          "inverted_ic": 0.000133,
+          "spread": 0.016756
         },
         "earnings": {
-          "near_ic": -0.017522,
-          "far_ic": -0.013446,
-          "spread": 0.004076
+          "near_ic": -0.017516,
+          "far_ic": -0.013467,
+          "spread": 0.004048
         },
         "most_variable_condition": "yield_curve",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.009262,
-        "bear_ic": -0.03076,
-        "bull_days": 3195,
-        "bear_days": 922,
-        "regime_ratio": 3.3212,
+        "bull_ic": -0.009372,
+        "bear_ic": -0.03056,
+        "bull_days": 3200,
+        "bear_days": 918,
+        "regime_ratio": 3.2609,
         "regime_stable": false
       }
     },
     {
       "feature": "ret_vs_spy_5d",
-      "aggregate_ic": -0.014031,
-      "aggregate_t_stat": -7.1,
-      "n_ic_days": 4112,
+      "aggregate_ic": -0.014219,
+      "aggregate_t_stat": -7.17,
+      "n_ic_days": 4113,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.005478,
-            "t_stat": -0.9,
-            "hit_rate": 0.4859,
-            "n_days": 4112
+            "ic": -0.005722,
+            "t_stat": -0.94,
+            "hit_rate": 0.4855,
+            "n_days": 4113
           },
           "XLC": {
-            "ic": -0.024825,
-            "t_stat": -4.26,
-            "hit_rate": 0.4711,
-            "n_days": 4112
+            "ic": -0.021017,
+            "t_stat": -3.3,
+            "hit_rate": 0.4683,
+            "n_days": 4113
           },
           "XLE": {
-            "ic": -0.005713,
-            "t_stat": -0.94,
-            "hit_rate": 0.49,
-            "n_days": 4112
+            "ic": -0.005775,
+            "t_stat": -0.95,
+            "hit_rate": 0.4897,
+            "n_days": 4113
           },
           "XLF": {
-            "ic": -0.003814,
-            "t_stat": -0.75,
-            "hit_rate": 0.4964,
-            "n_days": 4112
+            "ic": -0.004254,
+            "t_stat": -0.83,
+            "hit_rate": 0.4938,
+            "n_days": 4113
           },
           "XLI": {
-            "ic": -0.012362,
-            "t_stat": -2.53,
-            "hit_rate": 0.4832,
-            "n_days": 4112
+            "ic": -0.012254,
+            "t_stat": -2.51,
+            "hit_rate": 0.4831,
+            "n_days": 4113
           },
           "XLK": {
-            "ic": -0.020652,
-            "t_stat": -4.41,
-            "hit_rate": 0.4677,
-            "n_days": 4112
+            "ic": -0.020651,
+            "t_stat": -4.4,
+            "hit_rate": 0.468,
+            "n_days": 4113
           },
           "XLP": {
-            "ic": -0.018785,
-            "t_stat": -3.61,
-            "hit_rate": 0.4754,
-            "n_days": 4112
+            "ic": -0.018981,
+            "t_stat": -3.64,
+            "hit_rate": 0.4748,
+            "n_days": 4113
           },
           "XLRE": {
-            "ic": -0.02039,
-            "t_stat": -3.35,
-            "hit_rate": 0.4781,
-            "n_days": 4112
+            "ic": -0.018816,
+            "t_stat": -2.84,
+            "hit_rate": 0.4707,
+            "n_days": 4113
           },
           "XLU": {
-            "ic": -0.044374,
-            "t_stat": -7.95,
-            "hit_rate": 0.457,
-            "n_days": 4112
+            "ic": -0.043857,
+            "t_stat": -7.85,
+            "hit_rate": 0.4568,
+            "n_days": 4113
           },
           "XLV": {
-            "ic": -0.020633,
-            "t_stat": -4.63,
-            "hit_rate": 0.4832,
-            "n_days": 4112
+            "ic": -0.022224,
+            "t_stat": -4.86,
+            "hit_rate": 0.4741,
+            "n_days": 4113
           },
           "XLY": {
-            "ic": -0.014207,
-            "t_stat": -2.82,
+            "ic": -0.014171,
+            "t_stat": -2.81,
             "hit_rate": 0.4825,
             "n_days": 4097
           }
         },
         "best_sector": "XLF",
         "worst_sector": "XLU",
-        "best_sector_ic": -0.003814,
-        "worst_sector_ic": -0.044374,
-        "sector_dispersion": 0.010927,
+        "best_sector_ic": -0.004254,
+        "worst_sector_ic": -0.043857,
+        "sector_dispersion": 0.01058,
         "sector_specific": true
       },
       "time_trend": {
@@ -1569,162 +1569,162 @@
             "period": 1,
             "start": "2010-01-11 00:00:00",
             "end": "2014-02-10 00:00:00",
-            "mean_ic": -0.019619,
+            "mean_ic": -0.020596,
             "n_days": 1028
           },
           {
             "period": 2,
             "start": "2014-02-11 00:00:00",
             "end": "2018-03-12 00:00:00",
-            "mean_ic": -0.015513,
+            "mean_ic": -0.015849,
             "n_days": 1028
           },
           {
             "period": 3,
             "start": "2018-03-13 00:00:00",
             "end": "2022-04-08 00:00:00",
-            "mean_ic": -0.013711,
+            "mean_ic": -0.013383,
             "n_days": 1028
           },
           {
             "period": 4,
             "start": "2022-04-11 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.007281,
-            "n_days": 1028
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.007054,
+            "n_days": 1029
           }
         ],
-        "trend_slope": 0.003882,
-        "recent_vs_full_ratio": 0.5189,
+        "trend_slope": 0.004309,
+        "recent_vs_full_ratio": 0.4961,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.014031,
-        "ic_at_optimal": -0.014031,
+        "ic_at_current": -0.014219,
+        "ic_at_optimal": -0.014219,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.014031,
-          "10": -0.011549,
-          "20": -0.007941
+          "5": -0.014219,
+          "10": -0.011502,
+          "20": -0.00817
         }
       },
       "recent_health": {
-        "recent_ic": -0.017822,
-        "full_ic": -0.014031,
-        "recent_t_stat": -1.48,
-        "recent_vs_full_ratio": 1.2702,
+        "recent_ic": -0.021283,
+        "full_ic": -0.014219,
+        "recent_t_stat": -1.72,
+        "recent_vs_full_ratio": 1.4968,
         "decaying": false,
         "strengthening": false
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.006928,
-          "high_vol_ic": -0.022437,
-          "spread": 0.015509
+          "low_vol_ic": -0.005563,
+          "high_vol_ic": -0.024286,
+          "spread": 0.018724
         },
         "yield_curve": {
-          "normal_ic": -0.01675,
-          "inverted_ic": 0.001458,
-          "spread": 0.018208
+          "normal_ic": -0.016891,
+          "inverted_ic": 0.000772,
+          "spread": 0.017663
         },
         "earnings": {
-          "near_ic": -0.017522,
-          "far_ic": -0.01339,
-          "spread": 0.004132
+          "near_ic": -0.017516,
+          "far_ic": -0.013397,
+          "spread": 0.004119
         },
-        "most_variable_condition": "yield_curve",
+        "most_variable_condition": "vix",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.009109,
-        "bear_ic": -0.031181,
-        "bull_days": 3195,
-        "bear_days": 917,
-        "regime_ratio": 3.4232,
+        "bull_ic": -0.009292,
+        "bear_ic": -0.031488,
+        "bull_days": 3200,
+        "bear_days": 913,
+        "regime_ratio": 3.3889,
         "regime_stable": false
       }
     },
     {
       "feature": "ret_vs_qqq_5d",
-      "aggregate_ic": -0.014054,
-      "aggregate_t_stat": -7.11,
-      "n_ic_days": 4112,
+      "aggregate_ic": -0.013462,
+      "aggregate_t_stat": -6.79,
+      "n_ic_days": 4113,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.005173,
-            "t_stat": -0.85,
-            "hit_rate": 0.4864,
-            "n_days": 4112
+            "ic": -0.005562,
+            "t_stat": -0.92,
+            "hit_rate": 0.486,
+            "n_days": 4113
           },
           "XLC": {
-            "ic": -0.024598,
-            "t_stat": -4.22,
-            "hit_rate": 0.4713,
-            "n_days": 4112
+            "ic": -0.018176,
+            "t_stat": -2.62,
+            "hit_rate": 0.4683,
+            "n_days": 4113
           },
           "XLE": {
-            "ic": -0.006011,
-            "t_stat": -0.99,
-            "hit_rate": 0.4895,
-            "n_days": 4112
+            "ic": -0.005786,
+            "t_stat": -0.95,
+            "hit_rate": 0.4897,
+            "n_days": 4113
           },
           "XLF": {
-            "ic": -0.003873,
-            "t_stat": -0.76,
-            "hit_rate": 0.4961,
-            "n_days": 4112
+            "ic": -0.004581,
+            "t_stat": -0.88,
+            "hit_rate": 0.4902,
+            "n_days": 4113
           },
           "XLI": {
-            "ic": -0.012385,
-            "t_stat": -2.54,
-            "hit_rate": 0.4832,
-            "n_days": 4112
+            "ic": -0.012275,
+            "t_stat": -2.51,
+            "hit_rate": 0.4831,
+            "n_days": 4113
           },
           "XLK": {
-            "ic": -0.020595,
-            "t_stat": -4.4,
-            "hit_rate": 0.4677,
-            "n_days": 4112
+            "ic": -0.020663,
+            "t_stat": -4.41,
+            "hit_rate": 0.468,
+            "n_days": 4113
           },
           "XLP": {
-            "ic": -0.018826,
-            "t_stat": -3.61,
-            "hit_rate": 0.4754,
-            "n_days": 4112
+            "ic": -0.018909,
+            "t_stat": -3.63,
+            "hit_rate": 0.4748,
+            "n_days": 4113
           },
           "XLRE": {
-            "ic": -0.020277,
-            "t_stat": -3.33,
-            "hit_rate": 0.4781,
-            "n_days": 4112
+            "ic": -0.017154,
+            "t_stat": -2.77,
+            "hit_rate": 0.4746,
+            "n_days": 4113
           },
           "XLU": {
-            "ic": -0.04446,
-            "t_stat": -7.97,
-            "hit_rate": 0.457,
-            "n_days": 4112
+            "ic": -0.043865,
+            "t_stat": -7.85,
+            "hit_rate": 0.4568,
+            "n_days": 4113
           },
           "XLV": {
-            "ic": -0.020793,
-            "t_stat": -4.67,
-            "hit_rate": 0.483,
-            "n_days": 4112
+            "ic": -0.020531,
+            "t_stat": -4.61,
+            "hit_rate": 0.4833,
+            "n_days": 4113
           },
           "XLY": {
-            "ic": -0.014158,
-            "t_stat": -2.81,
-            "hit_rate": 0.4828,
+            "ic": -0.013361,
+            "t_stat": -2.58,
+            "hit_rate": 0.4799,
             "n_days": 4097
           }
         },
         "best_sector": "XLF",
         "worst_sector": "XLU",
-        "best_sector_ic": -0.003873,
-        "worst_sector_ic": -0.04446,
-        "sector_dispersion": 0.010929,
+        "best_sector_ic": -0.004581,
+        "worst_sector_ic": -0.043865,
+        "sector_dispersion": 0.010426,
         "sector_specific": true
       },
       "time_trend": {
@@ -1733,162 +1733,162 @@
             "period": 1,
             "start": "2010-01-11 00:00:00",
             "end": "2014-02-10 00:00:00",
-            "mean_ic": -0.019541,
+            "mean_ic": -0.01686,
             "n_days": 1028
           },
           {
             "period": 2,
             "start": "2014-02-11 00:00:00",
             "end": "2018-03-12 00:00:00",
-            "mean_ic": -0.015513,
+            "mean_ic": -0.015568,
             "n_days": 1028
           },
           {
             "period": 3,
             "start": "2018-03-13 00:00:00",
             "end": "2022-04-08 00:00:00",
-            "mean_ic": -0.013687,
+            "mean_ic": -0.013107,
             "n_days": 1028
           },
           {
             "period": 4,
             "start": "2022-04-11 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.007477,
-            "n_days": 1028
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.008319,
+            "n_days": 1029
           }
         ],
-        "trend_slope": 0.003802,
-        "recent_vs_full_ratio": 0.532,
+        "trend_slope": 0.002808,
+        "recent_vs_full_ratio": 0.618,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.014054,
-        "ic_at_optimal": -0.014054,
+        "ic_at_current": -0.013462,
+        "ic_at_optimal": -0.013462,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.014054,
-          "10": -0.011577,
-          "20": -0.007931
+          "5": -0.013462,
+          "10": -0.011155,
+          "20": -0.007516
         }
       },
       "recent_health": {
-        "recent_ic": -0.017822,
-        "full_ic": -0.014054,
-        "recent_t_stat": -1.48,
-        "recent_vs_full_ratio": 1.268,
+        "recent_ic": -0.021283,
+        "full_ic": -0.013462,
+        "recent_t_stat": -1.72,
+        "recent_vs_full_ratio": 1.5809,
         "decaying": false,
-        "strengthening": false
+        "strengthening": true
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.006946,
-          "high_vol_ic": -0.022437,
-          "spread": 0.015491
+          "low_vol_ic": -0.006885,
+          "high_vol_ic": -0.022637,
+          "spread": 0.015753
         },
         "yield_curve": {
-          "normal_ic": -0.016748,
-          "inverted_ic": 0.001289,
-          "spread": 0.018037
+          "normal_ic": -0.015788,
+          "inverted_ic": 0.000409,
+          "spread": 0.016197
         },
         "earnings": {
-          "near_ic": -0.017522,
-          "far_ic": -0.013394,
-          "spread": 0.004128
+          "near_ic": -0.017516,
+          "far_ic": -0.012652,
+          "spread": 0.004864
         },
         "most_variable_condition": "yield_curve",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.009086,
-        "bear_ic": -0.031364,
-        "bull_days": 3195,
-        "bear_days": 917,
-        "regime_ratio": 3.4518,
+        "bull_ic": -0.008546,
+        "bear_ic": -0.030694,
+        "bull_days": 3200,
+        "bear_days": 913,
+        "regime_ratio": 3.5917,
         "regime_stable": false
       }
     },
     {
       "feature": "xs_rank_sector_factor_illiquidity_amihud_20d",
-      "aggregate_ic": 0.021232,
-      "aggregate_t_stat": 10.25,
-      "n_ic_days": 4117,
+      "aggregate_ic": 0.021321,
+      "aggregate_t_stat": 10.29,
+      "n_ic_days": 4118,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": 0.002741,
-            "t_stat": 0.48,
-            "hit_rate": 0.4967,
-            "n_days": 4117
+            "ic": 0.002785,
+            "t_stat": 0.49,
+            "hit_rate": 0.4966,
+            "n_days": 4118
           },
           "XLC": {
-            "ic": 0.013202,
-            "t_stat": 2.5,
-            "hit_rate": 0.5244,
-            "n_days": 4117
+            "ic": 0.013673,
+            "t_stat": 2.59,
+            "hit_rate": 0.5255,
+            "n_days": 4118
           },
           "XLE": {
-            "ic": 0.044079,
-            "t_stat": 7.53,
-            "hit_rate": 0.5361,
-            "n_days": 4117
+            "ic": 0.044059,
+            "t_stat": 7.52,
+            "hit_rate": 0.5362,
+            "n_days": 4118
           },
           "XLF": {
-            "ic": 0.02568,
-            "t_stat": 6.41,
-            "hit_rate": 0.538,
-            "n_days": 4117
+            "ic": 0.025796,
+            "t_stat": 6.44,
+            "hit_rate": 0.5381,
+            "n_days": 4118
           },
           "XLI": {
-            "ic": 0.027859,
+            "ic": 0.027874,
             "t_stat": 6.27,
-            "hit_rate": 0.5295,
-            "n_days": 4117
+            "hit_rate": 0.5294,
+            "n_days": 4118
           },
           "XLK": {
-            "ic": 0.013508,
-            "t_stat": 2.8,
-            "hit_rate": 0.531,
-            "n_days": 4117
+            "ic": 0.013531,
+            "t_stat": 2.81,
+            "hit_rate": 0.5311,
+            "n_days": 4118
           },
           "XLP": {
-            "ic": -0.003313,
-            "t_stat": -0.63,
-            "hit_rate": 0.5033,
-            "n_days": 4117
+            "ic": -0.003444,
+            "t_stat": -0.66,
+            "hit_rate": 0.5029,
+            "n_days": 4118
           },
           "XLRE": {
-            "ic": 0.009332,
-            "t_stat": 1.81,
-            "hit_rate": 0.5157,
-            "n_days": 4117
+            "ic": 0.009811,
+            "t_stat": 1.9,
+            "hit_rate": 0.5153,
+            "n_days": 4118
           },
           "XLU": {
-            "ic": 0.008811,
-            "t_stat": 1.57,
-            "hit_rate": 0.5198,
-            "n_days": 4117
+            "ic": 0.008946,
+            "t_stat": 1.59,
+            "hit_rate": 0.5202,
+            "n_days": 4118
           },
           "XLV": {
-            "ic": 0.027361,
-            "t_stat": 5.77,
-            "hit_rate": 0.5378,
-            "n_days": 4117
+            "ic": 0.02747,
+            "t_stat": 5.79,
+            "hit_rate": 0.5384,
+            "n_days": 4118
           },
           "XLY": {
-            "ic": 0.00832,
-            "t_stat": 1.68,
-            "hit_rate": 0.5112,
+            "ic": 0.008366,
+            "t_stat": 1.69,
+            "hit_rate": 0.511,
             "n_days": 4102
           }
         },
         "best_sector": "XLE",
         "worst_sector": "XLP",
-        "best_sector_ic": 0.044079,
-        "worst_sector_ic": -0.003313,
-        "sector_dispersion": 0.013037,
+        "best_sector_ic": 0.044059,
+        "worst_sector_ic": -0.003444,
+        "sector_dispersion": 0.013023,
         "sector_specific": true
       },
       "time_trend": {
@@ -1897,152 +1897,152 @@
             "period": 1,
             "start": "2010-01-04 00:00:00",
             "end": "2014-02-04 00:00:00",
-            "mean_ic": 0.028451,
+            "mean_ic": 0.028466,
             "n_days": 1029
           },
           {
             "period": 2,
             "start": "2014-02-05 00:00:00",
             "end": "2018-03-07 00:00:00",
-            "mean_ic": 0.028481,
+            "mean_ic": 0.028472,
             "n_days": 1029
           },
           {
             "period": 3,
             "start": "2018-03-08 00:00:00",
             "end": "2022-04-06 00:00:00",
-            "mean_ic": 0.012464,
+            "mean_ic": 0.012462,
             "n_days": 1029
           },
           {
             "period": 4,
             "start": "2022-04-07 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": 0.015539,
-            "n_days": 1030
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": 0.015893,
+            "n_days": 1031
           }
         ],
-        "trend_slope": -0.005475,
-        "recent_vs_full_ratio": 0.7319,
+        "trend_slope": -0.005373,
+        "recent_vs_full_ratio": 0.7455,
         "trending_down": true
       },
       "holding_period": {
         "optimal_horizon": 20,
         "current_horizon": 5,
-        "ic_at_current": 0.021232,
-        "ic_at_optimal": 0.041235,
+        "ic_at_current": 0.021321,
+        "ic_at_optimal": 0.041225,
         "horizon_mismatch": true,
         "horizon_ics": {
-          "5": 0.021232,
-          "10": 0.030631,
-          "20": 0.041235
+          "5": 0.021321,
+          "10": 0.030616,
+          "20": 0.041225
         }
       },
       "recent_health": {
-        "recent_ic": 0.038181,
-        "full_ic": 0.021232,
-        "recent_t_stat": 3.17,
-        "recent_vs_full_ratio": 1.7983,
+        "recent_ic": 0.041789,
+        "full_ic": 0.021321,
+        "recent_t_stat": 3.38,
+        "recent_vs_full_ratio": 1.96,
         "decaying": false,
         "strengthening": true
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": 0.017617,
-          "high_vol_ic": 0.025604,
-          "spread": 0.007987
+          "low_vol_ic": 0.018102,
+          "high_vol_ic": 0.025462,
+          "spread": 0.00736
         },
         "yield_curve": {
-          "normal_ic": 0.02359,
-          "inverted_ic": 0.007779,
-          "spread": 0.015811
+          "normal_ic": 0.024031,
+          "inverted_ic": 0.009156,
+          "spread": 0.014875
         },
         "earnings": {
-          "near_ic": 0.037948,
-          "far_ic": 0.015576,
-          "spread": 0.022373
+          "near_ic": 0.037957,
+          "far_ic": 0.015678,
+          "spread": 0.022279
         },
         "most_variable_condition": "earnings",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": 0.019306,
-        "bear_ic": 0.027906,
-        "bull_days": 3195,
-        "bear_days": 922,
-        "regime_ratio": 1.4454,
+        "bull_ic": 0.019323,
+        "bear_ic": 0.028284,
+        "bull_days": 3200,
+        "bear_days": 918,
+        "regime_ratio": 1.4638,
         "regime_stable": true
       }
     },
     {
       "feature": "xs_rank_sector_ret_5d",
-      "aggregate_ic": -0.014037,
-      "aggregate_t_stat": -6.34,
-      "n_ic_days": 4117,
+      "aggregate_ic": -0.014093,
+      "aggregate_t_stat": -6.35,
+      "n_ic_days": 4118,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.006492,
-            "t_stat": -1.07,
-            "hit_rate": 0.4831,
-            "n_days": 4117
+            "ic": -0.006876,
+            "t_stat": -1.14,
+            "hit_rate": 0.4828,
+            "n_days": 4118
           },
           "XLC": {
-            "ic": -0.024852,
-            "t_stat": -4.27,
-            "hit_rate": 0.4673,
-            "n_days": 4117
+            "ic": -0.024534,
+            "t_stat": -4.21,
+            "hit_rate": 0.4677,
+            "n_days": 4118
           },
           "XLE": {
-            "ic": -0.007081,
-            "t_stat": -1.17,
-            "hit_rate": 0.488,
-            "n_days": 4117
+            "ic": -0.007713,
+            "t_stat": -1.28,
+            "hit_rate": 0.4876,
+            "n_days": 4118
           },
           "XLF": {
-            "ic": -0.003251,
-            "t_stat": -0.65,
-            "hit_rate": 0.4955,
-            "n_days": 4117
+            "ic": -0.003598,
+            "t_stat": -0.72,
+            "hit_rate": 0.4951,
+            "n_days": 4118
           },
           "XLI": {
-            "ic": -0.013375,
-            "t_stat": -2.75,
-            "hit_rate": 0.4802,
-            "n_days": 4117
+            "ic": -0.013241,
+            "t_stat": -2.72,
+            "hit_rate": 0.4801,
+            "n_days": 4118
           },
           "XLK": {
-            "ic": -0.02055,
-            "t_stat": -4.48,
-            "hit_rate": 0.4647,
-            "n_days": 4117
+            "ic": -0.020593,
+            "t_stat": -4.49,
+            "hit_rate": 0.465,
+            "n_days": 4118
           },
           "XLP": {
-            "ic": -0.016082,
-            "t_stat": -3.1,
-            "hit_rate": 0.4814,
-            "n_days": 4117
+            "ic": -0.016318,
+            "t_stat": -3.14,
+            "hit_rate": 0.4811,
+            "n_days": 4118
           },
           "XLRE": {
-            "ic": -0.018503,
-            "t_stat": -3.12,
-            "hit_rate": 0.478,
-            "n_days": 4117
+            "ic": -0.017881,
+            "t_stat": -3.01,
+            "hit_rate": 0.4789,
+            "n_days": 4118
           },
           "XLU": {
-            "ic": -0.043584,
-            "t_stat": -7.91,
-            "hit_rate": 0.4479,
-            "n_days": 4117
+            "ic": -0.043197,
+            "t_stat": -7.83,
+            "hit_rate": 0.4483,
+            "n_days": 4118
           },
           "XLV": {
-            "ic": -0.018884,
-            "t_stat": -4.22,
-            "hit_rate": 0.4829,
-            "n_days": 4117
+            "ic": -0.018765,
+            "t_stat": -4.19,
+            "hit_rate": 0.4828,
+            "n_days": 4118
           },
           "XLY": {
-            "ic": -0.011029,
+            "ic": -0.011041,
             "t_stat": -2.2,
             "hit_rate": 0.4866,
             "n_days": 4102
@@ -2050,9 +2050,9 @@
         },
         "best_sector": "XLF",
         "worst_sector": "XLU",
-        "best_sector_ic": -0.003251,
-        "worst_sector_ic": -0.043584,
-        "sector_dispersion": 0.010588,
+        "best_sector_ic": -0.003598,
+        "worst_sector_ic": -0.043197,
+        "sector_dispersion": 0.010346,
         "sector_specific": true
       },
       "time_trend": {
@@ -2061,162 +2061,162 @@
             "period": 1,
             "start": "2010-01-04 00:00:00",
             "end": "2014-02-04 00:00:00",
-            "mean_ic": -0.019826,
+            "mean_ic": -0.019832,
             "n_days": 1029
           },
           {
             "period": 2,
             "start": "2014-02-05 00:00:00",
             "end": "2018-03-07 00:00:00",
-            "mean_ic": -0.018044,
+            "mean_ic": -0.018045,
             "n_days": 1029
           },
           {
             "period": 3,
             "start": "2018-03-08 00:00:00",
             "end": "2022-04-06 00:00:00",
-            "mean_ic": -0.014874,
+            "mean_ic": -0.014873,
             "n_days": 1029
           },
           {
             "period": 4,
             "start": "2022-04-07 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.003417,
-            "n_days": 1030
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.003644,
+            "n_days": 1031
           }
         ],
-        "trend_slope": 0.00524,
-        "recent_vs_full_ratio": 0.2434,
+        "trend_slope": 0.005174,
+        "recent_vs_full_ratio": 0.2586,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.014037,
-        "ic_at_optimal": -0.014037,
+        "ic_at_current": -0.014093,
+        "ic_at_optimal": -0.014093,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.014037,
-          "10": -0.009899,
-          "20": -0.005755
+          "5": -0.014093,
+          "10": -0.009818,
+          "20": -0.005602
         }
       },
       "recent_health": {
-        "recent_ic": -0.020493,
-        "full_ic": -0.014037,
-        "recent_t_stat": -1.65,
-        "recent_vs_full_ratio": 1.4599,
+        "recent_ic": -0.024474,
+        "full_ic": -0.014093,
+        "recent_t_stat": -1.9,
+        "recent_vs_full_ratio": 1.7366,
         "decaying": false,
-        "strengthening": false
+        "strengthening": true
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.003094,
-          "high_vol_ic": -0.023785,
-          "spread": 0.02069
+          "low_vol_ic": -0.003499,
+          "high_vol_ic": -0.025405,
+          "spread": 0.021906
         },
         "yield_curve": {
-          "normal_ic": -0.017686,
-          "inverted_ic": 0.006777,
-          "spread": 0.024463
+          "normal_ic": -0.017669,
+          "inverted_ic": 0.005437,
+          "spread": 0.023106
         },
         "earnings": {
-          "near_ic": -0.015472,
-          "far_ic": -0.013646,
-          "spread": 0.001827
+          "near_ic": -0.015471,
+          "far_ic": -0.013698,
+          "spread": 0.001773
         },
         "most_variable_condition": "yield_curve",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.009294,
-        "bear_ic": -0.030476,
-        "bull_days": 3195,
-        "bear_days": 922,
-        "regime_ratio": 3.2793,
+        "bull_ic": -0.009431,
+        "bear_ic": -0.030346,
+        "bull_days": 3200,
+        "bear_days": 918,
+        "regime_ratio": 3.2176,
         "regime_stable": false
       }
     },
     {
       "feature": "ret_vs_sector_5d",
-      "aggregate_ic": -0.014764,
-      "aggregate_t_stat": -6.42,
-      "n_ic_days": 4112,
+      "aggregate_ic": -0.014743,
+      "aggregate_t_stat": -6.67,
+      "n_ic_days": 4113,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.005686,
-            "t_stat": -0.94,
-            "hit_rate": 0.4859,
-            "n_days": 4112
+            "ic": -0.006044,
+            "t_stat": -1.1,
+            "hit_rate": 0.4782,
+            "n_days": 4113
           },
           "XLC": {
-            "ic": -0.024559,
-            "t_stat": -4.22,
-            "hit_rate": 0.4713,
-            "n_days": 4112
+            "ic": -0.019674,
+            "t_stat": -3.4,
+            "hit_rate": 0.478,
+            "n_days": 4113
           },
           "XLE": {
-            "ic": -0.004781,
-            "t_stat": -0.78,
-            "hit_rate": 0.4903,
-            "n_days": 4112
+            "ic": -0.005264,
+            "t_stat": -0.86,
+            "hit_rate": 0.4897,
+            "n_days": 4113
           },
           "XLF": {
-            "ic": -0.003727,
-            "t_stat": -0.73,
-            "hit_rate": 0.4966,
-            "n_days": 4112
+            "ic": -0.004211,
+            "t_stat": -0.9,
+            "hit_rate": 0.4872,
+            "n_days": 4113
           },
           "XLI": {
-            "ic": -0.012475,
-            "t_stat": -2.56,
-            "hit_rate": 0.4832,
-            "n_days": 4112
+            "ic": -0.012458,
+            "t_stat": -2.55,
+            "hit_rate": 0.4831,
+            "n_days": 4113
           },
           "XLK": {
-            "ic": -0.020371,
-            "t_stat": -4.35,
-            "hit_rate": 0.4679,
-            "n_days": 4112
+            "ic": -0.020427,
+            "t_stat": -4.36,
+            "hit_rate": 0.4683,
+            "n_days": 4113
           },
           "XLP": {
-            "ic": -0.01856,
-            "t_stat": -3.56,
-            "hit_rate": 0.4754,
-            "n_days": 4112
+            "ic": -0.018835,
+            "t_stat": -3.61,
+            "hit_rate": 0.4748,
+            "n_days": 4113
           },
           "XLRE": {
-            "ic": -0.020611,
-            "t_stat": -3.39,
-            "hit_rate": 0.4779,
-            "n_days": 4112
+            "ic": -0.020912,
+            "t_stat": -3.59,
+            "hit_rate": 0.4739,
+            "n_days": 4113
           },
           "XLU": {
-            "ic": -0.04453,
-            "t_stat": -7.98,
-            "hit_rate": 0.4567,
-            "n_days": 4112
+            "ic": -0.043733,
+            "t_stat": -7.82,
+            "hit_rate": 0.4571,
+            "n_days": 4113
           },
           "XLV": {
-            "ic": -0.020106,
+            "ic": -0.020097,
             "t_stat": -4.51,
-            "hit_rate": 0.4844,
-            "n_days": 4112
+            "hit_rate": 0.4846,
+            "n_days": 4113
           },
           "XLY": {
-            "ic": -0.01427,
-            "t_stat": -2.83,
-            "hit_rate": 0.4823,
+            "ic": -0.012713,
+            "t_stat": -2.56,
+            "hit_rate": 0.4857,
             "n_days": 4097
           }
         },
         "best_sector": "XLF",
         "worst_sector": "XLU",
-        "best_sector_ic": -0.003727,
-        "worst_sector_ic": -0.04453,
-        "sector_dispersion": 0.011005,
+        "best_sector_ic": -0.004211,
+        "worst_sector_ic": -0.043733,
+        "sector_dispersion": 0.010538,
         "sector_specific": true
       },
       "time_trend": {
@@ -2225,162 +2225,162 @@
             "period": 1,
             "start": "2010-01-11 00:00:00",
             "end": "2014-02-10 00:00:00",
-            "mean_ic": -0.018025,
+            "mean_ic": -0.020289,
             "n_days": 1028
           },
           {
             "period": 2,
             "start": "2014-02-11 00:00:00",
             "end": "2018-03-12 00:00:00",
-            "mean_ic": -0.017954,
+            "mean_ic": -0.018401,
             "n_days": 1028
           },
           {
             "period": 3,
             "start": "2018-03-13 00:00:00",
             "end": "2022-04-08 00:00:00",
-            "mean_ic": -0.017098,
+            "mean_ic": -0.014495,
             "n_days": 1028
           },
           {
             "period": 4,
             "start": "2022-04-11 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.00598,
-            "n_days": 1028
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.005797,
+            "n_days": 1029
           }
         ],
-        "trend_slope": 0.003699,
-        "recent_vs_full_ratio": 0.405,
+        "trend_slope": 0.004738,
+        "recent_vs_full_ratio": 0.3932,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.014764,
-        "ic_at_optimal": -0.014764,
+        "ic_at_current": -0.014743,
+        "ic_at_optimal": -0.014743,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.014764,
-          "10": -0.010948,
-          "20": -0.007148
+          "5": -0.014743,
+          "10": -0.010928,
+          "20": -0.007311
         }
       },
       "recent_health": {
-        "recent_ic": -0.022956,
-        "full_ic": -0.014764,
-        "recent_t_stat": -1.58,
-        "recent_vs_full_ratio": 1.5548,
+        "recent_ic": -0.028235,
+        "full_ic": -0.014743,
+        "recent_t_stat": -1.87,
+        "recent_vs_full_ratio": 1.9151,
         "decaying": false,
         "strengthening": true
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.004184,
-          "high_vol_ic": -0.025957,
-          "spread": 0.021773
+          "low_vol_ic": -0.004998,
+          "high_vol_ic": -0.026014,
+          "spread": 0.021016
         },
         "yield_curve": {
-          "normal_ic": -0.01818,
-          "inverted_ic": 0.004693,
-          "spread": 0.022873
+          "normal_ic": -0.017832,
+          "inverted_ic": 0.004844,
+          "spread": 0.022676
         },
         "earnings": {
-          "near_ic": -0.011892,
-          "far_ic": -0.014417,
-          "spread": 0.002525
+          "near_ic": -0.011885,
+          "far_ic": -0.014326,
+          "spread": 0.002441
         },
         "most_variable_condition": "yield_curve",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.010239,
-        "bear_ic": -0.030532,
-        "bull_days": 3195,
-        "bear_days": 917,
-        "regime_ratio": 2.9821,
+        "bull_ic": -0.010237,
+        "bear_ic": -0.030539,
+        "bull_days": 3200,
+        "bear_days": 913,
+        "regime_ratio": 2.9833,
         "regime_stable": false
       }
     },
     {
       "feature": "sector_rs_slope_5d",
-      "aggregate_ic": -0.014736,
-      "aggregate_t_stat": -6.41,
-      "n_ic_days": 4112,
+      "aggregate_ic": -0.014724,
+      "aggregate_t_stat": -6.67,
+      "n_ic_days": 4113,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.005686,
-            "t_stat": -0.94,
-            "hit_rate": 0.4859,
-            "n_days": 4112
+            "ic": -0.006044,
+            "t_stat": -1.1,
+            "hit_rate": 0.4782,
+            "n_days": 4113
           },
           "XLC": {
-            "ic": -0.024401,
-            "t_stat": -4.18,
-            "hit_rate": 0.4716,
-            "n_days": 4107
+            "ic": -0.019391,
+            "t_stat": -3.35,
+            "hit_rate": 0.4785,
+            "n_days": 4113
           },
           "XLE": {
-            "ic": -0.00477,
-            "t_stat": -0.78,
-            "hit_rate": 0.4903,
-            "n_days": 4112
+            "ic": -0.005254,
+            "t_stat": -0.86,
+            "hit_rate": 0.4897,
+            "n_days": 4113
           },
           "XLF": {
-            "ic": -0.003723,
-            "t_stat": -0.73,
-            "hit_rate": 0.4966,
-            "n_days": 4112
+            "ic": -0.004208,
+            "t_stat": -0.9,
+            "hit_rate": 0.4872,
+            "n_days": 4113
           },
           "XLI": {
-            "ic": -0.012479,
-            "t_stat": -2.56,
-            "hit_rate": 0.4832,
-            "n_days": 4112
+            "ic": -0.012463,
+            "t_stat": -2.55,
+            "hit_rate": 0.4831,
+            "n_days": 4113
           },
           "XLK": {
-            "ic": -0.02036,
-            "t_stat": -4.35,
-            "hit_rate": 0.4679,
-            "n_days": 4112
+            "ic": -0.020416,
+            "t_stat": -4.36,
+            "hit_rate": 0.4683,
+            "n_days": 4113
           },
           "XLP": {
-            "ic": -0.01856,
-            "t_stat": -3.56,
-            "hit_rate": 0.4754,
-            "n_days": 4112
+            "ic": -0.018835,
+            "t_stat": -3.61,
+            "hit_rate": 0.4748,
+            "n_days": 4113
           },
           "XLRE": {
-            "ic": -0.020336,
-            "t_stat": -3.34,
-            "hit_rate": 0.4782,
-            "n_days": 4107
+            "ic": -0.02074,
+            "t_stat": -3.56,
+            "hit_rate": 0.4743,
+            "n_days": 4113
           },
           "XLU": {
-            "ic": -0.04453,
-            "t_stat": -7.98,
-            "hit_rate": 0.4567,
-            "n_days": 4112
+            "ic": -0.043733,
+            "t_stat": -7.82,
+            "hit_rate": 0.4571,
+            "n_days": 4113
           },
           "XLV": {
-            "ic": -0.020106,
+            "ic": -0.020097,
             "t_stat": -4.51,
-            "hit_rate": 0.4844,
-            "n_days": 4112
+            "hit_rate": 0.4846,
+            "n_days": 4113
           },
           "XLY": {
-            "ic": -0.014259,
-            "t_stat": -2.83,
-            "hit_rate": 0.4823,
+            "ic": -0.012706,
+            "t_stat": -2.56,
+            "hit_rate": 0.4857,
             "n_days": 4097
           }
         },
         "best_sector": "XLF",
         "worst_sector": "XLU",
-        "best_sector_ic": -0.003723,
-        "worst_sector_ic": -0.04453,
-        "sector_dispersion": 0.01099,
+        "best_sector_ic": -0.004208,
+        "worst_sector_ic": -0.043733,
+        "sector_dispersion": 0.010526,
         "sector_specific": true
       },
       "time_trend": {
@@ -2389,162 +2389,162 @@
             "period": 1,
             "start": "2010-01-11 00:00:00",
             "end": "2014-02-10 00:00:00",
-            "mean_ic": -0.018043,
+            "mean_ic": -0.020326,
             "n_days": 1028
           },
           {
             "period": 2,
             "start": "2014-02-11 00:00:00",
             "end": "2018-03-12 00:00:00",
-            "mean_ic": -0.017795,
+            "mean_ic": -0.018295,
             "n_days": 1028
           },
           {
             "period": 3,
             "start": "2018-03-13 00:00:00",
             "end": "2022-04-08 00:00:00",
-            "mean_ic": -0.017168,
+            "mean_ic": -0.014508,
             "n_days": 1028
           },
           {
             "period": 4,
             "start": "2022-04-11 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.005938,
-            "n_days": 1028
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.005775,
+            "n_days": 1029
           }
         ],
-        "trend_slope": 0.003694,
-        "recent_vs_full_ratio": 0.403,
+        "trend_slope": 0.004744,
+        "recent_vs_full_ratio": 0.3922,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.014736,
-        "ic_at_optimal": -0.014736,
+        "ic_at_current": -0.014724,
+        "ic_at_optimal": -0.014724,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.014736,
-          "10": -0.010903,
-          "20": -0.007146
+          "5": -0.014724,
+          "10": -0.010885,
+          "20": -0.007306
         }
       },
       "recent_health": {
-        "recent_ic": -0.023016,
-        "full_ic": -0.014736,
-        "recent_t_stat": -1.59,
-        "recent_vs_full_ratio": 1.5619,
+        "recent_ic": -0.028262,
+        "full_ic": -0.014724,
+        "recent_t_stat": -1.87,
+        "recent_vs_full_ratio": 1.9195,
         "decaying": false,
         "strengthening": true
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.004202,
-          "high_vol_ic": -0.025773,
-          "spread": 0.021571
+          "low_vol_ic": -0.005009,
+          "high_vol_ic": -0.025799,
+          "spread": 0.02079
         },
         "yield_curve": {
-          "normal_ic": -0.018147,
-          "inverted_ic": 0.004695,
-          "spread": 0.022841
+          "normal_ic": -0.017781,
+          "inverted_ic": 0.004832,
+          "spread": 0.022613
         },
         "earnings": {
-          "near_ic": -0.012052,
-          "far_ic": -0.014396,
-          "spread": 0.002344
+          "near_ic": -0.012046,
+          "far_ic": -0.014335,
+          "spread": 0.002289
         },
         "most_variable_condition": "yield_curve",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.010259,
-        "bear_ic": -0.030334,
-        "bull_days": 3195,
-        "bear_days": 917,
-        "regime_ratio": 2.9569,
+        "bull_ic": -0.010253,
+        "bear_ic": -0.030394,
+        "bull_days": 3200,
+        "bear_days": 913,
+        "regime_ratio": 2.9644,
         "regime_stable": false
       }
     },
     {
       "feature": "ret_1d",
-      "aggregate_ic": -0.012068,
-      "aggregate_t_stat": -6.33,
-      "n_ic_days": 4116,
+      "aggregate_ic": -0.012087,
+      "aggregate_t_stat": -6.34,
+      "n_ic_days": 4117,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.006768,
+            "ic": -0.006805,
             "t_stat": -1.11,
-            "hit_rate": 0.4917,
-            "n_days": 4116
+            "hit_rate": 0.4916,
+            "n_days": 4117
           },
           "XLC": {
-            "ic": -0.029234,
-            "t_stat": -4.93,
-            "hit_rate": 0.4699,
-            "n_days": 4116
+            "ic": -0.029454,
+            "t_stat": -4.96,
+            "hit_rate": 0.4698,
+            "n_days": 4117
           },
           "XLE": {
-            "ic": -6.2e-05,
-            "t_stat": -0.01,
-            "hit_rate": 0.4993,
-            "n_days": 4116
+            "ic": -0.00027,
+            "t_stat": -0.05,
+            "hit_rate": 0.4989,
+            "n_days": 4117
           },
           "XLF": {
-            "ic": -0.007159,
-            "t_stat": -1.45,
-            "hit_rate": 0.4854,
-            "n_days": 4116
+            "ic": -0.007386,
+            "t_stat": -1.49,
+            "hit_rate": 0.4855,
+            "n_days": 4117
           },
           "XLI": {
-            "ic": -0.017051,
-            "t_stat": -3.51,
-            "hit_rate": 0.4711,
-            "n_days": 4116
+            "ic": -0.01697,
+            "t_stat": -3.49,
+            "hit_rate": 0.4712,
+            "n_days": 4117
           },
           "XLK": {
-            "ic": -0.015896,
-            "t_stat": -3.42,
-            "hit_rate": 0.4789,
-            "n_days": 4116
+            "ic": -0.016047,
+            "t_stat": -3.46,
+            "hit_rate": 0.4787,
+            "n_days": 4117
           },
           "XLP": {
-            "ic": -0.01307,
-            "t_stat": -2.52,
-            "hit_rate": 0.4735,
-            "n_days": 4116
+            "ic": -0.013118,
+            "t_stat": -2.53,
+            "hit_rate": 0.4734,
+            "n_days": 4117
           },
           "XLRE": {
-            "ic": -0.010932,
-            "t_stat": -1.83,
-            "hit_rate": 0.4891,
-            "n_days": 4116
+            "ic": -0.010877,
+            "t_stat": -1.82,
+            "hit_rate": 0.4889,
+            "n_days": 4117
           },
           "XLU": {
-            "ic": -0.022142,
+            "ic": -0.022171,
             "t_stat": -3.99,
-            "hit_rate": 0.4716,
-            "n_days": 4116
+            "hit_rate": 0.4719,
+            "n_days": 4117
           },
           "XLV": {
-            "ic": -0.013379,
-            "t_stat": -2.97,
-            "hit_rate": 0.4871,
-            "n_days": 4116
+            "ic": -0.013147,
+            "t_stat": -2.92,
+            "hit_rate": 0.487,
+            "n_days": 4117
           },
           "XLY": {
-            "ic": -0.010834,
+            "ic": -0.010856,
             "t_stat": -2.16,
-            "hit_rate": 0.4928,
+            "hit_rate": 0.4931,
             "n_days": 4101
           }
         },
         "best_sector": "XLE",
         "worst_sector": "XLC",
-        "best_sector_ic": -6.2e-05,
-        "worst_sector_ic": -0.029234,
-        "sector_dispersion": 0.007509,
+        "best_sector_ic": -0.00027,
+        "worst_sector_ic": -0.029454,
+        "sector_dispersion": 0.007504,
         "sector_specific": true
       },
       "time_trend": {
@@ -2553,14 +2553,14 @@
             "period": 1,
             "start": "2010-01-05 00:00:00",
             "end": "2014-02-05 00:00:00",
-            "mean_ic": -0.019518,
+            "mean_ic": -0.019521,
             "n_days": 1029
           },
           {
             "period": 2,
             "start": "2014-02-06 00:00:00",
             "end": "2018-03-08 00:00:00",
-            "mean_ic": -0.012618,
+            "mean_ic": -0.012617,
             "n_days": 1029
           },
           {
@@ -2573,142 +2573,142 @@
           {
             "period": 4,
             "start": "2022-04-08 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.007318,
-            "n_days": 1029
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.007397,
+            "n_days": 1030
           }
         ],
-        "trend_slope": 0.00404,
-        "recent_vs_full_ratio": 0.6064,
+        "trend_slope": 0.004017,
+        "recent_vs_full_ratio": 0.6119,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.012068,
-        "ic_at_optimal": -0.012068,
+        "ic_at_current": -0.012087,
+        "ic_at_optimal": -0.012087,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.012068,
-          "10": -0.009253,
-          "20": -0.005778
+          "5": -0.012087,
+          "10": -0.009241,
+          "20": -0.005776
         }
       },
       "recent_health": {
-        "recent_ic": -0.011271,
-        "full_ic": -0.012068,
-        "recent_t_stat": -0.96,
-        "recent_vs_full_ratio": 0.934,
+        "recent_ic": -0.013105,
+        "full_ic": -0.012087,
+        "recent_t_stat": -1.12,
+        "recent_vs_full_ratio": 1.0842,
         "decaying": false,
         "strengthening": false
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.003085,
-          "high_vol_ic": -0.018879,
-          "spread": 0.015794
+          "low_vol_ic": -0.001888,
+          "high_vol_ic": -0.019401,
+          "spread": 0.017513
         },
         "yield_curve": {
-          "normal_ic": -0.013137,
-          "inverted_ic": -0.005972,
-          "spread": 0.007165
+          "normal_ic": -0.012794,
+          "inverted_ic": -0.006578,
+          "spread": 0.006217
         },
         "earnings": {
-          "near_ic": -0.009551,
-          "far_ic": -0.011412,
-          "spread": 0.00186
+          "near_ic": -0.009532,
+          "far_ic": -0.011439,
+          "spread": 0.001907
         },
         "most_variable_condition": "vix",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.010033,
-        "bear_ic": -0.01913,
-        "bull_days": 3195,
-        "bear_days": 921,
-        "regime_ratio": 1.9067,
+        "bull_ic": -0.010061,
+        "bear_ic": -0.019157,
+        "bull_days": 3200,
+        "bear_days": 917,
+        "regime_ratio": 1.904,
         "regime_stable": false
       }
     },
     {
       "feature": "xs_rank_sector_factor_liquidity_dollar_vol_20d",
-      "aggregate_ic": -0.018096,
-      "aggregate_t_stat": -10.66,
-      "n_ic_days": 4117,
+      "aggregate_ic": -0.018171,
+      "aggregate_t_stat": -10.71,
+      "n_ic_days": 4118,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.01306,
-            "t_stat": -2.28,
-            "hit_rate": 0.4783,
-            "n_days": 4117
+            "ic": -0.013711,
+            "t_stat": -2.39,
+            "hit_rate": 0.4781,
+            "n_days": 4118
           },
           "XLC": {
-            "ic": -0.013944,
-            "t_stat": -2.63,
-            "hit_rate": 0.4802,
-            "n_days": 4117
+            "ic": -0.013688,
+            "t_stat": -2.58,
+            "hit_rate": 0.4808,
+            "n_days": 4118
           },
           "XLE": {
-            "ic": -0.039729,
-            "t_stat": -7.38,
-            "hit_rate": 0.463,
-            "n_days": 4117
+            "ic": -0.039906,
+            "t_stat": -7.41,
+            "hit_rate": 0.4626,
+            "n_days": 4118
           },
           "XLF": {
-            "ic": -0.014063,
-            "t_stat": -3.34,
-            "hit_rate": 0.4814,
-            "n_days": 4117
+            "ic": -0.014267,
+            "t_stat": -3.39,
+            "hit_rate": 0.4811,
+            "n_days": 4118
           },
           "XLI": {
-            "ic": -0.021138,
-            "t_stat": -4.98,
-            "hit_rate": 0.4651,
-            "n_days": 4117
+            "ic": -0.021062,
+            "t_stat": -4.96,
+            "hit_rate": 0.4641,
+            "n_days": 4118
           },
           "XLK": {
-            "ic": -0.00897,
-            "t_stat": -1.94,
-            "hit_rate": 0.4664,
-            "n_days": 4117
+            "ic": -0.008716,
+            "t_stat": -1.89,
+            "hit_rate": 0.467,
+            "n_days": 4118
           },
           "XLP": {
-            "ic": 0.009615,
-            "t_stat": 1.87,
-            "hit_rate": 0.5045,
-            "n_days": 4117
+            "ic": 0.009569,
+            "t_stat": 1.86,
+            "hit_rate": 0.5046,
+            "n_days": 4118
           },
           "XLRE": {
-            "ic": -0.014603,
-            "t_stat": -2.72,
-            "hit_rate": 0.4865,
-            "n_days": 4117
+            "ic": -0.014436,
+            "t_stat": -2.69,
+            "hit_rate": 0.4871,
+            "n_days": 4118
           },
           "XLU": {
-            "ic": -0.013524,
-            "t_stat": -2.51,
-            "hit_rate": 0.4855,
-            "n_days": 4117
+            "ic": -0.013427,
+            "t_stat": -2.49,
+            "hit_rate": 0.4852,
+            "n_days": 4118
           },
           "XLV": {
-            "ic": -0.028981,
-            "t_stat": -6.33,
-            "hit_rate": 0.454,
-            "n_days": 4117
+            "ic": -0.029203,
+            "t_stat": -6.38,
+            "hit_rate": 0.4534,
+            "n_days": 4118
           },
           "XLY": {
-            "ic": -0.006046,
-            "t_stat": -1.2,
-            "hit_rate": 0.4959,
+            "ic": -0.006386,
+            "t_stat": -1.27,
+            "hit_rate": 0.4956,
             "n_days": 4102
           }
         },
         "best_sector": "XLP",
         "worst_sector": "XLE",
-        "best_sector_ic": 0.009615,
-        "worst_sector_ic": -0.039729,
-        "sector_dispersion": 0.011966,
+        "best_sector_ic": 0.009569,
+        "worst_sector_ic": -0.039906,
+        "sector_dispersion": 0.011996,
         "sector_specific": true
       },
       "time_trend": {
@@ -2717,162 +2717,162 @@
             "period": 1,
             "start": "2010-01-04 00:00:00",
             "end": "2014-02-04 00:00:00",
-            "mean_ic": -0.027564,
+            "mean_ic": -0.027556,
             "n_days": 1029
           },
           {
             "period": 2,
             "start": "2014-02-05 00:00:00",
             "end": "2018-03-07 00:00:00",
-            "mean_ic": -0.028162,
+            "mean_ic": -0.028145,
             "n_days": 1029
           },
           {
             "period": 3,
             "start": "2018-03-08 00:00:00",
             "end": "2022-04-06 00:00:00",
-            "mean_ic": -0.009688,
+            "mean_ic": -0.009679,
             "n_days": 1029
           },
           {
             "period": 4,
             "start": "2022-04-07 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.006982,
-            "n_days": 1030
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.007324,
+            "n_days": 1031
           }
         ],
-        "trend_slope": 0.008022,
-        "recent_vs_full_ratio": 0.3858,
+        "trend_slope": 0.007916,
+        "recent_vs_full_ratio": 0.4031,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 20,
         "current_horizon": 5,
-        "ic_at_current": -0.018096,
-        "ic_at_optimal": -0.034799,
+        "ic_at_current": -0.018171,
+        "ic_at_optimal": -0.034805,
         "horizon_mismatch": true,
         "horizon_ics": {
-          "5": -0.018096,
-          "10": -0.025519,
-          "20": -0.034799
+          "5": -0.018171,
+          "10": -0.025553,
+          "20": -0.034805
         }
       },
       "recent_health": {
-        "recent_ic": -0.011993,
-        "full_ic": -0.018096,
-        "recent_t_stat": -1.19,
-        "recent_vs_full_ratio": 0.6628,
+        "recent_ic": -0.012532,
+        "full_ic": -0.018171,
+        "recent_t_stat": -1.24,
+        "recent_vs_full_ratio": 0.6897,
         "decaying": false,
         "strengthening": false
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.014536,
-          "high_vol_ic": -0.021598,
-          "spread": 0.007062
+          "low_vol_ic": -0.016408,
+          "high_vol_ic": -0.023348,
+          "spread": 0.00694
         },
         "yield_curve": {
-          "normal_ic": -0.02078,
-          "inverted_ic": -0.002785,
-          "spread": 0.017996
+          "normal_ic": -0.021228,
+          "inverted_ic": -0.004636,
+          "spread": 0.016592
         },
         "earnings": {
-          "near_ic": -0.021841,
-          "far_ic": -0.012331,
-          "spread": 0.009509
+          "near_ic": -0.021847,
+          "far_ic": -0.012418,
+          "spread": 0.009428
         },
         "most_variable_condition": "yield_curve",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.018637,
-        "bear_ic": -0.016223,
-        "bull_days": 3195,
-        "bear_days": 922,
-        "regime_ratio": 0.8705,
+        "bull_ic": -0.018581,
+        "bear_ic": -0.01674,
+        "bull_days": 3200,
+        "bear_days": 918,
+        "regime_ratio": 0.9009,
         "regime_stable": false
       }
     },
     {
       "feature": "ret_vs_sector_1d",
-      "aggregate_ic": -0.012888,
-      "aggregate_t_stat": -5.84,
-      "n_ic_days": 4116,
+      "aggregate_ic": -0.012645,
+      "aggregate_t_stat": -5.91,
+      "n_ic_days": 4117,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.006586,
-            "t_stat": -1.08,
-            "hit_rate": 0.492,
-            "n_days": 4116
+            "ic": -0.004752,
+            "t_stat": -0.85,
+            "hit_rate": 0.5001,
+            "n_days": 4117
           },
           "XLC": {
-            "ic": -0.02931,
-            "t_stat": -4.94,
-            "hit_rate": 0.4696,
-            "n_days": 4116
+            "ic": -0.026481,
+            "t_stat": -4.5,
+            "hit_rate": 0.478,
+            "n_days": 4117
           },
           "XLE": {
-            "ic": -0.000207,
-            "t_stat": -0.03,
-            "hit_rate": 0.4995,
-            "n_days": 4116
+            "ic": -5.3e-05,
+            "t_stat": -0.01,
+            "hit_rate": 0.4996,
+            "n_days": 4117
           },
           "XLF": {
-            "ic": -0.007188,
-            "t_stat": -1.45,
-            "hit_rate": 0.4854,
-            "n_days": 4116
+            "ic": -0.006863,
+            "t_stat": -1.5,
+            "hit_rate": 0.4916,
+            "n_days": 4117
           },
           "XLI": {
-            "ic": -0.016962,
-            "t_stat": -3.49,
-            "hit_rate": 0.4713,
-            "n_days": 4116
+            "ic": -0.016871,
+            "t_stat": -3.47,
+            "hit_rate": 0.4715,
+            "n_days": 4117
           },
           "XLK": {
-            "ic": -0.01591,
-            "t_stat": -3.43,
-            "hit_rate": 0.4791,
-            "n_days": 4116
+            "ic": -0.016042,
+            "t_stat": -3.46,
+            "hit_rate": 0.4787,
+            "n_days": 4117
           },
           "XLP": {
-            "ic": -0.013023,
-            "t_stat": -2.51,
-            "hit_rate": 0.4735,
-            "n_days": 4116
+            "ic": -0.013246,
+            "t_stat": -2.55,
+            "hit_rate": 0.4732,
+            "n_days": 4117
           },
           "XLRE": {
-            "ic": -0.010863,
-            "t_stat": -1.82,
-            "hit_rate": 0.4888,
-            "n_days": 4116
+            "ic": -0.009232,
+            "t_stat": -1.59,
+            "hit_rate": 0.4921,
+            "n_days": 4117
           },
           "XLU": {
-            "ic": -0.022179,
-            "t_stat": -3.99,
-            "hit_rate": 0.4716,
-            "n_days": 4116
+            "ic": -0.022202,
+            "t_stat": -4.0,
+            "hit_rate": 0.4719,
+            "n_days": 4117
           },
           "XLV": {
-            "ic": -0.013388,
-            "t_stat": -2.97,
-            "hit_rate": 0.4866,
-            "n_days": 4116
+            "ic": -0.013306,
+            "t_stat": -2.95,
+            "hit_rate": 0.487,
+            "n_days": 4117
           },
           "XLY": {
-            "ic": -0.010837,
-            "t_stat": -2.16,
-            "hit_rate": 0.4928,
+            "ic": -0.00934,
+            "t_stat": -1.87,
+            "hit_rate": 0.4909,
             "n_days": 4101
           }
         },
         "best_sector": "XLE",
         "worst_sector": "XLC",
-        "best_sector_ic": -0.000207,
-        "worst_sector_ic": -0.02931,
-        "sector_dispersion": 0.007516,
+        "best_sector_ic": -5.3e-05,
+        "worst_sector_ic": -0.026481,
+        "sector_dispersion": 0.007322,
         "sector_specific": true
       },
       "time_trend": {
@@ -2881,152 +2881,152 @@
             "period": 1,
             "start": "2010-01-05 00:00:00",
             "end": "2014-02-05 00:00:00",
-            "mean_ic": -0.019429,
+            "mean_ic": -0.019182,
             "n_days": 1029
           },
           {
             "period": 2,
             "start": "2014-02-06 00:00:00",
             "end": "2018-03-08 00:00:00",
-            "mean_ic": -0.014204,
+            "mean_ic": -0.013917,
             "n_days": 1029
           },
           {
             "period": 3,
             "start": "2018-03-09 00:00:00",
             "end": "2022-04-07 00:00:00",
-            "mean_ic": -0.010238,
+            "mean_ic": -0.010071,
             "n_days": 1029
           },
           {
             "period": 4,
             "start": "2022-04-08 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.007684,
-            "n_days": 1029
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.007415,
+            "n_days": 1030
           }
         ],
-        "trend_slope": 0.00392,
-        "recent_vs_full_ratio": 0.5962,
+        "trend_slope": 0.003915,
+        "recent_vs_full_ratio": 0.5864,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.012888,
-        "ic_at_optimal": -0.012888,
+        "ic_at_current": -0.012645,
+        "ic_at_optimal": -0.012645,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.012888,
-          "10": -0.009651,
-          "20": -0.005776
+          "5": -0.012645,
+          "10": -0.010089,
+          "20": -0.006067
         }
       },
       "recent_health": {
-        "recent_ic": -0.009429,
-        "full_ic": -0.012888,
-        "recent_t_stat": -0.66,
-        "recent_vs_full_ratio": 0.7315,
+        "recent_ic": -0.011896,
+        "full_ic": -0.012645,
+        "recent_t_stat": -0.83,
+        "recent_vs_full_ratio": 0.9408,
         "decaying": false,
         "strengthening": false
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.000959,
-          "high_vol_ic": -0.020744,
-          "spread": 0.019785
+          "low_vol_ic": 0.000533,
+          "high_vol_ic": -0.02089,
+          "spread": 0.021424
         },
         "yield_curve": {
-          "normal_ic": -0.013891,
-          "inverted_ic": -0.007171,
-          "spread": 0.006719
+          "normal_ic": -0.013606,
+          "inverted_ic": -0.007089,
+          "spread": 0.006517
         },
         "earnings": {
-          "near_ic": -0.012115,
-          "far_ic": -0.012334,
-          "spread": 0.000218
+          "near_ic": -0.012109,
+          "far_ic": -0.01203,
+          "spread": 7.9e-05
         },
         "most_variable_condition": "vix",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.011014,
-        "bear_ic": -0.019392,
-        "bull_days": 3195,
-        "bear_days": 921,
-        "regime_ratio": 1.7608,
+        "bull_ic": -0.010737,
+        "bear_ic": -0.019305,
+        "bull_days": 3200,
+        "bear_days": 917,
+        "regime_ratio": 1.7981,
         "regime_stable": false
       }
     },
     {
       "feature": "macd_hist",
-      "aggregate_ic": -0.010777,
-      "aggregate_t_stat": -5.97,
-      "n_ic_days": 4116,
+      "aggregate_ic": -0.010722,
+      "aggregate_t_stat": -5.94,
+      "n_ic_days": 4117,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.009422,
-            "t_stat": -1.64,
-            "hit_rate": 0.482,
-            "n_days": 4116
+            "ic": -0.009595,
+            "t_stat": -1.67,
+            "hit_rate": 0.4814,
+            "n_days": 4117
           },
           "XLC": {
-            "ic": -0.019314,
-            "t_stat": -3.46,
-            "hit_rate": 0.4791,
-            "n_days": 4116
+            "ic": -0.019453,
+            "t_stat": -3.49,
+            "hit_rate": 0.479,
+            "n_days": 4117
           },
           "XLE": {
-            "ic": 0.014361,
-            "t_stat": 2.37,
-            "hit_rate": 0.5143,
-            "n_days": 4116
+            "ic": 0.01361,
+            "t_stat": 2.25,
+            "hit_rate": 0.514,
+            "n_days": 4117
           },
           "XLF": {
-            "ic": -0.012775,
-            "t_stat": -2.86,
-            "hit_rate": 0.482,
-            "n_days": 4116
+            "ic": -0.012842,
+            "t_stat": -2.87,
+            "hit_rate": 0.4819,
+            "n_days": 4117
           },
           "XLI": {
-            "ic": 0.006641,
-            "t_stat": 1.41,
-            "hit_rate": 0.5134,
-            "n_days": 4116
+            "ic": 0.007131,
+            "t_stat": 1.51,
+            "hit_rate": 0.514,
+            "n_days": 4117
           },
           "XLK": {
-            "ic": -0.021991,
-            "t_stat": -5.25,
-            "hit_rate": 0.4713,
-            "n_days": 4116
+            "ic": -0.021798,
+            "t_stat": -5.2,
+            "hit_rate": 0.4719,
+            "n_days": 4117
           },
           "XLP": {
-            "ic": -0.018428,
-            "t_stat": -3.64,
-            "hit_rate": 0.4643,
-            "n_days": 4116
+            "ic": -0.018671,
+            "t_stat": -3.68,
+            "hit_rate": 0.4644,
+            "n_days": 4117
           },
           "XLRE": {
-            "ic": -0.021106,
-            "t_stat": -3.55,
-            "hit_rate": 0.4701,
-            "n_days": 4116
+            "ic": -0.019984,
+            "t_stat": -3.36,
+            "hit_rate": 0.4719,
+            "n_days": 4117
           },
           "XLU": {
-            "ic": -0.024126,
-            "t_stat": -4.36,
-            "hit_rate": 0.4713,
-            "n_days": 4116
+            "ic": -0.024435,
+            "t_stat": -4.41,
+            "hit_rate": 0.4705,
+            "n_days": 4117
           },
           "XLV": {
-            "ic": -0.010392,
-            "t_stat": -2.36,
-            "hit_rate": 0.4869,
-            "n_days": 4116
+            "ic": -0.010165,
+            "t_stat": -2.31,
+            "hit_rate": 0.487,
+            "n_days": 4117
           },
           "XLY": {
-            "ic": -0.008111,
+            "ic": -0.008124,
             "t_stat": -1.67,
             "hit_rate": 0.4816,
             "n_days": 4101
@@ -3034,9 +3034,9 @@
         },
         "best_sector": "XLE",
         "worst_sector": "XLU",
-        "best_sector_ic": 0.014361,
-        "worst_sector_ic": -0.024126,
-        "sector_dispersion": 0.011627,
+        "best_sector_ic": 0.01361,
+        "worst_sector_ic": -0.024435,
+        "sector_dispersion": 0.011504,
         "sector_specific": true
       },
       "time_trend": {
@@ -3052,155 +3052,155 @@
             "period": 2,
             "start": "2014-02-06 00:00:00",
             "end": "2018-03-08 00:00:00",
-            "mean_ic": -0.013925,
+            "mean_ic": -0.013932,
             "n_days": 1029
           },
           {
             "period": 3,
             "start": "2018-03-09 00:00:00",
             "end": "2022-04-07 00:00:00",
-            "mean_ic": -0.016052,
+            "mean_ic": -0.016039,
             "n_days": 1029
           },
           {
             "period": 4,
             "start": "2022-04-08 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.002105,
-            "n_days": 1029
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.001901,
+            "n_days": 1030
           }
         ],
-        "trend_slope": 0.002463,
-        "recent_vs_full_ratio": 0.1953,
+        "trend_slope": 0.002526,
+        "recent_vs_full_ratio": 0.1773,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.010777,
-        "ic_at_optimal": -0.010777,
+        "ic_at_current": -0.010722,
+        "ic_at_optimal": -0.010722,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.010777,
-          "10": -0.008423,
-          "20": -0.006102
+          "5": -0.010722,
+          "10": -0.008322,
+          "20": -0.006033
         }
       },
       "recent_health": {
-        "recent_ic": -0.013547,
-        "full_ic": -0.010777,
-        "recent_t_stat": -1.27,
-        "recent_vs_full_ratio": 1.257,
+        "recent_ic": -0.013804,
+        "full_ic": -0.010722,
+        "recent_t_stat": -1.3,
+        "recent_vs_full_ratio": 1.2874,
         "decaying": false,
         "strengthening": false
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": 0.000665,
-          "high_vol_ic": -0.017394,
-          "spread": 0.01806
+          "low_vol_ic": 0.000123,
+          "high_vol_ic": -0.016921,
+          "spread": 0.017045
         },
         "yield_curve": {
-          "normal_ic": -0.01169,
-          "inverted_ic": -0.005566,
-          "spread": 0.006125
+          "normal_ic": -0.011417,
+          "inverted_ic": -0.004662,
+          "spread": 0.006755
         },
         "earnings": {
-          "near_ic": 0.015081,
-          "far_ic": -0.012712,
-          "spread": 0.027792
+          "near_ic": 0.01509,
+          "far_ic": -0.012668,
+          "spread": 0.027758
         },
         "most_variable_condition": "earnings",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.008375,
-        "bear_ic": -0.019109,
-        "bull_days": 3195,
-        "bear_days": 921,
-        "regime_ratio": 2.2817,
+        "bull_ic": -0.008334,
+        "bear_ic": -0.019055,
+        "bull_days": 3200,
+        "bear_days": 917,
+        "regime_ratio": 2.2863,
         "regime_stable": false
       }
     },
     {
       "feature": "vwap_dist",
-      "aggregate_ic": -0.012777,
-      "aggregate_t_stat": -6.19,
-      "n_ic_days": 4098,
+      "aggregate_ic": -0.012798,
+      "aggregate_t_stat": -6.2,
+      "n_ic_days": 4099,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.014932,
-            "t_stat": -2.46,
-            "hit_rate": 0.4793,
-            "n_days": 4098
+            "ic": -0.015403,
+            "t_stat": -2.54,
+            "hit_rate": 0.4789,
+            "n_days": 4099
           },
           "XLC": {
-            "ic": -0.015236,
-            "t_stat": -2.58,
-            "hit_rate": 0.4849,
-            "n_days": 4098
+            "ic": -0.015183,
+            "t_stat": -2.57,
+            "hit_rate": 0.4852,
+            "n_days": 4099
           },
           "XLE": {
-            "ic": 0.007196,
-            "t_stat": 1.17,
-            "hit_rate": 0.5081,
-            "n_days": 4098
+            "ic": 0.006922,
+            "t_stat": 1.13,
+            "hit_rate": 0.5077,
+            "n_days": 4099
           },
           "XLF": {
-            "ic": -0.011803,
-            "t_stat": -2.28,
-            "hit_rate": 0.4834,
-            "n_days": 4098
+            "ic": -0.011756,
+            "t_stat": -2.27,
+            "hit_rate": 0.4838,
+            "n_days": 4099
           },
           "XLI": {
-            "ic": -0.005291,
-            "t_stat": -1.08,
-            "hit_rate": 0.4971,
-            "n_days": 4098
+            "ic": -0.004912,
+            "t_stat": -1.0,
+            "hit_rate": 0.4972,
+            "n_days": 4099
           },
           "XLK": {
-            "ic": -0.017139,
-            "t_stat": -3.63,
-            "hit_rate": 0.4829,
-            "n_days": 4098
+            "ic": -0.017026,
+            "t_stat": -3.6,
+            "hit_rate": 0.483,
+            "n_days": 4099
           },
           "XLP": {
-            "ic": -0.014398,
-            "t_stat": -2.71,
-            "hit_rate": 0.4837,
-            "n_days": 4098
+            "ic": -0.014547,
+            "t_stat": -2.73,
+            "hit_rate": 0.4835,
+            "n_days": 4099
           },
           "XLRE": {
-            "ic": -0.027666,
-            "t_stat": -4.59,
-            "hit_rate": 0.479,
-            "n_days": 4098
+            "ic": -0.027061,
+            "t_stat": -4.48,
+            "hit_rate": 0.4794,
+            "n_days": 4099
           },
           "XLU": {
-            "ic": -0.044756,
-            "t_stat": -7.87,
-            "hit_rate": 0.4531,
-            "n_days": 4098
+            "ic": -0.04483,
+            "t_stat": -7.89,
+            "hit_rate": 0.4533,
+            "n_days": 4099
           },
           "XLV": {
-            "ic": -0.016769,
-            "t_stat": -3.65,
-            "hit_rate": 0.4783,
-            "n_days": 4098
+            "ic": -0.017081,
+            "t_stat": -3.72,
+            "hit_rate": 0.4779,
+            "n_days": 4099
           },
           "XLY": {
-            "ic": -0.009846,
-            "t_stat": -1.91,
+            "ic": -0.009917,
+            "t_stat": -1.92,
             "hit_rate": 0.4879,
             "n_days": 4083
           }
         },
         "best_sector": "XLE",
         "worst_sector": "XLU",
-        "best_sector_ic": 0.007196,
-        "worst_sector_ic": -0.044756,
-        "sector_dispersion": 0.012339,
+        "best_sector_ic": 0.006922,
+        "worst_sector_ic": -0.04483,
+        "sector_dispersion": 0.012284,
         "sector_specific": true
       },
       "time_trend": {
@@ -3209,162 +3209,162 @@
             "period": 1,
             "start": "2010-02-01 00:00:00",
             "end": "2014-02-25 00:00:00",
-            "mean_ic": -0.015005,
+            "mean_ic": -0.015006,
             "n_days": 1024
           },
           {
             "period": 2,
             "start": "2014-02-26 00:00:00",
             "end": "2018-03-20 00:00:00",
-            "mean_ic": -0.014068,
+            "mean_ic": -0.014066,
             "n_days": 1024
           },
           {
             "period": 3,
             "start": "2018-03-21 00:00:00",
             "end": "2022-04-12 00:00:00",
-            "mean_ic": -0.012339,
+            "mean_ic": -0.012336,
             "n_days": 1024
           },
           {
             "period": 4,
             "start": "2022-04-13 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.009703,
-            "n_days": 1026
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.009793,
+            "n_days": 1027
           }
         ],
-        "trend_slope": 0.001763,
-        "recent_vs_full_ratio": 0.7594,
+        "trend_slope": 0.001737,
+        "recent_vs_full_ratio": 0.7652,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.012777,
-        "ic_at_optimal": -0.012777,
+        "ic_at_current": -0.012798,
+        "ic_at_optimal": -0.012798,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.012777,
-          "10": -0.010791,
-          "20": -0.005747
+          "5": -0.012798,
+          "10": -0.010797,
+          "20": -0.005708
         }
       },
       "recent_health": {
-        "recent_ic": -0.025921,
-        "full_ic": -0.012777,
-        "recent_t_stat": -2.37,
-        "recent_vs_full_ratio": 2.0287,
+        "recent_ic": -0.027664,
+        "full_ic": -0.012798,
+        "recent_t_stat": -2.54,
+        "recent_vs_full_ratio": 2.1616,
         "decaying": false,
         "strengthening": true
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -6.9e-05,
-          "high_vol_ic": -0.021837,
-          "spread": 0.021768
+          "low_vol_ic": -0.000744,
+          "high_vol_ic": -0.022066,
+          "spread": 0.021322
         },
         "yield_curve": {
-          "normal_ic": -0.014939,
-          "inverted_ic": -0.000507,
-          "spread": 0.014432
+          "normal_ic": -0.014993,
+          "inverted_ic": -0.000687,
+          "spread": 0.014306
         },
         "earnings": {
-          "near_ic": 0.006627,
-          "far_ic": -0.013647,
-          "spread": 0.020274
+          "near_ic": 0.006617,
+          "far_ic": -0.013662,
+          "spread": 0.020279
         },
         "most_variable_condition": "vix",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.007401,
-        "bear_ic": -0.031798,
-        "bull_days": 3195,
-        "bear_days": 903,
-        "regime_ratio": 4.2963,
+        "bull_ic": -0.007512,
+        "bear_ic": -0.031616,
+        "bull_days": 3200,
+        "bear_days": 899,
+        "regime_ratio": 4.2089,
         "regime_stable": false
       }
     },
     {
       "feature": "vol_trend_20_60",
-      "aggregate_ic": -0.009898,
-      "aggregate_t_stat": -6.63,
-      "n_ic_days": 4108,
+      "aggregate_ic": -0.009872,
+      "aggregate_t_stat": -6.61,
+      "n_ic_days": 4109,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.014571,
-            "t_stat": -2.65,
-            "hit_rate": 0.4827,
-            "n_days": 4108
+            "ic": -0.014462,
+            "t_stat": -2.63,
+            "hit_rate": 0.4831,
+            "n_days": 4109
           },
           "XLC": {
-            "ic": -0.003187,
-            "t_stat": -0.58,
-            "hit_rate": 0.4954,
-            "n_days": 4108
+            "ic": -0.002404,
+            "t_stat": -0.43,
+            "hit_rate": 0.4972,
+            "n_days": 4109
           },
           "XLE": {
-            "ic": -0.011297,
-            "t_stat": -2.08,
-            "hit_rate": 0.482,
-            "n_days": 4108
+            "ic": -0.011933,
+            "t_stat": -2.2,
+            "hit_rate": 0.4811,
+            "n_days": 4109
           },
           "XLF": {
-            "ic": -0.002372,
-            "t_stat": -0.55,
-            "hit_rate": 0.5049,
-            "n_days": 4108
+            "ic": -0.002554,
+            "t_stat": -0.59,
+            "hit_rate": 0.5043,
+            "n_days": 4109
           },
           "XLI": {
-            "ic": -0.002896,
-            "t_stat": -0.66,
-            "hit_rate": 0.4937,
-            "n_days": 4108
+            "ic": -0.002497,
+            "t_stat": -0.57,
+            "hit_rate": 0.4936,
+            "n_days": 4109
           },
           "XLK": {
-            "ic": -0.021969,
-            "t_stat": -5.56,
-            "hit_rate": 0.4703,
-            "n_days": 4108
+            "ic": -0.021883,
+            "t_stat": -5.53,
+            "hit_rate": 0.4704,
+            "n_days": 4109
           },
           "XLP": {
-            "ic": -0.003647,
-            "t_stat": -0.74,
-            "hit_rate": 0.4946,
-            "n_days": 4108
+            "ic": -0.003846,
+            "t_stat": -0.78,
+            "hit_rate": 0.4938,
+            "n_days": 4109
           },
           "XLRE": {
-            "ic": -0.019895,
-            "t_stat": -3.6,
-            "hit_rate": 0.4696,
-            "n_days": 4108
+            "ic": -0.019209,
+            "t_stat": -3.48,
+            "hit_rate": 0.4712,
+            "n_days": 4109
           },
           "XLU": {
-            "ic": 0.003139,
-            "t_stat": 0.58,
-            "hit_rate": 0.508,
-            "n_days": 4108
+            "ic": 0.003008,
+            "t_stat": 0.55,
+            "hit_rate": 0.5072,
+            "n_days": 4109
           },
           "XLV": {
-            "ic": -0.007965,
-            "t_stat": -1.95,
-            "hit_rate": 0.4873,
-            "n_days": 4108
+            "ic": -0.008062,
+            "t_stat": -1.98,
+            "hit_rate": 0.4875,
+            "n_days": 4109
           },
           "XLY": {
-            "ic": -0.007961,
-            "t_stat": -1.69,
-            "hit_rate": 0.4811,
+            "ic": -0.00816,
+            "t_stat": -1.73,
+            "hit_rate": 0.4806,
             "n_days": 4093
           }
         },
         "best_sector": "XLU",
         "worst_sector": "XLK",
-        "best_sector_ic": 0.003139,
-        "worst_sector_ic": -0.021969,
-        "sector_dispersion": 0.007463,
+        "best_sector_ic": 0.003008,
+        "worst_sector_ic": -0.021883,
+        "sector_dispersion": 0.007409,
         "sector_specific": true
       },
       "time_trend": {
@@ -3380,155 +3380,155 @@
             "period": 2,
             "start": "2014-02-14 00:00:00",
             "end": "2018-03-14 00:00:00",
-            "mean_ic": -0.017699,
+            "mean_ic": -0.017701,
             "n_days": 1027
           },
           {
             "period": 3,
             "start": "2018-03-15 00:00:00",
             "end": "2022-04-11 00:00:00",
-            "mean_ic": -0.002595,
+            "mean_ic": -0.002597,
             "n_days": 1027
           },
           {
             "period": 4,
             "start": "2022-04-12 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.006247,
-            "n_days": 1027
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.006144,
+            "n_days": 1028
           }
         ],
-        "trend_slope": 0.003552,
-        "recent_vs_full_ratio": 0.6312,
+        "trend_slope": 0.003582,
+        "recent_vs_full_ratio": 0.6224,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 20,
         "current_horizon": 5,
-        "ic_at_current": -0.009898,
-        "ic_at_optimal": -0.015998,
+        "ic_at_current": -0.009872,
+        "ic_at_optimal": -0.015833,
         "horizon_mismatch": true,
         "horizon_ics": {
-          "5": -0.009898,
-          "10": -0.013957,
-          "20": -0.015998
+          "5": -0.009872,
+          "10": -0.013782,
+          "20": -0.015833
         }
       },
       "recent_health": {
-        "recent_ic": -0.010906,
-        "full_ic": -0.009898,
-        "recent_t_stat": -1.12,
-        "recent_vs_full_ratio": 1.1018,
+        "recent_ic": -0.008183,
+        "full_ic": -0.009872,
+        "recent_t_stat": -0.83,
+        "recent_vs_full_ratio": 0.8288,
         "decaying": false,
         "strengthening": false
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.01534,
-          "high_vol_ic": -0.00518,
-          "spread": 0.010161
+          "low_vol_ic": -0.016125,
+          "high_vol_ic": -0.004577,
+          "spread": 0.011548
         },
         "yield_curve": {
-          "normal_ic": -0.010646,
-          "inverted_ic": -0.005643,
-          "spread": 0.005003
+          "normal_ic": -0.010779,
+          "inverted_ic": -0.007003,
+          "spread": 0.003776
         },
         "earnings": {
-          "near_ic": -0.004171,
-          "far_ic": -0.012508,
-          "spread": 0.008338
+          "near_ic": -0.004157,
+          "far_ic": -0.012499,
+          "spread": 0.008342
         },
         "most_variable_condition": "vix",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.009005,
-        "bear_ic": -0.013023,
-        "bull_days": 3195,
-        "bear_days": 913,
-        "regime_ratio": 1.4463,
+        "bull_ic": -0.008907,
+        "bear_ic": -0.01327,
+        "bull_days": 3200,
+        "bear_days": 909,
+        "regime_ratio": 1.4897,
         "regime_stable": false
       }
     },
     {
       "feature": "uptick_ratio",
-      "aggregate_ic": -0.009805,
-      "aggregate_t_stat": -5.9,
-      "n_ic_days": 4113,
+      "aggregate_ic": -0.009754,
+      "aggregate_t_stat": -5.87,
+      "n_ic_days": 4114,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.007013,
-            "t_stat": -1.22,
-            "hit_rate": 0.485,
-            "n_days": 4105
+            "ic": -0.007109,
+            "t_stat": -1.24,
+            "hit_rate": 0.4849,
+            "n_days": 4106
           },
           "XLC": {
-            "ic": -0.030645,
-            "t_stat": -5.47,
-            "hit_rate": 0.4554,
+            "ic": -0.029885,
+            "t_stat": -5.35,
+            "hit_rate": 0.4559,
             "n_days": 4111
           },
           "XLE": {
-            "ic": 0.000915,
-            "t_stat": 0.17,
-            "hit_rate": 0.4969,
-            "n_days": 4089
+            "ic": 0.000281,
+            "t_stat": 0.05,
+            "hit_rate": 0.4961,
+            "n_days": 4090
           },
           "XLF": {
-            "ic": -0.001336,
-            "t_stat": -0.3,
-            "hit_rate": 0.5028,
-            "n_days": 4101
-          },
-          "XLI": {
-            "ic": -0.013637,
-            "t_stat": -3.0,
-            "hit_rate": 0.4856,
-            "n_days": 4104
-          },
-          "XLK": {
-            "ic": -0.006429,
-            "t_stat": -1.55,
-            "hit_rate": 0.4922,
-            "n_days": 4112
-          },
-          "XLP": {
-            "ic": -0.006707,
-            "t_stat": -1.33,
-            "hit_rate": 0.4845,
-            "n_days": 4105
-          },
-          "XLRE": {
-            "ic": -0.008509,
-            "t_stat": -1.46,
-            "hit_rate": 0.4856,
+            "ic": -0.0014,
+            "t_stat": -0.32,
+            "hit_rate": 0.5027,
             "n_days": 4102
           },
+          "XLI": {
+            "ic": -0.013293,
+            "t_stat": -2.91,
+            "hit_rate": 0.4865,
+            "n_days": 4105
+          },
+          "XLK": {
+            "ic": -0.006313,
+            "t_stat": -1.52,
+            "hit_rate": 0.4923,
+            "n_days": 4113
+          },
+          "XLP": {
+            "ic": -0.006634,
+            "t_stat": -1.32,
+            "hit_rate": 0.4847,
+            "n_days": 4106
+          },
+          "XLRE": {
+            "ic": -0.007495,
+            "t_stat": -1.29,
+            "hit_rate": 0.4867,
+            "n_days": 4103
+          },
           "XLU": {
-            "ic": -0.005909,
-            "t_stat": -1.08,
-            "hit_rate": 0.4798,
-            "n_days": 4035
+            "ic": -0.005184,
+            "t_stat": -0.95,
+            "hit_rate": 0.4799,
+            "n_days": 4036
           },
           "XLV": {
-            "ic": -0.018935,
-            "t_stat": -4.59,
-            "hit_rate": 0.479,
-            "n_days": 4111
+            "ic": -0.018995,
+            "t_stat": -4.61,
+            "hit_rate": 0.4786,
+            "n_days": 4112
           },
           "XLY": {
-            "ic": -0.011048,
-            "t_stat": -2.32,
+            "ic": -0.010952,
+            "t_stat": -2.3,
             "hit_rate": 0.4885,
             "n_days": 4098
           }
         },
         "best_sector": "XLE",
         "worst_sector": "XLC",
-        "best_sector_ic": 0.000915,
-        "worst_sector_ic": -0.030645,
-        "sector_dispersion": 0.008345,
+        "best_sector_ic": 0.000281,
+        "worst_sector_ic": -0.029885,
+        "sector_dispersion": 0.008144,
         "sector_specific": true
       },
       "time_trend": {
@@ -3537,162 +3537,162 @@
             "period": 1,
             "start": "2010-01-08 00:00:00",
             "end": "2014-02-07 00:00:00",
-            "mean_ic": -0.01611,
+            "mean_ic": -0.016063,
             "n_days": 1028
           },
           {
             "period": 2,
             "start": "2014-02-10 00:00:00",
             "end": "2018-03-09 00:00:00",
-            "mean_ic": -0.004419,
+            "mean_ic": -0.0044,
             "n_days": 1028
           },
           {
             "period": 3,
             "start": "2018-03-12 00:00:00",
             "end": "2022-04-07 00:00:00",
-            "mean_ic": -0.01185,
+            "mean_ic": -0.011846,
             "n_days": 1028
           },
           {
             "period": 4,
             "start": "2022-04-08 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.006844,
-            "n_days": 1029
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.006712,
+            "n_days": 1030
           }
         ],
-        "trend_slope": 0.002037,
-        "recent_vs_full_ratio": 0.698,
+        "trend_slope": 0.002061,
+        "recent_vs_full_ratio": 0.6882,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.009805,
-        "ic_at_optimal": -0.009805,
+        "ic_at_current": -0.009754,
+        "ic_at_optimal": -0.009754,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.009805,
-          "10": -0.007499,
-          "20": -0.003945
+          "5": -0.009754,
+          "10": -0.00742,
+          "20": -0.003805
         }
       },
       "recent_health": {
-        "recent_ic": -0.021621,
-        "full_ic": -0.009805,
-        "recent_t_stat": -2.13,
-        "recent_vs_full_ratio": 2.2051,
+        "recent_ic": -0.023755,
+        "full_ic": -0.009754,
+        "recent_t_stat": -2.31,
+        "recent_vs_full_ratio": 2.4354,
         "decaying": false,
         "strengthening": true
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.004494,
-          "high_vol_ic": -0.013435,
-          "spread": 0.008941
+          "low_vol_ic": -0.004836,
+          "high_vol_ic": -0.013554,
+          "spread": 0.008718
         },
         "yield_curve": {
-          "normal_ic": -0.011502,
-          "inverted_ic": -0.000135,
-          "spread": 0.011367
+          "normal_ic": -0.011318,
+          "inverted_ic": 0.001382,
+          "spread": 0.012701
         },
         "earnings": {
-          "near_ic": -0.012738,
-          "far_ic": -0.007749,
-          "spread": 0.004988
+          "near_ic": -0.012723,
+          "far_ic": -0.007694,
+          "spread": 0.005029
         },
         "most_variable_condition": "yield_curve",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.005888,
-        "bear_ic": -0.023438,
-        "bull_days": 3195,
-        "bear_days": 918,
-        "regime_ratio": 3.9805,
+        "bull_ic": -0.005921,
+        "bear_ic": -0.023173,
+        "bull_days": 3200,
+        "bear_days": 914,
+        "regime_ratio": 3.9138,
         "regime_stable": false
       }
     },
     {
       "feature": "dist_ma20",
-      "aggregate_ic": -0.012135,
-      "aggregate_t_stat": -5.88,
-      "n_ic_days": 4098,
+      "aggregate_ic": -0.01215,
+      "aggregate_t_stat": -5.89,
+      "n_ic_days": 4099,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.015435,
-            "t_stat": -2.55,
-            "hit_rate": 0.4729,
-            "n_days": 4098
+            "ic": -0.015688,
+            "t_stat": -2.59,
+            "hit_rate": 0.4726,
+            "n_days": 4099
           },
           "XLC": {
-            "ic": -0.012279,
-            "t_stat": -2.07,
-            "hit_rate": 0.4844,
-            "n_days": 4098
+            "ic": -0.012243,
+            "t_stat": -2.06,
+            "hit_rate": 0.4845,
+            "n_days": 4099
           },
           "XLE": {
-            "ic": 0.005545,
-            "t_stat": 0.9,
-            "hit_rate": 0.5005,
-            "n_days": 4098
+            "ic": 0.0053,
+            "t_stat": 0.86,
+            "hit_rate": 0.5004,
+            "n_days": 4099
           },
           "XLF": {
-            "ic": -0.010308,
-            "t_stat": -1.98,
-            "hit_rate": 0.4885,
-            "n_days": 4098
+            "ic": -0.010219,
+            "t_stat": -1.96,
+            "hit_rate": 0.4887,
+            "n_days": 4099
           },
           "XLI": {
-            "ic": -0.002324,
-            "t_stat": -0.47,
-            "hit_rate": 0.5034,
-            "n_days": 4098
+            "ic": -0.002016,
+            "t_stat": -0.41,
+            "hit_rate": 0.5038,
+            "n_days": 4099
           },
           "XLK": {
-            "ic": -0.018277,
-            "t_stat": -3.88,
-            "hit_rate": 0.4778,
-            "n_days": 4098
+            "ic": -0.018116,
+            "t_stat": -3.85,
+            "hit_rate": 0.4782,
+            "n_days": 4099
           },
           "XLP": {
-            "ic": -0.013242,
-            "t_stat": -2.48,
-            "hit_rate": 0.4829,
-            "n_days": 4098
+            "ic": -0.013342,
+            "t_stat": -2.49,
+            "hit_rate": 0.4828,
+            "n_days": 4099
           },
           "XLRE": {
-            "ic": -0.023576,
-            "t_stat": -3.89,
-            "hit_rate": 0.479,
-            "n_days": 4098
+            "ic": -0.023043,
+            "t_stat": -3.8,
+            "hit_rate": 0.4799,
+            "n_days": 4099
           },
           "XLU": {
-            "ic": -0.044495,
-            "t_stat": -7.83,
-            "hit_rate": 0.4527,
-            "n_days": 4098
+            "ic": -0.044475,
+            "t_stat": -7.82,
+            "hit_rate": 0.453,
+            "n_days": 4099
           },
           "XLV": {
-            "ic": -0.014985,
-            "t_stat": -3.26,
-            "hit_rate": 0.4851,
-            "n_days": 4098
+            "ic": -0.015286,
+            "t_stat": -3.33,
+            "hit_rate": 0.4845,
+            "n_days": 4099
           },
           "XLY": {
-            "ic": -0.007596,
-            "t_stat": -1.47,
+            "ic": -0.007685,
+            "t_stat": -1.49,
             "hit_rate": 0.4933,
             "n_days": 4083
           }
         },
         "best_sector": "XLE",
         "worst_sector": "XLU",
-        "best_sector_ic": 0.005545,
-        "worst_sector_ic": -0.044495,
-        "sector_dispersion": 0.012131,
+        "best_sector_ic": 0.0053,
+        "worst_sector_ic": -0.044475,
+        "sector_dispersion": 0.012079,
         "sector_specific": true
       },
       "time_trend": {
@@ -3701,162 +3701,162 @@
             "period": 1,
             "start": "2010-02-01 00:00:00",
             "end": "2014-02-25 00:00:00",
-            "mean_ic": -0.013747,
+            "mean_ic": -0.013751,
             "n_days": 1024
           },
           {
             "period": 2,
             "start": "2014-02-26 00:00:00",
             "end": "2018-03-20 00:00:00",
-            "mean_ic": -0.013855,
+            "mean_ic": -0.013852,
             "n_days": 1024
           },
           {
             "period": 3,
             "start": "2018-03-21 00:00:00",
             "end": "2022-04-12 00:00:00",
-            "mean_ic": -0.011962,
+            "mean_ic": -0.011961,
             "n_days": 1024
           },
           {
             "period": 4,
             "start": "2022-04-13 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.008982,
-            "n_days": 1026
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.009047,
+            "n_days": 1027
           }
         ],
-        "trend_slope": 0.001619,
-        "recent_vs_full_ratio": 0.7402,
+        "trend_slope": 0.0016,
+        "recent_vs_full_ratio": 0.7446,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.012135,
-        "ic_at_optimal": -0.012135,
+        "ic_at_current": -0.01215,
+        "ic_at_optimal": -0.01215,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.012135,
-          "10": -0.010274,
-          "20": -0.005493
+          "5": -0.01215,
+          "10": -0.010293,
+          "20": -0.005459
         }
       },
       "recent_health": {
-        "recent_ic": -0.022739,
-        "full_ic": -0.012135,
-        "recent_t_stat": -2.05,
-        "recent_vs_full_ratio": 1.8738,
+        "recent_ic": -0.024266,
+        "full_ic": -0.01215,
+        "recent_t_stat": -2.19,
+        "recent_vs_full_ratio": 1.9971,
         "decaying": false,
         "strengthening": true
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": 0.000534,
-          "high_vol_ic": -0.020994,
-          "spread": 0.021528
+          "low_vol_ic": -0.00023,
+          "high_vol_ic": -0.021169,
+          "spread": 0.020939
         },
         "yield_curve": {
-          "normal_ic": -0.014382,
-          "inverted_ic": 0.000613,
-          "spread": 0.014995
+          "normal_ic": -0.014393,
+          "inverted_ic": 0.000384,
+          "spread": 0.014777
         },
         "earnings": {
-          "near_ic": 0.007402,
-          "far_ic": -0.012867,
-          "spread": 0.020269
+          "near_ic": 0.007391,
+          "far_ic": -0.012877,
+          "spread": 0.020268
         },
         "most_variable_condition": "vix",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.006895,
-        "bear_ic": -0.030675,
-        "bull_days": 3195,
-        "bear_days": 903,
-        "regime_ratio": 4.4487,
+        "bull_ic": -0.006972,
+        "bear_ic": -0.030582,
+        "bull_days": 3200,
+        "bear_days": 899,
+        "regime_ratio": 4.3863,
         "regime_stable": false
       }
     },
     {
       "feature": "bb_pos",
-      "aggregate_ic": -0.010574,
-      "aggregate_t_stat": -5.53,
-      "n_ic_days": 4098,
+      "aggregate_ic": -0.01052,
+      "aggregate_t_stat": -5.49,
+      "n_ic_days": 4099,
       "sector_ic": {
         "sector_ics": {
           "XLB": {
-            "ic": -0.00761,
-            "t_stat": -1.31,
-            "hit_rate": 0.488,
-            "n_days": 4098
+            "ic": -0.008076,
+            "t_stat": -1.39,
+            "hit_rate": 0.4882,
+            "n_days": 4099
           },
           "XLC": {
-            "ic": -0.016238,
+            "ic": -0.016228,
             "t_stat": -2.79,
-            "hit_rate": 0.4878,
-            "n_days": 4098
+            "hit_rate": 0.4874,
+            "n_days": 4099
           },
           "XLE": {
-            "ic": 0.004809,
-            "t_stat": 0.81,
-            "hit_rate": 0.5017,
-            "n_days": 4098
+            "ic": 0.004518,
+            "t_stat": 0.77,
+            "hit_rate": 0.5016,
+            "n_days": 4099
           },
           "XLF": {
-            "ic": -0.002927,
-            "t_stat": -0.6,
-            "hit_rate": 0.4956,
-            "n_days": 4098
+            "ic": -0.002769,
+            "t_stat": -0.57,
+            "hit_rate": 0.496,
+            "n_days": 4099
           },
           "XLI": {
-            "ic": -0.002673,
-            "t_stat": -0.56,
-            "hit_rate": 0.5027,
-            "n_days": 4098
+            "ic": -0.002046,
+            "t_stat": -0.43,
+            "hit_rate": 0.5038,
+            "n_days": 4099
           },
           "XLK": {
-            "ic": -0.016863,
+            "ic": -0.016879,
             "t_stat": -3.84,
-            "hit_rate": 0.4807,
-            "n_days": 4098
+            "hit_rate": 0.4804,
+            "n_days": 4099
           },
           "XLP": {
-            "ic": -0.016129,
-            "t_stat": -3.06,
-            "hit_rate": 0.4749,
-            "n_days": 4098
+            "ic": -0.016333,
+            "t_stat": -3.09,
+            "hit_rate": 0.4745,
+            "n_days": 4099
           },
           "XLRE": {
-            "ic": -0.027208,
-            "t_stat": -4.61,
-            "hit_rate": 0.47,
-            "n_days": 4098
+            "ic": -0.026234,
+            "t_stat": -4.44,
+            "hit_rate": 0.4718,
+            "n_days": 4099
           },
           "XLU": {
-            "ic": -0.039674,
-            "t_stat": -7.01,
-            "hit_rate": 0.4575,
-            "n_days": 4098
+            "ic": -0.039221,
+            "t_stat": -6.93,
+            "hit_rate": 0.4586,
+            "n_days": 4099
           },
           "XLV": {
-            "ic": -0.013409,
-            "t_stat": -3.01,
-            "hit_rate": 0.4841,
-            "n_days": 4098
+            "ic": -0.01374,
+            "t_stat": -3.09,
+            "hit_rate": 0.484,
+            "n_days": 4099
           },
           "XLY": {
-            "ic": -0.006143,
-            "t_stat": -1.23,
+            "ic": -0.006171,
+            "t_stat": -1.24,
             "hit_rate": 0.496,
             "n_days": 4083
           }
         },
         "best_sector": "XLE",
         "worst_sector": "XLU",
-        "best_sector_ic": 0.004809,
-        "worst_sector_ic": -0.039674,
-        "sector_dispersion": 0.01187,
+        "best_sector_ic": 0.004518,
+        "worst_sector_ic": -0.039221,
+        "sector_dispersion": 0.011686,
         "sector_specific": true
       },
       "time_trend": {
@@ -3865,80 +3865,80 @@
             "period": 1,
             "start": "2010-02-01 00:00:00",
             "end": "2014-02-25 00:00:00",
-            "mean_ic": -0.012112,
+            "mean_ic": -0.012116,
             "n_days": 1024
           },
           {
             "period": 2,
             "start": "2014-02-26 00:00:00",
             "end": "2018-03-20 00:00:00",
-            "mean_ic": -0.012051,
+            "mean_ic": -0.012048,
             "n_days": 1024
           },
           {
             "period": 3,
             "start": "2018-03-21 00:00:00",
             "end": "2022-04-12 00:00:00",
-            "mean_ic": -0.01085,
+            "mean_ic": -0.010849,
             "n_days": 1024
           },
           {
             "period": 4,
             "start": "2022-04-13 00:00:00",
-            "end": "2026-05-15 00:00:00",
-            "mean_ic": -0.007289,
-            "n_days": 1026
+            "end": "2026-05-18 00:00:00",
+            "mean_ic": -0.007078,
+            "n_days": 1027
           }
         ],
-        "trend_slope": 0.001567,
-        "recent_vs_full_ratio": 0.6894,
+        "trend_slope": 0.001631,
+        "recent_vs_full_ratio": 0.6728,
         "trending_down": false
       },
       "holding_period": {
         "optimal_horizon": 5,
         "current_horizon": 5,
-        "ic_at_current": -0.010574,
-        "ic_at_optimal": -0.010574,
+        "ic_at_current": -0.01052,
+        "ic_at_optimal": -0.01052,
         "horizon_mismatch": false,
         "horizon_ics": {
-          "5": -0.010574,
-          "10": -0.009425,
-          "20": -0.005312
+          "5": -0.01052,
+          "10": -0.009403,
+          "20": -0.005247
         }
       },
       "recent_health": {
-        "recent_ic": -0.020062,
-        "full_ic": -0.010574,
-        "recent_t_stat": -2.04,
-        "recent_vs_full_ratio": 1.8973,
+        "recent_ic": -0.022726,
+        "full_ic": -0.01052,
+        "recent_t_stat": -2.32,
+        "recent_vs_full_ratio": 2.1602,
         "decaying": false,
         "strengthening": true
       },
       "conditional_ic": {
         "vix": {
-          "low_vol_ic": -0.001546,
-          "high_vol_ic": -0.01651,
-          "spread": 0.014964
+          "low_vol_ic": -0.001268,
+          "high_vol_ic": -0.016527,
+          "spread": 0.015259
         },
         "yield_curve": {
-          "normal_ic": -0.012652,
-          "inverted_ic": 0.001214,
-          "spread": 0.013865
+          "normal_ic": -0.012565,
+          "inverted_ic": 0.00181,
+          "spread": 0.014375
         },
         "earnings": {
-          "near_ic": 0.002434,
-          "far_ic": -0.010949,
-          "spread": 0.013383
+          "near_ic": 0.002421,
+          "far_ic": -0.010879,
+          "spread": 0.0133
         },
         "most_variable_condition": "vix",
         "conditional": true
       },
       "regime_ic": {
-        "bull_ic": -0.005037,
-        "bear_ic": -0.030165,
-        "bull_days": 3195,
-        "bear_days": 903,
-        "regime_ratio": 5.9884,
+        "bull_ic": -0.005069,
+        "bear_ic": -0.029925,
+        "bull_days": 3200,
+        "bear_days": 899,
+        "regime_ratio": 5.9034,
         "regime_stable": false
       }
     }
@@ -3949,170 +3949,170 @@
       {
         "feature": "factor_liquidity_dollar_vol_20d",
         "best_sector": "XLP",
-        "best_ic": 0.010774,
+        "best_ic": 0.010656,
         "worst_sector": "XLE",
-        "worst_ic": -0.039836
+        "worst_ic": -0.040775
       },
       {
         "feature": "xs_rank_market_factor_liquidity_dollar_vol_20d",
         "best_sector": "XLP",
-        "best_ic": 0.010064,
+        "best_ic": 0.00987,
         "worst_sector": "XLE",
-        "worst_ic": -0.038616
+        "worst_ic": -0.038763
       },
       {
         "feature": "xs_rank_market_factor_illiquidity_amihud_20d",
         "best_sector": "XLE",
-        "best_ic": 0.047445,
+        "best_ic": 0.047173,
         "worst_sector": "XLP",
-        "worst_ic": -0.007893
+        "worst_ic": -0.007887
       },
       {
         "feature": "factor_illiquidity_amihud_20d",
         "best_sector": "XLE",
-        "best_ic": 0.047756,
+        "best_ic": 0.047769,
         "worst_sector": "XLP",
-        "worst_ic": -0.010028
+        "worst_ic": -0.009945
       },
       {
         "feature": "dist_ma5",
         "best_sector": "XLE",
-        "best_ic": -0.001106,
+        "best_ic": -0.001372,
         "worst_sector": "XLU",
-        "worst_ic": -0.042459
+        "worst_ic": -0.042227
       },
       {
         "feature": "ret_3d",
         "best_sector": "XLE",
-        "best_ic": -0.002526,
+        "best_ic": -0.003122,
         "worst_sector": "XLU",
-        "worst_ic": -0.041247
+        "worst_ic": -0.041399
       },
       {
         "feature": "dist_ma10",
         "best_sector": "XLE",
-        "best_ic": -0.001756,
+        "best_ic": -0.002659,
         "worst_sector": "XLU",
-        "worst_ic": -0.04703
+        "worst_ic": -0.047367
       },
       {
         "feature": "ret_5d",
         "best_sector": "XLF",
-        "best_ic": -0.004167,
+        "best_ic": -0.004369,
         "worst_sector": "XLU",
-        "worst_ic": -0.044151
+        "worst_ic": -0.043562
       },
       {
         "feature": "xs_rank_market_ret_5d",
         "best_sector": "XLF",
-        "best_ic": -0.003487,
+        "best_ic": -0.003793,
         "worst_sector": "XLU",
-        "worst_ic": -0.043403
+        "worst_ic": -0.042847
       },
       {
         "feature": "ret_vs_spy_5d",
         "best_sector": "XLF",
-        "best_ic": -0.003814,
+        "best_ic": -0.004254,
         "worst_sector": "XLU",
-        "worst_ic": -0.044374
+        "worst_ic": -0.043857
       },
       {
         "feature": "ret_vs_qqq_5d",
         "best_sector": "XLF",
-        "best_ic": -0.003873,
+        "best_ic": -0.004581,
         "worst_sector": "XLU",
-        "worst_ic": -0.04446
+        "worst_ic": -0.043865
       },
       {
         "feature": "xs_rank_sector_factor_illiquidity_amihud_20d",
         "best_sector": "XLE",
-        "best_ic": 0.044079,
+        "best_ic": 0.044059,
         "worst_sector": "XLP",
-        "worst_ic": -0.003313
+        "worst_ic": -0.003444
       },
       {
         "feature": "xs_rank_sector_ret_5d",
         "best_sector": "XLF",
-        "best_ic": -0.003251,
+        "best_ic": -0.003598,
         "worst_sector": "XLU",
-        "worst_ic": -0.043584
+        "worst_ic": -0.043197
       },
       {
         "feature": "ret_vs_sector_5d",
         "best_sector": "XLF",
-        "best_ic": -0.003727,
+        "best_ic": -0.004211,
         "worst_sector": "XLU",
-        "worst_ic": -0.04453
+        "worst_ic": -0.043733
       },
       {
         "feature": "sector_rs_slope_5d",
         "best_sector": "XLF",
-        "best_ic": -0.003723,
+        "best_ic": -0.004208,
         "worst_sector": "XLU",
-        "worst_ic": -0.04453
+        "worst_ic": -0.043733
       },
       {
         "feature": "ret_1d",
         "best_sector": "XLE",
-        "best_ic": -6.2e-05,
+        "best_ic": -0.00027,
         "worst_sector": "XLC",
-        "worst_ic": -0.029234
+        "worst_ic": -0.029454
       },
       {
         "feature": "xs_rank_sector_factor_liquidity_dollar_vol_20d",
         "best_sector": "XLP",
-        "best_ic": 0.009615,
+        "best_ic": 0.009569,
         "worst_sector": "XLE",
-        "worst_ic": -0.039729
+        "worst_ic": -0.039906
       },
       {
         "feature": "ret_vs_sector_1d",
         "best_sector": "XLE",
-        "best_ic": -0.000207,
+        "best_ic": -5.3e-05,
         "worst_sector": "XLC",
-        "worst_ic": -0.02931
+        "worst_ic": -0.026481
       },
       {
         "feature": "macd_hist",
         "best_sector": "XLE",
-        "best_ic": 0.014361,
+        "best_ic": 0.01361,
         "worst_sector": "XLU",
-        "worst_ic": -0.024126
+        "worst_ic": -0.024435
       },
       {
         "feature": "vwap_dist",
         "best_sector": "XLE",
-        "best_ic": 0.007196,
+        "best_ic": 0.006922,
         "worst_sector": "XLU",
-        "worst_ic": -0.044756
+        "worst_ic": -0.04483
       },
       {
         "feature": "vol_trend_20_60",
         "best_sector": "XLU",
-        "best_ic": 0.003139,
+        "best_ic": 0.003008,
         "worst_sector": "XLK",
-        "worst_ic": -0.021969
+        "worst_ic": -0.021883
       },
       {
         "feature": "uptick_ratio",
         "best_sector": "XLE",
-        "best_ic": 0.000915,
+        "best_ic": 0.000281,
         "worst_sector": "XLC",
-        "worst_ic": -0.030645
+        "worst_ic": -0.029885
       },
       {
         "feature": "dist_ma20",
         "best_sector": "XLE",
-        "best_ic": 0.005545,
+        "best_ic": 0.0053,
         "worst_sector": "XLU",
-        "worst_ic": -0.044495
+        "worst_ic": -0.044475
       },
       {
         "feature": "bb_pos",
         "best_sector": "XLE",
-        "best_ic": 0.004809,
+        "best_ic": 0.004518,
         "worst_sector": "XLU",
-        "worst_ic": -0.039674
+        "worst_ic": -0.039221
       }
     ],
     "decaying": [],
@@ -4121,222 +4121,240 @@
         "feature": "factor_liquidity_dollar_vol_20d",
         "current": 5,
         "optimal": 20,
-        "ic_current": -0.016923,
-        "ic_optimal": -0.030491
+        "ic_current": -0.017041,
+        "ic_optimal": -0.030434
       },
       {
         "feature": "xs_rank_market_factor_liquidity_dollar_vol_20d",
         "current": 5,
         "optimal": 20,
-        "ic_current": -0.019817,
-        "ic_optimal": -0.036134
+        "ic_current": -0.020011,
+        "ic_optimal": -0.036247
       },
       {
         "feature": "xs_rank_market_factor_illiquidity_amihud_20d",
         "current": 5,
         "optimal": 20,
-        "ic_current": 0.019644,
-        "ic_optimal": 0.038198
+        "ic_current": 0.019673,
+        "ic_optimal": 0.038121
       },
       {
         "feature": "factor_illiquidity_amihud_20d",
         "current": 5,
         "optimal": 20,
-        "ic_current": 0.016295,
-        "ic_optimal": 0.031599
+        "ic_current": 0.016372,
+        "ic_optimal": 0.031619
       },
       {
         "feature": "xs_rank_sector_factor_illiquidity_amihud_20d",
         "current": 5,
         "optimal": 20,
-        "ic_current": 0.021232,
-        "ic_optimal": 0.041235
+        "ic_current": 0.021321,
+        "ic_optimal": 0.041225
       },
       {
         "feature": "xs_rank_sector_factor_liquidity_dollar_vol_20d",
         "current": 5,
         "optimal": 20,
-        "ic_current": -0.018096,
-        "ic_optimal": -0.034799
+        "ic_current": -0.018171,
+        "ic_optimal": -0.034805
       },
       {
         "feature": "vol_trend_20_60",
         "current": 5,
         "optimal": 20,
-        "ic_current": -0.009898,
-        "ic_optimal": -0.015998
+        "ic_current": -0.009872,
+        "ic_optimal": -0.015833
       }
     ],
     "conditional": [
       {
         "feature": "factor_liquidity_dollar_vol_20d",
         "most_variable": "yield_curve",
-        "vix_spread": 0.001992
+        "vix_spread": 0.001849
       },
       {
         "feature": "xs_rank_market_factor_liquidity_dollar_vol_20d",
         "most_variable": "yield_curve",
-        "vix_spread": 0.000997
+        "vix_spread": 0.00108
       },
       {
         "feature": "xs_rank_market_factor_illiquidity_amihud_20d",
         "most_variable": "earnings",
-        "vix_spread": 0.002184
+        "vix_spread": 0.002394
       },
       {
         "feature": "factor_illiquidity_amihud_20d",
         "most_variable": "earnings",
-        "vix_spread": 0.004247
+        "vix_spread": 0.004862
       },
       {
         "feature": "dist_ma5",
         "most_variable": "vix",
-        "vix_spread": 0.016292
+        "vix_spread": 0.01734
       },
       {
         "feature": "ret_3d",
         "most_variable": "vix",
-        "vix_spread": 0.014222
+        "vix_spread": 0.014652
       },
       {
         "feature": "dist_ma10",
         "most_variable": "vix",
-        "vix_spread": 0.022326
+        "vix_spread": 0.022484
       },
       {
         "feature": "ret_5d",
         "most_variable": "yield_curve",
-        "vix_spread": 0.015568
+        "vix_spread": 0.016563
       },
       {
         "feature": "xs_rank_market_ret_5d",
         "most_variable": "yield_curve",
-        "vix_spread": 0.015484
+        "vix_spread": 0.016498
       },
       {
         "feature": "ret_vs_spy_5d",
-        "most_variable": "yield_curve",
-        "vix_spread": 0.015509
+        "most_variable": "vix",
+        "vix_spread": 0.018724
       },
       {
         "feature": "ret_vs_qqq_5d",
         "most_variable": "yield_curve",
-        "vix_spread": 0.015491
+        "vix_spread": 0.015753
       },
       {
         "feature": "xs_rank_sector_factor_illiquidity_amihud_20d",
         "most_variable": "earnings",
-        "vix_spread": 0.007987
+        "vix_spread": 0.00736
       },
       {
         "feature": "xs_rank_sector_ret_5d",
         "most_variable": "yield_curve",
-        "vix_spread": 0.02069
+        "vix_spread": 0.021906
       },
       {
         "feature": "ret_vs_sector_5d",
         "most_variable": "yield_curve",
-        "vix_spread": 0.021773
+        "vix_spread": 0.021016
       },
       {
         "feature": "sector_rs_slope_5d",
         "most_variable": "yield_curve",
-        "vix_spread": 0.021571
+        "vix_spread": 0.02079
       },
       {
         "feature": "ret_1d",
         "most_variable": "vix",
-        "vix_spread": 0.015794
+        "vix_spread": 0.017513
       },
       {
         "feature": "xs_rank_sector_factor_liquidity_dollar_vol_20d",
         "most_variable": "yield_curve",
-        "vix_spread": 0.007062
+        "vix_spread": 0.00694
       },
       {
         "feature": "ret_vs_sector_1d",
         "most_variable": "vix",
-        "vix_spread": 0.019785
+        "vix_spread": 0.021424
       },
       {
         "feature": "macd_hist",
         "most_variable": "earnings",
-        "vix_spread": 0.01806
+        "vix_spread": 0.017045
       },
       {
         "feature": "vwap_dist",
         "most_variable": "vix",
-        "vix_spread": 0.021768
+        "vix_spread": 0.021322
       },
       {
         "feature": "vol_trend_20_60",
         "most_variable": "vix",
-        "vix_spread": 0.010161
+        "vix_spread": 0.011548
       },
       {
         "feature": "uptick_ratio",
         "most_variable": "yield_curve",
-        "vix_spread": 0.008941
+        "vix_spread": 0.008718
       },
       {
         "feature": "dist_ma20",
         "most_variable": "vix",
-        "vix_spread": 0.021528
+        "vix_spread": 0.020939
       },
       {
         "feature": "bb_pos",
         "most_variable": "vix",
-        "vix_spread": 0.014964
+        "vix_spread": 0.015259
       }
     ],
     "strengthening": [
       {
         "feature": "xs_rank_market_factor_illiquidity_amihud_20d",
-        "recent_ic": 0.030016,
-        "full_ic": 0.019644,
-        "ratio": 1.528
+        "recent_ic": 0.032198,
+        "full_ic": 0.019673,
+        "ratio": 1.6367
+      },
+      {
+        "feature": "ret_5d",
+        "recent_ic": -0.021283,
+        "full_ic": -0.014058,
+        "ratio": 1.514
+      },
+      {
+        "feature": "ret_vs_qqq_5d",
+        "recent_ic": -0.021283,
+        "full_ic": -0.013462,
+        "ratio": 1.5809
       },
       {
         "feature": "xs_rank_sector_factor_illiquidity_amihud_20d",
-        "recent_ic": 0.038181,
-        "full_ic": 0.021232,
-        "ratio": 1.7983
+        "recent_ic": 0.041789,
+        "full_ic": 0.021321,
+        "ratio": 1.96
+      },
+      {
+        "feature": "xs_rank_sector_ret_5d",
+        "recent_ic": -0.024474,
+        "full_ic": -0.014093,
+        "ratio": 1.7366
       },
       {
         "feature": "ret_vs_sector_5d",
-        "recent_ic": -0.022956,
-        "full_ic": -0.014764,
-        "ratio": 1.5548
+        "recent_ic": -0.028235,
+        "full_ic": -0.014743,
+        "ratio": 1.9151
       },
       {
         "feature": "sector_rs_slope_5d",
-        "recent_ic": -0.023016,
-        "full_ic": -0.014736,
-        "ratio": 1.5619
+        "recent_ic": -0.028262,
+        "full_ic": -0.014724,
+        "ratio": 1.9195
       },
       {
         "feature": "vwap_dist",
-        "recent_ic": -0.025921,
-        "full_ic": -0.012777,
-        "ratio": 2.0287
+        "recent_ic": -0.027664,
+        "full_ic": -0.012798,
+        "ratio": 2.1616
       },
       {
         "feature": "uptick_ratio",
-        "recent_ic": -0.021621,
-        "full_ic": -0.009805,
-        "ratio": 2.2051
+        "recent_ic": -0.023755,
+        "full_ic": -0.009754,
+        "ratio": 2.4354
       },
       {
         "feature": "dist_ma20",
-        "recent_ic": -0.022739,
-        "full_ic": -0.012135,
-        "ratio": 1.8738
+        "recent_ic": -0.024266,
+        "full_ic": -0.01215,
+        "ratio": 1.9971
       },
       {
         "feature": "bb_pos",
-        "recent_ic": -0.020062,
-        "full_ic": -0.010574,
-        "ratio": 1.8973
+        "recent_ic": -0.022726,
+        "full_ic": -0.01052,
+        "ratio": 2.1602
       }
     ],
     "synergistic_pairs": []

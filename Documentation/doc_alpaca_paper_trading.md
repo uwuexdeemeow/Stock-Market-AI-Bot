@@ -35,7 +35,7 @@ python3 alpaca_paper_trading.py --submit
 # Reconcile yesterday's pending orders (check what filled vs cancelled)
 python3 alpaca_paper_trading.py --reconcile
 
-# Just show current account state — no orders submitted
+# Just show current account state, and refresh dashboard snapshot files
 python3 alpaca_paper_trading.py --status
 
 # Force submission even when market is closed (orders queue for next open)
@@ -61,6 +61,10 @@ python3 alpaca_paper_trading.py --submit --dry-run
 | `signals/alpaca_paper_equity.csv` | Daily equity snapshots |
 | `signals/alpaca_daily_status.json` | Current positions, cash, equity |
 | `signals/alpaca_halt_active.txt` | Created when drawdown halt fires |
+
+`--status` is read-only for trading, but it still rewrites
+`alpaca_paper_equity.csv` and `alpaca_daily_status.json` so the Streamlit
+dashboard can show current Alpaca equity without waiting for reconcile.
 
 ## Key concepts
 

@@ -82,6 +82,11 @@ Open the dashboard:
 streamlit run dashboard.py
 ```
 
+The dashboard live-refreshes by default.  Every refresh asks Alpaca for a fresh
+paper account snapshot and rewrites `signals/alpaca_daily_status.json` plus
+`signals/alpaca_paper_equity.csv`, so the equity card updates without running
+`alpaca_paper_trading.py --reconcile`.
+
 Look for:
 - 🟢 fresh on Alpaca log, equity, status, health
 - Account equity > 0 (was a known bug — fixed)

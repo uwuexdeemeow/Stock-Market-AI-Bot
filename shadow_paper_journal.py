@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,14 +22,16 @@ import pandas as pd
 import core_satellite_alpha as csa
 import core_satellite_nested_walkforward as nested
 from safe_io import atomic_write_csv, atomic_write_json, configure_console_output
-from settings import SIGNAL_DIR
+from settings import DATA_DIR, SIGNAL_DIR
 
 
 configure_console_output()
 
 SHADOW_NAME = "riskoff_guard"
 SHADOW_JOURNAL_PATH = Path(SIGNAL_DIR) / "shadow_paper_journal.csv"
+SHADOW_EQUITY_PATH = Path(SIGNAL_DIR) / "shadow_paper_equity.csv"
 SHADOW_LIVE_CONFIG_PATH = Path(SIGNAL_DIR) / "shadow_core_satellite_live_configs.json"
+DEFAULT_SHADOW_INITIAL_EQUITY = 100_000.0
 
 # This is the candidate we validated but did NOT promote to paper trading.
 SHADOW_CONFIG_SIGNATURE = (
@@ -69,6 +72,138 @@ SHADOW_SOURCE_METRICS = {
 def _utc_now_text() -> str:
     """Return a compact UTC timestamp for journal/audit fields."""
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _shadow_initial_equity() -> float:
+    """Read the starting fake account value for the shadow equity curve."""
+    raw = os.environ.get("SHADOW_PAPER_INITIAL_EQUITY", str(DEFAULT_SHADOW_INITIAL_EQUITY))
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        value = DEFAULT_SHADOW_INITIAL_EQUITY
+    return value if value > 0 else DEFAULT_SHADOW_INITIAL_EQUITY
+
+
+def _as_float(value: Any, default: float = 0.0) -> float:
+    """Convert CSV/JSON values to floats while treating blanks as zero."""
+    try:
+        if value is None or pd.isna(value):
+            return default
+    except TypeError:
+        pass
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _json_weights(value: Any) -> dict[str, float]:
+    """Parse a JSON weight map like {"MU": 0.2} into clean floats."""
+    if not value:
+        return {}
+    try:
+        parsed = json.loads(str(value))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+    weights: dict[str, float] = {}
+    for ticker, weight in parsed.items():
+        ticker_text = str(ticker).upper().strip()
+        weight_value = _as_float(weight)
+        if ticker_text and abs(weight_value) > 1e-12:
+            weights[ticker_text] = weights.get(ticker_text, 0.0) + weight_value
+    return weights
+
+
+def _target_weights_from_row(row: dict[str, Any]) -> dict[str, float]:
+    """Return the portfolio weights the shadow config wants to hold next."""
+    weights: dict[str, float] = {}
+    for ticker, field in (
+        ("SPY", "target_spy_weight"),
+        ("QQQ", "target_qqq_weight"),
+        ("TQQQ", "target_tqqq_weight"),
+    ):
+        weight = _as_float(row.get(field))
+        if abs(weight) > 1e-12:
+            weights[ticker] = weights.get(ticker, 0.0) + weight
+
+    # Overlay weights are the individual stock picks.  They arrive as JSON in
+    # the journal row, so beginners can inspect the CSV without extra files.
+    for ticker, weight in _json_weights(row.get("overlay_weights_json")).items():
+        weights[ticker] = weights.get(ticker, 0.0) + weight
+
+    return {ticker: round(float(weight), 10) for ticker, weight in sorted(weights.items())}
+
+
+def _row_price_date(row: dict[str, Any]) -> str:
+    """Use the latest completed market-data date, falling back to run_date."""
+    for field in ("latest_factor_date", "run_date"):
+        value = row.get(field)
+        if value not in (None, ""):
+            ts = pd.Timestamp(value)
+            if not pd.isna(ts):
+                return ts.date().isoformat()
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+def _close_on_or_before(ticker: str, date_text: str, *, data_dir: Path) -> tuple[str, float] | None:
+    """Find the latest available close at or before a date for one ticker."""
+    path = Path(data_dir) / f"{ticker.upper()}.parquet"
+    if not path.exists():
+        return None
+    try:
+        frame = pd.read_parquet(path)
+    except Exception:
+        return None
+    if frame.empty or "Close" not in frame.columns:
+        return None
+
+    close_raw = frame["Close"]
+    if isinstance(close_raw, pd.DataFrame):
+        close_raw = close_raw.iloc[:, 0] if close_raw.shape[1] else pd.Series(dtype=float)
+    close = pd.to_numeric(close_raw, errors="coerce")
+    close.index = pd.to_datetime(close.index, errors="coerce").tz_localize(None).normalize()
+    close = close.dropna()
+    close = close[close > 0]
+    if close.empty:
+        return None
+
+    target_date = pd.Timestamp(date_text).normalize()
+    eligible = close[close.index <= target_date]
+    if eligible.empty:
+        return None
+    actual_date = pd.Timestamp(eligible.index[-1]).date().isoformat()
+    return actual_date, float(eligible.iloc[-1])
+
+
+def _portfolio_return(
+    weights: dict[str, float],
+    start_date: str,
+    end_date: str,
+    *,
+    data_dir: Path,
+) -> tuple[float, str]:
+    """Estimate one period of shadow P&L from prior weights and close prices."""
+    if not weights:
+        return 0.0, "no_prior_weights"
+    if pd.Timestamp(start_date).normalize() >= pd.Timestamp(end_date).normalize():
+        return 0.0, "same_price_date"
+
+    total_return = 0.0
+    missing: list[str] = []
+    for ticker, weight in weights.items():
+        start_close = _close_on_or_before(ticker, start_date, data_dir=data_dir)
+        end_close = _close_on_or_before(ticker, end_date, data_dir=data_dir)
+        if start_close is None or end_close is None:
+            missing.append(ticker)
+            continue
+        ticker_return = (end_close[1] / start_close[1]) - 1.0
+        total_return += float(weight) * float(ticker_return)
+
+    if missing:
+        return total_return, "partial_missing:" + ",".join(sorted(missing))
+    return total_return, "ok"
 
 
 def _shadow_candidate_config() -> dict[str, Any]:
@@ -267,9 +402,106 @@ def append_shadow_journal(
     return journal_path
 
 
+def update_shadow_equity(
+    row: dict[str, Any],
+    *,
+    equity_path: Path = SHADOW_EQUITY_PATH,
+    data_dir: Path = Path(DATA_DIR),
+    replace_today: bool = True,
+    initial_equity: float | None = None,
+) -> Path:
+    """Append one simulated equity row for the shadow paper portfolio.
+
+    PLAIN ENGLISH: The shadow journal says what we *would* hold.  This function
+    turns yesterday's shadow holdings into today's fake account value, so it can
+    be compared with the real Alpaca paper equity file.
+    """
+    equity_path = Path(equity_path)
+    equity_path.parent.mkdir(parents=True, exist_ok=True)
+    current_date = str(row.get("run_date") or datetime.now(timezone.utc).date().isoformat())
+    signature = str(row.get("shadow_config_signature") or SHADOW_CONFIG_SIGNATURE)
+    target_weights = _target_weights_from_row(row)
+    price_date = _row_price_date(row)
+    starting_equity = float(initial_equity or _shadow_initial_equity())
+
+    existing = pd.DataFrame()
+    if equity_path.exists() and equity_path.stat().st_size > 0:
+        try:
+            existing = pd.read_csv(equity_path)
+        except pd.errors.EmptyDataError:
+            existing = pd.DataFrame()
+
+    if not existing.empty:
+        existing["date"] = existing["date"].astype(str)
+        if "timestamp" not in existing.columns:
+            existing["timestamp"] = existing["date"]
+        if "shadow_config_signature" not in existing.columns:
+            existing["shadow_config_signature"] = signature
+        if replace_today:
+            same_row = (
+                (existing["date"] == current_date)
+                & (existing["shadow_config_signature"].astype(str) == signature)
+            )
+            existing = existing.loc[~same_row].copy()
+
+    prior = pd.DataFrame()
+    if not existing.empty:
+        same_shadow = existing["shadow_config_signature"].astype(str) == signature
+        prior = existing.loc[same_shadow & (existing["date"].astype(str) < current_date)].copy()
+        if not prior.empty:
+            prior = prior.sort_values(["date", "timestamp"], kind="stable")
+
+    if prior.empty:
+        base_equity = starting_equity
+        applied_weights: dict[str, float] = {}
+        price_from_date = ""
+        period_return, price_status = 0.0, "initialized"
+        initial = starting_equity
+    else:
+        last = prior.iloc[-1].to_dict()
+        base_equity = _as_float(last.get("equity"), starting_equity)
+        initial = _as_float(last.get("initial_equity"), starting_equity)
+        price_from_date = str(last.get("price_to_date") or last.get("price_date") or "")
+        applied_weights = _json_weights(last.get("target_weights_json"))
+        period_return, price_status = _portfolio_return(
+            applied_weights,
+            price_from_date,
+            price_date,
+            data_dir=Path(data_dir),
+        )
+
+    equity = base_equity * (1.0 + period_return)
+    out_row = {
+        "date": current_date,
+        "timestamp": row.get("journaled_at") or _utc_now_text(),
+        "shadow_name": row.get("shadow_name") or SHADOW_NAME,
+        "shadow_config_signature": signature,
+        "equity": round(equity, 2),
+        "initial_equity": round(initial, 2),
+        "period_return_pct": round(period_return * 100.0, 4),
+        "total_return_pct": round(((equity / initial) - 1.0) * 100.0, 4) if initial else 0.0,
+        "price_from_date": price_from_date,
+        "price_to_date": price_date,
+        "price_status": price_status,
+        "applied_weights_json": json.dumps(applied_weights, sort_keys=True),
+        "target_weights_json": json.dumps(target_weights, sort_keys=True),
+        "target_cash_weight": round(_as_float(row.get("target_cash_weight")), 10),
+        "gross_exposure": row.get("gross_exposure"),
+        "paper_ready": row.get("paper_ready"),
+        "gates_all_pass": row.get("gates_all_pass"),
+        "reason": row.get("reason"),
+    }
+
+    out = pd.concat([existing, pd.DataFrame([out_row])], ignore_index=True, sort=False)
+    out = out.sort_values(["date", "timestamp"], kind="stable")
+    atomic_write_csv(out, equity_path, index=False)
+    return equity_path
+
+
 def run_shadow_journal(
     *,
     journal_path: Path = SHADOW_JOURNAL_PATH,
+    equity_path: Path = SHADOW_EQUITY_PATH,
     restore_signal_artifacts: bool = True,
     replace_today: bool = True,
     ignore_stale: bool = False,
@@ -319,11 +551,17 @@ def run_shadow_journal(
         )
         signal = _first_signal_row(signal_path)
         journal_row = _journal_row(signal, metrics)
-        return append_shadow_journal(
+        out_path = append_shadow_journal(
             journal_row,
             journal_path=journal_path,
             replace_today=replace_today,
         )
+        update_shadow_equity(
+            journal_row,
+            equity_path=equity_path,
+            replace_today=replace_today,
+        )
+        return out_path
     finally:
         csa.LIVE_CONFIG_PATH = original_live_path
         SHADOW_LIVE_CONFIG_PATH.unlink(missing_ok=True)
@@ -335,6 +573,7 @@ def main() -> None:
     """CLI entry point for GitHub Actions and manual local shadow runs."""
     parser = argparse.ArgumentParser(description="Append today's shadow config signal to a paper journal.")
     parser.add_argument("--journal-path", default=str(SHADOW_JOURNAL_PATH))
+    parser.add_argument("--equity-path", default=str(SHADOW_EQUITY_PATH))
     parser.add_argument("--ignore-stale", action="store_true", help="Allow stale factor data for manual debugging.")
     parser.add_argument("--append-duplicate", action="store_true", help="Keep duplicate same-day rows.")
     parser.add_argument(
@@ -346,11 +585,13 @@ def main() -> None:
 
     path = run_shadow_journal(
         journal_path=Path(args.journal_path),
+        equity_path=Path(args.equity_path),
         restore_signal_artifacts=not args.no_restore_signal_artifacts,
         replace_today=not args.append_duplicate,
         ignore_stale=bool(args.ignore_stale),
     )
     print(f"Shadow paper journal updated: {path}")
+    print(f"Shadow paper equity updated: {Path(args.equity_path)}")
     print(f"Shadow config: {SHADOW_CONFIG_SIGNATURE}")
 
 

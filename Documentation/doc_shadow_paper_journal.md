@@ -27,10 +27,25 @@ python shadow_paper_journal.py --ignore-stale
 Expected output:
 
 - `signals/shadow_paper_journal.csv` gets one row for today.
+- `signals/shadow_paper_equity.csv` gets a simulated account-value row for
+  the shadow config, starting at `$100,000` by default.
 - `signals/core_satellite_alpha_signal.csv` is restored after the shadow run.
 - No Alpaca orders are submitted.
 - If the journal file exists but is empty, the script starts a fresh journal
   instead of crashing.
+
+To start the shadow equity curve at a different value:
+
+```bash
+SHADOW_PAPER_INITIAL_EQUITY=101161.27 python shadow_paper_journal.py
+```
+
+To compare real paper equity versus shadow equity:
+
+```bash
+tail -n 20 signals/alpaca_paper_equity.csv
+tail -n 20 signals/shadow_paper_equity.csv
+```
 
 ## Key Concepts
 
@@ -43,5 +58,9 @@ Expected output:
 **Overlay gross**: The portion of portfolio exposure assigned to individual stock picks.
 
 **Paper ready**: Whether the signal passed the same live gates used by the normal paper pipeline.
+
+**Shadow equity**: A fake account value calculated from yesterday's shadow
+target weights and the latest available close prices. It lets you compare the
+shadow config against the real Alpaca paper account without sending orders.
 
 **Sticky holdings**: Existing live holdings that the signal generator tries to keep when they still rank well.

@@ -372,10 +372,45 @@ def sidebar_refresh() -> None:
     without each one repeating the markdown block.
     """
     apply_page_style()
+    live_auto = False
+    refresh_seconds = 30
     with st.sidebar:
         if st.button("🔄 Refresh", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
+        st.divider()
+        live_auto = st.checkbox(
+            "Live auto-refresh",
+            value=True,
+            help="Reload the dashboard on a timer so broker equity and positions stay current.",
+        )
+        refresh_seconds = st.selectbox(
+            "Refresh every",
+            [15, 30, 60, 120],
+            index=1,
+            disabled=not live_auto,
+        )
+        if live_auto:
+            st.caption("Dashboard asks Alpaca for a fresh paper snapshot each refresh.")
+
+    if live_auto:
+        # Streamlit does not rerun a script just because a cached value expires.
+        # This tiny browser timer reloads the page so the live Alpaca snapshot
+        # gets pulled again without manual clicks.
+        milliseconds = int(refresh_seconds) * 1000
+        script = f"""
+        <script>
+          setTimeout(function() {{
+            window.parent.location.reload();
+          }}, {milliseconds});
+        </script>
+        """
+        if hasattr(st, "html"):
+            st.html(script, unsafe_allow_javascript=True)
+        else:
+            from streamlit.components.v1 import html as _html
+
+            _html(script, height=0, width=0)
 
 
 # ── Subprocess runner with live streaming + logging ────────────────────

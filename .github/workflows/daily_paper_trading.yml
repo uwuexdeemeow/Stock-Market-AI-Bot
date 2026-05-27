@@ -408,6 +408,8 @@ jobs:
             signals/regime_history.json
             signals/regime_changes_log.csv
             signals/monitor_heartbeat.json
+            signals/shadow_paper_journal.csv
+            signals/shadow_paper_equity.csv
           retention-days: 30
 
       # ── 9. Commit signal files back to repo (signals/latest branch) ─
@@ -422,7 +424,28 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Preserve shadow tracking files already on signals/latest.  The
+          # daily workflow owns live Alpaca files, while the shadow workflow
+          # owns these comparison files; both share the same branch.
+          tmp_shadow_dir="$(mktemp -d)"
+          git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest || true
+          for f in signals/shadow_paper_journal.csv signals/shadow_paper_equity.csv; do
+            if git show "origin/signals/latest:${f}" > "$tmp_shadow_dir/$(basename "$f")" 2>/dev/null; then
+              echo "  preserving $f from signals/latest"
+            else
+              rm -f "$tmp_shadow_dir/$(basename "$f")"
+            fi
+          done
+
           git checkout -B signals/latest
+
+          mkdir -p signals
+          for f in shadow_paper_journal.csv shadow_paper_equity.csv; do
+            if [ -f "$tmp_shadow_dir/$f" ]; then
+              cp "$tmp_shadow_dir/$f" "signals/$f"
+            fi
+          done
 
           # Add each expected file ONLY if it actually exists (dry-run, partial
           # failure, or a not-yet-implemented step may leave some missing).
@@ -442,7 +465,9 @@ jobs:
               signals/guard_intraday_state.json \
               signals/regime_history.json \
               signals/regime_changes_log.csv \
-              signals/monitor_heartbeat.json ; do
+              signals/monitor_heartbeat.json \
+              signals/shadow_paper_journal.csv \
+              signals/shadow_paper_equity.csv ; do
             if [ -f "$f" ]; then
               git add -f "$f"
               added=$((added + 1))
