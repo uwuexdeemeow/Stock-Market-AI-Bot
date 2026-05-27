@@ -64,6 +64,8 @@ import pandas as pd
 WF_CSV = Path("signals/core_satellite_nested_walkforward.csv")
 WF_JSON = Path("signals/core_satellite_nested_walkforward.json")
 LIVE_CFG_JSON = Path("signals/core_satellite_live_configs.json")
+DEFAULT_CONCENTRATION_OVERLAY_THRESHOLD = 0.05
+DEFAULT_CONCENTRATION_OVERLAY_SPAN = 0.05
 
 
 # ── Parse a config signature string into params ─────────────────────────
@@ -85,6 +87,14 @@ def parse_config_signature(sig: str) -> dict:
         out["high_vol_mode"] = mode
         out["high_vol"] = float(val)
         del out["vol"]
+    # Special handling: concentration overlay is encoded as
+    # "mode:low-high", for example "qqq_spy_dynamic:0.3-0.7".
+    if "conc_ov" in out and ":" in out["conc_ov"]:
+        mode, bounds = out["conc_ov"].split(":", 1)
+        low, high = bounds.split("-", 1)
+        out["concentration_overlay_mode"] = mode
+        out["concentration_overlay_low_gross"] = float(low)
+        out["concentration_overlay_high_gross"] = float(high)
     return out
 
 
@@ -107,13 +117,16 @@ def stable_family_signature_from_config_signature(sig: str) -> str:
     mode, and whether TQQQ is used.
     """
     params = parse_config_signature(sig)
-    return (
+    family = (
         f"score={params.get('score')},"
         f"shape={params.get('shape')},"
         f"weighting={params.get('weighting')},"
         f"risk={params.get('risk', 'off')},"
         f"tqqq={_stable_family_float(params.get('tqqq', 0.0))}"
     )
+    if params.get("conc_ov"):
+        family = f"{family},conc_ov={params.get('conc_ov')}"
+    return family
 
 
 def stable_family_tqqq_weight(family_signature: str) -> float:
@@ -237,7 +250,7 @@ def build_full_config(params: dict, fold_metrics: dict) -> dict:
     }
 
     # Full config dict — every field the strategy code expects to find.
-    return {
+    full_config = {
         "strategy": "core-alpha",
         "core_preset": core_preset,
         "regime_mode": "qqq_trend_switch_overlay70_core55_cashbuffer",
@@ -268,6 +281,19 @@ def build_full_config(params: dict, fold_metrics: dict) -> dict:
         "tqqq_weight": tqqq_weight,
         "risk_control_mode": risk_mode,
     }
+    if params.get("concentration_overlay_mode"):
+        full_config.update({
+            "concentration_overlay_mode": str(params["concentration_overlay_mode"]),
+            "concentration_overlay_low_gross": float(params.get("concentration_overlay_low_gross", 0.30)),
+            "concentration_overlay_high_gross": float(params.get("concentration_overlay_high_gross", 0.70)),
+            "concentration_overlay_threshold": float(
+                params.get("concentration_overlay_threshold", DEFAULT_CONCENTRATION_OVERLAY_THRESHOLD)
+            ),
+            "concentration_overlay_span": float(
+                params.get("concentration_overlay_span", DEFAULT_CONCENTRATION_OVERLAY_SPAN)
+            ),
+        })
+    return full_config
 
 
 # ── Pick which config to use based on source strategy ───────────────────

@@ -1201,12 +1201,16 @@ def _wf_sig(
     h: int = 20,
     ov: float = 0.5,
     vol_mode: str = "fixed",
+    conc_ov: str | None = None,
 ) -> str:
-    return (
+    signature = (
         f"h={h},ov={ov},ma=100,vol={vol_mode}:0.3,"
         f"score=regime_adaptive,shape={shape},weighting={weighting},"
         f"tqqq={tqqq},risk={risk}"
     )
+    if conc_ov:
+        signature = f"{signature},conc_ov={conc_ov}"
+    return signature
 
 
 def test_manual_publish_preserves_risk_mode_controls():
@@ -1227,6 +1231,18 @@ def test_manual_publish_preserves_risk_mode_controls():
     assert defensive_config["vol_target"] == 0.15
 
 
+def test_manual_publish_preserves_concentration_overlay_controls():
+    signature = _wf_sig(conc_ov="qqq_spy_dynamic:0.3-0.7")
+    params = manual_publish.parse_config_signature(signature)
+    config = manual_publish.build_full_config(params, {})
+
+    assert config["concentration_overlay_mode"] == "qqq_spy_dynamic"
+    assert config["concentration_overlay_low_gross"] == 0.3
+    assert config["concentration_overlay_high_gross"] == 0.7
+    assert config["concentration_overlay_threshold"] == 0.05
+    assert config["concentration_overlay_span"] == 0.05
+
+
 def test_stable_family_signature_keeps_tqqq_separate():
     no_tqqq = nested_wf.stable_family_signature_from_config_signature(_wf_sig(tqqq=0.0))
     with_tqqq = nested_wf.stable_family_signature_from_config_signature(_wf_sig(tqqq=0.1))
@@ -1234,6 +1250,16 @@ def test_stable_family_signature_keeps_tqqq_separate():
     assert no_tqqq != with_tqqq
     assert no_tqqq.endswith("tqqq=0.0")
     assert with_tqqq.endswith("tqqq=0.1")
+
+
+def test_manual_publish_stable_family_keeps_concentration_overlay_separate():
+    plain = manual_publish.stable_family_signature_from_config_signature(_wf_sig())
+    dynamic = manual_publish.stable_family_signature_from_config_signature(
+        _wf_sig(conc_ov="qqq_spy_dynamic:0.3-0.7")
+    )
+
+    assert plain != dynamic
+    assert dynamic.endswith("conc_ov=qqq_spy_dynamic:0.3-0.7")
 
 
 def test_stable_family_tiebreak_prefers_no_tqqq_then_lower_drawdown():

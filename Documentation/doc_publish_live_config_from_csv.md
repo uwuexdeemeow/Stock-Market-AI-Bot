@@ -29,6 +29,11 @@ the inner validation years looked much better than the outer unseen years, the
 selector may be overfitting.  The gap is measured as average
 `inner_mean_sharpe - oos_sharpe`, so both sides use Sharpe units.
 
+If a selected config includes a dynamic concentration overlay such as
+`conc_ov=qqq_spy_dynamic:0.3-0.7`, the publisher carries those exact controls
+into the live config and keeps that family separate from configs without the
+overlay.
+
 ## How To Run It
 
 Dry-run first:
@@ -70,6 +75,8 @@ Expected outputs:
   behavior choices.
 - **Selection-bias gap**: how much better the selected config looked in inner
   validation than it later looked in the held-out outer year.
+- **Dynamic concentration overlay**: a rule that changes overlay exposure when
+  QQQ is far ahead of SPY, used as a market-concentration risk control.
 - **TQQQ**: a leveraged Nasdaq ETF.  The script keeps TQQQ and no-TQQQ configs
   in different families so leverage does not sneak into a safer family.
 - **Dry run**: prints what would happen without writing files.
