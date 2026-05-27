@@ -24,6 +24,11 @@ FAIL verdicts now block approval unless you explicitly use `--force`, because
 a real analyzer failure means the validation method itself is not trustworthy
 enough to promote.
 
+The publisher also blocks large selection-bias gaps.  In plain language, if
+the inner validation years looked much better than the outer unseen years, the
+selector may be overfitting.  The gap is measured as average
+`inner_mean_sharpe - oos_sharpe`, so both sides use Sharpe units.
+
 ## How To Run It
 
 Dry-run first:
@@ -63,6 +68,8 @@ Expected outputs:
 - **Config**: one exact set of strategy settings.
 - **Stable family**: a group of similar configs that share the important
   behavior choices.
+- **Selection-bias gap**: how much better the selected config looked in inner
+  validation than it later looked in the held-out outer year.
 - **TQQQ**: a leveraged Nasdaq ETF.  The script keeps TQQQ and no-TQQQ configs
   in different families so leverage does not sneak into a safer family.
 - **Dry run**: prints what would happen without writing files.

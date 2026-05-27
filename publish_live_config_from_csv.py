@@ -354,6 +354,18 @@ def compute_aggregate_metrics(df: pd.DataFrame) -> dict:
     if n == 0:
         return {}
 
+    selection_bias_gap = None
+    if {"inner_mean_sharpe", "oos_sharpe"}.issubset(valid.columns):
+        # PLAIN ENGLISH: This measures overfit risk in the same units on both
+        # sides.  `inner_score` can be alpha-based, so comparing it to Sharpe
+        # is apples-to-oranges.  Use inner Sharpe minus OOS Sharpe instead.
+        gap_frame = valid[["inner_mean_sharpe", "oos_sharpe"]].apply(pd.to_numeric, errors="coerce").dropna()
+        if len(gap_frame) > 0:
+            selection_bias_gap = round(
+                float((gap_frame["inner_mean_sharpe"] - gap_frame["oos_sharpe"]).mean()),
+                3,
+            )
+
     compound = float((1 + valid.oos_return_pct / 100).prod())
     cagr = compound ** (1 / n) - 1 if n > 0 else 0.0
     top_cfg = valid.selected_config.value_counts()
@@ -373,6 +385,7 @@ def compute_aggregate_metrics(df: pd.DataFrame) -> dict:
         "mean_oos_alpha_vs_spy_pct": round(float(valid.oos_alpha_vs_spy_pct.mean()), 2),
         "mean_oos_alpha_vs_qqq_pct": round(float(valid.oos_alpha_vs_qqq_pct.mean()), 2),
         "oos_positive_alpha_hit_rate": round(float((valid.oos_alpha_vs_qqq_pct > 0).mean()), 3),
+        "selection_bias_gap_sharpe": selection_bias_gap,
         "best_config_frequency": round(top_cfg_freq, 4),
         "most_common_config": top_cfg_sig,
     }
@@ -513,6 +526,17 @@ def build_approval(
     if family_worst_turnover > thresholds["max_worst_oos_turnover_pct"]:
         reasons.append(
             f"worst_turnover {family_worst_turnover}% > {thresholds['max_worst_oos_turnover_pct']}%"
+        )
+    selection_bias_gap = metrics.get("selection_bias_gap_sharpe")
+    if selection_bias_gap is not None:
+        try:
+            selection_bias_gap = float(selection_bias_gap)
+        except (TypeError, ValueError):
+            selection_bias_gap = None
+    if selection_bias_gap is not None and selection_bias_gap > thresholds["max_selection_bias_gap_sharpe"]:
+        reasons.append(
+            f"selection_bias_gap_sharpe {selection_bias_gap} > "
+            f"{thresholds['max_selection_bias_gap_sharpe']}"
         )
     analyzer_fail_count = int(analyzer_metrics.get("fail_count", 0) or 0)
     if analyzer_fail_count > 0:
@@ -662,7 +686,7 @@ def publish(source: str, force: bool, dry_run: bool):
         "worst_oos_max_drawdown_pct": metrics["worst_oos_max_drawdown_pct"],
         "worst_oos_turnover_pct": metrics["worst_oos_turnover_pct"],
         "worst_oos_return_pct": round(float(df.oos_return_pct.min()), 2),
-        "selection_bias_gap_sharpe": round(float((df.inner_score - df.oos_sharpe).mean()), 3),
+        "selection_bias_gap_sharpe": metrics.get("selection_bias_gap_sharpe"),
         "medium_risk_review_pass": True,
         "selected_fold_year": int(row.fold_year),
         "selected_fold_sharpe": float(row.oos_sharpe),

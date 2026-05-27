@@ -1283,6 +1283,49 @@ def test_manual_publish_approval_rejects_one_off_selected_config():
     assert any("selected_config_freq" in reason for reason in approval_too_rare["reasons"])
 
 
+def test_manual_publish_computes_selection_bias_in_sharpe_units():
+    df = pd.DataFrame({
+        "fold_year": [2020, 2021, 2022],
+        "selected_config": ["A", "A", "A"],
+        "oos_return_pct": [10.0, 12.0, 8.0],
+        "oos_sharpe": [1.0, 1.1, 0.9],
+        "inner_mean_sharpe": [2.0, 2.3, 1.9],
+        "inner_score": [8.0, 8.5, 7.5],
+        "oos_max_drawdown_pct": [-5.0, -6.0, -7.0],
+        "oos_turnover_pct": [100.0, 120.0, 130.0],
+        "oos_alpha_vs_spy_pct": [4.0, 5.0, 3.0],
+        "oos_alpha_vs_qqq_pct": [2.0, 3.0, 1.0],
+    })
+
+    metrics = manual_publish.compute_aggregate_metrics(df)
+
+    assert metrics["selection_bias_gap_sharpe"] == 1.067
+
+
+def test_manual_publish_blocks_large_selection_bias_gap():
+    metrics = {
+        "fold_count": 6,
+        "best_config_frequency": 0.5,
+        "mean_oos_sharpe": 1.2,
+        "oos_positive_alpha_hit_rate": 0.8,
+        "mean_oos_max_drawdown_pct": -8.0,
+        "worst_oos_max_drawdown_pct": -18.0,
+        "worst_oos_turnover_pct": 250.0,
+        "selection_bias_gap_sharpe": 2.1,
+    }
+    selected = {"selected_config_frequency": 0.5}
+
+    approval = manual_publish.build_approval(
+        metrics,
+        "family_a",
+        force=False,
+        selected_config_metrics=selected,
+    )
+
+    assert approval["approved"] is False
+    assert "selection_bias_gap_sharpe 2.1 > 1.5" in approval["reasons"]
+
+
 def test_manual_publish_stable_family_skips_latest_one_off_config():
     df = pd.DataFrame({
         "fold_year": [2020, 2021, 2022, 2023, 2024, 2025],
