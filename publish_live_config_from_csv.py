@@ -514,6 +514,9 @@ def build_approval(
         reasons.append(
             f"worst_turnover {family_worst_turnover}% > {thresholds['max_worst_oos_turnover_pct']}%"
         )
+    analyzer_fail_count = int(analyzer_metrics.get("fail_count", 0) or 0)
+    if analyzer_fail_count > 0:
+        reasons.append(f"walkforward_analyzer_fail_count {analyzer_fail_count} > 0")
     warnings.extend(str(item) for item in analyzer_metrics.get("warnings", []) if str(item))
 
     approved = (len(reasons) == 0) or force

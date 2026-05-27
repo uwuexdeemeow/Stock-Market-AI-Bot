@@ -19,9 +19,10 @@ and `vol_target` at `0.0`.  If it says `risk=defensive`, both controls are set
 to the defensive values that the nested walkforward tested.
 
 It also records `walkforward_analyzer.py` warnings in the approval payload.
-Those warnings flag research issues such as anti-predictive inner scoring or
-concentration vulnerability, even when the config is still approved for
-paper-size monitoring.
+WARN verdicts flag research issues that should be monitored at paper size.
+FAIL verdicts now block approval unless you explicitly use `--force`, because
+a real analyzer failure means the validation method itself is not trustworthy
+enough to promote.
 
 ## How To Run It
 

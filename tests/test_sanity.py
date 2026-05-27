@@ -1305,6 +1305,35 @@ def test_manual_publish_stable_family_skips_latest_one_off_config():
     assert approval["warnings"]
 
 
+def test_manual_publish_blocks_walkforward_analyzer_failures():
+    metrics = {
+        "fold_count": 6,
+        "best_config_frequency": 0.5,
+        "mean_oos_sharpe": 1.2,
+        "oos_positive_alpha_hit_rate": 0.8,
+        "mean_oos_max_drawdown_pct": -8.0,
+        "worst_oos_max_drawdown_pct": -18.0,
+        "worst_oos_turnover_pct": 250.0,
+    }
+    selected = {"selected_config_frequency": 0.5}
+    analyzer = {
+        "fail_count": 1,
+        "warnings": ["walkforward_analyzer_fail:score_predictiveness"],
+    }
+
+    approval = manual_publish.build_approval(
+        metrics,
+        "family_a",
+        force=False,
+        selected_config_metrics=selected,
+        analyzer_metrics=analyzer,
+    )
+
+    assert approval["approved"] is False
+    assert "walkforward_analyzer_fail_count 1 > 0" in approval["reasons"]
+    assert "walkforward_analyzer_fail:score_predictiveness" in approval["warnings"]
+
+
 def test_inner_selection_scores_validation_folds_only(monkeypatch):
     configs = [
         {"name": "train_fit", "nested_params": {"holding_days": 10}},
