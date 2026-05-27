@@ -76,7 +76,12 @@ from feature_quality_diagnostic import (
     ic_decay_curve,
 )
 from alpha_factor_backtest import attach_trailing_score_guard
-from walkforward_analyzer import check_fold_completeness, check_score_predictiveness, summary_stats
+from walkforward_analyzer import (
+    check_config_stability,
+    check_fold_completeness,
+    check_score_predictiveness,
+    summary_stats,
+)
 
 
 def _price_frame(n=100, start="2024-01-01"):
@@ -1652,6 +1657,43 @@ def test_walkforward_analyzer_skips_score_check_when_inner_columns_missing():
 
     assert result["valid"] is False
     assert "inner_score" in result["reason"]
+
+
+def test_walkforward_analyzer_warns_when_cross_year_score_is_noisy_but_calibrated():
+    result = check_score_predictiveness(
+        pd.DataFrame(
+            {
+                "fold_year": [2023, 2024, 2025, 2026],
+                "inner_score": [4.0, 3.0, 2.0, 1.0],
+                "inner_mean_score": [4.0, 3.0, 2.0, 1.0],
+                "inner_mean_alpha_vs_qqq_pct": [1.0, 1.0, 1.0, 1.0],
+                "oos_sharpe": [0.8, 0.9, 1.0, 1.1],
+                "oos_alpha_vs_qqq_pct": [1.0, 2.0, 3.0, 4.0],
+                "oos_max_drawdown_pct": [-8.0, -7.0, -6.0, -5.0],
+                "oos_turnover_pct": [110.0, 105.0, 100.0, 95.0],
+            }
+        )
+    )
+
+    assert result["corr_inner_score_vs_oos_objective"] < 0
+    assert result["calibration_direction_accuracy_pct"] == 100.0
+    assert result["verdict"] == "WARN"
+
+
+def test_walkforward_analyzer_prefers_stable_family_for_config_stability():
+    result = check_config_stability(
+        pd.DataFrame(
+            {
+                "selected_config": ["a1", "a2", "a3", "b1"],
+                "stable_family_signature": ["family_a", "family_a", "family_a", "family_b"],
+            }
+        )
+    )
+
+    assert result["stability_column"] == "stable_family_signature"
+    assert result["top_config"] == "family_a"
+    assert result["top_config_frequency"] == 0.75
+    assert result["verdict"] == "PASS"
 
 
 def test_signal_timestamp_is_timezone_aware():

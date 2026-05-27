@@ -146,6 +146,14 @@ def check_score_predictiveness(df: pd.DataFrame, *, objective: str = DEFAULT_OBJ
     corr_alpha = valid["inner_score"].corr(valid["oos_alpha_vs_qqq_pct"])
     corr_objective = valid["inner_score"].corr(valid["oos_objective_score"])
     corr_mean_objective = valid["inner_mean_score"].corr(valid["oos_objective_score"])
+    calibration_direction = None
+    oos_positive_rate = None
+    if "inner_mean_alpha_vs_qqq_pct" in valid.columns:
+        calibration_direction = (
+            (valid["inner_mean_alpha_vs_qqq_pct"] > 0)
+            == (valid["oos_alpha_vs_qqq_pct"] > 0)
+        ).mean() * 100
+        oos_positive_rate = (valid["oos_alpha_vs_qqq_pct"] > 0).mean() * 100
 
     # Verdict thresholds:
     #   > 0.3  = working (PASS)
@@ -153,10 +161,24 @@ def check_score_predictiveness(df: pd.DataFrame, *, objective: str = DEFAULT_OBJ
     #   < 0     = anti-predictive — broken (FAIL)
     if corr_objective > 0.3:
         verdict = "PASS"
+        interpretation = _interpret_score_corr(corr_objective)
     elif corr_objective >= 0:
         verdict = "WARN"
+        interpretation = _interpret_score_corr(corr_objective)
+    elif (
+        calibration_direction is not None
+        and calibration_direction >= 60
+        and oos_positive_rate is not None
+        and oos_positive_rate >= 60
+    ):
+        verdict = "WARN"
+        interpretation = (
+            "Cross-year inner score correlation is negative, but sign calibration "
+            "is healthy; treat this as noisy and confirm with selector replay."
+        )
     else:
         verdict = "FAIL"
+        interpretation = _interpret_score_corr(corr_objective)
 
     return {
         "valid": True,
@@ -166,8 +188,14 @@ def check_score_predictiveness(df: pd.DataFrame, *, objective: str = DEFAULT_OBJ
         "corr_inner_score_vs_oos_sharpe": round(corr_inner, 3),
         "corr_inner_mean_vs_oos_sharpe": round(corr_mean, 3),
         "corr_inner_score_vs_oos_alpha_vs_qqq": round(corr_alpha, 3),
+        "calibration_direction_accuracy_pct": round(calibration_direction, 1)
+        if calibration_direction is not None
+        else None,
+        "oos_positive_alpha_rate_pct": round(oos_positive_rate, 1)
+        if oos_positive_rate is not None
+        else None,
         "verdict": verdict,
-        "interpretation": _interpret_score_corr(corr_objective),
+        "interpretation": interpretation,
     }
 
 
@@ -285,14 +313,15 @@ def check_concentration_vulnerability(
 def check_config_stability(df: pd.DataFrame) -> dict:
     """Count unique configs and frequency of the most common one."""
     df = normalize_walkforward_columns(df)
-    missing = _missing_columns(df, ["selected_config"])
+    stability_column = "stable_family_signature" if "stable_family_signature" in df.columns else "selected_config"
+    missing = _missing_columns(df, [stability_column])
     if missing:
         return {"valid": False, "reason": f"missing columns: {', '.join(missing)}"}
-    valid = df.dropna(subset=["selected_config"])
+    valid = df.dropna(subset=[stability_column])
     if len(valid) < 3:
         return {"valid": False, "reason": "not enough valid folds"}
 
-    counts = valid["selected_config"].value_counts()
+    counts = valid[stability_column].value_counts()
     n_unique = len(counts)
     n_folds = len(valid)
     top_config = counts.index[0]
@@ -314,6 +343,7 @@ def check_config_stability(df: pd.DataFrame) -> dict:
         "uniqueness_ratio": round(n_unique / n_folds, 3),
         "top_config": str(top_config),
         "top_config_frequency": round(top_freq, 3),
+        "stability_column": stability_column,
         "verdict": verdict,
     }
 
