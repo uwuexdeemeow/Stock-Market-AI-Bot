@@ -872,7 +872,68 @@ def build_submission_order(
     )
 
 
-def _already_submitted_today() -> bool:
+def bot_client_order_id(order_row: dict, *, today: datetime | None = None) -> str:
+    """
+    Build the deterministic client order id used for rebalance orders.
+
+    PLAIN ENGLISH: Alpaca rejects duplicate client_order_id values.  By making
+    the id from today's date + ticker + side + quantity, a retry cannot submit
+    the same logical trade twice.
+    """
+    day = (today or datetime.now(timezone.utc)).strftime("%Y%m%d")
+    ticker = str(order_row["ticker"]).upper()
+    side = str(order_row["side"]).lower()
+    quantity = int(order_row["quantity"])
+    return f"{day}_{ticker}_{side}_{quantity}"[:48]
+
+
+def _list_recent_alpaca_orders(broker: AlpacaBroker, *, limit: int = 500) -> list:
+    """Return recent Alpaca orders while tolerating small API-version differences."""
+    try:
+        return list(broker._api.list_orders(status="all", limit=limit, nested=False, direction="desc"))
+    except TypeError:
+        try:
+            return list(broker._api.list_orders(status="all", limit=limit, direction="desc"))
+        except TypeError:
+            return list(broker._api.list_orders(status="all", limit=limit))
+
+
+def _alpaca_rebalance_orders_submitted_today(
+    broker: AlpacaBroker,
+    *,
+    now: datetime | None = None,
+) -> list[dict]:
+    """
+    Ask Alpaca whether this bot already submitted rebalance orders today.
+
+    PLAIN ENGLISH: The local CSV can be stale on a clean GitHub runner.  Alpaca
+    is the source of truth for whether an order was actually accepted today.
+    """
+    now_utc = now or datetime.now(timezone.utc)
+    today = pd.Timestamp(now_utc).tz_convert("UTC").normalize()
+    today_prefix = now_utc.strftime("%Y%m%d") + "_"
+    matches: list[dict] = []
+    for order in _list_recent_alpaca_orders(broker):
+        if order_type(order) == "trailing_stop":
+            continue
+        client_id = str(getattr(order, "client_order_id", "") or "")
+        if not client_id.startswith(today_prefix):
+            continue
+        submitted_at = pd.to_datetime(getattr(order, "submitted_at", None), errors="coerce", utc=True)
+        if pd.isna(submitted_at) or submitted_at.normalize() != today:
+            continue
+        matches.append({
+            "ticker": order_symbol(order),
+            "side": order_side(order),
+            "qty": order_qty(order),
+            "status": str(getattr(order, "status", "") or ""),
+            "order_id": order_id(order),
+            "client_order_id": client_id,
+        })
+    return matches
+
+
+def _already_submitted_today(broker: AlpacaBroker | None = None) -> bool:
     """
     Check if orders were already submitted today.
 
@@ -880,6 +941,19 @@ def _already_submitted_today() -> bool:
     --submit twice in one day, the second run will warn you instead of
     placing duplicate trades.
     """
+    if broker is not None:
+        try:
+            alpaca_orders = _alpaca_rebalance_orders_submitted_today(broker)
+            if alpaca_orders:
+                tickers = ", ".join(
+                    f"{o['ticker']} {o['side']} {o['qty']:g}" for o in alpaca_orders[:6]
+                )
+                suffix = "..." if len(alpaca_orders) > 6 else ""
+                print(f"  Alpaca already has bot orders today: {tickers}{suffix}")
+                return True
+        except Exception as exc:
+            print(f"  ⚠ Could not check Alpaca duplicate orders; falling back to local log: {exc}")
+
     if not PAPER_LOG_FILE.exists():
         return False
     try:
@@ -1667,6 +1741,25 @@ def repair_overlay_trailing_stops(
     return result
 
 
+def repair_all_overlay_trailing_stops(broker: AlpacaBroker) -> dict:
+    """
+    Repair overlay trailing stops from live Alpaca positions.
+
+    PLAIN ENGLISH: Instead of trusting today's local CSV, this looks at what
+    Alpaca says we own right now.  Every non-ETF long position should have one
+    matching trailing stop unless a normal sell order is already open.
+    """
+    tickers = {
+        str(pos.ticker).upper()
+        for pos in broker.get_positions()
+        if str(pos.ticker).upper() not in ETF_TICKERS and int(pos.quantity) > 0
+    }
+    if not tickers:
+        return {"checked": [], "cancelled": [], "submitted": [], "skipped": [{"reason": "no_overlay_positions"}], "errors": []}
+    print(f"  Repairing overlay trailing stops from Alpaca positions: {', '.join(sorted(tickers))}")
+    return repair_overlay_trailing_stops(broker, tickers=tickers)
+
+
 def check_portfolio_drawdown(broker: AlpacaBroker) -> tuple[bool, float]:
     """
     Check if the portfolio has hit the drawdown halt threshold.
@@ -1902,6 +1995,8 @@ def main():
     # ── Reconcile mode: check fill statuses of pending orders ──────────
     if args.reconcile:
         reconcile_orders(broker)
+        if TRAILING_STOP_ENABLED:
+            repair_all_overlay_trailing_stops(broker)
         # Refresh status snapshot too — reconcile may have updated positions
         # via filled orders, and we want the signal to see the new state on
         # tomorrow's run.
@@ -2001,6 +2096,8 @@ def main():
                 tickers=CORE_PROTECTION_TICKERS,
                 logger=lambda msg: print(f"    {msg}"),
             )
+        if args.submit and TRAILING_STOP_ENABLED:
+            repair_all_overlay_trailing_stops(broker)
         return
 
     # ── Submit orders ───────────────────────────────────────────────────
@@ -2032,9 +2129,9 @@ def main():
               f"(halt at {PORTFOLIO_DRAWDOWN_HALT_PCT*100:.0f}%)")
 
     # Duplicate submission check — prevents running --submit twice in one day
-    if _already_submitted_today() and not args.force:
+    if _already_submitted_today(broker) and not args.force:
         print("  ⚠  Orders already submitted today. Use --force to override.")
-        print(f"     Check log: {PAPER_LOG_FILE}")
+        print(f"     Check Alpaca orders or local log: {PAPER_LOG_FILE}")
         return
 
     if not broker.is_market_open():
@@ -2171,13 +2268,10 @@ def main():
         order_style = "quote-based protective limit"
     print(f"\n  Submitting {len(orders)} orders ({order_style})...")
     order_ids = []
-    # Use today's date as part of a deterministic client_order_id so that
-    # network retries cannot double-submit the same logical order.
-    _today_str = datetime.now(timezone.utc).strftime("%Y%m%d")
     for o in orders:
         try:
             # Deterministic ID: date_ticker_side_qty — Alpaca rejects duplicates
-            _idempotency_key = f"{_today_str}_{o['ticker']}_{o['side']}_{o['quantity']}"
+            _idempotency_key = bot_client_order_id(o)
             order = build_submission_order(
                 o,
                 use_market_order=use_market_order,
@@ -2211,6 +2305,8 @@ def main():
     if overlay_sell_tickers:
         print("  Repairing overlay trailing stops after sell rebalance...")
         repair_overlay_trailing_stops(broker, tickers=overlay_sell_tickers)
+    if TRAILING_STOP_ENABLED:
+        repair_all_overlay_trailing_stops(broker)
 
     # ── Auto-snapshot equity for gauntlet tracking ─────────────────────
     # PLAIN ENGLISH: Saves today's account value so the gauntlet can

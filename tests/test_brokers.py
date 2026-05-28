@@ -620,6 +620,71 @@ class TestDuplicatePrevention:
         finally:
             apt.PAPER_LOG_FILE = orig
 
+    def test_alpaca_today_bot_order_blocks_without_local_log(self, tmp_path):
+        """A live Alpaca bot order from today should block even if CSV is gone."""
+        import alpaca_paper_trading as apt
+
+        now = datetime.now(timezone.utc)
+        client_id = apt.bot_client_order_id(
+            {"ticker": "MU", "side": "buy", "quantity": 25},
+            today=now,
+        )
+        order = SimpleNamespace(
+            symbol="MU",
+            side="buy",
+            type="limit",
+            qty="25",
+            id="alpaca-1",
+            status="filled",
+            submitted_at=now,
+            client_order_id=client_id,
+        )
+        broker = SimpleNamespace(_api=SimpleNamespace(list_orders=lambda **_kwargs: [order]))
+
+        orig = apt.PAPER_LOG_FILE
+        apt.PAPER_LOG_FILE = tmp_path / "missing.csv"
+        try:
+            assert apt._already_submitted_today(broker) is True
+        finally:
+            apt.PAPER_LOG_FILE = orig
+
+    def test_alpaca_manual_or_stop_order_does_not_block_without_local_log(self, tmp_path):
+        """Manual orders and bot trailing stops are not duplicate rebalance submits."""
+        import alpaca_paper_trading as apt
+
+        now = datetime.now(timezone.utc)
+        today_prefix = now.strftime("%Y%m%d") + "_"
+        orders = [
+            SimpleNamespace(
+                symbol="MU",
+                side="buy",
+                type="limit",
+                qty="25",
+                id="manual-1",
+                status="filled",
+                submitted_at=now,
+                client_order_id="manual-order",
+            ),
+            SimpleNamespace(
+                symbol="FCX",
+                side="sell",
+                type="trailing_stop",
+                qty="302",
+                id="stop-1",
+                status="new",
+                submitted_at=now,
+                client_order_id=today_prefix + "FCX_sell_302",
+            ),
+        ]
+        broker = SimpleNamespace(_api=SimpleNamespace(list_orders=lambda **_kwargs: orders))
+
+        orig = apt.PAPER_LOG_FILE
+        apt.PAPER_LOG_FILE = tmp_path / "missing.csv"
+        try:
+            assert apt._already_submitted_today(broker) is False
+        finally:
+            apt.PAPER_LOG_FILE = orig
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OVERLAY STOP REPAIR TESTS
@@ -729,6 +794,27 @@ def test_repair_overlay_trailing_stops_skips_when_normal_sell_is_open(monkeypatc
         "reason": "open_sell_order",
         "position_qty": 136,
     }]
+
+
+def test_repair_all_overlay_trailing_stops_uses_live_positions(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "TRAILING_STOP_ENABLED", True)
+    broker = _StopBroker(
+        orders=[
+            _open_order("FCX", "old-fcx-1", order_type="trailing_stop", side="sell", qty=104),
+            _open_order("FCX", "old-fcx-2", order_type="trailing_stop", side="sell", qty=62),
+            _open_order("QQQ", "core-qqq", order_type="trailing_stop", side="sell", qty=86),
+        ],
+        positions={"FCX": 302, "MU": 23, "QQQ": 86},
+    )
+
+    result = apt.repair_all_overlay_trailing_stops(broker)
+
+    assert broker.cancelled == ["old-fcx-1", "old-fcx-2"]
+    placed = {(order.ticker, order.quantity, order.type) for order in broker.placed}
+    assert placed == {("FCX", 302, "trailing_stop"), ("MU", 23, "trailing_stop")}
+    assert result["errors"] == []
 
 
 # ─────────────────────────────────────────────────────────────────────────────

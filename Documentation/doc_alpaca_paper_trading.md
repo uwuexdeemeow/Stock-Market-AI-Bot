@@ -117,7 +117,8 @@ It also refreshes the execution-quality report.
 The script has multiple layers of protection:
 
 1. **Duplicate submission check** — refuses to run `--submit` twice in
-   one day unless `--force` is passed.
+   one day unless `--force` is passed.  It checks Alpaca's live order
+   history first, then falls back to the local CSV log.
 2. **Live-config match check** — refuses to trade a signal if it was made
    from an older approved config than the one currently published.  This is
    not bypassed by `--allow-stale-signal`.
@@ -152,6 +153,10 @@ The script has multiple layers of protection:
    not reject the sell because shares are already reserved.  After the
    rebalance or reconcile step, it recreates a fresh trailing stop for any
    remaining shares unless another sell order is still open.
+13. **Alpaca-authoritative overlay stop repair** — during submit/reconcile,
+   the script reads current Alpaca positions and repairs trailing stops for
+   every non-ETF holding.  This catches missing or partial stops even when
+   the local order log is incomplete.
 
 ## Telegram order counts
 
