@@ -49,6 +49,12 @@ from alpaca_protection import (
     CORE_PROTECTION_ENABLED,
     CORE_PROTECTION_TICKERS,
     cancel_core_etf_protective_stops,
+    list_open_orders,
+    order_id,
+    order_qty,
+    order_side,
+    order_symbol,
+    order_type,
     repair_core_etf_protective_stops,
 )
 
@@ -1342,6 +1348,12 @@ def reconcile_orders(broker: AlpacaBroker) -> None:
 
     pending_mask = log["fill_status"].astype(str).str.lower().isin(["pending", ""])
     pending = log[pending_mask]
+    overlay_sell_tickers = {
+        str(row.get("ticker", "")).upper()
+        for _, row in pending.iterrows()
+        if str(row.get("side", "")).lower() == "sell"
+        and str(row.get("ticker", "")).upper() not in ETF_TICKERS
+    }
 
     if pending.empty:
         print("  All orders already reconciled — nothing to update.")
@@ -1374,6 +1386,12 @@ def reconcile_orders(broker: AlpacaBroker) -> None:
 
     atomic_write_csv(log, PAPER_LOG_FILE)
     print(f"\n  ✓ Reconciled {updated} orders. Log updated → {PAPER_LOG_FILE.name}")
+    if overlay_sell_tickers:
+        try:
+            print("  Repairing overlay trailing stops after reconcile...")
+            repair_overlay_trailing_stops(broker, tickers=overlay_sell_tickers)
+        except Exception as exc:
+            print(f"  ⚠ Overlay trailing-stop repair skipped after reconcile: {exc}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1487,6 +1505,166 @@ def submit_trailing_stops(broker: AlpacaBroker, buy_orders: list[dict]) -> list[
             stop_ids.append(f"ERROR: {e}")
 
     return stop_ids
+
+
+def cancel_overlay_trailing_stops_for_sells(
+    broker: AlpacaBroker,
+    sell_orders: list[dict],
+) -> list[dict]:
+    """
+    Cancel overlay trailing stops before selling those shares.
+
+    PLAIN ENGLISH: Alpaca trailing stops reserve shares.  If we already have a
+    protective stop for FCX and then try to sell FCX during rebalance, Alpaca
+    may reject the rebalance because those shares are "reserved" by the stop.
+    This clears only affected non-ETF trailing stops before the sell order.
+    """
+    if not sell_orders:
+        return []
+    tickers = {
+        str(o.get("ticker", "")).upper()
+        for o in sell_orders
+        if str(o.get("side", "")).lower() == "sell"
+        and str(o.get("ticker", "")).upper() not in ETF_TICKERS
+    }
+    if not tickers:
+        return []
+
+    actions: list[dict] = []
+    for open_order in list_open_orders(broker):
+        ticker = order_symbol(open_order)
+        if ticker not in tickers:
+            continue
+        if order_side(open_order) != "sell" or order_type(open_order) != "trailing_stop":
+            continue
+        oid = order_id(open_order)
+        status = "cancelled" if broker.cancel_order(oid) else "failed"
+        row = {
+            "ticker": ticker,
+            "qty": order_qty(open_order),
+            "order_id": oid,
+            "status": status,
+            "reason": "rebalance_sell",
+        }
+        actions.append(row)
+        print(f"    {status}: overlay trailing stop {ticker} qty={row['qty']:g} order={oid[:12]}")
+    return actions
+
+
+def repair_overlay_trailing_stops(
+    broker: AlpacaBroker,
+    *,
+    tickers: set[str],
+) -> dict:
+    """
+    Recreate overlay stops after a rebalance sell if shares remain.
+
+    PLAIN ENGLISH: If we reduced a stock but still hold some shares, the old
+    stop was cancelled before the sell.  This puts a new stop on the remaining
+    shares, unless another sell order is still open and reserving them.
+    """
+    result = {"checked": [], "cancelled": [], "submitted": [], "skipped": [], "errors": []}
+    watch = {str(t).upper() for t in tickers if str(t).upper() not in ETF_TICKERS}
+    if not TRAILING_STOP_ENABLED or not watch:
+        result["skipped"].append({"reason": "disabled_or_empty"})
+        return result
+
+    positions = {
+        str(p.ticker).upper(): int(p.quantity)
+        for p in broker.get_positions()
+        if str(p.ticker).upper() in watch and int(p.quantity) > 0
+    }
+    open_orders = list_open_orders(broker)
+    for ticker in sorted(watch):
+        pos_qty = int(positions.get(ticker, 0))
+        ticker_orders = [o for o in open_orders if order_symbol(o) == ticker]
+        stops = [
+            o for o in ticker_orders
+            if order_side(o) == "sell" and order_type(o) == "trailing_stop"
+        ]
+        open_sells = [
+            o for o in ticker_orders
+            if order_side(o) == "sell" and order_type(o) != "trailing_stop"
+        ]
+        result["checked"].append({
+            "ticker": ticker,
+            "position_qty": pos_qty,
+            "stop_count": len(stops),
+            "open_sell_count": len(open_sells),
+        })
+
+        if pos_qty <= 0:
+            for stop in stops:
+                oid = order_id(stop)
+                status = "cancelled" if broker.cancel_order(oid) else "failed"
+                result["cancelled"].append({
+                    "ticker": ticker,
+                    "qty": order_qty(stop),
+                    "order_id": oid,
+                    "status": status,
+                    "reason": "no_position",
+                })
+                print(f"    {status}: stale overlay stop {ticker} order={oid[:12]}")
+            continue
+
+        if open_sells:
+            result["skipped"].append({
+                "ticker": ticker,
+                "reason": "open_sell_order",
+                "position_qty": pos_qty,
+            })
+            print(f"    skipped: overlay stop repair {ticker}; sell order still open")
+            continue
+
+        stop_qty = sum(order_qty(stop) for stop in stops)
+        if stops and abs(stop_qty - float(pos_qty)) < 1e-6:
+            result["skipped"].append({
+                "ticker": ticker,
+                "reason": "already_protected",
+                "position_qty": pos_qty,
+            })
+            print(f"    protected: overlay stop {ticker} qty={pos_qty}")
+            continue
+
+        failed_cancel = False
+        for stop in stops:
+            oid = order_id(stop)
+            status = "cancelled" if broker.cancel_order(oid) else "failed"
+            result["cancelled"].append({
+                "ticker": ticker,
+                "qty": order_qty(stop),
+                "order_id": oid,
+                "status": status,
+                "reason": "replace",
+            })
+            print(f"    {status}: outdated overlay stop {ticker} order={oid[:12]}")
+            failed_cancel = failed_cancel or status == "failed"
+        if failed_cancel:
+            result["errors"].append({"ticker": ticker, "error": "could_not_cancel_existing_overlay_stop"})
+            continue
+
+        try:
+            stop_order = Order(
+                ticker=ticker,
+                side="sell",
+                quantity=pos_qty,
+                type="trailing_stop",
+                trail_percent=TRAILING_STOP_PCT,
+            )
+            oid = broker.place_order(stop_order)
+            result["submitted"].append({
+                "ticker": ticker,
+                "qty": pos_qty,
+                "trail_pct": TRAILING_STOP_PCT,
+                "order_id": oid,
+                "status": "submitted",
+            })
+            print(f"    submitted: overlay stop {ticker} qty={pos_qty} trail={TRAILING_STOP_PCT*100:.0f}% order={oid[:12]}")
+        except Exception as exc:
+            result["errors"].append({"ticker": ticker, "qty": pos_qty, "error": str(exc)})
+            print(f"    failed: overlay stop {ticker} qty={pos_qty}: {exc}")
+
+    return result
 
 
 def check_portfolio_drawdown(broker: AlpacaBroker) -> tuple[bool, float]:
@@ -1903,6 +2081,27 @@ def main():
             print("     Existing stops may reserve shares and cause sell orders to fail.")
             return
 
+    # ── Overlay trailing stops — clear before rebalance sells ────────────
+    # PLAIN ENGLISH: Overlay trailing stops also reserve shares.  Cancel the
+    # affected stops before SELL orders, then recreate protection for any
+    # remaining shares after the rebalance attempt.
+    overlay_sell_tickers = {
+        str(o["ticker"]).upper()
+        for o in orders
+        if str(o["side"]).lower() == "sell"
+        and str(o["ticker"]).upper() not in ETF_TICKERS
+    }
+    if overlay_sell_tickers:
+        print(f"  Clearing overlay trailing stops before sells: {', '.join(sorted(overlay_sell_tickers))}")
+        overlay_stop_cancels = cancel_overlay_trailing_stops_for_sells(
+            broker,
+            [o for o in orders if str(o["ticker"]).upper() in overlay_sell_tickers],
+        )
+        if any(row.get("status") == "failed" for row in overlay_stop_cancels):
+            print("  ✗ Could not cancel all affected overlay trailing stops. Aborting rebalance.")
+            print("     Existing stops may reserve shares and cause sell orders to fail.")
+            return
+
     # ── TQQQ fast circuit breaker — pre-trade check ───────────────────────
     # PLAIN ENGLISH: Before submitting any TQQQ buy, verify that TQQQ hasn't
     # already crashed more than TQQQ_FAST_DD_THRESHOLD from its recent high.
@@ -2008,6 +2207,10 @@ def main():
     if stop_ids:
         successful_stops = [s for s in stop_ids if not str(s).startswith("ERROR")]
         print(f"  ✓ {len(successful_stops)}/{len(stop_ids)} trailing stops placed")
+
+    if overlay_sell_tickers:
+        print("  Repairing overlay trailing stops after sell rebalance...")
+        repair_overlay_trailing_stops(broker, tickers=overlay_sell_tickers)
 
     # ── Auto-snapshot equity for gauntlet tracking ─────────────────────
     # PLAIN ENGLISH: Saves today's account value so the gauntlet can

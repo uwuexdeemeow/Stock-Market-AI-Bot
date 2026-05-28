@@ -335,7 +335,7 @@ def send_signal_summary_telegram(
                 if not orders.empty:
                     buys = len(orders[orders.get("side", pd.Series()) == "buy"]) if "side" in orders.columns else 0
                     sells = len(orders[orders.get("side", pd.Series()) == "sell"]) if "side" in orders.columns else 0
-                    lines.append(f"\n📋 Orders: {buys} buys, {sells} sells")
+                    lines.append(f"\n📋 Planned orders: {buys} buys, {sells} sells")
             except Exception:
                 pass
 

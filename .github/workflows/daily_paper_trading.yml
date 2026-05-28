@@ -614,9 +614,49 @@ jobs:
               try:
                   with orders_path.open() as f:
                       order_count = max(sum(1 for _ in f) - 1, 0)
-                  lines.append(f"Orders: {order_count}")
+                  lines.append(f"Planned orders: {order_count}")
               except Exception:
                   pass
+
+          trade_log_path = Path("signals/alpaca_paper_log.csv")
+          if trade_log_path.exists():
+              try:
+                  today_utc = datetime.now(timezone.utc).date()
+                  rows = []
+                  for row in csv.DictReader(trade_log_path.open()):
+                      submitted_at = row.get("submitted_at", "")
+                      try:
+                          submitted_date = datetime.fromisoformat(
+                              submitted_at.replace("Z", "+00:00")
+                          ).astimezone(timezone.utc).date()
+                      except Exception:
+                          submitted_date = today_utc
+                      if submitted_date == today_utc:
+                          rows.append(row)
+
+                  if rows:
+                      accepted = [
+                          r for r in rows
+                          if str(r.get("order_id", "")).strip()
+                          and not str(r.get("order_id", "")).startswith("ERROR")
+                      ]
+                      filled = [
+                          r for r in rows
+                          if str(r.get("fill_status", "")).lower() == "filled"
+                      ]
+                      failed = [
+                          r for r in rows
+                          if str(r.get("order_id", "")).startswith("ERROR")
+                          or not str(r.get("order_id", "")).strip()
+                          or str(r.get("fill_status", "")).lower() in {"submission_failed", "rejected"}
+                      ]
+                      lines.append(
+                          f"Alpaca accepted: {len(accepted)} | filled: {len(filled)} | failed: {len(failed)}"
+                      )
+                  else:
+                      lines.append("Alpaca accepted: 0 | filled: 0 | failed: 0")
+              except Exception as exc:
+                  lines.append(f"Alpaca order log unreadable: {exc}")
 
           equity_path = Path("signals/alpaca_paper_equity.csv")
           if equity_path.exists():

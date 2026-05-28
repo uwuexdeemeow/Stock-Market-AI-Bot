@@ -22,7 +22,7 @@ Alpaca paper-trading account.  Every day it:
 It also wires in safety nets — a portfolio drawdown halt, spread guards
 (refuse to trade when bid-ask is too wide), per-ticker fail tracking,
 protective day limit orders, market-closed queue blocking, and
-broker-side trailing stops on core ETFs.
+broker-side trailing stops on core ETFs and overlay stocks.
 
 ## Why it exists
 
@@ -147,6 +147,21 @@ The script has multiple layers of protection:
    only when queueing is intentional.
 11. **Core ETF trailing stops** — broker-side stops on SPY/QQQ/TQQQ that
    stay active even if the local machine is offline.
+12. **Overlay stop cleanup before sells** — before selling an overlay
+   stock, the script cancels that stock's old trailing stop so Alpaca does
+   not reject the sell because shares are already reserved.  After the
+   rebalance or reconcile step, it recreates a fresh trailing stop for any
+   remaining shares unless another sell order is still open.
+
+## Telegram order counts
+
+The workflow summary now separates planned trades from Alpaca outcomes:
+
+- **Planned orders** — rows generated in `core_satellite_alpha_orders.csv`.
+- **Alpaca accepted** — planned orders that Alpaca accepted for routing.
+- **Filled** — accepted orders that filled.
+- **Failed** — orders rejected or never accepted, such as insufficient
+  available quantity.
 
 ## When to run
 

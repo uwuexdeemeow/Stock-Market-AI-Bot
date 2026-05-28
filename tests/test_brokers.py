@@ -15,6 +15,7 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -618,6 +619,116 @@ class TestDuplicatePrevention:
             assert apt._already_submitted_today() is False
         finally:
             apt.PAPER_LOG_FILE = orig
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OVERLAY STOP REPAIR TESTS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _open_order(symbol, oid, order_type="trailing_stop", side="sell", qty=10):
+    """Make a tiny fake Alpaca order object for stop-management tests."""
+    return SimpleNamespace(
+        symbol=symbol,
+        id=oid,
+        type=order_type,
+        side=side,
+        qty=str(qty),
+    )
+
+
+class _StopBroker:
+    """Tiny broker fake that records cancelled and submitted stop orders."""
+
+    def __init__(self, *, orders=None, positions=None):
+        self._orders = list(orders or [])
+        self._positions = dict(positions or {})
+        self.cancelled = []
+        self.placed = []
+        self._api = SimpleNamespace(list_orders=self.list_orders)
+
+    def list_orders(self, **_kwargs):
+        return list(self._orders)
+
+    def cancel_order(self, oid):
+        self.cancelled.append(oid)
+        self._orders = [o for o in self._orders if getattr(o, "id", "") != oid]
+        return True
+
+    def get_positions(self):
+        from broker_interface import Position
+
+        return [
+            Position(ticker=ticker, quantity=qty, avg_price=100.0)
+            for ticker, qty in self._positions.items()
+        ]
+
+    def place_order(self, order):
+        self.placed.append(order)
+        return f"new-{len(self.placed)}"
+
+
+def test_cancel_overlay_trailing_stops_for_sells_cancels_only_affected_overlay_stops(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "TRAILING_STOP_ENABLED", True)
+    broker = _StopBroker(orders=[
+        _open_order("FCX", "stop-fcx", order_type="trailing_stop", side="sell", qty=104),
+        _open_order("QQQ", "stop-qqq", order_type="trailing_stop", side="sell", qty=50),
+        _open_order("FCX", "sell-fcx", order_type="limit", side="sell", qty=20),
+        _open_order("MU", "stop-mu", order_type="trailing_stop", side="sell", qty=2),
+    ])
+
+    actions = apt.cancel_overlay_trailing_stops_for_sells(
+        broker,
+        [{"ticker": "FCX", "side": "sell"}, {"ticker": "QQQ", "side": "sell"}],
+    )
+
+    assert broker.cancelled == ["stop-fcx"]
+    assert actions == [{
+        "ticker": "FCX",
+        "qty": 104.0,
+        "order_id": "stop-fcx",
+        "status": "cancelled",
+        "reason": "rebalance_sell",
+    }]
+
+
+def test_repair_overlay_trailing_stops_recreates_for_remaining_position(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "TRAILING_STOP_ENABLED", True)
+    monkeypatch.setattr(apt, "TRAILING_STOP_PCT", 0.08)
+    broker = _StopBroker(positions={"FCX": 136})
+
+    result = apt.repair_overlay_trailing_stops(broker, tickers={"FCX"})
+
+    assert result["errors"] == []
+    assert len(broker.placed) == 1
+    order = broker.placed[0]
+    assert order.ticker == "FCX"
+    assert order.side == "sell"
+    assert order.quantity == 136
+    assert order.type == "trailing_stop"
+    assert order.trail_percent == 0.08
+
+
+def test_repair_overlay_trailing_stops_skips_when_normal_sell_is_open(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "TRAILING_STOP_ENABLED", True)
+    broker = _StopBroker(
+        orders=[_open_order("FCX", "sell-fcx", order_type="limit", side="sell", qty=20)],
+        positions={"FCX": 136},
+    )
+
+    result = apt.repair_overlay_trailing_stops(broker, tickers={"FCX"})
+
+    assert broker.placed == []
+    assert result["skipped"] == [{
+        "ticker": "FCX",
+        "reason": "open_sell_order",
+        "position_qty": 136,
+    }]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
