@@ -639,10 +639,17 @@ jobs:
                           r for r in rows
                           if str(r.get("order_id", "")).strip()
                           and not str(r.get("order_id", "")).startswith("ERROR")
+                          and not str(r.get("order_id", "")).startswith("SKIPPED")
+                          and str(r.get("fill_status", "")).lower() != "skipped"
                       ]
                       filled = [
                           r for r in rows
                           if str(r.get("fill_status", "")).lower() == "filled"
+                      ]
+                      skipped = [
+                          r for r in rows
+                          if str(r.get("order_id", "")).startswith("SKIPPED")
+                          or str(r.get("fill_status", "")).lower() == "skipped"
                       ]
                       failed = [
                           r for r in rows
@@ -651,10 +658,10 @@ jobs:
                           or str(r.get("fill_status", "")).lower() in {"submission_failed", "rejected"}
                       ]
                       lines.append(
-                          f"Alpaca accepted: {len(accepted)} | filled: {len(filled)} | failed: {len(failed)}"
+                          f"Alpaca accepted: {len(accepted)} | filled: {len(filled)} | failed: {len(failed)} | skipped: {len(skipped)}"
                       )
                   else:
-                      lines.append("Alpaca accepted: 0 | filled: 0 | failed: 0")
+                      lines.append("Alpaca accepted: 0 | filled: 0 | failed: 0 | skipped: 0")
               except Exception as exc:
                   lines.append(f"Alpaca order log unreadable: {exc}")
 

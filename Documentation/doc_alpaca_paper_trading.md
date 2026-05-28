@@ -157,6 +157,13 @@ The script has multiple layers of protection:
    the script reads current Alpaca positions and repairs trailing stops for
    every non-ETF holding.  This catches missing or partial stops even when
    the local order log is incomplete.
+14. **Sells-before-buys submit guard** — rebalance sells are submitted first.
+   Buys are skipped if a sell fails, if a sell does not fill quickly, or if
+   cash is still below the no-margin threshold.  Buy value also cannot exceed
+   available cash.  This avoids accidentally adding leverage when the sell side
+   did not free cash.
+15. **Margin exposure warning** — after submit/reconcile, the script warns if
+   stock market value is materially above account equity.
 
 ## Telegram order counts
 

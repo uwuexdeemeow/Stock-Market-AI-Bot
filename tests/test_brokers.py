@@ -557,6 +557,157 @@ def test_quote_based_limit_falls_back_to_last_price():
     assert price < 100.0
 
 
+class _SubmitBroker:
+    """Tiny broker fake for submit-phase guard tests."""
+
+    def __init__(self, *, cash=1_000.0, fail_tickers=None, statuses=None):
+        self.cash = cash
+        self.fail_tickers = set(fail_tickers or [])
+        self.statuses = dict(statuses or {})
+        self.orders = []
+        self._api = SimpleNamespace(get_order=self.get_order)
+
+    def place_order(self, order):
+        if order.ticker in self.fail_tickers:
+            raise RuntimeError(f"{order.ticker} rejected")
+        self.orders.append(order)
+        return f"{order.side}-{order.ticker}-{len(self.orders)}"
+
+    def get_order(self, oid):
+        return SimpleNamespace(status=self.statuses.get(oid, "filled"))
+
+    def get_cash(self):
+        return float(self.cash)
+
+
+def _planned_order(ticker, side, quantity=1):
+    return {
+        "ticker": ticker,
+        "side": side,
+        "quantity": quantity,
+        "price": 100.0,
+        "limit_price": 100.10 if side == "buy" else 99.90,
+        "trade_value": quantity * 100.0,
+        "target_weight": 0.10,
+    }
+
+
+def test_submit_rebalance_orders_skips_buys_when_sell_submission_fails(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "_send_submit_guard_alert", lambda *args, **kwargs: None)
+    broker = _SubmitBroker(fail_tickers={"FCX"})
+    orders = [_planned_order("FCX", "sell"), _planned_order("MU", "buy")]
+
+    submitted, order_ids = apt.submit_rebalance_orders(
+        broker,
+        orders,
+        use_market_order=False,
+        use_quote_limit=False,
+    )
+
+    assert [o["ticker"] for o in submitted] == ["FCX", "MU"]
+    assert order_ids[0].startswith("ERROR")
+    assert order_ids[1].startswith("SKIPPED: sell_submission_failed")
+    assert [o.ticker for o in broker.orders] == []
+
+
+def test_submit_rebalance_orders_skips_buys_when_sell_not_filled(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "_send_submit_guard_alert", lambda *args, **kwargs: None)
+    monkeypatch.setattr(apt, "SELL_FILL_WAIT_SECONDS", 0)
+    broker = _SubmitBroker(statuses={"sell-FCX-1": "new"})
+    orders = [_planned_order("FCX", "sell"), _planned_order("MU", "buy")]
+
+    submitted, order_ids = apt.submit_rebalance_orders(
+        broker,
+        orders,
+        use_market_order=False,
+        use_quote_limit=False,
+    )
+
+    assert [o["ticker"] for o in submitted] == ["FCX", "MU"]
+    assert order_ids[0] == "sell-FCX-1"
+    assert order_ids[1].startswith("SKIPPED: sell_not_filled")
+    assert [o.ticker for o in broker.orders] == ["FCX"]
+
+
+def test_submit_rebalance_orders_skips_buys_when_cash_negative(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "_send_submit_guard_alert", lambda *args, **kwargs: None)
+    monkeypatch.setattr(apt, "SKIP_BUYS_WHEN_CASH_BELOW", 0.0)
+    broker = _SubmitBroker(cash=-5.0)
+    orders = [_planned_order("MU", "buy")]
+
+    submitted, order_ids = apt.submit_rebalance_orders(
+        broker,
+        orders,
+        use_market_order=False,
+        use_quote_limit=False,
+    )
+
+    assert [o["ticker"] for o in submitted] == ["MU"]
+    assert order_ids == ["SKIPPED: cash_below_threshold:-5.00"]
+    assert broker.orders == []
+
+
+def test_submit_rebalance_orders_skips_buys_when_buy_value_exceeds_cash(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "_send_submit_guard_alert", lambda *args, **kwargs: None)
+    monkeypatch.setattr(apt, "SKIP_BUYS_WHEN_CASH_BELOW", 0.0)
+    broker = _SubmitBroker(cash=50.0)
+    orders = [_planned_order("MU", "buy", quantity=1)]
+
+    submitted, order_ids = apt.submit_rebalance_orders(
+        broker,
+        orders,
+        use_market_order=False,
+        use_quote_limit=False,
+    )
+
+    assert [o["ticker"] for o in submitted] == ["MU"]
+    assert order_ids == ["SKIPPED: buy_value_exceeds_cash:100.00>50.00"]
+    assert broker.orders == []
+
+
+def test_submit_rebalance_orders_allows_buys_after_filled_sells_and_cash(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "_send_submit_guard_alert", lambda *args, **kwargs: None)
+    monkeypatch.setattr(apt, "SELL_FILL_WAIT_SECONDS", 0)
+    broker = _SubmitBroker(cash=1_000.0, statuses={"sell-FCX-1": "filled"})
+    orders = [_planned_order("FCX", "sell"), _planned_order("MU", "buy")]
+
+    submitted, order_ids = apt.submit_rebalance_orders(
+        broker,
+        orders,
+        use_market_order=False,
+        use_quote_limit=False,
+    )
+
+    assert [o["ticker"] for o in submitted] == ["FCX", "MU"]
+    assert order_ids == ["sell-FCX-1", "buy-MU-2"]
+    assert [o.ticker for o in broker.orders] == ["FCX", "MU"]
+
+
+def test_log_submission_marks_error_and_skipped_statuses(tmp_path):
+    import alpaca_paper_trading as apt
+
+    orig = apt.PAPER_LOG_FILE
+    apt.PAPER_LOG_FILE = tmp_path / "paper_log.csv"
+    try:
+        orders = [_planned_order("FCX", "sell"), _planned_order("MU", "buy")]
+        apt.log_submission(orders, ["ERROR: no shares", "SKIPPED: sell_not_filled"])
+        df = pd.read_csv(apt.PAPER_LOG_FILE)
+    finally:
+        apt.PAPER_LOG_FILE = orig
+
+    assert df["fill_status"].tolist() == ["submission_failed", "skipped"]
+
+
 class TestDuplicatePrevention:
     """Test that _already_submitted_today works correctly."""
 

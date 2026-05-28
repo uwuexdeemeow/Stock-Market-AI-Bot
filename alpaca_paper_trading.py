@@ -145,6 +145,13 @@ ALLOW_CLOSED_MARKET_QUEUE = bool(os.environ.get("ALPACA_ALLOW_CLOSED_MARKET_QUEU
     "y",
     "on",
 })
+SKIP_BUYS_UNTIL_SELLS_FILLED = os.environ.get("ALPACA_SKIP_BUYS_UNTIL_SELLS_FILLED", "1").strip().lower() in {
+    "true", "1", "yes", "y", "on"
+}
+SKIP_BUYS_WHEN_CASH_BELOW = float(os.environ.get("ALPACA_SKIP_BUYS_WHEN_CASH_BELOW", "0"))
+SELL_FILL_WAIT_SECONDS = float(os.environ.get("ALPACA_SELL_FILL_WAIT_SECONDS", "20"))
+SELL_FILL_POLL_SECONDS = float(os.environ.get("ALPACA_SELL_FILL_POLL_SECONDS", "2"))
+MARGIN_WARN_GROSS = float(os.environ.get("ALPACA_MARGIN_WARN_GROSS", "1.02"))
 
 
 def _truthy(value: object) -> bool:
@@ -763,6 +770,12 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
     rows = []
     now = datetime.now(timezone.utc).isoformat()
     for order, oid in zip(orders, order_ids):
+        oid_str = str(oid)
+        fill_status = order.get("fill_status", "pending")
+        if oid_str.startswith("ERROR"):
+            fill_status = "submission_failed"
+        elif oid_str.startswith("SKIPPED"):
+            fill_status = "skipped"
         rows.append({
             "submitted_at": now,
             "order_id": oid,
@@ -780,7 +793,7 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
             "spread_pct": order.get("spread_pct", ""),
             "trade_value": order["trade_value"],
             "target_weight": order["target_weight"],
-            "fill_status": "pending",
+            "fill_status": fill_status,
         })
 
     # Skip the write entirely if no orders were submitted (e.g. every
@@ -931,6 +944,219 @@ def _alpaca_rebalance_orders_submitted_today(
             "client_order_id": client_id,
         })
     return matches
+
+
+def _send_submit_guard_alert(title: str, message: str, *, priority: str = "warning") -> None:
+    """Send a best-effort Telegram/email alert for submit safety guards."""
+    try:
+        from notifications import send_alert
+        send_alert(message, title=title, priority=priority)
+    except Exception:
+        pass
+
+
+def _order_status(broker: AlpacaBroker, oid: str) -> str:
+    """Fetch one order status from Alpaca."""
+    try:
+        order = broker._api.get_order(oid)
+        return str(getattr(order, "status", "") or "").lower()
+    except Exception:
+        return "query_failed"
+
+
+def wait_for_order_fills(
+    broker: AlpacaBroker,
+    order_ids: list[str],
+    *,
+    timeout_seconds: float | None = None,
+    poll_seconds: float | None = None,
+) -> dict[str, str]:
+    """
+    Wait briefly for submitted sell orders to fill.
+
+    PLAIN ENGLISH: Buy orders should not spend cash that sells have not freed
+    yet.  This waits a short time for sell orders to become filled.
+    """
+    usable_ids = [oid for oid in order_ids if oid and not str(oid).startswith(("ERROR", "SKIPPED"))]
+    if not usable_ids:
+        return {}
+    timeout = SELL_FILL_WAIT_SECONDS if timeout_seconds is None else float(timeout_seconds)
+    poll = SELL_FILL_POLL_SECONDS if poll_seconds is None else float(poll_seconds)
+    deadline = time.time() + max(0.0, timeout)
+    statuses = {oid: _order_status(broker, oid) for oid in usable_ids}
+    while time.time() < deadline and any(status not in {"filled", "canceled", "rejected", "expired"} for status in statuses.values()):
+        if all(status == "filled" for status in statuses.values()):
+            break
+        time.sleep(max(0.5, poll))
+        statuses = {oid: _order_status(broker, oid) for oid in usable_ids}
+    return statuses
+
+
+def _submit_one_rebalance_order(
+    broker: AlpacaBroker,
+    order_row: dict,
+    *,
+    use_market_order: bool,
+    use_quote_limit: bool,
+) -> str:
+    """Submit one planned rebalance order and return the Alpaca id or ERROR."""
+    try:
+        order = build_submission_order(
+            order_row,
+            use_market_order=use_market_order,
+            use_quote_limit=use_quote_limit,
+            client_id=bot_client_order_id(order_row),
+        )
+        oid = broker.place_order(order)
+        limit_note = f" limit=${order.limit_price:.2f}" if order.type == "limit" and order.limit_price else ""
+        print(f"    ✓ {order_row['side'].upper()} {order_row['quantity']} {order_row['ticker']} "
+              f"{order.type}{limit_note} → order_id={oid[:12]}...")
+        return oid
+    except Exception as exc:
+        print(f"    ✗ {order_row['side'].upper()} {order_row['quantity']} {order_row['ticker']} "
+              f"FAILED: {exc}")
+        return f"ERROR: {exc}"
+
+
+def _skip_order(order_row: dict, reason: str) -> str:
+    """Mark a planned order as intentionally skipped before submission."""
+    order_row["submitted_order_type"] = "skipped"
+    order_row["submitted_limit_price"] = ""
+    order_row["submitted_limit_reference"] = reason
+    order_row["fill_status"] = "skipped"
+    print(f"    - SKIP {order_row['side'].upper()} {order_row['quantity']} {order_row['ticker']}: {reason}")
+    return f"SKIPPED: {reason}"
+
+
+def submit_rebalance_orders(
+    broker: AlpacaBroker,
+    orders: list[dict],
+    *,
+    use_market_order: bool,
+    use_quote_limit: bool,
+) -> tuple[list[dict], list[str]]:
+    """
+    Submit sells first, then buys only if cash is actually safe.
+
+    PLAIN ENGLISH: If a sell fails or does not fill, a buy can accidentally
+    turn into margin.  This guard skips buys instead of borrowing.
+    """
+    attempted_orders: list[dict] = []
+    order_ids: list[str] = []
+    sell_orders = [o for o in orders if str(o.get("side", "")).lower() == "sell"]
+    buy_orders = [o for o in orders if str(o.get("side", "")).lower() == "buy"]
+
+    sell_ids: list[str] = []
+    sell_failed = False
+    if sell_orders:
+        print("  Phase 1/2: submitting sells first...")
+    for order_row in sell_orders:
+        oid = _submit_one_rebalance_order(
+            broker,
+            order_row,
+            use_market_order=use_market_order,
+            use_quote_limit=use_quote_limit,
+        )
+        attempted_orders.append(order_row)
+        order_ids.append(oid)
+        sell_ids.append(oid)
+        sell_failed = sell_failed or str(oid).startswith("ERROR")
+
+    skip_buy_reason = ""
+    if buy_orders:
+        if sell_failed:
+            skip_buy_reason = "sell_submission_failed"
+        elif sell_ids and SKIP_BUYS_UNTIL_SELLS_FILLED:
+            print(f"  Waiting up to {SELL_FILL_WAIT_SECONDS:g}s for sells to fill before buys...")
+            statuses = wait_for_order_fills(broker, sell_ids)
+            unfilled = {oid: status for oid, status in statuses.items() if status != "filled"}
+            if unfilled:
+                status_note = ", ".join(f"{oid[:8]}={status}" for oid, status in list(unfilled.items())[:4])
+                skip_buy_reason = f"sell_not_filled:{status_note}"
+        if not skip_buy_reason and SKIP_BUYS_WHEN_CASH_BELOW > -1e12:
+            try:
+                cash = broker.get_cash()
+                if cash < SKIP_BUYS_WHEN_CASH_BELOW:
+                    skip_buy_reason = f"cash_below_threshold:{cash:.2f}"
+                else:
+                    total_buy_value = sum(abs(float(o.get("trade_value", 0) or 0)) for o in buy_orders)
+                    cash_available = max(0.0, cash - SKIP_BUYS_WHEN_CASH_BELOW)
+                    if total_buy_value > cash_available + 1.0:
+                        skip_buy_reason = (
+                            f"buy_value_exceeds_cash:{total_buy_value:.2f}>{cash_available:.2f}"
+                        )
+            except Exception as exc:
+                print(f"  ⚠ Could not check cash before buys: {exc}")
+
+    if buy_orders and skip_buy_reason:
+        print(f"  Buy phase skipped: {skip_buy_reason}")
+        _send_submit_guard_alert(
+            "Alpaca buy phase skipped",
+            f"Buy orders skipped to avoid margin/leverage.\nReason: {skip_buy_reason}",
+        )
+        for order_row in buy_orders:
+            attempted_orders.append(order_row)
+            order_ids.append(_skip_order(order_row, skip_buy_reason))
+        return attempted_orders, order_ids
+
+    if buy_orders:
+        print("  Phase 2/2: submitting buys...")
+    for order_row in buy_orders:
+        oid = _submit_one_rebalance_order(
+            broker,
+            order_row,
+            use_market_order=use_market_order,
+            use_quote_limit=use_quote_limit,
+        )
+        attempted_orders.append(order_row)
+        order_ids.append(oid)
+
+    return attempted_orders, order_ids
+
+
+def warn_if_margin_exposure(broker: AlpacaBroker) -> dict:
+    """
+    Warn when Alpaca stock value is materially higher than account equity.
+
+    PLAIN ENGLISH: If stock value is higher than equity, cash is negative and
+    the account is using margin.  This only warns; it does not trade.
+    """
+    try:
+        account = broker._api.get_account()
+        equity = float(getattr(account, "equity", 0) or 0)
+        cash = float(getattr(account, "cash", 0) or 0)
+        long_market_value = _float_or_none(getattr(account, "long_market_value", None))
+        if long_market_value is None:
+            long_market_value = equity - cash
+    except Exception:
+        try:
+            equity = broker.get_equity()
+            cash = broker.get_cash()
+            long_market_value = equity - cash
+        except Exception as exc:
+            print(f"  ⚠ Could not check margin exposure: {exc}")
+            return {"ok": False, "error": str(exc)}
+
+    gross = long_market_value / equity if equity > 0 else 0.0
+    result = {
+        "ok": gross <= MARGIN_WARN_GROSS and cash >= 0,
+        "equity": equity,
+        "cash": cash,
+        "long_market_value": long_market_value,
+        "gross": gross,
+    }
+    if not result["ok"]:
+        msg = (
+            f"Alpaca account is using margin/leverage.\n"
+            f"Equity: ${equity:,.2f}\n"
+            f"Stock value: ${long_market_value:,.2f}\n"
+            f"Cash: ${cash:,.2f}\n"
+            f"Gross: {gross:.2f}x"
+        )
+        print(f"  ⚠ Margin exposure warning: stock value ${long_market_value:,.2f}, "
+              f"equity ${equity:,.2f}, cash ${cash:,.2f}, gross {gross:.2f}x")
+        _send_submit_guard_alert("Alpaca margin exposure", msg)
+    return result
 
 
 def _already_submitted_today(broker: AlpacaBroker | None = None) -> bool:
@@ -1997,6 +2223,7 @@ def main():
         reconcile_orders(broker)
         if TRAILING_STOP_ENABLED:
             repair_all_overlay_trailing_stops(broker)
+        warn_if_margin_exposure(broker)
         # Refresh status snapshot too — reconcile may have updated positions
         # via filled orders, and we want the signal to see the new state on
         # tomorrow's run.
@@ -2098,6 +2325,8 @@ def main():
             )
         if args.submit and TRAILING_STOP_ENABLED:
             repair_all_overlay_trailing_stops(broker)
+        if args.submit:
+            warn_if_margin_exposure(broker)
         return
 
     # ── Submit orders ───────────────────────────────────────────────────
@@ -2267,37 +2496,32 @@ def main():
     if use_quote_limit and not use_market_order:
         order_style = "quote-based protective limit"
     print(f"\n  Submitting {len(orders)} orders ({order_style})...")
-    order_ids = []
-    for o in orders:
-        try:
-            # Deterministic ID: date_ticker_side_qty — Alpaca rejects duplicates
-            _idempotency_key = bot_client_order_id(o)
-            order = build_submission_order(
-                o,
-                use_market_order=use_market_order,
-                use_quote_limit=use_quote_limit,
-                client_id=_idempotency_key,
-            )
-            oid = broker.place_order(order)
-            order_ids.append(oid)
-            limit_note = f" limit=${order.limit_price:.2f}" if order.type == "limit" and order.limit_price else ""
-            print(f"    ✓ {o['side'].upper()} {o['quantity']} {o['ticker']} "
-                  f"{order.type}{limit_note} → order_id={oid[:12]}...")
-        except Exception as e:
-            order_ids.append(f"ERROR: {e}")
-            print(f"    ✗ {o['side'].upper()} {o['quantity']} {o['ticker']} "
-                  f"FAILED: {e}")
+    submitted_orders, order_ids = submit_rebalance_orders(
+        broker,
+        orders,
+        use_market_order=use_market_order,
+        use_quote_limit=use_quote_limit,
+    )
 
     # ── Log the submission ──────────────────────────────────────────────
-    log_submission(orders, order_ids)
-    print(f"\n  ✓ {len(orders)} orders submitted. Log saved → {PAPER_LOG_FILE}")
+    log_submission(submitted_orders, order_ids)
+    accepted = [
+        oid for oid in order_ids
+        if not str(oid).startswith(("ERROR", "SKIPPED"))
+    ]
+    print(f"\n  ✓ {len(accepted)}/{len(submitted_orders)} orders accepted by Alpaca. Log saved → {PAPER_LOG_FILE}")
 
     # ── Submit trailing stop-loss orders for overlay stocks ────────────
     # PLAIN ENGLISH: After buying individual stocks, place a trailing stop
     # that will sell automatically if the stock drops 8% from its high.
     # This limits downside on single-name positions between rebalances.
     # ETFs are NOT protected by stops (regime switching handles that).
-    stop_ids = submit_trailing_stops(broker, orders)
+    successful_buy_orders = [
+        order for order, oid in zip(submitted_orders, order_ids)
+        if str(order.get("side", "")).lower() == "buy"
+        and not str(oid).startswith(("ERROR", "SKIPPED"))
+    ]
+    stop_ids = submit_trailing_stops(broker, successful_buy_orders)
     if stop_ids:
         successful_stops = [s for s in stop_ids if not str(s).startswith("ERROR")]
         print(f"  ✓ {len(successful_stops)}/{len(stop_ids)} trailing stops placed")
@@ -2307,6 +2531,7 @@ def main():
         repair_overlay_trailing_stops(broker, tickers=overlay_sell_tickers)
     if TRAILING_STOP_ENABLED:
         repair_all_overlay_trailing_stops(broker)
+    warn_if_margin_exposure(broker)
 
     # ── Auto-snapshot equity for gauntlet tracking ─────────────────────
     # PLAIN ENGLISH: Saves today's account value so the gauntlet can
