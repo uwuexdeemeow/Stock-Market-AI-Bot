@@ -16,10 +16,13 @@ Alpaca paper-trading account.  Every day it:
    - `alpaca_paper_equity.csv` — daily equity snapshots
    - `alpaca_daily_status.json` — current positions + equity (used by
      the signal generator for "sticky" overlay carry-forward)
+   - `alpaca_slippage_reversal_report.json` — recent fill slippage and
+     post-fill reversal stats for the dashboard
 
 It also wires in safety nets — a portfolio drawdown halt, spread guards
 (refuse to trade when bid-ask is too wide), per-ticker fail tracking,
-and broker-side trailing stops on core ETFs.
+protective day limit orders, market-closed queue blocking, and
+broker-side trailing stops on core ETFs.
 
 ## Why it exists
 
@@ -39,10 +42,19 @@ python3 alpaca_paper_trading.py --reconcile
 python3 alpaca_paper_trading.py --status
 
 # Force submission even when market is closed (orders queue for next open)
-python3 alpaca_paper_trading.py --submit --force
+python3 alpaca_paper_trading.py --submit --allow-closed-market-queue
 
 # Dry-run — show planned orders without sending to Alpaca
-python3 alpaca_paper_trading.py --submit --dry-run
+python3 alpaca_paper_trading.py
+
+# Refresh recent fill slippage/reversal stats for the Performance dashboard
+python3 alpaca_paper_trading.py --slippage-report
+
+# Emergency override: send market orders instead of protective day limits
+python3 alpaca_paper_trading.py --submit --market-order
+
+# Optional experiment: anchor limit prices to live bid/ask instead of last trade
+python3 alpaca_paper_trading.py --submit --quote-limit
 ```
 
 ## Inputs
@@ -60,11 +72,13 @@ python3 alpaca_paper_trading.py --submit --dry-run
 | `signals/alpaca_paper_log.csv` | Every order submitted, with fill status |
 | `signals/alpaca_paper_equity.csv` | Daily equity snapshots |
 | `signals/alpaca_daily_status.json` | Current positions, cash, equity |
+| `signals/alpaca_slippage_reversal_report.json` | Recent fills, slippage vs fill-minute VWAP, and 5/15/30/60 minute reversals |
 | `signals/alpaca_halt_active.txt` | Created when drawdown halt fires |
 
 `--status` is read-only for trading, but it still rewrites
 `alpaca_paper_equity.csv` and `alpaca_daily_status.json` so the Streamlit
 dashboard can show current Alpaca equity without waiting for reconcile.
+It also refreshes the execution-quality report.
 
 ## Key concepts
 
@@ -73,6 +87,21 @@ dashboard can show current Alpaca equity without waiting for reconcile.
 - **Spread guard** — refuses to trade when the bid-ask spread is wider
   than 1.5%.  Wide spreads mean illiquid markets — you'd get filled at
   bad prices.  Common when market is closed.
+- **Marketable limit order** — a limit order placed just above the latest
+  price for buys or just below the latest price for sells.  It usually
+  fills quickly like a market order, but it caps how far the fill can run
+  away from the planned price.
+- **Bid/ask quote** — the best current buyer price (bid) and seller price
+  (ask).  The script logs these into `alpaca_paper_log.csv` at submission
+  time for audit.  Quote-based limit anchoring exists behind
+  `--quote-limit` or `ALPACA_LIMIT_REFERENCE=quote`, but the default remains
+  last-trade anchoring unless explicitly enabled.
+- **Slippage** — the difference between the fill price and a fair reference
+  price, here the fill-minute VWAP.  Positive slippage means the fill was
+  worse than the reference.
+- **Post-fill reversal** — price moving against the trade after the fill.
+  For a buy, price dropping after the fill is adverse.  For a sell, price
+  rising after the fill is adverse.
 - **Drawdown halt** — when account drops 12% from peak, stop submitting
   new buys (sells/stops still allowed).  Auto-clears when account
   recovers past 50% of halt threshold.
@@ -101,11 +130,22 @@ The script has multiple layers of protection:
    into share orders.
 5. **Account drawdown halt** — auto-liquidates if portfolio falls 12%
    from peak (configurable via `PORTFOLIO_DRAWDOWN_HALT_PCT`).
-6. **Spread guard** — skips individual orders when spread > 1.5%
+6. **Protective day limit orders** — normal submissions use small-cushion
+   limit orders by default (`ALPACA_ORDER_TYPE=limit`).  Use
+   `--market-order` only when you intentionally want market orders.
+7. **Quote audit logging** — every submitted order records current bid,
+   ask, midpoint, spread, and which limit reference was used.  This is
+   observational by default and does not block or alter trades.
+8. **Execution risk scoring** — the slippage report ranks tickers by recent
+   bad slippage and post-fill reversal behavior.  This is dashboard-only;
+   it does not change position selection or order submission.
+9. **Spread guard** — skips individual orders when spread > 1.5%
    (configurable via `MAX_SPREAD_PCT`).
-7. **Market-closed prompt** — when run interactively at market close,
-   asks confirmation before queueing orders.  In CI/cron it auto-proceeds.
-8. **Core ETF trailing stops** — broker-side stops on SPY/QQQ/TQQQ that
+10. **Market-closed fail-closed behavior** — when run non-interactively at
+   market close, it aborts instead of queueing orders.  Use
+   `--allow-closed-market-queue` or `ALPACA_ALLOW_CLOSED_MARKET_QUEUE=1`
+   only when queueing is intentional.
+11. **Core ETF trailing stops** — broker-side stops on SPY/QQQ/TQQQ that
    stay active even if the local machine is offline.
 
 ## When to run

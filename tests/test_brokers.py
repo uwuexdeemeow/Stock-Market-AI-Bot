@@ -472,6 +472,90 @@ def test_generate_orders_skips_nonfinite_prices():
     assert apt.generate_orders(broker, {"SPY": 0.5}, force=True) == []
 
 
+def test_generate_orders_adds_marketable_limit_prices():
+    import alpaca_paper_trading as apt
+
+    broker = _OrderBroker(equity=100_000.0, positions={"SPY": 100}, prices={"SPY": 500.0})
+
+    orders = apt.generate_orders(broker, {"SPY": 0.0}, force=True)
+
+    assert orders[0]["side"] == "sell"
+    assert orders[0]["limit_price"] < orders[0]["price"]
+    assert orders[0]["raw_limit_price"] < orders[0]["price"]
+
+
+def test_build_submission_order_defaults_to_limit():
+    import alpaca_paper_trading as apt
+
+    planned = {
+        "ticker": "AAPL",
+        "side": "buy",
+        "quantity": 10,
+        "price": 100.0,
+        "limit_price": 100.12,
+    }
+
+    order = apt.build_submission_order(planned, use_market_order=False, client_id="test-1")
+
+    assert order.type == "limit"
+    assert order.limit_price == 100.12
+    assert planned["submitted_order_type"] == "limit"
+    assert planned["submitted_limit_price"] == 100.12
+
+
+def test_build_submission_order_can_force_market():
+    import alpaca_paper_trading as apt
+
+    planned = {"ticker": "AAPL", "side": "buy", "quantity": 10, "price": 100.0}
+
+    order = apt.build_submission_order(planned, use_market_order=True, client_id="test-2")
+
+    assert order.type == "market"
+    assert order.limit_price is None
+    assert planned["submitted_order_type"] == "market"
+
+
+def test_quote_based_limit_is_opt_in():
+    import alpaca_paper_trading as apt
+
+    planned = {
+        "ticker": "AAPL",
+        "side": "buy",
+        "quantity": 10,
+        "price": 100.0,
+        "limit_price": 100.05,
+        "bid_price": 99.95,
+        "ask_price": 100.20,
+    }
+
+    order = apt.build_submission_order(
+        planned,
+        use_market_order=False,
+        use_quote_limit=True,
+        client_id="test-3",
+    )
+
+    assert order.type == "limit"
+    assert order.limit_price > 100.20
+    assert order.limit_price != 100.05
+    assert planned["submitted_limit_reference"] == "quote"
+
+
+def test_quote_based_limit_falls_back_to_last_price():
+    import alpaca_paper_trading as apt
+
+    price = apt.quote_based_limit_price(
+        bid_price=None,
+        ask_price=None,
+        fallback_price=100.0,
+        side="sell",
+        ticker="AAPL",
+        limit_offset_bps=10,
+    )
+
+    assert price < 100.0
+
+
 class TestDuplicatePrevention:
     """Test that _already_submitted_today works correctly."""
 

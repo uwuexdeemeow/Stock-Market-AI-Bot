@@ -71,6 +71,7 @@ Pulls yesterday's Actions outputs into `signals/` and `logs/`. Refreshes:
 - `alpaca_paper_equity.csv` — equity history
 - `alpaca_paper_health.json` — health summary
 - `alpaca_daily_status.json` — positions + equity snapshot
+- `alpaca_slippage_reversal_report.json` — fill slippage and reversal report
 - `monitor_heartbeat.json` — watchdog status
 - `logs/daily_run_*.json` — pipeline step results
 
@@ -91,6 +92,8 @@ Look for:
 - 🟢 fresh on Alpaca log, equity, status, health
 - Account equity > 0 (was a known bug — fixed)
 - Today's trades reflect the published top3 family
+- Performance → Execution quality shows recent fill slippage and 5/15/60m
+  reversal counts, plus the worst recent tickers by execution risk score
 - Telegram alerts arrived for anything red
 
 ### Manual run (only if Actions failed)
@@ -197,7 +200,7 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | Script | What it does | Common flags |
 |---|---|---|
 | `alpaca_paper_gauntlet.py` | Health gate — pass/fail for "should real money trust this?" | `--verbose` |
-| `alpaca_paper_trading.py` | Generate and (optionally) submit Alpaca orders | `--submit`, `--status`, `--reconcile`, `--force` |
+| `alpaca_paper_trading.py` | Generate and (optionally) submit Alpaca orders | `--submit`, `--status`, `--reconcile`, `--slippage-report`, `--market-order` |
 | `broker_health.py` | Pre-flight Alpaca connectivity check | none |
 | `core_satellite_alpha.py` | Generate today's signal (which 3 stocks + ETF weights) | `--ignore-stale`, `--walkforward` |
 | `daily_paper_check.py` | Quick pass/fail verdict for daily run | none |

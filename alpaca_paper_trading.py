@@ -26,10 +26,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
@@ -108,6 +109,8 @@ EQUITY_FILE = Path(SIGNAL_DIR) / "alpaca_paper_equity.csv"
 # PLAIN ENGLISH: Status file lets core_satellite_alpha.py compute
 # "sticky" overlay holdings from the same Alpaca account that trades.
 STATUS_FILE = Path(SIGNAL_DIR) / "alpaca_daily_status.json"
+# Execution-quality report — tracks slippage and post-fill reversals.
+SLIPPAGE_REPORT_FILE = Path(SIGNAL_DIR) / "alpaca_slippage_reversal_report.json"
 
 # Retry config for price fetches
 PRICE_RETRY_ATTEMPTS = int(os.environ.get("ALPACA_PRICE_RETRIES", "3"))
@@ -122,11 +125,143 @@ PRICE_RETRY_BASE_DELAY = float(os.environ.get("ALPACA_PRICE_RETRY_DELAY", "1.0")
 MAX_SPREAD_PCT_ETF = float(os.environ.get("MAX_SPREAD_PCT_ETF", "0.005"))  # 0.5% for ETFs
 MAX_SPREAD_PCT_OVERLAY = float(os.environ.get("MAX_SPREAD_PCT_OVERLAY", "0.015"))  # 1.5% for stocks
 
+# Order style.  The default is now protective day limit orders, not market
+# orders.  PLAIN ENGLISH: a marketable limit order still tries to fill now,
+# but it refuses to pay beyond a small cushion from the latest price.
+DEFAULT_ORDER_TYPE = os.environ.get("ALPACA_ORDER_TYPE", "limit").strip().lower()
+LIMIT_REFERENCE = os.environ.get("ALPACA_LIMIT_REFERENCE", "last").strip().lower()
+LIMIT_OFFSET_BPS_ETF = float(os.environ.get("ALPACA_LIMIT_OFFSET_BPS_ETF", "5"))
+LIMIT_OFFSET_BPS_OVERLAY = float(os.environ.get("ALPACA_LIMIT_OFFSET_BPS_OVERLAY", "12"))
+ALLOW_CLOSED_MARKET_QUEUE = bool(os.environ.get("ALPACA_ALLOW_CLOSED_MARKET_QUEUE", "0").strip().lower() in {
+    "true",
+    "1",
+    "yes",
+    "y",
+    "on",
+})
+
 
 def _truthy(value: object) -> bool:
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in {"true", "1", "yes", "y"}
+
+
+def _float_or_none(value: object) -> float | None:
+    """Convert a value to a finite float, or None if it is blank/bad."""
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not np.isfinite(out):
+        return None
+    return out
+
+
+def _limit_offset_bps(ticker: str) -> float:
+    """Return the small price cushion used for marketable limit orders."""
+    return LIMIT_OFFSET_BPS_ETF if str(ticker).upper() in ETF_TICKERS else LIMIT_OFFSET_BPS_OVERLAY
+
+
+def _round_marketable_limit(raw_price: float, side: str) -> float:
+    """
+    Round a limit price using US stock tick rules.
+
+    PLAIN ENGLISH: Buy limits round up so the order stays buyable.  Sell
+    limits round down so the order stays sellable.  Above $1, US stocks trade
+    in pennies; below $1, Alpaca allows finer 4-decimal prices.
+    """
+    if raw_price <= 0 or not np.isfinite(raw_price):
+        raise ValueError("limit price must be a positive finite number")
+    tick = 0.0001 if raw_price < 1 else 0.01
+    units = raw_price / tick
+    if str(side).lower() == "buy":
+        rounded = math.ceil(units - 1e-12) * tick
+    else:
+        rounded = math.floor(units + 1e-12) * tick
+    precision = 4 if tick < 0.01 else 2
+    return round(max(rounded, tick), precision)
+
+
+def marketable_limit_price(
+    mark_price: float,
+    side: str,
+    ticker: str,
+    limit_offset_bps: float | None = None,
+) -> float:
+    """
+    Build a protective but fillable limit price from the latest mark.
+
+    PLAIN ENGLISH: For a BUY, we allow paying only a tiny bit above the last
+    price.  For a SELL, we allow selling only a tiny bit below the last price.
+    This caps slippage while still behaving much like a market order.
+    """
+    mark = _float_or_none(mark_price)
+    if mark is None or mark <= 0:
+        raise ValueError("mark_price must be a positive finite number")
+    side_l = str(side).lower()
+    offset_bps = _limit_offset_bps(ticker) if limit_offset_bps is None else float(limit_offset_bps)
+    offset = max(0.0, offset_bps) / 10_000.0
+    raw = mark * (1 + offset) if side_l == "buy" else mark * (1 - offset)
+    return _round_marketable_limit(raw, side_l)
+
+
+def quote_based_limit_price(
+    *,
+    bid_price: object,
+    ask_price: object,
+    fallback_price: object,
+    side: str,
+    ticker: str,
+    limit_offset_bps: float | None = None,
+) -> float:
+    """
+    Build an optional limit from the live bid/ask instead of the last trade.
+
+    PLAIN ENGLISH: The last trade can be stale.  If explicitly enabled with
+    ALPACA_LIMIT_REFERENCE=quote, buys anchor to the current ask and sells
+    anchor to the current bid.  If bid/ask is missing, this safely falls back
+    to the normal last-price limit.
+    """
+    side_l = str(side).lower()
+    quote_px = _float_or_none(ask_price if side_l == "buy" else bid_price)
+    if quote_px is None or quote_px <= 0:
+        quote_px = _float_or_none(fallback_price)
+    if quote_px is None or quote_px <= 0:
+        raise ValueError("No usable quote or fallback price for limit order")
+    return marketable_limit_price(
+        quote_px,
+        side_l,
+        ticker,
+        limit_offset_bps=limit_offset_bps,
+    )
+
+
+def should_use_quote_limits(args: argparse.Namespace | None = None) -> bool:
+    """Return True only when quote-based limits are explicitly enabled."""
+    if args is not None and getattr(args, "quote_limit", False):
+        return True
+    if args is not None and getattr(args, "last_trade_limit", False):
+        return False
+    return LIMIT_REFERENCE in {"quote", "bidask", "bid_ask", "bid-ask"}
+
+
+def should_use_market_orders(args: argparse.Namespace) -> bool:
+    """Return True only when CLI/env explicitly ask for market orders."""
+    if getattr(args, "market_order", False):
+        return True
+    if getattr(args, "limit_order", False):
+        return False
+    return DEFAULT_ORDER_TYPE == "market"
+
+
+def closed_market_queue_allowed(args: argparse.Namespace) -> bool:
+    """Return True when queueing orders for the next market open is intentional."""
+    return bool(
+        getattr(args, "force", False)
+        or getattr(args, "allow_closed_market_queue", False)
+        or ALLOW_CLOSED_MARKET_QUEUE
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -241,11 +376,11 @@ class AlpacaBroker(Broker):
         """
         Submit an order to Alpaca.
 
-        PLAIN ENGLISH: Sends a buy or sell order.  Uses market orders by
-        default (fills immediately at current price).  For trailing stop
-        orders, Alpaca will automatically sell if the stock drops X% from
-        its high point after the order is placed.  Returns the order ID
-        so we can track it later.
+        PLAIN ENGLISH: Sends a buy or sell order.  Normal rebalances now use
+        protective day limit orders; emergency exits and explicit overrides can
+        still use market orders.  For trailing stop orders, Alpaca will
+        automatically sell if the stock drops X% from its high point after the
+        order is placed.  Returns the order ID so we can track it later.
         """
         kwargs = {
             "symbol": order.ticker,
@@ -328,6 +463,24 @@ class AlpacaBroker(Broker):
 
         Returns spread as a fraction (e.g. 0.005 = 0.5%), or None if unavailable.
         """
+        quote = self.get_quote_snapshot(ticker)
+        return _float_or_none(quote.get("spread_pct"))
+
+    def get_quote_snapshot(self, ticker: str) -> dict[str, float | str | None]:
+        """Get current bid, ask, midpoint, and spread for one ticker.
+
+        PLAIN ENGLISH: This asks Alpaca "what are buyers bidding and sellers
+        asking right now?"  It is used for reporting and optional quote-based
+        limit prices.  If Alpaca cannot provide a quote, we return blanks
+        instead of crashing the trading run.
+        """
+        out: dict[str, float | str | None] = {
+            "ticker": str(ticker).upper(),
+            "bid_price": None,
+            "ask_price": None,
+            "quote_mid_price": None,
+            "spread_pct": None,
+        }
         try:
             snapshot = self._api.get_snapshot(ticker)
             quote = snapshot.latest_quote
@@ -335,10 +488,13 @@ class AlpacaBroker(Broker):
             ask = float(quote.ap) if hasattr(quote, 'ap') else float(quote.ask_price)
             if bid > 0 and ask > 0:
                 mid = (bid + ask) / 2
-                return (ask - bid) / mid
+                out["bid_price"] = bid
+                out["ask_price"] = ask
+                out["quote_mid_price"] = mid
+                out["spread_pct"] = (ask - bid) / mid
         except Exception:
             pass
-        return None
+        return out
 
     def get_last_price(self, ticker: str) -> float:
         """
@@ -563,11 +719,22 @@ def generate_orders(
             continue
 
         side = "buy" if delta_qty > 0 else "sell"
+        limit_offset_bps = _limit_offset_bps(ticker)
+        raw_limit_price = px * (1 + limit_offset_bps / 10_000) if side == "buy" else px * (1 - limit_offset_bps / 10_000)
+        limit_price = marketable_limit_price(
+            px,
+            side,
+            ticker,
+            limit_offset_bps=limit_offset_bps,
+        )
         orders.append({
             "ticker": ticker,
             "side": side,
             "quantity": abs(delta_qty),
             "price": px,
+            "raw_limit_price": round(raw_limit_price, 6),
+            "limit_price": limit_price,
+            "limit_offset_bps": limit_offset_bps,
             "trade_value": trade_value,
             "current_weight": round(current_w, 4),
             "target_weight": round(target_w, 4),
@@ -597,6 +764,14 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
             "side": order["side"],
             "quantity": order["quantity"],
             "price": order["price"],
+            "submitted_order_type": order.get("submitted_order_type", ""),
+            "limit_price": order.get("submitted_limit_price", order.get("limit_price", "")),
+            "limit_reference": order.get("submitted_limit_reference", ""),
+            "limit_offset_bps": order.get("limit_offset_bps", ""),
+            "bid_price": order.get("bid_price", ""),
+            "ask_price": order.get("ask_price", ""),
+            "quote_mid_price": order.get("quote_mid_price", ""),
+            "spread_pct": order.get("spread_pct", ""),
             "trade_value": order["trade_value"],
             "target_weight": order["target_weight"],
             "fill_status": "pending",
@@ -621,6 +796,74 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
             # Old run wrote a 0-byte file (pre-fix).  Just overwrite.
             pass
     atomic_write_csv(df, PAPER_LOG_FILE)
+
+
+def build_submission_order(
+    order_row: dict,
+    *,
+    use_market_order: bool,
+    use_quote_limit: bool = False,
+    client_id: str | None = None,
+) -> Order:
+    """
+    Convert one planned order row into a broker order.
+
+    PLAIN ENGLISH: The plan says "buy 10 AAPL around $190".  This function
+    turns that into either a market order or a protective limit order that
+    Alpaca can submit.
+    """
+    ticker = str(order_row["ticker"]).upper()
+    side = str(order_row["side"]).lower()
+    quantity = int(order_row["quantity"])
+
+    if use_market_order:
+        order_row["submitted_order_type"] = "market"
+        order_row["submitted_limit_price"] = None
+        order_row["submitted_limit_reference"] = "market"
+        return Order(
+            ticker=ticker,
+            side=side,
+            quantity=quantity,
+            type="market",
+            client_id=client_id,
+        )
+
+    quote_anchor = _float_or_none(order_row.get("ask_price") if side == "buy" else order_row.get("bid_price"))
+    if use_quote_limit and quote_anchor is not None and quote_anchor > 0:
+        limit_price = quote_based_limit_price(
+            bid_price=order_row.get("bid_price"),
+            ask_price=order_row.get("ask_price"),
+            fallback_price=order_row.get("price"),
+            side=side,
+            ticker=ticker,
+            limit_offset_bps=_float_or_none(order_row.get("limit_offset_bps")),
+        )
+        order_row["submitted_limit_reference"] = "quote"
+    else:
+        # Prefer the limit already computed during planning.  If an older plan
+        # lacks it, rebuild one from the mark price so submission still works.
+        limit_price = _float_or_none(order_row.get("limit_price"))
+        order_row["submitted_limit_reference"] = "last"
+    if limit_price is None or limit_price <= 0:
+        limit_price = marketable_limit_price(
+            float(order_row["price"]),
+            side,
+            ticker,
+            limit_offset_bps=_float_or_none(order_row.get("limit_offset_bps")),
+        )
+        order_row["limit_price"] = limit_price
+        order_row["submitted_limit_reference"] = "last"
+
+    order_row["submitted_order_type"] = "limit"
+    order_row["submitted_limit_price"] = limit_price
+    return Order(
+        ticker=ticker,
+        side=side,
+        quantity=quantity,
+        type="limit",
+        limit_price=limit_price,
+        client_id=client_id,
+    )
 
 
 def _already_submitted_today() -> bool:
@@ -753,6 +996,313 @@ def snapshot_status(broker: AlpacaBroker) -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# EXECUTION QUALITY — slippage + price reversal after fills
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _obj_value(obj: object, key: str, default: object = None) -> object:
+    """Read either dict-style or attribute-style data from Alpaca objects."""
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
+def _parse_broker_datetime(value: object) -> datetime | None:
+    """Parse an Alpaca timestamp into a timezone-aware datetime."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, pd.Timestamp):
+        ts = value
+    else:
+        try:
+            ts = pd.Timestamp(value)
+        except Exception:
+            return None
+    if pd.isna(ts):
+        return None
+    if ts.tzinfo is None:
+        ts = ts.tz_localize("UTC")
+    else:
+        ts = ts.tz_convert("UTC")
+    return ts.to_pydatetime()
+
+
+def _fetch_minute_bars_for_fill(
+    broker: AlpacaBroker,
+    ticker: str,
+    filled_at: datetime,
+    *,
+    before_minutes: int = 15,
+    after_minutes: int = 70,
+) -> pd.DataFrame:
+    """
+    Pull minute bars around one fill.
+
+    PLAIN ENGLISH: To know whether a fill was good or bad, we compare it with
+    the minute-by-minute price around the fill.
+    """
+    try:
+        from alpaca_trade_api.rest import TimeFrame
+    except Exception:
+        return pd.DataFrame()
+
+    start = (filled_at - timedelta(minutes=before_minutes)).astimezone(timezone.utc).isoformat()
+    end = (filled_at + timedelta(minutes=after_minutes)).astimezone(timezone.utc).isoformat()
+    try:
+        bars = broker._api.get_bars(
+            str(ticker).upper(),
+            TimeFrame.Minute,
+            start=start,
+            end=end,
+            adjustment="raw",
+        )
+        df = getattr(bars, "df", pd.DataFrame()).copy()
+    except Exception:
+        return pd.DataFrame()
+
+    if df.empty:
+        return df
+    if isinstance(df.index, pd.MultiIndex):
+        # Alpaca can return a symbol/timestamp multi-index depending on API
+        # version.  Keep only this ticker and flatten back to a timestamp index.
+        if "symbol" in df.index.names:
+            try:
+                df = df.xs(str(ticker).upper(), level="symbol")
+            except Exception:
+                return pd.DataFrame()
+        elif "timestamp" in df.index.names:
+            df.index = df.index.get_level_values("timestamp")
+    if "timestamp" in df.columns:
+        df.index = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+    else:
+        df.index = pd.to_datetime(df.index, utc=True, errors="coerce")
+    df = df[~df.index.isna()].sort_index()
+    return df
+
+
+def _first_bar_price_at_or_after(df: pd.DataFrame, when: pd.Timestamp) -> float | None:
+    """Return the first close price at/after a timestamp."""
+    if df.empty or "close" not in df.columns:
+        return None
+    after = df[df.index >= when]
+    if after.empty:
+        return None
+    return _float_or_none(after["close"].iloc[0])
+
+
+def _fill_minute_vwap(df: pd.DataFrame, filled_at: datetime) -> float | None:
+    """Return VWAP for the fill minute, falling back to close if VWAP is absent."""
+    if df.empty:
+        return None
+    filled_ts = pd.Timestamp(filled_at).tz_convert("UTC").floor("min")
+    minute = df[(df.index >= filled_ts) & (df.index < filled_ts + pd.Timedelta(minutes=1))]
+    if minute.empty:
+        minute = df[(df.index >= filled_ts - pd.Timedelta(minutes=1)) & (df.index <= filled_ts + pd.Timedelta(minutes=2))]
+    if minute.empty:
+        return None
+    for col in ("vwap", "close"):
+        if col in minute.columns:
+            value = _float_or_none(minute[col].dropna().iloc[0] if not minute[col].dropna().empty else None)
+            if value is not None and value > 0:
+                return value
+    return None
+
+
+def _signed_slippage_bps(side: str, fill_price: float, reference_price: float | None) -> float | None:
+    """
+    Positive means the fill was worse than the reference price.
+
+    BUY: paying above VWAP is bad.  SELL: selling below VWAP is bad.
+    """
+    ref = _float_or_none(reference_price)
+    if ref is None or ref <= 0 or fill_price <= 0:
+        return None
+    if str(side).lower() == "buy":
+        return (fill_price - ref) / ref * 10_000
+    return (ref - fill_price) / ref * 10_000
+
+
+def _adverse_bps(side: str, fill_price: float, later_price: float | None) -> float | None:
+    """Positive means price moved against the filled order."""
+    later = _float_or_none(later_price)
+    if later is None or later <= 0 or fill_price <= 0:
+        return None
+    if str(side).lower() == "buy":
+        return (fill_price - later) / fill_price * 10_000
+    return (later - fill_price) / fill_price * 10_000
+
+
+def _safe_avg(values: list[float]) -> float | None:
+    clean = [float(v) for v in values if v is not None and np.isfinite(float(v))]
+    if not clean:
+        return None
+    return float(np.mean(clean))
+
+
+def _safe_median(values: list[float]) -> float | None:
+    clean = [float(v) for v in values if v is not None and np.isfinite(float(v))]
+    if not clean:
+        return None
+    return float(np.median(clean))
+
+
+def build_slippage_reversal_report(
+    broker: AlpacaBroker,
+    *,
+    api_order_limit: int = 100,
+    lookback_orders: int = 25,
+) -> dict:
+    """
+    Build and save a report for recent fill quality.
+
+    PLAIN ENGLISH: This checks the latest filled Alpaca orders, compares each
+    fill to the fill-minute VWAP, then checks whether price moved against the
+    trade 5/15/30/60 minutes later.
+    """
+    report_rows: list[dict] = []
+    errors: list[str] = []
+
+    try:
+        raw_orders = broker._api.list_orders(
+            status="all",
+            limit=api_order_limit,
+            direction="desc",
+            nested=False,
+        )
+    except Exception as exc:
+        raw_orders = []
+        errors.append(f"list_orders_failed: {exc}")
+
+    filled_orders = []
+    for raw in raw_orders:
+        status = str(_obj_value(raw, "status", "")).lower()
+        filled_at = _parse_broker_datetime(_obj_value(raw, "filled_at"))
+        fill_price = _float_or_none(_obj_value(raw, "filled_avg_price"))
+        qty = _float_or_none(_obj_value(raw, "filled_qty"))
+        if status != "filled" or filled_at is None or fill_price is None or fill_price <= 0:
+            continue
+        filled_orders.append((filled_at, raw, fill_price, qty))
+
+    filled_orders.sort(key=lambda item: item[0], reverse=True)
+    filled_orders = filled_orders[:lookback_orders]
+
+    for filled_at, raw, fill_price, qty in filled_orders:
+        ticker = str(_obj_value(raw, "symbol", "")).upper()
+        side = str(_obj_value(raw, "side", "")).lower()
+        order_type = str(_obj_value(raw, "type", "")).lower()
+        if not ticker or side not in {"buy", "sell"}:
+            continue
+
+        bars = _fetch_minute_bars_for_fill(broker, ticker, filled_at)
+        filled_ts = pd.Timestamp(filled_at).tz_convert("UTC")
+        vwap = _fill_minute_vwap(bars, filled_at)
+        row: dict[str, object] = {
+            "filled_at": filled_at.isoformat(timespec="seconds"),
+            "symbol": ticker,
+            "side": side,
+            "order_type": order_type,
+            "filled_qty": int(qty) if qty is not None and np.isfinite(qty) else None,
+            "fill_price": round(fill_price, 4),
+            "fill_minute_vwap": round(vwap, 4) if vwap is not None else None,
+            "slippage_bps": None,
+            "adverse_5m_bps": None,
+            "adverse_15m_bps": None,
+            "adverse_30m_bps": None,
+            "adverse_60m_bps": None,
+            "worst_adverse_60m_bps": None,
+            "best_favorable_60m_bps": None,
+        }
+        slip = _signed_slippage_bps(side, fill_price, vwap)
+        row["slippage_bps"] = round(slip, 2) if slip is not None else None
+
+        for minutes in (5, 15, 30, 60):
+            later_px = _first_bar_price_at_or_after(
+                bars,
+                filled_ts + pd.Timedelta(minutes=minutes),
+            )
+            adverse = _adverse_bps(side, fill_price, later_px)
+            row[f"adverse_{minutes}m_bps"] = round(adverse, 2) if adverse is not None else None
+
+        if not bars.empty and "close" in bars.columns:
+            window = bars[(bars.index >= filled_ts) & (bars.index <= filled_ts + pd.Timedelta(minutes=60))]
+            close_prices = pd.to_numeric(window["close"], errors="coerce").dropna()
+            if not close_prices.empty:
+                if side == "buy":
+                    adverse_series = (fill_price - close_prices) / fill_price * 10_000
+                    favorable_series = (close_prices - fill_price) / fill_price * 10_000
+                else:
+                    adverse_series = (close_prices - fill_price) / fill_price * 10_000
+                    favorable_series = (fill_price - close_prices) / fill_price * 10_000
+                row["worst_adverse_60m_bps"] = round(float(adverse_series.max()), 2)
+                row["best_favorable_60m_bps"] = round(float(favorable_series.max()), 2)
+
+        report_rows.append(row)
+
+    slip_values = [r["slippage_bps"] for r in report_rows if r.get("slippage_bps") is not None]
+    worst_values = [r["worst_adverse_60m_bps"] for r in report_rows if r.get("worst_adverse_60m_bps") is not None]
+    summary = {
+        "orders_analyzed": len(report_rows),
+        "avg_slippage_bps": round(_safe_avg(slip_values), 2) if _safe_avg(slip_values) is not None else None,
+        "median_slippage_bps": round(_safe_median(slip_values), 2) if _safe_median(slip_values) is not None else None,
+        "slippage_bad_count": int(sum(1 for v in slip_values if float(v) > 0)),
+        "adverse_5m_count": int(sum(1 for r in report_rows if (r.get("adverse_5m_bps") or 0) > 0)),
+        "adverse_15m_count": int(sum(1 for r in report_rows if (r.get("adverse_15m_bps") or 0) > 0)),
+        "adverse_30m_count": int(sum(1 for r in report_rows if (r.get("adverse_30m_bps") or 0) > 0)),
+        "adverse_60m_count": int(sum(1 for r in report_rows if (r.get("adverse_60m_bps") or 0) > 0)),
+        "avg_worst_adverse_60m_bps": round(_safe_avg(worst_values), 2) if _safe_avg(worst_values) is not None else None,
+        "max_worst_adverse_60m_bps": round(max(worst_values), 2) if worst_values else None,
+    }
+    by_symbol: list[dict] = []
+    if report_rows:
+        report_df = pd.DataFrame(report_rows)
+        def _numeric_series(frame: pd.DataFrame, column: str) -> pd.Series:
+            if column not in frame.columns:
+                return pd.Series(dtype=float)
+            return pd.to_numeric(frame[column], errors="coerce").dropna()
+
+        for symbol, grp in report_df.groupby("symbol", sort=False):
+            slippage = _numeric_series(grp, "slippage_bps")
+            adverse_15 = _numeric_series(grp, "adverse_15m_bps")
+            worst_60 = _numeric_series(grp, "worst_adverse_60m_bps")
+            count = int(len(grp))
+            bad_slip_rate = float((slippage > 0).mean()) if len(slippage) else None
+            adverse_15_rate = float((adverse_15 > 0).mean()) if len(adverse_15) else None
+            # PLAIN ENGLISH: Higher score means this ticker has recently been
+            # harder to execute cleanly.  It is informational only; it does not
+            # block trades.
+            execution_risk_score = 0.0
+            if len(slippage):
+                execution_risk_score += max(0.0, float(slippage.mean())) * 0.5
+            if len(worst_60):
+                execution_risk_score += max(0.0, float(worst_60.mean())) * 0.25
+            if adverse_15_rate is not None:
+                execution_risk_score += adverse_15_rate * 25.0
+            by_symbol.append({
+                "symbol": str(symbol),
+                "orders": count,
+                "avg_slippage_bps": round(float(slippage.mean()), 2) if len(slippage) else None,
+                "bad_slippage_rate": round(bad_slip_rate, 3) if bad_slip_rate is not None else None,
+                "adverse_15m_rate": round(adverse_15_rate, 3) if adverse_15_rate is not None else None,
+                "avg_worst_adverse_60m_bps": round(float(worst_60.mean()), 2) if len(worst_60) else None,
+                "execution_risk_score": round(execution_risk_score, 2),
+            })
+        by_symbol.sort(key=lambda row: float(row.get("execution_risk_score") or 0), reverse=True)
+
+    report = {
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "source": "alpaca_api",
+        "api_order_limit": int(api_order_limit),
+        "lookback_orders": int(lookback_orders),
+        "summary": summary,
+        "by_symbol": by_symbol,
+        "orders": report_rows,
+        "errors": errors,
+    }
+    atomic_write_json(report, SLIPPAGE_REPORT_FILE)
+    print(f"    ✓ Execution-quality report: {len(report_rows)} fills → {SLIPPAGE_REPORT_FILE.name}")
+    return report
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # ORDER RECONCILIATION — check if submitted orders actually filled
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -871,14 +1421,15 @@ def print_order_plan(orders: list[dict]) -> None:
 
     print(f"\n  ORDER PLAN ({len(orders)} orders)")
     print(f"  {'─'*55}")
-    print(f"  {'Action':<6s} {'Ticker':<8s} {'Qty':>6s} {'Price':>9s} {'Value':>10s} "
+    print(f"  {'Action':<6s} {'Ticker':<8s} {'Qty':>6s} {'Price':>9s} {'Limit':>9s} {'Value':>10s} "
           f"{'Current':>8s} {'Target':>8s} {'Drift':>7s}")
     print(f"  {'─'*55}")
 
     for o in orders:
         action = "BUY" if o["side"] == "buy" else "SELL"
         print(f"  {action:<6s} {o['ticker']:<8s} {o['quantity']:>6d} "
-              f"${o['price']:>8.2f} ${o['trade_value']:>9,.2f} "
+              f"${o['price']:>8.2f} ${o.get('limit_price', o['price']):>8.2f} "
+              f"${o['trade_value']:>9,.2f} "
               f"{o['current_weight']:>7.1%} {o['target_weight']:>7.1%} "
               f"{o['drift']:>6.1%}")
 
@@ -1121,8 +1672,18 @@ def main():
                         help="Check if pending orders filled and update log")
     parser.add_argument("--force", action="store_true",
                         help="Skip drift thresholds AND duplicate-day check")
-    parser.add_argument("--market-order", action="store_true", default=True,
-                        help="Use market orders (default)")
+    parser.add_argument("--market-order", action="store_true",
+                        help="Use market orders instead of protective day limit orders")
+    parser.add_argument("--limit-order", action="store_true",
+                        help="Use protective day limit orders even if ALPACA_ORDER_TYPE=market")
+    parser.add_argument("--quote-limit", action="store_true",
+                        help="Use live bid/ask as the limit reference instead of last trade")
+    parser.add_argument("--last-trade-limit", action="store_true",
+                        help="Use last trade as the limit reference even if ALPACA_LIMIT_REFERENCE=quote")
+    parser.add_argument("--allow-closed-market-queue", action="store_true",
+                        help="Allow submit while market is closed, queueing orders for the next open")
+    parser.add_argument("--slippage-report", action="store_true",
+                        help="Refresh recent fill slippage/reversal report and exit")
     parser.add_argument("--allow-stale-signal", action="store_true",
                         help="Allow order planning/submission even if signal freshness checks fail")
     parser.add_argument("--max-signal-age-hours", type=float, default=DEFAULT_MAX_SIGNAL_AGE_HOURS,
@@ -1148,11 +1709,16 @@ def main():
     # ── Show account status ─────────────────────────────────────────────
     print_account_status(broker)
 
+    if args.slippage_report:
+        build_slippage_reversal_report(broker)
+        return
+
     if args.status:
         # PLAIN ENGLISH: A dashboard "status refresh" should update the files
         # the dashboard reads, not just print numbers to the terminal.
         snapshot_equity(broker)
         snapshot_status(broker)
+        build_slippage_reversal_report(broker)
         return
 
     # ── Reconcile mode: check fill statuses of pending orders ──────────
@@ -1163,6 +1729,7 @@ def main():
         # tomorrow's run.
         snapshot_equity(broker)
         snapshot_status(broker)
+        build_slippage_reversal_report(broker)
         return
 
     # ── Load strategy signal ────────────────────────────────────────────
@@ -1293,21 +1860,26 @@ def main():
         return
 
     if not broker.is_market_open():
-        print("  ⚠  Market is CLOSED. Orders will queue for next open.")
-        # PLAIN ENGLISH: When this script runs interactively (you typed the
-        # command), we ask before submitting — closed market means weird
-        # spreads and night-time fills.  But in CI/cron there's no human
-        # at the keyboard, so we auto-proceed (queueing for next open is
-        # the desired behavior).  --force overrides either way.
-        if args.force:
-            print("  --force flag set — proceeding anyway.")
+        print("  ⚠  Market is CLOSED.")
+        # PLAIN ENGLISH: Queueing marketable orders before the open caused
+        # several bad fills.  Default behavior is now fail-closed unless a
+        # human or explicit flag says queueing is OK.
+        if closed_market_queue_allowed(args):
+            print("  Closed-market queue explicitly allowed — proceeding.")
         elif sys.stdin.isatty():
-            resp = input("  Continue anyway? [y/N]: ").strip().lower()
+            resp = input("  Queue orders for next open anyway? [y/N]: ").strip().lower()
             if resp != "y":
                 print("  Aborted.")
+                snapshot_equity(broker)
+                snapshot_status(broker)
+                build_slippage_reversal_report(broker)
                 return
         else:
-            print("  Non-interactive mode — auto-proceeding (orders will queue).")
+            print("  Aborting: closed-market queue disabled. Use --allow-closed-market-queue to override.")
+            snapshot_equity(broker)
+            snapshot_status(broker)
+            build_slippage_reversal_report(broker)
+            return
 
     # ── Core ETF protective stops — clear before rebalance ───────────────
     # PLAIN ENGLISH: Broker-side trailing stops reserve shares. If we are
@@ -1367,7 +1939,14 @@ def main():
     _spread_blocked: list[str] = []
     for o in orders:
         ticker = o["ticker"]
-        spread = broker.get_spread_pct(ticker)
+        quote = broker.get_quote_snapshot(ticker)
+        o.update({
+            "bid_price": quote.get("bid_price"),
+            "ask_price": quote.get("ask_price"),
+            "quote_mid_price": quote.get("quote_mid_price"),
+            "spread_pct": quote.get("spread_pct"),
+        })
+        spread = _float_or_none(quote.get("spread_pct"))
         threshold = MAX_SPREAD_PCT_ETF if ticker in ETF_TICKERS else MAX_SPREAD_PCT_OVERLAY
         if spread is not None and spread > threshold:
             _spread_blocked.append(ticker)
@@ -1386,7 +1965,12 @@ def main():
         except Exception:
             pass
 
-    print(f"\n  Submitting {len(orders)} orders...")
+    use_market_order = should_use_market_orders(args)
+    use_quote_limit = should_use_quote_limits(args)
+    order_style = "market" if use_market_order else "protective limit"
+    if use_quote_limit and not use_market_order:
+        order_style = "quote-based protective limit"
+    print(f"\n  Submitting {len(orders)} orders ({order_style})...")
     order_ids = []
     # Use today's date as part of a deterministic client_order_id so that
     # network retries cannot double-submit the same logical order.
@@ -1395,17 +1979,17 @@ def main():
         try:
             # Deterministic ID: date_ticker_side_qty — Alpaca rejects duplicates
             _idempotency_key = f"{_today_str}_{o['ticker']}_{o['side']}_{o['quantity']}"
-            order = Order(
-                ticker=o["ticker"],
-                side=o["side"],
-                quantity=o["quantity"],
-                type="market",
+            order = build_submission_order(
+                o,
+                use_market_order=use_market_order,
+                use_quote_limit=use_quote_limit,
                 client_id=_idempotency_key,
             )
             oid = broker.place_order(order)
             order_ids.append(oid)
+            limit_note = f" limit=${order.limit_price:.2f}" if order.type == "limit" and order.limit_price else ""
             print(f"    ✓ {o['side'].upper()} {o['quantity']} {o['ticker']} "
-                  f"→ order_id={oid[:12]}...")
+                  f"{order.type}{limit_note} → order_id={oid[:12]}...")
         except Exception as e:
             order_ids.append(f"ERROR: {e}")
             print(f"    ✗ {o['side'].upper()} {o['quantity']} {o['ticker']} "
@@ -1435,6 +2019,8 @@ def main():
     # overlay tickers to KEEP across rebalances (sticky holdings).  Must
     # reflect what Alpaca actually holds.
     snapshot_status(broker)
+    # Refresh execution-quality panel for the dashboard after a trading run.
+    build_slippage_reversal_report(broker)
 
     # ── Durable core ETF protection ─────────────────────────────────────
     # PLAIN ENGLISH: The local guard only works while this laptop is awake.

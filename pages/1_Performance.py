@@ -16,6 +16,8 @@ from plotly.subplots import make_subplots
 from dashboard import data
 from dashboard.components import (
     account_summary_card,
+    COLOR_FAIL,
+    COLOR_WARN,
     sidebar_refresh,
 )
 
@@ -292,6 +294,143 @@ if benchmark_data:
             "Alpha vs strategy": f"{strat_total - bench_total:+.2f}%",
         })
     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Execution quality — recent fill slippage and reversals
+# ─────────────────────────────────────────────────────────────────────
+def _fmt_bps(value) -> str:
+    if value is None:
+        return "—"
+    try:
+        if pd.isna(value):
+            return "—"
+        return f"{float(value):+.1f} bps"
+    except Exception:
+        return "—"
+
+
+def _fmt_count(value, total: int) -> str:
+    try:
+        return f"{int(value)}/{int(total)}"
+    except Exception:
+        return f"0/{int(total)}"
+
+
+def _execution_quality_chart(exec_df: pd.DataFrame) -> go.Figure:
+    chart_df = exec_df.tail(20).iloc[::-1].copy()
+    chart_df["label"] = chart_df.apply(
+        lambda r: f"{r.get('symbol', '')} {str(r.get('side', ''))[:1].upper()}",
+        axis=1,
+    )
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=chart_df["label"],
+        y=pd.to_numeric(chart_df["slippage_bps"], errors="coerce"),
+        name="Slippage vs VWAP",
+        marker_color=COLOR_WARN,
+        hovertemplate="%{x}<br>%{y:+.1f} bps<extra>Slippage</extra>",
+    ))
+    fig.add_trace(go.Bar(
+        x=chart_df["label"],
+        y=pd.to_numeric(chart_df["adverse_15m_bps"], errors="coerce"),
+        name="15m reversal",
+        marker_color=COLOR_FAIL,
+        hovertemplate="%{x}<br>%{y:+.1f} bps<extra>15m reversal</extra>",
+    ))
+    fig.add_hline(y=0, line_dash="dot", line_color="gray")
+    fig.update_layout(
+        barmode="group",
+        hovermode="x unified",
+        height=320,
+        margin=dict(l=40, r=10, t=10, b=40),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        yaxis_title="Basis points",
+        xaxis_title="Recent fills",
+    )
+    return fig
+
+
+execution_report = data.load_slippage_reversal_report()
+if execution_report:
+    st.divider()
+    st.markdown("##### Execution quality")
+    execution_summary = execution_report.get("summary") or {}
+    execution_rows = execution_report.get("orders") or []
+    execution_total = int(execution_summary.get("orders_analyzed") or len(execution_rows) or 0)
+
+    ex1, ex2, ex3, ex4, ex5 = st.columns(5)
+    with ex1:
+        st.metric(
+            "Avg slippage",
+            _fmt_bps(execution_summary.get("avg_slippage_bps")),
+            delta=f"bad {_fmt_count(execution_summary.get('slippage_bad_count', 0), execution_total)}",
+            delta_color="inverse",
+        )
+    with ex2:
+        st.metric("Median slippage", _fmt_bps(execution_summary.get("median_slippage_bps")))
+    with ex3:
+        st.metric(
+            "5m reversals",
+            _fmt_count(execution_summary.get("adverse_5m_count", 0), execution_total),
+            delta_color="inverse",
+        )
+    with ex4:
+        st.metric(
+            "15m reversals",
+            _fmt_count(execution_summary.get("adverse_15m_count", 0), execution_total),
+            delta_color="inverse",
+        )
+    with ex5:
+        st.metric(
+            "Worst 60m avg",
+            _fmt_bps(execution_summary.get("avg_worst_adverse_60m_bps")),
+            delta=_fmt_bps(execution_summary.get("max_worst_adverse_60m_bps")),
+            delta_color="inverse",
+        )
+
+    exec_df = pd.DataFrame(execution_rows)
+    if not exec_df.empty:
+        st.plotly_chart(_execution_quality_chart(exec_df), use_container_width=True)
+
+        symbol_df = pd.DataFrame(execution_report.get("by_symbol") or [])
+        if not symbol_df.empty:
+            symbol_table = symbol_df.head(8).copy()
+            symbol_table["Symbol"] = symbol_table["symbol"]
+            symbol_table["Orders"] = symbol_table["orders"]
+            symbol_table["Avg slip"] = pd.to_numeric(symbol_table["avg_slippage_bps"], errors="coerce").round(1)
+            symbol_table["Bad slip %"] = (pd.to_numeric(symbol_table["bad_slippage_rate"], errors="coerce") * 100).round(0)
+            symbol_table["15m rev %"] = (pd.to_numeric(symbol_table["adverse_15m_rate"], errors="coerce") * 100).round(0)
+            symbol_table["Risk score"] = pd.to_numeric(symbol_table["execution_risk_score"], errors="coerce").round(1)
+            st.dataframe(
+                symbol_table[["Symbol", "Orders", "Avg slip", "Bad slip %", "15m rev %", "Risk score"]],
+                hide_index=True,
+                use_container_width=True,
+            )
+
+        table = exec_df.copy()
+        table["filled_at"] = pd.to_datetime(table["filled_at"], errors="coerce", utc=True)
+        table["Time"] = table["filled_at"].dt.strftime("%m-%d %H:%M")
+        table["Symbol"] = table["symbol"]
+        table["Side"] = table["side"].astype(str).str.upper()
+        table["Type"] = table["order_type"]
+        table["Qty"] = table["filled_qty"]
+        table["Fill"] = pd.to_numeric(table["fill_price"], errors="coerce").round(4)
+        table["Slip bps"] = pd.to_numeric(table["slippage_bps"], errors="coerce").round(1)
+        table["Rev 5m"] = pd.to_numeric(table["adverse_5m_bps"], errors="coerce").round(1)
+        table["Rev 15m"] = pd.to_numeric(table["adverse_15m_bps"], errors="coerce").round(1)
+        table["Rev 60m"] = pd.to_numeric(table["adverse_60m_bps"], errors="coerce").round(1)
+        st.dataframe(
+            table[["Time", "Symbol", "Side", "Type", "Qty", "Fill", "Slip bps", "Rev 5m", "Rev 15m", "Rev 60m"]].head(25),
+            hide_index=True,
+            use_container_width=True,
+        )
+    elif execution_report.get("errors"):
+        st.caption(f"Execution report issue · {execution_report['errors'][0]}")
+else:
+    st.divider()
+    st.markdown("##### Execution quality")
+    st.info("No execution-quality report yet.")
 
 
 # ─────────────────────────────────────────────────────────────────────

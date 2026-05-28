@@ -55,6 +55,7 @@ ALPACA_EQUITY = SIGNALS_DIR / "alpaca_paper_equity.csv"
 ALPACA_LOG = SIGNALS_DIR / "alpaca_paper_log.csv"
 ALPACA_STATUS = SIGNALS_DIR / "alpaca_daily_status.json"
 ALPACA_HEALTH = SIGNALS_DIR / "alpaca_paper_health.json"
+ALPACA_SLIPPAGE_REPORT = SIGNALS_DIR / "alpaca_slippage_reversal_report.json"
 FEATURE_HEALTH = SIGNALS_DIR / "feature_health_profile.json"
 FEATURE_QUALITY = SIGNALS_DIR / "feature_quality_summary.csv"
 BROKER_HEALTH = SIGNALS_DIR / "broker_health.json"
@@ -275,6 +276,12 @@ def load_health_report() -> dict | None:
 
 
 @st.cache_data(ttl=60)
+def load_slippage_reversal_report() -> dict | None:
+    """Return the recent Alpaca fill slippage/reversal report."""
+    return _read_json_safe(ALPACA_SLIPPAGE_REPORT)
+
+
+@st.cache_data(ttl=60)
 def load_broker_health() -> dict | None:
     """Return the broker connectivity ping result."""
     return _read_json_safe(BROKER_HEALTH)
@@ -334,6 +341,7 @@ def file_status_table() -> pd.DataFrame:
         "Alpaca equity": ALPACA_EQUITY,
         "Alpaca status": ALPACA_STATUS,
         "Alpaca health": ALPACA_HEALTH,
+        "Alpaca execution": ALPACA_SLIPPAGE_REPORT,
         "Alpaca orders log": ALPACA_LOG,
         "Feature health": FEATURE_HEALTH,
         "Feature quality": FEATURE_QUALITY,
@@ -369,6 +377,7 @@ def file_status_table() -> pd.DataFrame:
         "Alpaca equity":     (26 * 60, 72 * 60),
         "Alpaca status":     (26 * 60, 72 * 60),
         "Alpaca health":     (26 * 60, 72 * 60),
+        "Alpaca execution":  (26 * 60, 72 * 60),
         "Broker health":     (26 * 60, 72 * 60),
         # Feature health + quality update on the factor-data-refresh
         # cron (also daily) but commits to signals/latest only after

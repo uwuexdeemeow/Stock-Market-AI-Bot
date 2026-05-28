@@ -234,6 +234,9 @@ jobs:
           cat <<'ENVEOF' > .env
           ALPACA_API_KEY=${{ secrets.ALPACA_API_KEY }}
           ALPACA_SECRET_KEY=${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_ORDER_TYPE=limit
+          ALPACA_LIMIT_REFERENCE=last
+          ALPACA_ALLOW_CLOSED_MARKET_QUEUE=0
           FINNHUB_API_KEY=${{ secrets.FINNHUB_API_KEY }}
           TRADIER_API_TOKEN=${{ secrets.TRADIER_API_TOKEN }}
           TRADIER_USE_SANDBOX=0
@@ -396,6 +399,7 @@ jobs:
             signals/alpaca_paper_equity.csv
             signals/alpaca_paper_log.csv
             signals/alpaca_daily_status.json
+            signals/alpaca_slippage_reversal_report.json
             signals/adaptive_factor_weights.json
             signals/feature_quality_report.json
             signals/feature_quality_summary.csv
@@ -457,6 +461,7 @@ jobs:
               signals/alpaca_paper_equity.csv \
               signals/alpaca_paper_log.csv \
               signals/alpaca_daily_status.json \
+              signals/alpaca_slippage_reversal_report.json \
               signals/factor_data_health.json \
               signals/factor_decay_monitor.csv \
               signals/fill_monitor.json \
