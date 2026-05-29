@@ -20,6 +20,9 @@ It computes:
    since the newest cached factor data.
 9. **Open position attribution** - current open P&L by ticker, skipping
    malformed broker quantities or values instead of crashing the report.
+10. **Execution log normalization** - understands both older broker log
+   columns (`action`, `broker_dealt_qty`) and current Alpaca log columns
+   (`side`, `quantity`, `filled_qty`, `filled_avg_price`).
 
 If anything is off, the script warns via Telegram (and writes the
 detail to JSON for later inspection).
@@ -116,3 +119,5 @@ the comparison is meaningless noise.
   market holidays do not create false stale-data warnings.
 - No single position over 35%, no sector over 50%
 - Slippage average under 10 bps
+- Current order lifecycle shows requested, filled, and unfilled quantities
+  from the Alpaca paper log instead of blank or zero placeholder values.

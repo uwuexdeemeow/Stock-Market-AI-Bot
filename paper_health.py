@@ -91,6 +91,23 @@ def _read_json(path: Path) -> dict:
         return {}
 
 
+def _first_nonempty(row: pd.Series | dict, *keys: str, default: object = None) -> object:
+    """Return the first usable value from a row that may use old or new column names."""
+    for key in keys:
+        value = row.get(key, None)
+        if pd.notna(value) and str(value).strip() not in {"", "nan", "None"}:
+            return value
+    return default
+
+
+def _to_float(value: object, default: float = 0.0) -> float:
+    """Convert CSV text/numbers into a float without crashing on blanks."""
+    try:
+        return float(pd.to_numeric(pd.Series([value]), errors="coerce").fillna(default).iloc[0])
+    except Exception:
+        return float(default)
+
+
 def _paper_days(equity: pd.DataFrame) -> int:
     if equity.empty:
         return 0
@@ -103,14 +120,14 @@ def _paper_days(equity: pd.DataFrame) -> int:
 
 def _execution_slippage(row: pd.Series | dict) -> tuple[float, float]:
     try:
-        reference = float(row.get("price", 0.0) or 0.0)
-        fill_price = float(row.get("broker_dealt_avg_price", 0.0) or 0.0)
-        quantity = float(row.get("broker_dealt_qty", row.get("delta_shares", 0.0)) or 0.0)
+        reference = _to_float(_first_nonempty(row, "price", "limit_price"))
+        fill_price = _to_float(_first_nonempty(row, "broker_dealt_avg_price", "filled_avg_price"))
+        quantity = _to_float(_first_nonempty(row, "broker_dealt_qty", "filled_qty", "delta_shares", "quantity"))
     except Exception:
         return np.nan, np.nan
     if reference <= 0 or fill_price <= 0 or quantity == 0:
         return np.nan, np.nan
-    action = str(row.get("action", "")).upper().strip()
+    action = str(_first_nonempty(row, "action", "side", default="")).upper().strip()
     if action == "BUY":
         per_share = fill_price - reference
     elif action == "SELL":
@@ -127,7 +144,13 @@ def _slippage_summary(trades: pd.DataFrame) -> dict:
             "avg_slippage_bps": None,
             "total_slippage_dollars": None,
         }
-    filled = trades[trades.get("fill_status", pd.Series("", index=trades.index)).astype(str).str.lower().eq("filled")].copy()
+    status = trades.get("fill_status", pd.Series("", index=trades.index)).astype(str).str.lower().str.strip()
+    filled_qty = (
+        pd.to_numeric(trades["broker_dealt_qty"], errors="coerce")
+        if "broker_dealt_qty" in trades.columns
+        else pd.to_numeric(trades.get("filled_qty", pd.Series(0.0, index=trades.index)), errors="coerce")
+    ).fillna(0.0)
+    filled = trades[status.isin({"filled", "partial", "partially_filled"}) | filled_qty.gt(0)].copy()
     if filled.empty:
         return {
             "filled_orders_with_slippage": 0,
@@ -185,17 +208,20 @@ def _current_order_lifecycle(trades: pd.DataFrame, status: dict) -> list[dict]:
         return []
     rows: list[dict] = []
     for _, row in current.iterrows():
-        requested = pd.to_numeric(pd.Series([row.get("broker_requested_qty", row.get("broker_qty", row.get("delta_shares", 0)))]), errors="coerce").fillna(0.0).iloc[0]
-        filled = pd.to_numeric(pd.Series([row.get("broker_dealt_qty", 0)]), errors="coerce").fillna(0.0).iloc[0]
-        unfilled = row.get("unfilled_qty", None)
-        if pd.isna(unfilled):
+        requested = _to_float(_first_nonempty(row, "broker_requested_qty", "broker_qty", "quantity", "delta_shares"))
+        filled = _to_float(_first_nonempty(row, "broker_dealt_qty", "filled_qty"))
+        unfilled = _first_nonempty(row, "unfilled_qty")
+        if unfilled is None or pd.isna(unfilled):
             unfilled = max(float(requested) - float(filled), 0.0)
+        action = str(_first_nonempty(row, "action", "side", default="")).upper()
+        order_id = str(_first_nonempty(row, "broker_order_id", "order_id", default=""))
+        broker_status = str(_first_nonempty(row, "broker_order_status", "order_status", "fill_status", default=""))
         rows.append({
             "ticker": str(row.get("ticker", "")).upper(),
-            "action": str(row.get("action", "")).upper(),
-            "broker_order_id": str(row.get("broker_order_id", "")),
+            "action": action,
+            "broker_order_id": order_id,
             "fill_status": str(row.get("fill_status", "unknown")).lower(),
-            "broker_order_status": str(row.get("broker_order_status", "")),
+            "broker_order_status": broker_status,
             "requested_qty": round(float(requested), 6),
             "filled_qty": round(float(filled), 6),
             "unfilled_qty": round(float(unfilled), 6),

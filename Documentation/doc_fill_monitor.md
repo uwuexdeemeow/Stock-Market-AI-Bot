@@ -6,6 +6,10 @@
 that did not cleanly fill. It catches cancelled, rejected, partial, open, or
 missing broker orders before the next daily trade cycle.
 
+The monitor accepts the current Alpaca paper log shape (`side`, `quantity`,
+`filled_qty`) as well as older logs that used `action`, `broker_qty`, and
+`broker_dealt_qty`.
+
 It always writes `signals/fill_monitor.json`, even when there are no recent
 orders. That file is the heartbeat proof that the monitor ran.
 

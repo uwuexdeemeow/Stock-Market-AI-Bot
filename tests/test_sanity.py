@@ -47,6 +47,7 @@ from paper_health import (
     _go_live_scorecard,
     _open_position_attribution,
     _position_concentration,
+    _slippage_summary,
     _stale_open_order_alerts,
 )
 import alpaca_paper_gauntlet
@@ -1845,6 +1846,50 @@ def test_execution_slippage_is_adverse_by_side():
     assert round(sell_dollars, 6) == 1.0
 
 
+def test_execution_slippage_accepts_current_alpaca_log_columns():
+    buy_bps, buy_dollars = _execution_slippage({
+        "side": "buy",
+        "price": 100.0,
+        "filled_avg_price": 100.25,
+        "filled_qty": 4,
+    })
+    sell_bps, sell_dollars = _execution_slippage({
+        "side": "sell",
+        "price": 100.0,
+        "filled_avg_price": 99.75,
+        "filled_qty": 4,
+    })
+
+    assert round(buy_bps, 6) == 25.0
+    assert round(sell_bps, 6) == 25.0
+    assert round(buy_dollars, 6) == 1.0
+    assert round(sell_dollars, 6) == 1.0
+
+
+def test_slippage_summary_counts_partially_filled_alpaca_rows():
+    summary = _slippage_summary(pd.DataFrame([
+        {
+            "ticker": "NEM",
+            "side": "sell",
+            "price": 110.58,
+            "fill_status": "partially_filled",
+            "filled_qty": 141.0,
+            "filled_avg_price": 110.56,
+        },
+        {
+            "ticker": "CAT",
+            "side": "buy",
+            "price": 899.71,
+            "fill_status": "filled",
+            "filled_qty": 3.0,
+            "filled_avg_price": 900.24,
+        },
+    ]))
+
+    assert summary["filled_orders_with_slippage"] == 2
+    assert summary["total_slippage_dollars"] is not None
+
+
 def test_health_concentration_separates_core_etfs_from_overlay_stocks():
     concentration = _position_concentration({
         "account_equity": 100_000,
@@ -1950,6 +1995,33 @@ def test_current_order_lifecycle_summarizes_open_quantity():
     assert lifecycle[0]["ticker"] == "CAT"
     assert lifecycle[0]["fill_status"] == "open"
     assert lifecycle[0]["unfilled_qty"] == 139
+
+
+def test_current_order_lifecycle_accepts_current_alpaca_log_columns():
+    trades = pd.DataFrame([{
+        "submitted_at": "2026-05-26T13:55:52+00:00",
+        "order_id": "abc-123",
+        "ticker": "MU",
+        "side": "buy",
+        "quantity": 25,
+        "fill_status": "partially_filled",
+        "filled_qty": 24.0,
+    }])
+
+    lifecycle = _current_order_lifecycle(trades, {})
+
+    assert lifecycle == [{
+        "ticker": "MU",
+        "action": "BUY",
+        "broker_order_id": "abc-123",
+        "fill_status": "partially_filled",
+        "broker_order_status": "partially_filled",
+        "requested_qty": 25.0,
+        "filled_qty": 24.0,
+        "unfilled_qty": 1.0,
+        "submitted_at": "2026-05-26T13:55:52+00:00",
+        "broker_updated_time": "",
+    }]
 
 
 def test_drift_breakdown_ranks_largest_drift_first():

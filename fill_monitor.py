@@ -81,6 +81,21 @@ def _parse_timestamp(value: object) -> pd.Timestamp | None:
         return None
 
 
+def _first_nonempty(row: pd.Series | dict, *keys: str, default: object = "?") -> object:
+    """
+    Return the first non-blank value from a trade-log row.
+
+    PLAIN ENGLISH: Older logs use names like `action` and `broker_qty`; the
+    newer Alpaca log uses `side`, `quantity`, and `filled_qty`.  This lets the
+    monitor understand both shapes.
+    """
+    for key in keys:
+        value = row.get(key, None)
+        if pd.notna(value) and str(value).strip() not in ("", "nan", "None"):
+            return value
+    return default
+
+
 def check_recent_fills(*, lookback_days: int = 1, quiet: bool = False) -> dict:
     """
     Check the Alpaca paper log for unfilled orders from recent days.
@@ -150,8 +165,16 @@ def check_recent_fills(*, lookback_days: int = 1, quiet: bool = False) -> dict:
             print(f"  No orders found in the last {lookback_days} day(s)")
         return _empty_result(lookback_days=lookback_days, reason="no_recent_orders")
 
-    # Only check BUY and SELL orders (not HOLD, SKIP, etc.)
-    actionable = recent[recent["action"].isin(["BUY", "SELL"])] if "action" in recent.columns else recent
+    # Only check BUY and SELL orders (not HOLD, SKIP, etc.).
+    # PLAIN ENGLISH: Some logs call this column `action`, and Alpaca logs call
+    # it `side`, so normalize the text before filtering.
+    if "action" in recent.columns:
+        action_text = recent["action"].astype(str).str.upper().str.strip()
+    elif "side" in recent.columns:
+        action_text = recent["side"].astype(str).str.upper().str.strip()
+    else:
+        action_text = pd.Series("BUY", index=recent.index)
+    actionable = recent[action_text.isin(["BUY", "SELL"])]
     if actionable.empty:
         if not quiet:
             print(f"  No actionable orders (BUY/SELL) in the last {lookback_days} day(s)")
@@ -169,29 +192,31 @@ def check_recent_fills(*, lookback_days: int = 1, quiet: bool = False) -> dict:
 
     for _, row in actionable.iterrows():
         ticker = str(row.get("ticker", "?"))
-        action = str(row.get("action", "?"))
+        action = str(_first_nonempty(row, "action", "side")).upper()
         status = str(row.get(fill_col, "unknown") if fill_col else "unknown").lower().strip()
+        shares = _first_nonempty(row, "delta_shares", "broker_qty", "quantity")
+        dealt_qty = _first_nonempty(row, "broker_dealt_qty", "filled_qty")
 
         if status in ("filled",):
             filled += 1
-        elif status in ("cancelled", "canceled", "failed", "rejected"):
+        elif status in ("cancelled", "canceled", "failed", "rejected", "submission_failed"):
             cancelled += 1
             problems.append({
                 "ticker": ticker,
                 "action": action,
                 "status": status,
-                "shares": row.get("delta_shares", row.get("broker_qty", "?")),
+                "shares": shares,
                 "limit_price": row.get("limit_price", "?"),
-                "reason": "Order was cancelled/rejected by broker",
+                "reason": "Order was cancelled, rejected, or failed submission at broker",
             })
-        elif status in ("partial",):
+        elif status in ("partial", "partially_filled"):
             partial += 1
             problems.append({
                 "ticker": ticker,
                 "action": action,
                 "status": status,
-                "shares": row.get("delta_shares", row.get("broker_qty", "?")),
-                "dealt_qty": row.get("broker_dealt_qty", "?"),
+                "shares": shares,
+                "dealt_qty": dealt_qty,
                 "reason": "Order only partially filled",
             })
         elif status in ("open", "pending", "submitting"):
@@ -200,7 +225,7 @@ def check_recent_fills(*, lookback_days: int = 1, quiet: bool = False) -> dict:
                 "ticker": ticker,
                 "action": action,
                 "status": status,
-                "shares": row.get("delta_shares", row.get("broker_qty", "?")),
+                "shares": shares,
                 "reason": "Order still open/pending — may not have filled",
             })
             unknown += 1
@@ -214,6 +239,13 @@ def check_recent_fills(*, lookback_days: int = 1, quiet: bool = False) -> dict:
             })
         else:
             unknown += 1
+            problems.append({
+                "ticker": ticker,
+                "action": action,
+                "status": status or "unknown",
+                "shares": shares,
+                "reason": "Order fill status is unknown or not recognized",
+            })
 
     total = len(actionable)
 

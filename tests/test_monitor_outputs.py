@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 import daily_run
 import fill_monitor
@@ -25,6 +25,36 @@ def test_fill_monitor_writes_fresh_output_when_no_trade_file(tmp_path, monkeypat
     assert payload["reason"] == "alpaca_paper_log_missing"
     assert payload["total_checked"] == 0
     assert payload["problems"] == []
+
+
+def test_fill_monitor_accepts_current_alpaca_log_schema(tmp_path, monkeypatch):
+    signal_dir = tmp_path / "signals"
+    signal_dir.mkdir()
+    trade_path = signal_dir / "alpaca_paper_log.csv"
+    now = datetime.now(timezone.utc).isoformat()
+    trade_path.write_text(
+        "\n".join([
+            "submitted_at,order_id,ticker,side,quantity,price,trade_value,target_weight,fill_status,filled_qty,filled_avg_price",
+            f"{now},ERR-1,FCX,sell,302,64.665,19528.83,0.0,submission_failed,,",
+            f"{now},abc-2,MU,buy,25,855.77,21394.25,0.2,partially_filled,24.0,857.84",
+            f"{now},abc-3,CAT,buy,3,899.71,2699.13,0.0292,filled,3.0,900.24",
+        ]),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(fill_monitor, "SIGNALS", signal_dir)
+    monkeypatch.setattr(fill_monitor, "PAPER_TRADES_FILE", trade_path)
+    monkeypatch.setattr(fill_monitor, "FILL_MONITOR_LOG", signal_dir / "fill_monitor.json")
+
+    result = fill_monitor.check_recent_fills(lookback_days=2, quiet=True)
+
+    assert result["status"] == "warning"
+    assert result["total_checked"] == 3
+    assert result["filled"] == 1
+    assert result["cancelled"] == 1
+    assert result["partial"] == 1
+    assert {p["action"] for p in result["problems"]} == {"SELL", "BUY"}
+    assert {p["status"] for p in result["problems"]} == {"submission_failed", "partially_filled"}
 
 
 def test_monitor_heartbeat_finds_daily_run_fill_stub(tmp_path, monkeypatch):
