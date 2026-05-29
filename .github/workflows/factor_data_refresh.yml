@@ -213,6 +213,7 @@ jobs:
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           python3 feature_quality_diagnostic.py --top 48
+          python3 feature_health.py --max-specs 48
         env:
           PYTHONUNBUFFERED: "1"
 
@@ -233,6 +234,8 @@ jobs:
             signals/adaptive_factor_weights.json
             signals/feature_quality_report.json
             signals/feature_quality_summary.csv
+            signals/feature_health_profile.json
+            signals/feature_health_profile.csv
             signals/factor_data_health.json
           retention-days: 30
 

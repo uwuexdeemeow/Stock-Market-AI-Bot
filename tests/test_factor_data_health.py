@@ -25,6 +25,27 @@ def _write_feature_quality(path, *, mtime: int = 2_000_000_000) -> None:
     os.utime(path, (mtime, mtime))
 
 
+def _write_feature_health(signal_dir, *, mtime: int = 2_000_000_100, gate_pass: bool = True) -> None:
+    (signal_dir / "feature_health_profile.json").write_text(
+        json.dumps({
+            "summary": {
+                "feature_health_gate_pass": gate_pass,
+                "feature_health_gate_reasons": [] if gate_pass else ["too_few_clusters"],
+                "active_cluster_count": 6 if gate_pass else 2,
+                "max_cluster_weight": 0.16 if gate_pass else 0.5,
+            },
+            "features": [{"feature": "mom_20d", "health_state": "healthy"}],
+        }),
+        encoding="utf-8",
+    )
+    (signal_dir / "feature_health_profile.csv").write_text(
+        "feature,health_state\nmom_20d,healthy\n",
+        encoding="utf-8",
+    )
+    os.utime(signal_dir / "feature_health_profile.json", (mtime, mtime))
+    os.utime(signal_dir / "feature_health_profile.csv", (mtime, mtime))
+
+
 def test_trading_day_age_uses_nyse_holiday_calendar():
     pytest.importorskip("exchange_calendars")
 
@@ -46,6 +67,7 @@ def test_factor_data_health_does_not_warn_on_nyse_holiday_gap(tmp_path, monkeypa
 
     _write_parquet(data_dir / "AAA.parquet", "2024-06-18")
     _write_feature_quality(signal_dir / "feature_quality_report.json")
+    _write_feature_health(signal_dir)
 
     manifest = fdh.build_factor_data_health(
         data_dir=data_dir,
@@ -72,6 +94,7 @@ def test_factor_data_health_trade_ready_with_fresh_required_data(tmp_path, monke
     _write_parquet(data_dir / "AAA.parquet", "2026-05-18")
     _write_parquet(data_dir / "BBB.parquet", "2026-05-18")
     _write_feature_quality(signal_dir / "feature_quality_report.json")
+    _write_feature_health(signal_dir)
 
     manifest = fdh.build_factor_data_health(
         data_dir=data_dir,
@@ -84,6 +107,7 @@ def test_factor_data_health_trade_ready_with_fresh_required_data(tmp_path, monke
     assert manifest["factor_data_ready"] is True
     assert manifest["factor_data_fresh"] is True
     assert manifest["feature_quality"]["ready"] is True
+    assert manifest["feature_health"]["ready"] is True
     assert manifest["trade_ready"] is True
     assert manifest["adaptive_weights"]["adaptive_weight_status"] == "fallback"
 
@@ -97,6 +121,7 @@ def test_factor_data_health_blocks_missing_and_stale_required_tickers(tmp_path, 
 
     _write_parquet(data_dir / "AAA.parquet", "2026-04-01")
     _write_feature_quality(signal_dir / "feature_quality_report.json")
+    _write_feature_health(signal_dir)
 
     manifest = fdh.build_factor_data_health(
         data_dir=data_dir,
@@ -123,6 +148,7 @@ def test_feature_quality_stale_vs_required_factor_data_but_ignores_etf(tmp_path,
 
     report_path = signal_dir / "feature_quality_report.json"
     _write_feature_quality(report_path, mtime=1_700_000_000)
+    _write_feature_health(signal_dir, mtime=1_700_000_300)
     _write_parquet(data_dir / "AAA.parquet", "2026-05-18")
     os.utime(data_dir / "AAA.parquet", (1_700_000_100, 1_700_000_100))
     _write_parquet(data_dir / "SPY.parquet", "2026-05-18")
@@ -140,6 +166,7 @@ def test_feature_quality_stale_vs_required_factor_data_but_ignores_etf(tmp_path,
     assert manifest["trade_ready"] is False
 
     os.utime(report_path, (1_700_000_300, 1_700_000_300))
+    _write_feature_health(signal_dir, mtime=1_700_000_400)
     manifest = fdh.build_factor_data_health(
         data_dir=data_dir,
         signal_dir=signal_dir,
@@ -149,3 +176,52 @@ def test_feature_quality_stale_vs_required_factor_data_but_ignores_etf(tmp_path,
     )
     assert manifest["feature_quality"]["ready"] is True
     assert manifest["trade_ready"] is True
+
+
+def test_factor_data_health_blocks_missing_feature_health_profile(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    signal_dir = tmp_path / "signals"
+    data_dir.mkdir()
+    signal_dir.mkdir()
+    monkeypatch.setattr(fdh, "ADAPTIVE_WEIGHTS_FILE", str(signal_dir / "missing_adaptive.json"))
+
+    _write_parquet(data_dir / "AAA.parquet", "2026-05-18")
+    _write_feature_quality(signal_dir / "feature_quality_report.json")
+
+    manifest = fdh.build_factor_data_health(
+        data_dir=data_dir,
+        signal_dir=signal_dir,
+        tickers=["AAA"],
+        optional_tickers=[],
+        now=pd.Timestamp("2026-05-19"),
+    )
+
+    assert manifest["feature_quality"]["ready"] is True
+    assert manifest["feature_health"]["ready"] is False
+    assert manifest["feature_health"]["reason"] == "missing_profile"
+    assert manifest["trade_ready"] is False
+    assert "feature_health_missing_profile" in manifest["reasons"]
+
+
+def test_factor_data_health_blocks_failed_feature_health_gate(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    signal_dir = tmp_path / "signals"
+    data_dir.mkdir()
+    signal_dir.mkdir()
+    monkeypatch.setattr(fdh, "ADAPTIVE_WEIGHTS_FILE", str(signal_dir / "missing_adaptive.json"))
+
+    _write_parquet(data_dir / "AAA.parquet", "2026-05-18")
+    _write_feature_quality(signal_dir / "feature_quality_report.json")
+    _write_feature_health(signal_dir, gate_pass=False)
+
+    manifest = fdh.build_factor_data_health(
+        data_dir=data_dir,
+        signal_dir=signal_dir,
+        tickers=["AAA"],
+        optional_tickers=[],
+        now=pd.Timestamp("2026-05-19"),
+    )
+
+    assert manifest["feature_health"]["ready"] is False
+    assert manifest["feature_health"]["reason"] == "feature_health_gate_failed"
+    assert manifest["trade_ready"] is False

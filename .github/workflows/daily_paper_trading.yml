@@ -340,10 +340,13 @@ jobs:
             # ran against a partial panel and diagnostic graded < 20 features).
             cp signals/feature_quality_report.json signals/feature_quality_report.json.gitbase 2>/dev/null || true
             cp signals/feature_quality_summary.csv signals/feature_quality_summary.csv.gitbase 2>/dev/null || true
+            cp signals/feature_health_profile.json signals/feature_health_profile.json.gitbase 2>/dev/null || true
+            cp signals/feature_health_profile.csv signals/feature_health_profile.csv.gitbase 2>/dev/null || true
             cp logs/feature_ic_shortlist.csv logs/feature_ic_shortlist.csv.gitbase 2>/dev/null || true
 
             python3 research.py --incremental
             python3 feature_quality_diagnostic.py --top 48
+            python3 feature_health.py --max-specs 48
 
             # Sanity check: restore baseline if rebuild produced too few features.
             python3 ci_check_feature_report.py --min-features 20
@@ -351,6 +354,8 @@ jobs:
             # Clean up snapshots regardless of outcome
             rm -f signals/feature_quality_report.json.gitbase \
                   signals/feature_quality_summary.csv.gitbase \
+                  signals/feature_health_profile.json.gitbase \
+                  signals/feature_health_profile.csv.gitbase \
                   logs/feature_ic_shortlist.csv.gitbase
 
             python3 factor_data_health.py --strict
@@ -403,6 +408,8 @@ jobs:
             signals/adaptive_factor_weights.json
             signals/feature_quality_report.json
             signals/feature_quality_summary.csv
+            signals/feature_health_profile.json
+            signals/feature_health_profile.csv
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
             signals/fill_monitor.json

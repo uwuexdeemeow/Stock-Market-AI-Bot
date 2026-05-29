@@ -140,6 +140,76 @@ def _feature_quality_status(
     return status
 
 
+def _feature_health_status(
+    *,
+    signal_dir: Path,
+    factor_paths: list[Path],
+) -> dict:
+    profile_path = signal_dir / "feature_health_profile.json"
+    summary_path = signal_dir / "feature_health_profile.csv"
+    quality_path = signal_dir / "feature_quality_report.json"
+    status = {
+        "path": str(profile_path),
+        "summary_path": str(summary_path),
+        "exists": profile_path.exists(),
+        "summary_exists": summary_path.exists(),
+        "ready": False,
+        "reason": "missing_profile",
+        "feature_health_gate_pass": False,
+        "feature_health_gate_reasons": [],
+        "mtime": None,
+        "stale_vs_feature_quality": False,
+        "stale_vs_factor_data": False,
+    }
+    if not profile_path.exists():
+        return status
+    if not summary_path.exists():
+        status["reason"] = "missing_summary_csv"
+        return status
+
+    try:
+        payload = json.loads(profile_path.read_text(encoding="utf-8", errors="replace"))
+    except Exception as exc:
+        status["reason"] = f"invalid_json:{exc}"
+        return status
+
+    summary = payload.get("summary", {}) if isinstance(payload, dict) else {}
+    features = payload.get("features", []) if isinstance(payload, dict) else []
+    gate_pass = bool(summary.get("feature_health_gate_pass", False))
+    status["feature_health_gate_pass"] = gate_pass
+    status["feature_health_gate_reasons"] = list(summary.get("feature_health_gate_reasons") or [])
+    status["active_cluster_count"] = summary.get("active_cluster_count")
+    status["max_cluster_weight"] = summary.get("max_cluster_weight")
+    status["feature_count"] = len(features) if isinstance(features, list) else 0
+    status["mtime"] = pd.Timestamp.fromtimestamp(profile_path.stat().st_mtime).isoformat()
+    profile_mtime = profile_path.stat().st_mtime
+
+    if quality_path.exists() and quality_path.stat().st_mtime > profile_mtime:
+        status["stale_vs_feature_quality"] = True
+        status["reason"] = "profile_older_than_feature_quality"
+        return status
+
+    newer_factor_files = [
+        str(path)
+        for path in factor_paths
+        if path.exists() and path.stat().st_mtime > profile_mtime
+    ]
+    if newer_factor_files:
+        status["stale_vs_factor_data"] = True
+        status["reason"] = "profile_older_than_factor_data"
+        status["newer_factor_files"] = newer_factor_files[:10]
+        status["newer_factor_file_count"] = len(newer_factor_files)
+        return status
+
+    if not gate_pass:
+        status["reason"] = "feature_health_gate_failed"
+        return status
+
+    status["ready"] = True
+    status["reason"] = "ok"
+    return status
+
+
 def _adaptive_weight_status(*, now: pd.Timestamp | None = None) -> dict:
     _, meta = load_adaptive_factor_weights(
         ADAPTIVE_WEIGHTS_FILE,
@@ -229,9 +299,21 @@ def build_factor_data_health(
         signal_dir=signal_path,
         factor_paths=existing_required_paths,
     )
+    feature_health = _feature_health_status(
+        signal_dir=signal_path,
+        factor_paths=existing_required_paths,
+    )
     adaptive_weights = _adaptive_weight_status(now=today)
-    trade_ready = bool(factor_data_fresh and feature_quality.get("ready", False))
-    signal_ready = bool(factor_data_ready and feature_quality.get("ready", False))
+    trade_ready = bool(
+        factor_data_fresh
+        and feature_quality.get("ready", False)
+        and feature_health.get("ready", False)
+    )
+    signal_ready = bool(
+        factor_data_ready
+        and feature_quality.get("ready", False)
+        and feature_health.get("ready", False)
+    )
 
     reasons: list[str] = []
     if missing:
@@ -244,6 +326,8 @@ def build_factor_data_health(
         reasons.append("factor_data_warn_stale")
     if not feature_quality.get("ready", False):
         reasons.append(f"feature_quality_{feature_quality.get('reason', 'not_ready')}")
+    if not feature_health.get("ready", False):
+        reasons.append(f"feature_health_{feature_health.get('reason', 'not_ready')}")
     if not latest_dates:
         reasons.append("no_factor_dates")
 
@@ -268,6 +352,7 @@ def build_factor_data_health(
         "factor_data_ready": bool(factor_data_ready),
         "factor_data_fresh": bool(factor_data_fresh),
         "feature_quality": feature_quality,
+        "feature_health": feature_health,
         "adaptive_weights": adaptive_weights,
         "signal_ready": bool(signal_ready),
         "trade_ready": bool(trade_ready),
@@ -286,6 +371,7 @@ def _print_summary(manifest: dict) -> None:
     print(f"  Stale tickers: {len(manifest.get('stale_tickers', []))}")
     print(f"  Missing tickers: {len(manifest.get('missing_tickers', []))}")
     print(f"  Feature quality: {manifest.get('feature_quality', {}).get('reason')}")
+    print(f"  Feature health: {manifest.get('feature_health', {}).get('reason')}")
     print(
         "  Adaptive weights: "
         f"{manifest.get('adaptive_weights', {}).get('adaptive_weight_status')} "
