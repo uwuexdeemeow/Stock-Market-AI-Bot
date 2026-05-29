@@ -32,10 +32,13 @@ If you just want one command, find your goal here:
 |---|---|
 | Sync today's Actions outputs to my laptop | `pull_daily.bat` (or `bash pull_daily.sh`) |
 | See today's status | `python status.py` |
-| Run the bot manually today | `python daily_run.py --alpaca` |
+| Run the bot manually today | `python daily_run.py --alpaca --timeout 900` |
+| Run the Actions-style daily bot locally | `python daily_run.py --alpaca --timeout 900 --skip-factor-refresh` |
 | Refresh local data + features before research | `python refresh_local_research_data.py` |
+| Check restored factor cache before trading | `python factor_data_health.py --strict --no-write` |
 | Run the monthly walkforward | `python run_walkforward_batched.py --recent-alpha-grid` |
 | Publish a new live config (after walkforward) | `python publish_live_config_from_csv.py --source stable_family` |
+| Run shadow config journal locally | `python shadow_paper_journal.py` |
 | Generate today's order plan locally (no submit) | `python alpaca_paper_trading.py` |
 | See if Actions actually ran today | `git log origin/signals/latest -1 --format="%ai %s"` |
 | Verify the bot picks up a new config | `python daily_run.py --dry-run` |
@@ -50,9 +53,10 @@ If you just want one command, find your goal here:
 | Cadence | What | Where |
 |---|---|---|
 | **Every 9:35 AM NY weekday** | Live trading via GitHub Actions | `.github/workflows/daily_paper_trading.yml` (automatic) |
+| **Every 9:55 AM NY weekday** | Shadow config journal via Actions | `.github/workflows/shadow_paper_journal.yml` (automatic) |
 | **Every 7:30 AM NY weekday** | Factor data refresh via Actions | `.github/workflows/factor_data_refresh.yml` (automatic) |
 | **Every morning** | `pull_daily.bat` to sync logs to laptop | you |
-| **Once per week (Fri)** | Scorecard + paper report | you |
+| **Once per week (Fri)** | Scorecard + Alpaca gauntlet | you |
 | **Monthly (1st of month)** | Walkforward + medium-risk review + republish | you |
 | **Quarterly** | ML retrain + feature_research --pairs | you |
 
@@ -99,15 +103,68 @@ Look for:
 ### Manual run (only if Actions failed)
 
 ```bash
-python daily_run.py --alpaca
+python daily_run.py --alpaca --timeout 900
 ```
 
-This is what Actions runs internally — refreshes data, generates signal, submits orders, reconciles fills, rebuilds health.  Idempotent: refuses to double-submit thanks to `alpaca_paper_log.csv`'s same-day check + Alpaca's deterministic `client_order_id`.
+This runs the Alpaca paper pipeline locally: generate signal, submit orders,
+reconcile fills, rebuild health. Idempotent: refuses to double-submit thanks to
+`alpaca_paper_log.csv`'s same-day check + Alpaca's deterministic
+`client_order_id`.
 
 To run without submitting:
 ```bash
 python daily_run.py --alpaca --dry-run
 ```
+
+Actions runs the daily Alpaca job with:
+
+```bash
+python daily_run.py --alpaca --timeout 900 --skip-factor-refresh
+```
+
+That means the daily workflow trades from the latest successful factor-data
+cache. If the cache is missing or stale, the workflow first rebuilds it with:
+
+```bash
+python research.py --incremental
+python feature_quality_diagnostic.py --top 48
+python ci_check_feature_report.py --min-features 20
+python factor_data_health.py --strict
+```
+
+The dedicated factor refresh workflow uses the same core refresh chain:
+
+```bash
+python research.py --incremental      # or: python research.py --xs-only
+python feature_quality_diagnostic.py --top 48
+python factor_data_health.py --strict
+```
+
+`feature_quality_diagnostic.py` is the daily factor diagnostic. It writes
+`signals/feature_quality_report.json` and `signals/feature_quality_summary.csv`.
+`feature_health.py` / `signals/feature_health_profile.json` are downstream
+feature-quarantine outputs, not the main scheduled factor-refresh diagnostic.
+
+### Shadow journal
+
+The shadow workflow runs after the Alpaca workflow and records what the shadow
+config would have held without submitting broker orders:
+
+```bash
+python shadow_paper_journal.py
+```
+
+Useful manual flags:
+
+```bash
+python shadow_paper_journal.py --ignore-stale
+python shadow_paper_journal.py --append-duplicate
+python shadow_paper_journal.py --no-restore-signal-artifacts
+```
+
+Outputs:
+- `signals/shadow_paper_journal.csv`
+- `signals/shadow_paper_equity.csv`
 
 ---
 
@@ -117,12 +174,10 @@ Run every Friday (or whenever convenient):
 
 ```cmd
 python paper_scorecard.py
-python paper_report.py
 python alpaca_paper_gauntlet.py --verbose
 ```
 
 - `paper_scorecard.py` — performance vs walkforward expectation
-- `paper_report.py` — human-readable summary of the week
 - `alpaca_paper_gauntlet.py` — readiness test for "could this go on real money?"
 
 ---
@@ -159,6 +214,10 @@ python walkforward_analyzer.py
 python publish_live_config_from_csv.py --dry-run --source stable_family
 # Review output, then if it looks right:
 python publish_live_config_from_csv.py --source stable_family
+# Dry-run gates to check:
+# - walkforward_analyzer FAIL blocks publish unless --force is used.
+# - selection_bias_gap_sharpe must stay under the approval threshold.
+# - conc_ov=... overlays are preserved exactly and kept in separate families.
 
 # ── 7. Regenerate trades + factor decay under new live config ──────
 python core_satellite_alpha.py
@@ -203,8 +262,7 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `alpaca_paper_trading.py` | Generate and (optionally) submit Alpaca orders | `--submit`, `--status`, `--reconcile`, `--slippage-report`, `--market-order` |
 | `broker_health.py` | Pre-flight Alpaca connectivity check | none |
 | `core_satellite_alpha.py` | Generate today's signal (which 3 stocks + ETF weights) | `--ignore-stale`, `--walkforward` |
-| `daily_paper_check.py` | Quick pass/fail verdict for daily run | none |
-| `daily_run.py` | Run the entire daily pipeline (13 steps) | `--alpaca`, `--dry-run`, `--force`, `--health-only` |
+| `daily_run.py` | Run the entire daily pipeline (Alpaca paper) | `--alpaca`, `--dry-run`, `--force`, `--health-only`, `--skip-refresh`, `--skip-factor-refresh`, `--timeout N` |
 | `execution_guard.py` | Repair ETF stop-loss protection, cancel stale orders | `--once`, `--loop` |
 | `fill_monitor.py` | Verify yesterday's fills (cancelled, partial, slipped) | `--days N` |
 | `monitor_heartbeat.py` | Watchdog — all monitors produced fresh output? | none |
@@ -212,6 +270,7 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `paper_health.py` | Build deep health dashboard (slippage, drift, risk) | `--broker alpaca` |
 | `regime_monitor.py` | Detect risk_on / neutral / risk_off regime shifts | none |
 | `risk_sizing.py` | Position sizing helpers | library |
+| `shadow_paper_journal.py` | Track shadow config paper results without submitting orders | `--ignore-stale`, `--append-duplicate`, `--no-restore-signal-artifacts` |
 | `signal_freshness.py` | Reject stale signals at trade time | library |
 | `status.py` | One-page CLI status snapshot | none |
 | `trade_rules.py` | Order generation rules | library |
@@ -228,8 +287,8 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `core_satellite_tqqq.py` | TQQQ overlay variant backtest | research |
 | `cross_sectional_features.py` | Cross-sectional rank features | library |
 | `diagnostics.py` | Investigate model / signal failures | ad-hoc |
-| `feature_quality_diagnostic.py` | Re-grade per-feature live IC | daily (CI) + before walkforward |
-| `feature_research.py` | Per-feature analysis (IC trend, sector, decay, pairs) | quarterly |
+| `feature_quality_diagnostic.py` | Re-grade per-feature live IC | daily (CI: `--top 48`) + before walkforward |
+| `feature_research.py` | Per-feature analysis (IC trend, sector, decay, pairs) | quarterly (`--top 24 --skip-pairs`, or `--pairs`) |
 | `fundamental_features.py` | Sector-relative fundamental z-scores | library |
 | `intraday_features.py` | Intraday signal features | library |
 | `labels.py` | Forward returns + label engineering | library |
@@ -241,7 +300,7 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `portfolio_manager.py` | Correlation + concentration risk gates | library |
 | `predict.py` | Generate model predictions for live | after retrain |
 | `ranker_utils.py` | Adaptive factor-weight learning | library |
-| `research.py` | Build per-ticker factor parquet panel | daily (CI) + ad-hoc |
+| `research.py` | Build per-ticker factor parquet panel | daily (CI: `--incremental`, optional `--xs-only`) + ad-hoc |
 | `sentiment_engine.py` | News / social sentiment scoring | library |
 | `settings.py` | Watchlist + global config | library |
 | `social_sentiment.py` | Reddit / Twitter sentiment | library |
@@ -270,9 +329,9 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | Script | What it does | When |
 |---|---|---|
 | `memprofile_walkforward.py` | Reproduce the walkforward memory leak (now fixed) | rare, debugging only |
-| `publish_live_config_from_csv.py` | Manual live-config promote | after walkforward |
+| `publish_live_config_from_csv.py` | Manual live-config promote; blocks analyzer FAIL and selection-bias overfit | after walkforward (`--source stable_family`, `--dry-run`, `--force`) |
 | `pull_daily.bat` / `pull_daily.sh` | Sync Actions outputs into local repo | every morning |
-| `refresh_local_research_data.py` | Local mirror of `factor_data_refresh.yml` | before any local research |
+| `refresh_local_research_data.py` | Local mirror of `factor_data_refresh.yml` plus feature research | before any local research (`--skip-research`, `--skip-feature-research`, `--pairs`, `--top N`, `--dry-run`) |
 | `run_walkforward_batched.py` | Memory-safe walkforward wrapper | monthly |
 
 ### Infrastructure & dashboards
@@ -280,17 +339,16 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | Script | What it does |
 |---|---|
 | `config_health.py` | Validate env / settings / required keys |
+| `ci_check_feature_report.py` | CI guard that rejects partial feature-quality rebuilds |
 | `dashboard.py` + `dashboard/` + `pages/` | Streamlit dashboard |
 | `data_provider.py` | Multi-source price downloader (yfinance / yahooquery / stooq) |
 | `data_validation.py` | Reject malformed price frames |
 | `experiment_ledger.py` | Track what's been run for reproducibility |
-| `factor_data_health.py` | Strict pass/fail on panel freshness |
+| `factor_data_health.py` | Strict pass/fail on panel freshness (`--strict`, `--ready-only`, `--no-write`) |
 | `http_retry.py` | Idempotent HTTP wrapper for data fetches |
 | `log_cleanup.py` | Old-log housekeeping |
 | `monitor.py` | Generic file watcher |
 | `options_iv_provider.py` | Tradier IV data |
-| `paper_gauntlet.py` | Generic paper gauntlet (Moomoo) |
-| `paper_report.py` | Side-by-side broker performance |
 | `paper_scorecard.py` | Weekly performance snapshot |
 | `refresh_etf_data.py` | SPY/QQQ/TQQQ refresh (bypasses incremental cache) |
 | `safe_io.py` | Atomic writes + utf-8 subprocess helpers |
@@ -312,6 +370,8 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `signals/core_satellite_alpha_metrics.json` | Backtest metrics + selected config + paper_ready verdict |
 | `signals/monitor_heartbeat.json` | All-monitors-fresh watchdog |
 | `signals/factor_data_health.json` | Panel freshness pass/fail |
+| `signals/shadow_paper_journal.csv` | Shadow config daily paper entries |
+| `signals/shadow_paper_equity.csv` | Shadow config equity curve |
 | `signals/factor_decay_monitor.csv` | Recent IC + overlay-α (60d, 120d) |
 | `logs/daily_run_*.json` | Per-step pass/fail/duration for each day |
 
@@ -325,6 +385,7 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `signals/feature_health_profile.json` | Which features active / quarantined / strengthening |
 | `signals/feature_research_summary.csv` | Per-feature IC stats (drives quarantine logic) |
 | `signals/feature_quality_report.json` | Live feature grading (A/B/C/D/F) |
+| `signals/feature_quality_summary.csv` | Compact feature-quality grades table |
 | `signals/walkforward_checkpoint_core_alpha.json` | Resume state during a walkforward run |
 
 ### Medium-risk-review inputs (the trio)
