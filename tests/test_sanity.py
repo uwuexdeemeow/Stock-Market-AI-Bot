@@ -810,7 +810,7 @@ def test_nested_candidate_grid_includes_requested_tuning_dimensions():
 def test_nested_stable_grid_pins_consensus_dimensions():
     configs = nested_wf.stable_grid_candidate_configs()
 
-    assert len(configs) == 32
+    assert len(configs) == 40
     params = [config["nested_params"] for config in configs]
     assert {p["holding_days"] for p in params} == {20}
     assert {p["overlay_gross"] for p in params} == {0.50}
@@ -824,8 +824,8 @@ def test_nested_stable_grid_pins_consensus_dimensions():
     assert {p["tqqq_weight"] for p in params} == {0.0, 0.10, 0.30}
     assert {p["high_vol_mode"] for p in params} == {"fixed", "percentile"}
     dynamic = [p for p in params if p.get("concentration_overlay_mode") == "qqq_spy_dynamic"]
-    assert len(dynamic) == 8
-    assert {p["shape"] for p in dynamic} == {"top3"}
+    assert len(dynamic) == 16
+    assert {p["shape"] for p in dynamic} == {"top3", "top5"}
     assert {p["tqqq_weight"] for p in dynamic} == {0.0, 0.30}
     assert {p["concentration_overlay_low_gross"] for p in dynamic} == {0.30}
     assert {p["concentration_overlay_high_gross"] for p in dynamic} == {0.70}

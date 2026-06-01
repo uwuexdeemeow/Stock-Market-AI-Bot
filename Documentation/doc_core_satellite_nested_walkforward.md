@@ -58,7 +58,7 @@ WALKFORWARD_MAX_INNER_WORST_TURNOVER_PCT=525 python3 core_satellite_nested_walkf
 # Don't push the winning config to live (research mode)
 python3 core_satellite_nested_walkforward.py --output-prefix wf_my_research_run --no-publish-live-config
 
-# Stable approval grid, including a small top3 dynamic-overlay challenger
+# Stable approval grid, including top3/top5 dynamic-overlay challengers
 python3 core_satellite_nested_walkforward.py --stable-grid --no-publish-live-config
 
 # Recent-alpha research now includes ov=0.60 between the conservative 0.50
