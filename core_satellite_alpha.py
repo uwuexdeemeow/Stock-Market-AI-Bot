@@ -1551,6 +1551,9 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
     # exposure each period to keep vol near the target.
     vol_target = float(config.get("vol_target", 0.0))
     recent_returns: list[float] = []  # rolling window of strategy returns
+    drawdown_scale_start = float(config.get("drawdown_scale_start", 0.0))
+    drawdown_scale_full = float(config.get("drawdown_scale_full", 0.0))
+    drawdown_scale_floor = float(config.get("drawdown_scale_floor", 1.0))
 
     for dt in rebalance_dates:
         day = day_map[pd.Timestamp(dt)]
@@ -1565,8 +1568,8 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
         #      If yes, deactivate breaker and re-enter the market.
         #      We use regime (not equity recovery) because cash doesn't grow —
         #      we'd be stuck forever waiting for equity to recover while in cash.
+        drawdown_from_peak = 1.0 - (equity / peak_equity) if peak_equity > 0 else 0.0
         if dd_threshold > 0.0:
-            drawdown_from_peak = 1.0 - (equity / peak_equity) if peak_equity > 0 else 0.0
             if circuit_breaker_active:
                 # Re-enter when regime turns risk_on (market showing strength)
                 if regime == "risk_on":
@@ -1602,6 +1605,25 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
 
         if "feature_health_overlay_allowed" in day.columns and not bool(day["feature_health_overlay_allowed"].iloc[0]):
             overlay_gross = 0.0
+
+        drawdown_exposure_scale = 1.0
+        if (
+            not circuit_breaker_active
+            and drawdown_scale_start > 0.0
+            and drawdown_scale_full > drawdown_scale_start
+            and drawdown_from_peak > drawdown_scale_start
+        ):
+            severity = float(np.clip(
+                (drawdown_from_peak - drawdown_scale_start)
+                / max(drawdown_scale_full - drawdown_scale_start, 1e-9),
+                0.0,
+                1.0,
+            ))
+            drawdown_exposure_scale = float(
+                1.0 - severity * (1.0 - np.clip(drawdown_scale_floor, 0.0, 1.0))
+            )
+            core_gross *= drawdown_exposure_scale
+            overlay_gross *= drawdown_exposure_scale
 
         overlay_before_concentration = overlay_gross
         overlay_gross, concentration_overlay_target, concentration_gap = _apply_concentration_overlay_target(
@@ -1711,6 +1733,8 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
             "exit_date": exit_dt,
             "regime": regime,
             "circuit_breaker_active": circuit_breaker_active,
+            "drawdown_from_peak": drawdown_from_peak,
+            "drawdown_exposure_scale": drawdown_exposure_scale,
             "score_col": score_col,
             "adaptive_exit_mode": str(config.get("adaptive_exit_mode", "fixed")),
             "exit_rank_floor_used": exit_floor,
@@ -1758,6 +1782,8 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
         "max_single_name_weight": round(float(trades["top_overlay_weight"].max()), 4) if not trades.empty else 0.0,
         "avg_effective_overlay_names": round(float(trades["effective_overlay_names"].mean()), 3) if not trades.empty else 0.0,
         "max_sector_overlay_weight": round(float(trades["max_sector_overlay_weight"].max()), 4) if not trades.empty else 0.0,
+        "avg_drawdown_exposure_scale": round(float(trades["drawdown_exposure_scale"].mean()), 4) if not trades.empty else 1.0,
+        "min_drawdown_exposure_scale": round(float(trades["drawdown_exposure_scale"].min()), 4) if not trades.empty else 1.0,
         "top_ticker_overlay_contributor": top_ticker,
         "top_ticker_overlay_contribution_share": round(top_ticker_share, 3),
         "n_rebalances": int(len(trades)),

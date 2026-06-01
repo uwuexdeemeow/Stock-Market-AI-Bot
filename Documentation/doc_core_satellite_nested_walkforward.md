@@ -61,6 +61,10 @@ python3 core_satellite_nested_walkforward.py --output-prefix wf_my_research_run 
 # Stable approval grid, including a small top3 dynamic-overlay challenger
 python3 core_satellite_nested_walkforward.py --stable-grid --no-publish-live-config
 
+# Stable grid also tests a small adaptive-sizing challenger. It keeps the
+# current risk-off logic, but gently scales exposure after a portfolio
+# drawdown instead of going fully to cash.
+
 # Recent-alpha research now includes ov=0.60 between the conservative 0.50
 # anchor and the higher-turnover 0.70 stress point.
 
