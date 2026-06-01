@@ -854,7 +854,7 @@ def stable_grid_candidate_configs(
         high_vol_values=(0.30,),
         high_vol_modes=STABLE_GRID_HIGH_VOL_MODES,
         score_sources=("regime_adaptive",),
-        shapes=("top3", "top5"),
+        shapes=("top3",),
         weightings=("sticky_score", "risk_parity"),
         tqqq_weights=(0.0, 0.30),
         risk_control_modes=("off",),
