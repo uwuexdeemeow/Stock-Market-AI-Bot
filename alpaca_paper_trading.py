@@ -1708,11 +1708,26 @@ def reconcile_orders(broker: AlpacaBroker) -> None:
         print("  Paper log is empty or missing order_id column.")
         return
 
-    # Only reconcile orders that are still pending
+    # Only reconcile orders that can still change at the broker.
     if "fill_status" not in log.columns:
         log["fill_status"] = "pending"
 
-    pending_mask = log["fill_status"].astype(str).str.lower().isin(["pending", ""])
+    active_statuses = {
+        "",
+        "accepted",
+        "accepted_for_bidding",
+        "new",
+        "open",
+        "partial",
+        "partially_filled",
+        "pending",
+        "pending_cancel",
+        "pending_new",
+        "pending_replace",
+        "query_failed",
+        "submitted",
+    }
+    pending_mask = log["fill_status"].astype(str).str.lower().str.strip().isin(active_statuses)
     pending = log[pending_mask]
     overlay_sell_tickers = {
         str(row.get("ticker", "")).upper()

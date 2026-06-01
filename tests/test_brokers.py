@@ -729,6 +729,53 @@ def test_submit_rebalance_orders_allows_buys_after_filled_sells_and_cash(monkeyp
     assert [o.ticker for o in broker.orders] == ["FCX", "MU"]
 
 
+def test_reconcile_orders_rechecks_partially_filled_orders(tmp_path, monkeypatch):
+    import alpaca_paper_trading as apt
+
+    log_path = tmp_path / "alpaca_paper_log.csv"
+    pd.DataFrame(
+        [
+            {
+                "submitted_at": "2026-06-01T10:00:00+00:00",
+                "order_id": "oid-1",
+                "ticker": "MU",
+                "side": "buy",
+                "quantity": 25,
+                "price": 100.0,
+                "trade_value": 2500.0,
+                "target_weight": 0.2,
+                "fill_status": "partially_filled",
+                "filled_qty": 24,
+                "filled_avg_price": 100.0,
+            }
+        ]
+    ).to_csv(log_path, index=False)
+    monkeypatch.setattr(apt, "PAPER_LOG_FILE", log_path)
+
+    class Api:
+        def __init__(self):
+            self.calls = 0
+
+        def get_order(self, order_id):
+            self.calls += 1
+            return SimpleNamespace(
+                status="filled",
+                filled_qty="25",
+                filled_avg_price="101.25",
+            )
+
+    api = Api()
+    broker = SimpleNamespace(_api=api)
+
+    apt.reconcile_orders(broker)
+
+    output = pd.read_csv(log_path)
+    assert api.calls == 1
+    assert output.loc[0, "fill_status"] == "filled"
+    assert output.loc[0, "filled_qty"] == 25
+    assert output.loc[0, "filled_avg_price"] == 101.25
+
+
 def test_log_submission_marks_error_and_skipped_statuses(tmp_path):
     import alpaca_paper_trading as apt
 

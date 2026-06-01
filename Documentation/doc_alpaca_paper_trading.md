@@ -60,6 +60,10 @@ python3 alpaca_paper_trading.py --submit --market-order
 python3 alpaca_paper_trading.py --submit --quote-limit
 ```
 
+Reconcile checks broker-active statuses such as `pending`, `new`, `open`,
+`partially_filled`, and prior `query_failed` rows. This means a partial fill
+can later be corrected to `filled` once Alpaca reports the final state.
+
 ## Inputs
 
 | File | Source | Purpose |
