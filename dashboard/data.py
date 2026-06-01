@@ -101,6 +101,128 @@ def _read_csv_safe(path: Path) -> pd.DataFrame:
         return pd.DataFrame()
 
 
+def _first_nonempty(row: pd.Series | dict, *keys: str, default: object = None) -> object:
+    """Return the first non-blank value from a row with old or new column names."""
+    for key in keys:
+        value = row.get(key, None)
+        if pd.notna(value) and str(value).strip() not in {"", "nan", "None"}:
+            return value
+    return default
+
+
+def _to_float(value: object, default: float = 0.0) -> float:
+    """Convert a CSV cell into a float, using default for blanks/bad text."""
+    try:
+        return float(pd.to_numeric(pd.Series([value]), errors="coerce").fillna(default).iloc[0])
+    except Exception:
+        return float(default)
+
+
+def _signed_slippage_bps(side: str, fill_price: float, reference_price: float) -> float | None:
+    """Positive slippage means the fill was worse than the planned price."""
+    if fill_price <= 0 or reference_price <= 0:
+        return None
+    if str(side).lower().strip() == "buy":
+        return (fill_price - reference_price) / reference_price * 10_000
+    return (reference_price - fill_price) / reference_price * 10_000
+
+
+def _safe_mean(values: list[float]) -> float | None:
+    clean = pd.to_numeric(pd.Series(values), errors="coerce").dropna()
+    return None if clean.empty else float(clean.mean())
+
+
+def _safe_median(values: list[float]) -> float | None:
+    clean = pd.to_numeric(pd.Series(values), errors="coerce").dropna()
+    return None if clean.empty else float(clean.median())
+
+
+def _execution_report_from_order_log(log: pd.DataFrame) -> dict | None:
+    """Build a dashboard-friendly fill report from alpaca_paper_log.csv.
+
+    PLAIN ENGLISH: The richer Alpaca API report has minute-bar reversal data,
+    but it may be missing locally until `--slippage-report` runs.  The paper
+    log still has enough information to show actual fills and basic slippage.
+    """
+    if log.empty:
+        return None
+
+    report_rows: list[dict] = []
+    for row in log.to_dict("records"):
+        side = str(_first_nonempty(row, "side", "action", default="")).lower().strip()
+        status = str(row.get("fill_status", row.get("status", ""))).lower().strip()
+        filled_qty = _to_float(_first_nonempty(row, "filled_qty", "broker_dealt_qty"))
+        if filled_qty <= 0 and status not in {"filled", "partial", "partially_filled"}:
+            continue
+
+        fill_price = _to_float(_first_nonempty(row, "filled_avg_price", "broker_dealt_avg_price", "fill_price"))
+        reference_price = _to_float(_first_nonempty(row, "price", "limit_price"))
+        slip = _signed_slippage_bps(side, fill_price, reference_price)
+        submitted_at = _first_nonempty(row, "filled_at", "submitted_at", "timestamp", default="")
+        report_rows.append({
+            "filled_at": str(submitted_at),
+            "symbol": str(row.get("ticker", row.get("symbol", ""))).upper(),
+            "side": side,
+            "order_type": str(_first_nonempty(row, "order_type", "submitted_order_type", default="paper_log")),
+            "filled_qty": int(filled_qty) if filled_qty.is_integer() else round(filled_qty, 6),
+            "fill_price": round(fill_price, 4) if fill_price > 0 else None,
+            "fill_minute_vwap": None,
+            "slippage_bps": round(float(slip), 2) if slip is not None else None,
+            "adverse_5m_bps": None,
+            "adverse_15m_bps": None,
+            "adverse_30m_bps": None,
+            "adverse_60m_bps": None,
+            "worst_adverse_60m_bps": None,
+            "best_favorable_60m_bps": None,
+            "fill_status": status,
+        })
+
+    if not report_rows:
+        return None
+
+    slip_values = [
+        float(row["slippage_bps"])
+        for row in report_rows
+        if row.get("slippage_bps") is not None
+    ]
+    by_symbol: list[dict] = []
+    report_df = pd.DataFrame(report_rows)
+    for symbol, grp in report_df.groupby("symbol", sort=False):
+        slippage = pd.to_numeric(grp.get("slippage_bps"), errors="coerce").dropna()
+        bad_rate = float((slippage > 0).mean()) if len(slippage) else None
+        avg_slip = float(slippage.mean()) if len(slippage) else None
+        by_symbol.append({
+            "symbol": str(symbol),
+            "orders": int(len(grp)),
+            "avg_slippage_bps": round(avg_slip, 2) if avg_slip is not None else None,
+            "bad_slippage_rate": round(bad_rate, 3) if bad_rate is not None else None,
+            "adverse_15m_rate": None,
+            "avg_worst_adverse_60m_bps": None,
+            "execution_risk_score": round(max(0.0, avg_slip or 0.0) * 0.5, 2),
+        })
+    by_symbol.sort(key=lambda row: float(row.get("execution_risk_score") or 0), reverse=True)
+
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "source": "alpaca_paper_log.csv fallback",
+        "summary": {
+            "orders_analyzed": len(report_rows),
+            "avg_slippage_bps": round(_safe_mean(slip_values), 2) if _safe_mean(slip_values) is not None else None,
+            "median_slippage_bps": round(_safe_median(slip_values), 2) if _safe_median(slip_values) is not None else None,
+            "slippage_bad_count": int(sum(1 for value in slip_values if float(value) > 0)),
+            "adverse_5m_count": 0,
+            "adverse_15m_count": 0,
+            "adverse_30m_count": 0,
+            "adverse_60m_count": 0,
+            "avg_worst_adverse_60m_bps": None,
+            "max_worst_adverse_60m_bps": None,
+        },
+        "by_symbol": by_symbol,
+        "orders": report_rows,
+        "errors": ["alpaca_slippage_reversal_report_missing_using_paper_log"],
+    }
+
+
 def _file_age_minutes(path: Path) -> Optional[float]:
     """Minutes since file was last modified (None if missing)."""
     if not path.exists():
@@ -278,7 +400,10 @@ def load_health_report() -> dict | None:
 @st.cache_data(ttl=60)
 def load_slippage_reversal_report() -> dict | None:
     """Return the recent Alpaca fill slippage/reversal report."""
-    return _read_json_safe(ALPACA_SLIPPAGE_REPORT)
+    report = _read_json_safe(ALPACA_SLIPPAGE_REPORT)
+    if isinstance(report, dict) and report.get("orders"):
+        return report
+    return _execution_report_from_order_log(_read_csv_safe(ALPACA_LOG)) or report
 
 
 @st.cache_data(ttl=60)

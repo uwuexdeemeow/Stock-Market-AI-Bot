@@ -355,6 +355,8 @@ execution_report = data.load_slippage_reversal_report()
 if execution_report:
     st.divider()
     st.markdown("##### Execution quality")
+    if execution_report.get("source") != "alpaca_api":
+        st.caption("Showing basic fill data from `alpaca_paper_log.csv`; run `alpaca_paper_trading.py --slippage-report` for reversal metrics.")
     execution_summary = execution_report.get("summary") or {}
     execution_rows = execution_report.get("orders") or []
     execution_total = int(execution_summary.get("orders_analyzed") or len(execution_rows) or 0)
