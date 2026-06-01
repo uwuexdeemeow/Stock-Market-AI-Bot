@@ -78,6 +78,7 @@ from feature_quality_diagnostic import (
 )
 from alpha_factor_backtest import attach_trailing_score_guard
 from walkforward_analyzer import (
+    check_concentration_vulnerability,
     check_config_stability,
     check_fold_completeness,
     check_score_predictiveness,
@@ -1792,6 +1793,46 @@ def test_walkforward_analyzer_warns_when_cross_year_score_is_noisy_but_calibrate
     assert result["corr_inner_score_vs_oos_objective"] < 0
     assert result["calibration_direction_accuracy_pct"] == 100.0
     assert result["verdict"] == "WARN"
+
+
+def test_concentration_gate_warns_on_noisy_corr_without_material_delta():
+    result = check_concentration_vulnerability(
+        pd.DataFrame(
+            {
+                "valid": [True] * 6,
+                "fold_year": [2021, 2022, 2023, 2024, 2025, 2026],
+                "oos_alpha_vs_qqq_pct": [12.0, 13.0, 10.0, 14.0, 12.0, 11.0],
+            }
+        ),
+        pd.DataFrame(
+            {"concentration_proxy": [-4.0, -2.0, 12.0, 1.0, 3.0, 10.0]},
+            index=[2021, 2022, 2023, 2024, 2025, 2026],
+        ),
+    )
+
+    assert result["correlation_conc_vs_oos_alpha"] <= -0.5
+    assert result["delta_pct"] > -5
+    assert result["verdict"] == "WARN"
+
+
+def test_concentration_gate_fails_when_delta_is_material():
+    result = check_concentration_vulnerability(
+        pd.DataFrame(
+            {
+                "valid": [True] * 6,
+                "fold_year": [2021, 2022, 2023, 2024, 2025, 2026],
+                "oos_alpha_vs_qqq_pct": [14.0, 15.0, -2.0, 13.0, 16.0, -1.0],
+            }
+        ),
+        pd.DataFrame(
+            {"concentration_proxy": [-4.0, -2.0, 12.0, 1.0, 3.0, 10.0]},
+            index=[2021, 2022, 2023, 2024, 2025, 2026],
+        ),
+    )
+
+    assert result["correlation_conc_vs_oos_alpha"] <= -0.5
+    assert result["delta_pct"] < -5
+    assert result["verdict"] == "FAIL"
 
 
 def test_walkforward_analyzer_prefers_stable_family_for_config_stability():

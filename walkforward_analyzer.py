@@ -287,13 +287,16 @@ def check_concentration_vulnerability(
 
     # Verdict thresholds:
     #   corr > -0.3 and delta > -5%: strategy is concentration-robust
-    #   corr <= -0.5 or delta < -10%: structurally vulnerable
+    #   delta < -10%: economically large vulnerability
+    #   corr <= -0.5 AND delta < -5%: statistical + economic weakness
+    # A short 6-fold run can produce a noisy correlation. Do not FAIL unless
+    # the high-concentration bucket also shows a meaningful alpha shortfall.
     if corr > -0.3 and (pd.isna(delta) or delta > -5):
         verdict = "PASS"
-    elif corr > -0.5 and (pd.isna(delta) or delta > -10):
-        verdict = "WARN"
-    else:
+    elif pd.notna(delta) and (delta < -10 or (corr <= -0.5 and delta < -5)):
         verdict = "FAIL"
+    else:
+        verdict = "WARN"
 
     return {
         "valid": True,
