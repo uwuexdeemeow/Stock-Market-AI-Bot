@@ -19,6 +19,7 @@ The reference for every script in the bot — what it does, when to run it, how 
 - [Key files reference](#key-files-reference)
 - [Git sync — pulling Actions's work](#git-sync--pulling-actionss-work)
 - [Common failures & fixes](#common-failures--fixes)
+- [Alpaca submit parameters](#alpaca-submit-parameters)
 - [Safety notes](#safety-notes)
 - [Real-capital blockers](#real-capital-blockers)
 
@@ -34,11 +35,13 @@ If you just want one command, find your goal here:
 | See today's status | `python status.py` |
 | Run the bot manually today | `python daily_run.py --alpaca --timeout 900` |
 | Run the Actions-style daily bot locally | `python daily_run.py --alpaca --timeout 900 --skip-factor-refresh` |
+| Refresh Alpaca live equity/status only | `python alpaca_paper_trading.py --status` |
+| Refresh recent fill-quality stats | `python alpaca_paper_trading.py --slippage-report` |
+| Run the shadow paper journal locally | `python shadow_paper_journal.py` |
 | Refresh local data + features before research | `python refresh_local_research_data.py` |
 | Check restored factor cache before trading | `python factor_data_health.py --strict --no-write` |
 | Run the monthly walkforward | `python run_walkforward_batched.py --recent-alpha-grid` |
 | Publish a new live config (after walkforward) | `python publish_live_config_from_csv.py --source stable_family` |
-| Run shadow config journal locally | `python shadow_paper_journal.py` |
 | Generate today's order plan locally (no submit) | `python alpaca_paper_trading.py` |
 | See if Actions actually ran today | `git log origin/signals/latest -1 --format="%ai %s"` |
 | Verify the bot picks up a new config | `python daily_run.py --dry-run` |
@@ -76,6 +79,8 @@ Pulls yesterday's Actions outputs into `signals/` and `logs/`. Refreshes:
 - `alpaca_paper_health.json` — health summary
 - `alpaca_daily_status.json` — positions + equity snapshot
 - `alpaca_slippage_reversal_report.json` — fill slippage and reversal report
+- `shadow_paper_journal.csv` — shadow config signal journal
+- `shadow_paper_equity.csv` — shadow config simulated equity curve
 - `monitor_heartbeat.json` — watchdog status
 - `logs/daily_run_*.json` — pipeline step results
 
@@ -106,10 +111,14 @@ Look for:
 python daily_run.py --alpaca --timeout 900
 ```
 
-This runs the Alpaca paper pipeline locally: generate signal, submit orders,
-reconcile fills, rebuild health. Idempotent: refuses to double-submit thanks to
-`alpaca_paper_log.csv`'s same-day check + Alpaca's deterministic
-`client_order_id`.
+This is what Actions runs internally — refreshes data, generates signal, submits orders, reconciles fills, rebuilds health.  Idempotent: refuses to double-submit by checking Alpaca's live order history first, falling back to `alpaca_paper_log.csv`, and using deterministic `client_order_id` values.
+
+The Alpaca submit path now has extra no-margin guards:
+- default order type is protective day limits (`ALPACA_ORDER_TYPE=limit`)
+- closed-market queueing is off by default (`ALPACA_ALLOW_CLOSED_MARKET_QUEUE=0`)
+- sells submit before buys
+- buys are skipped if sells fail, sells do not fill quickly, cash is below the no-margin threshold, or buy value exceeds available cash
+- after submit/reconcile, the bot repairs overlay trailing stops from live Alpaca positions and warns if stock value is materially above equity
 
 To run without submitting:
 ```bash
@@ -159,7 +168,14 @@ Useful manual flags:
 ```bash
 python shadow_paper_journal.py --ignore-stale
 python shadow_paper_journal.py --append-duplicate
+python shadow_paper_journal.py --journal-path signals/shadow_paper_journal.csv
+python shadow_paper_journal.py --equity-path signals/shadow_paper_equity.csv
 python shadow_paper_journal.py --no-restore-signal-artifacts
+```
+
+Optional starting equity override:
+```bash
+SHADOW_PAPER_INITIAL_EQUITY=101161.27 python shadow_paper_journal.py
 ```
 
 Outputs:
@@ -259,19 +275,19 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | Script | What it does | Common flags |
 |---|---|---|
 | `alpaca_paper_gauntlet.py` | Health gate — pass/fail for "should real money trust this?" | `--verbose` |
-| `alpaca_paper_trading.py` | Generate and (optionally) submit Alpaca orders | `--submit`, `--status`, `--reconcile`, `--slippage-report`, `--market-order` |
+| `alpaca_paper_trading.py` | Generate and (optionally) submit Alpaca orders | `--submit`, `--status`, `--reconcile`, `--slippage-report`, `--market-order`, `--limit-order`, `--quote-limit`, `--last-trade-limit`, `--allow-closed-market-queue`, `--allow-stale-signal`, `--max-signal-age-hours H`, `--max-factor-age-trading-days N` |
 | `broker_health.py` | Pre-flight Alpaca connectivity check | none |
 | `core_satellite_alpha.py` | Generate today's signal (which 3 stocks + ETF weights) | `--ignore-stale`, `--walkforward` |
-| `daily_run.py` | Run the entire daily pipeline (Alpaca paper) | `--alpaca`, `--dry-run`, `--force`, `--health-only`, `--skip-refresh`, `--skip-factor-refresh`, `--timeout N` |
-| `execution_guard.py` | Repair ETF stop-loss protection, cancel stale orders | `--once`, `--loop` |
+| `daily_run.py` | Run the entire daily pipeline (13 steps) | `--alpaca`, `--dry-run`, `--force`, `--health-only`, `--skip-refresh`, `--skip-factor-refresh`, `--no-github-sync`, `--timeout N` |
+| `execution_guard.py` | Repair ETF stop-loss protection, cancel stale orders | `--once`, `--loop`, `--dry-run` |
 | `fill_monitor.py` | Verify yesterday's fills (cancelled, partial, slipped) | `--days N` |
 | `monitor_heartbeat.py` | Watchdog — all monitors produced fresh output? | none |
 | `notifications.py` | Send Telegram / email alerts | library, not run directly |
 | `paper_health.py` | Build deep health dashboard (slippage, drift, risk) | `--broker alpaca` |
 | `regime_monitor.py` | Detect risk_on / neutral / risk_off regime shifts | none |
 | `risk_sizing.py` | Position sizing helpers | library |
-| `shadow_paper_journal.py` | Track shadow config paper results without submitting orders | `--ignore-stale`, `--append-duplicate`, `--no-restore-signal-artifacts` |
 | `signal_freshness.py` | Reject stale signals at trade time | library |
+| `shadow_paper_journal.py` | Record shadow config signal + simulated equity without sending orders | `--journal-path PATH`, `--equity-path PATH`, `--ignore-stale`, `--append-duplicate`, `--no-restore-signal-artifacts` |
 | `status.py` | One-page CLI status snapshot | none |
 | `trade_rules.py` | Order generation rules | library |
 
@@ -331,8 +347,8 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `memprofile_walkforward.py` | Reproduce the walkforward memory leak (now fixed) | rare, debugging only |
 | `publish_live_config_from_csv.py` | Manual live-config promote; blocks analyzer FAIL and selection-bias overfit | after walkforward (`--source stable_family`, `--dry-run`, `--force`) |
 | `pull_daily.bat` / `pull_daily.sh` | Sync Actions outputs into local repo | every morning |
-| `refresh_local_research_data.py` | Local mirror of `factor_data_refresh.yml` plus feature research | before any local research (`--skip-research`, `--skip-feature-research`, `--pairs`, `--top N`, `--dry-run`) |
-| `run_walkforward_batched.py` | Memory-safe walkforward wrapper | monthly |
+| `refresh_local_research_data.py` | Local mirror of `factor_data_refresh.yml` plus feature research | `--skip-research`, `--skip-feature-research`, `--pairs`, `--top N`, `--dry-run` |
+| `run_walkforward_batched.py` | Memory-safe walkforward wrapper | `--batch-size N`, `--max-batches N`, `--help-wrapper`, plus forwarded walkforward flags such as `--recent-alpha-grid` |
 
 ### Infrastructure & dashboards
 
@@ -365,13 +381,14 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `signals/alpaca_paper_equity.csv` | Daily equity snapshots |
 | `signals/alpaca_daily_status.json` | Today's positions + equity + cash (dashboard equity card reads this) |
 | `signals/alpaca_paper_health.json` | Slippage, drift, concentration, equity sanity, P&L breakdown |
+| `signals/alpaca_slippage_reversal_report.json` | Recent fill slippage and 5/15/30/60 minute post-fill reversal stats |
+| `signals/shadow_paper_journal.csv` | Daily shadow config targets, signal metadata, and comparison rows |
+| `signals/shadow_paper_equity.csv` | Simulated equity curve for the shadow config |
 | `signals/core_satellite_alpha_signal.csv` | Today's target portfolio (tickers + weights) |
 | `signals/core_satellite_alpha_orders.csv` | Today's planned orders (BUY / SELL list) |
 | `signals/core_satellite_alpha_metrics.json` | Backtest metrics + selected config + paper_ready verdict |
 | `signals/monitor_heartbeat.json` | All-monitors-fresh watchdog |
 | `signals/factor_data_health.json` | Panel freshness pass/fail |
-| `signals/shadow_paper_journal.csv` | Shadow config daily paper entries |
-| `signals/shadow_paper_equity.csv` | Shadow config equity curve |
 | `signals/factor_decay_monitor.csv` | Recent IC + overlay-α (60d, 120d) |
 | `logs/daily_run_*.json` | Per-step pass/fail/duration for each day |
 
@@ -512,13 +529,59 @@ Wait for the cron (13:35 UTC in DST = 9:35 NY).  If past that time and no commit
 
 ---
 
+## Alpaca submit parameters
+
+These are the main environment knobs used by `alpaca_paper_trading.py` and the
+daily GitHub workflow:
+
+| Variable | Default | What it controls |
+|---|---:|---|
+| `ALPACA_ORDER_TYPE` | `limit` | Normal rebalance order type. Keep `limit` unless deliberately testing market orders. |
+| `ALPACA_LIMIT_REFERENCE` | `last` | Limit anchor. `last` uses planned last trade; `quote` uses live bid/ask when explicitly enabled. |
+| `ALPACA_LIMIT_OFFSET_BPS_ETF` | `5` | ETF protective-limit cushion in basis points. |
+| `ALPACA_LIMIT_OFFSET_BPS_OVERLAY` | `12` | Overlay-stock protective-limit cushion in basis points. |
+| `ALPACA_ALLOW_CLOSED_MARKET_QUEUE` | `0` | Whether non-interactive runs may queue orders while market is closed. Keep `0`. |
+| `ALPACA_SKIP_BUYS_UNTIL_SELLS_FILLED` | `1` | Skip buys unless same-run sells fill first. |
+| `ALPACA_SKIP_BUYS_WHEN_CASH_BELOW` | `0` | No-margin cash floor. Buys are skipped when cash is below this level. |
+| `ALPACA_SELL_FILL_WAIT_SECONDS` | `20` | How long to wait for sell orders to fill before deciding whether buys are safe. |
+| `ALPACA_SELL_FILL_POLL_SECONDS` | `2` | How often to poll Alpaca while waiting for sell fills. |
+| `ALPACA_MARGIN_WARN_GROSS` | `1.02` | Warn if stock market value / equity is above this level. |
+| `ALPACA_TRAILING_STOP` | `1` | Enable overlay trailing stops. |
+| `ALPACA_TRAILING_STOP_PCT` | `0.08` | Overlay trailing-stop trail amount. |
+| `GUARD_CORE_STOP` | `1` | Enable durable core ETF trailing stops in `execution_guard.py`. |
+| `GUARD_CORE_TICKERS` | `SPY,QQQ,TQQQ` | Core ETF symbols protected by guard stops. |
+| `GUARD_CORE_TRAIL_PCT` | `0.05` | Core ETF trail amount. |
+
+Daily workflow currently sets:
+
+```yaml
+ALPACA_ORDER_TYPE=limit
+ALPACA_LIMIT_REFERENCE=last
+ALPACA_ALLOW_CLOSED_MARKET_QUEUE=0
+GUARD_CORE_STOP=1
+GUARD_CORE_TICKERS=SPY,QQQ,TQQQ
+GUARD_CORE_TRAIL_PCT=0.05
+```
+
+Shadow paper parameter:
+
+| Variable | Default | What it controls |
+|---|---:|---|
+| `SHADOW_PAPER_INITIAL_EQUITY` | `100000` | Starting fake equity for `shadow_paper_equity.csv` when no prior row exists. |
+
+---
+
 ## Safety notes
 
 - `ALPACA_API_KEY` and `ALPACA_SECRET_KEY` belong in `.env`, never committed.
 - Use `daily_run.py --dry-run` to inspect any pipeline change before live.
 - Never push to `signals/latest` manually.
 - `--force` overrides safety checks — use only when you understand the specific safeguard you're bypassing.
-- Idempotency is built in: local `_already_submitted_today()` check + Alpaca's deterministic `client_order_id` rejection.  Same-day double-submit is blocked.
+- Idempotency is built in: the bot checks Alpaca's live order history first,
+  falls back to the local order log, and still uses deterministic
+  `client_order_id` values.  Same-day double-submit is blocked.
+- Do not turn on closed-market queueing or market orders for routine runs.
+- If Telegram reports `skipped` buys, inspect the sell status and cash before rerunning.
 
 ---
 
