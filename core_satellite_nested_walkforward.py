@@ -378,7 +378,7 @@ MAX_INNER_WORST_TURNOVER_PCT = _walkforward_env_float(
 # Historical walkforward data shows 5/7 years selected defensive —
 # it was incorrectly excluded from the default grid.  Now included.
 RISK_CONTROL_MODES = ("off", "defensive")
-FULL_RISK_CONTROL_MODES = ("off", "defensive", "adaptive_sizing")
+FULL_RISK_CONTROL_MODES = ("off", "defensive")
 FULL_TQQQ_WEIGHTS = (0.0, 0.10, 0.20, 0.30)
 STABLE_GRID_TQQQ_WEIGHTS = (0.0, 0.10)
 STABLE_GRID_SHAPES = ("top5", "top10", "top15")
@@ -389,13 +389,6 @@ STABLE_GRID_CONCENTRATION_OVERLAY = {
     "concentration_overlay_high_gross": 0.70,
     "concentration_overlay_threshold": 0.05,
     "concentration_overlay_span": 0.05,
-}
-ADAPTIVE_SIZING_CONTROLS = {
-    "drawdown_circuit_breaker": 0.0,
-    "vol_target": 0.20,
-    "drawdown_scale_start": 0.10,
-    "drawdown_scale_full": 0.25,
-    "drawdown_scale_floor": 0.50,
 }
 RECENT_ALPHA_GRID_SHAPES = ("top3", "top5", "top15")
 # Include 0.60 because fixed-config validation showed it adds recent alpha
@@ -418,28 +411,6 @@ SURVIVORSHIP_MAX_AUDIT_SELECTIONS = 60  # allow up to 60 selections (realistic w
 SURVIVORSHIP_MIN_RETURN_DELTA_PCT = -5000.0  # absolute return delta (wide, since returns are compounded %)
 SURVIVORSHIP_MIN_DRAWDOWN_DELTA_PCT = -5.0  # drawdown can't get >5% worse
 EXECUTION_STRESS_MIN_WORST_DRAWDOWN_PCT = -35.0  # allow up to 35% dd under worst stress (delay+25bps)
-
-
-def risk_control_settings(mode: str) -> dict[str, float]:
-    """Return sizing-control parameters for a walkforward risk mode."""
-    mode = str(mode)
-    if mode == "defensive":
-        return {
-            "drawdown_circuit_breaker": 0.15,
-            "vol_target": 0.15,
-            "drawdown_scale_start": 0.0,
-            "drawdown_scale_full": 0.0,
-            "drawdown_scale_floor": 1.0,
-        }
-    if mode == "adaptive_sizing":
-        return dict(ADAPTIVE_SIZING_CONTROLS)
-    return {
-        "drawdown_circuit_breaker": 0.0,
-        "vol_target": 0.0,
-        "drawdown_scale_start": 0.0,
-        "drawdown_scale_full": 0.0,
-        "drawdown_scale_floor": 1.0,
-    }
 
 # ── Checkpoint helpers ────────────────────────────────────────────────────────
 # The walkforward can take hours.  After each outer fold we persist the
@@ -793,7 +764,6 @@ def iter_candidate_configs(
                 tqqq_weight=float(tqqq_weight),
             )
             risk_on = preset["risk_on"]
-            risk_settings = risk_control_settings(str(risk_control_mode))
             config = {
                 "strategy": strategy,
                 "core_preset": (
@@ -822,7 +792,8 @@ def iter_candidate_configs(
                 "max_single_name_weight": MAX_SINGLE_NAME_WEIGHT,
                 "holding_days": int(hold),
                 "risk_control_mode": str(risk_control_mode),
-                **risk_settings,
+                "drawdown_circuit_breaker": 0.15 if str(risk_control_mode) == "defensive" else 0.0,
+                "vol_target": 0.15 if str(risk_control_mode) == "defensive" else 0.0,
                 "nested_params": {
                     "holding_days": int(hold),
                     "overlay_gross": round(float(overlay), 4),
@@ -886,7 +857,7 @@ def stable_grid_candidate_configs(
         shapes=("top3",),
         weightings=("sticky_score", "risk_parity"),
         tqqq_weights=(0.0, 0.30),
-        risk_control_modes=("off", "adaptive_sizing"),
+        risk_control_modes=("off",),
         max_configs=None,
     )
     for config in dynamic_configs:

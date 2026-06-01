@@ -810,7 +810,7 @@ def test_nested_candidate_grid_includes_requested_tuning_dimensions():
 def test_nested_stable_grid_pins_consensus_dimensions():
     configs = nested_wf.stable_grid_candidate_configs()
 
-    assert len(configs) == 40
+    assert len(configs) == 32
     params = [config["nested_params"] for config in configs]
     assert {p["holding_days"] for p in params} == {20}
     assert {p["overlay_gross"] for p in params} == {0.50}
@@ -819,31 +819,17 @@ def test_nested_stable_grid_pins_consensus_dimensions():
     assert {p["high_vol"] for p in params} == {0.30}
     assert {p["score_source"] for p in params} == {"regime_adaptive"}
     assert {p["weighting"] for p in params} == {"sticky_score", "risk_parity"}
-    assert {p["risk_control_mode"] for p in params} == {"off", "adaptive_sizing"}
+    assert {p["risk_control_mode"] for p in params} == {"off"}
     assert {p["shape"] for p in params} == {"top3", "top5", "top10", "top15"}
     assert {p["tqqq_weight"] for p in params} == {0.0, 0.10, 0.30}
     assert {p["high_vol_mode"] for p in params} == {"fixed", "percentile"}
     dynamic = [p for p in params if p.get("concentration_overlay_mode") == "qqq_spy_dynamic"]
-    assert len(dynamic) == 16
+    assert len(dynamic) == 8
     assert {p["shape"] for p in dynamic} == {"top3"}
     assert {p["tqqq_weight"] for p in dynamic} == {0.0, 0.30}
-    assert {p["risk_control_mode"] for p in dynamic} == {"off", "adaptive_sizing"}
     assert {p["concentration_overlay_low_gross"] for p in dynamic} == {0.30}
     assert {p["concentration_overlay_high_gross"] for p in dynamic} == {0.70}
     assert all("conc_ov=qqq_spy_dynamic:0.3-0.7" in nested_wf.config_signature(config) for config in configs if config.get("concentration_overlay_mode"))
-
-
-def test_adaptive_sizing_controls_are_gentler_than_defensive_mode():
-    config = next(
-        c for c in nested_wf.stable_grid_candidate_configs()
-        if c["risk_control_mode"] == "adaptive_sizing"
-    )
-
-    assert config["drawdown_circuit_breaker"] == 0.0
-    assert config["vol_target"] == 0.20
-    assert config["drawdown_scale_start"] == 0.10
-    assert config["drawdown_scale_full"] == 0.25
-    assert config["drawdown_scale_floor"] == 0.50
 
 
 def test_concentration_overlay_target_scales_with_qqq_spy_gap():
