@@ -23,6 +23,9 @@ It also wires in safety nets — a portfolio drawdown halt, spread guards
 (refuse to trade when bid-ask is too wide), per-ticker fail tracking,
 protective day limit orders, market-closed queue blocking, and
 broker-side trailing stops on core ETFs and overlay stocks.
+Before sending sell orders, it also checks Alpaca's broker-reported
+sellable share count so the plan does not ask to sell shares that are
+reserved by another open order or stop.
 
 ## Why it exists
 
@@ -74,6 +77,10 @@ python3 alpaca_paper_trading.py --submit --quote-limit
 | `signals/alpaca_daily_status.json` | Current positions, cash, equity |
 | `signals/alpaca_slippage_reversal_report.json` | Recent fills, slippage vs fill-minute VWAP, and 5/15/30/60 minute reversals |
 | `signals/alpaca_halt_active.txt` | Created when drawdown halt fires |
+
+The paper log also records execution-planning diagnostics such as the
+original requested quantity, Alpaca sellable quantity, and whether a sell
+order was clamped to broker-available shares.
 
 `--status` is read-only for trading, but it still rewrites
 `alpaca_paper_equity.csv` and `alpaca_daily_status.json` so the Streamlit

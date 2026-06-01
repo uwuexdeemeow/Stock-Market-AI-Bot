@@ -385,6 +385,24 @@ class AlpacaBroker(Broker):
         return {p.ticker: p.quantity for p in self.get_positions()}
 
     @_broker_retry
+    def get_sellable_qty(self, ticker: str) -> int:
+        """
+        Get shares Alpaca says are actually available to sell.
+
+        PLAIN ENGLISH: A position can show 302 shares, but open stop orders or
+        other broker reservations can make fewer shares sellable right now.
+        `qty_available` is the broker truth that prevents sell rejections.
+        """
+        position = self._api.get_position(str(ticker).upper())
+        qty_available = getattr(position, "qty_available", None)
+        if qty_available is None:
+            qty_available = getattr(position, "qty", 0)
+        value = _float_or_none(qty_available)
+        if value is None:
+            return 0
+        return max(0, int(value))
+
+    @_broker_retry
     def place_order(self, order: Order) -> str:
         """
         Submit an order to Alpaca.
@@ -653,6 +671,32 @@ def scale_weights(weights: dict[str, float], max_gross: float) -> dict[str, floa
     return {t: w * scale for t, w in clean.items()}
 
 
+def _broker_sellable_qty(
+    broker: AlpacaBroker,
+    ticker: str,
+    current_qty: int,
+) -> int:
+    """
+    Return the share count that is safe to sell for one ticker.
+
+    PLAIN ENGLISH: Order sizing starts from the position map, but Alpaca can
+    reserve shares for open orders. If the broker exposes a sellable quantity,
+    use it and never plan a sell larger than that broker-approved number.
+    """
+    fallback_qty = max(0, int(current_qty))
+    getter = getattr(broker, "get_sellable_qty", None)
+    if not callable(getter):
+        return fallback_qty
+    try:
+        sellable = _float_or_none(getter(str(ticker).upper()))
+    except Exception as exc:
+        print(f"    WARN Could not verify sellable qty for {ticker}: {exc}")
+        return fallback_qty
+    if sellable is None:
+        return fallback_qty
+    return min(fallback_qty, max(0, int(sellable)))
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # ORDER GENERATION — compares target weights to current positions
 # ─────────────────────────────────────────────────────────────────────────────
@@ -726,12 +770,28 @@ def generate_orders(
         if delta_qty == 0:
             continue
 
-        # Skip tiny orders
+        side = "buy" if delta_qty > 0 else "sell"
+        requested_quantity = abs(delta_qty)
+        broker_sellable_qty = None
+        quantity_clamped_to_sellable = False
+        if side == "sell":
+            broker_sellable_qty = _broker_sellable_qty(broker, ticker, current_qty)
+            if broker_sellable_qty < requested_quantity:
+                if broker_sellable_qty <= 0:
+                    print(f"    WARN Skipped SELL {ticker}: broker reports 0 sellable shares")
+                    continue
+                print(
+                    f"    WARN Clamped SELL {ticker}: requested {requested_quantity} "
+                    f"shares, broker sellable {broker_sellable_qty}"
+                )
+                delta_qty = -broker_sellable_qty
+                quantity_clamped_to_sellable = True
+
+        # Skip tiny orders after any broker-truth clamp.
         trade_value = abs(delta_qty * px)
         if trade_value < MIN_TRADE_VALUE:
             continue
 
-        side = "buy" if delta_qty > 0 else "sell"
         limit_offset_bps = _limit_offset_bps(ticker)
         raw_limit_price = px * (1 + limit_offset_bps / 10_000) if side == "buy" else px * (1 - limit_offset_bps / 10_000)
         limit_price = marketable_limit_price(
@@ -749,6 +809,9 @@ def generate_orders(
             "limit_price": limit_price,
             "limit_offset_bps": limit_offset_bps,
             "trade_value": trade_value,
+            "requested_quantity": requested_quantity,
+            "broker_sellable_qty": broker_sellable_qty,
+            "quantity_clamped_to_sellable": quantity_clamped_to_sellable,
             "current_weight": round(current_w, 4),
             "target_weight": round(target_w, 4),
             "drift": round(drift, 4),
@@ -792,6 +855,9 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
             "quote_mid_price": order.get("quote_mid_price", ""),
             "spread_pct": order.get("spread_pct", ""),
             "trade_value": order["trade_value"],
+            "requested_quantity": order.get("requested_quantity", order["quantity"]),
+            "broker_sellable_qty": order.get("broker_sellable_qty", ""),
+            "quantity_clamped_to_sellable": order.get("quantity_clamped_to_sellable", False),
             "target_weight": order["target_weight"],
             "fill_status": fill_status,
         })

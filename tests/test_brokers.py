@@ -432,10 +432,11 @@ def test_alpaca_load_signal_requires_medium_risk_review(tmp_path, monkeypatch):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class _OrderBroker:
-    def __init__(self, *, equity=100_000.0, positions=None, prices=None):
+    def __init__(self, *, equity=100_000.0, positions=None, prices=None, sellable=None):
         self._equity = equity
         self._positions = dict(positions or {})
         self._prices = dict(prices or {})
+        self._sellable = dict(sellable or {})
 
     def get_equity(self):
         return self._equity
@@ -445,6 +446,9 @@ class _OrderBroker:
 
     def get_last_price(self, ticker):
         return float(self._prices.get(ticker, 100.0))
+
+    def get_sellable_qty(self, ticker):
+        return int(self._sellable.get(ticker, self._positions.get(ticker, 0)))
 
 
 def test_generate_orders_rejects_nonpositive_broker_equity():
@@ -483,6 +487,38 @@ def test_generate_orders_adds_marketable_limit_prices():
     assert orders[0]["side"] == "sell"
     assert orders[0]["limit_price"] < orders[0]["price"]
     assert orders[0]["raw_limit_price"] < orders[0]["price"]
+
+
+def test_generate_orders_clamps_sell_to_broker_sellable_quantity():
+    import alpaca_paper_trading as apt
+
+    broker = _OrderBroker(
+        equity=100_000.0,
+        positions={"FCX": 302},
+        prices={"FCX": 64.665},
+        sellable={"FCX": 136},
+    )
+
+    orders = apt.generate_orders(broker, {"FCX": 0.0}, force=True)
+
+    assert orders[0]["side"] == "sell"
+    assert orders[0]["quantity"] == 136
+    assert orders[0]["requested_quantity"] == 302
+    assert orders[0]["broker_sellable_qty"] == 136
+    assert orders[0]["quantity_clamped_to_sellable"] is True
+
+
+def test_generate_orders_skips_sell_when_broker_reports_zero_sellable():
+    import alpaca_paper_trading as apt
+
+    broker = _OrderBroker(
+        equity=100_000.0,
+        positions={"FCX": 302},
+        prices={"FCX": 64.665},
+        sellable={"FCX": 0},
+    )
+
+    assert apt.generate_orders(broker, {"FCX": 0.0}, force=True) == []
 
 
 def test_build_submission_order_defaults_to_limit():
