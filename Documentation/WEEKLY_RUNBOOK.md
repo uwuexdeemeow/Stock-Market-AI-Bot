@@ -131,7 +131,8 @@ The Alpaca submit path now has extra no-margin guards:
 - closed-market queueing is off by default (`ALPACA_ALLOW_CLOSED_MARKET_QUEUE=0`)
 - sells submit before buys
 - buys are skipped if sells fail, sells do not fill quickly, or cash is below the no-margin threshold
-- cash-limited buys are resized down to the largest whole-share quantity that fits available cash; if even one share cannot fit or the trade falls below `ALPACA_MIN_TRADE_VALUE`, the buy is skipped and logged
+- cash-limited buys are resized down to the largest whole-share quantity that fits available cash after a default 0.5% equity cash buffer; if even one share cannot fit or the trade falls below `ALPACA_MIN_TRADE_VALUE`, the buy is skipped and logged
+- buy cash checks use the smaller of Alpaca cash and buying power, so pending order reservations cannot be double-spent
 - after submit/reconcile, the bot repairs overlay trailing stops from live Alpaca positions and warns if stock value is materially above equity
 
 To run without submitting:
@@ -573,6 +574,8 @@ daily GitHub workflow:
 | `ALPACA_ALLOW_CLOSED_MARKET_QUEUE` | `0` | Whether non-interactive runs may queue orders while market is closed. Keep `0`. |
 | `ALPACA_SKIP_BUYS_UNTIL_SELLS_FILLED` | `1` | Skip buys unless same-run sells fill first. |
 | `ALPACA_SKIP_BUYS_WHEN_CASH_BELOW` | `0` | No-margin cash floor. Buys are skipped when cash is below this level. |
+| `ALPACA_BUY_CASH_BUFFER_PCT` | `0.005` | Percent of equity to leave as cash after buy orders. |
+| `ALPACA_BUY_CASH_BUFFER_DOLLARS` | `0` | Optional dollar floor for the buy cash buffer. |
 | `ALPACA_SELL_FILL_WAIT_SECONDS` | `20` | How long to wait for sell orders to fill before deciding whether buys are safe. |
 | `ALPACA_SELL_FILL_POLL_SECONDS` | `2` | How often to poll Alpaca while waiting for sell fills. |
 | `ALPACA_MARGIN_WARN_GROSS` | `1.02` | Warn if stock market value / equity is above this level. |

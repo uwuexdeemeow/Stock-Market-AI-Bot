@@ -596,8 +596,10 @@ def test_quote_based_limit_falls_back_to_last_price():
 class _SubmitBroker:
     """Tiny broker fake for submit-phase guard tests."""
 
-    def __init__(self, *, cash=1_000.0, fail_tickers=None, statuses=None):
+    def __init__(self, *, cash=1_000.0, equity=None, buying_power=None, fail_tickers=None, statuses=None):
         self.cash = cash
+        self.equity = cash if equity is None else equity
+        self.buying_power = cash if buying_power is None else buying_power
         self.fail_tickers = set(fail_tickers or [])
         self.statuses = dict(statuses or {})
         self.orders = []
@@ -614,6 +616,12 @@ class _SubmitBroker:
 
     def get_cash(self):
         return float(self.cash)
+
+    def get_equity(self):
+        return float(self.equity)
+
+    def get_buying_power(self):
+        return float(self.buying_power)
 
 
 def _planned_order(ticker, side, quantity=1):
@@ -733,6 +741,53 @@ def test_submit_rebalance_orders_cash_clamps_buy_quantity(monkeypatch):
     assert broker.orders[0].quantity == 1
 
 
+def test_submit_rebalance_orders_reserves_cash_buffer(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "_send_submit_guard_alert", lambda *args, **kwargs: None)
+    monkeypatch.setattr(apt, "SKIP_BUYS_WHEN_CASH_BELOW", 0.0)
+    monkeypatch.setattr(apt, "BUY_CASH_BUFFER_PCT", 0.10)
+    monkeypatch.setattr(apt, "BUY_CASH_BUFFER_DOLLARS", 0.0)
+    broker = _SubmitBroker(cash=1_000.0, equity=1_000.0)
+    orders = [_planned_order("MU", "buy", quantity=10)]
+
+    submitted, order_ids = apt.submit_rebalance_orders(
+        broker,
+        orders,
+        use_market_order=False,
+        use_quote_limit=False,
+    )
+
+    assert order_ids == ["buy-MU-1"]
+    assert submitted[0]["quantity"] == 8
+    assert submitted[0]["cash_buffer_reserved"] == 100.0
+    assert submitted[0]["cash_available_after_buffer"] == 900.0
+    assert submitted[0]["cash_clamped_to_available"] is True
+
+
+def test_submit_rebalance_orders_uses_lower_buying_power(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "_send_submit_guard_alert", lambda *args, **kwargs: None)
+    monkeypatch.setattr(apt, "SKIP_BUYS_WHEN_CASH_BELOW", 0.0)
+    monkeypatch.setattr(apt, "BUY_CASH_BUFFER_PCT", 0.0)
+    monkeypatch.setattr(apt, "BUY_CASH_BUFFER_DOLLARS", 0.0)
+    broker = _SubmitBroker(cash=1_000.0, equity=1_000.0, buying_power=250.0)
+    orders = [_planned_order("MU", "buy", quantity=5)]
+
+    submitted, order_ids = apt.submit_rebalance_orders(
+        broker,
+        orders,
+        use_market_order=False,
+        use_quote_limit=False,
+    )
+
+    assert order_ids == ["buy-MU-1"]
+    assert submitted[0]["quantity"] == 2
+    assert submitted[0]["buying_power_used_for_cash_check"] == 250.0
+    assert broker.orders[0].quantity == 2
+
+
 def test_submit_rebalance_orders_allows_buys_after_filled_sells_and_cash(monkeypatch):
     import alpaca_paper_trading as apt
 
@@ -814,6 +869,8 @@ def test_log_submission_marks_error_and_skipped_statuses(tmp_path):
 
     assert df["fill_status"].tolist() == ["submission_failed", "skipped"]
     assert "cash_clamped_to_available" in df.columns
+    assert "cash_buffer_reserved" in df.columns
+    assert "buying_power_used_for_cash_check" in df.columns
 
 
 def test_paper_health_submitted_orders_excludes_skipped_and_errors(tmp_path, monkeypatch):

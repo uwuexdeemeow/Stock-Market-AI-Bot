@@ -86,7 +86,8 @@ The paper log also records execution-planning diagnostics such as the
 original requested quantity, Alpaca sellable quantity, and whether a sell
 order was clamped to broker-available shares.  For buys, it now also records
 whether the share quantity was reduced to fit available cash, the original
-quantity before that clamp, and the cash-clamp reason.
+quantity before that clamp, the reserved cash buffer, broker buying power used
+for the cash check, and the cash-clamp reason.
 
 `--status` is read-only for trading, but it still rewrites
 `alpaca_paper_equity.csv` and `alpaca_daily_status.json` so the Streamlit
@@ -179,10 +180,11 @@ The script has multiple layers of protection:
    Buys are skipped if a sell fails, if a sell does not fill quickly, or if
    cash is still below the no-margin threshold.  If a buy is only too large
    because available cash is tight, the script shrinks the share quantity down
-   to what cash can cover at the reserve price (limit price for limit orders,
-   plan price for market orders).  If even one share would be too small or too
-   expensive, the buy is skipped and logged.  This avoids accidentally adding
-   leverage when the sell side did not free cash.
+   to what cash can cover after reserving a small cash buffer (default 0.5% of
+   equity).  The cash check uses the smaller of raw cash and Alpaca buying
+   power, so pending order reservations cannot be double-spent.  If even one
+   share would be too small or too expensive, the buy is skipped and logged.
+   This avoids accidentally adding leverage when the sell side did not free cash.
 15. **Margin exposure warning** — after submit/reconcile, the script warns if
    stock market value is materially above account equity.
 

@@ -87,7 +87,9 @@ DEFAULT_MAX_FACTOR_AGE_TRADING_DAYS = int(os.environ.get("ALPACA_MAX_FACTOR_AGE_
 # ETFs (SPY, QQQ, TQQQ) do NOT get trailing stops — they're managed by regime
 # switching which already reduces exposure during downturns.
 
-TRAILING_STOP_ENABLED = bool(os.environ.get("ALPACA_TRAILING_STOP", "1"))
+TRAILING_STOP_ENABLED = os.environ.get("ALPACA_TRAILING_STOP", "1").strip().lower() in {
+    "true", "1", "yes", "y", "on"
+}
 # Default 8% trailing stop — matches trade_rules.py take_profit_pct as a
 # reasonable "let winners run but cut losers" threshold.
 TRAILING_STOP_PCT = float(os.environ.get("ALPACA_TRAILING_STOP_PCT", "0.08"))
@@ -149,6 +151,11 @@ SKIP_BUYS_UNTIL_SELLS_FILLED = os.environ.get("ALPACA_SKIP_BUYS_UNTIL_SELLS_FILL
     "true", "1", "yes", "y", "on"
 }
 SKIP_BUYS_WHEN_CASH_BELOW = float(os.environ.get("ALPACA_SKIP_BUYS_WHEN_CASH_BELOW", "0"))
+# PLAIN ENGLISH: Keep a small cash cushion after buys instead of spending the
+# account down to the last dollar.  Default 0.5% of equity; a dollar override
+# can raise the floor, but never forces borrowing.
+BUY_CASH_BUFFER_PCT = float(os.environ.get("ALPACA_BUY_CASH_BUFFER_PCT", "0.005"))
+BUY_CASH_BUFFER_DOLLARS = float(os.environ.get("ALPACA_BUY_CASH_BUFFER_DOLLARS", "0"))
 SELL_FILL_WAIT_SECONDS = float(os.environ.get("ALPACA_SELL_FILL_WAIT_SECONDS", "20"))
 SELL_FILL_POLL_SECONDS = float(os.environ.get("ALPACA_SELL_FILL_POLL_SECONDS", "2"))
 MARGIN_WARN_GROSS = float(os.environ.get("ALPACA_MARGIN_WARN_GROSS", "1.02"))
@@ -366,6 +373,18 @@ class AlpacaBroker(Broker):
         """Get available cash."""
         account = self._api.get_account()
         return float(account.cash)
+
+    @_broker_retry
+    def get_buying_power(self) -> float:
+        """
+        Get Alpaca buying power after broker reservations.
+
+        PLAIN ENGLISH: Cash tells us account dollars. Buying power also reflects
+        broker reservations from open orders.  We use the smaller of the two for
+        buys so a pending order cannot make us over-spend.
+        """
+        account = self._api.get_account()
+        return float(getattr(account, "buying_power", account.cash))
 
     @_broker_retry
     def get_positions(self) -> list[Position]:
@@ -859,6 +878,9 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
             "original_quantity_before_cash_clamp": order.get("original_quantity_before_cash_clamp", ""),
             "cash_clamped_to_available": order.get("cash_clamped_to_available", False),
             "cash_clamp_reason": order.get("cash_clamp_reason", ""),
+            "cash_buffer_reserved": order.get("cash_buffer_reserved", ""),
+            "cash_available_after_buffer": order.get("cash_available_after_buffer", ""),
+            "buying_power_used_for_cash_check": order.get("buying_power_used_for_cash_check", ""),
             "broker_sellable_qty": order.get("broker_sellable_qty", ""),
             "quantity_clamped_to_sellable": order.get("quantity_clamped_to_sellable", False),
             "target_weight": order["target_weight"],
@@ -1127,6 +1149,46 @@ def _buy_cash_reserve_value(order_row: dict, *, use_market_order: bool) -> float
     return max(0.0, int(quantity) * reserve_price)
 
 
+def _buy_spendable_cash(broker: AlpacaBroker, cash: float) -> float:
+    """
+    Return cash safe to spend after broker buying-power reservations.
+
+    PLAIN ENGLISH: Alpaca may reserve buying power for open orders before cash
+    changes.  We use min(cash, buying power) so pending buys cannot trick the
+    bot into thinking more cash is free.
+    """
+    buying_power = None
+    getter = getattr(broker, "get_buying_power", None)
+    if callable(getter):
+        try:
+            buying_power = _float_or_none(getter())
+        except Exception as exc:
+            print(f"  ⚠ Could not check buying power before buys: {exc}")
+    if buying_power is None:
+        return float(cash)
+    return min(float(cash), float(buying_power))
+
+
+def _buy_cash_buffer_amount(broker: AlpacaBroker) -> float:
+    """
+    Return the cash cushion to keep unused after the buy phase.
+
+    PLAIN ENGLISH: This leaves breathing room for small price moves, broker
+    rounding, fees, and pending-order accounting instead of spending the account
+    down to almost zero cash.
+    """
+    dollar_buffer = max(0.0, BUY_CASH_BUFFER_DOLLARS)
+    pct_buffer = 0.0
+    if BUY_CASH_BUFFER_PCT > 0:
+        try:
+            equity = _float_or_none(broker.get_equity())
+            if equity is not None and equity > 0:
+                pct_buffer = equity * BUY_CASH_BUFFER_PCT
+        except Exception as exc:
+            print(f"  ⚠ Could not compute percent cash buffer: {exc}")
+    return max(dollar_buffer, pct_buffer)
+
+
 def _fit_buy_orders_to_available_cash(
     buy_orders: list[dict],
     cash_available: float,
@@ -1159,7 +1221,10 @@ def _fit_buy_orders_to_available_cash(
         if affordable_quantity <= 0:
             skipped.append((
                 order_row,
-                f"insufficient_cash_for_one_share:cash={remaining_cash:.2f};reserve_px={reserve_price:.2f}",
+                (
+                    f"insufficient_cash_for_one_share:"
+                    f"available_cash={remaining_cash:.2f};reserve_px={reserve_price:.2f}"
+                ),
             ))
             continue
         if affordable_quantity * reserve_price < MIN_TRADE_VALUE:
@@ -1179,7 +1244,7 @@ def _fit_buy_orders_to_available_cash(
             order_row["cash_clamped_to_available"] = True
             order_row["cash_clamp_reason"] = (
                 f"cash_limited:{original_quantity}->{affordable_quantity};"
-                f"cash_before_order={remaining_cash:.2f};reserve_px={reserve_price:.2f}"
+                f"available_cash_before_order={remaining_cash:.2f};reserve_px={reserve_price:.2f}"
             )
             order_row["trade_value"] = round(abs(affordable_quantity * mark_price), 6)
             print(
@@ -1251,11 +1316,28 @@ def submit_rebalance_orders(
                 if cash < SKIP_BUYS_WHEN_CASH_BELOW:
                     skip_buy_reason = f"cash_below_threshold:{cash:.2f}"
                 else:
+                    spendable_cash = _buy_spendable_cash(broker, cash)
+                    cash_floor = max(0.0, SKIP_BUYS_WHEN_CASH_BELOW)
+                    cash_buffer = max(cash_floor, _buy_cash_buffer_amount(broker))
+                    cash_available = max(0.0, spendable_cash - cash_buffer)
+                    if spendable_cash < cash - 1.0:
+                        print(
+                            f"  Buy cash check uses buying power ${spendable_cash:,.2f} "
+                            f"instead of raw cash ${cash:,.2f}"
+                        )
+                    if cash_buffer > 0:
+                        print(
+                            f"  Buy cash buffer reserved: ${cash_buffer:,.2f}; "
+                            f"available for buys: ${cash_available:,.2f}"
+                        )
+                    for order_row in buy_orders:
+                        order_row["cash_buffer_reserved"] = round(cash_buffer, 2)
+                        order_row["cash_available_after_buffer"] = round(cash_available, 2)
+                        order_row["buying_power_used_for_cash_check"] = round(spendable_cash, 2)
                     total_buy_value = sum(
                         _buy_cash_reserve_value(o, use_market_order=use_market_order)
                         for o in buy_orders
                     )
-                    cash_available = max(0.0, cash - SKIP_BUYS_WHEN_CASH_BELOW)
                     if total_buy_value > cash_available + 1.0:
                         original_buy_count = len(buy_orders)
                         buy_orders, cash_skipped_buy_orders, cash_left = _fit_buy_orders_to_available_cash(
@@ -1266,6 +1348,8 @@ def submit_rebalance_orders(
                         cash_clamp_note = (
                             f"planned_buy_reserve={total_buy_value:.2f} "
                             f"available_cash={cash_available:.2f}; "
+                            f"cash_buffer={cash_buffer:.2f}; "
+                            f"buying_power_check={spendable_cash:.2f}; "
                             f"adjusted={len(buy_orders)}/{original_buy_count}; "
                             f"skipped={len(cash_skipped_buy_orders)}; cash_left={cash_left:.2f}"
                         )
