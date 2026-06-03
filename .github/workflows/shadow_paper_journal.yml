@@ -27,6 +27,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: shadow-paper-journal
+  cancel-in-progress: false
+
 jobs:
   shadow-paper-journal:
     runs-on: ubuntu-latest

@@ -113,6 +113,11 @@ python daily_run.py --alpaca --timeout 900
 
 This is what Actions runs internally — refreshes data, generates signal, submits orders, reconciles fills, rebuilds health.  Idempotent: refuses to double-submit by checking Alpaca's live order history first, falling back to `alpaca_paper_log.csv`, and using deterministic `client_order_id` values.
 
+Manual runs no longer suppress the automatic cron later that same trading day.
+The workflow may still start on schedule after a manual test, but the broker
+duplicate-order checks and deterministic `client_order_id` values prevent
+double-submitting the same day's orders.
+
 The Alpaca submit path now has extra no-margin guards:
 - default order type is protective day limits (`ALPACA_ORDER_TYPE=limit`)
 - closed-market queueing is off by default (`ALPACA_ALLOW_CLOSED_MARKET_QUEUE=0`)
@@ -454,6 +459,16 @@ gh run list --workflow=daily_paper_trading.yml --limit 5
 
 If `gh` CLI isn't installed: GitHub web → Actions tab → "Daily Paper Trading".
 
+Cron times are UTC inside GitHub:
+- Daily Paper Trading: `13:35 UTC` during New York daylight saving time, `14:35 UTC` during standard time.
+- Shadow Paper Journal: `13:55 UTC` during New York daylight saving time, `14:55 UTC` during standard time.
+- Factor Data Refresh: `11:30 UTC` during New York daylight saving time, `12:30 UTC` during standard time.
+
+In Singapore, that means:
+- Daily Paper Trading: `9:35 PM SGT` during New York daylight saving time, `10:35 PM SGT` during standard time.
+- Shadow Paper Journal: `9:55 PM SGT` during New York daylight saving time, `10:55 PM SGT` during standard time.
+- Factor Data Refresh: `7:30 PM SGT` during New York daylight saving time, `8:30 PM SGT` during standard time.
+
 ### After local code changes
 
 ```bash
@@ -524,6 +539,7 @@ python publish_live_config_from_csv.py --source stable_family --force
 
 Wait for the cron (13:35 UTC in DST = 9:35 NY).  If past that time and no commit:
 - Check GitHub Actions tab for failed runs
+- Confirm the workflow is enabled on GitHub's Actions tab
 - Verify `ALPACA_API_KEY` / `ALPACA_SECRET_KEY` haven't rotated
 - Manually trigger via Actions tab → "Daily Paper Trading" → "Run workflow"
 
