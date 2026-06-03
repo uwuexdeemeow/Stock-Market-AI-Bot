@@ -689,7 +689,7 @@ def test_submit_rebalance_orders_skips_buys_when_cash_negative(monkeypatch):
     assert broker.orders == []
 
 
-def test_submit_rebalance_orders_skips_buys_when_buy_value_exceeds_cash(monkeypatch):
+def test_submit_rebalance_orders_skips_buys_when_cash_cannot_afford_one_share(monkeypatch):
     import alpaca_paper_trading as apt
 
     monkeypatch.setattr(apt, "_send_submit_guard_alert", lambda *args, **kwargs: None)
@@ -705,8 +705,32 @@ def test_submit_rebalance_orders_skips_buys_when_buy_value_exceeds_cash(monkeypa
     )
 
     assert [o["ticker"] for o in submitted] == ["MU"]
-    assert order_ids == ["SKIPPED: buy_value_exceeds_cash:100.00>50.00"]
+    assert order_ids[0].startswith("SKIPPED: insufficient_cash_for_one_share")
     assert broker.orders == []
+
+
+def test_submit_rebalance_orders_cash_clamps_buy_quantity(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "_send_submit_guard_alert", lambda *args, **kwargs: None)
+    monkeypatch.setattr(apt, "SKIP_BUYS_WHEN_CASH_BELOW", 0.0)
+    broker = _SubmitBroker(cash=150.0)
+    orders = [_planned_order("MU", "buy", quantity=2)]
+
+    submitted, order_ids = apt.submit_rebalance_orders(
+        broker,
+        orders,
+        use_market_order=False,
+        use_quote_limit=False,
+    )
+
+    assert [o["ticker"] for o in submitted] == ["MU"]
+    assert order_ids == ["buy-MU-1"]
+    assert submitted[0]["quantity"] == 1
+    assert submitted[0]["original_quantity_before_cash_clamp"] == 2
+    assert submitted[0]["cash_clamped_to_available"] is True
+    assert "cash_limited:2->1" in submitted[0]["cash_clamp_reason"]
+    assert broker.orders[0].quantity == 1
 
 
 def test_submit_rebalance_orders_allows_buys_after_filled_sells_and_cash(monkeypatch):
@@ -789,6 +813,49 @@ def test_log_submission_marks_error_and_skipped_statuses(tmp_path):
         apt.PAPER_LOG_FILE = orig
 
     assert df["fill_status"].tolist() == ["submission_failed", "skipped"]
+    assert "cash_clamped_to_available" in df.columns
+
+
+def test_paper_health_submitted_orders_excludes_skipped_and_errors(tmp_path, monkeypatch):
+    import paper_health
+
+    trades_path = tmp_path / "alpaca_paper_log.csv"
+    equity_path = tmp_path / "alpaca_paper_equity.csv"
+    status_path = tmp_path / "alpaca_daily_status.json"
+    order_plan_path = tmp_path / "core_satellite_alpha_orders.csv"
+    pd.DataFrame([
+        {"submitted_at": "2026-06-03T14:00:00Z", "order_id": "buy-MU-1", "ticker": "MU", "side": "buy", "fill_status": "pending"},
+        {"submitted_at": "2026-06-03T14:00:00Z", "order_id": "SKIPPED: cash", "ticker": "INTC", "side": "buy", "fill_status": "skipped"},
+        {"submitted_at": "2026-06-03T14:00:00Z", "order_id": "ERROR: rejected", "ticker": "FCX", "side": "sell", "fill_status": "submission_failed"},
+    ]).to_csv(trades_path, index=False)
+    pd.DataFrame([{"date": "2026-06-03", "equity": 100_000.0}]).to_csv(equity_path, index=False)
+    status_path.write_text("{}", encoding="utf-8")
+    pd.DataFrame().to_csv(order_plan_path, index=False)
+
+    monkeypatch.setattr(paper_health, "PAPER_TRADES", trades_path)
+    monkeypatch.setattr(paper_health, "PAPER_EQUITY", equity_path)
+    monkeypatch.setattr(paper_health, "PAPER_STATUS", status_path)
+    monkeypatch.setattr(paper_health, "CORE_ORDER_PLAN", order_plan_path)
+    monkeypatch.setattr(
+        paper_health.alpaca_paper_gauntlet,
+        "evaluate_alpaca_paper",
+        lambda: {
+            "strategy": "test",
+            "status": "collecting",
+            "filled_orders": 0,
+            "fill_rate": 0.0,
+            "cancel_rate": 0.0,
+            "approved_for_real_capital": False,
+            "reason": "test",
+        },
+    )
+
+    health = paper_health.build_health()
+
+    assert health["paper_trades"] == 3
+    assert health["submitted_orders"] == 1
+    assert health["skipped_orders"] == 1
+    assert health["submission_failed_orders"] == 1
 
 
 class TestDuplicatePrevention:

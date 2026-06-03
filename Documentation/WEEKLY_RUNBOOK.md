@@ -105,6 +105,8 @@ Look for:
 - 🟢 fresh on Alpaca log, equity, status, health
 - Account equity > 0 (was a known bug — fixed)
 - Today's trades reflect the published top3 family
+- Signal & Orders → Alpaca submission results shows whether each planned order
+  was submitted, cash-resized, skipped, filled, or still pending
 - Performance → Execution quality shows recent fill slippage and 5/15/60m
   reversal counts, all/limit/market execution segments, plus the worst recent
   tickers by execution risk score
@@ -128,7 +130,8 @@ The Alpaca submit path now has extra no-margin guards:
 - default order type is protective day limits (`ALPACA_ORDER_TYPE=limit`)
 - closed-market queueing is off by default (`ALPACA_ALLOW_CLOSED_MARKET_QUEUE=0`)
 - sells submit before buys
-- buys are skipped if sells fail, sells do not fill quickly, cash is below the no-margin threshold, or buy value exceeds available cash
+- buys are skipped if sells fail, sells do not fill quickly, or cash is below the no-margin threshold
+- cash-limited buys are resized down to the largest whole-share quantity that fits available cash; if even one share cannot fit or the trade falls below `ALPACA_MIN_TRADE_VALUE`, the buy is skipped and logged
 - after submit/reconcile, the bot repairs overlay trailing stops from live Alpaca positions and warns if stock value is materially above equity
 
 To run without submitting:

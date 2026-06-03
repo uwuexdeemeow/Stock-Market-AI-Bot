@@ -856,6 +856,9 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
             "spread_pct": order.get("spread_pct", ""),
             "trade_value": order["trade_value"],
             "requested_quantity": order.get("requested_quantity", order["quantity"]),
+            "original_quantity_before_cash_clamp": order.get("original_quantity_before_cash_clamp", ""),
+            "cash_clamped_to_available": order.get("cash_clamped_to_available", False),
+            "cash_clamp_reason": order.get("cash_clamp_reason", ""),
             "broker_sellable_qty": order.get("broker_sellable_qty", ""),
             "quantity_clamped_to_sellable": order.get("quantity_clamped_to_sellable", False),
             "target_weight": order["target_weight"],
@@ -1094,6 +1097,107 @@ def _skip_order(order_row: dict, reason: str) -> str:
     return f"SKIPPED: {reason}"
 
 
+def _buy_cash_reserve_price(order_row: dict, *, use_market_order: bool) -> float | None:
+    """
+    Return the per-share cash reserve price for a buy order.
+
+    PLAIN ENGLISH: Alpaca reserves cash differently by order type.  For a
+    limit buy, cash must cover the limit price.  For a market buy, the best
+    estimate before sending is the plan price.
+    """
+    if use_market_order:
+        price = _float_or_none(order_row.get("price"))
+    else:
+        price = (
+            _float_or_none(order_row.get("submitted_limit_price"))
+            or _float_or_none(order_row.get("limit_price"))
+            or _float_or_none(order_row.get("price"))
+        )
+    if price is None or price <= 0 or not np.isfinite(price):
+        return None
+    return float(price)
+
+
+def _buy_cash_reserve_value(order_row: dict, *, use_market_order: bool) -> float:
+    """Return how much cash one planned buy should reserve before submission."""
+    reserve_price = _buy_cash_reserve_price(order_row, use_market_order=use_market_order)
+    quantity = _float_or_none(order_row.get("quantity"))
+    if reserve_price is None or quantity is None:
+        return 0.0
+    return max(0.0, int(quantity) * reserve_price)
+
+
+def _fit_buy_orders_to_available_cash(
+    buy_orders: list[dict],
+    cash_available: float,
+    *,
+    use_market_order: bool,
+) -> tuple[list[dict], list[tuple[dict, str]], float]:
+    """
+    Shrink buy quantities so the whole buy phase fits available cash.
+
+    PLAIN ENGLISH: If the plan wants 163 shares but available cash only covers
+    160 shares at the limit price, submit 160 instead of skipping the whole
+    order.  It only shrinks buys; it never borrows, rounds up, or touches sells.
+    """
+    adjusted: list[dict] = []
+    skipped: list[tuple[dict, str]] = []
+    remaining_cash = max(0.0, float(cash_available))
+
+    for order_row in buy_orders:
+        reserve_price = _buy_cash_reserve_price(order_row, use_market_order=use_market_order)
+        requested_quantity = _float_or_none(order_row.get("quantity"))
+        original_quantity = max(0, int(requested_quantity or 0))
+        if reserve_price is None or reserve_price <= 0 or original_quantity <= 0:
+            skipped.append((order_row, "invalid_cash_reserve_price"))
+            continue
+
+        affordable_quantity = min(
+            original_quantity,
+            int(math.floor((remaining_cash + 1e-9) / reserve_price)),
+        )
+        if affordable_quantity <= 0:
+            skipped.append((
+                order_row,
+                f"insufficient_cash_for_one_share:cash={remaining_cash:.2f};reserve_px={reserve_price:.2f}",
+            ))
+            continue
+        if affordable_quantity * reserve_price < MIN_TRADE_VALUE:
+            skipped.append((
+                order_row,
+                (
+                    f"cash_clamped_below_min_trade:{affordable_quantity * reserve_price:.2f}"
+                    f"<{MIN_TRADE_VALUE:.2f}"
+                ),
+            ))
+            continue
+
+        if affordable_quantity < original_quantity:
+            mark_price = _float_or_none(order_row.get("price")) or reserve_price
+            order_row["original_quantity_before_cash_clamp"] = original_quantity
+            order_row["quantity"] = affordable_quantity
+            order_row["cash_clamped_to_available"] = True
+            order_row["cash_clamp_reason"] = (
+                f"cash_limited:{original_quantity}->{affordable_quantity};"
+                f"cash_before_order={remaining_cash:.2f};reserve_px={reserve_price:.2f}"
+            )
+            order_row["trade_value"] = round(abs(affordable_quantity * mark_price), 6)
+            print(
+                f"    CASH CLAMP {order_row['ticker']}: "
+                f"{original_quantity} -> {affordable_quantity} shares "
+                f"(cash ${remaining_cash:,.2f}, reserve ${reserve_price:,.2f}/share)"
+            )
+        else:
+            order_row.setdefault("original_quantity_before_cash_clamp", "")
+            order_row.setdefault("cash_clamped_to_available", False)
+            order_row.setdefault("cash_clamp_reason", "")
+
+        remaining_cash -= affordable_quantity * reserve_price
+        adjusted.append(order_row)
+
+    return adjusted, skipped, remaining_cash
+
+
 def submit_rebalance_orders(
     broker: AlpacaBroker,
     orders: list[dict],
@@ -1111,6 +1215,8 @@ def submit_rebalance_orders(
     order_ids: list[str] = []
     sell_orders = [o for o in orders if str(o.get("side", "")).lower() == "sell"]
     buy_orders = [o for o in orders if str(o.get("side", "")).lower() == "buy"]
+    cash_skipped_buy_orders: list[tuple[dict, str]] = []
+    cash_clamp_note = ""
 
     sell_ids: list[str] = []
     sell_failed = False
@@ -1145,11 +1251,23 @@ def submit_rebalance_orders(
                 if cash < SKIP_BUYS_WHEN_CASH_BELOW:
                     skip_buy_reason = f"cash_below_threshold:{cash:.2f}"
                 else:
-                    total_buy_value = sum(abs(float(o.get("trade_value", 0) or 0)) for o in buy_orders)
+                    total_buy_value = sum(
+                        _buy_cash_reserve_value(o, use_market_order=use_market_order)
+                        for o in buy_orders
+                    )
                     cash_available = max(0.0, cash - SKIP_BUYS_WHEN_CASH_BELOW)
                     if total_buy_value > cash_available + 1.0:
-                        skip_buy_reason = (
-                            f"buy_value_exceeds_cash:{total_buy_value:.2f}>{cash_available:.2f}"
+                        original_buy_count = len(buy_orders)
+                        buy_orders, cash_skipped_buy_orders, cash_left = _fit_buy_orders_to_available_cash(
+                            buy_orders,
+                            cash_available,
+                            use_market_order=use_market_order,
+                        )
+                        cash_clamp_note = (
+                            f"planned_buy_reserve={total_buy_value:.2f} "
+                            f"available_cash={cash_available:.2f}; "
+                            f"adjusted={len(buy_orders)}/{original_buy_count}; "
+                            f"skipped={len(cash_skipped_buy_orders)}; cash_left={cash_left:.2f}"
                         )
             except Exception as exc:
                 print(f"  ⚠ Could not check cash before buys: {exc}")
@@ -1164,6 +1282,20 @@ def submit_rebalance_orders(
             attempted_orders.append(order_row)
             order_ids.append(_skip_order(order_row, skip_buy_reason))
         return attempted_orders, order_ids
+
+    if cash_clamp_note:
+        print(f"  Buy phase cash-fit: {cash_clamp_note}")
+        _send_submit_guard_alert(
+            "Alpaca buy orders cash-fit",
+            (
+                "Buy orders were shrunk or skipped to avoid margin/leverage.\n"
+                f"{cash_clamp_note}"
+            ),
+        )
+
+    for order_row, reason in cash_skipped_buy_orders:
+        attempted_orders.append(order_row)
+        order_ids.append(_skip_order(order_row, reason))
 
     if buy_orders:
         print("  Phase 2/2: submitting buys...")

@@ -104,24 +104,57 @@ orders_df = data.load_order_plan()
 if orders_df.empty:
     st.info("No order plan file yet — submit hasn't run today.")
 else:
-    # Highlight BUYs and SELLs differently
+    # PLAIN ENGLISH: The plan is the target intent before broker/cash guards.
+    # The order log below shows what was actually submitted or skipped.
     display = orders_df.copy()
-    # If standard columns present, format them
-    cols = ["ticker", "action", "current_qty", "target_qty", "delta_qty", "price", "order_value"]
+    if "action" not in display.columns and "side" in display.columns:
+        display["action"] = display["side"].astype(str).str.upper()
+    cols = [
+        "ticker",
+        "action",
+        "side",
+        "quantity",
+        "current_qty",
+        "target_qty",
+        "price",
+        "limit_price",
+        "trade_value",
+        "order_value",
+    ]
     cols = [c for c in cols if c in display.columns]
     st.dataframe(display[cols] if cols else display, hide_index=True, use_container_width=True)
 
 st.divider()
 
 # ── Recent Alpaca order log ─────────────────────────────────────
-st.markdown("### Recent Alpaca orders (last 50)")
+st.markdown("### Alpaca submission results (last 50)")
 orders_log = data.load_alpaca_orders()
 if orders_log.empty:
     st.info("No Alpaca order log yet. After the first --submit run, this will populate.")
 else:
-    interesting_cols = [c for c in ["submitted_at", "ticker", "side", "qty", "status", "fill_price", "filled_qty"]
-                        if c in orders_log.columns]
+    display_log = orders_log.copy()
+    if "fill_status" not in display_log.columns and "status" in display_log.columns:
+        display_log["fill_status"] = display_log["status"]
+    interesting_cols = [
+        c for c in [
+            "submitted_at",
+            "ticker",
+            "side",
+            "quantity",
+            "submitted_order_type",
+            "limit_price",
+            "trade_value",
+            "original_quantity_before_cash_clamp",
+            "cash_clamped_to_available",
+            "cash_clamp_reason",
+            "limit_reference",
+            "fill_status",
+            "filled_qty",
+            "filled_avg_price",
+        ]
+        if c in display_log.columns
+    ]
     if not interesting_cols:
-        interesting_cols = list(orders_log.columns)[:8]
-    st.dataframe(orders_log[interesting_cols].head(50),
+        interesting_cols = list(display_log.columns)[:8]
+    st.dataframe(display_log[interesting_cols].head(50),
                  hide_index=True, use_container_width=True)

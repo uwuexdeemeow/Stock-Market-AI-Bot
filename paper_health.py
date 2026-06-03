@@ -202,6 +202,35 @@ def _filter_current_signal_trades(trades: pd.DataFrame, status: dict) -> pd.Data
     return trades[submitted_ts >= signal_ts].copy()
 
 
+def _submitted_trade_rows(trades: pd.DataFrame) -> pd.DataFrame:
+    """
+    Keep rows that actually reached Alpaca, excluding planned skips/errors.
+
+    PLAIN ENGLISH: A skipped row is useful audit history, but it is not an
+    Alpaca-submitted order.  Counting only accepted-looking rows keeps Telegram
+    and dashboard order counts from saying "submitted" when the bot only
+    planned and then safely skipped.
+    """
+    if trades.empty:
+        return trades
+    submitted_mask = pd.Series(True, index=trades.index)
+    if "submitted" in trades.columns:
+        submitted_mask = trades["submitted"].astype(str).str.lower().isin(["true", "1", "yes"])
+
+    fill_status = (
+        trades.get("fill_status", pd.Series("", index=trades.index))
+        .astype(str)
+        .str.lower()
+        .str.strip()
+    )
+    order_id = trades.get("order_id", pd.Series("", index=trades.index)).astype(str)
+    not_sent_mask = (
+        fill_status.isin({"skipped", "submission_failed"})
+        | order_id.str.startswith(("SKIPPED", "ERROR"), na=False)
+    )
+    return trades[submitted_mask & ~not_sent_mask].copy()
+
+
 def _current_order_lifecycle(trades: pd.DataFrame, status: dict) -> list[dict]:
     current = _filter_current_signal_trades(trades, status)
     if current.empty:
@@ -804,9 +833,7 @@ def build_health() -> dict:
         .value_counts()
         .to_dict()
     )
-    submitted = trades
-    if "submitted" in trades.columns:
-        submitted = trades[trades["submitted"].astype(str).str.lower().isin(["true", "1", "yes"])]
+    submitted = _submitted_trade_rows(trades)
 
     slippage = _slippage_summary(trades)
     order_lifecycle = _current_order_lifecycle(trades, status)
@@ -822,6 +849,8 @@ def build_health() -> dict:
         "paper_equity_rows": int(len(equity)),
         "paper_trades": int(len(trades)),
         "submitted_orders": int(len(submitted)),
+        "skipped_orders": int(fill_status.get("skipped", 0)),
+        "submission_failed_orders": int(fill_status.get("submission_failed", 0)),
         "fill_status_counts": fill_status,
         "current_signal_fill_status_counts": current_signal_fill_status,
         "current_signal_open_orders": int(
@@ -871,6 +900,7 @@ def print_health(health: dict) -> None:
     print(f"Equity days:           {health.get('paper_equity_days')} rows={health.get('paper_equity_rows')}")
     print(
         f"Orders:                submitted={health.get('submitted_orders')} "
+        f"skipped={health.get('skipped_orders', 0)} "
         f"filled={health.get('filled_orders')} fill_rate={health.get('fill_rate'):.3f} "
         f"scope={health.get('fill_stats_scope')}"
     )

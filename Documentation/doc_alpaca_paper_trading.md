@@ -84,7 +84,9 @@ can later be corrected to `filled` once Alpaca reports the final state.
 
 The paper log also records execution-planning diagnostics such as the
 original requested quantity, Alpaca sellable quantity, and whether a sell
-order was clamped to broker-available shares.
+order was clamped to broker-available shares.  For buys, it now also records
+whether the share quantity was reduced to fit available cash, the original
+quantity before that clamp, and the cash-clamp reason.
 
 `--status` is read-only for trading, but it still rewrites
 `alpaca_paper_equity.csv` and `alpaca_daily_status.json` so the Streamlit
@@ -175,9 +177,12 @@ The script has multiple layers of protection:
    the local order log is incomplete.
 14. **Sells-before-buys submit guard** — rebalance sells are submitted first.
    Buys are skipped if a sell fails, if a sell does not fill quickly, or if
-   cash is still below the no-margin threshold.  Buy value also cannot exceed
-   available cash.  This avoids accidentally adding leverage when the sell side
-   did not free cash.
+   cash is still below the no-margin threshold.  If a buy is only too large
+   because available cash is tight, the script shrinks the share quantity down
+   to what cash can cover at the reserve price (limit price for limit orders,
+   plan price for market orders).  If even one share would be too small or too
+   expensive, the buy is skipped and logged.  This avoids accidentally adding
+   leverage when the sell side did not free cash.
 15. **Margin exposure warning** — after submit/reconcile, the script warns if
    stock market value is materially above account equity.
 
@@ -187,6 +192,8 @@ The workflow summary now separates planned trades from Alpaca outcomes:
 
 - **Planned orders** — rows generated in `core_satellite_alpha_orders.csv`.
 - **Alpaca accepted** — planned orders that Alpaca accepted for routing.
+- **Skipped** — planned orders intentionally not sent, such as cash-limited
+  buys that cannot afford one share or orders blocked by a safety guard.
 - **Filled** — accepted orders that filled.
 - **Failed** — orders rejected or never accepted, such as insufficient
   available quantity.
