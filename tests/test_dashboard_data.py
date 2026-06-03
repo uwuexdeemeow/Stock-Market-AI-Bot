@@ -7,7 +7,7 @@ import dashboard.data as data
 
 def _clear_dashboard_caches() -> None:
     """Clear Streamlit caches when tests monkeypatch dashboard file paths."""
-    for loader in (data.load_slippage_reversal_report,):
+    for loader in (data.load_slippage_reversal_report, data.load_paper_shadow_compare):
         try:
             loader.clear()
         except Exception:
@@ -36,6 +36,7 @@ def test_execution_report_falls_back_to_alpaca_paper_log(tmp_path, monkeypatch):
     assert report["source"] == "alpaca_paper_log.csv fallback"
     assert report["summary"]["orders_analyzed"] == 2
     assert report["summary"]["avg_slippage_bps"] is not None
+    assert report["segments"]["all_orders"]["orders_analyzed"] == 2
     assert {row["symbol"] for row in report["orders"]} == {"NEM", "CAT"}
 
 

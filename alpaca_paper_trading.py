@@ -1517,6 +1517,42 @@ def _safe_median(values: list[float]) -> float | None:
     return float(np.median(clean))
 
 
+def _execution_quality_summary(rows: list[dict]) -> dict:
+    """Summarize a group of filled orders for dashboard comparison.
+
+    PLAIN ENGLISH: The overall report can mix old market orders with newer
+    limit orders.  This helper lets the dashboard compare those groups without
+    changing how orders are placed.
+    """
+    slip_values = [r["slippage_bps"] for r in rows if r.get("slippage_bps") is not None]
+    worst_values = [r["worst_adverse_60m_bps"] for r in rows if r.get("worst_adverse_60m_bps") is not None]
+    return {
+        "orders_analyzed": len(rows),
+        "avg_slippage_bps": round(_safe_avg(slip_values), 2) if _safe_avg(slip_values) is not None else None,
+        "median_slippage_bps": round(_safe_median(slip_values), 2) if _safe_median(slip_values) is not None else None,
+        "slippage_bad_count": int(sum(1 for v in slip_values if float(v) > 0)),
+        "adverse_5m_count": int(sum(1 for r in rows if (r.get("adverse_5m_bps") or 0) > 0)),
+        "adverse_15m_count": int(sum(1 for r in rows if (r.get("adverse_15m_bps") or 0) > 0)),
+        "adverse_30m_count": int(sum(1 for r in rows if (r.get("adverse_30m_bps") or 0) > 0)),
+        "adverse_60m_count": int(sum(1 for r in rows if (r.get("adverse_60m_bps") or 0) > 0)),
+        "avg_worst_adverse_60m_bps": round(_safe_avg(worst_values), 2) if _safe_avg(worst_values) is not None else None,
+        "max_worst_adverse_60m_bps": round(max(worst_values), 2) if worst_values else None,
+    }
+
+
+def _execution_quality_segments(rows: list[dict]) -> dict:
+    """Return all/market/limit/trailing-stop slices of the same fill report."""
+    limit_rows = [r for r in rows if str(r.get("order_type", "")).lower() == "limit"]
+    market_rows = [r for r in rows if str(r.get("order_type", "")).lower() == "market"]
+    trailing_rows = [r for r in rows if str(r.get("order_type", "")).lower() == "trailing_stop"]
+    return {
+        "all_orders": _execution_quality_summary(rows),
+        "limit_orders": _execution_quality_summary(limit_rows),
+        "market_orders": _execution_quality_summary(market_rows),
+        "trailing_stops": _execution_quality_summary(trailing_rows),
+    }
+
+
 def build_slippage_reversal_report(
     broker: AlpacaBroker,
     *,
@@ -1609,20 +1645,7 @@ def build_slippage_reversal_report(
 
         report_rows.append(row)
 
-    slip_values = [r["slippage_bps"] for r in report_rows if r.get("slippage_bps") is not None]
-    worst_values = [r["worst_adverse_60m_bps"] for r in report_rows if r.get("worst_adverse_60m_bps") is not None]
-    summary = {
-        "orders_analyzed": len(report_rows),
-        "avg_slippage_bps": round(_safe_avg(slip_values), 2) if _safe_avg(slip_values) is not None else None,
-        "median_slippage_bps": round(_safe_median(slip_values), 2) if _safe_median(slip_values) is not None else None,
-        "slippage_bad_count": int(sum(1 for v in slip_values if float(v) > 0)),
-        "adverse_5m_count": int(sum(1 for r in report_rows if (r.get("adverse_5m_bps") or 0) > 0)),
-        "adverse_15m_count": int(sum(1 for r in report_rows if (r.get("adverse_15m_bps") or 0) > 0)),
-        "adverse_30m_count": int(sum(1 for r in report_rows if (r.get("adverse_30m_bps") or 0) > 0)),
-        "adverse_60m_count": int(sum(1 for r in report_rows if (r.get("adverse_60m_bps") or 0) > 0)),
-        "avg_worst_adverse_60m_bps": round(_safe_avg(worst_values), 2) if _safe_avg(worst_values) is not None else None,
-        "max_worst_adverse_60m_bps": round(max(worst_values), 2) if worst_values else None,
-    }
+    summary = _execution_quality_summary(report_rows)
     by_symbol: list[dict] = []
     if report_rows:
         report_df = pd.DataFrame(report_rows)
@@ -1665,6 +1688,7 @@ def build_slippage_reversal_report(
         "api_order_limit": int(api_order_limit),
         "lookback_orders": int(lookback_orders),
         "summary": summary,
+        "segments": _execution_quality_segments(report_rows),
         "by_symbol": by_symbol,
         "orders": report_rows,
         "errors": errors,

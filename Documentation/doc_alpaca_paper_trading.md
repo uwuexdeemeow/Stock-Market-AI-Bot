@@ -79,7 +79,7 @@ can later be corrected to `filled` once Alpaca reports the final state.
 | `signals/alpaca_paper_log.csv` | Every order submitted, with fill status |
 | `signals/alpaca_paper_equity.csv` | Daily equity snapshots |
 | `signals/alpaca_daily_status.json` | Current positions, cash, equity |
-| `signals/alpaca_slippage_reversal_report.json` | Recent fills, slippage vs fill-minute VWAP, and 5/15/30/60 minute reversals |
+| `signals/alpaca_slippage_reversal_report.json` | Recent fills, slippage vs fill-minute VWAP, 5/15/30/60 minute reversals, and all/limit/market segment summaries |
 | `signals/alpaca_halt_active.txt` | Created when drawdown halt fires |
 
 The paper log also records execution-planning diagnostics such as the
@@ -113,6 +113,9 @@ It also refreshes the execution-quality report.
 - **Post-fill reversal** — price moving against the trade after the fill.
   For a buy, price dropping after the fill is adverse.  For a sell, price
   rising after the fill is adverse.
+- **Execution segment** — a dashboard-only slice of the same fill report.
+  It separates all orders, limit orders, market orders, and trailing stops so
+  old market-order behavior does not hide newer limit-order behavior.
 - **Drawdown halt** — when account drops 12% from peak, stop submitting
   new buys (sells/stops still allowed).  Auto-clears when account
   recovers past 50% of halt threshold.
@@ -151,6 +154,8 @@ The script has multiple layers of protection:
 8. **Execution risk scoring** — the slippage report ranks tickers by recent
    bad slippage and post-fill reversal behavior.  This is dashboard-only;
    it does not change position selection or order submission.
+   The same report also includes all/limit/market summaries so you can compare
+   execution quality before and after order-style changes.
 9. **Spread guard** — skips individual orders when spread > 1.5%
    (configurable via `MAX_SPREAD_PCT`).
 10. **Market-closed fail-closed behavior** — when run non-interactively at

@@ -29,6 +29,8 @@ Expected output:
 - `signals/shadow_paper_journal.csv` gets one row for today.
 - `signals/shadow_paper_equity.csv` gets a simulated account-value row for
   the shadow config, starting at `$100,000` by default.
+- The GitHub shadow workflow then runs `paper_shadow_compare.py`, which writes
+  `signals/paper_shadow_compare.csv` and `signals/paper_shadow_compare.json`.
 - `signals/core_satellite_alpha_signal.csv` is restored after the shadow run.
 - No Alpaca orders are submitted.
 - If the journal file exists but is empty, the script starts a fresh journal

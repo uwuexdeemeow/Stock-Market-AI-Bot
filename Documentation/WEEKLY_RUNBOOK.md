@@ -38,6 +38,7 @@ If you just want one command, find your goal here:
 | Refresh Alpaca live equity/status only | `python alpaca_paper_trading.py --status` |
 | Refresh recent fill-quality stats | `python alpaca_paper_trading.py --slippage-report` |
 | Run the shadow paper journal locally | `python shadow_paper_journal.py` |
+| Compare Alpaca vs shadow equity | `python paper_shadow_compare.py` |
 | Refresh local data + features before research | `python refresh_local_research_data.py` |
 | Check restored factor cache before trading | `python factor_data_health.py --strict --no-write` |
 | Run the monthly walkforward | `python run_walkforward_batched.py --recent-alpha-grid` |
@@ -81,6 +82,8 @@ Pulls yesterday's Actions outputs into `signals/` and `logs/`. Refreshes:
 - `alpaca_slippage_reversal_report.json` — fill slippage and reversal report
 - `shadow_paper_journal.csv` — shadow config signal journal
 - `shadow_paper_equity.csv` — shadow config simulated equity curve
+- `paper_shadow_compare.json` / `.csv` — Alpaca-vs-shadow return comparison
+- `workflow_heartbeat_daily.json` / `workflow_heartbeat_shadow.json` — cron proof files
 - `monitor_heartbeat.json` — watchdog status
 - `logs/daily_run_*.json` — pipeline step results
 
@@ -102,7 +105,9 @@ Look for:
 - Account equity > 0 (was a known bug — fixed)
 - Today's trades reflect the published top3 family
 - Performance → Execution quality shows recent fill slippage and 5/15/60m
-  reversal counts, plus the worst recent tickers by execution risk score
+  reversal counts, all/limit/market execution segments, plus the worst recent
+  tickers by execution risk score
+- Home + Performance show Alpaca vs shadow return spread
 - Telegram alerts arrived for anything red
 
 ### Manual run (only if Actions failed)
@@ -289,6 +294,7 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `monitor_heartbeat.py` | Watchdog — all monitors produced fresh output? | none |
 | `notifications.py` | Send Telegram / email alerts | library, not run directly |
 | `paper_health.py` | Build deep health dashboard (slippage, drift, risk) | `--broker alpaca` |
+| `paper_shadow_compare.py` | Compare Alpaca paper equity vs shadow paper equity | `--alpaca-equity PATH`, `--shadow-equity PATH`, `--csv-out PATH`, `--json-out PATH` |
 | `regime_monitor.py` | Detect risk_on / neutral / risk_off regime shifts | none |
 | `risk_sizing.py` | Position sizing helpers | library |
 | `signal_freshness.py` | Reject stale signals at trade time | library |
@@ -389,6 +395,10 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `signals/alpaca_slippage_reversal_report.json` | Recent fill slippage and 5/15/30/60 minute post-fill reversal stats |
 | `signals/shadow_paper_journal.csv` | Daily shadow config targets, signal metadata, and comparison rows |
 | `signals/shadow_paper_equity.csv` | Simulated equity curve for the shadow config |
+| `signals/paper_shadow_compare.csv` | Row-by-row Alpaca-vs-shadow return comparison |
+| `signals/paper_shadow_compare.json` | Compact Alpaca-vs-shadow summary for dashboard tiles |
+| `signals/workflow_heartbeat_daily.json` | Last daily trading workflow event/run proof |
+| `signals/workflow_heartbeat_shadow.json` | Last shadow workflow event/run proof |
 | `signals/core_satellite_alpha_signal.csv` | Today's target portfolio (tickers + weights) |
 | `signals/core_satellite_alpha_orders.csv` | Today's planned orders (BUY / SELL list) |
 | `signals/core_satellite_alpha_metrics.json` | Backtest metrics + selected config + paper_ready verdict |

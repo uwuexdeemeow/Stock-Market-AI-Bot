@@ -64,6 +64,66 @@ elif live_refresh.get("error"):
 st.divider()
 
 
+# ── Paper vs shadow + workflow heartbeat ──────────────────────────────
+st.markdown("##### Paper vs shadow")
+compare_payload = data.load_paper_shadow_compare()
+compare_summary = compare_payload.get("summary") or {}
+compare_status = compare_summary.get("status")
+if compare_status == "ok":
+    alpaca_compare = compare_summary.get("alpaca") or {}
+    shadow_compare = compare_summary.get("shadow") or {}
+    spread = compare_summary.get("spread") or {}
+    latest_dates_match = bool(compare_summary.get("latest_dates_match"))
+    comp1, comp2, comp3, comp4 = st.columns(4)
+    with comp1:
+        st.metric(
+            "Alpaca return",
+            f"{float(alpaca_compare.get('return_pct_since_common_start') or 0):+.2f}%",
+            delta=alpaca_compare.get("latest_date"),
+            delta_color="off",
+        )
+    with comp2:
+        st.metric(
+            "Shadow return",
+            f"{float(shadow_compare.get('return_pct_since_common_start') or 0):+.2f}%",
+            delta=shadow_compare.get("latest_date"),
+            delta_color="off",
+        )
+    with comp3:
+        st.metric(
+            "Alpaca minus shadow",
+            f"{float(spread.get('alpaca_minus_shadow_return_pct') or 0):+.2f}%",
+            delta=str(spread.get("leader", "unknown")),
+            delta_color="normal",
+        )
+    with comp4:
+        label = f"{int(compare_summary.get('aligned_days') or 0)} aligned days"
+        status_chip(label, "ok" if latest_dates_match else "warn")
+        if not latest_dates_match:
+            st.caption("Latest dates differ")
+else:
+    st.info("Paper-vs-shadow comparison will appear after Alpaca and shadow equity files exist.")
+
+workflow_df = data.load_workflow_heartbeats()
+if not workflow_df.empty:
+    hb_cols = st.columns(min(2, len(workflow_df)))
+    for idx, row in workflow_df.head(2).iterrows():
+        with hb_cols[idx % len(hb_cols)]:
+            status = str(row.get("status") or row.get("conclusion") or "unknown").lower()
+            event = str(row.get("event") or "missing")
+            age = row.get("age_minutes")
+            if status in {"success", "completed", "ok"}:
+                chip_status = "ok"
+            elif status in {"missing", "unknown"}:
+                chip_status = "unknown"
+            else:
+                chip_status = "warn"
+            age_text = "" if age is None else f" · {float(age):.0f}m old"
+            status_chip(f"{row.get('label')}: {event}{age_text}", chip_status)
+
+st.divider()
+
+
 # ── Regime + health chips ──────────────────────────────────────────────
 col_a, col_b = st.columns([2, 3])
 

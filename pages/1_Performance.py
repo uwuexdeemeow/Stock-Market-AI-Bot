@@ -35,6 +35,72 @@ if equity_df.empty:
     st.warning("No equity history yet.")
     st.stop()
 
+compare_payload = data.load_paper_shadow_compare()
+compare_summary = compare_payload.get("summary") or {}
+compare_table = compare_payload.get("table")
+if compare_summary.get("status") == "ok":
+    alpaca_compare = compare_summary.get("alpaca") or {}
+    shadow_compare = compare_summary.get("shadow") or {}
+    spread = compare_summary.get("spread") or {}
+    st.markdown("##### Alpaca vs shadow")
+    p1, p2, p3, p4 = st.columns(4)
+    with p1:
+        st.metric(
+            "Alpaca",
+            f"{float(alpaca_compare.get('return_pct_since_common_start') or 0):+.2f}%",
+            delta=alpaca_compare.get("latest_date"),
+            delta_color="off",
+        )
+    with p2:
+        st.metric(
+            "Shadow",
+            f"{float(shadow_compare.get('return_pct_since_common_start') or 0):+.2f}%",
+            delta=shadow_compare.get("latest_date"),
+            delta_color="off",
+        )
+    with p3:
+        st.metric(
+            "Return spread",
+            f"{float(spread.get('alpaca_minus_shadow_return_pct') or 0):+.2f}%",
+            delta=str(spread.get("leader", "unknown")),
+        )
+    with p4:
+        st.metric(
+            "Aligned days",
+            int(compare_summary.get("aligned_days") or 0),
+            delta="same latest date" if compare_summary.get("latest_dates_match") else "dates differ",
+            delta_color="off",
+        )
+
+    if isinstance(compare_table, pd.DataFrame) and not compare_table.empty:
+        compare_chart = compare_table.copy()
+        compare_chart["date"] = pd.to_datetime(compare_chart["date"], errors="coerce")
+        fig_compare = go.Figure()
+        fig_compare.add_trace(go.Scatter(
+            x=compare_chart["date"],
+            y=pd.to_numeric(compare_chart["alpaca_return_pct"], errors="coerce"),
+            name="Alpaca",
+            mode="lines+markers",
+            line=dict(color="#3b82f6", width=2),
+        ))
+        fig_compare.add_trace(go.Scatter(
+            x=compare_chart["date"],
+            y=pd.to_numeric(compare_chart["shadow_return_pct"], errors="coerce"),
+            name="Shadow",
+            mode="lines+markers",
+            line=dict(color="#22c55e", width=2, dash="dash"),
+        ))
+        fig_compare.add_hline(y=0, line_dash="dot", line_color="gray")
+        fig_compare.update_layout(
+            hovermode="x unified",
+            height=280,
+            margin=dict(l=40, r=10, t=10, b=35),
+            yaxis_title="Return since common start (%)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        )
+        st.plotly_chart(fig_compare, use_container_width=True)
+    st.divider()
+
 # ─────────────────────────────────────────────────────────────────────
 # Period filter bar — broker-app style preset buttons
 # ─────────────────────────────────────────────────────────────────────
@@ -390,6 +456,24 @@ if execution_report:
             delta=_fmt_bps(execution_summary.get("max_worst_adverse_60m_bps")),
             delta_color="inverse",
         )
+
+    segments = execution_report.get("segments") or {}
+    if segments:
+        segment_rows = []
+        for label, seg in segments.items():
+            if not isinstance(seg, dict):
+                continue
+            segment_rows.append({
+                "Segment": label.replace("_", " ").title(),
+                "Orders": seg.get("orders_analyzed"),
+                "Avg slip": _fmt_bps(seg.get("avg_slippage_bps")),
+                "Median slip": _fmt_bps(seg.get("median_slippage_bps")),
+                "Bad slip": _fmt_count(seg.get("slippage_bad_count", 0), int(seg.get("orders_analyzed") or 0)),
+                "15m reversals": _fmt_count(seg.get("adverse_15m_count", 0), int(seg.get("orders_analyzed") or 0)),
+                "Worst 60m avg": _fmt_bps(seg.get("avg_worst_adverse_60m_bps")),
+            })
+        if segment_rows:
+            st.dataframe(pd.DataFrame(segment_rows), hide_index=True, use_container_width=True)
 
     exec_df = pd.DataFrame(execution_rows)
     if not exec_df.empty:

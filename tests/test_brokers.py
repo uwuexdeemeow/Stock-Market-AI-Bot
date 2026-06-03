@@ -1138,6 +1138,34 @@ class TestEquitySnapshot:
         finally:
             apt.EQUITY_FILE = orig
 
+
+def test_execution_quality_segments_split_market_and_limit_orders():
+    import alpaca_paper_trading as apt
+
+    rows = [
+        {
+            "order_type": "limit",
+            "slippage_bps": -1.0,
+            "adverse_15m_bps": 2.0,
+            "worst_adverse_60m_bps": 10.0,
+        },
+        {
+            "order_type": "market",
+            "slippage_bps": 12.0,
+            "adverse_15m_bps": -3.0,
+            "worst_adverse_60m_bps": 20.0,
+        },
+    ]
+
+    segments = apt._execution_quality_segments(rows)
+
+    assert segments["all_orders"]["orders_analyzed"] == 2
+    assert segments["limit_orders"]["orders_analyzed"] == 1
+    assert segments["market_orders"]["orders_analyzed"] == 1
+    assert segments["trailing_stops"]["orders_analyzed"] == 0
+    assert segments["limit_orders"]["avg_slippage_bps"] == -1.0
+    assert segments["market_orders"]["avg_slippage_bps"] == 12.0
+
     def test_snapshot_deduplicates_same_day(self, tmp_path):
         """Running snapshot twice on same day should keep 1 row, not 2."""
         api_key = os.environ.get("ALPACA_API_KEY", "")

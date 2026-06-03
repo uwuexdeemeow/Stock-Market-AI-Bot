@@ -48,6 +48,7 @@ SCRIPT_CATEGORIES: dict[str, set[str]] = {
         "broker_health", "broker_interface",
         "daily_run", "execution_guard", "execution_model", "fill_monitor",
         "paper_health", "paper_scorecard",
+        "paper_shadow_compare",
         "publish_live_config_from_csv", "refresh_etf_data", "risk_sizing",
         "signal_freshness", "status", "trade_rules",
     },

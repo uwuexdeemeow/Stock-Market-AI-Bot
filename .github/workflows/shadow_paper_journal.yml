@@ -227,6 +227,41 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
 
+      - name: Compare Alpaca paper vs shadow paper
+        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        run: python3 paper_shadow_compare.py
+        env:
+          PYTHONUNBUFFERED: "1"
+
+      - name: Write workflow heartbeat
+        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        env:
+          WORKFLOW_STATUS: ${{ job.status }}
+          SCHEDULE_CRON: ${{ github.event.schedule }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          Path("signals").mkdir(exist_ok=True)
+          payload = {
+              "workflow": "Shadow Paper Journal",
+              "workflow_file": "shadow_paper_journal.yml",
+              "event": os.environ.get("GITHUB_EVENT_NAME"),
+              "schedule": os.environ.get("SCHEDULE_CRON") or None,
+              "run_id": os.environ.get("GITHUB_RUN_ID"),
+              "run_number": os.environ.get("GITHUB_RUN_NUMBER"),
+              "run_url": os.environ.get("RUN_URL"),
+              "branch": os.environ.get("GITHUB_REF_NAME"),
+              "status": os.environ.get("WORKFLOW_STATUS"),
+              "completed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+          }
+          Path("signals/workflow_heartbeat_shadow.json").write_text(json.dumps(payload, indent=2))
+          PY
+
       - name: Upload shadow journal artifact
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
         uses: actions/upload-artifact@v4
@@ -235,7 +270,10 @@ jobs:
           path: |
             signals/shadow_paper_journal.csv
             signals/shadow_paper_equity.csv
+            signals/paper_shadow_compare.csv
+            signals/paper_shadow_compare.json
             signals/alpaca_daily_status.json
+            signals/workflow_heartbeat_shadow.json
           retention-days: 60
 
       - name: Commit shadow journal to repo
@@ -244,7 +282,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           tmp_shadow_dir="$(mktemp -d)"
-          for f in signals/shadow_paper_journal.csv signals/shadow_paper_equity.csv; do
+          for f in \
+              signals/shadow_paper_journal.csv \
+              signals/shadow_paper_equity.csv \
+              signals/paper_shadow_compare.csv \
+              signals/paper_shadow_compare.json \
+              signals/workflow_heartbeat_shadow.json ; do
             if [ -f "$f" ]; then
               cp "$f" "$tmp_shadow_dir/$(basename "$f")"
             fi
@@ -253,7 +296,12 @@ jobs:
             git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest || true
             git checkout -B signals/latest origin/signals/latest 2>/dev/null || git checkout -B signals/latest
             mkdir -p signals
-            for f in shadow_paper_journal.csv shadow_paper_equity.csv; do
+            for f in \
+                shadow_paper_journal.csv \
+                shadow_paper_equity.csv \
+                paper_shadow_compare.csv \
+                paper_shadow_compare.json \
+                workflow_heartbeat_shadow.json ; do
               if [ -f "$tmp_shadow_dir/$f" ]; then
                 cp "$tmp_shadow_dir/$f" "signals/$f"
                 git add -f "signals/$f"
@@ -284,6 +332,8 @@ jobs:
             signals/factor_decay_monitor.csv
             signals/shadow_paper_journal.csv
             signals/shadow_paper_equity.csv
+            signals/paper_shadow_compare.csv
+            signals/paper_shadow_compare.json
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json

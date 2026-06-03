@@ -56,10 +56,17 @@ ALPACA_LOG = SIGNALS_DIR / "alpaca_paper_log.csv"
 ALPACA_STATUS = SIGNALS_DIR / "alpaca_daily_status.json"
 ALPACA_HEALTH = SIGNALS_DIR / "alpaca_paper_health.json"
 ALPACA_SLIPPAGE_REPORT = SIGNALS_DIR / "alpaca_slippage_reversal_report.json"
+SHADOW_EQUITY = SIGNALS_DIR / "shadow_paper_equity.csv"
+PAPER_SHADOW_COMPARE_JSON = SIGNALS_DIR / "paper_shadow_compare.json"
+PAPER_SHADOW_COMPARE_CSV = SIGNALS_DIR / "paper_shadow_compare.csv"
 FEATURE_HEALTH = SIGNALS_DIR / "feature_health_profile.json"
 FEATURE_QUALITY = SIGNALS_DIR / "feature_quality_summary.csv"
 BROKER_HEALTH = SIGNALS_DIR / "broker_health.json"
 REGIME_HEARTBEAT = SIGNALS_DIR / "monitor_heartbeat.json"
+WORKFLOW_HEARTBEATS = {
+    "Daily paper": SIGNALS_DIR / "workflow_heartbeat_daily.json",
+    "Shadow journal": SIGNALS_DIR / "workflow_heartbeat_shadow.json",
+}
 
 def _env_int(name: str, default: int) -> int:
     """Read an integer env var, falling back if the value is blank or invalid."""
@@ -180,11 +187,33 @@ def _execution_report_from_order_log(log: pd.DataFrame) -> dict | None:
     if not report_rows:
         return None
 
+    def _segment_summary(rows: list[dict]) -> dict:
+        """Summarize one group of fills for the dashboard segment table."""
+        slip_values = [
+            float(row["slippage_bps"])
+            for row in rows
+            if row.get("slippage_bps") is not None
+        ]
+        return {
+            "orders_analyzed": len(rows),
+            "avg_slippage_bps": round(_safe_mean(slip_values), 2) if _safe_mean(slip_values) is not None else None,
+            "median_slippage_bps": round(_safe_median(slip_values), 2) if _safe_median(slip_values) is not None else None,
+            "slippage_bad_count": int(sum(1 for value in slip_values if float(value) > 0)),
+            "adverse_5m_count": 0,
+            "adverse_15m_count": 0,
+            "adverse_30m_count": 0,
+            "adverse_60m_count": 0,
+            "avg_worst_adverse_60m_bps": None,
+            "max_worst_adverse_60m_bps": None,
+        }
+
     slip_values = [
         float(row["slippage_bps"])
         for row in report_rows
         if row.get("slippage_bps") is not None
     ]
+    limit_rows = [r for r in report_rows if str(r.get("order_type", "")).lower() == "limit"]
+    market_rows = [r for r in report_rows if str(r.get("order_type", "")).lower() == "market"]
     by_symbol: list[dict] = []
     report_df = pd.DataFrame(report_rows)
     for symbol, grp in report_df.groupby("symbol", sort=False):
@@ -216,6 +245,12 @@ def _execution_report_from_order_log(log: pd.DataFrame) -> dict | None:
             "adverse_60m_count": 0,
             "avg_worst_adverse_60m_bps": None,
             "max_worst_adverse_60m_bps": None,
+        },
+        "segments": {
+            "all_orders": _segment_summary(report_rows),
+            "limit_orders": _segment_summary(limit_rows),
+            "market_orders": _segment_summary(market_rows),
+            "trailing_stops": _segment_summary([]),
         },
         "by_symbol": by_symbol,
         "orders": report_rows,
@@ -376,6 +411,45 @@ def load_alpaca_equity_history() -> pd.DataFrame:
 
 
 @st.cache_data(ttl=60)
+def load_shadow_equity_history() -> pd.DataFrame:
+    """Return the shadow paper equity curve."""
+    df = _read_csv_safe(SHADOW_EQUITY)
+    if df.empty:
+        return df
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+        df = df.dropna(subset=["date"]).sort_values("date")
+    return df
+
+
+@st.cache_data(ttl=60)
+def load_paper_shadow_compare() -> dict:
+    """Return the Alpaca-vs-shadow comparison summary and table.
+
+    PLAIN ENGLISH: Prefer the JSON/CSV written by paper_shadow_compare.py.  If
+    they are not present yet, compute the same numbers in memory so the
+    dashboard can still show something useful.
+    """
+    summary = _read_json_safe(PAPER_SHADOW_COMPARE_JSON)
+    table = _read_csv_safe(PAPER_SHADOW_COMPARE_CSV)
+    if isinstance(summary, dict) and summary.get("status") == "ok":
+        return {"summary": summary, "table": table}
+    try:
+        from paper_shadow_compare import build_comparison_payload
+
+        computed_summary, computed_table = build_comparison_payload(
+            alpaca_path=ALPACA_EQUITY,
+            shadow_path=SHADOW_EQUITY,
+        )
+        return {"summary": computed_summary, "table": computed_table}
+    except Exception as exc:
+        return {
+            "summary": {"status": "error", "reason": str(exc)},
+            "table": pd.DataFrame(),
+        }
+
+
+@st.cache_data(ttl=60)
 def load_alpaca_orders() -> pd.DataFrame:
     """Return the order log with fill status."""
     df = _read_csv_safe(ALPACA_LOG)
@@ -410,6 +484,31 @@ def load_slippage_reversal_report() -> dict | None:
 def load_broker_health() -> dict | None:
     """Return the broker connectivity ping result."""
     return _read_json_safe(BROKER_HEALTH)
+
+
+@st.cache_data(ttl=60)
+def load_workflow_heartbeats() -> pd.DataFrame:
+    """Return workflow heartbeat JSON files as a small status table."""
+    rows: list[dict] = []
+    for label, path in WORKFLOW_HEARTBEATS.items():
+        payload = _read_json_safe(path)
+        if isinstance(payload, dict):
+            row = dict(payload)
+            row["label"] = label
+            row["path"] = str(path.relative_to(PROJECT_ROOT))
+            row["age_minutes"] = _file_age_minutes(path)
+            rows.append(row)
+        else:
+            rows.append({
+                "label": label,
+                "workflow": label,
+                "status": "missing",
+                "event": None,
+                "completed_at": None,
+                "path": str(path.relative_to(PROJECT_ROOT)),
+                "age_minutes": None,
+            })
+    return pd.DataFrame(rows)
 
 
 # ── FEATURE HEALTH (which factors are active, decay state) ────────────
@@ -468,6 +567,10 @@ def file_status_table() -> pd.DataFrame:
         "Alpaca health": ALPACA_HEALTH,
         "Alpaca execution": ALPACA_SLIPPAGE_REPORT,
         "Alpaca orders log": ALPACA_LOG,
+        "Shadow equity": SHADOW_EQUITY,
+        "Paper vs shadow": PAPER_SHADOW_COMPARE_JSON,
+        "Daily workflow": WORKFLOW_HEARTBEATS["Daily paper"],
+        "Shadow workflow": WORKFLOW_HEARTBEATS["Shadow journal"],
         "Feature health": FEATURE_HEALTH,
         "Feature quality": FEATURE_QUALITY,
         "Broker health": BROKER_HEALTH,
@@ -504,6 +607,10 @@ def file_status_table() -> pd.DataFrame:
         "Alpaca health":     (26 * 60, 72 * 60),
         "Alpaca execution":  (26 * 60, 72 * 60),
         "Broker health":     (26 * 60, 72 * 60),
+        "Shadow equity":     (26 * 60, 72 * 60),
+        "Paper vs shadow":   (26 * 60, 72 * 60),
+        "Daily workflow":    (26 * 60, 72 * 60),
+        "Shadow workflow":   (26 * 60, 72 * 60),
         # Feature health + quality update on the factor-data-refresh
         # cron (also daily) but commits to signals/latest only after
         # the trade workflow finishes.  Same 26h/72h works.
