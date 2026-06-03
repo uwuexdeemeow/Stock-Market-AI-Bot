@@ -372,45 +372,40 @@ def sidebar_refresh() -> None:
     without each one repeating the markdown block.
     """
     apply_page_style()
-    live_auto = False
-    refresh_seconds = 30
     with st.sidebar:
         if st.button("🔄 Refresh", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
         st.divider()
-        live_auto = st.checkbox(
-            "Live auto-refresh",
+        st.session_state.dashboard_live_auto = st.checkbox(
+            "Live account refresh",
             value=True,
-            help="Reload the dashboard on a timer so broker equity and positions stay current.",
+            help="Refresh only live account tiles on a timer. The whole page does not reload.",
         )
-        refresh_seconds = st.selectbox(
+        st.session_state.dashboard_refresh_seconds = st.selectbox(
             "Refresh every",
-            [15, 30, 60, 120],
-            index=1,
-            disabled=not live_auto,
+            [30, 60, 120, 300],
+            index=0,
+            disabled=not st.session_state.dashboard_live_auto,
         )
-        if live_auto:
-            st.caption("Dashboard asks Alpaca for a fresh paper snapshot each refresh.")
+        if st.session_state.dashboard_live_auto:
+            st.caption("Only the live account section refreshes; forms, filters, and scroll stay put.")
 
-    if live_auto:
-        # Streamlit does not rerun a script just because a cached value expires.
-        # This tiny browser timer reloads the page so the live Alpaca snapshot
-        # gets pulled again without manual clicks.
-        milliseconds = int(refresh_seconds) * 1000
-        script = f"""
-        <script>
-          setTimeout(function() {{
-            window.parent.location.reload();
-          }}, {milliseconds});
-        </script>
-        """
-        if hasattr(st, "html"):
-            st.html(script, unsafe_allow_javascript=True)
-        else:
-            from streamlit.components.v1 import html as _html
 
-            _html(script, height=0, width=0)
+def live_fragment_decorator():
+    """Return a Streamlit fragment decorator for non-disruptive live tiles.
+
+    PLAIN ENGLISH: A normal Streamlit rerun redraws the entire page, which can
+    interrupt filters, forms, and scrolling.  A fragment rerun redraws only the
+    small function it wraps.  When auto-refresh is off, the fragment still
+    exists but has no timer.
+    """
+    if not hasattr(st, "fragment"):
+        return None
+    if not st.session_state.get("dashboard_live_auto", True):
+        return st.fragment
+    seconds = int(st.session_state.get("dashboard_refresh_seconds", 60) or 60)
+    return st.fragment(run_every=f"{seconds}s")
 
 
 # ── Subprocess runner with live streaming + logging ────────────────────

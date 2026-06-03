@@ -95,10 +95,11 @@ Open the dashboard:
 streamlit run dashboard.py
 ```
 
-The dashboard live-refreshes by default.  Every refresh asks Alpaca for a fresh
-paper account snapshot and rewrites `signals/alpaca_daily_status.json` plus
-`signals/alpaca_paper_equity.csv`, so the equity card updates without running
-`alpaca_paper_trading.py --reconcile`.
+The dashboard live-refreshes the account tiles by default without reloading the
+whole page.  That refresh asks Alpaca for a fresh paper account snapshot and
+rewrites `signals/alpaca_daily_status.json` plus `signals/alpaca_paper_equity.csv`,
+so the equity card updates without running `alpaca_paper_trading.py --reconcile`
+and without disrupting filters, forms, or scroll position.
 
 Look for:
 - 🟢 fresh on Alpaca log, equity, status, health

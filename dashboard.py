@@ -15,6 +15,7 @@ from dashboard import data
 from dashboard.components import (
     account_summary_card,
     equity_curve_chart,
+    live_fragment_decorator,
     regime_indicator,
     status_chip,
     sidebar_refresh,
@@ -53,13 +54,26 @@ with hero_right:
 
 
 # ── Account summary ────────────────────────────────────────────────────
-summary = data.compute_account_summary()
-account_summary_card(summary)
-live_refresh = summary.get("live_refresh") or {}
-if live_refresh.get("ok"):
-    st.caption(f"Live Alpaca refresh · {live_refresh.get('refreshed_at', '')}")
-elif live_refresh.get("error"):
-    st.caption(f"Live Alpaca refresh unavailable · using cached files · {live_refresh.get('error')}")
+def _render_live_account_summary() -> None:
+    """Render live account metrics in a refreshable fragment."""
+    summary = data.compute_account_summary()
+    account_summary_card(summary)
+    live_refresh = summary.get("live_refresh") or {}
+    if live_refresh.get("ok"):
+        st.caption(f"Live Alpaca refresh · {live_refresh.get('refreshed_at', '')}")
+    elif live_refresh.get("error"):
+        st.caption(f"Live Alpaca refresh unavailable · using cached files · {live_refresh.get('error')}")
+
+
+_live_decorator = live_fragment_decorator()
+if _live_decorator is not None:
+    @_live_decorator
+    def _live_account_fragment() -> None:
+        _render_live_account_summary()
+
+    _live_account_fragment()
+else:
+    _render_live_account_summary()
 
 st.divider()
 
@@ -186,6 +200,6 @@ with st.expander("Data freshness · click to expand"):
     st.dataframe(data.file_status_table(), use_container_width=True, hide_index=True)
 
 st.caption(
-    "Dashboard refreshes live Alpaca paper equity every 30 seconds by default. "
-    "Use the sidebar controls to change the interval or force a reread."
+    "Dashboard refreshes the live Alpaca account tiles without reloading the whole page. "
+    "Use the sidebar controls to change the interval or force a full reread."
 )

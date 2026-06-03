@@ -18,6 +18,7 @@ from dashboard.components import (
     account_summary_card,
     COLOR_FAIL,
     COLOR_WARN,
+    live_fragment_decorator,
     sidebar_refresh,
 )
 
@@ -26,8 +27,21 @@ st.set_page_config(page_title="Performance", page_icon="•", layout="wide")
 sidebar_refresh()
 st.title("Performance")
 
-summary = data.compute_account_summary()
-account_summary_card(summary)
+def _render_live_account_summary() -> None:
+    """Render live account metrics without forcing the whole page to reload."""
+    account_summary_card(data.compute_account_summary())
+
+
+_live_decorator = live_fragment_decorator()
+if _live_decorator is not None:
+    @_live_decorator
+    def _live_account_fragment() -> None:
+        _render_live_account_summary()
+
+    _live_account_fragment()
+else:
+    _render_live_account_summary()
+
 st.divider()
 
 equity_df = data.load_alpaca_equity_history()
