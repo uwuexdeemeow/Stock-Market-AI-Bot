@@ -28,7 +28,9 @@ permissions:
   contents: write
 
 concurrency:
-  group: shadow-paper-journal
+  # Daily and shadow workflows both force-push signals/latest. Share one lock so
+  # whichever starts second waits and preserves the first workflow's files.
+  group: signals-latest-publisher
   cancel-in-progress: false
 
 jobs:

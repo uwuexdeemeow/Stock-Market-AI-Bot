@@ -55,7 +55,9 @@ permissions:
   contents: write   # needed to push signal files to signals/latest branch
 
 concurrency:
-  group: daily-paper-trading
+  # Daily and shadow workflows both force-push signals/latest. Share one lock so
+  # a long daily run cannot overwrite a shadow run that finished mid-pipeline.
+  group: signals-latest-publisher
   cancel-in-progress: false
 
 jobs:

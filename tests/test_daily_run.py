@@ -60,6 +60,18 @@ def test_daily_workflow_pins_execution_safety_env():
         assert line in workflow
 
 
+def test_signal_latest_workflows_share_publish_lock():
+    # PLAIN ENGLISH: both workflows force-push signals/latest. One shared
+    # concurrency group makes GitHub queue them instead of letting them race.
+    daily_workflow = Path(".github/workflows/daily_paper_trading.yml").read_text(encoding="utf-8")
+    shadow_workflow = Path(".github/workflows/shadow_paper_journal.yml").read_text(encoding="utf-8")
+
+    assert "group: signals-latest-publisher" in daily_workflow
+    assert "group: signals-latest-publisher" in shadow_workflow
+    assert "cancel-in-progress: false" in daily_workflow
+    assert "cancel-in-progress: false" in shadow_workflow
+
+
 def test_alpaca_only_still_generates_shared_signal():
     steps = daily_run.build_steps(
         skip_refresh=True,

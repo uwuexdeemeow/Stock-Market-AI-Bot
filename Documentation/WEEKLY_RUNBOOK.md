@@ -84,6 +84,9 @@ Pulls yesterday's Actions outputs into `signals/` and `logs/`. Refreshes:
 - `shadow_paper_equity.csv` — shadow config simulated equity curve
 - `paper_shadow_compare.json` / `.csv` — Alpaca-vs-shadow return comparison
 - `workflow_heartbeat_daily.json` / `workflow_heartbeat_shadow.json` — cron proof files
+- Daily and shadow Actions share the `signals-latest-publisher` concurrency
+  lock, so their force-pushes to `signals/latest` cannot overlap and erase each
+  other's output files.
 - `monitor_heartbeat.json` — watchdog status
 - `logs/daily_run_*.json` — pipeline step results
 
