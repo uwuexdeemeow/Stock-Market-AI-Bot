@@ -107,6 +107,15 @@ If the live status snapshot is temporarily missing, the account summary falls
 back to the latest row in `signals/alpaca_paper_equity.csv` instead of showing a
 fake zero-equity account.
 
+For terminal checks, `python status.py` and `python status.py --short` now mark
+the signal READY only when the same broker-submit gates are all true:
+`paper_ready`, `gates_all_pass`, and `medium_risk_review_pass`.  Its paper
+equity return uses the first row in `signals/alpaca_paper_equity.csv` as the
+starting value, so it stays honest after a paper-account reset or non-100k
+starting balance.  If `signals/alpaca_daily_status.json` is missing an explicit
+gross-exposure field, `status.py` computes it from saved position market values
+instead of showing 0%.
+
 Look for:
 - 🟢 fresh on Alpaca log, equity, status, health
 - Account equity > 0 (was a known bug — fixed)

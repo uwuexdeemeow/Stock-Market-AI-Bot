@@ -88,7 +88,7 @@ def _load_csv_last_row(path: Path) -> dict | None:
         return None
     try:
         import csv
-        with open(path) as f:
+        with open(path, encoding="utf-8", errors="replace") as f:
             reader = csv.DictReader(f)
             rows = list(reader)
         return rows[-1] if rows else None
@@ -102,10 +102,43 @@ def _load_csv_rows(path: Path) -> list[dict]:
         return []
     try:
         import csv
-        with open(path) as f:
+        with open(path, encoding="utf-8", errors="replace") as f:
             return list(csv.DictReader(f))
     except Exception:
         return []
+
+
+def _truthy(value: object) -> bool:
+    """Convert common text/bool values into a real True/False answer."""
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"true", "1", "yes", "y", "on"}
+
+
+def _float_or_none(value: object) -> float | None:
+    """Convert a CSV/JSON value into a number, or None if it is missing/bad."""
+    try:
+        if value is None or value == "":
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_utc_datetime(value: object) -> datetime | None:
+    """Parse an ISO timestamp and always return a timezone-aware UTC datetime."""
+    if not value:
+        return None
+    try:
+        text = str(value).strip()
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        parsed = datetime.fromisoformat(text)
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _file_age_str(path: Path) -> str:
@@ -138,12 +171,9 @@ def render_live_config() -> dict:
     # Parse config age
     created_str = payload.get("created_at", "")
     age_days = None
-    if created_str:
-        try:
-            created = datetime.fromisoformat(created_str)
-            age_days = (datetime.now(timezone.utc) - created).days
-        except (ValueError, TypeError):
-            pass
+    created = _parse_utc_datetime(created_str)
+    if created:
+        age_days = (datetime.now(timezone.utc) - created).days
 
     # Check approval
     approvals = payload.get("approvals", {})
@@ -178,14 +208,17 @@ def render_live_config() -> dict:
 
 
 def render_signal() -> dict:
-    """Latest signal: paper_ready, positions, regime."""
+    """Latest signal: show whether the broker would actually be allowed to trade."""
     info = {"section": "Signal"}
     row = _load_csv_last_row(SIGNAL_PATH)
     if not row:
         info["line"] = f"Latest Signal:   {red('NO SIGNAL FILE')}"
         return info
 
-    paper_ready = str(row.get("paper_ready", "")).lower() == "true"
+    paper_ready = _truthy(row.get("paper_ready"))
+    gates_all_pass = _truthy(row.get("gates_all_pass"))
+    medium_risk_review_pass = _truthy(row.get("medium_risk_review_pass"))
+    trade_ready = paper_ready and gates_all_pass and medium_risk_review_pass
     regime = row.get("current_regime", "?")
     score_source = row.get("score_source", "?")
     predicted_at = row.get("predicted_at", "?")
@@ -204,28 +237,42 @@ def render_signal() -> dict:
     core_gross = row.get("core_gross", "?")
     overlay_gross = row.get("overlay_gross", "?")
 
-    ready_str = green("READY") if paper_ready else red("BLOCKED")
+    ready_str = green("READY") if trade_ready else red("BLOCKED")
     regime_color = {"risk_on": green, "neutral": yellow, "risk_off": red}.get(regime, dim)
     regime_str = regime_color(regime)
 
     # Predicted at — how fresh?
     age_str = ""
-    try:
-        pred_dt = datetime.fromisoformat(predicted_at)
-        pred_age = datetime.now(timezone.utc) - pred_dt.astimezone(timezone.utc)
+    pred_dt = _parse_utc_datetime(predicted_at)
+    if pred_dt:
+        pred_age = datetime.now(timezone.utc) - pred_dt
         if pred_age.total_seconds() < 86400:
             age_str = f" ({int(pred_age.total_seconds() / 3600)}h ago)"
         else:
             age_str = f" ({pred_age.days}d ago)"
-    except (ValueError, TypeError):
-        pass
+
+    # These are the same three gates alpaca_paper_trading.py checks before it
+    # sends orders. The status screen should not say READY unless the broker
+    # submit path would agree.
+    block_reasons = []
+    if not paper_ready:
+        block_reasons.append("paper_ready=false")
+    if not gates_all_pass:
+        block_reasons.append("gates_all_pass=false")
+    if not medium_risk_review_pass:
+        block_reasons.append("medium_risk_review_pass=false")
+    broker_gate_str = "" if trade_ready else f" | blocked={','.join(block_reasons)}"
 
     info["paper_ready"] = paper_ready
+    info["gates_all_pass"] = gates_all_pass
+    info["medium_risk_review_pass"] = medium_risk_review_pass
+    info["trade_ready"] = trade_ready
+    info["block_reasons"] = block_reasons
     info["regime"] = regime
     info["n_positions"] = n_positions
     info["line"] = (
         f"Latest Signal:   {ready_str} | regime={regime_str} | "
-        f"{n_positions} overlay positions | core={core_gross} overlay={overlay_gross}{age_str}"
+        f"{n_positions} overlay positions | core={core_gross} overlay={overlay_gross}{age_str}{broker_gate_str}"
     )
     return info
 
@@ -233,34 +280,46 @@ def render_signal() -> dict:
 def render_equity() -> dict:
     """Alpaca paper trading equity."""
     info = {"section": "Equity"}
-    row = _load_csv_last_row(EQUITY_PATH)
-    if not row:
+    rows = _load_csv_rows(EQUITY_PATH)
+    if not rows:
         # Try the latest Alpaca status snapshot as fallback.
         status = _load_json(PAPER_STATUS_PATH)
         if status and "account_equity" in status:
-            equity = float(status["account_equity"])
+            equity = _float_or_none(status.get("account_equity"))
+            if equity is None:
+                info["line"] = f"Paper Equity:    {dim('parse error')}"
+                return info
             info["equity"] = equity
             info["line"] = f"Paper Equity:    ${equity:,.2f} (from Alpaca status)"
             return info
         info["line"] = f"Paper Equity:    {dim('no equity data')}"
         return info
 
-    try:
-        equity = float(row.get("equity", 0))
-        cash = float(row.get("cash", 0))
-        invested = float(row.get("invested", 0))
-        date = row.get("date", "?")
-    except (ValueError, TypeError):
+    row = rows[-1]
+    first = rows[0]
+    equity = _float_or_none(row.get("equity"))
+    cash = _float_or_none(row.get("cash")) or 0.0
+    invested = _float_or_none(row.get("invested")) or 0.0
+    date = row.get("date", "?")
+    if equity is None:
         info["line"] = f"Paper Equity:    {dim('parse error')}"
         return info
 
-    # Simple P&L (assuming 100k start)
-    starting = 100000.0
+    # Use the first recorded equity as the baseline. This avoids fake P&L if
+    # the Alpaca paper account was reset or funded at something other than 100k.
+    starting = (
+        _float_or_none(first.get("initial_equity"))
+        or _float_or_none(first.get("equity"))
+        or equity
+    )
     pnl = equity - starting
     pnl_pct = (pnl / starting) * 100 if starting > 0 else 0
     pnl_str = green(f"+{pnl_pct:.2f}%") if pnl >= 0 else red(f"{pnl_pct:.2f}%")
 
     info["equity"] = equity
+    info["cash"] = cash
+    info["invested"] = invested
+    info["start_equity"] = starting
     info["pnl_pct"] = pnl_pct
     info["line"] = f"Paper Equity:    ${equity:,.2f} ({pnl_str} since inception) | cash=${cash:,.0f} | as of {date}"
     return info
@@ -291,7 +350,13 @@ def render_positions() -> dict:
         weight = (value / total_equity) * 100 if total_equity > 0 else 0
         lines.append(f"  {ticker:5s} {int(qty):>5d} sh  ${value:>10,.0f}  ({weight:.1f}%)")
 
-    exposure = float(status.get("current_gross_exposure", 0)) * 100
+    exposure_raw = _float_or_none(status.get("current_gross_exposure"))
+    if exposure_raw is None:
+        # Older status snapshots do not store current_gross_exposure. Rebuild it
+        # from position market values so the status screen does not show 0%.
+        gross_value = sum(abs(_float_or_none(value) or 0.0) for value in position_values.values())
+        exposure_raw = gross_value / total_equity if total_equity > 0 else 0.0
+    exposure = exposure_raw * 100
     info["n_positions"] = len(positions)
     info["exposure"] = exposure
     info["lines"] = [
@@ -412,21 +477,18 @@ def render_walkforward_due() -> dict:
 
     created_str = payload.get("created_at", "")
     max_age = int(os.environ.get("LIVE_CONFIG_MAX_AGE_DAYS", "45"))
-    if created_str:
-        try:
-            created = datetime.fromisoformat(created_str)
-            expiry_date = created + timedelta(days=max_age)
-            days_left = (expiry_date - datetime.now(timezone.utc)).days
-            if days_left <= 0:
-                info["line"] = f"Next Walkforward: {red('OVERDUE')} (expired {abs(days_left)}d ago)"
-            elif days_left <= 7:
-                info["line"] = f"Next Walkforward: {yellow(f'due in {days_left}d')} (~{expiry_date.strftime('%Y-%m-%d')})"
-            else:
-                info["line"] = f"Next Walkforward: due in {days_left}d (~{expiry_date.strftime('%Y-%m-%d')})"
-            info["days_left"] = days_left
-            return info
-        except (ValueError, TypeError):
-            pass
+    created = _parse_utc_datetime(created_str)
+    if created:
+        expiry_date = created + timedelta(days=max_age)
+        days_left = (expiry_date - datetime.now(timezone.utc)).days
+        if days_left <= 0:
+            info["line"] = f"Next Walkforward: {red('OVERDUE')} (expired {abs(days_left)}d ago)"
+        elif days_left <= 7:
+            info["line"] = f"Next Walkforward: {yellow(f'due in {days_left}d')} (~{expiry_date.strftime('%Y-%m-%d')})"
+        else:
+            info["line"] = f"Next Walkforward: due in {days_left}d (~{expiry_date.strftime('%Y-%m-%d')})"
+        info["days_left"] = days_left
+        return info
 
     info["line"] = f"Next Walkforward: {dim('unknown (no created_at in config)')}"
     return info
@@ -537,7 +599,7 @@ def print_short():
     signal = render_signal()
     equity = render_equity()
 
-    ready = "READY" if signal.get("paper_ready") else "BLOCKED"
+    ready = "READY" if signal.get("trade_ready", signal.get("paper_ready")) else "BLOCKED"
     eq = f"${equity.get('equity', 0):,.0f}" if equity.get("equity") else "?"
     regime = signal.get("regime", "?")
     approved = "approved" if config.get("approved") else "REJECTED"
