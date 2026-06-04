@@ -38,7 +38,7 @@ import pandas as pd
 
 from broker_interface import Broker, Order, Position, Fill
 from safe_io import atomic_write_csv, atomic_write_json, configure_console_output
-from settings import SIGNAL_DIR
+from settings import LOG_DIR, SIGNAL_DIR
 from signal_freshness import (
     extract_signal_weights,
     validate_live_config_match,
@@ -119,6 +119,7 @@ EQUITY_FILE = Path(SIGNAL_DIR) / "alpaca_paper_equity.csv"
 STATUS_FILE = Path(SIGNAL_DIR) / "alpaca_daily_status.json"
 # Execution-quality report — tracks slippage and post-fill reversals.
 SLIPPAGE_REPORT_FILE = Path(SIGNAL_DIR) / "alpaca_slippage_reversal_report.json"
+ALERT_DEDUPE_FILE = Path(LOG_DIR) / "notification_dedupe.json"
 
 # Retry config for price fetches
 PRICE_RETRY_ATTEMPTS = int(os.environ.get("ALPACA_PRICE_RETRIES", "3"))
@@ -167,6 +168,7 @@ MARGIN_WARN_GROSS = float(os.environ.get("ALPACA_MARGIN_WARN_GROSS", "1.02"))
 TQQQ_FAST_DD_FAIL_CLOSED = os.environ.get("TQQQ_FAST_DD_FAIL_CLOSED", "1").strip().lower() in {
     "true", "1", "yes", "y", "on"
 }
+SPREAD_GUARD_ALERT_TTL_HOURS = float(os.environ.get("SPREAD_GUARD_ALERT_TTL_HOURS", "20"))
 
 
 def _truthy(value: object) -> bool:
@@ -1053,6 +1055,53 @@ def _send_submit_guard_alert(title: str, message: str, *, priority: str = "warni
         pass
 
 
+def _send_deduped_submit_guard_alert(
+    title: str,
+    message: str,
+    *,
+    alert_key: str,
+    priority: str = "warning",
+    ttl_hours: float = 20.0,
+) -> bool:
+    """
+    Send a submit guard alert once per dedupe window.
+
+    PLAIN ENGLISH: If the same guard blocks the same tickers repeatedly during
+    manual retries, the order log should still record every skip, but Telegram
+    should not yell the exact same thing over and over.
+    """
+    now = datetime.now(timezone.utc)
+    ttl = max(0.0, float(ttl_hours))
+    cutoff = now - timedelta(hours=ttl)
+    state: dict[str, str] = {}
+    try:
+        if ALERT_DEDUPE_FILE.exists():
+            loaded = json.loads(ALERT_DEDUPE_FILE.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                state = {str(k): str(v) for k, v in loaded.items()}
+    except Exception:
+        state = {}
+
+    cleaned: dict[str, str] = {}
+    for key, value in state.items():
+        ts = pd.to_datetime(value, errors="coerce", utc=True)
+        if pd.notna(ts) and ts.to_pydatetime() >= cutoff:
+            cleaned[key] = value
+
+    if alert_key in cleaned:
+        print(f"  Alert deduped: {title} ({alert_key})")
+        return False
+
+    cleaned[alert_key] = now.isoformat()
+    try:
+        ALERT_DEDUPE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        atomic_write_json(cleaned, ALERT_DEDUPE_FILE)
+    except Exception:
+        pass
+    _send_submit_guard_alert(title, message, priority=priority)
+    return True
+
+
 def _order_status(broker: AlpacaBroker, oid: str) -> str:
     """Fetch one order status from Alpaca."""
     try:
@@ -1169,15 +1218,18 @@ def _apply_spread_guard(
 
     if skipped_orders:
         tickers = ", ".join(str(o.get("ticker", "")).upper() for o in skipped_orders)
-        try:
-            from notifications import send_alert
-            send_alert(
-                f"Spread/quote guard blocked {len(skipped_orders)} orders: {tickers}",
-                title="Spread Guard",
-                priority="warning",
-            )
-        except Exception:
-            pass
+        reasons = ",".join(
+            str(o.get("submitted_limit_reference", "")).replace(" ", "_")
+            for o in skipped_orders
+        )
+        alert_key = f"spread_guard:{datetime.now(timezone.utc).date()}:{tickers}:{reasons}"
+        _send_deduped_submit_guard_alert(
+            "Spread Guard",
+            f"Spread/quote guard blocked {len(skipped_orders)} orders: {tickers}",
+            alert_key=alert_key,
+            priority="warning",
+            ttl_hours=SPREAD_GUARD_ALERT_TTL_HOURS,
+        )
 
     return remaining, skipped_orders, skipped_ids
 

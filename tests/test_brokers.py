@@ -657,6 +657,12 @@ def test_apply_spread_guard_logs_wide_spread_skip(monkeypatch):
 
     monkeypatch.setattr(apt, "MAX_SPREAD_PCT_OVERLAY", 0.01)
     monkeypatch.setattr(apt, "REQUIRE_QUOTE_FOR_SUBMIT", True)
+    alerts = []
+    monkeypatch.setattr(
+        apt,
+        "_send_deduped_submit_guard_alert",
+        lambda title, message, **kwargs: alerts.append((title, message, kwargs)) or True,
+    )
     broker = _QuoteBroker({
         "MU": {"bid_price": 100.0, "ask_price": 103.0, "quote_mid_price": 101.5, "spread_pct": 0.02956},
     })
@@ -669,12 +675,14 @@ def test_apply_spread_guard_logs_wide_spread_skip(monkeypatch):
     assert ids[0].startswith("SKIPPED: spread_guard")
     assert order["fill_status"] == "skipped"
     assert order["submitted_order_type"] == "skipped"
+    assert alerts and alerts[0][0] == "Spread Guard"
 
 
 def test_apply_spread_guard_blocks_missing_quote_when_required(monkeypatch):
     import alpaca_paper_trading as apt
 
     monkeypatch.setattr(apt, "REQUIRE_QUOTE_FOR_SUBMIT", True)
+    monkeypatch.setattr(apt, "_send_deduped_submit_guard_alert", lambda *args, **kwargs: True)
     broker = _QuoteBroker({})
     order = _planned_order("MU", "buy")
 
@@ -683,6 +691,35 @@ def test_apply_spread_guard_blocks_missing_quote_when_required(monkeypatch):
     assert remaining == []
     assert skipped == [order]
     assert ids == ["SKIPPED: quote_unavailable"]
+
+
+def test_spread_guard_alert_is_deduped(tmp_path, monkeypatch):
+    import alpaca_paper_trading as apt
+
+    sent = []
+    monkeypatch.setattr(apt, "ALERT_DEDUPE_FILE", tmp_path / "notification_dedupe.json")
+    monkeypatch.setattr(
+        apt,
+        "_send_submit_guard_alert",
+        lambda title, message, priority="warning": sent.append((title, message, priority)),
+    )
+
+    first = apt._send_deduped_submit_guard_alert(
+        "Spread Guard",
+        "Spread/quote guard blocked 1 orders: MU",
+        alert_key="spread_guard:test",
+        ttl_hours=20,
+    )
+    second = apt._send_deduped_submit_guard_alert(
+        "Spread Guard",
+        "Spread/quote guard blocked 1 orders: MU",
+        alert_key="spread_guard:test",
+        ttl_hours=20,
+    )
+
+    assert first is True
+    assert second is False
+    assert len(sent) == 1
 
 
 def test_force_does_not_allow_closed_market_queue(monkeypatch):

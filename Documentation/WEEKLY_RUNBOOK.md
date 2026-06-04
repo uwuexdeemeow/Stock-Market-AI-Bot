@@ -575,6 +575,7 @@ daily GitHub workflow:
 | `ALPACA_LIMIT_OFFSET_BPS_ETF` | `5` | ETF protective-limit cushion in basis points. |
 | `ALPACA_LIMIT_OFFSET_BPS_OVERLAY` | `12` | Overlay-stock protective-limit cushion in basis points. |
 | `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT` | `1` | Skip/log an order when Alpaca cannot provide a quote for spread checking. |
+| `SPREAD_GUARD_ALERT_TTL_HOURS` | `20` | Suppress repeated identical spread-guard alerts for this many hours. |
 | `ALPACA_ALLOW_CLOSED_MARKET_QUEUE` | `0` | Whether non-interactive runs may queue orders while market is closed. Keep `0`. |
 | `ALPACA_SKIP_BUYS_UNTIL_SELLS_FILLED` | `1` | Skip buys unless same-run sells fill first. |
 | `ALPACA_SKIP_BUYS_WHEN_CASH_BELOW` | `0` | No-margin cash floor. Buys are skipped when cash is below this level. |

@@ -163,6 +163,8 @@ The script has multiple layers of protection:
    too wide or Alpaca cannot provide a quote (configurable via
    `MAX_SPREAD_PCT_*` and `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT`).  Skipped rows
    stay in `alpaca_paper_log.csv`, but they do not count as submitted orders.
+   Repeated identical spread-guard Telegram alerts are deduped for 20 hours by
+   default (`SPREAD_GUARD_ALERT_TTL_HOURS`).
 10. **Market-closed fail-closed behavior** — when run non-interactively at
    market close, it aborts instead of queueing orders.  Use
    `--allow-closed-market-queue` or `ALPACA_ALLOW_CLOSED_MARKET_QUEUE=1`
