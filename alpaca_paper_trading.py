@@ -286,8 +286,7 @@ def should_use_market_orders(args: argparse.Namespace) -> bool:
 def closed_market_queue_allowed(args: argparse.Namespace) -> bool:
     """Return True when queueing orders for the next market open is intentional."""
     return bool(
-        getattr(args, "force", False)
-        or getattr(args, "allow_closed_market_queue", False)
+        getattr(args, "allow_closed_market_queue", False)
         or ALLOW_CLOSED_MARKET_QUEUE
     )
 

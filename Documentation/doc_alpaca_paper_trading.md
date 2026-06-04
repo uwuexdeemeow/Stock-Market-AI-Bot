@@ -44,7 +44,7 @@ python3 alpaca_paper_trading.py --reconcile
 # Just show current account state, and refresh dashboard snapshot files
 python3 alpaca_paper_trading.py --status
 
-# Force submission even when market is closed (orders queue for next open)
+# Explicitly allow queueing when market is closed (not for routine runs)
 python3 alpaca_paper_trading.py --submit --allow-closed-market-queue
 
 # Dry-run — show planned orders without sending to Alpaca

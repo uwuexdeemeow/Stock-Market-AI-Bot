@@ -616,7 +616,9 @@ Shadow paper parameter:
 - `ALPACA_API_KEY` and `ALPACA_SECRET_KEY` belong in `.env`, never committed.
 - Use `daily_run.py --dry-run` to inspect any pipeline change before live.
 - Never push to `signals/latest` manually.
-- `--force` overrides safety checks — use only when you understand the specific safeguard you're bypassing.
+- `--force` overrides selected safety checks — use only when you understand
+  the specific safeguard you're bypassing. It does not enable closed-market
+  queueing; that still requires `--allow-closed-market-queue`.
 - Idempotency is built in: the bot checks Alpaca's live order history first,
   falls back to the local order log, and still uses deterministic
   `client_order_id` values.  Same-day double-submit is blocked.

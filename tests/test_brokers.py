@@ -685,6 +685,19 @@ def test_apply_spread_guard_blocks_missing_quote_when_required(monkeypatch):
     assert ids == ["SKIPPED: quote_unavailable"]
 
 
+def test_force_does_not_allow_closed_market_queue(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "ALLOW_CLOSED_MARKET_QUEUE", False)
+
+    assert apt.closed_market_queue_allowed(
+        SimpleNamespace(force=True, allow_closed_market_queue=False)
+    ) is False
+    assert apt.closed_market_queue_allowed(
+        SimpleNamespace(force=False, allow_closed_market_queue=True)
+    ) is True
+
+
 def test_submit_rebalance_orders_skips_buys_when_sell_submission_fails(monkeypatch):
     import alpaca_paper_trading as apt
 
