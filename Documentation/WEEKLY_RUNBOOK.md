@@ -103,6 +103,9 @@ whole page.  That refresh asks Alpaca for a fresh paper account snapshot and
 rewrites `signals/alpaca_daily_status.json` plus `signals/alpaca_paper_equity.csv`,
 so the equity card updates without running `alpaca_paper_trading.py --reconcile`
 and without disrupting filters, forms, or scroll position.
+If the live status snapshot is temporarily missing, the account summary falls
+back to the latest row in `signals/alpaca_paper_equity.csv` instead of showing a
+fake zero-equity account.
 
 Look for:
 - 🟢 fresh on Alpaca log, equity, status, health

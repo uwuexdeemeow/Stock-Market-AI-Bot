@@ -662,8 +662,37 @@ def compute_account_summary() -> dict:
     history = load_alpaca_equity_history()
 
     equity = float(status.get("account_equity", 0) or 0)
-    cash = float(status.get("account_cash", 0) or 0)
-    invested = float(status.get("account_invested", equity - cash) or 0)
+    history_latest: dict = {}
+    if not history.empty:
+        history_latest = history.iloc[-1].to_dict()
+
+    # PLAIN ENGLISH: Sometimes the live status JSON is missing but the equity
+    # CSV exists.  In that case, use the latest equity row so the top dashboard
+    # card never shows a fake $0 while the equity chart shows real account value.
+    source = status.get("_source", "alpaca_daily_status.json" if status else "alpaca_paper_equity.csv")
+    generated_at = status.get("generated_at")
+    if equity <= 0 and history_latest:
+        equity = _to_float(history_latest.get("equity"), 0.0)
+        source = "alpaca_paper_equity.csv"
+        generated_at = str(
+            history_latest.get("timestamp")
+            or history_latest.get("date")
+            or generated_at
+            or ""
+        )
+
+    if "account_cash" in status:
+        cash = _to_float(status.get("account_cash"), 0.0)
+    else:
+        cash = _to_float(history_latest.get("cash"), 0.0) if history_latest else 0.0
+
+    if "account_invested" in status:
+        invested = _to_float(status.get("account_invested"), 0.0)
+    elif history_latest and "invested" in history_latest:
+        invested = _to_float(history_latest.get("invested"), max(equity - cash, 0.0))
+    else:
+        invested = max(equity - cash, 0.0)
+
     position_count = int(status.get("position_count", 0) or 0)
 
     # Today vs yesterday change
@@ -693,7 +722,7 @@ def compute_account_summary() -> dict:
         "change_pct_today": change_pct,
         "peak_equity": peak,
         "current_drawdown_pct": current_dd_pct,
-        "generated_at": status.get("generated_at"),
-        "source": status.get("_source", "alpaca_daily_status.json"),
+        "generated_at": generated_at,
+        "source": source,
         "live_refresh": status.get("_live_refresh"),
     }

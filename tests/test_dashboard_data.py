@@ -7,7 +7,13 @@ import dashboard.data as data
 
 def _clear_dashboard_caches() -> None:
     """Clear Streamlit caches when tests monkeypatch dashboard file paths."""
-    for loader in (data.load_slippage_reversal_report, data.load_paper_shadow_compare):
+    for loader in (
+        data.refresh_live_alpaca_snapshot,
+        data.load_alpaca_status,
+        data.load_alpaca_equity_history,
+        data.load_slippage_reversal_report,
+        data.load_paper_shadow_compare,
+    ):
         try:
             loader.clear()
         except Exception:
@@ -65,3 +71,31 @@ def test_execution_report_prefers_full_slippage_report(tmp_path, monkeypatch):
     assert report is not None
     assert report["source"] == "alpaca_api"
     assert report["orders"][0]["symbol"] == "API"
+
+
+def test_account_summary_uses_equity_csv_when_status_missing(tmp_path, monkeypatch):
+    status_path = tmp_path / "missing_status.json"
+    equity_path = tmp_path / "alpaca_paper_equity.csv"
+    health_path = tmp_path / "missing_health.json"
+    equity_path.write_text(
+        "\n".join([
+            "date,timestamp,equity,cash,invested",
+            "2026-06-02,2026-06-02T21:30:00+00:00,100000,25000,75000",
+            "2026-06-03,2026-06-03T21:30:00+00:00,101500,24000,77500",
+        ]),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(data, "ALPACA_STATUS", status_path)
+    monkeypatch.setattr(data, "ALPACA_EQUITY", equity_path)
+    monkeypatch.setattr(data, "ALPACA_HEALTH", health_path)
+    monkeypatch.setattr(data, "DASHBOARD_LIVE_ALPACA", False)
+    _clear_dashboard_caches()
+
+    summary = data.compute_account_summary()
+
+    assert summary["equity"] == 101500
+    assert summary["cash"] == 24000
+    assert summary["invested"] == 77500
+    assert summary["source"] == "alpaca_paper_equity.csv"
+    assert summary["change_abs_today"] == 1500
+    assert summary["change_pct_today"] == 1.5
