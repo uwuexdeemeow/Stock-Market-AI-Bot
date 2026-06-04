@@ -6,7 +6,8 @@
 
 Think of it like a financial compliance officer who reviews every trade before it hits the market.
 
-You don't run this script directly — `backtest.py`, `predict.py`, and the paper-trading pipeline use it.
+You don't run this script directly — `backtest.py` uses it while testing
+single-name strategies.
 
 ---
 
@@ -28,8 +29,16 @@ trade = ProposedTrade(
     requested_position_pct=0.15,  # 15% of portfolio
 )
 
-# Check if the trade is approved (pass current prices + equity history)
-approved = manager.approve_day([trade], price_history, equity_curve)
+# Check if the trade is approved (pass current prices + equity history).
+# Existing holdings can be passed too, so sector/concentration gates count
+# what is already in the book before approving a new trade.
+approved = manager.approve_day(
+    [trade],
+    price_history,
+    equity_curve,
+    open_tickers={"MSFT"},
+    open_position_weights={"MSFT": 0.20},
+)
 ```
 
 ---
@@ -39,13 +48,13 @@ approved = manager.approve_day([trade], price_history, equity_curve)
 | Rule | Default Limit | What It Prevents |
 |---|---|---|
 | **Max gross exposure** | 100% | Borrowing more than portfolio value |
-| **Max net exposure** | 60% | Being too directionally biased |
-| **Max sector exposure** | 35% | Being too concentrated in tech/energy/etc |
+| **Max net exposure** | 80% | Being too directionally biased |
+| **Max sector exposure** | 40% | Being too concentrated in tech/energy/etc |
 | **Max single name** | 20% | One stock dominating the portfolio |
 | **Max pair correlation** | 0.85 | Owning two stocks that always move together |
-| **Max drawdown halt** | 15% | Hard stop: stop all trading if portfolio drops 15% from peak |
+| **Max drawdown halt** | 99% | Last-resort halt; main protection comes from regime filters |
 | **Trade input validation** | fail closed | Blocks invalid signal text or non-finite requested weights before exposure math |
-| **Soft de-risking band** | 8–15% DD | Gradually reduces exposure as drawdown grows toward the hard stop |
+| **Existing position accounting** | enabled when weights are passed | Counts already-held positions in sector and diversification checks |
 
 ---
 
@@ -58,16 +67,18 @@ approved = manager.approve_day([trade], price_history, equity_curve)
 | **Sector exposure** | How much of the portfolio is in one industry (e.g., tech stocks) |
 | **Correlation** | How closely two stocks move together. 1.0 = identical. 0.0 = unrelated. High correlation = hidden concentration risk |
 | **Drawdown** | How far the portfolio has fallen from its peak value |
-| **Soft de-risking** | Between -8% and -15% drawdown, position sizes are scaled down linearly. Protects capital before the hard halt triggers |
+| **Regime filter** | A market-state rule that can block new entries when conditions are bad |
 
 ---
 
-## Phase 3 Addition: Soft De-Risking Band
+## Existing Holdings
 
-```
-Portfolio at peak → drawdown starts
-  At -8%:  gross/net budgets start shrinking
-  At -15%: hard halt, no new trades approved
-```
+When `backtest.py` already has open positions, it passes both:
 
-This prevents a sudden cliff from full exposure to zero. The gradual reduction gives the model time to close positions naturally rather than being forced to dump everything at once.
+- `open_tickers` so the same ticker is not opened twice.
+- `open_position_weights` so the sector and diversification gates count what
+  is already held before adding a new trade.
+
+That prevents a hidden concentration bug where the manager respected total
+gross exposure but added another stock from a sector that was already near the
+sector limit.

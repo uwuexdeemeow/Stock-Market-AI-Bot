@@ -570,11 +570,14 @@ daily GitHub workflow:
 
 | Variable | Default | What it controls |
 |---|---:|---|
+| `ALPACA_MAX_GROSS_EXPOSURE` | `1.00` | Broker-submit gross exposure cap. Keeps routine paper trading unlevered. |
 | `ALPACA_ORDER_TYPE` | `limit` | Normal rebalance order type. Keep `limit` unless deliberately testing market orders. |
 | `ALPACA_LIMIT_REFERENCE` | `last` | Limit anchor. `last` uses planned last trade; `quote` uses live bid/ask when explicitly enabled. |
 | `ALPACA_LIMIT_OFFSET_BPS_ETF` | `5` | ETF protective-limit cushion in basis points. |
 | `ALPACA_LIMIT_OFFSET_BPS_OVERLAY` | `12` | Overlay-stock protective-limit cushion in basis points. |
 | `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT` | `1` | Skip/log an order when Alpaca cannot provide a quote for spread checking. |
+| `MAX_SPREAD_PCT_ETF` | `0.005` | Max ETF spread accepted before skipping an order. |
+| `MAX_SPREAD_PCT_OVERLAY` | `0.015` | Max overlay-stock spread accepted before skipping an order. |
 | `SPREAD_GUARD_ALERT_TTL_HOURS` | `20` | Suppress repeated identical spread-guard alerts for this many hours. |
 | `ALPACA_ALLOW_CLOSED_MARKET_QUEUE` | `0` | Whether non-interactive runs may queue orders while market is closed. Keep `0`. |
 | `ALPACA_SKIP_BUYS_UNTIL_SELLS_FILLED` | `1` | Skip buys unless same-run sells fill first. |
@@ -596,9 +599,26 @@ daily GitHub workflow:
 Daily workflow currently sets:
 
 ```yaml
+ALPACA_MAX_GROSS_EXPOSURE=1.00
 ALPACA_ORDER_TYPE=limit
 ALPACA_LIMIT_REFERENCE=last
+ALPACA_LIMIT_OFFSET_BPS_ETF=5
+ALPACA_LIMIT_OFFSET_BPS_OVERLAY=12
+ALPACA_REQUIRE_QUOTE_FOR_SUBMIT=1
+MAX_SPREAD_PCT_ETF=0.005
+MAX_SPREAD_PCT_OVERLAY=0.015
 ALPACA_ALLOW_CLOSED_MARKET_QUEUE=0
+ALPACA_SKIP_BUYS_UNTIL_SELLS_FILLED=1
+ALPACA_SKIP_BUYS_WHEN_CASH_BELOW=0
+ALPACA_BUY_CASH_BUFFER_PCT=0.005
+ALPACA_BUY_CASH_BUFFER_DOLLARS=0
+ALPACA_SELL_FILL_WAIT_SECONDS=20
+ALPACA_SELL_FILL_POLL_SECONDS=2
+ALPACA_BUY_FILL_WAIT_SECONDS=20
+ALPACA_BUY_FILL_POLL_SECONDS=2
+ALPACA_MARGIN_WARN_GROSS=1.02
+TQQQ_FAST_DD_FAIL_CLOSED=1
+SPREAD_GUARD_ALERT_TTL_HOURS=20
 GUARD_CORE_STOP=1
 GUARD_CORE_TICKERS=SPY,QQQ,TQQQ
 GUARD_CORE_TRAIL_PCT=0.05

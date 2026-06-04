@@ -182,6 +182,7 @@ class PortfolioRiskManager:
         current_gross: float = 0.0,   # gross exposure already held in open positions
         current_net: float = 0.0,     # net long/short exposure already held
         open_tickers: set | None = None,  # tickers already held (no double-entries)
+        open_position_weights: Dict[str, float] | None = None,  # existing ticker -> current portfolio weight
         vix_level: float | None = None,  # optional stress proxy; high VIX floors equity correlations
     ) -> List[ProposedTrade]:
         """
@@ -190,6 +191,11 @@ class PortfolioRiskManager:
         current_gross / current_net must include ALL positions still open from
         prior days so the exposure caps are enforced across the full portfolio,
         not just today's new entries.
+
+        open_position_weights lets sector and diversification gates count the
+        positions we already hold. Without it, the manager can respect total
+        gross exposure but still add a new trade that silently overfills a
+        sector already present in the book.
         """
         approved: List[ProposedTrade] = []
 
@@ -213,12 +219,24 @@ class PortfolioRiskManager:
         gross = current_gross
         net = current_net
         # Tickers already in portfolio — don't open a second position in same stock.
-        held_tickers: set = set(open_tickers) if open_tickers else set()
+        existing_weights: Dict[str, float] = {}
+        if open_position_weights:
+            for ticker, raw_weight in open_position_weights.items():
+                ticker_key = str(ticker).upper().strip()
+                try:
+                    weight_val = abs(float(raw_weight))
+                except (TypeError, ValueError):
+                    continue
+                if ticker_key and np.isfinite(weight_val) and weight_val > 0:
+                    existing_weights[ticker_key] = existing_weights.get(ticker_key, 0.0) + weight_val
+
+        held_tickers: set = set(str(t).upper().strip() for t in open_tickers) if open_tickers else set()
+        held_tickers.update(existing_weights.keys())
         sector_alloc: Dict[str, float] = {}
         chosen_tickers: List[str] = list(held_tickers)
         # Track weights of approved trades so we can compute the
         # diversification ratio incrementally as new picks are considered.
-        chosen_weights: Dict[str, float] = {}
+        chosen_weights: Dict[str, float] = dict(existing_weights)
         returns_cache: Dict[str, pd.Series] = {}
 
         for ticker, series in price_history.items():
@@ -227,6 +245,10 @@ class PortfolioRiskManager:
                 returns_cache[ticker] = px.pct_change().dropna().tail(max(CORRELATION_LOOKBACK_WINDOWS))
             except Exception:
                 returns_cache[ticker] = pd.Series(dtype=float)
+
+        for ticker, weight in existing_weights.items():
+            sector = SECTOR_MAP.get(ticker, "OTHER")
+            sector_alloc[sector] = sector_alloc.get(sector, 0.0) + abs(weight)
 
         for trade in candidates:
             # Skip if we already hold this ticker (no doubling up on same name).

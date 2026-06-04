@@ -4,6 +4,7 @@ import json
 import sys
 import time
 from datetime import datetime
+from pathlib import Path
 
 import daily_run
 
@@ -27,6 +28,36 @@ def test_daily_refresh_forces_etf_download():
     etf_step = next(step for step in daily_run.DATA_REFRESH_STEPS if step.name == "refresh_etf_data")
     assert "--refresh" in etf_step.cmd
     assert "--force" in etf_step.cmd
+
+
+def test_daily_workflow_pins_execution_safety_env():
+    # PLAIN ENGLISH: the GitHub workflow writes its own .env file, so this test
+    # catches accidental removal of the safety knobs the live submit script needs.
+    workflow = Path(".github/workflows/daily_paper_trading.yml").read_text(encoding="utf-8")
+    required_lines = [
+        "ALPACA_MAX_GROSS_EXPOSURE=1.00",
+        "ALPACA_ORDER_TYPE=limit",
+        "ALPACA_LIMIT_REFERENCE=last",
+        "ALPACA_LIMIT_OFFSET_BPS_ETF=5",
+        "ALPACA_LIMIT_OFFSET_BPS_OVERLAY=12",
+        "ALPACA_REQUIRE_QUOTE_FOR_SUBMIT=1",
+        "MAX_SPREAD_PCT_ETF=0.005",
+        "MAX_SPREAD_PCT_OVERLAY=0.015",
+        "ALPACA_ALLOW_CLOSED_MARKET_QUEUE=0",
+        "ALPACA_SKIP_BUYS_UNTIL_SELLS_FILLED=1",
+        "ALPACA_SKIP_BUYS_WHEN_CASH_BELOW=0",
+        "ALPACA_BUY_CASH_BUFFER_PCT=0.005",
+        "ALPACA_BUY_CASH_BUFFER_DOLLARS=0",
+        "ALPACA_SELL_FILL_WAIT_SECONDS=20",
+        "ALPACA_SELL_FILL_POLL_SECONDS=2",
+        "ALPACA_BUY_FILL_WAIT_SECONDS=20",
+        "ALPACA_BUY_FILL_POLL_SECONDS=2",
+        "ALPACA_MARGIN_WARN_GROSS=1.02",
+        "TQQQ_FAST_DD_FAIL_CLOSED=1",
+        "SPREAD_GUARD_ALERT_TTL_HOURS=20",
+    ]
+    for line in required_lines:
+        assert line in workflow
 
 
 def test_alpaca_only_still_generates_shared_signal():

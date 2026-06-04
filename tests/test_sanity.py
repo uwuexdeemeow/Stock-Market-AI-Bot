@@ -187,6 +187,26 @@ def test_portfolio_correlation_checks_existing_open_tickers():
     assert approved == []
 
 
+def test_portfolio_sector_cap_counts_existing_positions():
+    manager = PortfolioRiskManager(max_sector_exposure=0.35, max_pair_correlation=1.0)
+    candidates = [ProposedTrade("MSFT", pd.Timestamp("2024-06-01"), "LONG", 0.9, 1.0, 0.10)]
+
+    approved = manager.approve_day(
+        candidates,
+        {
+            "AAPL": _price_from_returns(np.array([0.005, -0.004] * 30, dtype=float)),
+            "MSFT": _price_from_returns(np.array([0.002, -0.001] * 30, dtype=float)),
+        },
+        pd.Series([10_000.0], index=[pd.Timestamp("2024-06-01")]),
+        current_gross=0.30,
+        current_net=0.30,
+        open_tickers={"AAPL"},
+        open_position_weights={"AAPL": 0.30},
+    )
+
+    assert approved == []
+
+
 def test_portfolio_correlation_insufficient_data_does_not_block():
     ret = np.array([0.005, -0.004] * 5, dtype=float)
     manager = PortfolioRiskManager(max_pair_correlation=0.85)

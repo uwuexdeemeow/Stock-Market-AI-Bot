@@ -3038,6 +3038,13 @@ def run_portfolio_backtest(
             for p in open_positions
         )
         open_ticker_set = {p["ticker"] for p in open_positions}
+        open_position_weights: dict[str, float] = {}
+        for pos in open_positions:
+            ticker_key = str(pos["ticker"]).upper()
+            open_position_weights[ticker_key] = (
+                open_position_weights.get(ticker_key, 0.0)
+                + abs(float(pos["requested_position_pct"]))
+            )
         approved = manager.approve_day(
             candidates,
             {k: v["Close"] for k, v in price_history.items()},
@@ -3045,6 +3052,7 @@ def run_portfolio_backtest(
             current_gross=open_gross,
             current_net=open_net,
             open_tickers=open_ticker_set,
+            open_position_weights=open_position_weights,
         )
         eff_slip = SLIPPAGE_BASE_PCT * stress
         for tr in approved:
