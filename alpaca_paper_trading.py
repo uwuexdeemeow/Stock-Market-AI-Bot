@@ -132,6 +132,9 @@ PRICE_RETRY_BASE_DELAY = float(os.environ.get("ALPACA_PRICE_RETRY_DELAY", "1.0")
 # Anything above 1% is suspiciously illiquid or halted.
 MAX_SPREAD_PCT_ETF = float(os.environ.get("MAX_SPREAD_PCT_ETF", "0.005"))  # 0.5% for ETFs
 MAX_SPREAD_PCT_OVERLAY = float(os.environ.get("MAX_SPREAD_PCT_OVERLAY", "0.015"))  # 1.5% for stocks
+REQUIRE_QUOTE_FOR_SUBMIT = os.environ.get("ALPACA_REQUIRE_QUOTE_FOR_SUBMIT", "1").strip().lower() in {
+    "true", "1", "yes", "y", "on"
+}
 
 # Order style.  The default is now protective day limit orders, not market
 # orders.  PLAIN ENGLISH: a marketable limit order still tries to fill now,
@@ -158,7 +161,12 @@ BUY_CASH_BUFFER_PCT = float(os.environ.get("ALPACA_BUY_CASH_BUFFER_PCT", "0.005"
 BUY_CASH_BUFFER_DOLLARS = float(os.environ.get("ALPACA_BUY_CASH_BUFFER_DOLLARS", "0"))
 SELL_FILL_WAIT_SECONDS = float(os.environ.get("ALPACA_SELL_FILL_WAIT_SECONDS", "20"))
 SELL_FILL_POLL_SECONDS = float(os.environ.get("ALPACA_SELL_FILL_POLL_SECONDS", "2"))
+BUY_FILL_WAIT_SECONDS = float(os.environ.get("ALPACA_BUY_FILL_WAIT_SECONDS", "20"))
+BUY_FILL_POLL_SECONDS = float(os.environ.get("ALPACA_BUY_FILL_POLL_SECONDS", "2"))
 MARGIN_WARN_GROSS = float(os.environ.get("ALPACA_MARGIN_WARN_GROSS", "1.02"))
+TQQQ_FAST_DD_FAIL_CLOSED = os.environ.get("TQQQ_FAST_DD_FAIL_CLOSED", "1").strip().lower() in {
+    "true", "1", "yes", "y", "on"
+}
 
 
 def _truthy(value: object) -> bool:
@@ -1119,6 +1127,62 @@ def _skip_order(order_row: dict, reason: str) -> str:
     return f"SKIPPED: {reason}"
 
 
+def _apply_spread_guard(
+    broker: AlpacaBroker,
+    orders: list[dict],
+) -> tuple[list[dict], list[dict], list[str]]:
+    """
+    Remove orders that have unsafe or unverifiable bid-ask spreads.
+
+    PLAIN ENGLISH: Before an order is sent, we ask Alpaca for the current bid
+    and ask.  If the spread is too wide, or if quotes are unavailable and the
+    fail-closed setting is on, the order is logged as skipped instead of simply
+    disappearing from the run.
+    """
+    remaining: list[dict] = []
+    skipped_orders: list[dict] = []
+    skipped_ids: list[str] = []
+
+    for order_row in orders:
+        ticker = str(order_row.get("ticker", "")).upper()
+        quote = broker.get_quote_snapshot(ticker)
+        order_row.update({
+            "bid_price": quote.get("bid_price"),
+            "ask_price": quote.get("ask_price"),
+            "quote_mid_price": quote.get("quote_mid_price"),
+            "spread_pct": quote.get("spread_pct"),
+        })
+
+        threshold = MAX_SPREAD_PCT_ETF if ticker in ETF_TICKERS else MAX_SPREAD_PCT_OVERLAY
+        spread = _float_or_none(quote.get("spread_pct"))
+        reason = ""
+        if spread is None and REQUIRE_QUOTE_FOR_SUBMIT:
+            reason = "quote_unavailable"
+        elif spread is not None and spread > threshold:
+            reason = f"spread_guard:{spread*100:.2f}%>{threshold*100:.1f}%"
+
+        if reason:
+            skipped_orders.append(order_row)
+            skipped_ids.append(_skip_order(order_row, reason))
+            continue
+
+        remaining.append(order_row)
+
+    if skipped_orders:
+        tickers = ", ".join(str(o.get("ticker", "")).upper() for o in skipped_orders)
+        try:
+            from notifications import send_alert
+            send_alert(
+                f"Spread/quote guard blocked {len(skipped_orders)} orders: {tickers}",
+                title="Spread Guard",
+                priority="warning",
+            )
+        except Exception:
+            pass
+
+    return remaining, skipped_orders, skipped_ids
+
+
 def _buy_cash_reserve_price(order_row: dict, *, use_market_order: bool) -> float | None:
     """
     Return the per-share cash reserve price for a buy order.
@@ -1474,7 +1538,24 @@ def _already_submitted_today(broker: AlpacaBroker | None = None) -> bool:
             return False
         dates = pd.to_datetime(log[ts_col], errors="coerce", utc=True)
         today = pd.Timestamp.now(tz="UTC").normalize()
-        return bool((dates.dt.normalize() == today).any())
+        today_rows = log[dates.dt.normalize() == today].copy()
+        if today_rows.empty:
+            return False
+        fill_status = (
+            today_rows.get("fill_status", pd.Series("", index=today_rows.index))
+            .astype(str)
+            .str.lower()
+            .str.strip()
+        )
+        order_id_col = today_rows.get("order_id", pd.Series("", index=today_rows.index)).astype(str)
+        # PLAIN ENGLISH: A skipped/error row means the bot did NOT reach Alpaca.
+        # It should show in the audit log, but it should not block a later retry
+        # if cash/quotes recover and no live Alpaca bot order exists.
+        actually_sent = ~(
+            fill_status.isin({"skipped", "submission_failed"})
+            | order_id_col.str.startswith(("SKIPPED", "ERROR"), na=False)
+        )
+        return bool(actually_sent.any())
     except Exception:
         return False
 
@@ -2128,6 +2209,56 @@ def submit_trailing_stops(broker: AlpacaBroker, buy_orders: list[dict]) -> list[
     return stop_ids
 
 
+def _buy_orders_filled_for_stop_submission(
+    broker: AlpacaBroker,
+    submitted_orders: list[dict],
+    order_ids: list[str],
+) -> list[dict]:
+    """
+    Return accepted overlay buys that filled before placing stops.
+
+    PLAIN ENGLISH: Alpaca can reject a trailing stop if the buy order is still
+    open because the shares do not exist yet.  This waits briefly, then only
+    sends stops for buys that Alpaca says are filled.  Unfilled buys are left
+    for the reconcile/repair step to protect after they fill.
+    """
+    overlay_pairs = [
+        (order_row, str(oid))
+        for order_row, oid in zip(submitted_orders, order_ids)
+        if str(order_row.get("side", "")).lower() == "buy"
+        and str(order_row.get("ticker", "")).upper() not in ETF_TICKERS
+        and not str(oid).startswith(("ERROR", "SKIPPED"))
+    ]
+    if not overlay_pairs:
+        return []
+
+    print(f"  Waiting up to {BUY_FILL_WAIT_SECONDS:g}s for overlay buys to fill before stops...")
+    statuses = wait_for_order_fills(
+        broker,
+        [oid for _, oid in overlay_pairs],
+        timeout_seconds=BUY_FILL_WAIT_SECONDS,
+        poll_seconds=BUY_FILL_POLL_SECONDS,
+    )
+    filled: list[dict] = []
+    unfilled_notes: list[str] = []
+    for order_row, oid in overlay_pairs:
+        status = str(statuses.get(oid, "")).lower().strip()
+        if status == "filled":
+            filled.append(order_row)
+        else:
+            unfilled_notes.append(f"{order_row.get('ticker')} {oid[:8]}={status or 'unknown'}")
+
+    if unfilled_notes:
+        note = ", ".join(unfilled_notes[:6])
+        print(f"  ⚠ Overlay stops deferred until reconcile/repair: {note}")
+        _send_submit_guard_alert(
+            "Overlay stop deferred",
+            f"Some buy orders were not filled before stop placement. Reconcile will repair after fill.\n{note}",
+            priority="warning",
+        )
+    return filled
+
+
 def cancel_overlay_trailing_stops_for_sells(
     broker: AlpacaBroker,
     sell_orders: list[dict],
@@ -2361,9 +2492,15 @@ def _tqqq_pre_trade_check(broker: AlpacaBroker) -> tuple[bool, float]:
         hist = yf.download("TQQQ", period=f"{TQQQ_FAST_DD_LOOKBACK_DAYS + 2}d",
                            interval="1d", progress=False, auto_adjust=True)
         if hist.empty or "Close" not in hist.columns:
+            if TQQQ_FAST_DD_FAIL_CLOSED:
+                print("  ⚠ TQQQ pre-trade check has no price data (blocking buy).")
+                return False, float("nan")
             return True, 0.0
         closes = hist["Close"].dropna()
         if len(closes) < 2:
+            if TQQQ_FAST_DD_FAIL_CLOSED:
+                print("  ⚠ TQQQ pre-trade check has too little price data (blocking buy).")
+                return False, float("nan")
             return True, 0.0
         window = closes.iloc[-TQQQ_FAST_DD_LOOKBACK_DAYS:]
         recent_high = float(window.max())
@@ -2371,6 +2508,9 @@ def _tqqq_pre_trade_check(broker: AlpacaBroker) -> tuple[bool, float]:
         drawdown = (current - recent_high) / recent_high if recent_high > 0 else 0.0
         return drawdown > TQQQ_FAST_DD_THRESHOLD, drawdown
     except Exception as e:
+        if TQQQ_FAST_DD_FAIL_CLOSED:
+            print(f"  ⚠ TQQQ pre-trade check failed (blocking buy): {e}")
+            return False, float("nan")
         print(f"  ⚠ TQQQ pre-trade check failed (allowing buy): {e}")
         return True, 0.0
 
@@ -2749,6 +2889,9 @@ def main():
             print("     Existing stops may reserve shares and cause sell orders to fail.")
             return
 
+    pre_submit_skipped_orders: list[dict] = []
+    pre_submit_skipped_ids: list[str] = []
+
     # ── TQQQ fast circuit breaker — pre-trade check ───────────────────────
     # PLAIN ENGLISH: Before submitting any TQQQ buy, verify that TQQQ hasn't
     # already crashed more than TQQQ_FAST_DD_THRESHOLD from its recent high.
@@ -2759,9 +2902,20 @@ def main():
     if tqqq_buys:
         tqqq_safe, tqqq_dd = _tqqq_pre_trade_check(broker)
         if not tqqq_safe:
-            print(f"  🛑 TQQQ fast circuit breaker: {tqqq_dd*100:.1f}% drawdown from "
-                  f"{TQQQ_FAST_DD_LOOKBACK_DAYS}-day high (threshold {TQQQ_FAST_DD_THRESHOLD*100:.0f}%).")
+            if np.isfinite(tqqq_dd):
+                print(f"  🛑 TQQQ fast circuit breaker: {tqqq_dd*100:.1f}% drawdown from "
+                      f"{TQQQ_FAST_DD_LOOKBACK_DAYS}-day high (threshold {TQQQ_FAST_DD_THRESHOLD*100:.0f}%).")
+            else:
+                print("  🛑 TQQQ fast circuit breaker: price data unavailable, blocking TQQQ buy.")
             print(f"     Removing TQQQ buy orders and closing any existing TQQQ position.")
+            skip_reason = (
+                "tqqq_fast_dd_data_unavailable"
+                if not np.isfinite(tqqq_dd)
+                else f"tqqq_fast_dd:{tqqq_dd:.4f}"
+            )
+            for order_row in tqqq_buys:
+                pre_submit_skipped_orders.append(order_row)
+                pre_submit_skipped_ids.append(_skip_order(order_row, skip_reason))
             orders = [o for o in orders if not (o["ticker"] == "TQQQ" and o["side"] == "buy")]
             # Close existing TQQQ position if held
             tqqq_pos = broker.get_position_map().get("TQQQ", 0)
@@ -2782,34 +2936,9 @@ def main():
     # PLAIN ENGLISH: Before submitting, check the bid-ask spread for each ticker.
     # If the spread is wider than our threshold (e.g. >1.5% for stocks), the market
     # order would fill at a terrible price.  Skip it and log a warning instead.
-    _spread_blocked: list[str] = []
-    for o in orders:
-        ticker = o["ticker"]
-        quote = broker.get_quote_snapshot(ticker)
-        o.update({
-            "bid_price": quote.get("bid_price"),
-            "ask_price": quote.get("ask_price"),
-            "quote_mid_price": quote.get("quote_mid_price"),
-            "spread_pct": quote.get("spread_pct"),
-        })
-        spread = _float_or_none(quote.get("spread_pct"))
-        threshold = MAX_SPREAD_PCT_ETF if ticker in ETF_TICKERS else MAX_SPREAD_PCT_OVERLAY
-        if spread is not None and spread > threshold:
-            _spread_blocked.append(ticker)
-            print(f"    ⚠ SPREAD BLOCK: {ticker} spread={spread*100:.2f}% "
-                  f"(threshold={threshold*100:.1f}%) — skipping order")
-    if _spread_blocked:
-        orders = [o for o in orders if o["ticker"] not in _spread_blocked]
-        try:
-            from notifications import send_alert
-            send_alert(
-                f"Spread guard blocked {len(_spread_blocked)} orders: "
-                f"{', '.join(_spread_blocked)}",
-                title="Spread Guard",
-                priority="warning",
-            )
-        except Exception:
-            pass
+    orders, spread_skipped_orders, spread_skipped_ids = _apply_spread_guard(broker, orders)
+    pre_submit_skipped_orders.extend(spread_skipped_orders)
+    pre_submit_skipped_ids.extend(spread_skipped_ids)
 
     use_market_order = should_use_market_orders(args)
     use_quote_limit = should_use_quote_limits(args)
@@ -2825,23 +2954,21 @@ def main():
     )
 
     # ── Log the submission ──────────────────────────────────────────────
-    log_submission(submitted_orders, order_ids)
+    logged_orders = pre_submit_skipped_orders + submitted_orders
+    logged_order_ids = pre_submit_skipped_ids + order_ids
+    log_submission(logged_orders, logged_order_ids)
     accepted = [
-        oid for oid in order_ids
+        oid for oid in logged_order_ids
         if not str(oid).startswith(("ERROR", "SKIPPED"))
     ]
-    print(f"\n  ✓ {len(accepted)}/{len(submitted_orders)} orders accepted by Alpaca. Log saved → {PAPER_LOG_FILE}")
+    print(f"\n  ✓ {len(accepted)}/{len(logged_orders)} orders accepted by Alpaca. Log saved → {PAPER_LOG_FILE}")
 
     # ── Submit trailing stop-loss orders for overlay stocks ────────────
     # PLAIN ENGLISH: After buying individual stocks, place a trailing stop
     # that will sell automatically if the stock drops 8% from its high.
     # This limits downside on single-name positions between rebalances.
     # ETFs are NOT protected by stops (regime switching handles that).
-    successful_buy_orders = [
-        order for order, oid in zip(submitted_orders, order_ids)
-        if str(order.get("side", "")).lower() == "buy"
-        and not str(oid).startswith(("ERROR", "SKIPPED"))
-    ]
+    successful_buy_orders = _buy_orders_filled_for_stop_submission(broker, submitted_orders, order_ids)
     stop_ids = submit_trailing_stops(broker, successful_buy_orders)
     if stop_ids:
         successful_stops = [s for s in stop_ids if not str(s).startswith("ERROR")]

@@ -130,9 +130,12 @@ The Alpaca submit path now has extra no-margin guards:
 - default order type is protective day limits (`ALPACA_ORDER_TYPE=limit`)
 - closed-market queueing is off by default (`ALPACA_ALLOW_CLOSED_MARKET_QUEUE=0`)
 - sells submit before buys
+- quote/spread guard logs skipped orders when a quote is missing or the spread is too wide
 - buys are skipped if sells fail, sells do not fill quickly, or cash is below the no-margin threshold
 - cash-limited buys are resized down to the largest whole-share quantity that fits available cash after a default 0.5% equity cash buffer; if even one share cannot fit or the trade falls below `ALPACA_MIN_TRADE_VALUE`, the buy is skipped and logged
 - buy cash checks use the smaller of Alpaca cash and buying power, so pending order reservations cannot be double-spent
+- accepted overlay buys wait briefly for fills before trailing stops are attached; unfilled buys are protected by the reconcile/repair step after fill
+- TQQQ fast-drawdown data failures block TQQQ buys by default instead of failing open
 - after submit/reconcile, the bot repairs overlay trailing stops from live Alpaca positions and warns if stock value is materially above equity
 
 To run without submitting:
@@ -571,6 +574,7 @@ daily GitHub workflow:
 | `ALPACA_LIMIT_REFERENCE` | `last` | Limit anchor. `last` uses planned last trade; `quote` uses live bid/ask when explicitly enabled. |
 | `ALPACA_LIMIT_OFFSET_BPS_ETF` | `5` | ETF protective-limit cushion in basis points. |
 | `ALPACA_LIMIT_OFFSET_BPS_OVERLAY` | `12` | Overlay-stock protective-limit cushion in basis points. |
+| `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT` | `1` | Skip/log an order when Alpaca cannot provide a quote for spread checking. |
 | `ALPACA_ALLOW_CLOSED_MARKET_QUEUE` | `0` | Whether non-interactive runs may queue orders while market is closed. Keep `0`. |
 | `ALPACA_SKIP_BUYS_UNTIL_SELLS_FILLED` | `1` | Skip buys unless same-run sells fill first. |
 | `ALPACA_SKIP_BUYS_WHEN_CASH_BELOW` | `0` | No-margin cash floor. Buys are skipped when cash is below this level. |
@@ -578,7 +582,10 @@ daily GitHub workflow:
 | `ALPACA_BUY_CASH_BUFFER_DOLLARS` | `0` | Optional dollar floor for the buy cash buffer. |
 | `ALPACA_SELL_FILL_WAIT_SECONDS` | `20` | How long to wait for sell orders to fill before deciding whether buys are safe. |
 | `ALPACA_SELL_FILL_POLL_SECONDS` | `2` | How often to poll Alpaca while waiting for sell fills. |
+| `ALPACA_BUY_FILL_WAIT_SECONDS` | `20` | How long to wait for overlay buys to fill before placing stops. |
+| `ALPACA_BUY_FILL_POLL_SECONDS` | `2` | How often to poll Alpaca while waiting for buy fills. |
 | `ALPACA_MARGIN_WARN_GROSS` | `1.02` | Warn if stock market value / equity is above this level. |
+| `TQQQ_FAST_DD_FAIL_CLOSED` | `1` | Block TQQQ buys when the fast drawdown data check fails. |
 | `ALPACA_TRAILING_STOP` | `1` | Enable overlay trailing stops. |
 | `ALPACA_TRAILING_STOP_PCT` | `0.08` | Overlay trailing-stop trail amount. |
 | `GUARD_CORE_STOP` | `1` | Enable durable core ETF trailing stops in `execution_guard.py`. |

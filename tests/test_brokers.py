@@ -13,6 +13,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -636,6 +637,54 @@ def _planned_order(ticker, side, quantity=1):
     }
 
 
+class _QuoteBroker:
+    """Tiny broker fake for quote/spread guard tests."""
+
+    def __init__(self, quotes):
+        self.quotes = quotes
+
+    def get_quote_snapshot(self, ticker):
+        return self.quotes.get(str(ticker).upper(), {
+            "bid_price": None,
+            "ask_price": None,
+            "quote_mid_price": None,
+            "spread_pct": None,
+        })
+
+
+def test_apply_spread_guard_logs_wide_spread_skip(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "MAX_SPREAD_PCT_OVERLAY", 0.01)
+    monkeypatch.setattr(apt, "REQUIRE_QUOTE_FOR_SUBMIT", True)
+    broker = _QuoteBroker({
+        "MU": {"bid_price": 100.0, "ask_price": 103.0, "quote_mid_price": 101.5, "spread_pct": 0.02956},
+    })
+    order = _planned_order("MU", "buy")
+
+    remaining, skipped, ids = apt._apply_spread_guard(broker, [order])
+
+    assert remaining == []
+    assert skipped == [order]
+    assert ids[0].startswith("SKIPPED: spread_guard")
+    assert order["fill_status"] == "skipped"
+    assert order["submitted_order_type"] == "skipped"
+
+
+def test_apply_spread_guard_blocks_missing_quote_when_required(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "REQUIRE_QUOTE_FOR_SUBMIT", True)
+    broker = _QuoteBroker({})
+    order = _planned_order("MU", "buy")
+
+    remaining, skipped, ids = apt._apply_spread_guard(broker, [order])
+
+    assert remaining == []
+    assert skipped == [order]
+    assert ids == ["SKIPPED: quote_unavailable"]
+
+
 def test_submit_rebalance_orders_skips_buys_when_sell_submission_fails(monkeypatch):
     import alpaca_paper_trading as apt
 
@@ -786,6 +835,45 @@ def test_submit_rebalance_orders_uses_lower_buying_power(monkeypatch):
     assert submitted[0]["quantity"] == 2
     assert submitted[0]["buying_power_used_for_cash_check"] == 250.0
     assert broker.orders[0].quantity == 2
+
+
+def test_buy_orders_for_stops_only_include_filled_overlay_buys(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "_send_submit_guard_alert", lambda *args, **kwargs: None)
+    monkeypatch.setattr(apt, "BUY_FILL_WAIT_SECONDS", 0)
+    broker = _SubmitBroker(statuses={
+        "buy-MU-1": "filled",
+        "buy-FCX-2": "new",
+        "buy-QQQ-3": "filled",
+    })
+    orders = [
+        _planned_order("MU", "buy"),
+        _planned_order("FCX", "buy"),
+        _planned_order("QQQ", "buy"),
+    ]
+
+    filled = apt._buy_orders_filled_for_stop_submission(
+        broker,
+        orders,
+        ["buy-MU-1", "buy-FCX-2", "buy-QQQ-3"],
+    )
+
+    assert [order["ticker"] for order in filled] == ["MU"]
+
+
+def test_tqqq_pre_trade_check_blocks_when_data_missing_fail_closed(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    fake_yf = SimpleNamespace(download=lambda *args, **kwargs: pd.DataFrame())
+    monkeypatch.setitem(sys.modules, "yfinance", fake_yf)
+    monkeypatch.setattr(apt, "TQQQ_FAST_DD_THRESHOLD", -0.15)
+    monkeypatch.setattr(apt, "TQQQ_FAST_DD_FAIL_CLOSED", True)
+
+    safe, drawdown = apt._tqqq_pre_trade_check(SimpleNamespace())
+
+    assert safe is False
+    assert np.isnan(drawdown)
 
 
 def test_submit_rebalance_orders_allows_buys_after_filled_sells_and_cash(monkeypatch):
@@ -944,6 +1032,35 @@ class TestDuplicatePrevention:
         apt.PAPER_LOG_FILE = log_path
         try:
             assert apt._already_submitted_today() is True
+        finally:
+            apt.PAPER_LOG_FILE = orig
+
+    def test_today_skipped_or_error_only_does_not_block(self, tmp_path):
+        """Skipped/error audit rows are not actual Alpaca submissions."""
+        import alpaca_paper_trading as apt
+        orig = apt.PAPER_LOG_FILE
+        log_path = tmp_path / "test_log.csv"
+        pd.DataFrame([
+            {
+                "submitted_at": datetime.now(timezone.utc).isoformat(),
+                "order_id": "SKIPPED: quote_unavailable",
+                "ticker": "MU", "side": "buy",
+                "quantity": 10, "price": 500,
+                "trade_value": 5000, "target_weight": 0.5,
+                "fill_status": "skipped",
+            },
+            {
+                "submitted_at": datetime.now(timezone.utc).isoformat(),
+                "order_id": "ERROR: rejected",
+                "ticker": "FCX", "side": "sell",
+                "quantity": 1, "price": 50,
+                "trade_value": 50, "target_weight": 0.0,
+                "fill_status": "submission_failed",
+            },
+        ]).to_csv(log_path, index=False)
+        apt.PAPER_LOG_FILE = log_path
+        try:
+            assert apt._already_submitted_today() is False
         finally:
             apt.PAPER_LOG_FILE = orig
 

@@ -159,8 +159,10 @@ The script has multiple layers of protection:
    it does not change position selection or order submission.
    The same report also includes all/limit/market summaries so you can compare
    execution quality before and after order-style changes.
-9. **Spread guard** — skips individual orders when spread > 1.5%
-   (configurable via `MAX_SPREAD_PCT`).
+9. **Spread/quote guard** — skips and logs individual orders when spread is
+   too wide or Alpaca cannot provide a quote (configurable via
+   `MAX_SPREAD_PCT_*` and `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT`).  Skipped rows
+   stay in `alpaca_paper_log.csv`, but they do not count as submitted orders.
 10. **Market-closed fail-closed behavior** — when run non-interactively at
    market close, it aborts instead of queueing orders.  Use
    `--allow-closed-market-queue` or `ALPACA_ALLOW_CLOSED_MARKET_QUEUE=1`
@@ -185,7 +187,15 @@ The script has multiple layers of protection:
    power, so pending order reservations cannot be double-spent.  If even one
    share would be too small or too expensive, the buy is skipped and logged.
    This avoids accidentally adding leverage when the sell side did not free cash.
-15. **Margin exposure warning** — after submit/reconcile, the script warns if
+15. **Buy-fill wait before overlay stops** — after accepted overlay buys, the
+   script waits briefly for fills before trying to attach trailing stops.  This
+   avoids the Alpaca rejection where a stop is sent before the shares exist.
+   If a buy is still open, the stop is deferred and reconcile/repair handles it
+   after fill.
+16. **TQQQ pre-trade fail-closed check** — TQQQ buys are blocked if the fast
+   drawdown check says unsafe or cannot fetch enough data.  This can be
+   loosened with `TQQQ_FAST_DD_FAIL_CLOSED=0`, but the default is safer.
+17. **Margin exposure warning** — after submit/reconcile, the script warns if
    stock market value is materially above account equity.
 
 ## Telegram order counts
