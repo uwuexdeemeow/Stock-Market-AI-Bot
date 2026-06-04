@@ -12,7 +12,7 @@ import pandas as pd
 import alpaca_paper_gauntlet
 from factor_data_health import trading_day_age
 from safe_io import atomic_write_json
-from signal_freshness import latest_completed_us_trading_day
+from signal_freshness import latest_completed_us_trading_day, validate_signal_freshness
 from settings import DATA_DIR, LOG_DIR, SECTOR_MAP, SIGNAL_DIR, WATCHLIST
 
 
@@ -25,11 +25,14 @@ PAPER_TRADES = SIGNALS / "alpaca_paper_log.csv"
 PAPER_EQUITY = SIGNALS / "alpaca_paper_equity.csv"
 PAPER_STATUS = SIGNALS / "alpaca_daily_status.json"
 PAPER_HEALTH = SIGNALS / "alpaca_paper_health.json"
+CORE_SIGNAL = SIGNALS / "core_satellite_alpha_signal.csv"
 CORE_ORDER_PLAN = SIGNALS / "core_satellite_alpha_orders.csv"
 
 
 MAX_SLIPPAGE_WARN_BPS = float(__import__("os").environ.get("PAPER_HEALTH_MAX_AVG_SLIPPAGE_BPS", "10"))
 MAX_DRAWDOWN_WARN_PCT = float(__import__("os").environ.get("PAPER_HEALTH_MAX_DRAWDOWN_WARN_PCT", "-5"))
+MAX_SIGNAL_AGE_HOURS = float(__import__("os").environ.get("ALPACA_MAX_SIGNAL_AGE_HOURS", "24.0"))
+MAX_FACTOR_AGE_TRADING_DAYS = int(__import__("os").environ.get("ALPACA_MAX_FACTOR_AGE_TRADING_DAYS", "5"))
 MAX_TICKER_WEIGHT_WARN = float(__import__("os").environ.get("PAPER_HEALTH_MAX_TICKER_WEIGHT", "0.35"))
 MAX_SECTOR_WEIGHT_WARN = float(__import__("os").environ.get("PAPER_HEALTH_MAX_SECTOR_WEIGHT", "0.50"))
 MAX_CORE_TICKER_WEIGHT_WARN = float(__import__("os").environ.get("PAPER_HEALTH_MAX_CORE_TICKER_WEIGHT", "0.65"))
@@ -106,6 +109,73 @@ def _to_float(value: object, default: float = 0.0) -> float:
         return float(pd.to_numeric(pd.Series([value]), errors="coerce").fillna(default).iloc[0])
     except Exception:
         return float(default)
+
+
+def _to_bool(value: object) -> bool:
+    """Convert common CSV/JSON truthy values into a real boolean."""
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"true", "1", "yes", "y", "on"}
+
+
+def _signal_gate_status(signal: pd.DataFrame, status: dict) -> dict:
+    """Read broker-submit readiness from the signal file, with status fallback.
+
+    PLAIN ENGLISH: `alpaca_daily_status.json` is mainly an account snapshot, so
+    it may not contain strategy gate fields.  The signal CSV is the same file
+    the broker submit script reads before sending orders.
+    """
+    row: dict = {}
+    if not signal.empty:
+        row = signal.iloc[0].to_dict()
+
+    paper_ready = _to_bool(_first_nonempty(row, "paper_ready", default=status.get("paper_ready")))
+    gates_all_pass = _to_bool(_first_nonempty(row, "gates_all_pass", default=status.get("gates_all_pass")))
+    medium_risk_review_pass = _to_bool(
+        _first_nonempty(row, "medium_risk_review_pass", default=status.get("medium_risk_review_pass"))
+    )
+    block_reasons: list[str] = []
+    if not paper_ready:
+        block_reasons.append("paper_ready=false")
+    if not gates_all_pass:
+        block_reasons.append("gates_all_pass=false")
+    if not medium_risk_review_pass:
+        block_reasons.append("medium_risk_review_pass=false")
+    return {
+        "strategy": _first_nonempty(row, "strategy", "paper_signal_type", default=status.get("strategy")),
+        "paper_ready": paper_ready,
+        "gates_all_pass": gates_all_pass,
+        "medium_risk_review_pass": medium_risk_review_pass,
+        "strategy_ready": paper_ready and gates_all_pass and medium_risk_review_pass,
+        "readiness_block_reasons": block_reasons,
+        "readiness_source": str(CORE_SIGNAL.name if row else PAPER_STATUS.name),
+    }
+
+
+def _signal_freshness_status(signal: pd.DataFrame, status: dict, *, now: datetime | None = None) -> dict:
+    """Validate signal age from the signal itself instead of trusting defaults."""
+    if not signal.empty:
+        row = signal.iloc[0]
+        ok, issues = validate_signal_freshness(
+            row,
+            max_signal_age_hours=MAX_SIGNAL_AGE_HOURS,
+            max_factor_age_trading_days=MAX_FACTOR_AGE_TRADING_DAYS,
+            now=now,
+        )
+        return {
+            "freshness_ok": bool(ok),
+            "freshness_issues": issues,
+            "freshness_source": CORE_SIGNAL.name,
+        }
+
+    fallback_issues = status.get("freshness_issues", ["missing_signal_file"])
+    if not isinstance(fallback_issues, list):
+        fallback_issues = [str(fallback_issues)]
+    return {
+        "freshness_ok": bool(status.get("freshness_ok", False)),
+        "freshness_issues": fallback_issues,
+        "freshness_source": PAPER_STATUS.name,
+    }
 
 
 def _paper_days(equity: pd.DataFrame) -> int:
@@ -561,7 +631,11 @@ def _readiness_flags(health: dict) -> dict:
     slippage = health.get("slippage", {}) or {}
     concentration = health.get("concentration", {}) or {}
     return {
-        "strategy_ready": bool(health.get("paper_ready") and health.get("gates_all_pass")),
+        "strategy_ready": bool(
+            health.get("paper_ready")
+            and health.get("gates_all_pass")
+            and health.get("medium_risk_review_pass")
+        ),
         "signal_fresh": bool(health.get("freshness_ok")),
         "broker_synced": bool(health.get("submitted_orders", 0) > 0 and health.get("filled_orders", 0) > 0),
         "account_aligned": bool(
@@ -815,7 +889,10 @@ def build_health() -> dict:
     trades = _read_csv(PAPER_TRADES)
     equity = _read_csv(PAPER_EQUITY)
     orders = _read_csv(CORE_ORDER_PLAN)
+    signal = _read_csv(CORE_SIGNAL)
     status = _read_json(PAPER_STATUS)
+    gate_status = _signal_gate_status(signal, status)
+    freshness_status = _signal_freshness_status(signal, status)
     gauntlet = alpaca_paper_gauntlet.evaluate_alpaca_paper()
     current_signal_trades = _filter_current_signal_trades(trades, status)
 
@@ -840,11 +917,16 @@ def build_health() -> dict:
     stale_open_orders = _stale_open_order_alerts(order_lifecycle)
     health = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "strategy": status.get("strategy", gauntlet.get("strategy")),
-        "paper_ready": bool(status.get("paper_ready", False)),
-        "gates_all_pass": bool(status.get("gates_all_pass", False)),
-        "freshness_ok": bool(status.get("freshness_ok", True)),
-        "freshness_issues": status.get("freshness_issues", []),
+        "strategy": gate_status.get("strategy") or status.get("strategy", gauntlet.get("strategy")),
+        "paper_ready": bool(gate_status.get("paper_ready", False)),
+        "gates_all_pass": bool(gate_status.get("gates_all_pass", False)),
+        "medium_risk_review_pass": bool(gate_status.get("medium_risk_review_pass", False)),
+        "strategy_ready": bool(gate_status.get("strategy_ready", False)),
+        "readiness_block_reasons": gate_status.get("readiness_block_reasons", []),
+        "readiness_source": gate_status.get("readiness_source"),
+        "freshness_ok": bool(freshness_status.get("freshness_ok", False)),
+        "freshness_issues": freshness_status.get("freshness_issues", []),
+        "freshness_source": freshness_status.get("freshness_source"),
         "paper_equity_days": _paper_days(equity),
         "paper_equity_rows": int(len(equity)),
         "paper_trades": int(len(trades)),
@@ -895,8 +977,19 @@ def print_health(health: dict) -> None:
     print("Paper Health")
     print("-" * 72)
     print(f"Strategy:              {health.get('strategy')}")
-    print(f"Paper ready/gates:     {health.get('paper_ready')} / {health.get('gates_all_pass')}")
-    print(f"Freshness:             {health.get('freshness_ok')} {health.get('freshness_issues') or ''}")
+    print(
+        "Submit gates:          "
+        f"paper={health.get('paper_ready')} "
+        f"gates={health.get('gates_all_pass')} "
+        f"medium={health.get('medium_risk_review_pass')} "
+        f"source={health.get('readiness_source')}"
+    )
+    if health.get("readiness_block_reasons"):
+        print(f"Blocked by:            {', '.join(health.get('readiness_block_reasons') or [])}")
+    print(
+        f"Freshness:             {health.get('freshness_ok')} "
+        f"source={health.get('freshness_source')} {health.get('freshness_issues') or ''}"
+    )
     print(f"Equity days:           {health.get('paper_equity_days')} rows={health.get('paper_equity_rows')}")
     print(
         f"Orders:                submitted={health.get('submitted_orders')} "

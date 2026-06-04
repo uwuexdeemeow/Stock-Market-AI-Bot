@@ -159,12 +159,15 @@ with col_b:
             "ok" if approval else "fail",
         )
     with h2:
-        ready = bool(signal.get("paper_ready", False))
-        gates = bool(signal.get("gates_all_pass", False))
+        # The home chip mirrors the real broker-submit gates so it cannot show
+        # ready when Alpaca order submission would still block.
+        gate_state = data.signal_trade_gate_state(signal)
         status_chip(
-            "Paper-trading ready" if ready and gates else "Gates blocked",
-            "ok" if ready and gates else "warn",
+            "Paper-trading ready" if gate_state["trade_ready"] else "Gates blocked",
+            "ok" if gate_state["trade_ready"] else "warn",
         )
+        if gate_state["block_reasons"]:
+            st.caption(", ".join(gate_state["block_reasons"]))
     with h3:
         last_run = data.load_latest_daily_run() or {}
         passed = last_run.get("steps_ok", 0)

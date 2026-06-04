@@ -99,3 +99,32 @@ def test_account_summary_uses_equity_csv_when_status_missing(tmp_path, monkeypat
     assert summary["source"] == "alpaca_paper_equity.csv"
     assert summary["change_abs_today"] == 1500
     assert summary["change_pct_today"] == 1.5
+
+
+def test_dashboard_trade_gate_state_requires_medium_risk_review():
+    gate_state = data.signal_trade_gate_state(
+        {
+            "paper_ready": "True",
+            "gates_all_pass": "True",
+            "medium_risk_review_pass": "False",
+        }
+    )
+
+    assert gate_state["paper_ready"] is True
+    assert gate_state["gates_all_pass"] is True
+    assert gate_state["medium_risk_review_pass"] is False
+    assert gate_state["trade_ready"] is False
+    assert gate_state["block_reasons"] == ["medium_risk_review_pass=false"]
+
+
+def test_dashboard_trade_gate_state_ready_only_when_all_submit_gates_pass():
+    gate_state = data.signal_trade_gate_state(
+        {
+            "paper_ready": True,
+            "gates_all_pass": True,
+            "medium_risk_review_pass": True,
+        }
+    )
+
+    assert gate_state["trade_ready"] is True
+    assert gate_state["block_reasons"] == []

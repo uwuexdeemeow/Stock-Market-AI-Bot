@@ -125,6 +125,39 @@ def _to_float(value: object, default: float = 0.0) -> float:
         return float(default)
 
 
+def _to_bool(value: object) -> bool:
+    """Convert common CSV/JSON truthy values into a real boolean."""
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"true", "1", "yes", "y", "on"}
+
+
+def signal_trade_gate_state(signal: dict | None) -> dict:
+    """Return the same broker-submit gate verdict used by status.py.
+
+    PLAIN ENGLISH: The dashboard should only show paper trading as ready if the
+    real Alpaca submission script would also be allowed to submit orders.
+    """
+    signal = signal or {}
+    paper_ready = _to_bool(signal.get("paper_ready"))
+    gates_all_pass = _to_bool(signal.get("gates_all_pass"))
+    medium_risk_review_pass = _to_bool(signal.get("medium_risk_review_pass"))
+    block_reasons: list[str] = []
+    if not paper_ready:
+        block_reasons.append("paper_ready=false")
+    if not gates_all_pass:
+        block_reasons.append("gates_all_pass=false")
+    if not medium_risk_review_pass:
+        block_reasons.append("medium_risk_review_pass=false")
+    return {
+        "paper_ready": paper_ready,
+        "gates_all_pass": gates_all_pass,
+        "medium_risk_review_pass": medium_risk_review_pass,
+        "trade_ready": paper_ready and gates_all_pass and medium_risk_review_pass,
+        "block_reasons": block_reasons,
+    }
+
+
 def _signed_slippage_bps(side: str, fill_price: float, reference_price: float) -> float | None:
     """Positive slippage means the fill was worse than the planned price."""
     if fill_price <= 0 or reference_price <= 0:

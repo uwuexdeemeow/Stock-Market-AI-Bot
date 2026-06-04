@@ -23,6 +23,12 @@ It computes:
 10. **Execution log normalization** - understands both older broker log
    columns (`action`, `broker_dealt_qty`) and current Alpaca log columns
    (`side`, `quantity`, `filled_qty`, `filled_avg_price`).
+11. **Submit-gate readiness** - reads `paper_ready`, `gates_all_pass`,
+    and `medium_risk_review_pass` from the same signal CSV the broker
+    submit script uses.
+12. **Signal freshness** - validates `predicted_at` and
+    `latest_factor_date` from the signal CSV instead of assuming the account
+    snapshot is fresh.
 
 If anything is off, the script warns via Telegram (and writes the
 detail to JSON for later inspection).
@@ -56,6 +62,7 @@ python3 paper_health.py --json
 | `signals/alpaca_paper_log.csv` | Order log with fill status |
 | `signals/alpaca_paper_equity.csv` | Daily equity history |
 | `signals/alpaca_daily_status.json` | Current positions/equity |
+| `signals/core_satellite_alpha_signal.csv` | Broker-submit readiness gates and signal freshness fields |
 | `signals/core_satellite_nested_walkforward.json` | Backtest expectations to compare against |
 | `data/*.parquet` | Cached factor price/features used to check data freshness |
 
@@ -102,6 +109,11 @@ the comparison is meaningless noise.
 - **Scorecard** — 11 individual go-live readiness checks.  Each passes
   or fails independently; the overall verdict is "ready" only when all
   11 pass.
+- **Submit gates** — the three checks that must all be true before the
+  broker submit path can trade: `paper_ready`, `gates_all_pass`, and
+  `medium_risk_review_pass`.
+- **Signal freshness** — whether the signal was generated recently enough and
+  is based on recent enough factor data for broker submission.
 
 ## When to run
 
