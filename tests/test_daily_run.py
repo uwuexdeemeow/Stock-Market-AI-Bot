@@ -37,7 +37,8 @@ def test_daily_workflow_pins_execution_safety_env():
     required_lines = [
         "ALPACA_MAX_GROSS_EXPOSURE=1.00",
         "ALPACA_ORDER_TYPE=limit",
-        "ALPACA_LIMIT_REFERENCE=last",
+        "ALPACA_ALLOW_MARKET_ORDER_OVERRIDE=0",
+        "ALPACA_LIMIT_REFERENCE=quote",
         "ALPACA_LIMIT_OFFSET_BPS_ETF=5",
         "ALPACA_LIMIT_OFFSET_BPS_OVERLAY=12",
         "ALPACA_REQUIRE_QUOTE_FOR_SUBMIT=1",
