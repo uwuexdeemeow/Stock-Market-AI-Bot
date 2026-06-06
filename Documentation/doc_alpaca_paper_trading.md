@@ -160,8 +160,11 @@ The script has multiple layers of protection:
    skip the order, or the builder falls back to the planned last-price limit
    depending on the guard setting.
 8. **Execution risk scoring** — the slippage report ranks tickers by recent
-   bad slippage and post-fill reversal behavior.  This is dashboard-only;
-   it does not change position selection or order submission.
+   bad slippage and post-fill reversal behavior.  Order planning now reads
+   that report and shrinks risky overlay BUY orders before submission while
+   leaving SELL exits unchanged.  The plan and paper log record the risk score,
+   scale, and reason so the dashboard can explain why a buy was reduced.
+   Set `ALPACA_EXECUTION_RISK_ENABLED=0` to roll this behavior back.
    The same report also includes all/limit/market summaries so you can compare
    execution quality before and after order-style changes.
 9. **Spread/quote guard** — skips and logs individual orders when spread is

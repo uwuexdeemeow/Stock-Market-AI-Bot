@@ -522,6 +522,87 @@ def test_generate_orders_skips_sell_when_broker_reports_zero_sellable():
     assert apt.generate_orders(broker, {"FCX": 0.0}, force=True) == []
 
 
+def test_generate_orders_throttles_high_risk_overlay_buys(tmp_path, monkeypatch):
+    import alpaca_paper_trading as apt
+
+    report_path = tmp_path / "alpaca_slippage_reversal_report.json"
+    report_path.write_text(json.dumps({
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "by_symbol": [{
+            "symbol": "MU",
+            "orders": 3,
+            "avg_slippage_bps": 12.0,
+            "bad_slippage_rate": 1.0,
+            "execution_risk_score": 65.0,
+        }],
+    }), encoding="utf-8")
+    monkeypatch.setattr(apt, "SLIPPAGE_REPORT_FILE", report_path)
+    monkeypatch.setattr(apt, "EXECUTION_RISK_ENABLED", True)
+    monkeypatch.setattr(apt, "EXECUTION_RISK_REPORT_MAX_AGE_HOURS", 168)
+    monkeypatch.setattr(apt, "EXECUTION_RISK_WARN_SCORE", 40)
+    monkeypatch.setattr(apt, "EXECUTION_RISK_HIGH_SCORE", 60)
+    monkeypatch.setattr(apt, "EXECUTION_RISK_HIGH_BUY_SCALE", 0.50)
+
+    broker = _OrderBroker(equity=100_000.0, positions={}, prices={"MU": 100.0})
+
+    orders = apt.generate_orders(broker, {"MU": 0.20}, force=True)
+
+    assert orders[0]["side"] == "buy"
+    assert orders[0]["requested_quantity"] == 200
+    assert orders[0]["quantity"] == 100
+    assert orders[0]["execution_risk_score"] == 65.0
+    assert orders[0]["execution_risk_band"] == "high"
+    assert orders[0]["execution_risk_buy_scale"] == 0.50
+    assert orders[0]["execution_risk_quantity_before_scale"] == 200
+    assert orders[0]["execution_risk_quantity_after_scale"] == 100
+    assert "high_execution_risk_score_65.00" in orders[0]["execution_risk_reason"]
+
+
+def test_generate_orders_keeps_high_risk_sells_exit_ready(tmp_path, monkeypatch):
+    import alpaca_paper_trading as apt
+
+    report_path = tmp_path / "alpaca_slippage_reversal_report.json"
+    report_path.write_text(json.dumps({
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "by_symbol": [{"symbol": "MU", "execution_risk_score": 65.0}],
+    }), encoding="utf-8")
+    monkeypatch.setattr(apt, "SLIPPAGE_REPORT_FILE", report_path)
+    monkeypatch.setattr(apt, "EXECUTION_RISK_ENABLED", True)
+    monkeypatch.setattr(apt, "EXECUTION_RISK_HIGH_SCORE", 60)
+    monkeypatch.setattr(apt, "EXECUTION_RISK_HIGH_BUY_SCALE", 0.50)
+
+    broker = _OrderBroker(equity=100_000.0, positions={"MU": 200}, prices={"MU": 100.0})
+
+    orders = apt.generate_orders(broker, {"MU": 0.0}, force=True)
+
+    assert orders[0]["side"] == "sell"
+    assert orders[0]["requested_quantity"] == 200
+    assert orders[0]["quantity"] == 200
+    assert orders[0]["execution_risk_band"] == "high"
+    assert orders[0]["execution_risk_reason"] == ""
+
+
+def test_generate_orders_ignores_stale_execution_risk_report(tmp_path, monkeypatch):
+    import alpaca_paper_trading as apt
+
+    report_path = tmp_path / "alpaca_slippage_reversal_report.json"
+    report_path.write_text(json.dumps({
+        "generated_at": "2020-01-01T00:00:00+00:00",
+        "by_symbol": [{"symbol": "MU", "execution_risk_score": 99.0}],
+    }), encoding="utf-8")
+    monkeypatch.setattr(apt, "SLIPPAGE_REPORT_FILE", report_path)
+    monkeypatch.setattr(apt, "EXECUTION_RISK_ENABLED", True)
+    monkeypatch.setattr(apt, "EXECUTION_RISK_REPORT_MAX_AGE_HOURS", 1)
+
+    broker = _OrderBroker(equity=100_000.0, positions={}, prices={"MU": 100.0})
+
+    orders = apt.generate_orders(broker, {"MU": 0.20}, force=True)
+
+    assert orders[0]["quantity"] == 200
+    assert orders[0]["execution_risk_score"] == ""
+    assert orders[0]["execution_risk_band"] == "none"
+
+
 def test_build_submission_order_defaults_to_limit():
     import alpaca_paper_trading as apt
 
@@ -1047,6 +1128,8 @@ def test_log_submission_marks_error_and_skipped_statuses(tmp_path):
     assert "cash_clamped_to_available" in df.columns
     assert "cash_buffer_reserved" in df.columns
     assert "buying_power_used_for_cash_check" in df.columns
+    assert "execution_risk_score" in df.columns
+    assert "execution_risk_reason" in df.columns
 
 
 def test_paper_health_submitted_orders_excludes_skipped_and_errors(tmp_path, monkeypatch):

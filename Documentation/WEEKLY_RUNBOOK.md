@@ -151,6 +151,7 @@ The Alpaca submit path now has extra no-margin guards:
 - default order type is protective day limits (`ALPACA_ORDER_TYPE=limit`)
 - accidental market-order override is locked (`ALPACA_ALLOW_MARKET_ORDER_OVERRIDE=0`)
 - default limit anchor is live bid/ask (`ALPACA_LIMIT_REFERENCE=quote`)
+- recent execution-risk scores shrink risky overlay BUY orders before submit (`ALPACA_EXECUTION_RISK_ENABLED=1`)
 - closed-market queueing is off by default (`ALPACA_ALLOW_CLOSED_MARKET_QUEUE=0`)
 - sells submit before buys
 - quote/spread guard logs skipped orders when a quote is missing or the spread is too wide
@@ -599,6 +600,12 @@ daily GitHub workflow:
 | `ALPACA_LIMIT_REFERENCE` | `quote` | Limit anchor. `quote` uses live bid/ask; `last` rolls back to planned last-trade anchoring. |
 | `ALPACA_LIMIT_OFFSET_BPS_ETF` | `5` | ETF protective-limit cushion in basis points. |
 | `ALPACA_LIMIT_OFFSET_BPS_OVERLAY` | `12` | Overlay-stock protective-limit cushion in basis points. |
+| `ALPACA_EXECUTION_RISK_ENABLED` | `1` | Use the recent slippage/reversal report to shrink risky overlay BUY orders. |
+| `ALPACA_EXECUTION_RISK_REPORT_MAX_AGE_HOURS` | `168` | Ignore execution-risk reports older than this many hours. |
+| `ALPACA_EXECUTION_RISK_WARN_SCORE` | `40` | Score where overlay buys start getting reduced. |
+| `ALPACA_EXECUTION_RISK_HIGH_SCORE` | `60` | Score where the stronger buy reduction applies. |
+| `ALPACA_EXECUTION_RISK_WARN_BUY_SCALE` | `0.75` | Quantity multiplier for warning-risk overlay buys. |
+| `ALPACA_EXECUTION_RISK_HIGH_BUY_SCALE` | `0.50` | Quantity multiplier for high-risk overlay buys. |
 | `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT` | `1` | Skip/log an order when Alpaca cannot provide a quote for spread checking. |
 | `MAX_SPREAD_PCT_ETF` | `0.005` | Max ETF spread accepted before skipping an order. |
 | `MAX_SPREAD_PCT_OVERLAY` | `0.015` | Max overlay-stock spread accepted before skipping an order. |
@@ -629,6 +636,12 @@ ALPACA_ALLOW_MARKET_ORDER_OVERRIDE=0
 ALPACA_LIMIT_REFERENCE=quote
 ALPACA_LIMIT_OFFSET_BPS_ETF=5
 ALPACA_LIMIT_OFFSET_BPS_OVERLAY=12
+ALPACA_EXECUTION_RISK_ENABLED=1
+ALPACA_EXECUTION_RISK_REPORT_MAX_AGE_HOURS=168
+ALPACA_EXECUTION_RISK_WARN_SCORE=40
+ALPACA_EXECUTION_RISK_HIGH_SCORE=60
+ALPACA_EXECUTION_RISK_WARN_BUY_SCALE=0.75
+ALPACA_EXECUTION_RISK_HIGH_BUY_SCALE=0.50
 ALPACA_REQUIRE_QUOTE_FOR_SUBMIT=1
 MAX_SPREAD_PCT_ETF=0.005
 MAX_SPREAD_PCT_OVERLAY=0.015

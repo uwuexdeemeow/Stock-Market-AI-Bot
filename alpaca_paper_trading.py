@@ -151,6 +151,17 @@ ALLOW_MARKET_ORDER_OVERRIDE = os.environ.get("ALPACA_ALLOW_MARKET_ORDER_OVERRIDE
 }
 LIMIT_OFFSET_BPS_ETF = float(os.environ.get("ALPACA_LIMIT_OFFSET_BPS_ETF", "5"))
 LIMIT_OFFSET_BPS_OVERLAY = float(os.environ.get("ALPACA_LIMIT_OFFSET_BPS_OVERLAY", "12"))
+# Execution self-awareness.  PLAIN ENGLISH: the bot already measures which
+# symbols have recently filled badly.  These knobs let order planning use that
+# report instead of only showing it on the dashboard.
+EXECUTION_RISK_ENABLED = os.environ.get("ALPACA_EXECUTION_RISK_ENABLED", "1").strip().lower() in {
+    "true", "1", "yes", "y", "on"
+}
+EXECUTION_RISK_REPORT_MAX_AGE_HOURS = float(os.environ.get("ALPACA_EXECUTION_RISK_REPORT_MAX_AGE_HOURS", "168"))
+EXECUTION_RISK_WARN_SCORE = float(os.environ.get("ALPACA_EXECUTION_RISK_WARN_SCORE", "40"))
+EXECUTION_RISK_HIGH_SCORE = float(os.environ.get("ALPACA_EXECUTION_RISK_HIGH_SCORE", "60"))
+EXECUTION_RISK_WARN_BUY_SCALE = float(os.environ.get("ALPACA_EXECUTION_RISK_WARN_BUY_SCALE", "0.75"))
+EXECUTION_RISK_HIGH_BUY_SCALE = float(os.environ.get("ALPACA_EXECUTION_RISK_HIGH_BUY_SCALE", "0.50"))
 ALLOW_CLOSED_MARKET_QUEUE = bool(os.environ.get("ALPACA_ALLOW_CLOSED_MARKET_QUEUE", "0").strip().lower() in {
     "true",
     "1",
@@ -198,6 +209,112 @@ def _float_or_none(value: object) -> float | None:
 def _limit_offset_bps(ticker: str) -> float:
     """Return the small price cushion used for marketable limit orders."""
     return LIMIT_OFFSET_BPS_ETF if str(ticker).upper() in ETF_TICKERS else LIMIT_OFFSET_BPS_OVERLAY
+
+
+def _parse_report_timestamp(value: object) -> datetime | None:
+    """Turn a JSON timestamp into a timezone-aware datetime when possible."""
+    if not value:
+        return None
+    try:
+        stamp = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=timezone.utc)
+    return stamp.astimezone(timezone.utc)
+
+
+def _load_execution_risk_map(now: datetime | None = None) -> dict[str, dict]:
+    """
+    Load recent per-symbol execution risk scores from the slippage report.
+
+    PLAIN ENGLISH: If a ticker recently had bad fills or bad reversals after
+    fills, this returns that score so order planning can be more careful.
+    """
+    if not EXECUTION_RISK_ENABLED or not SLIPPAGE_REPORT_FILE.exists():
+        return {}
+    try:
+        report = json.loads(SLIPPAGE_REPORT_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    generated_at = _parse_report_timestamp(report.get("generated_at"))
+    max_age_hours = max(0.0, float(EXECUTION_RISK_REPORT_MAX_AGE_HOURS))
+    if generated_at is not None and max_age_hours > 0:
+        clock = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        if clock - generated_at > timedelta(hours=max_age_hours):
+            return {}
+
+    risk_map: dict[str, dict] = {}
+    for row in report.get("by_symbol", []) or []:
+        if not isinstance(row, dict):
+            continue
+        symbol = str(row.get("symbol") or row.get("ticker") or "").strip().upper()
+        score = _float_or_none(row.get("execution_risk_score"))
+        if not symbol or score is None:
+            continue
+        risk_map[symbol] = {
+            "score": score,
+            "orders": row.get("orders", ""),
+            "avg_slippage_bps": row.get("avg_slippage_bps", ""),
+            "bad_slippage_rate": row.get("bad_slippage_rate", ""),
+        }
+    return risk_map
+
+
+def _execution_risk_buy_scale(score: float | None) -> tuple[float, str]:
+    """Return the buy-size multiplier for a recent execution risk score."""
+    if score is None:
+        return 1.0, "none"
+    warn_score = float(EXECUTION_RISK_WARN_SCORE)
+    high_score = max(warn_score, float(EXECUTION_RISK_HIGH_SCORE))
+    if score >= high_score:
+        return min(1.0, max(0.0, float(EXECUTION_RISK_HIGH_BUY_SCALE))), "high"
+    if score >= warn_score:
+        return min(1.0, max(0.0, float(EXECUTION_RISK_WARN_BUY_SCALE))), "warn"
+    return 1.0, "low"
+
+
+def _execution_risk_metadata(
+    ticker: str,
+    side: str,
+    requested_quantity: int,
+    risk_map: dict[str, dict],
+) -> tuple[int, dict]:
+    """
+    Apply recent fill-quality evidence to one planned order quantity.
+
+    PLAIN ENGLISH: Risky BUY orders get smaller so we do not chase poor fills.
+    SELL orders are left alone because exits should not get stuck.
+    """
+    symbol = str(ticker).upper()
+    risk = risk_map.get(symbol, {})
+    score = _float_or_none(risk.get("score"))
+    scale, band = _execution_risk_buy_scale(score)
+    adjusted_quantity = int(requested_quantity)
+    reason = ""
+
+    if (
+        str(side).lower() == "buy"
+        and symbol not in ETF_TICKERS
+        and requested_quantity > 0
+        and scale < 1.0
+    ):
+        adjusted_quantity = max(1, int(math.floor(requested_quantity * scale)))
+        reason = f"{band}_execution_risk_score_{score:.2f}_buy_scale_{scale:.2f}"
+
+    metadata = {
+        "execution_risk_score": round(score, 2) if score is not None else "",
+        "execution_risk_band": band,
+        "execution_risk_buy_scale": scale,
+        "execution_risk_quantity_before_scale": requested_quantity,
+        "execution_risk_quantity_after_scale": adjusted_quantity,
+        "execution_risk_reason": reason,
+        "execution_risk_report_orders": risk.get("orders", ""),
+        "execution_risk_avg_slippage_bps": risk.get("avg_slippage_bps", ""),
+        "execution_risk_bad_slippage_rate": risk.get("bad_slippage_rate", ""),
+    }
+    return adjusted_quantity, metadata
 
 
 def _round_marketable_limit(raw_price: float, side: str) -> float:
@@ -782,6 +899,7 @@ def generate_orders(
         print(f"    ⚠ Skipped {len(skipped_tickers)} tickers (no price): "
               f"{', '.join(skipped_tickers)}")
 
+    execution_risk_map = _load_execution_risk_map()
     orders = []
 
     for ticker in all_tickers:
@@ -831,7 +949,21 @@ def generate_orders(
                 delta_qty = -broker_sellable_qty
                 quantity_clamped_to_sellable = True
 
-        # Skip tiny orders after any broker-truth clamp.
+        adjusted_quantity, execution_risk = _execution_risk_metadata(
+            ticker,
+            side,
+            abs(delta_qty),
+            execution_risk_map,
+        )
+        if side == "buy" and adjusted_quantity < abs(delta_qty):
+            print(
+                f"    Execution risk throttle {ticker}: "
+                f"{abs(delta_qty)} -> {adjusted_quantity} shares "
+                f"({execution_risk['execution_risk_reason']})"
+            )
+            delta_qty = adjusted_quantity
+
+        # Skip tiny orders after any broker-truth clamp or risk throttle.
         trade_value = abs(delta_qty * px)
         if trade_value < MIN_TRADE_VALUE:
             continue
@@ -856,6 +988,7 @@ def generate_orders(
             "requested_quantity": requested_quantity,
             "broker_sellable_qty": broker_sellable_qty,
             "quantity_clamped_to_sellable": quantity_clamped_to_sellable,
+            **execution_risk,
             "current_weight": round(current_w, 4),
             "target_weight": round(target_w, 4),
             "drift": round(drift, 4),
@@ -908,6 +1041,15 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
             "buying_power_used_for_cash_check": order.get("buying_power_used_for_cash_check", ""),
             "broker_sellable_qty": order.get("broker_sellable_qty", ""),
             "quantity_clamped_to_sellable": order.get("quantity_clamped_to_sellable", False),
+            "execution_risk_score": order.get("execution_risk_score", ""),
+            "execution_risk_band": order.get("execution_risk_band", ""),
+            "execution_risk_buy_scale": order.get("execution_risk_buy_scale", ""),
+            "execution_risk_quantity_before_scale": order.get("execution_risk_quantity_before_scale", ""),
+            "execution_risk_quantity_after_scale": order.get("execution_risk_quantity_after_scale", ""),
+            "execution_risk_reason": order.get("execution_risk_reason", ""),
+            "execution_risk_report_orders": order.get("execution_risk_report_orders", ""),
+            "execution_risk_avg_slippage_bps": order.get("execution_risk_avg_slippage_bps", ""),
+            "execution_risk_bad_slippage_rate": order.get("execution_risk_bad_slippage_rate", ""),
             "target_weight": order["target_weight"],
             "fill_status": fill_status,
         })
