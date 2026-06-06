@@ -21,10 +21,11 @@ Daily workflow (runs in order):
     7.  alpaca_paper_trading.py --submit   → submit to Alpaca
     8.  alpaca_paper_trading.py --reconcile → check if Alpaca orders filled
     9.  execution_guard.py --once          → repair ETF stops, stale orders, P&L guard
-    10. paper_health.py                    → build deep health summary (slippage, drift, risk)
-    11. execution_scorecard.py             → grade fill quality and throttled buys
-    12. alpaca_paper_gauntlet.py           → check Alpaca health
-    13. regime_monitor.py                  → detect and alert on regime changes
+    10. broker_truth.py                    → reconcile broker positions, logs, plan, targets, stops
+    11. paper_health.py                    → build deep health summary (slippage, drift, risk)
+    12. execution_scorecard.py             → grade fill quality and throttled buys
+    13. alpaca_paper_gauntlet.py           → check Alpaca health
+    14. regime_monitor.py                  → detect and alert on regime changes
 
 Schedule with cron (9:30 AM ET on weekdays):
     30 9 * * 1-5 cd "/path/to/Stock Market AI Bot" && python3 daily_run.py >> logs/daily_run.log 2>&1
@@ -67,6 +68,8 @@ GITHUB_SIGNAL_SYNC_FILES = (
     "signals/broker_health.json",
     "signals/alpaca_paper_health.json",
     "signals/alpaca_execution_scorecard.json",
+    "signals/broker_truth.csv",
+    "signals/broker_truth.json",
     "signals/shadow_paper_journal.csv",
     "signals/guard_intraday_state.json",
     "signals/regime_history.json",
@@ -77,6 +80,7 @@ GITHUB_SIGNAL_SYNC_PREFIXES = (
     "logs/daily_run_",
     "logs/alpaca_paper_health_",
     "logs/alpaca_execution_scorecard_",
+    "logs/broker_truth_",
 )
 
 
@@ -242,6 +246,11 @@ ALPACA_STEPS = [
         "Repair ETF protection, cancel stale Alpaca orders, and check intraday P&L",
     ),
     Step(
+        "broker_truth",
+        [sys.executable, "broker_truth.py"],
+        "Reconcile Alpaca positions, local logs, order plan, target weights, and stops",
+    ),
+    Step(
         "alpaca_paper_health",
         [sys.executable, "paper_health.py"],
         "Build deep health summary for Alpaca (slippage, drift vs walkforward, risk)",
@@ -263,9 +272,10 @@ ALPACA_STEPS = [
 ALPACA_HEALTH_ONLY_STEPS = [
     ALPACA_STATUS_STEP,
     ALPACA_STEPS[1],  # alpaca_reconcile
-    ALPACA_STEPS[3],  # alpaca_paper_health
-    ALPACA_STEPS[4],  # alpaca_execution_scorecard
-    ALPACA_STEPS[5],  # alpaca_gauntlet
+    ALPACA_STEPS[3],  # broker_truth
+    ALPACA_STEPS[4],  # alpaca_paper_health
+    ALPACA_STEPS[5],  # alpaca_execution_scorecard
+    ALPACA_STEPS[6],  # alpaca_gauntlet
 ]
 
 # Regime change monitor runs after the Alpaca signal is generated.

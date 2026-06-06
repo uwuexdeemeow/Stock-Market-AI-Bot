@@ -81,3 +81,8 @@ def test_monitor_heartbeat_finds_daily_run_fill_stub(tmp_path, monkeypatch):
 def test_monitor_heartbeat_tracks_execution_scorecard():
     assert "execution_scorecard" in monitor_heartbeat.MONITORED_FILES
     assert monitor_heartbeat.MONITORED_FILES["execution_scorecard"].name == "alpaca_execution_scorecard.json"
+
+
+def test_monitor_heartbeat_tracks_broker_truth():
+    assert "broker_truth" in monitor_heartbeat.MONITORED_FILES
+    assert monitor_heartbeat.MONITORED_FILES["broker_truth"].name == "broker_truth.json"

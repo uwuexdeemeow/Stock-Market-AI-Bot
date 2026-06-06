@@ -38,6 +38,7 @@ If you just want one command, find your goal here:
 | Refresh Alpaca live equity/status only | `python alpaca_paper_trading.py --status` |
 | Refresh recent fill-quality stats | `python alpaca_paper_trading.py --slippage-report` |
 | Build execution scorecard | `python execution_scorecard.py` |
+| Reconcile broker truth | `python broker_truth.py` |
 | Run the shadow paper journal locally | `python shadow_paper_journal.py` |
 | Compare Alpaca vs shadow equity | `python paper_shadow_compare.py` |
 | Refresh local data + features before research | `python refresh_local_research_data.py` |
@@ -80,6 +81,7 @@ Pulls yesterday's Actions outputs into `signals/` and `logs/`. Refreshes:
 - `alpaca_paper_equity.csv` — equity history
 - `alpaca_paper_health.json` — health summary
 - `alpaca_execution_scorecard.json` - fill-quality scorecard
+- `broker_truth.json` / `broker_truth.csv` - Alpaca-vs-local truth table
 - `alpaca_daily_status.json` — positions + equity snapshot
 - `alpaca_slippage_reversal_report.json` — fill slippage and reversal report
 - `shadow_paper_journal.csv` — shadow config signal journal
@@ -321,8 +323,9 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `alpaca_paper_gauntlet.py` | Health gate — pass/fail for "should real money trust this?" | `--verbose` |
 | `alpaca_paper_trading.py` | Generate and (optionally) submit Alpaca orders | `--submit`, `--status`, `--reconcile`, `--slippage-report`, `--market-order`, `--limit-order`, `--quote-limit`, `--last-trade-limit`, `--allow-closed-market-queue`, `--allow-stale-signal`, `--max-signal-age-hours H`, `--max-factor-age-trading-days N` |
 | `broker_health.py` | Pre-flight Alpaca connectivity check | none |
+| `broker_truth.py` | Reconcile Alpaca positions, local logs, order plan, target weights, and trailing stops | `--json`, `--strict`, `--offline` |
 | `core_satellite_alpha.py` | Generate today's signal (which 3 stocks + ETF weights) | `--ignore-stale`, `--walkforward` |
-| `daily_run.py` | Run the entire daily pipeline (14 steps) | `--alpaca`, `--dry-run`, `--force`, `--health-only`, `--skip-refresh`, `--skip-factor-refresh`, `--no-github-sync`, `--timeout N` |
+| `daily_run.py` | Run the entire daily pipeline (15+ steps) | `--alpaca`, `--dry-run`, `--force`, `--health-only`, `--skip-refresh`, `--skip-factor-refresh`, `--no-github-sync`, `--timeout N` |
 | `execution_scorecard.py` | Grade Alpaca fill quality, slippage, skipped rate, and execution-risk throttle outcomes | `--json`, `--strict` |
 | `execution_guard.py` | Repair ETF stop-loss protection, cancel stale orders | `--once`, `--loop`, `--dry-run` |
 | `fill_monitor.py` | Verify yesterday's fills (cancelled, partial, slipped) | `--days N` |
@@ -428,6 +431,7 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `signals/alpaca_daily_status.json` | Today's positions + equity + cash (dashboard equity card reads this) |
 | `signals/alpaca_paper_health.json` | Slippage, drift, concentration, equity sanity, P&L breakdown |
 | `signals/alpaca_execution_scorecard.json` | Fill-quality pass/fail scorecard and throttle outcome summary |
+| `signals/broker_truth.csv` / `.json` | Per-ticker Alpaca-vs-local truth reconciliation |
 | `signals/alpaca_slippage_reversal_report.json` | Recent fill slippage and 5/15/30/60 minute post-fill reversal stats |
 | `signals/shadow_paper_journal.csv` | Daily shadow config targets, signal metadata, and comparison rows |
 | `signals/shadow_paper_equity.csv` | Simulated equity curve for the shadow config |
@@ -617,6 +621,9 @@ daily GitHub workflow:
 | `EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE` | `0.60` | Scorecard fails if too many fills reverse against us after 15 minutes. |
 | `EXECUTION_SCORECARD_MAX_ADVERSE_60M_RATE` | `0.70` | Scorecard fails if too many fills reverse against us after 60 minutes. |
 | `EXECUTION_SCORECARD_LOOKBACK_DAYS` | `30` | Recent paper-log days included in scorecard fill/skipped metrics. |
+| `BROKER_TRUTH_QTY_TOLERANCE` | `0.001` | Ignore tiny share-count differences in broker truth. |
+| `BROKER_TRUTH_WEIGHT_TOLERANCE` | `0.02` | Warn when broker weight differs from target by more than this amount. |
+| `BROKER_TRUTH_REQUIRE_LIVE_ORDERS` | `0` | If `1`, broker truth fails when live open/trailing orders cannot be read. |
 | `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT` | `1` | Skip/log an order when Alpaca cannot provide a quote for spread checking. |
 | `MAX_SPREAD_PCT_ETF` | `0.005` | Max ETF spread accepted before skipping an order. |
 | `MAX_SPREAD_PCT_OVERLAY` | `0.015` | Max overlay-stock spread accepted before skipping an order. |
@@ -660,6 +667,9 @@ EXECUTION_SCORECARD_MAX_SKIPPED_RATE=0.35
 EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE=0.60
 EXECUTION_SCORECARD_MAX_ADVERSE_60M_RATE=0.70
 EXECUTION_SCORECARD_LOOKBACK_DAYS=30
+BROKER_TRUTH_QTY_TOLERANCE=0.001
+BROKER_TRUTH_WEIGHT_TOLERANCE=0.02
+BROKER_TRUTH_REQUIRE_LIVE_ORDERS=0
 ALPACA_REQUIRE_QUOTE_FOR_SUBMIT=1
 MAX_SPREAD_PCT_ETF=0.005
 MAX_SPREAD_PCT_OVERLAY=0.015

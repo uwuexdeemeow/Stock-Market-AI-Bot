@@ -201,6 +201,9 @@ jobs:
           EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE=0.60
           EXECUTION_SCORECARD_MAX_ADVERSE_60M_RATE=0.70
           EXECUTION_SCORECARD_LOOKBACK_DAYS=30
+          BROKER_TRUTH_QTY_TOLERANCE=0.001
+          BROKER_TRUTH_WEIGHT_TOLERANCE=0.02
+          BROKER_TRUTH_REQUIRE_LIVE_ORDERS=0
           ALPACA_REQUIRE_QUOTE_FOR_SUBMIT=1
           MAX_SPREAD_PCT_ETF=0.005
           MAX_SPREAD_PCT_OVERLAY=0.015
@@ -424,6 +427,8 @@ jobs:
             signals/broker_health.json
             signals/alpaca_paper_health.json
             signals/alpaca_execution_scorecard.json
+            signals/broker_truth.csv
+            signals/broker_truth.json
             signals/guard_intraday_state.json
             signals/regime_history.json
             signals/regime_changes_log.csv
@@ -498,6 +503,8 @@ jobs:
               signals/broker_health.json \
               signals/alpaca_paper_health.json \
               signals/alpaca_execution_scorecard.json \
+              signals/broker_truth.csv \
+              signals/broker_truth.json \
               signals/guard_intraday_state.json \
               signals/regime_history.json \
               signals/regime_changes_log.csv \
@@ -516,7 +523,7 @@ jobs:
             fi
           done
           # daily_run_*.json logs use a glob — only add what's there
-          for f in logs/daily_run_*.json logs/alpaca_execution_scorecard_*.json; do
+          for f in logs/daily_run_*.json logs/alpaca_execution_scorecard_*.json logs/broker_truth_*.json; do
             if [ -f "$f" ]; then
               git add -f "$f"
               added=$((added + 1))
@@ -699,6 +706,20 @@ jobs:
                       lines.append("Alpaca accepted: 0 | filled: 0 | failed: 0 | skipped: 0")
               except Exception as exc:
                   lines.append(f"Alpaca order log unreadable: {exc}")
+
+          broker_truth_path = Path("signals/broker_truth.json")
+          if broker_truth_path.exists():
+              try:
+                  truth = json.loads(broker_truth_path.read_text())
+                  summary = truth.get("summary", {})
+                  lines.append(
+                      "Broker truth: "
+                      f"{truth.get('status', '?')} | "
+                      f"fail={summary.get('fail_count', '?')} | "
+                      f"warn={summary.get('warning_count', '?')}"
+                  )
+              except Exception as exc:
+                  lines.append(f"Broker truth unreadable: {exc}")
 
           equity_path = Path("signals/alpaca_paper_equity.csv")
           if equity_path.exists():

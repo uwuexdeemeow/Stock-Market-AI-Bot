@@ -128,6 +128,10 @@ The workflow file `.github/workflows/daily_paper_trading.yml` invokes
 
 ## Recent additions
 
+- `broker_truth` step (June 6, 2026) runs after `alpaca_execution_guard` and
+  before `alpaca_paper_health`.  It reconciles signal targets, planned orders,
+  the paper log, live Alpaca positions, and trailing stops into
+  `signals/broker_truth.csv` and `signals/broker_truth.json`.
 - `alpaca_paper_health` step (May 19, 2026) runs drift detection against
   walkforward results on the Alpaca pipeline.
 - `--health-only` mode (May 20, 2026) — added for local dashboard refresh

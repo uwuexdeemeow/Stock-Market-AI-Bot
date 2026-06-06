@@ -54,6 +54,9 @@ def test_daily_workflow_pins_execution_safety_env():
         "EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE=0.60",
         "EXECUTION_SCORECARD_MAX_ADVERSE_60M_RATE=0.70",
         "EXECUTION_SCORECARD_LOOKBACK_DAYS=30",
+        "BROKER_TRUTH_QTY_TOLERANCE=0.001",
+        "BROKER_TRUTH_WEIGHT_TOLERANCE=0.02",
+        "BROKER_TRUTH_REQUIRE_LIVE_ORDERS=0",
         "ALPACA_REQUIRE_QUOTE_FOR_SUBMIT=1",
         "MAX_SPREAD_PCT_ETF=0.005",
         "MAX_SPREAD_PCT_OVERLAY=0.015",
@@ -95,6 +98,8 @@ def test_alpaca_only_still_generates_shared_signal():
     assert names.count("core_satellite_signal") == 1
     assert names.index("factor_data_health") < names.index("core_satellite_signal")
     assert names.index("core_satellite_signal") < names.index("alpaca_submit")
+    assert names.index("alpaca_execution_guard") < names.index("broker_truth")
+    assert names.index("broker_truth") < names.index("alpaca_paper_health")
     assert names.index("alpaca_paper_health") < names.index("alpaca_execution_scorecard")
     assert names.index("alpaca_execution_scorecard") < names.index("alpaca_gauntlet")
 
@@ -132,6 +137,7 @@ def test_health_only_uses_synced_signal_without_order_submission():
         "broker_health",
         "alpaca_status",
         "alpaca_reconcile",
+        "broker_truth",
         "alpaca_paper_health",
         "alpaca_execution_scorecard",
         "alpaca_gauntlet",

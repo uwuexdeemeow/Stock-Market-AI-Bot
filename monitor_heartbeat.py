@@ -46,6 +46,7 @@ MONITORED_FILES: dict[str, Path] = {
     # paper_health.py writes the Alpaca health summary on each daily run.
     "paper_health": SIGNALS / "alpaca_paper_health.json",
     "execution_scorecard": SIGNALS / "alpaca_execution_scorecard.json",
+    "broker_truth": SIGNALS / "broker_truth.json",
     "fill_monitor": SIGNALS / "fill_monitor.json",
     "regime_monitor": SIGNALS / "regime_history.json",
     "broker_health": SIGNALS / "broker_health.json",

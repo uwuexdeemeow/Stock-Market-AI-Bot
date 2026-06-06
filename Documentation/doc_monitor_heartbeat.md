@@ -8,7 +8,8 @@ warning so a silent failure does not go unnoticed.
 
 It watches files such as `signals/fill_monitor.json`,
 `signals/broker_health.json`, `signals/alpaca_execution_scorecard.json`,
-`signals/regime_history.json`, and the latest daily run log.
+`signals/broker_truth.json`, `signals/regime_history.json`, and the latest
+daily run log.
 
 ## How To Run It
 
