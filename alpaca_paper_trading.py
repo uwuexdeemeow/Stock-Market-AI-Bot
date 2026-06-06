@@ -146,6 +146,9 @@ DEFAULT_ORDER_TYPE = os.environ.get("ALPACA_ORDER_TYPE", "limit").strip().lower(
 # a live bid/ask quote is a fresher anchor than the last trade print; if the
 # quote is missing, submission still falls back to the planned last-price limit.
 LIMIT_REFERENCE = os.environ.get("ALPACA_LIMIT_REFERENCE", "quote").strip().lower()
+ALLOW_MARKET_ORDER_OVERRIDE = os.environ.get("ALPACA_ALLOW_MARKET_ORDER_OVERRIDE", "0").strip().lower() in {
+    "true", "1", "yes", "y", "on"
+}
 LIMIT_OFFSET_BPS_ETF = float(os.environ.get("ALPACA_LIMIT_OFFSET_BPS_ETF", "5"))
 LIMIT_OFFSET_BPS_OVERLAY = float(os.environ.get("ALPACA_LIMIT_OFFSET_BPS_OVERLAY", "12"))
 ALLOW_CLOSED_MARKET_QUEUE = bool(os.environ.get("ALPACA_ALLOW_CLOSED_MARKET_QUEUE", "0").strip().lower() in {
@@ -281,12 +284,21 @@ def should_use_quote_limits(args: argparse.Namespace | None = None) -> bool:
 
 
 def should_use_market_orders(args: argparse.Namespace) -> bool:
-    """Return True only when CLI/env explicitly ask for market orders."""
+    """Return True only when CLI/env explicitly ask for unlocked market orders."""
+    requested = False
     if getattr(args, "market_order", False):
-        return True
-    if getattr(args, "limit_order", False):
+        requested = True
+    elif getattr(args, "limit_order", False):
         return False
-    return DEFAULT_ORDER_TYPE == "market"
+    else:
+        requested = DEFAULT_ORDER_TYPE == "market"
+    if requested and not ALLOW_MARKET_ORDER_OVERRIDE:
+        print(
+            "  Market-order override ignored. Set "
+            "ALPACA_ALLOW_MARKET_ORDER_OVERRIDE=1 only for an intentional emergency."
+        )
+        return False
+    return requested
 
 
 def closed_market_queue_allowed(args: argparse.Namespace) -> bool:
@@ -2686,7 +2698,7 @@ def main():
     parser.add_argument("--force", action="store_true",
                         help="Skip drift thresholds AND duplicate-day check")
     parser.add_argument("--market-order", action="store_true",
-                        help="Use market orders instead of protective day limit orders")
+                        help="Use market orders only when ALPACA_ALLOW_MARKET_ORDER_OVERRIDE=1")
     parser.add_argument("--limit-order", action="store_true",
                         help="Use protective day limit orders even if ALPACA_ORDER_TYPE=market")
     parser.add_argument("--quote-limit", action="store_true",

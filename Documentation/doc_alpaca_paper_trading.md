@@ -53,8 +53,8 @@ python3 alpaca_paper_trading.py
 # Refresh recent fill slippage/reversal stats for the Performance dashboard
 python3 alpaca_paper_trading.py --slippage-report
 
-# Emergency override: send market orders instead of protective day limits
-python3 alpaca_paper_trading.py --submit --market-order
+# Emergency/manual override: set env unlock, then send market orders
+ALPACA_ALLOW_MARKET_ORDER_OVERRIDE=1 python3 alpaca_paper_trading.py --submit --market-order
 
 # Manual rollback: anchor limit prices to last trade instead of live bid/ask
 python3 alpaca_paper_trading.py --submit --last-trade-limit
@@ -151,7 +151,8 @@ The script has multiple layers of protection:
    from peak (configurable via `PORTFOLIO_DRAWDOWN_HALT_PCT`).
 6. **Protective day limit orders** — normal submissions use small-cushion
    limit orders by default (`ALPACA_ORDER_TYPE=limit`).  Use
-   `--market-order` only when you intentionally want market orders.
+   `--market-order` only when you intentionally want market orders, and only
+   after setting `ALPACA_ALLOW_MARKET_ORDER_OVERRIDE=1`.
 7. **Quote-anchored limit orders** — every submitted order records current bid,
    ask, midpoint, spread, and which limit reference was used.  Normal buys
    anchor to the ask and sells anchor to the bid before adding the small limit

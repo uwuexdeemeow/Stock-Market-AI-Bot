@@ -611,6 +611,27 @@ def test_daily_action_uses_quote_limit_reference():
     assert "ALPACA_LIMIT_REFERENCE=last" not in workflow
 
 
+def test_market_orders_require_explicit_env_unlock(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "DEFAULT_ORDER_TYPE", "limit")
+    monkeypatch.setattr(apt, "ALLOW_MARKET_ORDER_OVERRIDE", False)
+
+    assert apt.should_use_market_orders(SimpleNamespace(market_order=True, limit_order=False)) is False
+
+    monkeypatch.setattr(apt, "ALLOW_MARKET_ORDER_OVERRIDE", True)
+    assert apt.should_use_market_orders(SimpleNamespace(market_order=True, limit_order=False)) is True
+
+
+def test_market_order_env_default_is_ignored_until_unlocked(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "DEFAULT_ORDER_TYPE", "market")
+    monkeypatch.setattr(apt, "ALLOW_MARKET_ORDER_OVERRIDE", False)
+
+    assert apt.should_use_market_orders(SimpleNamespace(market_order=False, limit_order=False)) is False
+
+
 class _SubmitBroker:
     """Tiny broker fake for submit-phase guard tests."""
 
