@@ -76,3 +76,8 @@ def test_monitor_heartbeat_finds_daily_run_fill_stub(tmp_path, monkeypatch):
     assert summary["missing_monitors"] == []
     assert summary["monitors"]["fill_monitor"]["path"] == str(fill_path)
     assert summary["monitors"]["fill_monitor"]["status"] == "fresh"
+
+
+def test_monitor_heartbeat_tracks_execution_scorecard():
+    assert "execution_scorecard" in monitor_heartbeat.MONITORED_FILES
+    assert monitor_heartbeat.MONITORED_FILES["execution_scorecard"].name == "alpaca_execution_scorecard.json"

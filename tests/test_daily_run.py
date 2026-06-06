@@ -47,6 +47,13 @@ def test_daily_workflow_pins_execution_safety_env():
         "ALPACA_EXECUTION_RISK_HIGH_SCORE=60",
         "ALPACA_EXECUTION_RISK_WARN_BUY_SCALE=0.75",
         "ALPACA_EXECUTION_RISK_HIGH_BUY_SCALE=0.50",
+        "EXECUTION_SCORECARD_MAX_AVG_SLIPPAGE_BPS=10",
+        "EXECUTION_SCORECARD_MAX_BAD_SLIPPAGE_RATE=0.60",
+        "EXECUTION_SCORECARD_MIN_FILL_RATE=0.80",
+        "EXECUTION_SCORECARD_MAX_SKIPPED_RATE=0.35",
+        "EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE=0.60",
+        "EXECUTION_SCORECARD_MAX_ADVERSE_60M_RATE=0.70",
+        "EXECUTION_SCORECARD_LOOKBACK_DAYS=30",
         "ALPACA_REQUIRE_QUOTE_FOR_SUBMIT=1",
         "MAX_SPREAD_PCT_ETF=0.005",
         "MAX_SPREAD_PCT_OVERLAY=0.015",
@@ -88,6 +95,8 @@ def test_alpaca_only_still_generates_shared_signal():
     assert names.count("core_satellite_signal") == 1
     assert names.index("factor_data_health") < names.index("core_satellite_signal")
     assert names.index("core_satellite_signal") < names.index("alpaca_submit")
+    assert names.index("alpaca_paper_health") < names.index("alpaca_execution_scorecard")
+    assert names.index("alpaca_execution_scorecard") < names.index("alpaca_gauntlet")
 
 
 def test_skip_factor_refresh_keeps_etf_refresh_and_signal():
@@ -124,6 +133,7 @@ def test_health_only_uses_synced_signal_without_order_submission():
         "alpaca_status",
         "alpaca_reconcile",
         "alpaca_paper_health",
+        "alpaca_execution_scorecard",
         "alpaca_gauntlet",
         "regime_monitor",
         "monitor_heartbeat",

@@ -22,8 +22,9 @@ Daily workflow (runs in order):
     8.  alpaca_paper_trading.py --reconcile → check if Alpaca orders filled
     9.  execution_guard.py --once          → repair ETF stops, stale orders, P&L guard
     10. paper_health.py                    → build deep health summary (slippage, drift, risk)
-    11. alpaca_paper_gauntlet.py           → check Alpaca health
-    12. regime_monitor.py                  → detect and alert on regime changes
+    11. execution_scorecard.py             → grade fill quality and throttled buys
+    12. alpaca_paper_gauntlet.py           → check Alpaca health
+    13. regime_monitor.py                  → detect and alert on regime changes
 
 Schedule with cron (9:30 AM ET on weekdays):
     30 9 * * 1-5 cd "/path/to/Stock Market AI Bot" && python3 daily_run.py >> logs/daily_run.log 2>&1
@@ -65,6 +66,7 @@ GITHUB_SIGNAL_SYNC_FILES = (
     "signals/fill_monitor.json",
     "signals/broker_health.json",
     "signals/alpaca_paper_health.json",
+    "signals/alpaca_execution_scorecard.json",
     "signals/shadow_paper_journal.csv",
     "signals/guard_intraday_state.json",
     "signals/regime_history.json",
@@ -74,6 +76,7 @@ GITHUB_SIGNAL_SYNC_FILES = (
 GITHUB_SIGNAL_SYNC_PREFIXES = (
     "logs/daily_run_",
     "logs/alpaca_paper_health_",
+    "logs/alpaca_execution_scorecard_",
 )
 
 
@@ -244,6 +247,11 @@ ALPACA_STEPS = [
         "Build deep health summary for Alpaca (slippage, drift vs walkforward, risk)",
     ),
     Step(
+        "alpaca_execution_scorecard",
+        [sys.executable, "execution_scorecard.py"],
+        "Grade Alpaca execution quality and execution-risk throttle outcomes",
+    ),
+    Step(
         "alpaca_gauntlet",
         [sys.executable, "alpaca_paper_gauntlet.py"],
         "Run Alpaca paper gauntlet health check",
@@ -256,7 +264,8 @@ ALPACA_HEALTH_ONLY_STEPS = [
     ALPACA_STATUS_STEP,
     ALPACA_STEPS[1],  # alpaca_reconcile
     ALPACA_STEPS[3],  # alpaca_paper_health
-    ALPACA_STEPS[4],  # alpaca_gauntlet
+    ALPACA_STEPS[4],  # alpaca_execution_scorecard
+    ALPACA_STEPS[5],  # alpaca_gauntlet
 ]
 
 # Regime change monitor runs after the Alpaca signal is generated.

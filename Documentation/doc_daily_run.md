@@ -3,7 +3,7 @@
 ## What it does (plain English)
 
 This is the "one command that runs everything" for daily paper trading.
-Instead of running 13+ scripts in the right order, you run `daily_run.py`
+Instead of running 14+ scripts in the right order, you run `daily_run.py`
 and it handles the orchestration.
 
 It runs the steps below in sequence.  If a CRITICAL step fails,
@@ -24,10 +24,11 @@ watchdog/housekeeping steps still run so their output files stay fresh.
 | 8 | `alpaca_reconcile` | — | Check what filled vs cancelled |
 | 9 | `alpaca_execution_guard` | — | Repair ETF stops, cancel stale orders |
 | 10 | `alpaca_paper_health` | — | Build deep health summary + drift detection |
-| 11 | `alpaca_gauntlet` | — | Run go-live gauntlet check |
-| 12 | `regime_monitor` | — | Detect regime change + alert |
-| 13 | `monitor_heartbeat` | always-run | Watchdog over all monitors |
-| 14 | `log_cleanup` | always-run | Disk usage check |
+| 11 | `alpaca_execution_scorecard` | — | Grade fill quality + execution-risk throttle |
+| 12 | `alpaca_gauntlet` | — | Run go-live gauntlet check |
+| 13 | `regime_monitor` | — | Detect regime change + alert |
+| 14 | `monitor_heartbeat` | always-run | Watchdog over all monitors |
+| 15 | `log_cleanup` | always-run | Disk usage check |
 
 ## How to run
 

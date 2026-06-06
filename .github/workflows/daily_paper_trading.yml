@@ -194,6 +194,13 @@ jobs:
           ALPACA_EXECUTION_RISK_HIGH_SCORE=60
           ALPACA_EXECUTION_RISK_WARN_BUY_SCALE=0.75
           ALPACA_EXECUTION_RISK_HIGH_BUY_SCALE=0.50
+          EXECUTION_SCORECARD_MAX_AVG_SLIPPAGE_BPS=10
+          EXECUTION_SCORECARD_MAX_BAD_SLIPPAGE_RATE=0.60
+          EXECUTION_SCORECARD_MIN_FILL_RATE=0.80
+          EXECUTION_SCORECARD_MAX_SKIPPED_RATE=0.35
+          EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE=0.60
+          EXECUTION_SCORECARD_MAX_ADVERSE_60M_RATE=0.70
+          EXECUTION_SCORECARD_LOOKBACK_DAYS=30
           ALPACA_REQUIRE_QUOTE_FOR_SUBMIT=1
           MAX_SPREAD_PCT_ETF=0.005
           MAX_SPREAD_PCT_OVERLAY=0.015
@@ -416,6 +423,7 @@ jobs:
             signals/fill_monitor.json
             signals/broker_health.json
             signals/alpaca_paper_health.json
+            signals/alpaca_execution_scorecard.json
             signals/guard_intraday_state.json
             signals/regime_history.json
             signals/regime_changes_log.csv
@@ -489,6 +497,7 @@ jobs:
               signals/fill_monitor.json \
               signals/broker_health.json \
               signals/alpaca_paper_health.json \
+              signals/alpaca_execution_scorecard.json \
               signals/guard_intraday_state.json \
               signals/regime_history.json \
               signals/regime_changes_log.csv \
@@ -507,7 +516,7 @@ jobs:
             fi
           done
           # daily_run_*.json logs use a glob — only add what's there
-          for f in logs/daily_run_*.json; do
+          for f in logs/daily_run_*.json logs/alpaca_execution_scorecard_*.json; do
             if [ -f "$f" ]; then
               git add -f "$f"
               added=$((added + 1))
