@@ -56,8 +56,8 @@ python3 alpaca_paper_trading.py --slippage-report
 # Emergency override: send market orders instead of protective day limits
 python3 alpaca_paper_trading.py --submit --market-order
 
-# Optional experiment: anchor limit prices to live bid/ask instead of last trade
-python3 alpaca_paper_trading.py --submit --quote-limit
+# Manual rollback: anchor limit prices to last trade instead of live bid/ask
+python3 alpaca_paper_trading.py --submit --last-trade-limit
 ```
 
 Reconcile checks broker-active statuses such as `pending`, `new`, `open`,
@@ -107,9 +107,10 @@ It also refreshes the execution-quality report.
   away from the planned price.
 - **Bid/ask quote** — the best current buyer price (bid) and seller price
   (ask).  The script logs these into `alpaca_paper_log.csv` at submission
-  time for audit.  Quote-based limit anchoring exists behind
-  `--quote-limit` or `ALPACA_LIMIT_REFERENCE=quote`, but the default remains
-  last-trade anchoring unless explicitly enabled.
+  time for audit.  Quote-based limit anchoring is now the default because the
+  latest bid/ask is usually fresher than the last trade print.  Use
+  `--last-trade-limit` or `ALPACA_LIMIT_REFERENCE=last` only when you need to
+  roll back to older behavior.
 - **Slippage** — the difference between the fill price and a fair reference
   price, here the fill-minute VWAP.  Positive slippage means the fill was
   worse than the reference.
@@ -151,9 +152,12 @@ The script has multiple layers of protection:
 6. **Protective day limit orders** — normal submissions use small-cushion
    limit orders by default (`ALPACA_ORDER_TYPE=limit`).  Use
    `--market-order` only when you intentionally want market orders.
-7. **Quote audit logging** — every submitted order records current bid,
-   ask, midpoint, spread, and which limit reference was used.  This is
-   observational by default and does not block or alter trades.
+7. **Quote-anchored limit orders** — every submitted order records current bid,
+   ask, midpoint, spread, and which limit reference was used.  Normal buys
+   anchor to the ask and sells anchor to the bid before adding the small limit
+   cushion.  If Alpaca cannot provide a usable quote, the spread/quote guard can
+   skip the order, or the builder falls back to the planned last-price limit
+   depending on the guard setting.
 8. **Execution risk scoring** — the slippage report ranks tickers by recent
    bad slippage and post-fill reversal behavior.  This is dashboard-only;
    it does not change position selection or order submission.

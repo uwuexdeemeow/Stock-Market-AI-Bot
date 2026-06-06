@@ -149,6 +149,7 @@ double-submitting the same day's orders.
 
 The Alpaca submit path now has extra no-margin guards:
 - default order type is protective day limits (`ALPACA_ORDER_TYPE=limit`)
+- default limit anchor is live bid/ask (`ALPACA_LIMIT_REFERENCE=quote`)
 - closed-market queueing is off by default (`ALPACA_ALLOW_CLOSED_MARKET_QUEUE=0`)
 - sells submit before buys
 - quote/spread guard logs skipped orders when a quote is missing or the spread is too wide
@@ -593,7 +594,7 @@ daily GitHub workflow:
 |---|---:|---|
 | `ALPACA_MAX_GROSS_EXPOSURE` | `1.00` | Broker-submit gross exposure cap. Keeps routine paper trading unlevered. |
 | `ALPACA_ORDER_TYPE` | `limit` | Normal rebalance order type. Keep `limit` unless deliberately testing market orders. |
-| `ALPACA_LIMIT_REFERENCE` | `last` | Limit anchor. `last` uses planned last trade; `quote` uses live bid/ask when explicitly enabled. |
+| `ALPACA_LIMIT_REFERENCE` | `quote` | Limit anchor. `quote` uses live bid/ask; `last` rolls back to planned last-trade anchoring. |
 | `ALPACA_LIMIT_OFFSET_BPS_ETF` | `5` | ETF protective-limit cushion in basis points. |
 | `ALPACA_LIMIT_OFFSET_BPS_OVERLAY` | `12` | Overlay-stock protective-limit cushion in basis points. |
 | `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT` | `1` | Skip/log an order when Alpaca cannot provide a quote for spread checking. |
@@ -622,7 +623,7 @@ Daily workflow currently sets:
 ```yaml
 ALPACA_MAX_GROSS_EXPOSURE=1.00
 ALPACA_ORDER_TYPE=limit
-ALPACA_LIMIT_REFERENCE=last
+ALPACA_LIMIT_REFERENCE=quote
 ALPACA_LIMIT_OFFSET_BPS_ETF=5
 ALPACA_LIMIT_OFFSET_BPS_OVERLAY=12
 ALPACA_REQUIRE_QUOTE_FOR_SUBMIT=1

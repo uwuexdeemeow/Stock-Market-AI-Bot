@@ -553,7 +553,7 @@ def test_build_submission_order_can_force_market():
     assert planned["submitted_order_type"] == "market"
 
 
-def test_quote_based_limit_is_opt_in():
+def test_quote_based_limit_is_available_for_submission():
     import alpaca_paper_trading as apt
 
     planned = {
@@ -592,6 +592,23 @@ def test_quote_based_limit_falls_back_to_last_price():
     )
 
     assert price < 100.0
+
+
+def test_quote_limits_are_default_but_can_be_disabled(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "LIMIT_REFERENCE", "quote")
+
+    assert apt.should_use_quote_limits(SimpleNamespace(quote_limit=False, last_trade_limit=False)) is True
+    assert apt.should_use_quote_limits(SimpleNamespace(quote_limit=False, last_trade_limit=True)) is False
+
+
+def test_daily_action_uses_quote_limit_reference():
+    workflow = Path(".github/workflows/daily_paper_trading.yml").read_text(encoding="utf-8")
+
+    assert "ALPACA_ORDER_TYPE=limit" in workflow
+    assert "ALPACA_LIMIT_REFERENCE=quote" in workflow
+    assert "ALPACA_LIMIT_REFERENCE=last" not in workflow
 
 
 class _SubmitBroker:

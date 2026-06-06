@@ -141,7 +141,11 @@ REQUIRE_QUOTE_FOR_SUBMIT = os.environ.get("ALPACA_REQUIRE_QUOTE_FOR_SUBMIT", "1"
 # orders.  PLAIN ENGLISH: a marketable limit order still tries to fill now,
 # but it refuses to pay beyond a small cushion from the latest price.
 DEFAULT_ORDER_TYPE = os.environ.get("ALPACA_ORDER_TYPE", "limit").strip().lower()
-LIMIT_REFERENCE = os.environ.get("ALPACA_LIMIT_REFERENCE", "last").strip().lower()
+# Quote anchoring is now the default because the slippage report showed last-
+# trade anchored fills were still bleeding versus limit orders.  PLAIN ENGLISH:
+# a live bid/ask quote is a fresher anchor than the last trade print; if the
+# quote is missing, submission still falls back to the planned last-price limit.
+LIMIT_REFERENCE = os.environ.get("ALPACA_LIMIT_REFERENCE", "quote").strip().lower()
 LIMIT_OFFSET_BPS_ETF = float(os.environ.get("ALPACA_LIMIT_OFFSET_BPS_ETF", "5"))
 LIMIT_OFFSET_BPS_OVERLAY = float(os.environ.get("ALPACA_LIMIT_OFFSET_BPS_OVERLAY", "12"))
 ALLOW_CLOSED_MARKET_QUEUE = bool(os.environ.get("ALPACA_ALLOW_CLOSED_MARKET_QUEUE", "0").strip().lower() in {
