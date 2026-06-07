@@ -66,6 +66,9 @@ python3 core_satellite_nested_walkforward.py --stable-grid --no-publish-live-con
 
 # Lower-turnover research: keep recent top3 configs but avoid ov=0.70
 python3 core_satellite_nested_walkforward.py --low-turnover-grid --output-prefix wf_low_turnover --no-publish-live-config
+
+# Adaptive-sizing research: compare fixed sizing with defensive drawdown/vol sizing
+python3 core_satellite_nested_walkforward.py --adaptive-sizing-grid --output-prefix wf_adaptive_sizing --no-publish-live-config
 ```
 
 ## Inputs

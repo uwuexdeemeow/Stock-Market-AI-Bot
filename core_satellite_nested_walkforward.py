@@ -925,6 +925,34 @@ def low_turnover_grid_candidate_configs(
     )
 
 
+def adaptive_sizing_grid_candidate_configs(
+    *,
+    strategy: str = "core-alpha",
+    max_configs: int | None = None,
+) -> list[dict]:
+    """Return a focused grid that tests adaptive sizing controls.
+
+    PLAIN ENGLISH: This does not change the live config. It keeps the recent
+    alpha dimensions narrow and only asks whether the existing defensive
+    sizing controls (drawdown breaker + volatility targeting) beat fixed
+    sizing out of sample.
+    """
+    return iter_candidate_configs(
+        strategy=strategy,
+        holding_days=(20,),
+        overlay_gross=(0.50,),
+        ma_windows=(100,),
+        high_vol_values=(0.30,),
+        high_vol_modes=RECENT_ALPHA_GRID_HIGH_VOL_MODES,
+        score_sources=("regime_adaptive",),
+        shapes=("top3", "top5"),
+        weightings=RECENT_ALPHA_GRID_WEIGHTINGS,
+        tqqq_weights=(0.0, 0.10),
+        risk_control_modes=("off", "defensive"),
+        max_configs=max_configs,
+    )
+
+
 _BENCH_RAW_CACHE: dict[str, pd.Series] | None = None
 
 
@@ -2335,6 +2363,7 @@ def run_nested_walkforward(
     stable_grid: bool = False,
     recent_alpha_grid: bool = False,
     low_turnover_grid: bool = False,
+    adaptive_sizing_grid: bool = False,
     low_memory: bool = False,
     n_workers: int = 1,
     resume: bool = True,
@@ -2401,6 +2430,13 @@ def run_nested_walkforward(
         # top10 is added to test whether more names lower turnover without
         # giving away too much alpha.
         configs = low_turnover_grid_candidate_configs(
+            strategy=strategy,
+            max_configs=max_configs,
+        )
+    elif adaptive_sizing_grid:
+        # Adaptive sizing grid: compare fixed sizing against defensive
+        # drawdown + volatility scaling with all other dimensions controlled.
+        configs = adaptive_sizing_grid_candidate_configs(
             strategy=strategy,
             max_configs=max_configs,
         )
@@ -3005,6 +3041,8 @@ def live_config_publish_decision(args: argparse.Namespace) -> tuple[bool, str]:
         debug_reasons.append("--recent-alpha-grid")
     if bool(getattr(args, "low_turnover_grid", False)):
         debug_reasons.append("--low-turnover-grid")
+    if bool(getattr(args, "adaptive_sizing_grid", False)):
+        debug_reasons.append("--adaptive-sizing-grid")
     if getattr(args, "max_folds", None) is not None:
         debug_reasons.append("--max-folds")
     if getattr(args, "max_configs", None) is not None:
@@ -3100,6 +3138,10 @@ def main() -> None:
                         help="Use the lower-turnover research grid (~64 configs): "
                              "h=20, risk off, ma=100, regime_adaptive; tunes "
                              "ov=(0.25, 0.50), shape, weighting, vol mode, and TQQQ.")
+    parser.add_argument("--adaptive-sizing-grid", action="store_true",
+                        help="Use the adaptive-sizing research grid (~32 configs): "
+                             "h=20, ov=0.50, ma=100, regime_adaptive; compares "
+                             "fixed sizing vs defensive drawdown/vol scaling.")
     publish_group = parser.add_mutually_exclusive_group()
     publish_group.add_argument(
         "--publish-live-config",
@@ -3155,10 +3197,17 @@ def main() -> None:
         ),
     )
     args = parser.parse_args()
-    if sum(bool(flag) for flag in (args.fast, args.full, args.stable_grid, args.recent_alpha_grid, args.low_turnover_grid)) > 1:
+    if sum(bool(flag) for flag in (
+        args.fast,
+        args.full,
+        args.stable_grid,
+        args.recent_alpha_grid,
+        args.low_turnover_grid,
+        args.adaptive_sizing_grid,
+    )) > 1:
         parser.error(
             "Choose at most one grid mode: --fast, --full, --stable-grid, "
-            "--recent-alpha-grid, or --low-turnover-grid"
+            "--recent-alpha-grid, --low-turnover-grid, or --adaptive-sizing-grid"
         )
 
     # Force the 'spawn' start method so child workers do NOT inherit PyArrow's
@@ -3216,6 +3265,7 @@ def main() -> None:
             stable_grid=bool(args.stable_grid),
             recent_alpha_grid=bool(args.recent_alpha_grid),
             low_turnover_grid=bool(args.low_turnover_grid),
+            adaptive_sizing_grid=bool(args.adaptive_sizing_grid),
             low_memory=bool(args.low_memory),
             n_workers=int(args.workers),
             resume=bool(args.resume),

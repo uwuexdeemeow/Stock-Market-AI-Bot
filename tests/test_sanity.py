@@ -631,6 +631,7 @@ def test_nested_publish_decision_defaults_to_publish_only_for_full_runs():
         stable_grid=False,
         recent_alpha_grid=False,
         low_turnover_grid=False,
+        adaptive_sizing_grid=False,
         max_folds=None,
         max_configs=None,
         start_year=None,
@@ -663,6 +664,11 @@ def test_nested_publish_decision_defaults_to_publish_only_for_full_runs():
     publish, reason = nested_wf.live_config_publish_decision(low_turnover)
     assert publish is False
     assert "--low-turnover-grid" in reason
+
+    adaptive_sizing = Namespace(**{**vars(full), "adaptive_sizing_grid": True})
+    publish, reason = nested_wf.live_config_publish_decision(adaptive_sizing)
+    assert publish is False
+    assert "--adaptive-sizing-grid" in reason
 
     forced = Namespace(**{**vars(smoke), "publish_live_config": True})
     assert nested_wf.live_config_publish_decision(forced) == (True, "forced_by_--publish-live-config")
@@ -911,6 +917,26 @@ def test_nested_low_turnover_grid_keeps_top3_and_adds_top10():
     assert {p["weighting"] for p in params} == {"sticky_score", "risk_parity"}
     assert {p["tqqq_weight"] for p in params} == {0.0, 0.10}
     assert {p["high_vol_mode"] for p in params} == {"fixed", "percentile"}
+
+
+def test_nested_adaptive_sizing_grid_compares_fixed_and_defensive_sizing():
+    configs = nested_wf.adaptive_sizing_grid_candidate_configs()
+
+    assert len(configs) == 32
+    params = [config["nested_params"] for config in configs]
+    assert {p["holding_days"] for p in params} == {20}
+    assert {p["overlay_gross"] for p in params} == {0.50}
+    assert {p["ma_window"] for p in params} == {100}
+    assert {p["score_source"] for p in params} == {"regime_adaptive"}
+    assert {p["shape"] for p in params} == {"top3", "top5"}
+    assert {p["weighting"] for p in params} == {"sticky_score", "risk_parity"}
+    assert {p["tqqq_weight"] for p in params} == {0.0, 0.10}
+    assert {p["high_vol_mode"] for p in params} == {"fixed", "percentile"}
+    assert {p["risk_control_mode"] for p in params} == {"off", "defensive"}
+    defensive = [config for config in configs if config["risk_control_mode"] == "defensive"]
+    assert defensive
+    assert {config["drawdown_circuit_breaker"] for config in defensive} == {0.15}
+    assert {config["vol_target"] for config in defensive} == {0.15}
 
 
 def test_riskoff_score_guard_keeps_risk_on_route_unchanged():
