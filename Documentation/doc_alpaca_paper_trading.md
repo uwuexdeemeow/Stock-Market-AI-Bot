@@ -149,6 +149,8 @@ The script has multiple layers of protection:
    into share orders.
 5. **Account drawdown halt** — auto-liquidates if portfolio falls 12%
    from peak (configurable via `PORTFOLIO_DRAWDOWN_HALT_PCT`).
+   The halt sentinel is written atomically, so a crash cannot leave a partial
+   marker that confuses the next run.
 6. **Protective day limit orders** — normal submissions use small-cushion
    limit orders by default (`ALPACA_ORDER_TYPE=limit`).  Use
    `--market-order` only when you intentionally want market orders, and only

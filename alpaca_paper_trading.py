@@ -37,7 +37,7 @@ import numpy as np
 import pandas as pd
 
 from broker_interface import Broker, Order, Position, Fill
-from safe_io import atomic_write_csv, atomic_write_json, configure_console_output
+from safe_io import atomic_write_csv, atomic_write_json, atomic_write_text, configure_console_output
 from settings import LOG_DIR, SIGNAL_DIR
 from signal_freshness import (
     extract_signal_weights,
@@ -2970,6 +2970,21 @@ _HALT_SENTINEL_FILE = Path(SIGNAL_DIR) / "alpaca_halt_active.txt"
 _HALT_RECOVERY_RATIO = 0.5
 
 
+def _write_halt_sentinel(path: Path = _HALT_SENTINEL_FILE, *, now: datetime | None = None) -> None:
+    """Write the trading-halt sentinel through an atomic text write.
+
+    PLAIN ENGLISH: This tiny file tells future runs "emergency liquidation
+    already fired." Writing it atomically prevents a half-written halt marker
+    from confusing the next trading run.
+    """
+    timestamp = (now or datetime.now()).isoformat()
+    atomic_write_text(
+        path,
+        f"Emergency liquidation triggered at {timestamp}\n"
+        f"Delete this file to re-enable trading after reviewing the halt.\n",
+    )
+
+
 def _maybe_auto_clear_halt(broker: AlpacaBroker) -> bool:
     """Auto-clear the halt sentinel if drawdown has recovered sufficiently.
 
@@ -3054,11 +3069,8 @@ def _emergency_liquidate(broker: AlpacaBroker) -> None:
             except Exception as e:
                 print(f"    ✗ CLOSE {pos.ticker} FAILED: {e}")
 
-    # Write sentinel so this doesn't re-trigger on the next run
-    _HALT_SENTINEL_FILE.write_text(
-        f"Emergency liquidation triggered at {datetime.now().isoformat()}\n"
-        f"Delete this file to re-enable trading after reviewing the halt.\n"
-    )
+    # Write sentinel so this doesn't re-trigger on the next run.
+    _write_halt_sentinel()
     print(f"  ✓ Sentinel written: {_HALT_SENTINEL_FILE}")
 
 

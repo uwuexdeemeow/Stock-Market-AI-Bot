@@ -28,6 +28,27 @@ def _alpaca_package_or_skip() -> None:
         pytest.skip("alpaca-trade-api not installed")
 
 
+def test_halt_sentinel_uses_atomic_writer(monkeypatch, tmp_path):
+    import alpaca_paper_trading as apt
+
+    calls = []
+
+    def fake_write_text(path, content, **_kwargs):
+        calls.append((path.name, content))
+
+    monkeypatch.setattr(apt, "atomic_write_text", fake_write_text)
+
+    apt._write_halt_sentinel(
+        tmp_path / "alpaca_halt_active.txt",
+        now=datetime(2026, 6, 5, 14, tzinfo=timezone.utc),
+    )
+
+    assert calls
+    assert calls[0][0] == "alpaca_halt_active.txt"
+    assert "Emergency liquidation triggered at 2026-06-05T14:00:00+00:00" in calls[0][1]
+    assert "Delete this file to re-enable trading" in calls[0][1]
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # SIGNAL PARSING TESTS
 # ─────────────────────────────────────────────────────────────────────────────
