@@ -30,6 +30,7 @@ from alpha_factor_backtest import (
 from backtest import INITIAL_CAPITAL
 import core_satellite_alpha as core
 from settings import SIGNAL_DIR, LOG_DIR, SLIPPAGE_BASE_PCT
+from safe_io import atomic_write_csv, atomic_write_json
 
 
 OUT_CSV = Path(SIGNAL_DIR) / "core_satellite_drawdown_throttle.csv"
@@ -275,7 +276,7 @@ def main() -> None:
     base_metrics = evaluated[0][0]
     rows = [_row(metrics, None if metrics["throttle_rule"] == "normal" else _row(base_metrics)) for metrics, _eq, _tr in evaluated]
     out = pd.DataFrame(rows)
-    out.to_csv(OUT_CSV, index=False)
+    atomic_write_csv(out, OUT_CSV, index=False)
     best_candidates = out[out["promotion_candidate"].astype(bool)].copy()
     payload = {
         "generated_at": datetime.now().isoformat(),
@@ -286,7 +287,7 @@ def main() -> None:
         "best_promotion_candidate": best_candidates.head(1).to_dict("records")[0] if not best_candidates.empty else None,
         "pass_condition": "candidate improves Sharpe or max drawdown while retaining positive alpha vs QQQ and BLEND",
     }
-    OUT_JSON.write_text(json.dumps(payload, indent=2))
+    atomic_write_json(payload, OUT_JSON)
 
     print(f"Drawdown throttle research written -> {OUT_CSV}")
     print(f"Detailed report -> {OUT_JSON}")

@@ -18,6 +18,7 @@ import pandas as pd
 from alpha_factor_backtest import attach_scores, load_factor_panel, load_feature_specs, load_prediction_scores
 import core_satellite_alpha as core
 from settings import LOG_DIR, SIGNAL_DIR
+from safe_io import atomic_write_csv, atomic_write_json
 
 
 OUT_CSV = Path(SIGNAL_DIR) / "core_satellite_execution_stress.csv"
@@ -125,7 +126,7 @@ def main() -> None:
     rows.extend(_delta_row(base, row) for row in rows[1:].copy())
 
     out = pd.DataFrame(rows)
-    out.to_csv(OUT_CSV, index=False)
+    atomic_write_csv(out, OUT_CSV, index=False)
     payload = {
         "generated_at": datetime.now().isoformat(),
         "purpose": "core_satellite_execution_stress",
@@ -133,7 +134,7 @@ def main() -> None:
         "rows": rows,
         "pass_condition": "stressed scenarios should keep positive alpha vs SPY, QQQ, and BLEND and retain strategy gates",
     }
-    OUT_JSON.write_text(json.dumps(payload, indent=2))
+    atomic_write_json(payload, OUT_JSON)
 
     print(f"Execution stress written -> {OUT_CSV}")
     print(f"Detailed report -> {OUT_JSON}")

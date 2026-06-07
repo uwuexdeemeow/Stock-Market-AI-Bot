@@ -20,6 +20,7 @@ import pandas as pd
 import alpha_factor_backtest as alpha
 import core_satellite_alpha as core
 from settings import LOG_DIR, SIGNAL_DIR, SURVIVORSHIP_AUDIT_TICKERS, WATCHLIST
+from safe_io import atomic_write_csv, atomic_write_json
 from survivorship_audit import available_audit_tickers, existing_audit_profiles
 
 
@@ -149,7 +150,7 @@ def main() -> None:
     stressed_return = float(stressed_row.get("total_return_pct", 0.0) or 0.0)
     survivorship_adjusted_score = stressed_return / max(base_return, 1e-9)
     out = pd.DataFrame(rows)
-    out.to_csv(OUT_CSV, index=False)
+    atomic_write_csv(out, OUT_CSV, index=False)
 
     payload = {
         "generated_at": datetime.now().isoformat(),
@@ -172,7 +173,7 @@ def main() -> None:
         "rows": rows,
         "profile_summary": profiles,
     }
-    OUT_JSON.write_text(json.dumps(payload, indent=2))
+    atomic_write_json(payload, OUT_JSON)
 
     print(f"Core-satellite survivorship audit written -> {OUT_CSV}")
     print(f"Detailed report -> {OUT_JSON}")

@@ -18,6 +18,7 @@ import pandas as pd
 from alpha_factor_backtest import attach_scores, load_factor_panel, load_feature_specs, load_prediction_scores
 import core_satellite_alpha as core
 from settings import LOG_DIR, SIGNAL_DIR
+from safe_io import atomic_write_csv, atomic_write_json
 
 
 OUT_CSV = Path(SIGNAL_DIR) / "factor_decay_monitor.csv"
@@ -337,7 +338,7 @@ def main() -> None:
     previous_status = _previous_status()
 
     out = pd.DataFrame(rows)
-    out.to_csv(OUT_CSV, index=False)
+    atomic_write_csv(out, OUT_CSV, index=False)
     edge_status = aggregate_edge_health_status(rows)
     real_capital_block = edge_status == "block"
     payload = {
@@ -360,7 +361,7 @@ def main() -> None:
             else "factor decay monitor has no real-capital blocking warning"
         ),
     }
-    OUT_JSON.write_text(json.dumps(payload, indent=2))
+    atomic_write_json(payload, OUT_JSON)
 
     print(f"Factor decay monitor written -> {OUT_CSV}")
     print(f"Detailed report -> {OUT_JSON}")
