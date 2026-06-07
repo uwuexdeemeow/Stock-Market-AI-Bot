@@ -3,8 +3,8 @@
 ## What This Script Does
 
 `safe_io.py` contains shared helpers for writing important files safely. The bot
-uses it for signal CSVs, health JSON files, paper logs, and other files that
-should not be half-written if a script crashes.
+uses it for signal CSVs, health JSON files, paper logs, parquet data caches,
+and other files that should not be half-written if a script crashes.
 
 The main idea is simple: write the new content to a temporary file first, then
 rename that temporary file over the real file in one operation.

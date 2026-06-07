@@ -10,6 +10,7 @@ import pandas as pd
 
 from settings import DATA_DIR, LOG_DIR
 from data_provider import download_single, flatten_yf
+from safe_io import atomic_write_parquet
 
 
 DEFAULT_ETFS = ("SPY", "QQQ", "TQQQ", "BIL", "IEF", "GLD")
@@ -158,7 +159,7 @@ def validate_etfs(symbols: list[str], *, refresh: bool = False, force: bool = Fa
             downloaded = _download(symbol)
             downloaded_check = _validate_etf_frame(downloaded, symbol=symbol)
             if downloaded_check["ok"]:
-                downloaded.to_parquet(DATA / f"{symbol}.parquet")
+                atomic_write_parquet(downloaded, DATA / f"{symbol}.parquet", index=True)
                 local = downloaded_check
                 refreshed = True
             else:

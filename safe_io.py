@@ -11,10 +11,11 @@ instead of silently truncating when the disk fills up (a real failure mode
 on GitHub Actions runners and on smaller VPS instances).
 
 HOW TO USE:
-    from safe_io import atomic_write_text, atomic_write_csv
+    from safe_io import atomic_write_text, atomic_write_csv, atomic_write_parquet
 
     atomic_write_text(path, json.dumps(data, indent=2))
     atomic_write_csv(df, path)
+    atomic_write_parquet(df, path)
 """
 from __future__ import annotations
 
@@ -116,6 +117,29 @@ def atomic_write_csv(df: pd.DataFrame, path: Union[str, Path], *, index: bool = 
     try:
         df.to_csv(tmp_path, index=index, **kwargs)
         os.replace(str(tmp_path), str(path))  # atomic on POSIX
+    except BaseException:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
+
+
+def atomic_write_parquet(df: pd.DataFrame, path: Union[str, Path], *, index: bool = True, **kwargs) -> None:
+    """Write a DataFrame to Parquet atomically (write .tmp then rename).
+
+    PLAIN ENGLISH: Research and ETF refresh files are big parquet tables. If a
+    process dies mid-write, a direct `to_parquet` can leave a corrupt file that
+    later health checks cannot read. This writes the new parquet beside the old
+    one first, then swaps it in only after the write succeeds.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _check_free_space(path)
+    tmp_path = _atomic_tmp_path(path)
+    try:
+        df.to_parquet(tmp_path, index=index, **kwargs)
+        os.replace(str(tmp_path), str(path))
     except BaseException:
         try:
             tmp_path.unlink(missing_ok=True)

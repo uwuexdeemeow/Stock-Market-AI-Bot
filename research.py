@@ -24,6 +24,7 @@ from settings import (
 from pipeline_shared import build_research_feature_frame
 from fundamental_features import apply_sector_fundamental_zscores
 from cross_sectional_features import apply_cross_sectional_rank_features
+from safe_io import atomic_write_parquet
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -53,7 +54,7 @@ def research_ticker(ticker: str, start: str, end: str) -> bool:
     # Do not write *_features.parquet here unless the loader is changed too.
     out = os.path.join(DATA_DIR, f"{ticker}.parquet")
 
-    df.to_parquet(out, index=True)
+    atomic_write_parquet(df, out, index=True)
 
     log.info(
         "[%s] saved %s rows x %s cols -> %s",
@@ -316,7 +317,7 @@ def research_ticker_incremental(
     combined = combined[~combined.index.duplicated(keep="last")]
     combined = combined.sort_index()
 
-    combined.to_parquet(out_path, index=True)
+    atomic_write_parquet(combined, out_path, index=True)
     log.info(
         "[%s] incremental save: %d rows (was %d, fresh contributed %d) -> %s",
         ticker, len(combined), len(existing), len(fresh), out_path,
