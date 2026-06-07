@@ -137,6 +137,17 @@ REQUIRE_QUOTE_FOR_SUBMIT = os.environ.get("ALPACA_REQUIRE_QUOTE_FOR_SUBMIT", "1"
     "true", "1", "yes", "y", "on"
 }
 
+# Broker truth pre-submit gate.  PLAIN ENGLISH: before adding new risk, compare
+# the live broker account with the latest target/order/log files.  If that
+# reconciliation is already failing, skip BUY orders but keep SELL orders so the
+# account can still reduce exposure.
+BROKER_TRUTH_GATE_ENABLED = os.environ.get("ALPACA_BROKER_TRUTH_GATE", "1").strip().lower() in {
+    "true", "1", "yes", "y", "on"
+}
+BROKER_TRUTH_BLOCK_BUYS_ON_FAIL = os.environ.get(
+    "ALPACA_BROKER_TRUTH_BLOCK_BUYS_ON_FAIL", "1"
+).strip().lower() in {"true", "1", "yes", "y", "on"}
+
 # Order style.  The default is now protective day limit orders, not market
 # orders.  PLAIN ENGLISH: a marketable limit order still tries to fill now,
 # but it refuses to pay beyond a small cushion from the latest price.
@@ -1331,6 +1342,111 @@ def _skip_order(order_row: dict, reason: str) -> str:
     order_row["fill_status"] = "skipped"
     print(f"    - SKIP {order_row['side'].upper()} {order_row['quantity']} {order_row['ticker']}: {reason}")
     return f"SKIPPED: {reason}"
+
+
+def _write_broker_truth_gate_report() -> dict:
+    """Refresh broker truth files immediately before live submission."""
+    # Import inside the function so broker_truth.py can safely import the Alpaca
+    # broker class from this script without creating a startup import loop.
+    from broker_truth import write_broker_truth
+
+    return write_broker_truth(include_live_open_orders=True)
+
+
+def _broker_truth_issue_summary(payload: dict, limit: int = 5) -> str:
+    """Return a compact reason string for Telegram/log messages."""
+    issues: list[str] = []
+    for item in payload.get("global_issues", []) or []:
+        severity = str(item.get("severity", "")).lower()
+        issue = str(item.get("issue", "")).strip()
+        if severity in {"fail", "warning"} and issue:
+            issues.append(issue)
+    for row in payload.get("rows", []) or []:
+        severity = str(row.get("issue_severity", "")).lower()
+        if severity not in {"fail", "warning"}:
+            continue
+        ticker = str(row.get("ticker", "")).upper()
+        row_issues = str(row.get("issues", "")).strip()
+        if ticker or row_issues:
+            issues.append(f"{ticker}:{row_issues}" if ticker else row_issues)
+    if not issues:
+        return "no detailed issues reported"
+    summary = "; ".join(issues[:limit])
+    if len(issues) > limit:
+        summary += f"; +{len(issues) - limit} more"
+    return summary
+
+
+def _apply_broker_truth_gate(
+    orders: list[dict],
+    *,
+    force: bool = False,
+) -> tuple[list[dict], list[dict], list[str]]:
+    """
+    Skip BUY orders when broker truth is failing before live submission.
+
+    PLAIN ENGLISH: if the broker account, local log, and target plan already
+    disagree badly, adding new BUY risk can compound the mess.  SELL orders are
+    still allowed so the bot can reduce exposure and clean up.
+    """
+    if not BROKER_TRUTH_GATE_ENABLED:
+        return orders, [], []
+
+    gate_failed = False
+    fail_reason = ""
+    try:
+        payload = _write_broker_truth_gate_report()
+        status = str(payload.get("status", "unknown")).strip().lower()
+        counts = payload.get("summary", {}) or {}
+        score = payload.get("score", "")
+        print(
+            "  Broker truth gate: "
+            f"{status.upper()} score={score} "
+            f"fail={counts.get('fail_count', 0)} warn={counts.get('warning_count', 0)}"
+        )
+        gate_failed = status == "fail"
+        fail_reason = "broker_truth_fail"
+        issue_summary = _broker_truth_issue_summary(payload)
+    except Exception as exc:
+        gate_failed = True
+        fail_reason = f"broker_truth_gate_error:{type(exc).__name__}"
+        issue_summary = str(exc)
+        print(f"  WARNING: Broker truth gate could not refresh report: {exc}")
+
+    if not gate_failed or not BROKER_TRUTH_BLOCK_BUYS_ON_FAIL:
+        return orders, [], []
+
+    buy_orders = [o for o in orders if str(o.get("side", "")).lower() == "buy"]
+    if force or not buy_orders:
+        override_note = " --force override active" if force and buy_orders else "sell-only plan"
+        print(f"  Broker truth gate failed, but proceeding with {override_note}.")
+        _send_submit_guard_alert(
+            "Broker truth gate warning",
+            f"Broker truth is failing before submit, proceeding with {override_note}.\n{issue_summary}",
+            priority="warning",
+        )
+        return orders, [], []
+
+    remaining: list[dict] = []
+    skipped_orders: list[dict] = []
+    skipped_ids: list[str] = []
+    for order_row in orders:
+        if str(order_row.get("side", "")).lower() == "buy":
+            skipped_orders.append(order_row)
+            skipped_ids.append(_skip_order(order_row, fail_reason))
+        else:
+            remaining.append(order_row)
+
+    tickers = ", ".join(str(o.get("ticker", "")).upper() for o in skipped_orders)
+    _send_submit_guard_alert(
+        "Broker truth gate blocked buys",
+        (
+            f"Broker truth failed before submit, so BUY orders were skipped: {tickers}.\n"
+            f"SELL orders are still allowed.\n{issue_summary}"
+        ),
+        priority="critical",
+    )
+    return remaining, skipped_orders, skipped_ids
 
 
 def _apply_spread_guard(
@@ -3004,6 +3120,34 @@ def main():
         print("  ⚠  DRY RUN — orders NOT submitted. Use --submit to execute.")
         return
 
+    pre_submit_skipped_orders: list[dict] = []
+    pre_submit_skipped_ids: list[str] = []
+    orders, truth_skipped_orders, truth_skipped_ids = _apply_broker_truth_gate(
+        orders,
+        force=bool(getattr(args, "force", False)),
+    )
+    pre_submit_skipped_orders.extend(truth_skipped_orders)
+    pre_submit_skipped_ids.extend(truth_skipped_ids)
+    if not orders:
+        print("  No submit-ready orders remain after broker truth gate.")
+        if pre_submit_skipped_orders:
+            log_submission(pre_submit_skipped_orders, pre_submit_skipped_ids)
+            print(f"  Logged {len(pre_submit_skipped_orders)} broker-truth skipped orders -> {PAPER_LOG_FILE}")
+        if CORE_PROTECTION_ENABLED:
+            print("  Checking core ETF protective stops...")
+            repair_core_etf_protective_stops(
+                broker,
+                tickers=CORE_PROTECTION_TICKERS,
+                logger=lambda msg: print(f"    {msg}"),
+            )
+        if TRAILING_STOP_ENABLED:
+            repair_all_overlay_trailing_stops(broker)
+        warn_if_margin_exposure(broker)
+        snapshot_equity(broker)
+        snapshot_status(broker)
+        build_slippage_reversal_report(broker)
+        return
+
     # ── Auto-clear halt if drawdown has recovered ──────────────────────
     # PLAIN ENGLISH: If we halted trading yesterday because of a big
     # drawdown, check if the account has recovered enough to resume.
@@ -3097,9 +3241,6 @@ def main():
             print("  ✗ Could not cancel all affected overlay trailing stops. Aborting rebalance.")
             print("     Existing stops may reserve shares and cause sell orders to fail.")
             return
-
-    pre_submit_skipped_orders: list[dict] = []
-    pre_submit_skipped_ids: list[str] = []
 
     # ── TQQQ fast circuit breaker — pre-trade check ───────────────────────
     # PLAIN ENGLISH: Before submitting any TQQQ buy, verify that TQQQ hasn't

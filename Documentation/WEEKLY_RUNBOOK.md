@@ -624,6 +624,8 @@ daily GitHub workflow:
 | `BROKER_TRUTH_QTY_TOLERANCE` | `0.001` | Ignore tiny share-count differences in broker truth. |
 | `BROKER_TRUTH_WEIGHT_TOLERANCE` | `0.02` | Warn when broker weight differs from target by more than this amount. |
 | `BROKER_TRUTH_REQUIRE_LIVE_ORDERS` | `0` | If `1`, broker truth fails when live open/trailing orders cannot be read. |
+| `ALPACA_BROKER_TRUTH_GATE` | `1` | Refresh broker truth before submit and use it as a pre-trade safety gate. |
+| `ALPACA_BROKER_TRUTH_BLOCK_BUYS_ON_FAIL` | `1` | When broker truth fails, skip BUY orders while still allowing SELL orders. |
 | `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT` | `1` | Skip/log an order when Alpaca cannot provide a quote for spread checking. |
 | `MAX_SPREAD_PCT_ETF` | `0.005` | Max ETF spread accepted before skipping an order. |
 | `MAX_SPREAD_PCT_OVERLAY` | `0.015` | Max overlay-stock spread accepted before skipping an order. |
@@ -670,6 +672,8 @@ EXECUTION_SCORECARD_LOOKBACK_DAYS=30
 BROKER_TRUTH_QTY_TOLERANCE=0.001
 BROKER_TRUTH_WEIGHT_TOLERANCE=0.02
 BROKER_TRUTH_REQUIRE_LIVE_ORDERS=0
+ALPACA_BROKER_TRUTH_GATE=1
+ALPACA_BROKER_TRUTH_BLOCK_BUYS_ON_FAIL=1
 ALPACA_REQUIRE_QUOTE_FOR_SUBMIT=1
 MAX_SPREAD_PCT_ETF=0.005
 MAX_SPREAD_PCT_OVERLAY=0.015

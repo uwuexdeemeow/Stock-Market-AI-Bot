@@ -756,6 +756,68 @@ def _planned_order(ticker, side, quantity=1):
     }
 
 
+def test_broker_truth_gate_blocks_buys_on_fail_and_keeps_sells(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    alerts = []
+    monkeypatch.setattr(apt, "BROKER_TRUTH_GATE_ENABLED", True)
+    monkeypatch.setattr(apt, "BROKER_TRUTH_BLOCK_BUYS_ON_FAIL", True)
+    monkeypatch.setattr(
+        apt,
+        "_write_broker_truth_gate_report",
+        lambda: {
+            "status": "fail",
+            "score": 65.0,
+            "summary": {"fail_count": 1, "warning_count": 0},
+            "global_issues": [{"severity": "fail", "issue": "broker_status_missing"}],
+            "rows": [{"ticker": "MU", "issue_severity": "fail", "issues": "target_missing"}],
+        },
+    )
+    monkeypatch.setattr(
+        apt,
+        "_send_submit_guard_alert",
+        lambda title, message, priority="warning": alerts.append((title, message, priority)),
+    )
+    sell = _planned_order("FCX", "sell")
+    buy = _planned_order("MU", "buy")
+
+    remaining, skipped, ids = apt._apply_broker_truth_gate([sell, buy])
+
+    assert remaining == [sell]
+    assert skipped == [buy]
+    assert ids == ["SKIPPED: broker_truth_fail"]
+    assert buy["fill_status"] == "skipped"
+    assert buy["submitted_limit_reference"] == "broker_truth_fail"
+    assert alerts and alerts[0][0] == "Broker truth gate blocked buys"
+    assert alerts[0][2] == "critical"
+
+
+def test_broker_truth_gate_warning_allows_orders(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "BROKER_TRUTH_GATE_ENABLED", True)
+    monkeypatch.setattr(apt, "BROKER_TRUTH_BLOCK_BUYS_ON_FAIL", True)
+    monkeypatch.setattr(
+        apt,
+        "_write_broker_truth_gate_report",
+        lambda: {
+            "status": "warning",
+            "score": 90.0,
+            "summary": {"fail_count": 0, "warning_count": 2},
+            "global_issues": [{"severity": "warning", "issue": "paper_log_stale_vs_broker_status"}],
+            "rows": [],
+        },
+    )
+    order = _planned_order("MU", "buy")
+
+    remaining, skipped, ids = apt._apply_broker_truth_gate([order])
+
+    assert remaining == [order]
+    assert skipped == []
+    assert ids == []
+    assert "fill_status" not in order
+
+
 class _QuoteBroker:
     """Tiny broker fake for quote/spread guard tests."""
 
