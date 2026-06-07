@@ -66,6 +66,9 @@ Expected outputs:
 - `signals/core_satellite_live_configs.json`
 - `signals/core_satellite_nested_walkforward.json`
 
+Both JSON outputs are written atomically after the backup step, so the trading
+bot never sees a half-written live config while publishing is in progress.
+
 ## Key Terms
 
 - **Nested walkforward**: a test where each outer year is held out as unseen

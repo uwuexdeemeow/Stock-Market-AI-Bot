@@ -601,6 +601,41 @@ def test_nested_write_outputs_only_publishes_live_config_when_requested(tmp_path
     assert "both" not in live["approved_live_configs"]
 
 
+def test_nested_write_outputs_uses_atomic_writers(tmp_path, monkeypatch):
+    calls = []
+
+    def fake_write_text(path, content, **_kwargs):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        calls.append(("text", path.name))
+
+    def fake_write_csv(df, path, **kwargs):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(path, index=kwargs.get("index", False))
+        calls.append(("csv", path.name, len(df)))
+
+    live_path = tmp_path / "core_satellite_live_configs.json"
+    monkeypatch.setattr(nested_wf, "SIGNAL_DIR", str(tmp_path))
+    monkeypatch.setattr(nested_wf, "LIVE_CONFIG_PATH", live_path)
+    monkeypatch.setattr(nested_wf, "atomic_write_text", fake_write_text)
+    monkeypatch.setattr(nested_wf, "atomic_write_csv", fake_write_csv)
+
+    nested_wf.write_outputs(
+        {
+            "strategy": "core-alpha",
+            "method": "nested_walk_forward",
+            "folds": [{"outer_year": 2026}],
+            "live_config_approval": {"approved": False, "reasons": ["smoke"]},
+        },
+        output_prefix="publish",
+        publish_live_config=True,
+    )
+
+    assert ("text", "publish.json") in calls
+    assert ("csv", "publish.csv", 1) in calls
+    assert ("text", "core_satellite_live_configs.json") in calls
+
+
 def test_nested_write_outputs_keeps_research_results_unique(tmp_path, monkeypatch):
     monkeypatch.setattr(nested_wf, "SIGNAL_DIR", str(tmp_path))
     result = {"strategy": "core-alpha", "folds": []}

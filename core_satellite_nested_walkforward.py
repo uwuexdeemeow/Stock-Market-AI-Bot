@@ -306,6 +306,7 @@ from core_satellite_alpha import (
 )
 from settings import LOG_DIR, SIGNAL_DIR
 from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
+from safe_io import atomic_write_csv, atomic_write_text
 
 
 BASE_REGIME = "qqq_trend_switch_overlay70_core55_cashbuffer"
@@ -2976,8 +2977,8 @@ def write_outputs(
         safe_prefix = _research_output_prefix(signal_dir, safe_prefix)
     json_path = signal_dir / f"{safe_prefix}.json"
     csv_path = signal_dir / f"{safe_prefix}.csv"
-    json_path.write_text(json.dumps(result, indent=2, default=_json_default))
-    pd.DataFrame(result.get("folds", [])).to_csv(csv_path, index=False)
+    atomic_write_text(json_path, json.dumps(result, indent=2, default=_json_default))
+    atomic_write_csv(pd.DataFrame(result.get("folds", [])), csv_path, index=False)
     if not publish_live_config:
         return json_path, csv_path
 
@@ -3020,7 +3021,7 @@ def write_outputs(
         "approved_live_configs": merged_configs,
         "medium_risk_reviews": medium_reviews,
     }
-    LIVE_CONFIG_PATH.write_text(json.dumps(live_payload, indent=2, default=_json_default))
+    atomic_write_text(LIVE_CONFIG_PATH, json.dumps(live_payload, indent=2, default=_json_default))
     return json_path, csv_path
 
 

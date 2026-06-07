@@ -95,6 +95,10 @@ overwriting the older research result. If a path-like prefix such as
 `signals/`. When the run finishes, the summary prints the exact `json:` and
 `csv:` filenames it wrote.
 
+Nested walkforward writes its JSON, CSV, and optional live-config output
+atomically, so dashboards and trading scripts never read a half-written
+validation result or live config.
+
 If a fold says `no_valid_inner_config`, open the JSON output for that fold.
 Its strict and relaxed inner-selection diagnostics now count which candidate
 configs were rejected by the cost-stress gate, the mean-turnover cap, the

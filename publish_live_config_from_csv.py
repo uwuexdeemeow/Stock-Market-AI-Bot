@@ -59,6 +59,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from safe_io import atomic_write_text
+
 
 # ── Paths — where to read and write ─────────────────────────────────────
 WF_CSV = Path("signals/core_satellite_nested_walkforward.csv")
@@ -600,6 +602,20 @@ def backup_if_exists(path: Path):
 
 
 # ── Main publisher ─────────────────────────────────────────────────────
+def write_publish_payloads(live_payload: dict, wf_payload: dict) -> tuple[Path, Path]:
+    """Back up and atomically write the live-config publisher outputs.
+
+    PLAIN ENGLISH: These files decide what the bot is allowed to trade. We
+    write a complete temporary file first so the bot never reads half a config.
+    """
+    backup_if_exists(LIVE_CFG_JSON)
+    atomic_write_text(LIVE_CFG_JSON, json.dumps(live_payload, indent=2, default=str))
+
+    backup_if_exists(WF_JSON)
+    atomic_write_text(WF_JSON, json.dumps(wf_payload, indent=2, default=str))
+    return LIVE_CFG_JSON, WF_JSON
+
+
 def publish(source: str, force: bool, dry_run: bool):
     if not WF_CSV.exists():
         print(f"✗ Missing CSV: {WF_CSV}")
@@ -799,13 +815,10 @@ def publish(source: str, force: bool, dry_run: bool):
         return
 
     print("Writing files...")
-    backup_if_exists(LIVE_CFG_JSON)
-    LIVE_CFG_JSON.write_text(json.dumps(live_payload, indent=2, default=str))
-    print(f"  ✓ {LIVE_CFG_JSON}")
+    live_path, wf_path = write_publish_payloads(live_payload, wf_payload)
+    print(f"  ✓ {live_path}")
 
-    backup_if_exists(WF_JSON)
-    WF_JSON.write_text(json.dumps(wf_payload, indent=2, default=str))
-    print(f"  ✓ {WF_JSON}")
+    print(f"  ✓ {wf_path}")
 
     print(f"\n✓ Live config published.  Next steps:")
     print(f"  1. python3 daily_run.py --dry-run     # verify pipeline picks up new config")
