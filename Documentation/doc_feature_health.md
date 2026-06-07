@@ -45,6 +45,10 @@ Expected outputs:
 - `signals/feature_health_profile.json`
 - `signals/feature_health_profile.csv`
 
+Both files are written atomically, meaning the script writes a complete
+temporary file first and then swaps it into place so live trading never reads a
+half-written health profile.
+
 The direct command now prints:
 
 - Whether the feature-health gate passed

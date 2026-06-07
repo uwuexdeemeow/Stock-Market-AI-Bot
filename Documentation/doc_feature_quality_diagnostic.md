@@ -2,6 +2,9 @@
 
 ## What It Does
 
+The JSON and CSV outputs are written atomically, so live gates never see a
+half-written feature-quality report if the script crashes mid-refresh.
+
 `feature_quality_diagnostic.py` checks whether the factor features used by the
 core-satellite overlay are useful enough for live paper trading. It measures
 predictive power, stability, regime behavior, signal decay, turnover, and

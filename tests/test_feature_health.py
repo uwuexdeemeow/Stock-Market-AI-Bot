@@ -4,6 +4,7 @@ import json
 
 import pandas as pd
 
+import feature_health as feature_health_module
 from feature_health import (
     MAX_CLUSTER_WEIGHT,
     MIN_ACTIVE_CLUSTERS,
@@ -105,3 +106,26 @@ def test_feature_health_profile_uses_live_diversification_gate_constants(tmp_pat
     assert summary["active_cluster_count"] == MIN_ACTIVE_CLUSTERS
     assert summary["max_cluster_weight"] == round(1 / MIN_ACTIVE_CLUSTERS, 6)
     assert summary["feature_health_gate_pass"] is True
+
+
+def test_feature_health_outputs_use_atomic_writers(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_write_json(data, path, **_kwargs):
+        calls.append(("json", path.name, data["purpose"]))
+
+    def fake_write_csv(df, path, **_kwargs):
+        calls.append(("csv", path.name, len(df)))
+
+    monkeypatch.setattr(feature_health_module, "atomic_write_json", fake_write_json)
+    monkeypatch.setattr(feature_health_module, "atomic_write_csv", fake_write_csv)
+
+    feature_health_module.build_feature_health_profile(
+        ["signal_a", "signal_b", "signal_c"],
+        output_dir=tmp_path,
+    )
+
+    assert calls == [
+        ("json", "feature_health_profile.json", "feature_health_profile"),
+        ("csv", "feature_health_profile.csv", 3),
+    ]

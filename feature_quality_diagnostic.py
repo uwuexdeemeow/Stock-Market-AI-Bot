@@ -22,7 +22,6 @@ Output:
 """
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -34,6 +33,7 @@ from alpha_factor_backtest import (
     load_feature_specs,
     HORIZON_DAYS,
 )
+from safe_io import atomic_write_csv, atomic_write_json
 from settings import SIGNAL_DIR
 
 
@@ -482,6 +482,26 @@ def compute_feature_quality_grade(stats: dict) -> str:
         return "F"
 
 
+def write_feature_quality_outputs(
+    report: dict,
+    summary_df: pd.DataFrame,
+    *,
+    signal_dir: str | Path | None = None,
+) -> tuple[Path, Path]:
+    """Write feature-quality outputs through crash-safe atomic files.
+
+    PLAIN ENGLISH: The trading bot reads these files as safety inputs.  We
+    write a complete temp file first, then swap it into place, so live gates
+    never see a partially written report if the diagnostic crashes.
+    """
+    output_dir = Path(signal_dir) if signal_dir is not None else Path(SIGNAL_DIR)
+    out_json = output_dir / "feature_quality_report.json"
+    out_csv = output_dir / "feature_quality_summary.csv"
+    atomic_write_json(report, out_json)
+    atomic_write_csv(summary_df, out_csv)
+    return out_json, out_csv
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────────────────────────────────────
@@ -642,11 +662,6 @@ def main():
             "regime_dependent": [r["feature"] for r in regime_weak],
         },
     }
-    out_json = Path(SIGNAL_DIR) / "feature_quality_report.json"
-    with open(out_json, "w") as f:
-        json.dump(report, f, indent=2, default=str)
-    print(f"\nReport saved → {out_json}")
-
     # CSV summary
     summary_rows = []
     for r in results:
@@ -669,8 +684,8 @@ def main():
             "high_turnover": turnover.get("high_turnover", False),
         })
     summary_df = pd.DataFrame(summary_rows).sort_values("grade")
-    out_csv = Path(SIGNAL_DIR) / "feature_quality_summary.csv"
-    summary_df.to_csv(out_csv, index=False)
+    out_json, out_csv = write_feature_quality_outputs(report, summary_df)
+    print(f"\nReport saved → {out_json}")
     print(f"Summary saved → {out_csv}")
 
 

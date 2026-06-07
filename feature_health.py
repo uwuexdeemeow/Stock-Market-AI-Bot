@@ -16,6 +16,7 @@ from typing import Iterable
 
 import pandas as pd
 
+from safe_io import atomic_write_csv, atomic_write_json
 from settings import SIGNAL_DIR
 
 
@@ -274,10 +275,10 @@ def build_feature_health_profile(
     }
 
     if write_outputs:
-        signal_dir.mkdir(parents=True, exist_ok=True)
-        with open(signal_dir / "feature_health_profile.json", "w") as f:
-            json.dump(profile, f, indent=2, default=str)
-        pd.DataFrame(feature_rows).to_csv(signal_dir / "feature_health_profile.csv", index=False)
+        # Write both live gate inputs through the crash-safe helper so a killed
+        # refresh never leaves a half-written JSON/CSV file for trading to read.
+        atomic_write_json(profile, signal_dir / "feature_health_profile.json")
+        atomic_write_csv(pd.DataFrame(feature_rows), signal_dir / "feature_health_profile.csv")
 
     return profile
 
