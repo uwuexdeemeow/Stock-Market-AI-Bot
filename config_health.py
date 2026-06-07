@@ -11,7 +11,7 @@ from pathlib import Path
 from packaging.requirements import Requirement
 from packaging.version import Version
 
-from safe_io import run_utf8
+from safe_io import atomic_write_json, run_utf8
 from settings import LOG_DIR
 
 
@@ -80,9 +80,8 @@ def main() -> None:
     args = parser.parse_args()
 
     report = build_config_health(run_pip_check=not bool(args.skip_pip_check))
-    LOGS.mkdir(parents=True, exist_ok=True)
     out = LOGS / "config_health.json"
-    out.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    atomic_write_json(report, out)
     if args.json:
         print(json.dumps(report, indent=2))
     else:

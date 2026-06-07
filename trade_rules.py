@@ -9,6 +9,7 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
+from safe_io import atomic_write_csv, atomic_write_json
 from settings import DEFAULT_FIXED_CONFIDENCE_THRESHOLD, MODEL_DIR, RETURN_HORIZON_DAYS
 
 TRADE_RULE_REPORT = os.path.join(MODEL_DIR, "trade_rule_report.csv")
@@ -61,8 +62,7 @@ def save_trade_rule(rule: TradeRule) -> str:
     path = trade_rule_path(rule.ticker)
     data = rule.to_json_dict()
     data["optimized_at"] = data.get("optimized_at") or datetime.now().isoformat(timespec="seconds")
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
+    atomic_write_json(data, path)
     return path
 
 
@@ -155,5 +155,5 @@ def append_rule_report(rows: Iterable[dict]) -> pd.DataFrame:
         old_df = old_df[~old_df["ticker"].astype(str).str.upper().isin(new_df["ticker"].astype(str).str.upper())]
     out = pd.concat([old_df, new_df], ignore_index=True, sort=False)
     out = out.sort_values(["approved_candidate", "score"], ascending=[False, False])
-    out.to_csv(TRADE_RULE_REPORT, index=False)
+    atomic_write_csv(out, TRADE_RULE_REPORT, index=False)
     return out
