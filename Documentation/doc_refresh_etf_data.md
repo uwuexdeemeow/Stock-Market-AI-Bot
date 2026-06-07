@@ -30,6 +30,10 @@ Expected output:
 - `logs/etf_data_health.json`
 - updated `data/<ETF>.parquet` files when refresh succeeds
 
+The health JSON and ETF parquet files are written atomically, so automation does
+not read a half-written health report or corrupt ETF cache if the process stops
+mid-write.
+
 Use `--strict` in automation. It exits non-zero if any ETF remains missing,
 stale, partial, or otherwise unhealthy after validation.
 

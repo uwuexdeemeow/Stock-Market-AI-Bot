@@ -76,6 +76,23 @@ def test_etf_refresh_force_replaces_healthy_local_data(tmp_path, monkeypatch):
     assert pd.read_parquet(tmp_path / "SPY.parquet")["Close"].iloc[0] == 200.0
 
 
+def test_etf_data_health_report_uses_atomic_writer(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_write_json(data, path, **_kwargs):
+        calls.append((path.name, data["ok"]))
+
+    monkeypatch.setattr(refresh_etf_data, "atomic_write_json", fake_write_json)
+
+    out = refresh_etf_data.write_etf_data_health(
+        {"ok": True, "results": []},
+        output_path=tmp_path / "etf_data_health.json",
+    )
+
+    assert out == tmp_path / "etf_data_health.json"
+    assert calls == [("etf_data_health.json", True)]
+
+
 def test_etf_refresh_strict_exits_nonzero_when_report_fails(tmp_path, monkeypatch):
     monkeypatch.setattr(refresh_etf_data, "LOGS", tmp_path)
     monkeypatch.setattr(

@@ -10,7 +10,7 @@ import pandas as pd
 
 from settings import DATA_DIR, LOG_DIR
 from data_provider import download_single, flatten_yf
-from safe_io import atomic_write_parquet
+from safe_io import atomic_write_json, atomic_write_parquet
 
 
 DEFAULT_ETFS = ("SPY", "QQQ", "TQQQ", "BIL", "IEF", "GLD")
@@ -175,6 +175,17 @@ def validate_etfs(symbols: list[str], *, refresh: bool = False, force: bool = Fa
     }
 
 
+def write_etf_data_health(report: dict, output_path: Path | None = None) -> Path:
+    """Write the ETF data-health report through a crash-safe JSON helper.
+
+    PLAIN ENGLISH: Daily gates read this report before trading. Atomic writing
+    keeps the report from being half-written if the refresh is interrupted.
+    """
+    out = output_path or (LOGS / "etf_data_health.json")
+    atomic_write_json(report, out)
+    return out
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Validate or refresh ETF parquet data used by core alpha.")
     parser.add_argument("--symbols", nargs="*", default=list(DEFAULT_ETFS), help="ETF symbols to validate.")
@@ -185,9 +196,7 @@ def main() -> None:
     args = parser.parse_args()
 
     report = validate_etfs([str(s).upper() for s in args.symbols], refresh=bool(args.refresh), force=bool(args.force))
-    LOGS.mkdir(parents=True, exist_ok=True)
-    out = LOGS / "etf_data_health.json"
-    out.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    out = write_etf_data_health(report)
     if args.json:
         print(json.dumps(report, indent=2))
     else:
