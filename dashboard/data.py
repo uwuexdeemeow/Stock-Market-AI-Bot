@@ -56,6 +56,8 @@ ALPACA_LOG = SIGNALS_DIR / "alpaca_paper_log.csv"
 ALPACA_STATUS = SIGNALS_DIR / "alpaca_daily_status.json"
 ALPACA_HEALTH = SIGNALS_DIR / "alpaca_paper_health.json"
 ALPACA_SLIPPAGE_REPORT = SIGNALS_DIR / "alpaca_slippage_reversal_report.json"
+BROKER_TRUTH_JSON = SIGNALS_DIR / "broker_truth.json"
+BROKER_TRUTH_CSV = SIGNALS_DIR / "broker_truth.csv"
 SHADOW_EQUITY = SIGNALS_DIR / "shadow_paper_equity.csv"
 PAPER_SHADOW_COMPARE_JSON = SIGNALS_DIR / "paper_shadow_compare.json"
 PAPER_SHADOW_COMPARE_CSV = SIGNALS_DIR / "paper_shadow_compare.csv"
@@ -299,6 +301,14 @@ def _file_age_minutes(path: Path) -> Optional[float]:
     return (datetime.now() - mtime).total_seconds() / 60.0
 
 
+def _display_path(path: Path) -> str:
+    """Show repo-relative paths, falling back to absolute paths for tests."""
+    try:
+        return str(path.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(path)
+
+
 @st.cache_data(ttl=DASHBOARD_LIVE_ALPACA_TTL_SECONDS, show_spinner=False)
 def refresh_live_alpaca_snapshot() -> dict:
     """Refresh local Alpaca snapshot files directly from the paper broker.
@@ -513,6 +523,69 @@ def load_slippage_reversal_report() -> dict | None:
     return _execution_report_from_order_log(_read_csv_safe(ALPACA_LOG)) or report
 
 
+@st.cache_data(ttl=30)
+def load_broker_truth() -> dict:
+    """Return the broker truth report plus its per-ticker table.
+
+    PLAIN ENGLISH: broker_truth.py compares what the strategy wants, what the
+    local log says happened, and what Alpaca actually holds.  The dashboard
+    keeps the JSON summary and CSV table together so pages can show both the
+    traffic-light status and the detailed ticker gaps.
+    """
+    payload = _read_json_safe(BROKER_TRUTH_JSON)
+    table = _read_csv_safe(BROKER_TRUTH_CSV)
+    if not isinstance(payload, dict):
+        payload = {
+            "status": "missing",
+            "score": None,
+            "summary": {},
+            "global_issues": [],
+            "rows": [],
+        }
+    return {"payload": payload, "table": table}
+
+
+def broker_truth_chip_status(payload: dict | None) -> str:
+    """Map broker truth status into the dashboard chip statuses."""
+    status = str((payload or {}).get("status") or "missing").strip().lower()
+    if status == "pass":
+        return "ok"
+    if status == "warning":
+        return "warn"
+    if status == "fail":
+        return "fail"
+    return "unknown"
+
+
+def broker_truth_issue_table(table: pd.DataFrame, *, limit: int = 10) -> pd.DataFrame:
+    """Return the most important broker truth rows for display."""
+    if table.empty or "issue_severity" not in table.columns:
+        return pd.DataFrame()
+    work = table.copy()
+    work["issue_severity"] = work["issue_severity"].astype(str).str.lower().str.strip()
+    work = work[work["issue_severity"].isin({"fail", "warning"})]
+    if work.empty:
+        return pd.DataFrame()
+    severity_order = {"fail": 0, "warning": 1}
+    work["_severity_rank"] = work["issue_severity"].map(severity_order).fillna(2)
+    work = work.sort_values(["_severity_rank", "ticker"]).head(limit)
+    display_cols = [
+        col
+        for col in [
+            "ticker",
+            "issue_severity",
+            "target_weight",
+            "broker_weight",
+            "broker_qty",
+            "open_sell_qty",
+            "trailing_stop_qty",
+            "issues",
+        ]
+        if col in work.columns
+    ]
+    return work[display_cols].reset_index(drop=True)
+
+
 @st.cache_data(ttl=60)
 def load_broker_health() -> dict | None:
     """Return the broker connectivity ping result."""
@@ -599,6 +672,7 @@ def file_status_table() -> pd.DataFrame:
         "Alpaca status": ALPACA_STATUS,
         "Alpaca health": ALPACA_HEALTH,
         "Alpaca execution": ALPACA_SLIPPAGE_REPORT,
+        "Broker truth": BROKER_TRUTH_JSON,
         "Alpaca orders log": ALPACA_LOG,
         "Shadow equity": SHADOW_EQUITY,
         "Paper vs shadow": PAPER_SHADOW_COMPARE_JSON,
@@ -639,6 +713,7 @@ def file_status_table() -> pd.DataFrame:
         "Alpaca status":     (26 * 60, 72 * 60),
         "Alpaca health":     (26 * 60, 72 * 60),
         "Alpaca execution":  (26 * 60, 72 * 60),
+        "Broker truth":      (26 * 60, 72 * 60),
         "Broker health":     (26 * 60, 72 * 60),
         "Shadow equity":     (26 * 60, 72 * 60),
         "Paper vs shadow":   (26 * 60, 72 * 60),
@@ -670,7 +745,7 @@ def file_status_table() -> pd.DataFrame:
                 status = "🔴 old"
             rows.append({
                 "File": label,
-                "Path": str(path.relative_to(PROJECT_ROOT)),
+                "Path": _display_path(path),
                 "Age (min)": round(age_min, 1),
                 "Size (KB)": round(size_kb, 1),
                 "Status": status,
@@ -678,7 +753,7 @@ def file_status_table() -> pd.DataFrame:
         else:
             rows.append({
                 "File": label,
-                "Path": str(path.relative_to(PROJECT_ROOT)),
+                "Path": _display_path(path),
                 "Age (min)": None,
                 "Size (KB)": None,
                 "Status": "⚫ missing",

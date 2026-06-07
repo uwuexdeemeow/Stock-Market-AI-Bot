@@ -16,6 +16,7 @@ from plotly.subplots import make_subplots
 from dashboard import data
 from dashboard.components import (
     account_summary_card,
+    broker_truth_panel,
     COLOR_FAIL,
     COLOR_WARN,
     live_fragment_decorator,
@@ -41,6 +42,11 @@ if _live_decorator is not None:
     _live_account_fragment()
 else:
     _render_live_account_summary()
+
+st.divider()
+
+broker_truth = data.load_broker_truth()
+broker_truth_panel(broker_truth.get("payload") or {}, broker_truth.get("table"))
 
 st.divider()
 

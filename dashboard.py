@@ -14,6 +14,7 @@ import streamlit as st
 from dashboard import data
 from dashboard.components import (
     account_summary_card,
+    broker_truth_panel,
     equity_curve_chart,
     live_fragment_decorator,
     regime_indicator,
@@ -150,7 +151,7 @@ with col_a:
 
 with col_b:
     st.markdown("##### System status")
-    h1, h2, h3 = st.columns(3)
+    h1, h2, h3, h4 = st.columns(4)
     with h1:
         wf = data.load_walkforward_summary() or {}
         approval = (wf.get("live_config_approval") or {}).get("approved", False)
@@ -178,11 +179,26 @@ with col_b:
             status_chip(f"Daily run {passed}/{total}", status)
         else:
             status_chip("No daily run log", "unknown")
+    with h4:
+        broker_truth = data.load_broker_truth()
+        truth_payload = broker_truth.get("payload") or {}
+        truth_status = str(truth_payload.get("status") or "missing").upper()
+        status_chip(f"Broker truth {truth_status}", data.broker_truth_chip_status(truth_payload))
+        truth_summary = truth_payload.get("summary") or {}
+        st.caption(
+            f"fail={int(truth_summary.get('fail_count') or 0)}, "
+            f"warn={int(truth_summary.get('warning_count') or 0)}"
+        )
 
 st.divider()
 
 
 # ── Equity curve ───────────────────────────────────────────────────────
+broker_truth = data.load_broker_truth()
+broker_truth_panel(broker_truth.get("payload") or {}, broker_truth.get("table"))
+
+st.divider()
+
 st.markdown("##### Equity (last 90 days)")
 equity_df = data.load_alpaca_equity_history()
 qqq_df = data.load_etf_data("QQQ", days=90)

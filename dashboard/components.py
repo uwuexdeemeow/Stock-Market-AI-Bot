@@ -232,6 +232,99 @@ def freshness_badge(age_minutes: Optional[float]) -> None:
         status_chip(f"old ({hours:.1f}h)", "fail")
 
 
+def broker_truth_panel(payload: dict, table: pd.DataFrame) -> None:
+    """Render the broker-truth operations panel.
+
+    PLAIN ENGLISH: This turns broker_truth.py output into a small dashboard
+    panel: status first, then the ticker rows that need attention.
+    """
+    payload = payload or {}
+    summary = payload.get("summary") or {}
+    status = str(payload.get("status") or "missing").lower()
+    score = payload.get("score")
+    if status == "pass":
+        chip_status = "ok"
+    elif status == "warning":
+        chip_status = "warn"
+    elif status == "fail":
+        chip_status = "fail"
+    else:
+        chip_status = "unknown"
+
+    st.markdown("##### Broker truth")
+    b1, b2, b3, b4, b5 = st.columns(5)
+    with b1:
+        status_chip(f"Truth {status.upper()}", chip_status)
+    with b2:
+        score_label = "n/a" if score is None else f"{float(score):.1f}"
+        st.metric("Score", score_label)
+    with b3:
+        st.metric("Fails", int(summary.get("fail_count") or 0))
+    with b4:
+        st.metric("Warnings", int(summary.get("warning_count") or 0))
+    with b5:
+        live_orders = bool(summary.get("live_open_orders_available"))
+        st.metric(
+            "Live orders",
+            "yes" if live_orders else "no",
+            delta=str(summary.get("live_open_orders_count", 0)),
+            delta_color="off",
+        )
+
+    if summary.get("latest_log_date"):
+        st.caption(f"Latest paper-log date: {summary.get('latest_log_date')}")
+
+    global_issues = payload.get("global_issues") or []
+    if global_issues:
+        issue_text = "; ".join(
+            str(item.get("issue", ""))
+            for item in global_issues[:4]
+            if isinstance(item, dict)
+        )
+        if issue_text:
+            st.caption(f"Global issues: {issue_text}")
+
+    if table.empty:
+        st.info("Broker truth table missing. Run `python broker_truth.py`.")
+        return
+
+    issue_table = table.copy()
+    if "issue_severity" in issue_table.columns:
+        severity = issue_table["issue_severity"].astype(str).str.lower().str.strip()
+        issue_table = issue_table[severity.isin({"fail", "warning"})]
+    else:
+        issue_table = pd.DataFrame()
+
+    if issue_table.empty:
+        st.caption("No ticker-level broker truth issues.")
+        return
+
+    severity_order = {"fail": 0, "warning": 1}
+    issue_table["_rank"] = (
+        issue_table["issue_severity"].astype(str).str.lower().map(severity_order).fillna(2)
+    )
+    issue_table = issue_table.sort_values(["_rank", "ticker"]).drop(columns=["_rank"])
+    display_cols = [
+        col
+        for col in [
+            "ticker",
+            "issue_severity",
+            "target_weight",
+            "broker_weight",
+            "broker_qty",
+            "open_sell_qty",
+            "trailing_stop_qty",
+            "issues",
+        ]
+        if col in issue_table.columns
+    ]
+    st.dataframe(
+        issue_table[display_cols].head(10),
+        hide_index=True,
+        use_container_width=True,
+    )
+
+
 def apply_page_style() -> None:
     """Inject the shared CSS used on every page.
 

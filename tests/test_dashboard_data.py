@@ -13,6 +13,7 @@ def _clear_dashboard_caches() -> None:
         data.load_alpaca_equity_history,
         data.load_slippage_reversal_report,
         data.load_paper_shadow_compare,
+        data.load_broker_truth,
     ):
         try:
             loader.clear()
@@ -128,3 +129,52 @@ def test_dashboard_trade_gate_state_ready_only_when_all_submit_gates_pass():
 
     assert gate_state["trade_ready"] is True
     assert gate_state["block_reasons"] == []
+
+
+def test_broker_truth_loader_returns_payload_and_issue_table(tmp_path, monkeypatch):
+    truth_json = tmp_path / "broker_truth.json"
+    truth_csv = tmp_path / "broker_truth.csv"
+    truth_json.write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "score": 85.0,
+                "summary": {"fail_count": 0, "warning_count": 2},
+                "global_issues": [{"severity": "warning", "issue": "paper_log_stale"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    truth_csv.write_text(
+        "\n".join(
+            [
+                "ticker,issue_severity,target_weight,broker_weight,broker_qty,open_sell_qty,trailing_stop_qty,issues",
+                "QQQ,warning,0.6,0.0,0,0,0,target_position_missing",
+                "CAT,pass,0.03,0.03,3,3,3,",
+                "MU,fail,0.2,0.0,0,0,0,required_trailing_stop_missing",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(data, "BROKER_TRUTH_JSON", truth_json)
+    monkeypatch.setattr(data, "BROKER_TRUTH_CSV", truth_csv)
+    _clear_dashboard_caches()
+
+    truth = data.load_broker_truth()
+    issue_table = data.broker_truth_issue_table(truth["table"])
+
+    assert truth["payload"]["status"] == "warning"
+    assert data.broker_truth_chip_status(truth["payload"]) == "warn"
+    assert list(issue_table["ticker"]) == ["MU", "QQQ"]
+    assert "CAT" not in set(issue_table["ticker"])
+
+
+def test_file_status_tracks_broker_truth(tmp_path, monkeypatch):
+    truth_json = tmp_path / "broker_truth.json"
+    truth_json.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(data, "BROKER_TRUTH_JSON", truth_json)
+    _clear_dashboard_caches()
+
+    table = data.file_status_table()
+
+    assert "Broker truth" in set(table["File"])
