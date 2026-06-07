@@ -21,6 +21,7 @@ not counted as missing ETF data.
 python refresh_etf_data.py
 python refresh_etf_data.py --refresh
 python refresh_etf_data.py --refresh --force
+python refresh_etf_data.py --refresh --force --strict
 python refresh_etf_data.py --json
 ```
 
@@ -28,6 +29,9 @@ Expected output:
 - a terminal summary for each ETF
 - `logs/etf_data_health.json`
 - updated `data/<ETF>.parquet` files when refresh succeeds
+
+Use `--strict` in automation. It exits non-zero if any ETF remains missing,
+stale, partial, or otherwise unhealthy after validation.
 
 ## Key Concepts
 

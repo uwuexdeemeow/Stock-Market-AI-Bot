@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
+import sys
 
 import refresh_etf_data
 
@@ -73,3 +74,30 @@ def test_etf_refresh_force_replaces_healthy_local_data(tmp_path, monkeypatch):
     forced = refresh_etf_data.validate_etfs(["SPY"], refresh=True, force=True)
     assert forced["results"][0]["refreshed"] is True
     assert pd.read_parquet(tmp_path / "SPY.parquet")["Close"].iloc[0] == 200.0
+
+
+def test_etf_refresh_strict_exits_nonzero_when_report_fails(tmp_path, monkeypatch):
+    monkeypatch.setattr(refresh_etf_data, "LOGS", tmp_path)
+    monkeypatch.setattr(
+        refresh_etf_data,
+        "validate_etfs",
+        lambda symbols, refresh=False, force=False: {
+            "ok": False,
+            "refresh": bool(refresh),
+            "force": bool(force),
+            "results": [{
+                "symbol": "SPY",
+                "ok": False,
+                "issues": ["missing_close_column"],
+                "rows": 0,
+                "latest_date": None,
+                "age_business_days": None,
+            }],
+        },
+    )
+    monkeypatch.setattr(sys, "argv", ["refresh_etf_data.py", "--strict"])
+
+    with pytest.raises(SystemExit) as exc:
+        refresh_etf_data.main()
+
+    assert exc.value.code == 1

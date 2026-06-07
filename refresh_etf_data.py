@@ -179,6 +179,7 @@ def main() -> None:
     parser.add_argument("--symbols", nargs="*", default=list(DEFAULT_ETFS), help="ETF symbols to validate.")
     parser.add_argument("--refresh", action="store_true", help="Download and replace stale/missing ETF parquet data.")
     parser.add_argument("--force", action="store_true", help="Download and replace ETF parquet data even if local data passes validation.")
+    parser.add_argument("--strict", action="store_true", help="Exit non-zero when any ETF data check fails.")
     parser.add_argument("--json", action="store_true", help="Print JSON output.")
     args = parser.parse_args()
 
@@ -196,6 +197,8 @@ def main() -> None:
             issues = ",".join(row.get("issues", [])) or "none"
             print(f"{row['symbol']:5s} ok={row['ok']} rows={row['rows']} latest={row.get('latest_date')} age_bdays={row.get('age_business_days')} issues={issues}")
         print(f"Saved -> {out}")
+    if args.strict and not bool(report.get("ok", False)):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

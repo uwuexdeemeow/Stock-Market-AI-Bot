@@ -28,6 +28,7 @@ def test_daily_refresh_forces_etf_download():
     etf_step = next(step for step in daily_run.DATA_REFRESH_STEPS if step.name == "refresh_etf_data")
     assert "--refresh" in etf_step.cmd
     assert "--force" in etf_step.cmd
+    assert "--strict" in etf_step.cmd
 
 
 def test_daily_workflow_pins_execution_safety_env():

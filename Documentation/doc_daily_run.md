@@ -14,7 +14,7 @@ watchdog/housekeeping steps still run so their output files stay fresh.
 
 | # | Step | Critical? | What it does |
 |---|------|-----------|--------------|
-| 1 | `refresh_etf_data` | ✓ | Download SPY/QQQ/TQQQ etc. |
+| 1 | `refresh_etf_data --strict` | ✓ | Download/validate SPY/QQQ/TQQQ etc.; block the run if ETF data remains unhealthy. |
 | 2 | `refresh_factor_data` | ✓ | `research.py --incremental` — refresh per-ticker factor panel |
 | 3 | `refresh_feature_quality` | ✓ | `feature_quality_diagnostic.py` — re-rank features |
 | 4 | `fill_monitor` | ✓, always-run | Check yesterday's orders for stuck fills |

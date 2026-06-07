@@ -12,7 +12,7 @@ Usage:
     python3 daily_run.py --stress     # also run stress tests (decay, drawdown, execution, survivorship)
 
 Daily workflow (runs in order):
-    1.  refresh_etf_data.py --refresh --force → download latest ETF price data
+    1.  refresh_etf_data.py --refresh --force --strict → download/validate latest ETF price data
     2.  research.py --incremental          → refresh factor panel (optional in CI)
     3.  feature_quality_diagnostic.py      → refresh live feature quality report (optional in CI)
     4.  fill_monitor.py --days 2           → verify yesterday's fills before placing new orders
@@ -162,7 +162,7 @@ class Step:
 # use stale prices and factor scores, which defeats the purpose of daily trading.
 ETF_REFRESH_STEP = Step(
     "refresh_etf_data",
-    [sys.executable, "refresh_etf_data.py", "--refresh", "--force"],
+    [sys.executable, "refresh_etf_data.py", "--refresh", "--force", "--strict"],
     "Download latest ETF price data (SPY, QQQ, TQQQ, etc.)",
     critical=True,
 )
