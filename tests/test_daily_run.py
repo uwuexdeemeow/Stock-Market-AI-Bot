@@ -74,6 +74,8 @@ def test_daily_workflow_pins_execution_safety_env():
         "ALPACA_MARGIN_WARN_GROSS=1.02",
         "TQQQ_FAST_DD_FAIL_CLOSED=1",
         "SPREAD_GUARD_ALERT_TTL_HOURS=20",
+        "GUARD_REPLACE_STALE_SELLS=1",
+        "GUARD_REPLACE_STALE_SELL_OFFSET_BPS=20",
     ]
     for line in required_lines:
         assert line in workflow

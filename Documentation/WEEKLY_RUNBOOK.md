@@ -646,6 +646,8 @@ daily GitHub workflow:
 | `GUARD_CORE_STOP` | `1` | Enable durable core ETF trailing stops in `execution_guard.py`. |
 | `GUARD_CORE_TICKERS` | `SPY,QQQ,TQQQ` | Core ETF symbols protected by guard stops. |
 | `GUARD_CORE_TRAIL_PCT` | `0.05` | Core ETF trail amount. |
+| `GUARD_REPLACE_STALE_SELLS` | `1` | After cancelling a stale normal SELL, submit a fresh protective sell limit. |
+| `GUARD_REPLACE_STALE_SELL_OFFSET_BPS` | `20` | Fresh stale-SELL replacement limit offset from current last price. |
 
 Daily workflow currently sets:
 
@@ -692,6 +694,8 @@ SPREAD_GUARD_ALERT_TTL_HOURS=20
 GUARD_CORE_STOP=1
 GUARD_CORE_TICKERS=SPY,QQQ,TQQQ
 GUARD_CORE_TRAIL_PCT=0.05
+GUARD_REPLACE_STALE_SELLS=1
+GUARD_REPLACE_STALE_SELL_OFFSET_BPS=20
 ```
 
 Shadow paper parameter:

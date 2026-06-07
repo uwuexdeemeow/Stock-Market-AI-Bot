@@ -23,6 +23,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from alpaca_paper_trading import AlpacaBroker, _emergency_liquidate
+from broker_interface import Order
 from safe_io import atomic_write_json
 from alpaca_protection import (
     CORE_PROTECTION_ENABLED,
@@ -55,6 +56,8 @@ def _env_bool(name: str, default: bool) -> bool:
 CORE_ETF_STOP_ENABLED = _env_bool("GUARD_CORE_STOP", True)
 STALE_CANCEL_ENABLED = _env_bool("GUARD_STALE_CANCEL", True)
 STALE_ORDER_MINUTES = int(os.environ.get("GUARD_STALE_MINUTES", "90"))
+STALE_REPLACE_SELLS_ENABLED = _env_bool("GUARD_REPLACE_STALE_SELLS", True)
+STALE_REPLACE_SELL_OFFSET_BPS = float(os.environ.get("GUARD_REPLACE_STALE_SELL_OFFSET_BPS", "20"))
 PNL_MONITOR_ENABLED = _env_bool("GUARD_PNL_MONITOR", True)
 PNL_WARN_PCT = float(os.environ.get("GUARD_PNL_WARN_PCT", "-3.0"))
 PNL_HALT_PCT = float(os.environ.get("GUARD_PNL_HALT_PCT", "-8.0"))
@@ -164,6 +167,75 @@ def _positive_finite(value: Any) -> float | None:
     return out if math.isfinite(out) and out > 0 else None
 
 
+def _stale_sell_replacement_limit(broker: AlpacaBroker, order: Any, symbol: str) -> float | None:
+    """Choose a fresh marketable limit for a replacement SELL order."""
+    price = None
+    getter = getattr(broker, "get_last_price", None)
+    if callable(getter):
+        try:
+            price = _positive_finite(getter(symbol))
+        except Exception:
+            price = None
+    if price is None:
+        # Fallback to the stale order's own limit only when no fresh price can
+        # be read.  It is less ideal, but still recreates a broker-side exit
+        # after a cancel/reject cycle without turning into a market order.
+        price = _positive_finite(getattr(order, "limit_price", None))
+    if price is None:
+        return None
+    offset = max(0.0, STALE_REPLACE_SELL_OFFSET_BPS) / 10_000.0
+    return round(price * (1.0 - offset), 2)
+
+
+def _replace_stale_sell_order(
+    broker: AlpacaBroker,
+    order: Any,
+    *,
+    dry_run: bool,
+) -> dict | None:
+    """
+    Replace a cancelled stale SELL order with a fresh protective limit.
+
+    PLAIN ENGLISH: A stale SELL is supposed to reduce risk but failed to fill.
+    After cancelling it, the guard can submit a fresh sell at a current,
+    marketable limit.  BUY orders are never replaced here.
+    """
+    if not STALE_REPLACE_SELLS_ENABLED or order_side(order) != "sell":
+        return None
+    symbol = order_symbol(order)
+    qty_float = order_qty(order)
+    qty = int(qty_float)
+    if not symbol or qty <= 0:
+        return {"ticker": symbol, "status": "skipped", "reason": "invalid_stale_sell_replacement"}
+
+    limit_price = _stale_sell_replacement_limit(broker, order, symbol)
+    if limit_price is None:
+        log(f"skipped stale sell replacement: no usable price for {symbol}")
+        return {"ticker": symbol, "status": "skipped", "reason": "replacement_price_unavailable"}
+
+    replacement = Order(
+        ticker=symbol,
+        side="sell",
+        quantity=qty,
+        type="limit",
+        limit_price=limit_price,
+        client_id=f"guard_{_today_et().replace('-', '')}_{symbol}_sell_{qty}_{int(time_module.time())}"[:48],
+    )
+    if dry_run:
+        log(f"dry-run would replace stale sell {symbol} qty={qty:g} limit=${limit_price:.2f}")
+        return {"ticker": symbol, "status": "dry_run", "qty": qty, "limit_price": limit_price}
+
+    try:
+        new_oid = broker.place_order(replacement)
+    except Exception as exc:
+        log(f"failed stale sell replacement: {symbol} qty={qty:g} error={exc}")
+        return {"ticker": symbol, "status": "failed", "qty": qty, "error": str(exc)}
+
+    log(f"replaced stale sell {symbol} qty={qty:g} limit=${limit_price:.2f} order={str(new_oid)[:12]}")
+    send_alert(f"Replaced stale sell {symbol} x{qty:g} with fresh limit ${limit_price:.2f}")
+    return {"ticker": symbol, "status": "submitted", "qty": qty, "limit_price": limit_price, "order_id": new_oid}
+
+
 def guard_core_etf_protection(broker: AlpacaBroker, state: dict, *, dry_run: bool) -> None:
     """
     Repair durable broker-side stops for core ETF positions.
@@ -230,6 +302,8 @@ def guard_stale_orders(broker: AlpacaBroker, state: dict, *, dry_run: bool) -> N
             cancelled = broker.cancel_order(oid)
             status = "cancelled" if cancelled else "cancel failed"
         log(f"{status}: stale order {side} {symbol} qty={qty:g} age={age_minutes:.1f}m order={oid[:12]}")
+        if cancelled:
+            _replace_stale_sell_order(broker, order, dry_run=dry_run)
         if oid not in alerted:
             send_alert(f"{status}: stale {side} {symbol} x{qty:g}, open {age_minutes:.0f} min")
             alerted.add(oid)

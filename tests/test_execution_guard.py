@@ -19,11 +19,20 @@ class FakeAPI:
 
 
 class FakeBroker:
-    def __init__(self, positions=None, orders=None, account=None, market_open=True, fail_cancel_ids=None):
+    def __init__(
+        self,
+        positions=None,
+        orders=None,
+        account=None,
+        market_open=True,
+        fail_cancel_ids=None,
+        prices=None,
+    ):
         self._api = FakeAPI(orders=orders, account=account)
         self.positions = list(positions or [])
         self.market_open = market_open
         self.fail_cancel_ids = set(fail_cancel_ids or [])
+        self.prices = dict(prices or {})
         self.cancelled = []
         self.placed = []
 
@@ -42,6 +51,9 @@ class FakeBroker:
 
     def get_equity(self):
         return float(self._api.account.equity)
+
+    def get_last_price(self, ticker):
+        return float(self.prices[str(ticker).upper()])
 
     def is_market_open(self):
         return bool(self.market_open)
@@ -121,6 +133,38 @@ def test_stale_guard_skips_trailing_stops_and_cancels_old_normal_order(monkeypat
     assert state["stale_alerted_order_ids"] == ["stale-buy"]
     assert len(alerts) == 1
     assert "AAPL" in alerts[0]
+    assert broker.placed == []
+
+
+def test_stale_guard_replaces_stale_sell_after_cancel(monkeypatch):
+    import execution_guard
+
+    old_time = datetime.now(timezone.utc) - timedelta(minutes=120)
+    broker = FakeBroker(
+        orders=[
+            _order("FCX", 3, order_type="limit", side="sell", submitted_at=old_time, oid="stale-sell"),
+        ],
+        prices={"FCX": 50.0},
+    )
+    alerts = []
+    monkeypatch.setattr(execution_guard, "send_alert", lambda msg, **_kwargs: alerts.append(msg))
+    monkeypatch.setattr(execution_guard, "log", lambda _msg: None)
+    monkeypatch.setattr(execution_guard, "STALE_REPLACE_SELLS_ENABLED", True)
+    monkeypatch.setattr(execution_guard, "STALE_REPLACE_SELL_OFFSET_BPS", 20.0)
+    state = {"stale_alerted_order_ids": []}
+
+    execution_guard.guard_stale_orders(broker, state, dry_run=False)
+
+    assert broker.cancelled == ["stale-sell"]
+    assert len(broker.placed) == 1
+    replacement = broker.placed[0]
+    assert replacement.ticker == "FCX"
+    assert replacement.side == "sell"
+    assert replacement.quantity == 3
+    assert replacement.type == "limit"
+    assert replacement.limit_price == 49.9
+    assert state["stale_alerted_order_ids"] == ["stale-sell"]
+    assert any("Replaced stale sell FCX" in alert for alert in alerts)
 
 
 def test_repair_does_not_submit_replacement_when_cancel_fails():
