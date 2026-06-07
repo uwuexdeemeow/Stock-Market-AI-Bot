@@ -648,6 +648,7 @@ daily GitHub workflow:
 | `GUARD_CORE_TRAIL_PCT` | `0.05` | Core ETF trail amount. |
 | `GUARD_REPLACE_STALE_SELLS` | `1` | After cancelling a stale normal SELL, submit a fresh protective sell limit. |
 | `GUARD_REPLACE_STALE_SELL_OFFSET_BPS` | `20` | Fresh stale-SELL replacement limit offset from current last price. |
+| `GUARD_BROKER_TRUTH_REFRESH` | `1` | Refresh `broker_truth.json/csv` after every execution-guard cycle. |
 
 Daily workflow currently sets:
 
@@ -696,6 +697,7 @@ GUARD_CORE_TICKERS=SPY,QQQ,TQQQ
 GUARD_CORE_TRAIL_PCT=0.05
 GUARD_REPLACE_STALE_SELLS=1
 GUARD_REPLACE_STALE_SELL_OFFSET_BPS=20
+GUARD_BROKER_TRUTH_REFRESH=1
 ```
 
 Shadow paper parameter:

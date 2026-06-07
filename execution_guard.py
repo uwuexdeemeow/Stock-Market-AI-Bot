@@ -8,6 +8,7 @@ It does three things:
 2. Cancels stale non-protective orders.
 3. Watches intraday P&L while the laptop is awake and can trigger the existing
    emergency liquidation circuit breaker during market hours.
+4. Refreshes broker truth after each guard cycle so the dashboard sees repairs.
 """
 from __future__ import annotations
 
@@ -58,6 +59,7 @@ STALE_CANCEL_ENABLED = _env_bool("GUARD_STALE_CANCEL", True)
 STALE_ORDER_MINUTES = int(os.environ.get("GUARD_STALE_MINUTES", "90"))
 STALE_REPLACE_SELLS_ENABLED = _env_bool("GUARD_REPLACE_STALE_SELLS", True)
 STALE_REPLACE_SELL_OFFSET_BPS = float(os.environ.get("GUARD_REPLACE_STALE_SELL_OFFSET_BPS", "20"))
+BROKER_TRUTH_REFRESH_ENABLED = _env_bool("GUARD_BROKER_TRUTH_REFRESH", True)
 PNL_MONITOR_ENABLED = _env_bool("GUARD_PNL_MONITOR", True)
 PNL_WARN_PCT = float(os.environ.get("GUARD_PNL_WARN_PCT", "-3.0"))
 PNL_HALT_PCT = float(os.environ.get("GUARD_PNL_HALT_PCT", "-8.0"))
@@ -234,6 +236,57 @@ def _replace_stale_sell_order(
     log(f"replaced stale sell {symbol} qty={qty:g} limit=${limit_price:.2f} order={str(new_oid)[:12]}")
     send_alert(f"Replaced stale sell {symbol} x{qty:g} with fresh limit ${limit_price:.2f}")
     return {"ticker": symbol, "status": "submitted", "qty": qty, "limit_price": limit_price, "order_id": new_oid}
+
+
+def _write_broker_truth_guard_report() -> dict:
+    """Refresh broker truth from the guard without importing at module load."""
+    from broker_truth import write_broker_truth
+
+    return write_broker_truth(include_live_open_orders=True)
+
+
+def refresh_broker_truth_after_guard(state: dict, *, dry_run: bool) -> None:
+    """
+    Refresh broker truth after the guard changes broker-side state.
+
+    PLAIN ENGLISH: If this guard cancels or replaces orders, the dashboard's
+    broker-truth panel should update in the same loop, not wait for tomorrow's
+    daily run.
+    """
+    if not BROKER_TRUTH_REFRESH_ENABLED:
+        log("broker truth refresh disabled")
+        return
+    if dry_run:
+        log("dry-run would refresh broker truth after guard cycle")
+        return
+
+    try:
+        payload = _write_broker_truth_guard_report()
+    except Exception as exc:
+        state["broker_truth_refresh_error"] = str(exc)
+        if not state.get("broker_truth_refresh_error_sent"):
+            send_alert(f"Broker truth refresh failed after guard cycle: {exc}")
+            state["broker_truth_refresh_error_sent"] = True
+        log(f"broker truth refresh failed: {exc}")
+        return
+
+    status = str(payload.get("status") or "unknown").lower()
+    summary = payload.get("summary") or {}
+    state["broker_truth_refresh_error"] = ""
+    state["broker_truth_refresh_error_sent"] = False
+    state["broker_truth_status"] = status
+    state["broker_truth_refreshed_at"] = payload.get("generated_at")
+    log(
+        "broker truth refreshed after guard cycle: "
+        f"status={status} score={payload.get('score')} "
+        f"fail={summary.get('fail_count', 0)} warn={summary.get('warning_count', 0)}"
+    )
+    if status == "fail":
+        if not state.get("broker_truth_fail_alert_sent"):
+            send_alert("Broker truth is FAIL after execution guard cycle")
+            state["broker_truth_fail_alert_sent"] = True
+    else:
+        state["broker_truth_fail_alert_sent"] = False
 
 
 def guard_core_etf_protection(broker: AlpacaBroker, state: dict, *, dry_run: bool) -> None:
@@ -416,6 +469,7 @@ def run_once(broker: AlpacaBroker, *, dry_run: bool, force_market_closed: bool) 
             market_open=market_open,
             force_market_closed=force_market_closed,
         )
+    refresh_broker_truth_after_guard(state, dry_run=dry_run)
     save_state(state)
     log("guard cycle finished")
 

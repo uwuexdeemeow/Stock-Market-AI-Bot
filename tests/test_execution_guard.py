@@ -256,3 +256,56 @@ def test_pnl_guard_skips_invalid_current_equity(monkeypatch):
     assert calls == []
     assert alerts == ["Intraday P&L guard skipped: invalid current broker equity"]
     assert "intraday_high" not in state
+
+
+def test_guard_cycle_refreshes_broker_truth_after_checks(monkeypatch):
+    import execution_guard
+
+    state = {}
+    saved = []
+    logs = []
+    monkeypatch.setattr(execution_guard, "CORE_ETF_STOP_ENABLED", False)
+    monkeypatch.setattr(execution_guard, "STALE_CANCEL_ENABLED", False)
+    monkeypatch.setattr(execution_guard, "PNL_MONITOR_ENABLED", False)
+    monkeypatch.setattr(execution_guard, "BROKER_TRUTH_REFRESH_ENABLED", True)
+    monkeypatch.setattr(execution_guard, "load_state", lambda: state)
+    monkeypatch.setattr(execution_guard, "save_state", lambda payload: saved.append(dict(payload)))
+    monkeypatch.setattr(execution_guard, "log", lambda msg: logs.append(msg))
+    monkeypatch.setattr(
+        execution_guard,
+        "_write_broker_truth_guard_report",
+        lambda: {
+            "status": "pass",
+            "score": 100.0,
+            "generated_at": "2026-06-07T12:00:00+00:00",
+            "summary": {"fail_count": 0, "warning_count": 0},
+        },
+    )
+
+    execution_guard.run_once(FakeBroker(), dry_run=False, force_market_closed=False)
+
+    assert saved
+    assert saved[0]["broker_truth_status"] == "pass"
+    assert saved[0]["broker_truth_refreshed_at"] == "2026-06-07T12:00:00+00:00"
+    assert any("broker truth refreshed" in msg for msg in logs)
+
+
+def test_broker_truth_refresh_fail_alert_is_deduped(monkeypatch):
+    import execution_guard
+
+    alerts = []
+    monkeypatch.setattr(execution_guard, "BROKER_TRUTH_REFRESH_ENABLED", True)
+    monkeypatch.setattr(execution_guard, "log", lambda _msg: None)
+    monkeypatch.setattr(execution_guard, "send_alert", lambda msg, **_kwargs: alerts.append(msg))
+    monkeypatch.setattr(
+        execution_guard,
+        "_write_broker_truth_guard_report",
+        lambda: {"status": "fail", "score": 70.0, "summary": {"fail_count": 1, "warning_count": 0}},
+    )
+    state = {}
+
+    execution_guard.refresh_broker_truth_after_guard(state, dry_run=False)
+    execution_guard.refresh_broker_truth_after_guard(state, dry_run=False)
+
+    assert alerts == ["Broker truth is FAIL after execution guard cycle"]
+    assert state["broker_truth_fail_alert_sent"] is True
