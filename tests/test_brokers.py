@@ -603,6 +603,100 @@ def test_generate_orders_ignores_stale_execution_risk_report(tmp_path, monkeypat
     assert orders[0]["execution_risk_band"] == "none"
 
 
+def test_generate_orders_throttles_buys_when_execution_scorecard_fails(tmp_path, monkeypatch):
+    import alpaca_paper_trading as apt
+
+    scorecard_path = tmp_path / "alpaca_execution_scorecard.json"
+    scorecard_path.write_text(json.dumps({
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "status": "fail",
+        "score": 66.67,
+        "checks": [{"name": "avg_slippage_bps", "status": "fail"}],
+    }), encoding="utf-8")
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_FILE", scorecard_path)
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_THROTTLE_ENABLED", True)
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_MAX_AGE_HOURS", 72)
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_FAIL_BUY_SCALE", 0.75)
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_SEVERE_SCORE", 50)
+
+    broker = _OrderBroker(equity=100_000.0, positions={}, prices={"QQQ": 100.0})
+
+    orders = apt.generate_orders(broker, {"QQQ": 0.60}, force=True)
+
+    assert orders[0]["side"] == "buy"
+    assert orders[0]["requested_quantity"] == 600
+    assert orders[0]["quantity"] == 450
+    assert orders[0]["execution_risk_buy_scale"] == 0.75
+    assert orders[0]["execution_scorecard_status"] == "fail"
+    assert orders[0]["execution_scorecard_score"] == 66.67
+    assert orders[0]["execution_scorecard_buy_scale"] == 0.75
+    assert orders[0]["execution_scorecard_failed_checks"] == "avg_slippage_bps"
+    assert "fail_execution_scorecard_score_66.67" in orders[0]["execution_risk_reason"]
+
+    scorecard_path.write_text(json.dumps({
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "status": "fail",
+        "score": 20.0,
+        "checks": [{"name": "fill_rate", "status": "fail"}],
+    }), encoding="utf-8")
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_SEVERE_BUY_SCALE", 0.50)
+
+    severe_orders = apt.generate_orders(broker, {"QQQ": 0.60}, force=True)
+
+    assert severe_orders[0]["quantity"] == 300
+    assert severe_orders[0]["execution_scorecard_buy_scale"] == 0.50
+    assert "severe_execution_scorecard_score_20.00" in severe_orders[0]["execution_risk_reason"]
+
+
+def test_generate_orders_keeps_scorecard_fail_sells_exit_ready(tmp_path, monkeypatch):
+    import alpaca_paper_trading as apt
+
+    scorecard_path = tmp_path / "alpaca_execution_scorecard.json"
+    scorecard_path.write_text(json.dumps({
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "status": "fail",
+        "score": 20.0,
+        "checks": [{"name": "fill_rate", "status": "fail"}],
+    }), encoding="utf-8")
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_FILE", scorecard_path)
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_THROTTLE_ENABLED", True)
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_SEVERE_BUY_SCALE", 0.50)
+
+    broker = _OrderBroker(equity=100_000.0, positions={"QQQ": 600}, prices={"QQQ": 100.0})
+
+    orders = apt.generate_orders(broker, {"QQQ": 0.0}, force=True)
+
+    assert orders[0]["side"] == "sell"
+    assert orders[0]["requested_quantity"] == 600
+    assert orders[0]["quantity"] == 600
+    assert orders[0]["execution_scorecard_status"] == "fail"
+    assert orders[0]["execution_risk_reason"] == ""
+
+
+def test_generate_orders_ignores_stale_execution_scorecard(tmp_path, monkeypatch):
+    import alpaca_paper_trading as apt
+
+    scorecard_path = tmp_path / "alpaca_execution_scorecard.json"
+    scorecard_path.write_text(json.dumps({
+        "generated_at": "2020-01-01T00:00:00+00:00",
+        "status": "fail",
+        "score": 0.0,
+        "checks": [{"name": "fill_rate", "status": "fail"}],
+    }), encoding="utf-8")
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_FILE", scorecard_path)
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_THROTTLE_ENABLED", True)
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_MAX_AGE_HOURS", 1)
+
+    broker = _OrderBroker(equity=100_000.0, positions={}, prices={"QQQ": 100.0})
+
+    orders = apt.generate_orders(broker, {"QQQ": 0.60}, force=True)
+
+    assert orders[0]["quantity"] == 600
+    assert orders[0]["execution_scorecard_status"] == "stale"
+    assert orders[0]["execution_scorecard_buy_scale"] == 1.0
+    assert orders[0]["execution_risk_reason"] == ""
+
+
 def test_build_submission_order_defaults_to_limit():
     import alpaca_paper_trading as apt
 

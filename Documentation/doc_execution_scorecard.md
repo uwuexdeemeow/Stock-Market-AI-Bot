@@ -17,6 +17,10 @@ It checks:
 - adverse 15-minute and 60-minute reversal rates
 - whether execution-risk throttled buys are showing up and filling cleanly
 
+`alpaca_paper_trading.py` also reads this file before planning orders. When
+the scorecard status is `fail`, BUY orders are reduced by the configured
+scorecard throttle, while SELL orders stay full-size so exits are not blocked.
+
 ## How To Run It
 
 ```bash
@@ -73,6 +77,11 @@ python execution_scorecard.py --strict
 | `EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE` | `0.60` | Max adverse 15-minute reversal rate |
 | `EXECUTION_SCORECARD_MAX_ADVERSE_60M_RATE` | `0.70` | Max adverse 60-minute reversal rate |
 | `EXECUTION_SCORECARD_LOOKBACK_DAYS` | `30` | How many recent order-log days to grade |
+| `ALPACA_EXECUTION_SCORECARD_THROTTLE` | `1` | Let order planning shrink BUY orders when this scorecard fails |
+| `ALPACA_EXECUTION_SCORECARD_MAX_AGE_HOURS` | `72` | Ignore stale scorecards older than this many hours |
+| `ALPACA_EXECUTION_SCORECARD_FAIL_BUY_SCALE` | `0.75` | BUY quantity multiplier when scorecard status is fail |
+| `ALPACA_EXECUTION_SCORECARD_SEVERE_SCORE` | `50` | Score at or below this uses the stronger severe multiplier |
+| `ALPACA_EXECUTION_SCORECARD_SEVERE_BUY_SCALE` | `0.50` | BUY quantity multiplier for severe scorecard failures |
 
 ## How It Fits The Workflow
 

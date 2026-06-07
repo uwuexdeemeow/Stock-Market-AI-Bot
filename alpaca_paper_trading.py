@@ -119,6 +119,7 @@ EQUITY_FILE = Path(SIGNAL_DIR) / "alpaca_paper_equity.csv"
 STATUS_FILE = Path(SIGNAL_DIR) / "alpaca_daily_status.json"
 # Execution-quality report — tracks slippage and post-fill reversals.
 SLIPPAGE_REPORT_FILE = Path(SIGNAL_DIR) / "alpaca_slippage_reversal_report.json"
+EXECUTION_SCORECARD_FILE = Path(SIGNAL_DIR) / "alpaca_execution_scorecard.json"
 ALERT_DEDUPE_FILE = Path(LOG_DIR) / "notification_dedupe.json"
 
 # Retry config for price fetches
@@ -173,6 +174,17 @@ EXECUTION_RISK_WARN_SCORE = float(os.environ.get("ALPACA_EXECUTION_RISK_WARN_SCO
 EXECUTION_RISK_HIGH_SCORE = float(os.environ.get("ALPACA_EXECUTION_RISK_HIGH_SCORE", "60"))
 EXECUTION_RISK_WARN_BUY_SCALE = float(os.environ.get("ALPACA_EXECUTION_RISK_WARN_BUY_SCALE", "0.75"))
 EXECUTION_RISK_HIGH_BUY_SCALE = float(os.environ.get("ALPACA_EXECUTION_RISK_HIGH_BUY_SCALE", "0.50"))
+# Portfolio-wide execution throttle.  PLAIN ENGLISH: the per-symbol report can
+# say "MU fills badly", but the scorecard can say "execution is broadly failing."
+# When that happens, new BUY orders shrink across the board while SELL exits
+# remain full size.
+EXECUTION_SCORECARD_THROTTLE_ENABLED = os.environ.get(
+    "ALPACA_EXECUTION_SCORECARD_THROTTLE", "1"
+).strip().lower() in {"true", "1", "yes", "y", "on"}
+EXECUTION_SCORECARD_MAX_AGE_HOURS = float(os.environ.get("ALPACA_EXECUTION_SCORECARD_MAX_AGE_HOURS", "72"))
+EXECUTION_SCORECARD_FAIL_BUY_SCALE = float(os.environ.get("ALPACA_EXECUTION_SCORECARD_FAIL_BUY_SCALE", "0.75"))
+EXECUTION_SCORECARD_SEVERE_SCORE = float(os.environ.get("ALPACA_EXECUTION_SCORECARD_SEVERE_SCORE", "50"))
+EXECUTION_SCORECARD_SEVERE_BUY_SCALE = float(os.environ.get("ALPACA_EXECUTION_SCORECARD_SEVERE_BUY_SCALE", "0.50"))
 ALLOW_CLOSED_MARKET_QUEUE = bool(os.environ.get("ALPACA_ALLOW_CLOSED_MARKET_QUEUE", "0").strip().lower() in {
     "true",
     "1",
@@ -273,6 +285,79 @@ def _load_execution_risk_map(now: datetime | None = None) -> dict[str, dict]:
     return risk_map
 
 
+def _clamped_buy_scale(value: object, default: float) -> float:
+    """Return a safe 0..1 buy-scale multiplier."""
+    scale = _float_or_none(value)
+    if scale is None:
+        scale = float(default)
+    return min(1.0, max(0.0, float(scale)))
+
+
+def _load_execution_scorecard_state(now: datetime | None = None) -> dict:
+    """
+    Load the portfolio-wide execution scorecard throttle state.
+
+    PLAIN ENGLISH: If the recent fill-quality scorecard fails, the whole order
+    planner should become more cautious, not just symbols that already have
+    enough per-ticker samples in the slippage report.
+    """
+    empty = {
+        "status": "missing",
+        "score": None,
+        "scale": 1.0,
+        "band": "none",
+        "reason": "",
+        "failed_checks": "",
+    }
+    if not EXECUTION_SCORECARD_THROTTLE_ENABLED or not EXECUTION_SCORECARD_FILE.exists():
+        return empty
+    try:
+        payload = json.loads(EXECUTION_SCORECARD_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {**empty, "status": "unreadable"}
+
+    generated_at = _parse_report_timestamp(payload.get("generated_at"))
+    max_age_hours = max(0.0, float(EXECUTION_SCORECARD_MAX_AGE_HOURS))
+    if generated_at is not None and max_age_hours > 0:
+        clock = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        if clock - generated_at > timedelta(hours=max_age_hours):
+            return {**empty, "status": "stale"}
+
+    status = str(payload.get("status") or "unknown").strip().lower()
+    score = _float_or_none(payload.get("score"))
+    failed_checks = [
+        str(check.get("name", "")).strip()
+        for check in payload.get("checks", []) or []
+        if isinstance(check, dict) and str(check.get("status", "")).strip().lower() == "fail"
+    ]
+
+    scale = 1.0
+    band = status or "unknown"
+    reason = ""
+    if status == "fail":
+        severe_score = float(EXECUTION_SCORECARD_SEVERE_SCORE)
+        if score is not None and score <= severe_score:
+            scale = _clamped_buy_scale(EXECUTION_SCORECARD_SEVERE_BUY_SCALE, 0.50)
+            band = "severe"
+        else:
+            scale = _clamped_buy_scale(EXECUTION_SCORECARD_FAIL_BUY_SCALE, 0.75)
+            band = "fail"
+        checks_text = ",".join(failed_checks[:6])
+        score_text = "unknown" if score is None else f"{score:.2f}"
+        reason = f"{band}_execution_scorecard_score_{score_text}_buy_scale_{scale:.2f}"
+        if checks_text:
+            reason += f"_checks_{checks_text}"
+
+    return {
+        "status": status,
+        "score": score,
+        "scale": scale,
+        "band": band,
+        "reason": reason,
+        "failed_checks": ",".join(failed_checks[:8]),
+    }
+
+
 def _execution_risk_buy_scale(score: float | None) -> tuple[float, str]:
     """Return the buy-size multiplier for a recent execution risk score."""
     if score is None:
@@ -291,6 +376,7 @@ def _execution_risk_metadata(
     side: str,
     requested_quantity: int,
     risk_map: dict[str, dict],
+    scorecard_state: dict | None = None,
 ) -> tuple[int, dict]:
     """
     Apply recent fill-quality evidence to one planned order quantity.
@@ -301,29 +387,54 @@ def _execution_risk_metadata(
     symbol = str(ticker).upper()
     risk = risk_map.get(symbol, {})
     score = _float_or_none(risk.get("score"))
-    scale, band = _execution_risk_buy_scale(score)
+    symbol_scale, band = _execution_risk_buy_scale(score)
+    scorecard_state = scorecard_state or {}
+    scorecard_scale = _clamped_buy_scale(scorecard_state.get("scale"), 1.0)
     adjusted_quantity = int(requested_quantity)
     reason = ""
+    applied_scales: list[float] = []
+    reason_parts: list[str] = []
 
     if (
         str(side).lower() == "buy"
         and symbol not in ETF_TICKERS
         and requested_quantity > 0
-        and scale < 1.0
+        and symbol_scale < 1.0
     ):
-        adjusted_quantity = max(1, int(math.floor(requested_quantity * scale)))
-        reason = f"{band}_execution_risk_score_{score:.2f}_buy_scale_{scale:.2f}"
+        applied_scales.append(symbol_scale)
+        reason_parts.append(f"{band}_execution_risk_score_{score:.2f}_buy_scale_{symbol_scale:.2f}")
+
+    if str(side).lower() == "buy" and requested_quantity > 0 and scorecard_scale < 1.0:
+        applied_scales.append(scorecard_scale)
+        reason_parts.append(
+            str(scorecard_state.get("reason") or f"execution_scorecard_buy_scale_{scorecard_scale:.2f}")
+        )
+
+    final_scale = min(applied_scales) if applied_scales else 1.0
+    if final_scale < 1.0:
+        adjusted_quantity = max(1, int(math.floor(requested_quantity * final_scale)))
+        reason = ";".join(part for part in reason_parts if part)
 
     metadata = {
         "execution_risk_score": round(score, 2) if score is not None else "",
         "execution_risk_band": band,
-        "execution_risk_buy_scale": scale,
+        "execution_risk_buy_scale": final_scale,
+        "execution_symbol_risk_buy_scale": symbol_scale,
         "execution_risk_quantity_before_scale": requested_quantity,
         "execution_risk_quantity_after_scale": adjusted_quantity,
         "execution_risk_reason": reason,
         "execution_risk_report_orders": risk.get("orders", ""),
         "execution_risk_avg_slippage_bps": risk.get("avg_slippage_bps", ""),
         "execution_risk_bad_slippage_rate": risk.get("bad_slippage_rate", ""),
+        "execution_scorecard_status": scorecard_state.get("status", ""),
+        "execution_scorecard_score": (
+            round(float(scorecard_state["score"]), 2)
+            if _float_or_none(scorecard_state.get("score")) is not None
+            else ""
+        ),
+        "execution_scorecard_buy_scale": scorecard_scale,
+        "execution_scorecard_failed_checks": scorecard_state.get("failed_checks", ""),
+        "execution_scorecard_reason": scorecard_state.get("reason", ""),
     }
     return adjusted_quantity, metadata
 
@@ -911,6 +1022,7 @@ def generate_orders(
               f"{', '.join(skipped_tickers)}")
 
     execution_risk_map = _load_execution_risk_map()
+    execution_scorecard_state = _load_execution_scorecard_state()
     orders = []
 
     for ticker in all_tickers:
@@ -965,6 +1077,7 @@ def generate_orders(
             side,
             abs(delta_qty),
             execution_risk_map,
+            execution_scorecard_state,
         )
         if side == "buy" and adjusted_quantity < abs(delta_qty):
             print(
@@ -1055,12 +1168,18 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
             "execution_risk_score": order.get("execution_risk_score", ""),
             "execution_risk_band": order.get("execution_risk_band", ""),
             "execution_risk_buy_scale": order.get("execution_risk_buy_scale", ""),
+            "execution_symbol_risk_buy_scale": order.get("execution_symbol_risk_buy_scale", ""),
             "execution_risk_quantity_before_scale": order.get("execution_risk_quantity_before_scale", ""),
             "execution_risk_quantity_after_scale": order.get("execution_risk_quantity_after_scale", ""),
             "execution_risk_reason": order.get("execution_risk_reason", ""),
             "execution_risk_report_orders": order.get("execution_risk_report_orders", ""),
             "execution_risk_avg_slippage_bps": order.get("execution_risk_avg_slippage_bps", ""),
             "execution_risk_bad_slippage_rate": order.get("execution_risk_bad_slippage_rate", ""),
+            "execution_scorecard_status": order.get("execution_scorecard_status", ""),
+            "execution_scorecard_score": order.get("execution_scorecard_score", ""),
+            "execution_scorecard_buy_scale": order.get("execution_scorecard_buy_scale", ""),
+            "execution_scorecard_failed_checks": order.get("execution_scorecard_failed_checks", ""),
+            "execution_scorecard_reason": order.get("execution_scorecard_reason", ""),
             "target_weight": order["target_weight"],
             "fill_status": fill_status,
         })

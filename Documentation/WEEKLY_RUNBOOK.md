@@ -156,6 +156,7 @@ The Alpaca submit path now has extra no-margin guards:
 - accidental market-order override is locked (`ALPACA_ALLOW_MARKET_ORDER_OVERRIDE=0`)
 - default limit anchor is live bid/ask (`ALPACA_LIMIT_REFERENCE=quote`)
 - recent execution-risk scores shrink risky overlay BUY orders before submit (`ALPACA_EXECUTION_RISK_ENABLED=1`)
+- failed execution scorecards shrink all new BUY orders while SELL exits stay full-size (`ALPACA_EXECUTION_SCORECARD_THROTTLE=1`)
 - closed-market queueing is off by default (`ALPACA_ALLOW_CLOSED_MARKET_QUEUE=0`)
 - sells submit before buys
 - quote/spread guard logs skipped orders when a quote is missing or the spread is too wide
@@ -614,6 +615,11 @@ daily GitHub workflow:
 | `ALPACA_EXECUTION_RISK_HIGH_SCORE` | `60` | Score where the stronger buy reduction applies. |
 | `ALPACA_EXECUTION_RISK_WARN_BUY_SCALE` | `0.75` | Quantity multiplier for warning-risk overlay buys. |
 | `ALPACA_EXECUTION_RISK_HIGH_BUY_SCALE` | `0.50` | Quantity multiplier for high-risk overlay buys. |
+| `ALPACA_EXECUTION_SCORECARD_THROTTLE` | `1` | Use the portfolio-wide execution scorecard to shrink all BUY orders when execution fails. |
+| `ALPACA_EXECUTION_SCORECARD_MAX_AGE_HOURS` | `72` | Ignore stale scorecards older than this many hours. |
+| `ALPACA_EXECUTION_SCORECARD_FAIL_BUY_SCALE` | `0.75` | Quantity multiplier when execution scorecard status is fail. |
+| `ALPACA_EXECUTION_SCORECARD_SEVERE_SCORE` | `50` | Score at or below this uses the stronger severe multiplier. |
+| `ALPACA_EXECUTION_SCORECARD_SEVERE_BUY_SCALE` | `0.50` | Quantity multiplier for severe scorecard failures. |
 | `EXECUTION_SCORECARD_MAX_AVG_SLIPPAGE_BPS` | `10` | Scorecard fails if average slippage is worse than this. |
 | `EXECUTION_SCORECARD_MAX_BAD_SLIPPAGE_RATE` | `0.60` | Scorecard fails if too many fills have bad slippage. |
 | `EXECUTION_SCORECARD_MIN_FILL_RATE` | `0.80` | Scorecard fails if accepted orders fill below this rate. |
@@ -665,6 +671,11 @@ ALPACA_EXECUTION_RISK_WARN_SCORE=40
 ALPACA_EXECUTION_RISK_HIGH_SCORE=60
 ALPACA_EXECUTION_RISK_WARN_BUY_SCALE=0.75
 ALPACA_EXECUTION_RISK_HIGH_BUY_SCALE=0.50
+ALPACA_EXECUTION_SCORECARD_THROTTLE=1
+ALPACA_EXECUTION_SCORECARD_MAX_AGE_HOURS=72
+ALPACA_EXECUTION_SCORECARD_FAIL_BUY_SCALE=0.75
+ALPACA_EXECUTION_SCORECARD_SEVERE_SCORE=50
+ALPACA_EXECUTION_SCORECARD_SEVERE_BUY_SCALE=0.50
 EXECUTION_SCORECARD_MAX_AVG_SLIPPAGE_BPS=10
 EXECUTION_SCORECARD_MAX_BAD_SLIPPAGE_RATE=0.60
 EXECUTION_SCORECARD_MIN_FILL_RATE=0.80

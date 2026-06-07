@@ -166,7 +166,9 @@ The script has multiple layers of protection:
    scale, and reason so the dashboard can explain why a buy was reduced.
    Set `ALPACA_EXECUTION_RISK_ENABLED=0` to roll this behavior back.
    The same report also includes all/limit/market summaries so you can compare
-   execution quality before and after order-style changes.
+   execution quality before and after order-style changes.  The portfolio-wide
+   `alpaca_execution_scorecard.json` can also shrink all BUY orders when recent
+   execution quality fails, via `ALPACA_EXECUTION_SCORECARD_THROTTLE=1`.
 9. **Spread/quote guard** — skips and logs individual orders when spread is
    too wide or Alpaca cannot provide a quote (configurable via
    `MAX_SPREAD_PCT_*` and `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT`).  Skipped rows
