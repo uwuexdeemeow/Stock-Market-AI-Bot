@@ -7,6 +7,7 @@ strategy.  These ETFs include SPY, QQQ, TQQQ, BIL, IEF, and GLD.
 
 It validates that each ETF file:
 - has enough rows
+- has the required OHLCV columns: `Open`, `High`, `Low`, `Close`, `Volume`
 - has a valid positive `Close` column
 - is not flat in recent history
 - is fresh enough for the latest completed NYSE session

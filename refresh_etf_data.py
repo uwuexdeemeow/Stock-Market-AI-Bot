@@ -17,6 +17,7 @@ DATA = Path(DATA_DIR)
 LOGS = Path(LOG_DIR)
 MIN_ROWS = 252
 MAX_AGE_BUSINESS_DAYS = 5
+REQUIRED_ETF_COLUMNS = ("Open", "High", "Low", "Close", "Volume")
 
 
 def _nyse_calendar():
@@ -86,8 +87,9 @@ def _validate_etf_frame(frame: pd.DataFrame, *, symbol: str, max_age_business_da
     issues: list[str] = []
     if frame.empty:
         return {"symbol": symbol, "ok": False, "issues": ["empty_frame"], "rows": 0, "latest_date": None}
-    if "Close" not in frame.columns:
-        issues.append("missing_close_column")
+    missing_columns = [column for column in REQUIRED_ETF_COLUMNS if column not in frame.columns]
+    for column in missing_columns:
+        issues.append(f"missing_{column.lower()}_column")
     close_raw = frame.get("Close", pd.Series(dtype=float))
     if isinstance(close_raw, pd.DataFrame):
         close_raw = close_raw.iloc[:, 0] if close_raw.shape[1] else pd.Series(dtype=float)
