@@ -32,6 +32,7 @@ from settings import (
 DEFAULT_WARN_TRADING_DAYS = 5
 DEFAULT_BLOCK_TRADING_DAYS = 10
 MANIFEST_NAME = "factor_data_health.json"
+REQUIRED_FACTOR_COLUMNS = ["Close", *SIMPLE_FACTOR_COLS]
 
 
 def _as_timestamp(value) -> pd.Timestamp:
@@ -67,7 +68,7 @@ def trading_day_age(latest: pd.Timestamp, *, now: pd.Timestamp | None = None) ->
     return _count_nyse_sessions(latest + pd.Timedelta(days=1), today)
 
 
-def _latest_parquet_date(path: Path) -> tuple[pd.Timestamp, int, int]:
+def _latest_parquet_date(path: Path) -> tuple[pd.Timestamp, int, int, list[str]]:
     df = pd.read_parquet(path)
     if df.empty:
         raise ValueError("empty parquet")
@@ -81,7 +82,7 @@ def _latest_parquet_date(path: Path) -> tuple[pd.Timestamp, int, int]:
 
     if pd.isna(latest):
         raise ValueError("no valid latest date")
-    return _as_timestamp(latest), int(len(df)), int(len(df.columns))
+    return _as_timestamp(latest), int(len(df)), int(len(df.columns)), [str(col) for col in df.columns]
 
 
 def _ticker_list(values: Iterable[str]) -> list[str]:
@@ -241,6 +242,7 @@ def build_factor_data_health(
     per_ticker: dict[str, dict] = {}
     missing: list[str] = []
     unreadable: list[dict] = []
+    missing_required_columns: list[dict] = []
     stale: list[dict] = []
     blocked: list[dict] = []
     latest_dates: list[pd.Timestamp] = []
@@ -254,23 +256,30 @@ def build_factor_data_health(
             continue
         existing_required_paths.append(path)
         try:
-            latest, rows, cols = _latest_parquet_date(path)
+            latest, rows, cols, column_names = _latest_parquet_date(path)
         except Exception as exc:
             unreadable.append({"ticker": ticker, "error": str(exc)})
             per_ticker[ticker] = {"path": str(path), "status": "unreadable", "error": str(exc)}
             continue
 
+        missing_cols = sorted(set(REQUIRED_FACTOR_COLUMNS) - set(column_names))
         age = trading_day_age(latest, now=today)
         record = {
             "path": str(path),
-            "status": "ok",
+            "status": "missing_required_columns" if missing_cols else "ok",
             "latest_date": str(latest.date()),
             "age_trading_days": age,
             "rows": rows,
             "columns": cols,
+            "missing_required_columns": missing_cols,
         }
         per_ticker[ticker] = record
         latest_dates.append(latest)
+        if missing_cols:
+            missing_required_columns.append({
+                "ticker": ticker,
+                "missing_columns": missing_cols,
+            })
         if age > warn_days:
             stale.append({"ticker": ticker, "latest_date": str(latest.date()), "age_trading_days": age})
         if age > block_days:
@@ -293,7 +302,13 @@ def build_factor_data_health(
     oldest_latest = min(latest_dates) if latest_dates else None
     newest_latest = max(latest_dates) if latest_dates else None
     max_age = max((int(item.get("age_trading_days", 0)) for item in per_ticker.values()), default=None)
-    factor_data_ready = not missing and not unreadable and not blocked and bool(latest_dates)
+    factor_data_ready = (
+        not missing
+        and not unreadable
+        and not missing_required_columns
+        and not blocked
+        and bool(latest_dates)
+    )
     factor_data_fresh = factor_data_ready and not stale
     feature_quality = _feature_quality_status(
         signal_dir=signal_path,
@@ -320,6 +335,8 @@ def build_factor_data_health(
         reasons.append("missing_factor_parquets")
     if unreadable:
         reasons.append("unreadable_factor_parquets")
+    if missing_required_columns:
+        reasons.append("factor_data_missing_required_columns")
     if blocked:
         reasons.append("factor_data_too_stale")
     elif stale:
@@ -341,6 +358,8 @@ def build_factor_data_health(
         "required_present_count": len(required) - len(missing) - len(unreadable),
         "missing_tickers": missing,
         "unreadable_tickers": unreadable,
+        "missing_required_column_tickers": missing_required_columns,
+        "required_factor_columns": list(REQUIRED_FACTOR_COLUMNS),
         "stale_tickers": stale,
         "blocked_tickers": blocked,
         "optional_present_count": optional_present,
@@ -370,6 +389,7 @@ def _print_summary(manifest: dict) -> None:
     print(f"  Max age: {manifest.get('max_age_trading_days')} trading days")
     print(f"  Stale tickers: {len(manifest.get('stale_tickers', []))}")
     print(f"  Missing tickers: {len(manifest.get('missing_tickers', []))}")
+    print(f"  Missing required columns: {len(manifest.get('missing_required_column_tickers', []))}")
     print(f"  Feature quality: {manifest.get('feature_quality', {}).get('reason')}")
     print(f"  Feature health: {manifest.get('feature_health', {}).get('reason')}")
     print(

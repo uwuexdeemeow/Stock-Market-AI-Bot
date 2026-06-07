@@ -8,6 +8,7 @@ volume, and model input columns.
 
 It checks:
 - every required ticker has a readable parquet file
+- every required parquet has the core factor columns needed by live scoring
 - the newest saved date is not too old
 - feature-quality reports are newer than the factor files
 - feature-health profiles exist, are current, and pass the diversification gate
