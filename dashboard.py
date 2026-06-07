@@ -14,6 +14,7 @@ import streamlit as st
 from dashboard import data
 from dashboard.components import (
     account_summary_card,
+    action_checklist_panel,
     broker_truth_panel,
     equity_curve_chart,
     live_fragment_decorator,
@@ -189,6 +190,10 @@ with col_b:
             f"fail={int(truth_summary.get('fail_count') or 0)}, "
             f"warn={int(truth_summary.get('warning_count') or 0)}"
         )
+
+st.divider()
+
+action_checklist_panel(data.build_action_checklist())
 
 st.divider()
 

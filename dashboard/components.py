@@ -325,6 +325,33 @@ def broker_truth_panel(payload: dict, table: pd.DataFrame) -> None:
     )
 
 
+def action_checklist_panel(actions: pd.DataFrame) -> None:
+    """Render the dashboard operator checklist."""
+    st.markdown("##### Action checklist")
+    if actions is None or actions.empty:
+        status_chip("No pending actions", "ok")
+        st.caption("Broker truth, signal gates, workflow heartbeat, freshness, and execution scorecard are clear.")
+        return
+
+    actions = actions.copy()
+    top_severity = str(actions.iloc[0].get("severity", "warn")).lower()
+    chip_status = "fail" if top_severity == "fail" else "warn" if top_severity == "warn" else "unknown"
+    status_chip(f"{len(actions)} pending", chip_status)
+    st.caption("Highest priority items are shown first.")
+
+    display = actions.rename(
+        columns={
+            "severity": "Severity",
+            "area": "Area",
+            "action": "Action",
+            "why": "Why",
+            "command": "Command",
+        }
+    )
+    display = display[[col for col in ["Severity", "Area", "Action", "Why", "Command"] if col in display.columns]]
+    st.dataframe(display, hide_index=True, use_container_width=True)
+
+
 def apply_page_style() -> None:
     """Inject the shared CSS used on every page.
 

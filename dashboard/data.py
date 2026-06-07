@@ -56,6 +56,7 @@ ALPACA_LOG = SIGNALS_DIR / "alpaca_paper_log.csv"
 ALPACA_STATUS = SIGNALS_DIR / "alpaca_daily_status.json"
 ALPACA_HEALTH = SIGNALS_DIR / "alpaca_paper_health.json"
 ALPACA_SLIPPAGE_REPORT = SIGNALS_DIR / "alpaca_slippage_reversal_report.json"
+ALPACA_EXECUTION_SCORECARD = SIGNALS_DIR / "alpaca_execution_scorecard.json"
 BROKER_TRUTH_JSON = SIGNALS_DIR / "broker_truth.json"
 BROKER_TRUTH_CSV = SIGNALS_DIR / "broker_truth.csv"
 SHADOW_EQUITY = SIGNALS_DIR / "shadow_paper_equity.csv"
@@ -523,6 +524,13 @@ def load_slippage_reversal_report() -> dict | None:
     return _execution_report_from_order_log(_read_csv_safe(ALPACA_LOG)) or report
 
 
+@st.cache_data(ttl=60)
+def load_execution_scorecard() -> dict | None:
+    """Return the latest execution scorecard payload."""
+    payload = _read_json_safe(ALPACA_EXECUTION_SCORECARD)
+    return payload if isinstance(payload, dict) else None
+
+
 @st.cache_data(ttl=30)
 def load_broker_truth() -> dict:
     """Return the broker truth report plus its per-ticker table.
@@ -584,6 +592,239 @@ def broker_truth_issue_table(table: pd.DataFrame, *, limit: int = 10) -> pd.Data
         if col in work.columns
     ]
     return work[display_cols].reset_index(drop=True)
+
+
+def _brief_join(values: list[object], *, limit: int = 4) -> str:
+    """Join short values for dashboard action reasons."""
+    clean = [str(value).strip() for value in values if str(value).strip()]
+    if not clean:
+        return ""
+    text = ", ".join(clean[:limit])
+    if len(clean) > limit:
+        text += f", +{len(clean) - limit} more"
+    return text
+
+
+def _add_action(
+    actions: list[dict],
+    *,
+    severity: str,
+    area: str,
+    action: str,
+    why: str,
+    command: str,
+) -> None:
+    """Append one normalized dashboard action."""
+    priority = {"fail": 0, "warn": 1, "info": 2}.get(severity, 2)
+    actions.append({
+        "priority": priority,
+        "severity": severity,
+        "area": area,
+        "action": action,
+        "why": why,
+        "command": command,
+    })
+
+
+def build_action_checklist() -> pd.DataFrame:
+    """Return the dashboard's operator action checklist.
+
+    PLAIN ENGLISH: The dashboard has many health files.  This function turns
+    them into a short "do this next" list so the operator does not need to
+    manually compare broker truth, signal gates, daily logs, and freshness.
+    """
+    actions: list[dict] = []
+
+    broker_truth = load_broker_truth()
+    truth_payload = broker_truth.get("payload") or {}
+    truth_status = str(truth_payload.get("status") or "missing").lower()
+    truth_summary = truth_payload.get("summary") or {}
+    if truth_status == "fail":
+        issues = [
+            str(item.get("issue", ""))
+            for item in truth_payload.get("global_issues", []) or []
+            if isinstance(item, dict)
+        ]
+        table_issues = broker_truth_issue_table(broker_truth.get("table", pd.DataFrame()), limit=3)
+        if not table_issues.empty and "issues" in table_issues.columns:
+            issues.extend(table_issues["issues"].astype(str).tolist())
+        _add_action(
+            actions,
+            severity="fail",
+            area="Broker truth",
+            action="Reconcile broker truth before new buys",
+            why=_brief_join(issues) or "broker truth status is FAIL",
+            command="python broker_truth.py --strict",
+        )
+    elif truth_status == "warning":
+        _add_action(
+            actions,
+            severity="warn",
+            area="Broker truth",
+            action="Review broker truth warnings",
+            why=(
+                f"fail={int(truth_summary.get('fail_count') or 0)}, "
+                f"warn={int(truth_summary.get('warning_count') or 0)}"
+            ),
+            command="python broker_truth.py",
+        )
+    elif truth_status in {"missing", "unknown", ""}:
+        _add_action(
+            actions,
+            severity="warn",
+            area="Broker truth",
+            action="Generate broker truth report",
+            why="broker truth JSON is missing",
+            command="python broker_truth.py",
+        )
+
+    signal = load_current_signal() or {}
+    if not signal:
+        _add_action(
+            actions,
+            severity="fail",
+            area="Signal",
+            action="Generate today's trading signal",
+            why="core_satellite_alpha_signal.csv is missing or unreadable",
+            command="python core_satellite_alpha.py",
+        )
+    else:
+        gate_state = signal_trade_gate_state(signal)
+        if not gate_state["trade_ready"]:
+            _add_action(
+                actions,
+                severity="fail",
+                area="Signal gate",
+                action="Fix blocked signal gates before submit",
+                why=_brief_join(gate_state["block_reasons"]) or "submit gates are not all true",
+                command="python daily_run.py --alpaca --dry-run",
+            )
+
+    last_run = load_latest_daily_run() or {}
+    total = int(last_run.get("steps_total") or 0)
+    passed = int(last_run.get("steps_ok") or 0)
+    failed = int(last_run.get("steps_failed") or 0)
+    if not last_run:
+        _add_action(
+            actions,
+            severity="warn",
+            area="Daily run",
+            action="Run or pull the latest daily workflow output",
+            why="no daily_run_*.json log found",
+            command="python daily_run.py --alpaca --dry-run",
+        )
+    elif total and passed < total:
+        bad_steps = [
+            row.get("name", "")
+            for row in last_run.get("results", []) or []
+            if str(row.get("status", "")).lower() not in {"ok", "pass", "success"}
+        ]
+        _add_action(
+            actions,
+            severity="fail" if failed else "warn",
+            area="Daily run",
+            action="Inspect incomplete daily run steps",
+            why=f"{passed}/{total} steps ok; {_brief_join(bad_steps)}",
+            command="python daily_run.py --alpaca --dry-run",
+        )
+
+    scorecard = load_execution_scorecard()
+    if not scorecard:
+        _add_action(
+            actions,
+            severity="warn",
+            area="Execution",
+            action="Build execution scorecard",
+            why="alpaca_execution_scorecard.json is missing",
+            command="python execution_scorecard.py",
+        )
+    else:
+        scorecard_status = str(scorecard.get("status") or "unknown").lower()
+        if scorecard_status == "fail":
+            failed_checks = [
+                check.get("name", "")
+                for check in scorecard.get("checks", []) or []
+                if str(check.get("status", "")).lower() == "fail"
+            ]
+            _add_action(
+                actions,
+                severity="fail",
+                area="Execution",
+                action="Review failed execution checks",
+                why=_brief_join(failed_checks) or "execution scorecard failed",
+                command="python execution_scorecard.py --strict",
+            )
+        elif scorecard_status == "collecting":
+            _add_action(
+                actions,
+                severity="info",
+                area="Execution",
+                action="Collect more fill samples",
+                why="execution scorecard is still collecting",
+                command="python execution_scorecard.py",
+            )
+
+    file_table = file_status_table()
+    if not file_table.empty:
+        status_text = file_table["Status"].astype(str).str.lower()
+        critical = {
+            "Today's signal",
+            "Order plan",
+            "Alpaca status",
+            "Broker truth",
+            "Daily workflow",
+        }
+        critical_problem = file_table[
+            file_table["File"].isin(critical)
+            & status_text.str.contains("old|missing", regex=True)
+        ]
+        stale_problem = file_table[
+            file_table["File"].isin(critical)
+            & status_text.str.contains("stale", regex=False)
+        ]
+        if not critical_problem.empty:
+            _add_action(
+                actions,
+                severity="fail",
+                area="Freshness",
+                action="Refresh missing or old critical files",
+                why=_brief_join(critical_problem["File"].tolist()),
+                command="pull_daily.bat",
+            )
+        elif not stale_problem.empty:
+            _add_action(
+                actions,
+                severity="warn",
+                area="Freshness",
+                action="Watch stale critical files",
+                why=_brief_join(stale_problem["File"].tolist()),
+                command="pull_daily.bat",
+            )
+
+    workflow_df = load_workflow_heartbeats()
+    if not workflow_df.empty:
+        bad_workflows = []
+        for row in workflow_df.to_dict("records"):
+            status = str(row.get("status") or row.get("conclusion") or "unknown").lower()
+            if status not in {"success", "completed", "ok"}:
+                bad_workflows.append(row.get("label") or row.get("workflow") or "workflow")
+        if bad_workflows:
+            _add_action(
+                actions,
+                severity="warn",
+                area="Workflow",
+                action="Check latest workflow heartbeat",
+                why=_brief_join(bad_workflows),
+                command="gh run list --limit 5",
+            )
+
+    if not actions:
+        return pd.DataFrame(columns=["priority", "severity", "area", "action", "why", "command"])
+    return (
+        pd.DataFrame(actions)
+        .sort_values(["priority", "area", "action"])
+        .reset_index(drop=True)
+    )
 
 
 @st.cache_data(ttl=60)
@@ -672,6 +913,7 @@ def file_status_table() -> pd.DataFrame:
         "Alpaca status": ALPACA_STATUS,
         "Alpaca health": ALPACA_HEALTH,
         "Alpaca execution": ALPACA_SLIPPAGE_REPORT,
+        "Execution scorecard": ALPACA_EXECUTION_SCORECARD,
         "Broker truth": BROKER_TRUTH_JSON,
         "Alpaca orders log": ALPACA_LOG,
         "Shadow equity": SHADOW_EQUITY,
@@ -713,6 +955,7 @@ def file_status_table() -> pd.DataFrame:
         "Alpaca status":     (26 * 60, 72 * 60),
         "Alpaca health":     (26 * 60, 72 * 60),
         "Alpaca execution":  (26 * 60, 72 * 60),
+        "Execution scorecard": (26 * 60, 72 * 60),
         "Broker truth":      (26 * 60, 72 * 60),
         "Broker health":     (26 * 60, 72 * 60),
         "Shadow equity":     (26 * 60, 72 * 60),
