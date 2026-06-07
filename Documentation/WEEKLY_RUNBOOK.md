@@ -193,13 +193,17 @@ The dedicated factor refresh workflow uses the same core refresh chain:
 ```bash
 python research.py --incremental      # or: python research.py --xs-only
 python feature_quality_diagnostic.py --top 48
+python feature_health.py --max-specs 48
 python factor_data_health.py --strict
+python research_output_guard.py --write-manifest
 ```
 
 `feature_quality_diagnostic.py` is the daily factor diagnostic. It writes
 `signals/feature_quality_report.json` and `signals/feature_quality_summary.csv`.
 `feature_health.py` / `signals/feature_health_profile.json` are downstream
 feature-quarantine outputs, not the main scheduled factor-refresh diagnostic.
+`research_output_guard.py` is the final generated-file guard. It blocks invalid
+JSON/CSV and merge-conflict markers before the refresh is considered healthy.
 
 ### Shadow journal
 
@@ -398,6 +402,7 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `publish_live_config_from_csv.py` | Manual live-config promote; blocks analyzer FAIL and selection-bias overfit | after walkforward (`--source stable_family`, `--dry-run`, `--force`) |
 | `pull_daily.bat` / `pull_daily.sh` | Sync Actions outputs into local repo | every morning |
 | `refresh_local_research_data.py` | Local mirror of `factor_data_refresh.yml` plus feature research | `--skip-research`, `--skip-feature-research`, `--pairs`, `--top N`, `--dry-run` |
+| `research_output_guard.py` | Validate generated research JSON/CSV and write run manifest | `--write-manifest`, `--path PATH`, `--command TEXT` |
 | `run_walkforward_batched.py` | Memory-safe walkforward wrapper | `--batch-size N`, `--max-batches N`, `--help-wrapper`, plus forwarded walkforward flags such as `--recent-alpha-grid` |
 
 ### Infrastructure & dashboards
@@ -460,6 +465,7 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `signals/feature_research_summary.csv` | Per-feature IC stats (drives quarantine logic) |
 | `signals/feature_quality_report.json` | Live feature grading (A/B/C/D/F) |
 | `signals/feature_quality_summary.csv` | Compact feature-quality grades table |
+| `signals/research_run_manifest.json` | Machine/git/package/data checksum fingerprint for the latest official research refresh |
 | `signals/walkforward_checkpoint_core_alpha.json` | Resume state during a walkforward run |
 
 ### Medium-risk-review inputs (the trio)
@@ -501,6 +507,28 @@ git fetch origin signals/latest
 git checkout origin/signals/latest -- signals/ logs/
 git reset HEAD signals/ logs/   # un-stage; files stay on disk for the dashboard
 ```
+
+### Before research on Mac or a second PC
+
+Always start from a clean, current `main` before generating research files:
+
+```bash
+git fetch origin
+git switch main
+git pull --ff-only
+```
+
+After the research run, validate generated outputs before committing:
+
+```bash
+python research_output_guard.py --write-manifest --command "your research command"
+git diff --check
+rg "<<<<<<<|=======|>>>>>>>" .
+```
+
+If any command fails, do not push. Regenerate the research outputs or resolve
+the conflict first. Different Mac/Windows research output can be legitimate,
+but broken JSON/CSV or conflict markers are never legitimate.
 
 ### Confirm today's Actions run fired
 

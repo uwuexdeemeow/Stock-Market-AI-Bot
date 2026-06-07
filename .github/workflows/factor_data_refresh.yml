@@ -170,6 +170,15 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
 
+      - name: Validate research outputs
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        run: |
+          python3 research_output_guard.py \
+            --write-manifest \
+            --command "github-actions factor_data_refresh xs_only=${{ github.event.inputs.xs_only }}"
+        env:
+          PYTHONUNBUFFERED: "1"
+
       - name: Upload refresh logs
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/upload-artifact@v4
@@ -182,7 +191,10 @@ jobs:
             signals/feature_quality_summary.csv
             signals/feature_health_profile.json
             signals/feature_health_profile.csv
+            signals/feature_research_report.json
+            signals/feature_research_summary.csv
             signals/factor_data_health.json
+            signals/research_run_manifest.json
           retention-days: 30
 
       - name: Save data cache
@@ -277,6 +289,26 @@ jobs:
                   lines.append(f"Quality report unreadable: {exc}")
           else:
               lines.append("Quality report: missing")
+
+          manifest_path = Path("signals/research_run_manifest.json")
+          if manifest_path.exists():
+              try:
+                  manifest = json.loads(manifest_path.read_text())
+                  validation = manifest.get("validation", {})
+                  lines.append(
+                      "Research guard: "
+                      f"{validation.get('status', 'unknown')} "
+                      f"({validation.get('checked_count', '?')} files)"
+                  )
+                  system = manifest.get("system", {})
+                  if system.get("system") and system.get("python_version"):
+                      lines.append(
+                          f"Runner: {system.get('system')} Python {system.get('python_version')}"
+                      )
+              except Exception as exc:
+                  lines.append(f"Research manifest unreadable: {exc}")
+          else:
+              lines.append("Research manifest: missing")
 
           print("\n".join(lines))
           PY

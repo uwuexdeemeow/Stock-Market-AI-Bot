@@ -15,7 +15,7 @@ If you run any research locally — `nested_walkforward`,
 files were on disk the last time YOU refreshed.
 
 `refresh_local_research_data.py` is the local equivalent of the
-`factor_data_refresh.yml` workflow.  It chains the four refresh
+`factor_data_refresh.yml` workflow.  It chains the refresh
 scripts in the right order, halts on critical failures, and verifies
 that the downstream files actually got written before letting you
 move on.
@@ -23,8 +23,8 @@ move on.
 ## Why it exists
 
 Before this script, "refresh research locally" meant remembering
-four separate commands (research → feature_quality_diagnostic →
-feature_research → factor_data_health) in the exact right order,
+several separate commands (research → feature_quality_diagnostic →
+feature_research → factor_data_health → research_output_guard) in the exact right order,
 plus knowing which scripts are slow enough to skip on routine
 refreshes and which ones are critical-vs-nice-to-have.  This
 captures that runbook as code, so you can just type one command
@@ -60,6 +60,7 @@ loads the data it needs from where the prior step wrote it:
 | `feature_quality_diagnostic.py --top 48` | Updated parquets | `signals/feature_quality_report.json`, `signals/feature_quality_summary.csv` |
 | `feature_research.py --top 24 --skip-pairs` | Updated parquets, feature specs | `signals/feature_research_summary.csv`, `signals/feature_research_report.json` |
 | `factor_data_health.py --strict` | All of the above | `signals/factor_data_health.json` (pass/fail) |
+| `research_output_guard.py --write-manifest` | Generated JSON/CSV outputs + `data/*.parquet` | `signals/research_run_manifest.json` |
 
 ## Outputs
 
@@ -70,6 +71,7 @@ After a successful run you'll have fresh copies of:
 - `signals/feature_research_summary.csv` + `feature_research_report.json`
 - `signals/feature_health_profile.json` (built downstream by `alpha_factor_backtest`)
 - `signals/factor_data_health.json`
+- `signals/research_run_manifest.json`
 
 These are exactly the files that downstream research scripts
 (`nested_walkforward`, `train.py`, etc.) expect to find.
@@ -96,18 +98,22 @@ These are exactly the files that downstream research scripts
   whole run.  `research.py` is critical because everything else
   reads from its outputs.  `feature_research.py` is best-effort —
   if it fails, the prior CSV is still usable (just stale).
+- **Research output guard** — a final hard stop that rejects merge-conflict
+  markers, invalid JSON, broken CSV files, and writes a manifest explaining
+  which machine/package/data versions produced the outputs.
 
 ## Sequencing notes
 
 These steps MUST run in the listed order:
 
-1. `research.py` writes new parquet rows.  Steps 2-4 all read parquets.
+1. `research.py` writes new parquet rows.  Steps 2-5 all read parquets.
 2. `feature_quality_diagnostic.py` writes a fresh feature report.
    `factor_data_health.py --strict` (step 4) blocks if this report
    is too old, so step 2 must run before step 4.
 3. `feature_research.py` is independent of step 2 but must run
    after step 1 (it needs fresh forward returns from the panel).
-4. `factor_data_health.py` is the final gate.  Failure here means
+4. `factor_data_health.py` checks panel freshness and required files.
+5. `research_output_guard.py` is the final gate.  Failure here means
    *something* upstream is off; don't run further research until
    you understand why.
 

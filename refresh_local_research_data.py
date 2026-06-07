@@ -218,6 +218,17 @@ def main() -> int:
     if not args.pairs:
         fr_argv.append("--skip-pairs")
     fdh_argv = [sys.executable, "factor_data_health.py", "--strict"]
+    # PLAIN ENGLISH: This final guard catches broken generated files before
+    # they can be committed from Mac/PC. It also writes a manifest with the
+    # Python/package/git/data fingerprints for this refresh.
+    guard_command = " ".join([Path(sys.executable).name, Path(__file__).name, *sys.argv[1:]])
+    guard_argv = [
+        sys.executable,
+        "research_output_guard.py",
+        "--write-manifest",
+        "--command",
+        guard_command,
+    ]
 
     # Step list — order matters.  Each later step reads outputs the
     # earlier ones write.
@@ -249,6 +260,12 @@ def main() -> int:
     steps.append(Step(
         "factor_data_health", fdh_argv,
         "Strict pass/fail gate — confirms the refreshed panel is healthy",
+        critical=True,
+        timeout_seconds=300,
+    ))
+    steps.append(Step(
+        "research_output_guard", guard_argv,
+        "Validate generated JSON/CSV research outputs and write run manifest",
         critical=True,
         timeout_seconds=300,
     ))
