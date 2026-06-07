@@ -39,6 +39,9 @@ Expected outputs:
 - `signals/score_predictiveness_audit.csv`
 - `signals/score_predictiveness_audit.json`
 
+Both outputs are written atomically, so review tools never read a half-written
+selector-quality audit.
+
 ## Important Limitation
 
 This is a selected-config audit. It studies the configs that the walkforward

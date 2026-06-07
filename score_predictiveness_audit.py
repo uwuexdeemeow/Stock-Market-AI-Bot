@@ -18,6 +18,7 @@ from typing import Any
 import pandas as pd
 
 from robustness_scoring import DEFAULT_OBJECTIVE, robustness_score_components
+from safe_io import atomic_write_csv, atomic_write_json
 from settings import SIGNAL_DIR
 
 
@@ -306,6 +307,17 @@ def print_audit(audit: pd.DataFrame, summary: dict, *, limit: int) -> None:
     print("  Next best test: rerun walkforward after changing only the clearly harmful score component.")
 
 
+def write_score_predictiveness_audit(audit: pd.DataFrame, summary: dict, out_csv: Path, out_json: Path) -> tuple[Path, Path]:
+    """Write score-predictiveness audit outputs through safe writers.
+
+    PLAIN ENGLISH: These reports explain whether the selector is trustworthy.
+    Atomic writing keeps downstream review from reading partial audit files.
+    """
+    atomic_write_csv(audit, out_csv, index=False)
+    atomic_write_json(summary, out_json)
+    return out_csv, out_json
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Audit walkforward score predictiveness fields.")
     parser.add_argument("--csv", default=str(DEFAULT_CSV), help="Walkforward CSV to audit.")
@@ -327,9 +339,7 @@ def main() -> None:
 
     out_csv = Path(args.out_csv)
     out_json = Path(args.out_json)
-    out_csv.parent.mkdir(parents=True, exist_ok=True)
-    audit.to_csv(out_csv, index=False)
-    out_json.write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
+    write_score_predictiveness_audit(audit, summary, out_csv, out_json)
 
     print_audit(audit, summary, limit=max(1, int(args.limit)))
     print("\nWrote:")
