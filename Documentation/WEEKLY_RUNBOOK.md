@@ -434,6 +434,7 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `signals/alpaca_execution_scorecard.json` | Fill-quality pass/fail scorecard and throttle outcome summary |
 | `signals/broker_truth.csv` / `.json` | Per-ticker Alpaca-vs-local truth reconciliation |
 | `signals/alpaca_slippage_reversal_report.json` | Recent fill slippage and 5/15/30/60 minute post-fill reversal stats |
+| `logs/etf_data_health.json` | ETF benchmark/cache health; dashboard checklist flags stale or partial ETF data |
 | `signals/shadow_paper_journal.csv` | Daily shadow config targets, signal metadata, and comparison rows |
 | `signals/shadow_paper_equity.csv` | Simulated equity curve for the shadow config |
 | `signals/paper_shadow_compare.csv` | Row-by-row Alpaca-vs-shadow return comparison |

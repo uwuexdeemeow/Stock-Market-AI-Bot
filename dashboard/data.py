@@ -57,6 +57,7 @@ ALPACA_STATUS = SIGNALS_DIR / "alpaca_daily_status.json"
 ALPACA_HEALTH = SIGNALS_DIR / "alpaca_paper_health.json"
 ALPACA_SLIPPAGE_REPORT = SIGNALS_DIR / "alpaca_slippage_reversal_report.json"
 ALPACA_EXECUTION_SCORECARD = SIGNALS_DIR / "alpaca_execution_scorecard.json"
+ETF_DATA_HEALTH = LOGS_DIR / "etf_data_health.json"
 BROKER_TRUTH_JSON = SIGNALS_DIR / "broker_truth.json"
 BROKER_TRUTH_CSV = SIGNALS_DIR / "broker_truth.csv"
 SHADOW_EQUITY = SIGNALS_DIR / "shadow_paper_equity.csv"
@@ -531,6 +532,13 @@ def load_execution_scorecard() -> dict | None:
     return payload if isinstance(payload, dict) else None
 
 
+@st.cache_data(ttl=60)
+def load_etf_data_health() -> dict | None:
+    """Return the latest ETF data-health payload."""
+    payload = _read_json_safe(ETF_DATA_HEALTH)
+    return payload if isinstance(payload, dict) else None
+
+
 @st.cache_data(ttl=30)
 def load_broker_truth() -> dict:
     """Return the broker truth report plus its per-ticker table.
@@ -764,6 +772,31 @@ def build_action_checklist() -> pd.DataFrame:
                 command="python execution_scorecard.py",
             )
 
+    etf_health = load_etf_data_health()
+    if not etf_health:
+        _add_action(
+            actions,
+            severity="warn",
+            area="ETF data",
+            action="Build ETF data-health report",
+            why="logs/etf_data_health.json is missing",
+            command="python refresh_etf_data.py",
+        )
+    elif not bool(etf_health.get("ok", False)):
+        bad_rows = []
+        for row in etf_health.get("results", []) or []:
+            if isinstance(row, dict) and not bool(row.get("ok", False)):
+                issues = ",".join(str(item) for item in row.get("issues", [])[:3])
+                bad_rows.append(f"{row.get('symbol', '?')}:{issues or 'not_ok'}")
+        _add_action(
+            actions,
+            severity="fail",
+            area="ETF data",
+            action="Refresh stale or partial ETF data",
+            why=_brief_join(bad_rows) or "ETF data health failed",
+            command="python refresh_etf_data.py --refresh --force",
+        )
+
     file_table = file_status_table()
     if not file_table.empty:
         status_text = file_table["Status"].astype(str).str.lower()
@@ -772,6 +805,7 @@ def build_action_checklist() -> pd.DataFrame:
             "Order plan",
             "Alpaca status",
             "Broker truth",
+            "ETF data health",
             "Daily workflow",
         }
         critical_problem = file_table[
@@ -914,6 +948,7 @@ def file_status_table() -> pd.DataFrame:
         "Alpaca health": ALPACA_HEALTH,
         "Alpaca execution": ALPACA_SLIPPAGE_REPORT,
         "Execution scorecard": ALPACA_EXECUTION_SCORECARD,
+        "ETF data health": ETF_DATA_HEALTH,
         "Broker truth": BROKER_TRUTH_JSON,
         "Alpaca orders log": ALPACA_LOG,
         "Shadow equity": SHADOW_EQUITY,
@@ -956,6 +991,7 @@ def file_status_table() -> pd.DataFrame:
         "Alpaca health":     (26 * 60, 72 * 60),
         "Alpaca execution":  (26 * 60, 72 * 60),
         "Execution scorecard": (26 * 60, 72 * 60),
+        "ETF data health":   (26 * 60, 72 * 60),
         "Broker truth":      (26 * 60, 72 * 60),
         "Broker health":     (26 * 60, 72 * 60),
         "Shadow equity":     (26 * 60, 72 * 60),

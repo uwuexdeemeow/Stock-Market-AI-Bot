@@ -15,6 +15,7 @@ def _clear_dashboard_caches() -> None:
         data.load_alpaca_equity_history,
         data.load_slippage_reversal_report,
         data.load_execution_scorecard,
+        data.load_etf_data_health,
         data.load_paper_shadow_compare,
         data.load_broker_truth,
     ):
@@ -183,6 +184,17 @@ def test_file_status_tracks_broker_truth(tmp_path, monkeypatch):
     assert "Broker truth" in set(table["File"])
 
 
+def test_file_status_tracks_etf_data_health(tmp_path, monkeypatch):
+    etf_health = tmp_path / "etf_data_health.json"
+    etf_health.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(data, "ETF_DATA_HEALTH", etf_health)
+    _clear_dashboard_caches()
+
+    table = data.file_status_table()
+
+    assert "ETF data health" in set(table["File"])
+
+
 def test_action_checklist_prioritizes_broker_truth_fail(monkeypatch):
     monkeypatch.setattr(
         data,
@@ -208,6 +220,7 @@ def test_action_checklist_prioritizes_broker_truth_fail(monkeypatch):
         lambda: {"steps_total": 2, "steps_ok": 2, "steps_failed": 0, "results": []},
     )
     monkeypatch.setattr(data, "load_execution_scorecard", lambda: {"status": "pass", "checks": []})
+    monkeypatch.setattr(data, "load_etf_data_health", lambda: {"ok": True, "results": []})
     monkeypatch.setattr(
         data,
         "file_status_table",
@@ -224,6 +237,52 @@ def test_action_checklist_prioritizes_broker_truth_fail(monkeypatch):
     assert checklist.iloc[0]["severity"] == "fail"
     assert checklist.iloc[0]["area"] == "Broker truth"
     assert "broker_status_missing" in checklist.iloc[0]["why"]
+
+
+def test_action_checklist_flags_failed_etf_health(monkeypatch):
+    monkeypatch.setattr(
+        data,
+        "load_broker_truth",
+        lambda: {
+            "payload": {"status": "pass", "summary": {"fail_count": 0, "warning_count": 0}},
+            "table": pd.DataFrame(),
+        },
+    )
+    monkeypatch.setattr(
+        data,
+        "load_current_signal",
+        lambda: {"paper_ready": True, "gates_all_pass": True, "medium_risk_review_pass": True},
+    )
+    monkeypatch.setattr(
+        data,
+        "load_latest_daily_run",
+        lambda: {"steps_total": 2, "steps_ok": 2, "steps_failed": 0, "results": []},
+    )
+    monkeypatch.setattr(data, "load_execution_scorecard", lambda: {"status": "pass", "checks": []})
+    monkeypatch.setattr(
+        data,
+        "load_etf_data_health",
+        lambda: {
+            "ok": False,
+            "results": [{"symbol": "QQQ", "ok": False, "issues": ["stale_10_bdays"]}],
+        },
+    )
+    monkeypatch.setattr(
+        data,
+        "file_status_table",
+        lambda: pd.DataFrame({"File": ["Today's signal"], "Status": ["green fresh"]}),
+    )
+    monkeypatch.setattr(
+        data,
+        "load_workflow_heartbeats",
+        lambda: pd.DataFrame({"label": ["Daily paper"], "status": ["success"]}),
+    )
+
+    checklist = data.build_action_checklist()
+
+    assert checklist.iloc[0]["severity"] == "fail"
+    assert checklist.iloc[0]["area"] == "ETF data"
+    assert "QQQ:stale_10_bdays" in checklist.iloc[0]["why"]
 
 
 def test_action_checklist_empty_when_core_system_clear(monkeypatch):
@@ -246,6 +305,7 @@ def test_action_checklist_empty_when_core_system_clear(monkeypatch):
         lambda: {"steps_total": 2, "steps_ok": 2, "steps_failed": 0, "results": []},
     )
     monkeypatch.setattr(data, "load_execution_scorecard", lambda: {"status": "pass", "checks": []})
+    monkeypatch.setattr(data, "load_etf_data_health", lambda: {"ok": True, "results": []})
     monkeypatch.setattr(
         data,
         "file_status_table",
