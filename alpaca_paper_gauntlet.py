@@ -36,6 +36,7 @@ import pandas as pd
 
 from signal_freshness import parse_signal_timestamp
 from settings import LOG_DIR, SIGNAL_DIR
+from safe_io import atomic_write_csv, atomic_write_json
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -632,13 +633,24 @@ def snapshot_equity() -> None:
         existing = existing[existing["date"] != row["date"]]
         df = pd.concat([existing, df], ignore_index=True)
 
-    df.to_csv(ALPACA_EQUITY, index=False)
+    atomic_write_csv(df, ALPACA_EQUITY, index=False)
     print(f"  ✓ Equity snapshot saved: ${equity:,.2f} → {ALPACA_EQUITY}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CLI — command line entry point
 # ─────────────────────────────────────────────────────────────────────────────
+
+def write_gauntlet_report(result: dict, output_path: Path | None = None) -> Path:
+    """Write the gauntlet JSON report through a crash-safe helper.
+
+    PLAIN ENGLISH: Paper-health checks may read this report after the gauntlet
+    runs. Atomic writing prevents a partial JSON file from confusing readiness.
+    """
+    out_path = output_path or (LOGS / f"alpaca_paper_gauntlet_{datetime.now().strftime('%Y%m%d')}.json")
+    atomic_write_json(result, out_path)
+    return out_path
+
 
 def main() -> None:
     import argparse
@@ -666,8 +678,7 @@ def main() -> None:
     result = evaluate_alpaca_paper(verbose=args.verbose)
 
     # Save to JSON
-    out_path = LOGS / f"alpaca_paper_gauntlet_{datetime.now().strftime('%Y%m%d')}.json"
-    out_path.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
+    out_path = write_gauntlet_report(result)
 
     # Display results
     if args.json:

@@ -64,6 +64,9 @@ python3 alpaca_paper_gauntlet.py --snapshot
 | Telegram alert | Sent when status=failed |
 | Exit code | 0 = passed OR within 30-day data-accumulation grace period.  1 = failed and accumulation period over. |
 
+The equity CSV and dated JSON report are written atomically, so dashboard and
+health checks never read half-written gauntlet data.
+
 ## Key concepts
 
 - **Gauntlet** — a series of tests run sequentially.  "Running the
