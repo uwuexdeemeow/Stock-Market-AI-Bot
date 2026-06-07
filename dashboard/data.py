@@ -65,6 +65,7 @@ PAPER_SHADOW_COMPARE_JSON = SIGNALS_DIR / "paper_shadow_compare.json"
 PAPER_SHADOW_COMPARE_CSV = SIGNALS_DIR / "paper_shadow_compare.csv"
 FEATURE_HEALTH = SIGNALS_DIR / "feature_health_profile.json"
 FEATURE_QUALITY = SIGNALS_DIR / "feature_quality_summary.csv"
+FACTOR_DATA_HEALTH = SIGNALS_DIR / "factor_data_health.json"
 BROKER_HEALTH = SIGNALS_DIR / "broker_health.json"
 REGIME_HEARTBEAT = SIGNALS_DIR / "monitor_heartbeat.json"
 WORKFLOW_HEARTBEATS = {
@@ -539,6 +540,13 @@ def load_etf_data_health() -> dict | None:
     return payload if isinstance(payload, dict) else None
 
 
+@st.cache_data(ttl=60)
+def load_factor_data_health() -> dict | None:
+    """Return the latest factor-data health payload."""
+    payload = _read_json_safe(FACTOR_DATA_HEALTH)
+    return payload if isinstance(payload, dict) else None
+
+
 @st.cache_data(ttl=30)
 def load_broker_truth() -> dict:
     """Return the broker truth report plus its per-ticker table.
@@ -797,6 +805,27 @@ def build_action_checklist() -> pd.DataFrame:
             command="python refresh_etf_data.py --refresh --force",
         )
 
+    factor_health = load_factor_data_health()
+    if not factor_health:
+        _add_action(
+            actions,
+            severity="warn",
+            area="Factor data",
+            action="Build factor data-health report",
+            why="signals/factor_data_health.json is missing",
+            command="python factor_data_health.py --strict",
+        )
+    elif not bool(factor_health.get("trade_ready", False)):
+        reasons = [str(item) for item in factor_health.get("reasons", []) or []]
+        _add_action(
+            actions,
+            severity="fail",
+            area="Factor data",
+            action="Fix factor data health before signal",
+            why=_brief_join(reasons) or "factor data is not trade-ready",
+            command="python factor_data_health.py --strict",
+        )
+
     file_table = file_status_table()
     if not file_table.empty:
         status_text = file_table["Status"].astype(str).str.lower()
@@ -806,6 +835,7 @@ def build_action_checklist() -> pd.DataFrame:
             "Alpaca status",
             "Broker truth",
             "ETF data health",
+            "Factor data health",
             "Daily workflow",
         }
         critical_problem = file_table[
@@ -955,6 +985,7 @@ def file_status_table() -> pd.DataFrame:
         "Paper vs shadow": PAPER_SHADOW_COMPARE_JSON,
         "Daily workflow": WORKFLOW_HEARTBEATS["Daily paper"],
         "Shadow workflow": WORKFLOW_HEARTBEATS["Shadow journal"],
+        "Factor data health": FACTOR_DATA_HEALTH,
         "Feature health": FEATURE_HEALTH,
         "Feature quality": FEATURE_QUALITY,
         "Broker health": BROKER_HEALTH,
@@ -998,6 +1029,7 @@ def file_status_table() -> pd.DataFrame:
         "Paper vs shadow":   (26 * 60, 72 * 60),
         "Daily workflow":    (26 * 60, 72 * 60),
         "Shadow workflow":   (26 * 60, 72 * 60),
+        "Factor data health": (26 * 60, 72 * 60),
         # Feature health + quality update on the factor-data-refresh
         # cron (also daily) but commits to signals/latest only after
         # the trade workflow finishes.  Same 26h/72h works.
