@@ -57,6 +57,10 @@ Expected outputs:
 - `signals/core_satellite_alpha_equity.csv`
 - `signals/core_satellite_alpha_trades.csv`
 
+These signal/report artifacts are written atomically, so the broker,
+dashboard, and daily gates never read half-written CSV or JSON files if the
+script is interrupted.
+
 ## Key Terms
 
 - **Core**: the ETF part of the portfolio, usually SPY/QQQ/TQQQ.

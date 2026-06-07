@@ -40,6 +40,35 @@ def _base_live_metrics() -> dict:
     }
 
 
+def test_core_alpha_backtest_artifacts_use_atomic_writers(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_write_csv(df, path, **kwargs):
+        calls.append(("csv", path.name, len(df), kwargs.get("index")))
+
+    def fake_write_json(data, path, **_kwargs):
+        calls.append(("json", path.name, data["paper_ready"]))
+
+    monkeypatch.setattr(csa, "SIGNAL_DIR", str(tmp_path))
+    monkeypatch.setattr(csa, "atomic_write_csv", fake_write_csv)
+    monkeypatch.setattr(csa, "atomic_write_json", fake_write_json)
+
+    paths = csa.write_core_alpha_backtest_artifacts(
+        {"paper_ready": True},
+        pd.Series([100.0, 101.0]),
+        pd.DataFrame([{"ticker": "QQQ"}]),
+    )
+
+    assert paths["equity"] == tmp_path / "core_satellite_alpha_equity.csv"
+    assert paths["trades"] == tmp_path / "core_satellite_alpha_trades.csv"
+    assert paths["metrics"] == tmp_path / "core_satellite_alpha_metrics.json"
+    assert calls == [
+        ("csv", "core_satellite_alpha_equity.csv", 2, True),
+        ("csv", "core_satellite_alpha_trades.csv", 1, False),
+        ("json", "core_satellite_alpha_metrics.json", True),
+    ]
+
+
 def _live_panel() -> pd.DataFrame:
     date = pd.Timestamp("2026-05-13")
     return pd.DataFrame({

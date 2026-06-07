@@ -43,8 +43,8 @@ from settings import (
     WATCHLIST,
     validate_sector_map_coverage,
 )
-# Atomic signal write — broker readers never see a half-written CSV.
-from safe_io import atomic_write_csv
+# Atomic signal/report writes — broker readers never see half-written files.
+from safe_io import atomic_write_csv, atomic_write_json
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2587,6 +2587,35 @@ def _apply_nested_live_approval_gates(metrics: dict, live: dict, freshness: dict
     return metrics
 
 
+def write_core_alpha_metrics(metrics: dict, output_path: Path | None = None) -> Path:
+    """Write the core-alpha metrics JSON atomically.
+
+    PLAIN ENGLISH: The dashboard and broker checks read this report. Atomic
+    writing keeps them from seeing a half-written metrics file.
+    """
+    path = output_path or (Path(SIGNAL_DIR) / "core_satellite_alpha_metrics.json")
+    atomic_write_json(metrics, path)
+    return path
+
+
+def write_core_alpha_backtest_artifacts(
+    metrics: dict,
+    equity: pd.Series,
+    trades: pd.DataFrame,
+) -> dict[str, Path]:
+    """Write core-alpha equity, trades, and metrics through safe writers."""
+    paths = {
+        "equity": Path(SIGNAL_DIR) / "core_satellite_alpha_equity.csv",
+        "trades": Path(SIGNAL_DIR) / "core_satellite_alpha_trades.csv",
+        "metrics": Path(SIGNAL_DIR) / "core_satellite_alpha_metrics.json",
+    }
+    # Preserve the old equity CSV shape: pandas used to include the Series index.
+    atomic_write_csv(pd.DataFrame({"equity": equity}), paths["equity"], index=True)
+    atomic_write_csv(trades, paths["trades"], index=False)
+    write_core_alpha_metrics(metrics, paths["metrics"])
+    return paths
+
+
 def _generate_signal_from_approved_config(
     *,
     panel: pd.DataFrame,
@@ -2603,8 +2632,7 @@ def _generate_signal_from_approved_config(
             "nested_walkforward_rejected": True,
             "nested_walkforward_rejection_reasons": reasons,
         }
-        with open(Path(SIGNAL_DIR) / "core_satellite_alpha_metrics.json", "w") as f:
-            json.dump(rejection_metrics, f, indent=2)
+        write_core_alpha_metrics(rejection_metrics)
         # ── Notify on config rejection/expiry ─────────────────────────
         # PLAIN ENGLISH: If the live config was rejected (e.g. expired or
         # failed approval), send a Telegram alert so you know the daily
@@ -2654,11 +2682,8 @@ def _generate_signal_from_approved_config(
     if not bool(freshness.get("fresh", False)):
         print("  ⚠ gates_all_pass forced to False because factor data is stale")
 
-    pd.DataFrame({"equity": best_equity}).to_csv(Path(SIGNAL_DIR) / "core_satellite_alpha_equity.csv")
-    best_trades.to_csv(Path(SIGNAL_DIR) / "core_satellite_alpha_trades.csv", index=False)
+    write_core_alpha_backtest_artifacts(best_metrics, best_equity, best_trades)
     signal_path = write_paper_signal(signal_panel, best_metrics)
-    with open(Path(SIGNAL_DIR) / "core_satellite_alpha_metrics.json", "w") as f:
-        json.dump(best_metrics, f, indent=2)
 
     row = {
         "paper_ready": best_metrics.get("paper_ready"),
