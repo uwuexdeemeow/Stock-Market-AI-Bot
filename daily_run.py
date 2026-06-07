@@ -61,6 +61,7 @@ GITHUB_SIGNAL_SYNC_FILES = (
     "signals/alpaca_paper_log.csv",
     "signals/factor_data_health.json",
     "signals/factor_decay_monitor.csv",
+    "logs/etf_data_health.json",
     "logs/factor_decay_monitor.json",
     "logs/core_satellite_execution_stress.json",
     "logs/core_satellite_survivorship_audit.json",

@@ -300,6 +300,7 @@ def test_sync_latest_github_signals_fetches_branch_and_copies_files(tmp_path, mo
     remote_files = "\n".join([
         "signals/core_satellite_alpha_signal.csv",
         "signals/fill_monitor.json",
+        "logs/etf_data_health.json",
         "logs/daily_run_20260515.json",
         "logs/daily_run_20260516.json",
         "logs/daily_run_20260517.json",
@@ -319,6 +320,7 @@ def test_sync_latest_github_signals_fetches_branch_and_copies_files(tmp_path, mo
             if rel_path in {
                 "signals/core_satellite_alpha_signal.csv",
                 "signals/fill_monitor.json",
+                "logs/etf_data_health.json",
                 "logs/daily_run_20260516.json",
                 "logs/daily_run_20260517.json",
                 "logs/daily_run_20260518.json",
@@ -338,6 +340,7 @@ def test_sync_latest_github_signals_fetches_branch_and_copies_files(tmp_path, mo
         "payload:signals/core_satellite_alpha_signal.csv"
     )
     assert (tmp_path / "signals/fill_monitor.json").read_text() == "payload:signals/fill_monitor.json"
+    assert (tmp_path / "logs/etf_data_health.json").read_text() == "payload:logs/etf_data_health.json"
     assert not (tmp_path / "logs/daily_run_20260515.json").exists()
     assert (tmp_path / "logs/daily_run_20260520.json").exists()
     assert any(call[0] == "fetch" for call in calls)

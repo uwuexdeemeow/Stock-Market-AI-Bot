@@ -507,6 +507,7 @@ jobs:
               signals/alpaca_paper_log.csv \
               signals/alpaca_daily_status.json \
               signals/alpaca_slippage_reversal_report.json \
+              logs/etf_data_health.json \
               signals/factor_data_health.json \
               signals/factor_decay_monitor.csv \
               signals/fill_monitor.json \
