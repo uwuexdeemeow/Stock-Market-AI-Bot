@@ -30,10 +30,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from safe_io import atomic_write_json
 from settings import SIGNAL_DIR, LOG_DIR
 
 SIGNALS = Path(SIGNAL_DIR)
 LOGS = Path(LOG_DIR)
+PAPER_SCORECARD_FILE = LOGS / "paper_scorecard.json"
 
 # ── Data sources ──────────────────────────────────────────────────────────────
 # Paper equity: daily snapshots of Alpaca account value
@@ -369,6 +371,18 @@ def print_scorecard(scorecard: dict) -> None:
     print(f"\n{'═' * 60}\n")
 
 
+def write_paper_scorecard(scorecard: dict, output_path: Path | None = None) -> Path:
+    """Save the paper scorecard through a crash-safe atomic JSON write.
+
+    PLAIN ENGLISH: The dashboard may read this file while the script is
+    refreshing it. Atomic write means it sees either the old complete file or
+    the new complete file, never a half-written JSON blob.
+    """
+    out_path = output_path or PAPER_SCORECARD_FILE
+    atomic_write_json(scorecard, out_path)
+    return out_path
+
+
 def main():
     parser = argparse.ArgumentParser(description="Paper trading scorecard")
     parser.add_argument("--reset", action="store_true",
@@ -399,10 +413,9 @@ def main():
                     print(f"  {row['date'].strftime('%Y-%m-%d')}  ${row['equity']:>12,.2f}")
                 print()
 
-    # Save scorecard to logs
-    LOGS.mkdir(parents=True, exist_ok=True)
-    out_path = LOGS / "paper_scorecard.json"
-    out_path.write_text(json.dumps(scorecard, indent=2, default=str))
+    # Save scorecard to logs after terminal output so humans and dashboard see
+    # the same completed scorecard payload.
+    write_paper_scorecard(scorecard)
 
 
 if __name__ == "__main__":
