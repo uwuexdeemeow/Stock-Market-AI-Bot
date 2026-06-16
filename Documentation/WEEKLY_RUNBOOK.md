@@ -124,7 +124,9 @@ after a paper-account reset or non-100k starting balance.  If
 so the health report uses the same source of truth as order submission.  It also
 validates the signal's `predicted_at` and `latest_factor_date` from that signal
 file instead of treating a fresh account snapshot as proof that the trading
-signal is fresh.
+signal is fresh.  For execution quality, `paper_health.py` prefers the Alpaca
+API slippage/reversal report over the shorter local paper log so the health
+scorecard uses the most complete fill-quality evidence.
 
 Look for:
 - 🟢 fresh on Alpaca log, equity, status, health

@@ -27,6 +27,7 @@ PAPER_STATUS = SIGNALS / "alpaca_daily_status.json"
 PAPER_HEALTH = SIGNALS / "alpaca_paper_health.json"
 CORE_SIGNAL = SIGNALS / "core_satellite_alpha_signal.csv"
 CORE_ORDER_PLAN = SIGNALS / "core_satellite_alpha_orders.csv"
+SLIPPAGE_REPORT = SIGNALS / "alpaca_slippage_reversal_report.json"
 
 
 MAX_SLIPPAGE_WARN_BPS = float(__import__("os").environ.get("PAPER_HEALTH_MAX_AVG_SLIPPAGE_BPS", "10"))
@@ -207,9 +208,58 @@ def _execution_slippage(row: pd.Series | dict) -> tuple[float, float]:
     return float(per_share / reference * 10_000.0), float(per_share * abs(quantity))
 
 
-def _slippage_summary(trades: pd.DataFrame) -> dict:
+def _slippage_summary_from_report(report: dict) -> dict | None:
+    """Use the richer Alpaca API execution report when it is available."""
+    summary = report.get("summary", {}) if isinstance(report, dict) else {}
+    orders = report.get("orders", []) if isinstance(report, dict) else []
+    orders_analyzed = int(summary.get("orders_analyzed") or len(orders) or 0)
+    if orders_analyzed <= 0:
+        return None
+
+    slippage_values = [
+        _to_float(row.get("slippage_bps"), default=np.nan)
+        for row in orders
+        if isinstance(row, dict) and row.get("slippage_bps") is not None
+    ]
+    slippage_values = [value for value in slippage_values if np.isfinite(value)]
+    latest_fill = None
+    if orders:
+        filled_times = pd.to_datetime(
+            [row.get("filled_at") for row in orders if isinstance(row, dict)],
+            errors="coerce",
+            utc=True,
+        ).dropna()
+        if len(filled_times):
+            latest_fill = filled_times.max().isoformat()
+
+    return {
+        "source": "alpaca_slippage_reversal_report.json",
+        "report_generated_at": report.get("generated_at"),
+        "latest_fill_at": latest_fill,
+        "filled_orders_with_slippage": orders_analyzed,
+        "avg_slippage_bps": summary.get("avg_slippage_bps"),
+        "median_slippage_bps": summary.get("median_slippage_bps"),
+        "worst_slippage_bps": None if not slippage_values else round(float(max(slippage_values)), 3),
+        "total_slippage_dollars": None,
+        "slippage_bad_count": summary.get("slippage_bad_count"),
+        "adverse_5m_count": summary.get("adverse_5m_count"),
+        "adverse_15m_count": summary.get("adverse_15m_count"),
+        "adverse_30m_count": summary.get("adverse_30m_count"),
+        "adverse_60m_count": summary.get("adverse_60m_count"),
+        "avg_worst_adverse_60m_bps": summary.get("avg_worst_adverse_60m_bps"),
+        "max_worst_adverse_60m_bps": summary.get("max_worst_adverse_60m_bps"),
+        "segments": report.get("segments", {}),
+    }
+
+
+def _slippage_summary(trades: pd.DataFrame, report: dict | None = None) -> dict:
+    report_summary = _slippage_summary_from_report(report or {})
+    if report_summary:
+        return report_summary
+
     if trades.empty:
         return {
+            "source": "alpaca_paper_log.csv",
             "filled_orders_with_slippage": 0,
             "avg_slippage_bps": None,
             "total_slippage_dollars": None,
@@ -223,6 +273,7 @@ def _slippage_summary(trades: pd.DataFrame) -> dict:
     filled = trades[status.isin({"filled", "partial", "partially_filled"}) | filled_qty.gt(0)].copy()
     if filled.empty:
         return {
+            "source": "alpaca_paper_log.csv",
             "filled_orders_with_slippage": 0,
             "avg_slippage_bps": None,
             "total_slippage_dollars": None,
@@ -234,6 +285,7 @@ def _slippage_summary(trades: pd.DataFrame) -> dict:
     bps = pd.to_numeric(filled["execution_slippage_bps"], errors="coerce").dropna()
     dollars = pd.to_numeric(filled["execution_slippage_dollars"], errors="coerce").dropna()
     return {
+        "source": "alpaca_paper_log.csv",
         "filled_orders_with_slippage": int(len(bps)),
         "avg_slippage_bps": None if bps.empty else round(float(bps.mean()), 3),
         "median_slippage_bps": None if bps.empty else round(float(bps.median()), 3),
@@ -890,6 +942,7 @@ def build_health() -> dict:
     equity = _read_csv(PAPER_EQUITY)
     orders = _read_csv(CORE_ORDER_PLAN)
     signal = _read_csv(CORE_SIGNAL)
+    slippage_report = _read_json(SLIPPAGE_REPORT)
     status = _read_json(PAPER_STATUS)
     gate_status = _signal_gate_status(signal, status)
     freshness_status = _signal_freshness_status(signal, status)
@@ -912,7 +965,7 @@ def build_health() -> dict:
     )
     submitted = _submitted_trade_rows(trades)
 
-    slippage = _slippage_summary(trades)
+    slippage = _slippage_summary(trades, slippage_report)
     order_lifecycle = _current_order_lifecycle(trades, status)
     stale_open_orders = _stale_open_order_alerts(order_lifecycle)
     health = {
@@ -1001,6 +1054,7 @@ def print_health(health: dict) -> None:
     slip = health.get("slippage", {})
     print(
         "Slippage:              "
+        f"source={slip.get('source')} "
         f"avg={slip.get('avg_slippage_bps')} bps "
         f"worst={slip.get('worst_slippage_bps')} bps "
         f"total=${slip.get('total_slippage_dollars')}"

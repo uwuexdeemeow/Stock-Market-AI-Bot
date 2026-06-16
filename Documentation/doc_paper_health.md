@@ -29,6 +29,9 @@ It computes:
 12. **Signal freshness** - validates `predicted_at` and
     `latest_factor_date` from the signal CSV instead of assuming the account
     snapshot is fresh.
+13. **Execution report preference** - uses the richer Alpaca API
+    `alpaca_slippage_reversal_report.json` for slippage and post-fill reversal
+    stats when it exists, falling back to the local paper log only if needed.
 
 If anything is off, the script warns via Telegram (and writes the
 detail to JSON for later inspection).
@@ -60,6 +63,7 @@ python3 paper_health.py --json
 | File | What it reads |
 |------|---------------|
 | `signals/alpaca_paper_log.csv` | Order log with fill status |
+| `signals/alpaca_slippage_reversal_report.json` | Alpaca API fill slippage and 5/15/30/60 minute reversal stats |
 | `signals/alpaca_paper_equity.csv` | Daily equity history |
 | `signals/alpaca_daily_status.json` | Current positions/equity |
 | `signals/core_satellite_alpha_signal.csv` | Broker-submit readiness gates and signal freshness fields |

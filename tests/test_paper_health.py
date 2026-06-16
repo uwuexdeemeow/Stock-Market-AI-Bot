@@ -24,6 +24,7 @@ def test_build_health_reads_submit_gates_from_signal_csv(tmp_path, monkeypatch):
     equity_path = tmp_path / "alpaca_paper_equity.csv"
     orders_path = tmp_path / "core_satellite_alpha_orders.csv"
     health_path = tmp_path / "alpaca_paper_health.json"
+    slippage_report_path = tmp_path / "missing_slippage_report.json"
 
     # PLAIN ENGLISH: The account snapshot has equity/positions but usually does
     # not carry signal gate fields. The health report must read those from the
@@ -49,6 +50,7 @@ def test_build_health_reads_submit_gates_from_signal_csv(tmp_path, monkeypatch):
     monkeypatch.setattr(paper_health, "PAPER_EQUITY", equity_path)
     monkeypatch.setattr(paper_health, "CORE_ORDER_PLAN", orders_path)
     monkeypatch.setattr(paper_health, "PAPER_HEALTH", health_path)
+    monkeypatch.setattr(paper_health, "SLIPPAGE_REPORT", slippage_report_path)
     monkeypatch.setattr(
         paper_health.alpaca_paper_gauntlet,
         "evaluate_alpaca_paper",
@@ -96,3 +98,51 @@ def test_signal_freshness_status_flags_stale_signal():
     assert freshness["freshness_ok"] is False
     assert any(str(issue).startswith("signal_age_") for issue in freshness["freshness_issues"])
     assert any(str(issue).startswith("factor_age_") for issue in freshness["freshness_issues"])
+
+
+def test_slippage_summary_prefers_alpaca_api_report():
+    trades = paper_health.pd.DataFrame(
+        [
+            {
+                "fill_status": "filled",
+                "side": "buy",
+                "quantity": 1,
+                "price": 100,
+                "filled_qty": 1,
+                "filled_avg_price": 110,
+            }
+        ]
+    )
+    report = {
+        "generated_at": "2026-06-12T12:15:28+00:00",
+        "summary": {
+            "orders_analyzed": 25,
+            "avg_slippage_bps": 5.83,
+            "median_slippage_bps": 4.16,
+            "slippage_bad_count": 19,
+            "adverse_15m_count": 9,
+            "avg_worst_adverse_60m_bps": 67.58,
+            "max_worst_adverse_60m_bps": 327.89,
+        },
+        "segments": {"limit_orders": {"orders_analyzed": 14, "avg_slippage_bps": 0.79}},
+        "orders": [
+            {
+                "filled_at": "2026-06-11T13:52:36+00:00",
+                "slippage_bps": -3.46,
+            },
+            {
+                "filled_at": "2026-06-10T15:37:59+00:00",
+                "slippage_bps": 12.47,
+            },
+        ],
+    }
+
+    summary = paper_health._slippage_summary(trades, report)
+
+    assert summary["source"] == "alpaca_slippage_reversal_report.json"
+    assert summary["filled_orders_with_slippage"] == 25
+    assert summary["avg_slippage_bps"] == 5.83
+    assert summary["median_slippage_bps"] == 4.16
+    assert summary["worst_slippage_bps"] == 12.47
+    assert summary["latest_fill_at"] == "2026-06-11T13:52:36+00:00"
+    assert summary["segments"]["limit_orders"]["avg_slippage_bps"] == 0.79
