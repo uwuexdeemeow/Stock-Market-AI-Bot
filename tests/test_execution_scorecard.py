@@ -157,6 +157,60 @@ def test_build_execution_scorecard_fails_bad_execution(tmp_path):
     assert any(item.startswith("review_failed_execution_checks:") for item in payload["recommendations"])
 
 
+def test_bad_slippage_rate_uses_material_threshold_when_order_rows_exist(tmp_path):
+    log_path = tmp_path / "alpaca_paper_log.csv"
+    report_path = tmp_path / "alpaca_slippage_reversal_report.json"
+
+    pd.DataFrame(
+        [
+            {
+                "submitted_at": "2026-06-04T14:00:00+00:00",
+                "order_id": f"order-{idx}",
+                "ticker": "QQQ",
+                "side": "buy",
+                "fill_status": "filled",
+                "filled_qty": 1,
+            }
+            for idx in range(4)
+        ]
+    ).to_csv(log_path, index=False)
+    report_path.write_text(
+        json.dumps(
+            {
+                "summary": {
+                    "orders_analyzed": 4,
+                    "avg_slippage_bps": 3.0,
+                    "slippage_bad_count": 3,
+                    "adverse_15m_count": 1,
+                    "adverse_60m_count": 1,
+                },
+                "orders": [
+                    {"slippage_bps": -1.0},
+                    {"slippage_bps": 0.5},
+                    {"slippage_bps": 2.5},
+                    {"slippage_bps": 6.0},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    payload = esc.build_execution_scorecard(
+        paper_log_path=log_path,
+        slippage_report_path=report_path,
+        previous_scorecard_path=tmp_path / "missing.json",
+        now=datetime(2026, 6, 5, tzinfo=timezone.utc),
+    )
+
+    assert payload["status"] == "pass"
+    assert payload["summary"]["bad_slippage_threshold_bps"] == 2.0
+    assert payload["summary"]["bad_slippage_count"] == 2
+    assert payload["summary"]["bad_slippage_rate"] == 0.5
+    assert payload["summary"]["raw_bad_slippage_count"] == 3
+    assert payload["summary"]["raw_bad_slippage_rate"] == 0.75
+    assert payload["summary"]["minor_bad_slippage_count"] == 1
+
+
 def test_write_execution_scorecard_writes_latest_and_dated_snapshot(tmp_path, monkeypatch):
     output_path = tmp_path / "signals" / "alpaca_execution_scorecard.json"
     log_dir = tmp_path / "logs"

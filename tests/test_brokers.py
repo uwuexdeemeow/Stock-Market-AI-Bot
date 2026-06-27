@@ -543,6 +543,24 @@ def test_generate_orders_skips_sell_when_broker_reports_zero_sellable():
     assert apt.generate_orders(broker, {"FCX": 0.0}, force=True) == []
 
 
+def test_execution_quality_summary_separates_minor_and_material_bad_slippage(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "EXECUTION_BAD_SLIPPAGE_BPS", 2.0)
+
+    summary = apt._execution_quality_summary([
+        {"slippage_bps": -1.0, "worst_adverse_60m_bps": 0.0},
+        {"slippage_bps": 0.5, "worst_adverse_60m_bps": 0.0},
+        {"slippage_bps": 2.5, "worst_adverse_60m_bps": 0.0},
+        {"slippage_bps": 6.0, "worst_adverse_60m_bps": 0.0},
+    ])
+
+    assert summary["slippage_bad_threshold_bps"] == 2.0
+    assert summary["slippage_bad_count"] == 2
+    assert summary["raw_slippage_bad_count"] == 3
+    assert summary["minor_bad_slippage_count"] == 1
+
+
 def test_generate_orders_throttles_high_risk_overlay_buys(tmp_path, monkeypatch):
     import alpaca_paper_trading as apt
 

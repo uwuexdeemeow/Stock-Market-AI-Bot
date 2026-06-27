@@ -50,6 +50,10 @@ REQUIRE_LIVE_OPEN_ORDERS = os.environ.get("BROKER_TRUTH_REQUIRE_LIVE_ORDERS", "0
     "y",
     "on",
 }
+SIGNAL_WARN_AGE_HOURS = float(os.environ.get("BROKER_TRUTH_SIGNAL_WARN_AGE_HOURS", "36"))
+SIGNAL_FAIL_AGE_HOURS = float(os.environ.get("BROKER_TRUTH_SIGNAL_FAIL_AGE_HOURS", "96"))
+ORDER_PLAN_WARN_AGE_HOURS = float(os.environ.get("BROKER_TRUTH_ORDER_PLAN_WARN_AGE_HOURS", "36"))
+ORDER_PLAN_FAIL_AGE_HOURS = float(os.environ.get("BROKER_TRUTH_ORDER_PLAN_FAIL_AGE_HOURS", "96"))
 
 ETF_TICKERS = {"SPY", "QQQ", "TQQQ", "BIL", "IEF", "GLD"}
 CORE_PROTECTION_TICKERS = {
@@ -134,6 +138,10 @@ def _read_csv(path: Path) -> tuple[pd.DataFrame, dict[str, Any]]:
     if not path.exists():
         return pd.DataFrame(), meta
     try:
+        meta["modified_at"] = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(timespec="seconds")
+    except OSError:
+        meta["modified_at"] = ""
+    try:
         df = pd.read_csv(path)
     except pd.errors.EmptyDataError:
         meta["error"] = "empty_csv"
@@ -150,6 +158,10 @@ def _read_json(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     meta = {"path": str(path), "exists": path.exists(), "error": ""}
     if not path.exists():
         return {}, meta
+    try:
+        meta["modified_at"] = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(timespec="seconds")
+    except OSError:
+        meta["modified_at"] = ""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:
@@ -189,6 +201,73 @@ def _date_from_value(value: Any) -> pd.Timestamp | None:
     if pd.isna(parsed):
         return None
     return parsed.normalize()
+
+
+def _timestamp_from_value(value: Any) -> pd.Timestamp | None:
+    """Parse a timestamp-like value and keep the exact UTC time."""
+    if value in (None, ""):
+        return None
+    parsed = pd.to_datetime(value, errors="coerce", utc=True)
+    if pd.isna(parsed):
+        return None
+    return pd.Timestamp(parsed)
+
+
+def _annotate_age(
+    meta: dict[str, Any],
+    *,
+    clock: datetime,
+    label: str,
+    timestamp_keys: list[str],
+    warn_hours: float,
+    fail_hours: float,
+) -> tuple[str, str]:
+    """Add freshness fields to an input metadata dict.
+
+    PLAIN ENGLISH: broker truth is only useful if the files it compares are
+    from roughly the same time. This records file age and returns an optional
+    global warning/fail issue.
+    """
+    meta["freshness_status"] = "unknown"
+    meta["age_hours"] = None
+    meta["timestamp_used"] = ""
+    if not meta.get("exists"):
+        return "", ""
+
+    timestamp = None
+    timestamp_key = ""
+    for key in [*timestamp_keys, "modified_at"]:
+        timestamp = _timestamp_from_value(meta.get(key))
+        if timestamp is not None:
+            timestamp_key = key
+            break
+    if timestamp is None:
+        return "warning", f"{label}_timestamp_missing"
+
+    clock_ts = pd.Timestamp(clock)
+    if clock_ts.tzinfo is None:
+        clock_ts = clock_ts.tz_localize("UTC")
+    else:
+        clock_ts = clock_ts.tz_convert("UTC")
+    age_hours = (clock_ts - timestamp).total_seconds() / 3600.0
+    meta["timestamp_used"] = str(timestamp_key)
+    meta["timestamp_utc"] = timestamp.isoformat()
+    meta["age_hours"] = round(float(age_hours), 2)
+
+    if age_hours < -0.1 and timestamp_key == "modified_at":
+        meta["freshness_status"] = "unknown"
+        return "", ""
+    if age_hours < -0.1:
+        meta["freshness_status"] = "future"
+        return "warning", f"{label}_timestamp_from_future_{abs(age_hours):.1f}h"
+    if age_hours > float(fail_hours):
+        meta["freshness_status"] = "fail"
+        return "fail", f"{label}_stale_{age_hours:.1f}h_gt_{float(fail_hours):.1f}h"
+    if age_hours > float(warn_hours):
+        meta["freshness_status"] = "warning"
+        return "warning", f"{label}_stale_{age_hours:.1f}h_gt_{float(warn_hours):.1f}h"
+    meta["freshness_status"] = "fresh"
+    return "", ""
 
 
 def load_target_weights(signal_path: Path = SIGNAL_FILE) -> tuple[dict[str, float], dict[str, Any]]:
@@ -624,6 +703,27 @@ def build_broker_truth(
             severity = "warning" if name != "broker_status" else "fail"
             global_issues.append((severity, f"{name}_missing"))
 
+    signal_age_issue = _annotate_age(
+        signal_meta,
+        clock=clock,
+        label="signal",
+        timestamp_keys=["as_of", "predicted_at", "generated_at"],
+        warn_hours=SIGNAL_WARN_AGE_HOURS,
+        fail_hours=max(SIGNAL_FAIL_AGE_HOURS, SIGNAL_WARN_AGE_HOURS),
+    )
+    if signal_age_issue[0]:
+        global_issues.append(signal_age_issue)
+    plan_age_issue = _annotate_age(
+        plan_meta,
+        clock=clock,
+        label="order_plan",
+        timestamp_keys=["generated_at", "as_of", "predicted_at"],
+        warn_hours=ORDER_PLAN_WARN_AGE_HOURS,
+        fail_hours=max(ORDER_PLAN_FAIL_AGE_HOURS, ORDER_PLAN_WARN_AGE_HOURS),
+    )
+    if plan_age_issue[0]:
+        global_issues.append(plan_age_issue)
+
     if REQUIRE_LIVE_OPEN_ORDERS and not open_orders_meta.get("available"):
         global_issues.append(("fail", f"live_open_orders_unavailable:{open_orders_meta.get('error', '')}"))
     elif not open_orders_meta.get("available"):
@@ -646,9 +746,11 @@ def build_broker_truth(
         effective_log: dict[str, dict[str, Any]] = {}
     else:
         log_meta["stale_vs_broker_status"] = False
-        effective_plan = plan
+        effective_plan = {} if plan_meta.get("freshness_status") == "fail" else plan
         effective_log = log
 
+    target_comparison_enabled = signal_meta.get("freshness_status") != "fail"
+    plan_comparison_enabled = bool(effective_plan)
     tickers = sorted(set(targets) | set(positions) | set(effective_plan) | set(effective_log) | set(open_summary))
     rows: list[dict[str, Any]] = []
 
@@ -681,7 +783,7 @@ def build_broker_truth(
         trailing_stop_count = int(_safe_float(open_row.get("trailing_stop_count")))
         stop_required = _stop_required(symbol, broker_qty, target_weight)
 
-        if planned_qty > QTY_TOLERANCE and submitted_qty <= QTY_TOLERANCE and log_meta.get("exists"):
+        if plan_comparison_enabled and planned_qty > QTY_TOLERANCE and submitted_qty <= QTY_TOLERANCE and log_meta.get("exists"):
             issues.append(("warning", "planned_order_not_seen_in_latest_log"))
         if failed_qty > QTY_TOLERANCE:
             issues.append(("fail", "latest_logged_order_failed"))
@@ -691,11 +793,11 @@ def build_broker_truth(
             issues.append(("warning", "latest_logged_order_still_open"))
         if expected_qty is not None and abs(float(quantity_gap)) > max(QTY_TOLERANCE, 0.01):
             issues.append(("warning", "broker_qty_differs_from_latest_log_expected_qty"))
-        if target_weight <= WEIGHT_TOLERANCE and broker_qty > QTY_TOLERANCE and open_sell_qty <= QTY_TOLERANCE:
+        if target_comparison_enabled and target_weight <= WEIGHT_TOLERANCE and broker_qty > QTY_TOLERANCE and open_sell_qty <= QTY_TOLERANCE:
             issues.append(("warning", "extra_broker_position_not_in_target"))
-        if target_weight > WEIGHT_TOLERANCE and broker_qty <= QTY_TOLERANCE and open_buy_qty <= QTY_TOLERANCE:
+        if target_comparison_enabled and target_weight > WEIGHT_TOLERANCE and broker_qty <= QTY_TOLERANCE and open_buy_qty <= QTY_TOLERANCE:
             issues.append(("warning", "target_position_missing_at_broker"))
-        if abs_weight_gap > WEIGHT_TOLERANCE and open_buy_qty + open_sell_qty <= QTY_TOLERANCE:
+        if target_comparison_enabled and abs_weight_gap > WEIGHT_TOLERANCE and open_buy_qty + open_sell_qty <= QTY_TOLERANCE:
             issues.append(("warning", f"broker_weight_gap_{abs_weight_gap:.4f}"))
 
         if open_orders_meta.get("available") and stop_required:
@@ -760,6 +862,12 @@ def build_broker_truth(
             "live_open_orders_available": bool(open_orders_meta.get("available")),
             "live_open_orders_count": int(open_orders_meta.get("count", len(open_orders))),
             "latest_log_date": log_meta.get("latest_submitted_date", ""),
+            "signal_age_hours": signal_meta.get("age_hours"),
+            "signal_freshness_status": signal_meta.get("freshness_status"),
+            "order_plan_age_hours": plan_meta.get("age_hours"),
+            "order_plan_freshness_status": plan_meta.get("freshness_status"),
+            "target_comparison_enabled": bool(target_comparison_enabled),
+            "order_plan_comparison_enabled": bool(plan_comparison_enabled),
         },
         "inputs": {
             "signal": signal_meta,

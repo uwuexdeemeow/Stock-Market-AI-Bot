@@ -653,6 +653,7 @@ daily GitHub workflow:
 | `ALPACA_EXECUTION_SCORECARD_SEVERE_BUY_SCALE` | `0.50` | Quantity multiplier for severe scorecard failures. |
 | `EXECUTION_SCORECARD_MAX_AVG_SLIPPAGE_BPS` | `10` | Scorecard fails if average slippage is worse than this. |
 | `EXECUTION_SCORECARD_MAX_BAD_SLIPPAGE_RATE` | `0.60` | Scorecard fails if too many fills have bad slippage. |
+| `EXECUTION_SCORECARD_BAD_SLIPPAGE_BPS` | `2` | A fill must be worse than this many bps before it counts as materially bad slippage. |
 | `EXECUTION_SCORECARD_MIN_FILL_RATE` | `0.80` | Scorecard fails if accepted orders fill below this rate. |
 | `EXECUTION_SCORECARD_MAX_SKIPPED_RATE` | `0.35` | Scorecard fails if too many planned rows are skipped. |
 | `EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE` | `0.60` | Scorecard fails if too many fills reverse against us after 15 minutes. |
@@ -709,6 +710,7 @@ ALPACA_EXECUTION_SCORECARD_SEVERE_SCORE=50
 ALPACA_EXECUTION_SCORECARD_SEVERE_BUY_SCALE=0.50
 EXECUTION_SCORECARD_MAX_AVG_SLIPPAGE_BPS=10
 EXECUTION_SCORECARD_MAX_BAD_SLIPPAGE_RATE=0.60
+EXECUTION_SCORECARD_BAD_SLIPPAGE_BPS=2
 EXECUTION_SCORECARD_MIN_FILL_RATE=0.80
 EXECUTION_SCORECARD_MAX_SKIPPED_RATE=0.35
 EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE=0.60

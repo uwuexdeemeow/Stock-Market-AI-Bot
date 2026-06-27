@@ -39,6 +39,7 @@ SCORECARD_FILE = SIGNALS / "alpaca_execution_scorecard.json"
 # the scorecard without editing code.
 MAX_AVG_SLIPPAGE_BPS = float(os.environ.get("EXECUTION_SCORECARD_MAX_AVG_SLIPPAGE_BPS", "10"))
 MAX_BAD_SLIPPAGE_RATE = float(os.environ.get("EXECUTION_SCORECARD_MAX_BAD_SLIPPAGE_RATE", "0.60"))
+BAD_SLIPPAGE_BPS = float(os.environ.get("EXECUTION_SCORECARD_BAD_SLIPPAGE_BPS", "2"))
 MIN_FILL_RATE = float(os.environ.get("EXECUTION_SCORECARD_MIN_FILL_RATE", "0.80"))
 MAX_SKIPPED_RATE = float(os.environ.get("EXECUTION_SCORECARD_MAX_SKIPPED_RATE", "0.35"))
 MAX_ADVERSE_15M_RATE = float(os.environ.get("EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE", "0.60"))
@@ -243,16 +244,36 @@ def _report_summary(slippage_report: dict, log: pd.DataFrame) -> dict:
     summary = dict(slippage_report.get("summary", {}) or {})
     orders_analyzed = int(_to_float(summary.get("orders_analyzed")) or 0)
     avg_slippage = _to_float(summary.get("avg_slippage_bps"))
-    bad_count = int(_to_float(summary.get("slippage_bad_count")) or 0)
+    raw_bad_count = int(_to_float(summary.get("slippage_bad_count")) or 0)
+    bad_count = raw_bad_count
     adverse_15m_count = int(_to_float(summary.get("adverse_15m_count")) or 0)
     adverse_60m_count = int(_to_float(summary.get("adverse_60m_count")) or 0)
+    slip_values = [
+        float(value)
+        for value in (
+            _to_float((row or {}).get("slippage_bps"))
+            for row in slippage_report.get("orders", []) or []
+        )
+        if value is not None
+    ]
+    if slip_values:
+        # PLAIN ENGLISH: A fill that is 0.01 bps worse than fill-minute VWAP is
+        # technically unfavorable, but it is market micro-noise. The scorecard
+        # fails only on material bad slippage, while still reporting the raw
+        # any-positive count for visibility.
+        orders_analyzed = len(slip_values)
+        raw_bad_count = int(sum(1 for value in slip_values if value > 0))
+        bad_count = int(sum(1 for value in slip_values if value > BAD_SLIPPAGE_BPS))
+        if avg_slippage is None:
+            avg_slippage = round(float(np.mean(slip_values)), 3)
 
     # If the rich API report is missing, fall back to fill prices in the paper log.
     if orders_analyzed <= 0:
-        slip_values = _slippage_from_log(log)
-        orders_analyzed = len(slip_values)
-        avg_slippage = round(float(np.mean(slip_values)), 3) if slip_values else None
-        bad_count = int(sum(1 for value in slip_values if value > 0))
+        fallback_slip_values = _slippage_from_log(log)
+        orders_analyzed = len(fallback_slip_values)
+        avg_slippage = round(float(np.mean(fallback_slip_values)), 3) if fallback_slip_values else None
+        raw_bad_count = int(sum(1 for value in fallback_slip_values if value > 0))
+        bad_count = int(sum(1 for value in fallback_slip_values if value > BAD_SLIPPAGE_BPS))
 
     segments = slippage_report.get("segments", {}) or {}
     limit_avg = _to_float((segments.get("limit_orders", {}) or {}).get("avg_slippage_bps"))
@@ -262,6 +283,10 @@ def _report_summary(slippage_report: dict, log: pd.DataFrame) -> dict:
         "avg_slippage_bps": round(avg_slippage, 3) if avg_slippage is not None else None,
         "bad_slippage_count": bad_count,
         "bad_slippage_rate": _rate(bad_count, orders_analyzed),
+        "bad_slippage_threshold_bps": BAD_SLIPPAGE_BPS,
+        "raw_bad_slippage_count": raw_bad_count,
+        "raw_bad_slippage_rate": _rate(raw_bad_count, orders_analyzed),
+        "minor_bad_slippage_count": max(0, int(raw_bad_count) - int(bad_count)),
         "adverse_15m_rate": _rate(adverse_15m_count, orders_analyzed),
         "adverse_60m_rate": _rate(adverse_60m_count, orders_analyzed),
         "limit_avg_slippage_bps": limit_avg,
@@ -423,6 +448,7 @@ def build_execution_scorecard(
         "thresholds": {
             "max_avg_slippage_bps": MAX_AVG_SLIPPAGE_BPS,
             "max_bad_slippage_rate": MAX_BAD_SLIPPAGE_RATE,
+            "bad_slippage_bps": BAD_SLIPPAGE_BPS,
             "min_fill_rate": MIN_FILL_RATE,
             "max_skipped_rate": MAX_SKIPPED_RATE,
             "max_adverse_15m_rate": MAX_ADVERSE_15M_RATE,

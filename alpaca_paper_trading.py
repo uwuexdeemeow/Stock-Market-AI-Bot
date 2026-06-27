@@ -185,6 +185,7 @@ EXECUTION_SCORECARD_MAX_AGE_HOURS = float(os.environ.get("ALPACA_EXECUTION_SCORE
 EXECUTION_SCORECARD_FAIL_BUY_SCALE = float(os.environ.get("ALPACA_EXECUTION_SCORECARD_FAIL_BUY_SCALE", "0.75"))
 EXECUTION_SCORECARD_SEVERE_SCORE = float(os.environ.get("ALPACA_EXECUTION_SCORECARD_SEVERE_SCORE", "50"))
 EXECUTION_SCORECARD_SEVERE_BUY_SCALE = float(os.environ.get("ALPACA_EXECUTION_SCORECARD_SEVERE_BUY_SCALE", "0.50"))
+EXECUTION_BAD_SLIPPAGE_BPS = float(os.environ.get("EXECUTION_SCORECARD_BAD_SLIPPAGE_BPS", "2"))
 ALLOW_CLOSED_MARKET_QUEUE = bool(os.environ.get("ALPACA_ALLOW_CLOSED_MARKET_QUEUE", "0").strip().lower() in {
     "true",
     "1",
@@ -2267,11 +2268,16 @@ def _execution_quality_summary(rows: list[dict]) -> dict:
     """
     slip_values = [r["slippage_bps"] for r in rows if r.get("slippage_bps") is not None]
     worst_values = [r["worst_adverse_60m_bps"] for r in rows if r.get("worst_adverse_60m_bps") is not None]
+    raw_bad_count = int(sum(1 for v in slip_values if float(v) > 0))
+    material_bad_count = int(sum(1 for v in slip_values if float(v) > EXECUTION_BAD_SLIPPAGE_BPS))
     return {
         "orders_analyzed": len(rows),
         "avg_slippage_bps": round(_safe_avg(slip_values), 2) if _safe_avg(slip_values) is not None else None,
         "median_slippage_bps": round(_safe_median(slip_values), 2) if _safe_median(slip_values) is not None else None,
-        "slippage_bad_count": int(sum(1 for v in slip_values if float(v) > 0)),
+        "slippage_bad_threshold_bps": EXECUTION_BAD_SLIPPAGE_BPS,
+        "slippage_bad_count": material_bad_count,
+        "raw_slippage_bad_count": raw_bad_count,
+        "minor_bad_slippage_count": max(0, raw_bad_count - material_bad_count),
         "adverse_5m_count": int(sum(1 for r in rows if (r.get("adverse_5m_bps") or 0) > 0)),
         "adverse_15m_count": int(sum(1 for r in rows if (r.get("adverse_15m_bps") or 0) > 0)),
         "adverse_30m_count": int(sum(1 for r in rows if (r.get("adverse_30m_bps") or 0) > 0)),
@@ -2400,7 +2406,8 @@ def build_slippage_reversal_report(
             adverse_15 = _numeric_series(grp, "adverse_15m_bps")
             worst_60 = _numeric_series(grp, "worst_adverse_60m_bps")
             count = int(len(grp))
-            bad_slip_rate = float((slippage > 0).mean()) if len(slippage) else None
+            bad_slip_rate = float((slippage > EXECUTION_BAD_SLIPPAGE_BPS).mean()) if len(slippage) else None
+            raw_bad_slip_rate = float((slippage > 0).mean()) if len(slippage) else None
             adverse_15_rate = float((adverse_15 > 0).mean()) if len(adverse_15) else None
             # PLAIN ENGLISH: Higher score means this ticker has recently been
             # harder to execute cleanly.  It is informational only; it does not
@@ -2417,6 +2424,8 @@ def build_slippage_reversal_report(
                 "orders": count,
                 "avg_slippage_bps": round(float(slippage.mean()), 2) if len(slippage) else None,
                 "bad_slippage_rate": round(bad_slip_rate, 3) if bad_slip_rate is not None else None,
+                "raw_bad_slippage_rate": round(raw_bad_slip_rate, 3) if raw_bad_slip_rate is not None else None,
+                "bad_slippage_threshold_bps": EXECUTION_BAD_SLIPPAGE_BPS,
                 "adverse_15m_rate": round(adverse_15_rate, 3) if adverse_15_rate is not None else None,
                 "avg_worst_adverse_60m_bps": round(float(worst_60.mean()), 2) if len(worst_60) else None,
                 "execution_risk_score": round(execution_risk_score, 2),

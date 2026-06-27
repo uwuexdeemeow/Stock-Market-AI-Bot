@@ -60,7 +60,7 @@ python execution_scorecard.py --strict
 |---|---|
 | Fill | Alpaca completed all or part of an order |
 | Slippage | Difference between expected price and actual fill price |
-| Bad slippage | Positive slippage, meaning the fill was worse than expected |
+| Bad slippage | Slippage worse than the material bad-slippage threshold. Tiny unfavorable fills are still reported as raw bad slippage, but they do not fail the scorecard by themselves |
 | Fill rate | Filled orders divided by orders accepted by Alpaca |
 | Skipped rate | Orders the bot intentionally did not submit divided by planned log rows |
 | Adverse reversal | Price moved against the trade after the fill |
@@ -72,6 +72,7 @@ python execution_scorecard.py --strict
 |---|---:|---|
 | `EXECUTION_SCORECARD_MAX_AVG_SLIPPAGE_BPS` | `10` | Max acceptable average slippage |
 | `EXECUTION_SCORECARD_MAX_BAD_SLIPPAGE_RATE` | `0.60` | Max share of fills with bad slippage |
+| `EXECUTION_SCORECARD_BAD_SLIPPAGE_BPS` | `2` | Minimum unfavorable slippage, in bps, before a fill counts as materially bad |
 | `EXECUTION_SCORECARD_MIN_FILL_RATE` | `0.80` | Minimum accepted-order fill rate |
 | `EXECUTION_SCORECARD_MAX_SKIPPED_RATE` | `0.35` | Max planned-row skip rate |
 | `EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE` | `0.60` | Max adverse 15-minute reversal rate |
