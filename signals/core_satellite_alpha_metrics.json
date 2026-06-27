@@ -62,18 +62,18 @@
   "vol_target": 0.0,
   "live_config_source": "nested_walkforward",
   "live_config_source_json": "D:\\Stock Market AI Bot\\signals\\wf_fixed_old_live_publish_20260522.json",
-  "total_return_pct": 7325.69,
-  "cagr_pct": 29.98,
-  "sharpe": 1.3,
-  "max_drawdown_pct": -26.16,
-  "turnover_pct": 5555.75,
-  "estimated_cost_pct": 11.1115,
-  "avg_gross_exposure": 1.093,
-  "avg_overlay_positions": 2.99,
-  "avg_effective_overlay_names": 2.556,
-  "max_sector_overlay_weight": 0.4776,
+  "total_return_pct": 8048.41,
+  "cagr_pct": 30.72,
+  "sharpe": 1.342,
+  "max_drawdown_pct": -26.46,
+  "turnover_pct": 5711.21,
+  "estimated_cost_pct": 11.4224,
+  "avg_gross_exposure": 1.096,
+  "avg_overlay_positions": 3.0,
+  "avg_effective_overlay_names": 2.593,
+  "max_sector_overlay_weight": 0.4634,
   "top_ticker_overlay_contributor": "NVDA",
-  "top_ticker_overlay_contribution_share": 0.259,
+  "top_ticker_overlay_contribution_share": 0.213,
   "n_rebalances": 207,
   "concentration_overlay_active_rebalances": 0,
   "avg_concentration_overlay_adjustment": 0.0,
@@ -85,18 +85,18 @@
   "benchmark_comparisons": {
     "SPY": {
       "benchmark_return_pct": 555.36,
-      "alpha_pct": 6770.33,
-      "nw_tstat_vs_benchmark": 4.68
+      "alpha_pct": 7493.05,
+      "nw_tstat_vs_benchmark": 4.849
     },
     "QQQ": {
       "benchmark_return_pct": 1439.23,
-      "alpha_pct": 5886.46,
-      "nw_tstat_vs_benchmark": 3.314
+      "alpha_pct": 6609.18,
+      "nw_tstat_vs_benchmark": 3.545
     },
     "BLEND": {
       "benchmark_return_pct": 908.91,
-      "alpha_pct": 6416.78,
-      "nw_tstat_vs_benchmark": 4.177
+      "alpha_pct": 7139.5,
+      "nw_tstat_vs_benchmark": 4.408
     }
   },
   "benchmark_stats": {
@@ -122,57 +122,57 @@
   "subperiods": {
     "2015_2019": {
       "data_available": true,
-      "return_pct": 216.85,
+      "return_pct": 197.17,
       "benchmark_return_pct": 78.12,
-      "alpha_pct": 138.73
+      "alpha_pct": 119.05
     },
     "2020_2021": {
       "data_available": true,
-      "return_pct": 89.19,
+      "return_pct": 102.64,
       "benchmark_return_pct": 65.59,
-      "alpha_pct": 23.6
+      "alpha_pct": 37.05
     },
     "2022": {
       "data_available": true,
-      "return_pct": -9.19,
+      "return_pct": -8.2,
       "benchmark_return_pct": -16.82,
-      "alpha_pct": 7.63
+      "alpha_pct": 8.62
     },
     "2023_2026": {
       "data_available": true,
-      "return_pct": 277.53,
+      "return_pct": 331.23,
       "benchmark_return_pct": 122.67,
-      "alpha_pct": 154.85
+      "alpha_pct": 208.56
     }
   },
   "holdout_2023_2026": {
     "data_available": true,
-    "strategy_return_pct": 277.53,
+    "strategy_return_pct": 331.23,
     "spy_return_pct": 86.38,
-    "alpha_vs_spy_pct": 191.15,
+    "alpha_vs_spy_pct": 244.85,
     "qqq_return_pct": 154.3,
-    "alpha_vs_qqq_pct": 123.22,
+    "alpha_vs_qqq_pct": 176.93,
     "blend_return_pct": 122.67,
-    "alpha_vs_blend_pct": 154.85
+    "alpha_vs_blend_pct": 208.56
   },
   "yearly_alpha_pct": {
-    "2010": 11.9,
-    "2011": 5.6,
-    "2012": 14.67,
-    "2013": 13.4,
-    "2014": 16.96,
-    "2015": -12.22,
-    "2016": 41.35,
-    "2017": 23.99,
-    "2018": -3.81,
-    "2019": 10.49,
-    "2020": 23.52,
-    "2021": 1.29,
-    "2022": 11.66,
-    "2023": 21.8,
-    "2024": 27.28,
-    "2025": 5.97,
-    "2026": 6.66
+    "2010": 4.46,
+    "2011": 6.9,
+    "2012": 15.75,
+    "2013": 14.47,
+    "2014": 14.49,
+    "2015": -12.03,
+    "2016": 38.23,
+    "2017": 19.84,
+    "2018": -1.66,
+    "2019": 9.08,
+    "2020": 24.48,
+    "2021": 6.81,
+    "2022": 13.22,
+    "2023": 14.97,
+    "2024": 27.38,
+    "2025": 13.05,
+    "2026": 19.24
   },
   "cost_stress": 2.0,
   "core_satellite_gate_results": {
@@ -189,13 +189,18 @@
   "active_cluster_count": 8,
   "effective_cluster_count": 8,
   "quarantined_features": [
-    "vol_trend_20_60"
+    "ret_vs_sector_1d",
+    "macd_hist",
+    "vwap_dist",
+    "dist_ma20",
+    "bb_pos"
   ],
   "watchlist_features": [
-    "factor_liquidity_dollar_vol_20d",
-    "xs_rank_sector_factor_liquidity_dollar_vol_20d"
+    "ret_1d",
+    "xs_rank_sector_factor_liquidity_dollar_vol_20d",
+    "vol_trend_20_60"
   ],
-  "max_cluster_weight": 0.125,
+  "max_cluster_weight": 0.142857,
   "paper_ready": true,
   "selected_features": [
     {
@@ -205,10 +210,10 @@
       "mean_ic": -0.016718619392695,
       "cluster_id": "cluster_01",
       "canonical_root": "factor_liquidity_dollar_vol_20d",
-      "health_state": "watchlist",
-      "recent_vs_full_ratio": 0.6509092962837457,
-      "effective_weight": 0.0,
-      "contributes_to_score": false
+      "health_state": "healthy",
+      "recent_vs_full_ratio": 1.0212741816531457,
+      "effective_weight": 0.142857,
+      "contributes_to_score": true
     },
     {
       "feature": "xs_rank_market_factor_liquidity_dollar_vol_20d",
@@ -218,8 +223,8 @@
       "cluster_id": "cluster_01",
       "canonical_root": "factor_liquidity_dollar_vol_20d",
       "health_state": "healthy",
-      "recent_vs_full_ratio": 0.9832180185485058,
-      "effective_weight": 0.125,
+      "recent_vs_full_ratio": 1.200009821253192,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -229,9 +234,9 @@
       "mean_ic": 0.0163701895005596,
       "cluster_id": "cluster_01",
       "canonical_root": "factor_illiquidity_amihud_20d",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": 1.4488571570231545,
-      "effective_weight": 0.125,
+      "health_state": "strengthening",
+      "recent_vs_full_ratio": 2.028801787362184,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -241,9 +246,9 @@
       "mean_ic": 0.0163677663029033,
       "cluster_id": "cluster_01",
       "canonical_root": "factor_illiquidity_amihud_20d",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": 1.1370658682634731,
-      "effective_weight": 0.125,
+      "health_state": "strengthening",
+      "recent_vs_full_ratio": 1.900852504963214,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -254,20 +259,20 @@
       "cluster_id": "cluster_02",
       "canonical_root": "dist_ma5",
       "health_state": "healthy",
-      "recent_vs_full_ratio": 1.3312855954437832,
-      "effective_weight": 0.125,
+      "recent_vs_full_ratio": 0.8737494352288131,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
       "feature": "ret_3d",
       "preferred_direction": "low_is_good",
-      "t_stat": -7.7987229906087725,
+      "t_stat": -7.798722990608772,
       "mean_ic": -0.0151549329135773,
       "cluster_id": "cluster_02",
       "canonical_root": "ret_3d",
-      "health_state": "strengthening",
-      "recent_vs_full_ratio": 2.0601619487385396,
-      "effective_weight": 0.125,
+      "health_state": "healthy",
+      "recent_vs_full_ratio": 1.3275567987992085,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -277,9 +282,9 @@
       "mean_ic": -0.0149073119996346,
       "cluster_id": "cluster_02",
       "canonical_root": "dist_ma10",
-      "health_state": "strengthening",
-      "recent_vs_full_ratio": 1.8947576396206534,
-      "effective_weight": 0.125,
+      "health_state": "healthy",
+      "recent_vs_full_ratio": 1.0739048642837947,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -289,9 +294,9 @@
       "mean_ic": -0.0140196514654628,
       "cluster_id": "cluster_02",
       "canonical_root": "ret_5d",
-      "health_state": "strengthening",
-      "recent_vs_full_ratio": 1.92663139329806,
-      "effective_weight": 0.125,
+      "health_state": "healthy",
+      "recent_vs_full_ratio": 1.4645892351274787,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -301,9 +306,9 @@
       "mean_ic": -0.0140196514654628,
       "cluster_id": "cluster_02",
       "canonical_root": "ret_5d",
-      "health_state": "strengthening",
-      "recent_vs_full_ratio": 1.86471211586012,
-      "effective_weight": 0.125,
+      "health_state": "healthy",
+      "recent_vs_full_ratio": 1.40959175024721,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -313,9 +318,9 @@
       "mean_ic": -0.0140065847593726,
       "cluster_id": "cluster_02",
       "canonical_root": "ret_5d",
-      "health_state": "strengthening",
-      "recent_vs_full_ratio": 1.9130008405715886,
-      "effective_weight": 0.125,
+      "health_state": "healthy",
+      "recent_vs_full_ratio": 1.4660428186587269,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -325,9 +330,9 @@
       "mean_ic": -0.0139865722415253,
       "cluster_id": "cluster_02",
       "canonical_root": "ret_5d",
-      "health_state": "strengthening",
-      "recent_vs_full_ratio": 2.024912879068733,
-      "effective_weight": 0.125,
+      "health_state": "healthy",
+      "recent_vs_full_ratio": 1.4697938877043355,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -338,8 +343,8 @@
       "cluster_id": "cluster_01",
       "canonical_root": "factor_illiquidity_amihud_20d",
       "health_state": "strengthening",
-      "recent_vs_full_ratio": 1.9518641296943826,
-      "effective_weight": 0.125,
+      "recent_vs_full_ratio": 2.6506366177188236,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -350,8 +355,8 @@
       "cluster_id": "cluster_02",
       "canonical_root": "ret_5d",
       "health_state": "strengthening",
-      "recent_vs_full_ratio": 1.9654684404189073,
-      "effective_weight": 0.125,
+      "recent_vs_full_ratio": 1.8067870441930722,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -362,8 +367,8 @@
       "cluster_id": "cluster_02",
       "canonical_root": "ret_vs_sector_5d",
       "health_state": "strengthening",
-      "recent_vs_full_ratio": 2.5718605119935494,
-      "effective_weight": 0.125,
+      "recent_vs_full_ratio": 2.004280363830926,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -374,8 +379,8 @@
       "cluster_id": "cluster_02",
       "canonical_root": "sector_rs_slope_5d",
       "health_state": "strengthening",
-      "recent_vs_full_ratio": 2.585743106926698,
-      "effective_weight": 0.125,
+      "recent_vs_full_ratio": 2.0326123350967658,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -385,9 +390,9 @@
       "mean_ic": -0.012386006235229,
       "cluster_id": "cluster_03",
       "canonical_root": "ret_1d",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": 0.9247374562427072,
-      "effective_weight": 0.125,
+      "health_state": "watchlist",
+      "recent_vs_full_ratio": 0.7436391027787077,
+      "effective_weight": 0.071429,
       "contributes_to_score": true
     },
     {
@@ -398,7 +403,7 @@
       "cluster_id": "cluster_01",
       "canonical_root": "factor_liquidity_dollar_vol_20d",
       "health_state": "watchlist",
-      "recent_vs_full_ratio": 0.6835449820500455,
+      "recent_vs_full_ratio": 0.7441723695466211,
       "effective_weight": 0.0,
       "contributes_to_score": false
     },
@@ -409,10 +414,10 @@
       "mean_ic": -0.0130109566444436,
       "cluster_id": "cluster_03",
       "canonical_root": "ret_vs_sector_1d",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": 1.0464398734177214,
-      "effective_weight": 0.125,
-      "contributes_to_score": true
+      "health_state": "quarantined",
+      "recent_vs_full_ratio": 0.49040427874783704,
+      "effective_weight": 0.0,
+      "contributes_to_score": false
     },
     {
       "feature": "macd_hist",
@@ -421,10 +426,10 @@
       "mean_ic": -0.0105294726435109,
       "cluster_id": "cluster_04",
       "canonical_root": "macd_hist",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": 1.0796667290769517,
-      "effective_weight": 0.125,
-      "contributes_to_score": true
+      "health_state": "quarantined",
+      "recent_vs_full_ratio": -0.8967095015576324,
+      "effective_weight": 0.0,
+      "contributes_to_score": false
     },
     {
       "feature": "vwap_dist",
@@ -433,10 +438,10 @@
       "mean_ic": -0.011842890260004,
       "cluster_id": "cluster_02",
       "canonical_root": "vwap_dist",
-      "health_state": "strengthening",
-      "recent_vs_full_ratio": 2.43649373881932,
-      "effective_weight": 0.125,
-      "contributes_to_score": true
+      "health_state": "quarantined",
+      "recent_vs_full_ratio": 0.42405218100285363,
+      "effective_weight": 0.0,
+      "contributes_to_score": false
     },
     {
       "feature": "vol_trend_20_60",
@@ -445,10 +450,10 @@
       "mean_ic": -0.008747938430046,
       "cluster_id": "cluster_05",
       "canonical_root": "vol_trend_20_60",
-      "health_state": "quarantined",
-      "recent_vs_full_ratio": 0.03622823789876221,
-      "effective_weight": 0.0,
-      "contributes_to_score": false
+      "health_state": "watchlist",
+      "recent_vs_full_ratio": 0.6778913609941871,
+      "effective_weight": 0.071429,
+      "contributes_to_score": true
     },
     {
       "feature": "uptick_ratio",
@@ -458,8 +463,8 @@
       "cluster_id": "cluster_06",
       "canonical_root": "uptick_ratio",
       "health_state": "strengthening",
-      "recent_vs_full_ratio": 2.997380880427118,
-      "effective_weight": 0.125,
+      "recent_vs_full_ratio": 2.7779233870967746,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -469,10 +474,10 @@
       "mean_ic": -0.011440674305761,
       "cluster_id": "cluster_02",
       "canonical_root": "dist_ma20",
-      "health_state": "strengthening",
-      "recent_vs_full_ratio": 2.2619477746756447,
-      "effective_weight": 0.125,
-      "contributes_to_score": true
+      "health_state": "quarantined",
+      "recent_vs_full_ratio": 0.15570307785153895,
+      "effective_weight": 0.0,
+      "contributes_to_score": false
     },
     {
       "feature": "bb_pos",
@@ -481,10 +486,10 @@
       "mean_ic": -0.0104019930461897,
       "cluster_id": "cluster_02",
       "canonical_root": "bb_pos",
-      "health_state": "strengthening",
-      "recent_vs_full_ratio": 2.830193905817175,
-      "effective_weight": 0.125,
-      "contributes_to_score": true
+      "health_state": "quarantined",
+      "recent_vs_full_ratio": 0.4810889645114244,
+      "effective_weight": 0.0,
+      "contributes_to_score": false
     },
     {
       "feature": "rsi_7",
@@ -495,7 +500,7 @@
       "canonical_root": "rsi_7",
       "health_state": "healthy",
       "recent_vs_full_ratio": null,
-      "effective_weight": 0.125,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -507,7 +512,7 @@
       "canonical_root": "factor_mom_12_1",
       "health_state": "healthy",
       "recent_vs_full_ratio": null,
-      "effective_weight": 0.125,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -519,7 +524,7 @@
       "canonical_root": "ret_10d",
       "health_state": "healthy",
       "recent_vs_full_ratio": null,
-      "effective_weight": 0.125,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -531,7 +536,7 @@
       "canonical_root": "ret_10d",
       "health_state": "healthy",
       "recent_vs_full_ratio": null,
-      "effective_weight": 0.125,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -543,7 +548,7 @@
       "canonical_root": "factor_resid_mom_sector_12_1",
       "health_state": "healthy",
       "recent_vs_full_ratio": null,
-      "effective_weight": 0.125,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -555,7 +560,7 @@
       "canonical_root": "factor_mom_12_1",
       "health_state": "healthy",
       "recent_vs_full_ratio": null,
-      "effective_weight": 0.125,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -567,19 +572,19 @@
       "canonical_root": "factor_mom_12_1",
       "health_state": "healthy",
       "recent_vs_full_ratio": null,
-      "effective_weight": 0.125,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
       "feature": "xs_rank_sector_ret_10d",
       "preferred_direction": "low_is_good",
-      "t_stat": -4.5963483669222915,
+      "t_stat": -4.596348366922292,
       "mean_ic": -0.0105695375563533,
       "cluster_id": "cluster_02",
       "canonical_root": "ret_10d",
       "health_state": "healthy",
       "recent_vs_full_ratio": null,
-      "effective_weight": 0.125,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -591,7 +596,7 @@
       "canonical_root": "rsi_divergence",
       "health_state": "healthy",
       "recent_vs_full_ratio": null,
-      "effective_weight": 0.125,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -603,19 +608,19 @@
       "canonical_root": "factor_beta_252_spy",
       "health_state": "healthy",
       "recent_vs_full_ratio": null,
-      "effective_weight": 0.125,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
       "feature": "xs_rank_market_factor_resid_mom_sector_12_1",
       "preferred_direction": "high_is_good",
-      "t_stat": 4.0253183838636275,
+      "t_stat": 4.025318383863628,
       "mean_ic": 0.011369160450274,
       "cluster_id": "cluster_07",
       "canonical_root": "factor_resid_mom_sector_12_1",
       "health_state": "healthy",
       "recent_vs_full_ratio": null,
-      "effective_weight": 0.125,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     },
     {
@@ -627,7 +632,7 @@
       "canonical_root": "factor_resid_mom_sector_12_1",
       "health_state": "healthy",
       "recent_vs_full_ratio": null,
-      "effective_weight": 0.125,
+      "effective_weight": 0.142857,
       "contributes_to_score": true
     }
   ],
@@ -709,7 +714,7 @@
     "year_alpha_concentration_pass": true,
     "turnover_adjusted_alpha_pass": true,
     "drawdown_vs_qqq_pass": true,
-    "max_positive_year_alpha_share": 0.175,
+    "max_positive_year_alpha_share": 0.158,
     "holdout_2023_2026_vs_qqq_pass": true,
     "holdout_2023_2026_vs_blend_pass": true,
     "single_name_weight_cap_pass": true,
