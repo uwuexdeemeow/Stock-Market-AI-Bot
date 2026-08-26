@@ -53,9 +53,12 @@ def _write_ticker_manifest(
 ) -> None:
     """Record the provider and checksum after one ticker parquet is saved."""
     previous = read_parquet_manifest(out_path)
+    # A restored legacy parquet may be current, so no provider download occurs
+    # during this run. Say that provenance is unknown honestly instead of
+    # pretending an unobserved provider supplied it.
     provider = data_provider.provider_for_ticker.get(
         str(ticker).upper(),
-        str(previous.get("provider", "unknown")),
+        str(previous.get("provider") or "legacy_unknown"),
     )
     write_parquet_manifest(
         out_path,
@@ -64,6 +67,20 @@ def _write_ticker_manifest(
         adjustment_mode="adjusted_ohlcv",
         frame=frame,
         provider_transition=provider_transition,
+    )
+
+
+def _manifest_matches_frame(ticker: str, frame: pd.DataFrame, out_path: str) -> bool:
+    """Return whether a sidecar still describes the parquet beside it."""
+    manifest = read_parquet_manifest(out_path)
+    if not manifest or frame.empty:
+        return False
+    latest = pd.DatetimeIndex(pd.to_datetime(frame.index, errors="coerce")).dropna().max()
+    return bool(
+        str(manifest.get("ticker", "")).upper() == str(ticker).upper()
+        and int(manifest.get("row_count", -1) or -1) == len(frame)
+        and str(manifest.get("last_date", "")) == str(latest.date())
+        and str(manifest.get("adjustment_mode", "")) == "adjusted_ohlcv"
     )
 
 def research_ticker(ticker: str, start: str, end: str) -> bool:
@@ -267,7 +284,9 @@ def research_ticker_incremental(
     # Already reaches the latest real trading session.
     if last_date >= target_session:
         log.info("[%s] already up-to-date (last=%s) — skipped", ticker, last_date.date())
-        if not read_parquet_manifest(out_path):
+        # Fresh data can come from an older cache whose sidecar is absent or no
+        # longer matches. Backfill provenance even though prices need no fetch.
+        if not _manifest_matches_frame(ticker, existing, out_path):
             _write_ticker_manifest(ticker, existing, out_path)
         return True
 
