@@ -61,7 +61,7 @@ def _empty_result(*, lookback_days: int, reason: str) -> dict:
 
 
 def _send_fill_alert(title: str, message: str) -> None:
-    """Send fill issue alert via all configured channels (macOS + Telegram + email)."""
+    """Send fill issue alert via configured desktop and Telegram channels."""
     from notifications import send_alert
     send_alert(message, title=title, priority="warning")
 

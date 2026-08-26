@@ -107,7 +107,7 @@ def notify_failures(results: list[dict], total_time: float) -> None:
     Send notifications if any step failed.
 
     PLAIN ENGLISH: After all steps finish, this checks if anything broke.
-    If yes, it sends alerts via macOS, email, AND Telegram (if configured)
+    If yes, it sends alerts via desktop and Telegram (if configured)
     through the shared notifications module.
     If everything passed, it stays quiet — no spam on good days.
     """
@@ -919,7 +919,7 @@ def main():
         print(f"  Run log saved → {log_path}")
 
     # Send notifications if any step failed
-    # PLAIN ENGLISH: Pop a macOS notification and optionally email you so you
+    # PLAIN ENGLISH: Send a desktop and Telegram notification so you
     # know something broke without having to check the logs.
     if not args.dry_run:
         notify_failures(results, total_time)

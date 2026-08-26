@@ -24,7 +24,6 @@ def configure_monitor_paths(monitor, tmp_path):
     monitor._DEDUP_LOCK_FILE = str(tmp_path / "alert_dedup.json.lock")
     monitor._DRIFT_LOG = str(tmp_path / "drift.jsonl")
     monitor._send_slack = lambda title, body, severity: False
-    monitor._send_email = lambda title, body, severity: False
 
 
 def read_alerts(path: Path):
@@ -54,7 +53,6 @@ monitor._ALERT_LOG = alert_log
 monitor._DEDUP_FILE = dedup_file
 monitor._DEDUP_LOCK_FILE = lock_file
 monitor._send_slack = lambda title, body, severity: False
-monitor._send_email = lambda title, body, severity: False
 
 gate = Path(gate_file)
 deadline = time.time() + 10

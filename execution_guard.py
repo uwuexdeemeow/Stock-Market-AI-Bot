@@ -88,7 +88,7 @@ def send_alert(message: str, *, priority: str = "warning") -> None:
     """Send a notification via all configured channels and write the log.
 
     PLAIN ENGLISH: Delegates to the shared notifications module which
-    handles macOS banners, email, AND Telegram — so you get alerts on
+    handles desktop banners and Telegram, so you get alerts on
     your phone even when your laptop is asleep.
     """
     log(f"ALERT: {message}")

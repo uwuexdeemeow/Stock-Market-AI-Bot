@@ -92,7 +92,7 @@ def _read_signal_regime(signal_path: Path) -> dict | None:
 
 
 def _send_regime_alert(title: str, message: str) -> None:
-    """Send regime change alert via all configured channels (macOS + Telegram + email).
+    """Send regime change alert via configured desktop and Telegram channels.
 
     PLAIN ENGLISH: Regime changes are important — they shift the whole portfolio
     allocation. This sends the alert to your phone via Telegram too, not just

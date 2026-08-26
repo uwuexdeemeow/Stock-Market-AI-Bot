@@ -82,7 +82,7 @@ The guard writes:
 - `signals/guard_intraday_state.json` - daily alert/debounce state
 - Alpaca trailing stop orders for held core ETFs
 
-It may also send macOS notifications and SMTP email alerts if those settings are
+It may also send desktop and Telegram alerts if those settings are
 configured.
 
 ## How It Fits The Daily Flow
@@ -125,4 +125,4 @@ stops from reserving shares and blocking rebalance sell orders.
   execute worse than expected after regular market hours begin.
 - If Alpaca rejects a protective stop, the guard logs and alerts the failure,
   but it cannot force the broker to accept the order.
-- If SMTP is not configured, email alerts are skipped; logs are still written.
+- Telegram delivery is optional; logs are still written when it is unavailable.

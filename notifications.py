@@ -1,7 +1,7 @@
 """Centralised notification module for the Stock Market AI Bot.
 
 PLAIN ENGLISH: This is the single place that handles sending alerts
-through ALL channels — macOS banners, email, and Telegram.  Every other
+through desktop banners and Telegram. Every other
 script (execution_guard, daily_run, fill_monitor, regime_monitor, etc.)
 imports from here instead of duplicating its own notification code.
 
@@ -21,7 +21,7 @@ HOW TO RUN:
     from notifications import send_alert, send_telegram, notify
 
 KEY CONCEPTS:
-  - Channel: a way to deliver a message (macOS, email, Telegram)
+  - Channel: a way to deliver a message (desktop or Telegram)
   - Priority: "info" (routine), "warning" (needs attention), "critical"
     (act now).  Critical messages go to ALL channels; info only goes to
     macOS and Telegram.
@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import os
 
-# Load .env file so TELEGRAM_BOT_TOKEN, SMTP_*, etc. are available
+# Load .env so the Telegram token and chat ID are available.
 # even when this module is imported before settings.py runs.
 try:
     from dotenv import load_dotenv
@@ -38,9 +38,7 @@ try:
 except ImportError:
     pass  # dotenv not installed — env vars must be set manually
 
-import smtplib
 import subprocess
-from email.mime.text import MIMEText
 import ssl
 from urllib.request import Request, urlopen
 import json
@@ -65,23 +63,11 @@ def _script_telegram_enabled() -> bool:
 
     PLAIN ENGLISH: GitHub Actions has a final workflow summary message.  When
     `STOCKBOT_SCRIPT_TELEGRAM_ENABLED=0`, individual scripts still log alerts
-    and may send email, but they do not create extra Telegram messages.
+    but they do not create extra Telegram messages.
     """
     value = os.environ.get("STOCKBOT_SCRIPT_TELEGRAM_ENABLED", "1").strip().lower()
     return value not in {"0", "false", "no", "off"}
 
-
-# ── Email config (same env vars that execution_guard / daily_run use) ─
-SMTP_HOST: str = os.environ.get("SMTP_HOST", "")
-SMTP_PORT: str = os.environ.get("SMTP_PORT", "587")
-SMTP_USER: str = os.environ.get("SMTP_USER", "")
-SMTP_PASS: str = os.environ.get("SMTP_PASSWORD", "")
-ALERT_EMAIL_TO: str = (
-    os.environ.get("ALERT_EMAIL_TO")
-    or os.environ.get("ALERT_EMAIL")
-    or SMTP_USER
-)
-ALERT_EMAIL_FROM: str = os.environ.get("ALERT_EMAIL_FROM") or SMTP_USER
 
 # ── Master kill switch ───────────────────────────────────────────────
 # Set STOCKBOT_ALERTS_ENABLED=0 to silence everything except log prints.
@@ -167,32 +153,6 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         return False
     except Exception as exc:
         _log(f"Windows notification failed: {exc}")
-        return False
-
-
-# ── Email ─────────────────────────────────────────────────────────────
-def send_email(subject: str, body: str) -> bool:
-    """Send an email alert via SMTP.
-
-    PLAIN ENGLISH: If you've configured SMTP environment variables
-    (SMTP_HOST, SMTP_USER, SMTP_PASSWORD), this sends an email to
-    ALERT_EMAIL_TO.  If any config is missing, it silently skips.
-    Returns True if the email was sent, False otherwise.
-    """
-    if not all([SMTP_HOST, SMTP_USER, SMTP_PASS, ALERT_EMAIL_TO, ALERT_EMAIL_FROM]):
-        return False
-    try:
-        msg = MIMEText(body)
-        msg["Subject"] = subject
-        msg["From"] = ALERT_EMAIL_FROM
-        msg["To"] = ALERT_EMAIL_TO
-        with smtplib.SMTP(SMTP_HOST, int(SMTP_PORT), timeout=15) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASS)
-            server.sendmail(ALERT_EMAIL_FROM, [ALERT_EMAIL_TO], msg.as_string())
-        return True
-    except Exception as exc:
-        _log(f"email alert failed: {exc}")
         return False
 
 
@@ -364,20 +324,19 @@ def send_alert(
     """Send an alert through all configured channels.
 
     PLAIN ENGLISH: This is the main function you call when something
-    important happens.  It fans out the message to macOS, email, and
-    Telegram in one shot.  Returns a dict showing which channels succeeded.
+    important happens. It sends the message to the desktop and Telegram in
+    one shot. Returns a dict showing which channels succeeded.
 
     priority levels:
-      - "info"     → macOS + Telegram only (don't spam email for routine stuff)
-      - "warning"  → all channels
-      - "critical" → all channels (same delivery, but the message prefix
+      - "info"     → desktop + Telegram
+      - "warning"  → desktop + Telegram
+      - "critical" → desktop + Telegram (same delivery, but the message prefix
                      makes it clear this is urgent)
     """
     _log(f"ALERT [{priority}]: {message}")
 
     results: dict[str, bool] = {
         "desktop": False,
-        "email": False,
         "telegram": False,
     }
 
@@ -398,10 +357,6 @@ def send_alert(
 
     # Telegram — always send if configured (works when away from desk)
     results["telegram"] = send_telegram(tg_message)
-
-    # Email — skip for "info" priority to avoid inbox noise
-    if priority in ("warning", "critical"):
-        results["email"] = send_email(f"[{title}] {message[:80]}", message)
 
     return results
 
@@ -447,8 +402,6 @@ if __name__ == "__main__":
     print(f"  Alerts enabled:  {ALERTS_ENABLED}")
     print(f"  Telegram token:  {'configured' if TELEGRAM_BOT_TOKEN else 'NOT SET'}")
     print(f"  Telegram chat:   {'configured' if TELEGRAM_CHAT_ID else 'NOT SET'}")
-    print(f"  SMTP host:       {SMTP_HOST or 'NOT SET'}")
-    print(f"  Email to:        {ALERT_EMAIL_TO or 'NOT SET'}")
     print()
 
     results = send_alert(args.message, title="Stock Bot Test", priority=args.priority)

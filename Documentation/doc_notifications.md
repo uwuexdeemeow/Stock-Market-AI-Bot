@@ -3,7 +3,7 @@
 ## What It Does
 
 `notifications.py` is the shared alert module. Other scripts import it when they
-need to send a desktop, email, or Telegram warning.
+need to send a desktop or Telegram warning. Email delivery has been removed.
 
 For GitHub Actions, script-level Telegram can be disabled with:
 
@@ -24,19 +24,17 @@ python3 notifications.py --message "warning test" --priority warning
 Inputs:
 
 - `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` for Telegram.
-- SMTP environment variables for email alerts.
 - `STOCKBOT_ALERTS_ENABLED=0` to silence all alert channels.
 - `STOCKBOT_SCRIPT_TELEGRAM_ENABLED=0` to silence only script Telegram.
 
 Outputs:
 
 - Telegram messages when enabled.
-- Email warnings when SMTP is configured.
 - Desktop notifications on supported local machines.
 
 ## Key Terms
 
-- **Alert channel** — a delivery path such as Telegram, email, or desktop.
+- **Alert channel** — a delivery path such as Telegram or desktop.
 - **Priority** — alert severity: `info`, `warning`, or `critical`.
 - **Workflow summary** — the single final Telegram message sent by GitHub
   Actions after a workflow finishes.

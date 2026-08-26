@@ -1125,7 +1125,7 @@ def print_health(health: dict) -> None:
             print(f"  ⚠ DRIFT WARNINGS:")
             for w in drift_warnings:
                 print(f"    - {w}")
-            # Send alert via all channels (Telegram, email, macOS)
+            # Send alert through Telegram and the local desktop channel.
             from notifications import send_alert as _notify
             _notify(
                 "Backtest-vs-live drift detected:\n" + "\n".join(f"• {w}" for w in drift_warnings),

@@ -1384,7 +1384,7 @@ def _alpaca_rebalance_orders_submitted_today(
 
 
 def _send_submit_guard_alert(title: str, message: str, *, priority: str = "warning") -> None:
-    """Send a best-effort Telegram/email alert for submit safety guards."""
+    """Send a best-effort Telegram/desktop alert for submit safety guards."""
     try:
         from notifications import send_alert
         send_alert(message, title=title, priority=priority)

@@ -337,7 +337,7 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `execution_guard.py` | Repair ETF stop-loss protection, cancel stale orders | `--once`, `--loop`, `--dry-run` |
 | `fill_monitor.py` | Verify yesterday's fills (cancelled, partial, slipped) | `--days N` |
 | `monitor_heartbeat.py` | Watchdog — all monitors produced fresh output? | none |
-| `notifications.py` | Send Telegram / email alerts | library, not run directly |
+| `notifications.py` | Send Telegram / desktop alerts | library, not run directly |
 | `paper_health.py` | Build deep health dashboard (slippage, drift, risk) | `--broker alpaca` |
 | `paper_shadow_compare.py` | Compare Alpaca paper equity vs shadow paper equity | `--alpaca-equity PATH`, `--shadow-equity PATH`, `--csv-out PATH`, `--json-out PATH` |
 | `regime_monitor.py` | Detect risk_on / neutral / risk_off regime shifts | none |

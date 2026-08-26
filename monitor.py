@@ -12,8 +12,8 @@ It provides three things:
    of setting up their own logging.  This makes every module's log messages go
    through one consistent formatter and to one consistent place.
 
-2. send_alert(title, body, severity) — sends a notification to email and/or
-   Slack depending on what env-vars you have configured.  Includes a dedup
+2. send_alert(title, body, severity) — sends a notification to Slack when a
+webhook is configured. Includes a dedup
    mechanism so the same alert is not sent more than once per hour.
 
 3. check_*() functions + main() — health checks you can run on a cron schedule
@@ -30,15 +30,7 @@ Add any/all of the following to your .env file (or export as shell env vars):
   # Slack
   SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXX/YYY/ZZZ
 
-  # Email  (uses STARTTLS on port 587 by default)
-  SMTP_HOST=smtp.gmail.com
-  SMTP_PORT=587
-  SMTP_USER=you@gmail.com
-  SMTP_PASSWORD=your-app-password
-  ALERT_EMAIL_FROM=you@gmail.com
-  ALERT_EMAIL_TO=you@gmail.com,teammate@gmail.com   # comma-separated
-
-If neither is configured the alerts are still written to logs/monitor.log so
+If Slack is not configured the alerts are still written to logs/monitor.log so
 nothing is silently dropped.
 
 How to run the health checks
@@ -57,12 +49,8 @@ import contextlib
 import json
 import logging
 import os
-import smtplib
-import ssl
 import time
 from datetime import datetime, timezone
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Optional
 
@@ -310,7 +298,7 @@ def _send_slack(title: str, body: str, severity: str) -> bool:
     """
     Post a message to Slack via an Incoming Webhook URL.
 
-    Returns True on success, False on failure (so the caller can try email too).
+    Returns True on success and False on failure.
 
     Slack webhooks are the simplest way to post messages — you just send a
     JSON payload to a special URL and the message appears in a channel.
@@ -340,48 +328,6 @@ def _send_slack(title: str, body: str, severity: str) -> bool:
     return False
 
 
-def _send_email(title: str, body: str, severity: str) -> bool:
-    """
-    Send an alert email via SMTP (uses STARTTLS on port 587 by default).
-
-    Returns True on success.  Requires these env vars:
-        SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD,
-        ALERT_EMAIL_FROM, ALERT_EMAIL_TO
-    """
-    smtp_host = os.environ.get("SMTP_HOST", "").strip()
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-    smtp_user = os.environ.get("SMTP_USER", "").strip()
-    smtp_pass = os.environ.get("SMTP_PASSWORD", "").strip()
-    from_addr = os.environ.get("ALERT_EMAIL_FROM", smtp_user).strip()
-    to_raw    = os.environ.get("ALERT_EMAIL_TO", "").strip()
-
-    if not (smtp_host and smtp_user and smtp_pass and to_raw):
-        return False  # email not configured
-
-    to_addrs = [a.strip() for a in to_raw.split(",") if a.strip()]
-    if not to_addrs:
-        return False
-
-    subject = f"[Stock Bot {severity}] {title}"
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"]    = from_addr
-    msg["To"]      = ", ".join(to_addrs)
-    msg.attach(MIMEText(body, "plain"))
-
-    try:
-        context = ssl.create_default_context()
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
-            server.ehlo()
-            server.starttls(context=context)
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(from_addr, to_addrs, msg.as_string())
-        return True
-    except Exception as exc:
-        _log.warning("Email delivery failed: %s", exc)
-    return False
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # PUBLIC ALERT API
 # ─────────────────────────────────────────────────────────────────────────────
@@ -393,10 +339,10 @@ def send_alert(
     alert_key: Optional[str] = None,
 ) -> None:
     """
-    Send an alert via all configured channels (Slack and/or email).
+    Send an alert to Slack when its webhook is configured.
 
     The alert is always written to logs/alerts.jsonl regardless of whether
-    Slack/email are configured, so there is always a local record.
+    Slack is configured, so there is always a local record.
 
     Parameters
     ----------
@@ -428,12 +374,11 @@ def send_alert(
 
     # Try remote channels; report which ones succeeded
     slack_ok = _send_slack(title, body, severity)
-    email_ok = _send_email(title, body, severity)
 
-    if not slack_ok and not email_ok:
+    if not slack_ok:
         _log.warning(
             "No remote channels delivered alert '%s'. "
-            "Set SLACK_WEBHOOK_URL or SMTP_* env vars to enable remote alerts.",
+            "Set SLACK_WEBHOOK_URL to enable remote monitor alerts.",
             title,
         )
 

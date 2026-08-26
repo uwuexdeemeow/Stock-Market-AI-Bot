@@ -3354,7 +3354,7 @@ def main() -> None:
         )
 
     # ── Notify on completion (always, not just on publish) ────────────
-    # PLAIN ENGLISH: When ANY walkforward run finishes, send a Telegram/email
+    # PLAIN ENGLISH: When ANY walkforward run finishes, send a Telegram
     # alert so you know whether the config was approved or rejected.  This
     # fires regardless of whether --publish-live-config was set, because you
     # always want to know the result of a 1-hour run.
