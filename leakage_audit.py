@@ -158,6 +158,7 @@ def _build_research_frame_from_raw(raw: pd.DataFrame, ticker: str) -> pd.DataFra
         "build_social_sentiment_features": pipeline_shared.build_social_sentiment_features,
         "build_pead_features": pipeline_shared.build_pead_features,
         "build_market_breadth_features": pipeline_shared.build_market_breadth_features,
+        "build_market_concentration_features": pipeline_shared.build_market_concentration_features,
     }
 
     def fake_fetch_price_data(fetch_ticker: str, start: str, end: str) -> pd.DataFrame:
@@ -186,6 +187,11 @@ def _build_research_frame_from_raw(raw: pd.DataFrame, ticker: str) -> pd.DataFra
     pipeline_shared.build_social_sentiment_features = empty_frame
     pipeline_shared.build_pead_features = neutral_pead_features
     pipeline_shared.build_market_breadth_features = empty_frame
+    # Concentration comes from independent ETF downloads, not this ticker's
+    # OHLCV. Re-downloading those ETFs twice can create tiny vendor rounding
+    # differences, so freeze it here just like VIX and breadth. Its causal
+    # formulas have a separate deterministic future-perturbation test.
+    pipeline_shared.build_market_concentration_features = empty_frame
     try:
         return pipeline_shared.build_research_feature_frame(ticker, AUDIT_START, AUDIT_END)
     finally:
