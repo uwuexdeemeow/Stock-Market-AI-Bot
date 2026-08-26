@@ -19,6 +19,7 @@ from alpha_factor_backtest import attach_scores, load_factor_panel, load_feature
 import core_satellite_alpha as core
 from settings import LOG_DIR, SIGNAL_DIR
 from safe_io import atomic_write_csv, atomic_write_json
+from validation_bundle import add_validation_context
 
 
 OUT_CSV = Path(SIGNAL_DIR) / "core_satellite_execution_stress.csv"
@@ -134,7 +135,7 @@ def main() -> None:
         "rows": rows,
         "pass_condition": "stressed scenarios should keep positive alpha vs SPY, QQQ, and BLEND and retain strategy gates",
     }
-    atomic_write_json(payload, OUT_JSON)
+    atomic_write_json(add_validation_context(payload, config=base_config), OUT_JSON)
 
     print(f"Execution stress written -> {OUT_CSV}")
     print(f"Detailed report -> {OUT_JSON}")

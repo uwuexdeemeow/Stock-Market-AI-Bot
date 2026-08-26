@@ -39,3 +39,9 @@ Expected output:
 | Strict mode | Fails the command if the system is not ready to trade. |
 | Feature quality | A report showing whether model inputs are still healthy. |
 | Feature health | A second gate that checks whether those inputs are diversified enough and not over-reliant on one crowded feature cluster. |
+
+## Live Blocking Rules
+
+All 62 required live tickers need readable adjusted-data manifests through the
+latest completed market session. More than two trading days old blocks signals.
+Missing columns, corrupt sidecars, and manifest/file mismatches also fail.

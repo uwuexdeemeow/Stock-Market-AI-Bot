@@ -83,3 +83,11 @@ bot never sees a half-written live config while publishing is in progress.
 - **TQQQ**: a leveraged Nasdaq ETF.  The script keeps TQQQ and no-TQQQ configs
   in different families so leverage does not sneak into a safer family.
 - **Dry run**: prints what would happen without writing files.
+# Safety Change
+
+Direct publishing from CSV is disabled. A CSV does not prove which dataset,
+source-code version, and robustness reports produced the result. Use this
+script only with `--dry-run` to inspect a possible configuration.
+
+To publish safely, run the nested walk-forward with `--publish-live-config`.
+That command creates the required validation bundle.

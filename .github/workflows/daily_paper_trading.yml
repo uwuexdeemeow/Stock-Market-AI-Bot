@@ -173,6 +173,41 @@ jobs:
           restore-keys: |
             state-files-
 
+      # Restore the operational audit trail from the dedicated signal branch.
+      # PLAIN ENGLISH: GitHub runners are new computers each day. These files
+      # let duplicate protection, fill checks, and the paper epoch continue
+      # from yesterday instead of starting over.
+      - name: Restore latest paper state
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        run: |
+          git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest || true
+          for f in \
+              signals/alpaca_paper_equity.csv \
+              signals/alpaca_paper_log.csv \
+              signals/alpaca_daily_status.json \
+              signals/alpaca_slippage_reversal_report.json \
+              signals/alpaca_submit_outcome.json \
+              signals/alpaca_submit_outcomes.csv \
+              signals/execution_cost_calibration.json \
+              signals/paper_validation_epoch.json \
+              signals/paper_validation_epoch_status.json \
+              signals/fill_monitor.json \
+              signals/broker_health.json \
+              signals/alpaca_paper_health.json \
+              signals/alpaca_execution_scorecard.json \
+              signals/broker_truth.csv \
+              signals/broker_truth.json \
+              signals/guard_intraday_state.json \
+              signals/regime_history.json \
+              signals/regime_changes_log.csv ; do
+            mkdir -p "$(dirname "$f")"
+            if git show "origin/signals/latest:${f}" > "${f}.restore" 2>/dev/null; then
+              mv "${f}.restore" "$f"
+            else
+              rm -f "${f}.restore"
+            fi
+          done
+
       # ── 6. Write .env from GitHub Secrets ──────────────────────────
       #    Secrets are stored encrypted in repo settings, injected at
       #    runtime.  The .env file is never committed to git.
@@ -245,6 +280,8 @@ jobs:
           PAPER_MODE_STRATEGY=core_satellite_alpha
           PAPER_SIGNAL_TIMEZONE=Asia/Singapore
           SENTIMENT_ENGINE_LEVEL=vader
+          STOCKBOT_SKIP_RESEARCH_SENTIMENT=1
+          RESEARCH_INCREMENTAL_WORKERS=4
           PAPER_GAUNTLET_MAX_AVG_SLIPPAGE_BPS=10
           PAPER_HEALTH_MAX_AVG_SLIPPAGE_BPS=10
           PAPER_HEALTH_MAX_DRAWDOWN_WARN_PCT=-5
@@ -438,6 +475,11 @@ jobs:
             signals/broker_health.json
             signals/alpaca_paper_health.json
             signals/alpaca_execution_scorecard.json
+            signals/alpaca_submit_outcome.json
+            signals/alpaca_submit_outcomes.csv
+            signals/execution_cost_calibration.json
+            signals/paper_validation_epoch.json
+            signals/paper_validation_epoch_status.json
             signals/broker_truth.csv
             signals/broker_truth.json
             signals/guard_intraday_state.json
@@ -460,7 +502,7 @@ jobs:
       #
       #    Skipped on dry-run since no signal files are generated.
       - name: Commit signals to repo
-        if: ${{ success() && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ always() && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -515,6 +557,11 @@ jobs:
               signals/broker_health.json \
               signals/alpaca_paper_health.json \
               signals/alpaca_execution_scorecard.json \
+              signals/alpaca_submit_outcome.json \
+              signals/alpaca_submit_outcomes.csv \
+              signals/execution_cost_calibration.json \
+              signals/paper_validation_epoch.json \
+              signals/paper_validation_epoch_status.json \
               signals/broker_truth.csv \
               signals/broker_truth.json \
               signals/guard_intraday_state.json \

@@ -142,6 +142,8 @@ jobs:
           TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
           STOCKBOT_SCRIPT_TELEGRAM_ENABLED=0
           SENTIMENT_ENGINE_LEVEL=vader
+          STOCKBOT_SKIP_RESEARCH_SENTIMENT=1
+          RESEARCH_INCREMENTAL_WORKERS=4
           ENVEOF
 
       - name: Refresh factor parquets
@@ -154,6 +156,8 @@ jobs:
           fi
         env:
           PYTHONUNBUFFERED: "1"
+          STOCKBOT_SKIP_RESEARCH_SENTIMENT: "1"
+          RESEARCH_INCREMENTAL_WORKERS: "4"
 
       - name: Refresh feature quality report
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}

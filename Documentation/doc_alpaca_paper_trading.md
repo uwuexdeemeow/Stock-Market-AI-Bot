@@ -238,3 +238,11 @@ Typically:
 
 You should not run it more than once a day — the duplicate-submission
 guard catches that anyway, but it's wasted effort.
+
+## Reliability Outcome
+
+Every `--submit` run first writes a fail-closed
+`signals/alpaca_submit_outcome.json`. The final status is `executed`,
+`no_action`, `blocked`, or `failed`. Counts show every planned order's final
+state. A CSV journal keeps one row per run, and deterministic Alpaca client
+order IDs stop a retry from creating a duplicate order.

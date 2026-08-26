@@ -17,6 +17,7 @@ import pandas as pd
 
 from ranker_utils import load_adaptive_factor_weights
 from safe_io import atomic_write_json
+from data_manifest import read_parquet_manifest
 from settings import (
     ADAPTIVE_WEIGHTS_FILE,
     ADAPTIVE_WEIGHTS_MAX_AGE_DAYS,
@@ -29,8 +30,8 @@ from settings import (
 )
 
 
-DEFAULT_WARN_TRADING_DAYS = 5
-DEFAULT_BLOCK_TRADING_DAYS = 10
+DEFAULT_WARN_TRADING_DAYS = 1
+DEFAULT_BLOCK_TRADING_DAYS = 2
 MANIFEST_NAME = "factor_data_health.json"
 REQUIRED_FACTOR_COLUMNS = ["Close", *SIMPLE_FACTOR_COLS]
 
@@ -247,6 +248,7 @@ def build_factor_data_health(
     blocked: list[dict] = []
     latest_dates: list[pd.Timestamp] = []
     existing_required_paths: list[Path] = []
+    manifest_errors: list[dict] = []
 
     for ticker in required:
         path = data_path / f"{ticker}.parquet"
@@ -274,6 +276,28 @@ def build_factor_data_health(
             "missing_required_columns": missing_cols,
         }
         per_ticker[ticker] = record
+        sidecar = read_parquet_manifest(path)
+        sidecar_issues: list[str] = []
+        if not sidecar:
+            sidecar_issues.append("manifest_missing_or_invalid")
+        else:
+            if str(sidecar.get("ticker", "")).upper() != ticker:
+                sidecar_issues.append("manifest_ticker_mismatch")
+            if int(sidecar.get("row_count", -1) or -1) != rows:
+                sidecar_issues.append("manifest_row_count_mismatch")
+            if str(sidecar.get("last_date", "")) != str(latest.date()):
+                sidecar_issues.append("manifest_last_date_mismatch")
+            if sidecar.get("quality_issues") and sidecar.get("provider") != "legacy_unknown":
+                sidecar_issues.append("manifest_quality_issues")
+            if str(sidecar.get("adjustment_mode", "")) != "adjusted_ohlcv":
+                sidecar_issues.append("manifest_adjustment_mode_invalid")
+        record["data_manifest"] = {
+            "provider": sidecar.get("provider") if sidecar else None,
+            "adjustment_mode": sidecar.get("adjustment_mode") if sidecar else None,
+            "issues": sidecar_issues,
+        }
+        if sidecar_issues:
+            manifest_errors.append({"ticker": ticker, "issues": sidecar_issues})
         latest_dates.append(latest)
         if missing_cols:
             missing_required_columns.append({
@@ -306,6 +330,7 @@ def build_factor_data_health(
         not missing
         and not unreadable
         and not missing_required_columns
+        and not manifest_errors
         and not blocked
         and bool(latest_dates)
     )
@@ -337,6 +362,8 @@ def build_factor_data_health(
         reasons.append("unreadable_factor_parquets")
     if missing_required_columns:
         reasons.append("factor_data_missing_required_columns")
+    if manifest_errors:
+        reasons.append("factor_data_manifest_errors")
     if blocked:
         reasons.append("factor_data_too_stale")
     elif stale:
@@ -359,6 +386,7 @@ def build_factor_data_health(
         "missing_tickers": missing,
         "unreadable_tickers": unreadable,
         "missing_required_column_tickers": missing_required_columns,
+        "manifest_error_tickers": manifest_errors,
         "required_factor_columns": list(REQUIRED_FACTOR_COLUMNS),
         "stale_tickers": stale,
         "blocked_tickers": blocked,

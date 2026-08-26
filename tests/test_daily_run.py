@@ -151,7 +151,9 @@ def test_health_only_uses_synced_signal_without_order_submission():
         "broker_truth",
         "alpaca_paper_health",
         "alpaca_execution_scorecard",
+        "execution_cost_calibration",
         "alpaca_gauntlet",
+        "paper_validation_epoch",
         "regime_monitor",
         "monitor_heartbeat",
         "log_cleanup",
@@ -173,7 +175,13 @@ def test_factor_data_health_failure_blocks_signal_and_orders(monkeypatch):
 
     monkeypatch.setattr(daily_run, "run_step", fake_run_step)
     results = daily_run.run_steps(steps, dry_run=False, timeout=1)
-    assert called == ["fill_monitor", "broker_health", "factor_data_health", "monitor_heartbeat", "log_cleanup"]
+    assert called == [
+        "fill_monitor", "broker_health", "factor_data_health", "alpaca_reconcile",
+        "alpaca_execution_guard", "broker_truth", "alpaca_paper_health",
+        "alpaca_execution_scorecard", "execution_cost_calibration",
+        "alpaca_gauntlet", "paper_validation_epoch", "monitor_heartbeat",
+        "log_cleanup",
+    ]
     assert next(r for r in results if r["name"] == "core_satellite_signal")["status"] == "blocked"
     assert next(r for r in results if r["name"] == "alpaca_submit")["blocked_by"] == "factor_data_health"
     assert next(r for r in results if r["name"] == "monitor_heartbeat")["upstream_blocked_by"] == "factor_data_health"
@@ -214,7 +222,13 @@ def test_refresh_failure_blocks_all_later_steps(monkeypatch):
 
     monkeypatch.setattr(daily_run, "run_step", fake_run_step)
     results = daily_run.run_steps(steps, dry_run=False, timeout=1)
-    assert called == ["refresh_etf_data", "refresh_factor_data", "fill_monitor", "monitor_heartbeat", "log_cleanup"]
+    assert called == [
+        "refresh_etf_data", "refresh_factor_data", "fill_monitor",
+        "alpaca_reconcile", "alpaca_execution_guard", "broker_truth",
+        "alpaca_paper_health", "alpaca_execution_scorecard",
+        "execution_cost_calibration", "alpaca_gauntlet",
+        "paper_validation_epoch", "monitor_heartbeat", "log_cleanup",
+    ]
     blocked = [r for r in results if r["status"] == "blocked"]
     assert blocked
     assert all(r["blocked_by"] == "refresh_factor_data" for r in blocked)

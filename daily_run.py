@@ -33,6 +33,7 @@ Schedule with cron (9:30 AM ET on weekdays):
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -70,6 +71,11 @@ GITHUB_SIGNAL_SYNC_FILES = (
     "signals/broker_health.json",
     "signals/alpaca_paper_health.json",
     "signals/alpaca_execution_scorecard.json",
+    "signals/alpaca_submit_outcome.json",
+    "signals/alpaca_submit_outcomes.csv",
+    "signals/execution_cost_calibration.json",
+    "signals/paper_validation_epoch.json",
+    "signals/paper_validation_epoch_status.json",
     "signals/broker_truth.csv",
     "signals/broker_truth.json",
     "signals/shadow_paper_journal.csv",
@@ -111,7 +117,7 @@ def notify_failures(results: list[dict], total_time: float) -> None:
     through the shared notifications module.
     If everything passed, it stays quiet — no spam on good days.
     """
-    failures = [r for r in results if r["status"] not in ("ok", "skipped")]
+    failures = [r for r in results if r["status"] not in ("ok", "no_action", "skipped")]
     if not failures:
         return
 
@@ -119,7 +125,7 @@ def notify_failures(results: list[dict], total_time: float) -> None:
 
     # Build a short summary for notifications
     failed_names = ", ".join(r["name"] for r in failures)
-    ok_count = sum(1 for r in results if r["status"] == "ok")
+    ok_count = sum(1 for r in results if r["status"] in ("ok", "no_action"))
     total = len(results)
 
     # Longer message with error details
@@ -218,7 +224,7 @@ BROKER_HEALTH_STEP = Step(
     "broker_health",
     [sys.executable, "broker_health.py"],
     "Pre-flight Alpaca connectivity check",
-    critical=False,  # don't block pipeline — just alert if a broker is down
+    critical=True,
 )
 
 CORE_SATELLITE_SIGNAL_STEP = Step(
@@ -248,36 +254,55 @@ ALPACA_STEPS = [
         "alpaca_submit",
         [sys.executable, "alpaca_paper_trading.py", "--submit"],
         "Submit orders to Alpaca paper trading (auto-snapshots equity + status)",
+        critical=True,
     ),
     Step(
         "alpaca_reconcile",
         [sys.executable, "alpaca_paper_trading.py", "--reconcile"],
         "Reconcile Alpaca order fill statuses",
+        always_run=True,
     ),
     Step(
         "alpaca_execution_guard",
         [sys.executable, "execution_guard.py", "--once"],
         "Repair ETF protection, cancel stale Alpaca orders, and check intraday P&L",
+        always_run=True,
     ),
     Step(
         "broker_truth",
         [sys.executable, "broker_truth.py"],
         "Reconcile Alpaca positions, local logs, order plan, target weights, and stops",
+        always_run=True,
     ),
     Step(
         "alpaca_paper_health",
         [sys.executable, "paper_health.py"],
         "Build deep health summary for Alpaca (slippage, drift vs walkforward, risk)",
+        always_run=True,
     ),
     Step(
         "alpaca_execution_scorecard",
         [sys.executable, "execution_scorecard.py"],
         "Grade Alpaca execution quality and execution-risk throttle outcomes",
+        always_run=True,
+    ),
+    Step(
+        "execution_cost_calibration",
+        [sys.executable, "execution_cost_calibration.py"],
+        "Calibrate simulated trading costs from recent Alpaca fills",
+        always_run=True,
     ),
     Step(
         "alpaca_gauntlet",
         [sys.executable, "alpaca_paper_gauntlet.py"],
         "Run Alpaca paper gauntlet health check",
+        always_run=True,
+    ),
+    Step(
+        "paper_validation_epoch",
+        [sys.executable, "paper_validation_epoch.py", "--status"],
+        "Measure progress in the clean paper-validation epoch",
+        always_run=True,
     ),
 ]
 
@@ -289,7 +314,9 @@ ALPACA_HEALTH_ONLY_STEPS = [
     ALPACA_STEPS[3],  # broker_truth
     ALPACA_STEPS[4],  # alpaca_paper_health
     ALPACA_STEPS[5],  # alpaca_execution_scorecard
-    ALPACA_STEPS[6],  # alpaca_gauntlet
+    ALPACA_STEPS[6],  # execution_cost_calibration
+    ALPACA_STEPS[7],  # alpaca_gauntlet
+    ALPACA_STEPS[8],  # paper_validation_epoch
 ]
 
 # Regime change monitor runs after the Alpaca signal is generated.
@@ -342,6 +369,23 @@ STRESS_STEPS = [
         "Audit survivorship bias in backtest universe",
     ),
 ]
+
+
+def _read_fresh_submit_outcome(started_at: datetime) -> tuple[dict, str]:
+    """Read this run's Alpaca outcome and reject missing or stale reports."""
+    path = Path(SIGNAL_DIR) / "alpaca_submit_outcome.json"
+    if not path.exists():
+        return {}, "submit_outcome_missing"
+    try:
+        if path.stat().st_mtime + 1.0 < started_at.timestamp():
+            return {}, "submit_outcome_stale"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {}, f"submit_outcome_invalid:{exc.__class__.__name__}"
+    status = str(payload.get("status", ""))
+    if status not in {"executed", "no_action", "blocked", "failed"}:
+        return payload, f"submit_outcome_unknown_status:{status or 'missing'}"
+    return payload, ""
 
 
 def run_step(
@@ -423,18 +467,61 @@ def run_step(
         elapsed = (datetime.now() - start).total_seconds()
         returncode = proc.returncode
 
+        submit_outcome: dict = {}
+        submit_outcome_error = ""
+        if name == "alpaca_submit":
+            submit_outcome, submit_outcome_error = _read_fresh_submit_outcome(start)
+
         if returncode != 0:
             print(f"  ✗ FAILED (exit code {returncode})")
-            return {
+            result = {
                 "name": name,
                 "status": "failed",
                 "exit_code": returncode,
                 "elapsed": round(elapsed, 1),
                 "stderr_tail": "\n".join(stderr_tail[-10:]),
             }
+            if submit_outcome:
+                result["execution_outcome"] = submit_outcome
+            if submit_outcome_error:
+                result["execution_outcome_error"] = submit_outcome_error
+            return result
+
+        if name == "alpaca_submit":
+            if submit_outcome_error:
+                print(f"  ✗ FAILED ({submit_outcome_error})")
+                return {
+                    "name": name,
+                    "status": "failed",
+                    "elapsed": round(elapsed, 1),
+                    "error": submit_outcome_error,
+                }
+            execution_status = str(submit_outcome.get("status"))
+            if execution_status in {"blocked", "failed"}:
+                print(
+                    f"  ✗ {execution_status.upper()}: "
+                    f"{submit_outcome.get('reason_code', 'unknown')}"
+                )
+                return {
+                    "name": name,
+                    "status": "failed",
+                    "elapsed": round(elapsed, 1),
+                    "execution_outcome": submit_outcome,
+                }
+            if execution_status == "no_action":
+                print(f"  ○ NO ACTION ({submit_outcome.get('reason_code', 'unknown')})")
+                return {
+                    "name": name,
+                    "status": "no_action",
+                    "elapsed": round(elapsed, 1),
+                    "execution_outcome": submit_outcome,
+                }
 
         print(f"  ✓ OK ({elapsed:.1f}s)")
-        return {"name": name, "status": "ok", "elapsed": round(elapsed, 1)}
+        result = {"name": name, "status": "ok", "elapsed": round(elapsed, 1)}
+        if submit_outcome:
+            result["execution_outcome"] = submit_outcome
+        return result
 
     except Exception as e:
         elapsed = (datetime.now() - start).total_seconds()
@@ -872,6 +959,7 @@ def main():
 
     # Summary
     ok = sum(1 for r in results if r["status"] == "ok")
+    no_action = sum(1 for r in results if r["status"] == "no_action")
     failed = sum(1 for r in results if r["status"] == "failed")
     errors = sum(1 for r in results if r["status"] in ("error", "timeout"))
     blocked = sum(1 for r in results if r["status"] == "blocked")
@@ -881,7 +969,9 @@ def main():
     print(f"\n{'═'*60}")
     print(f"  SUMMARY")
     print(f"{'═'*60}")
-    print(f"  ✓ Passed:  {ok}/{len(results)}")
+    print(f"  ✓ Completed: {ok + no_action}/{len(results)}")
+    if no_action:
+        print(f"  ○ No action: {no_action}")
     if failed:
         print(f"  ✗ Failed:  {failed}")
     if errors:
@@ -894,7 +984,7 @@ def main():
 
     # Show failures
     for r in results:
-        if r["status"] not in ("ok", "skipped"):
+        if r["status"] not in ("ok", "no_action", "skipped"):
             print(f"\n  FAILED: [{r['name']}] — {r['status']}")
             if r.get("stderr_tail"):
                 print(f"    {r['stderr_tail'][:200]}")
@@ -911,6 +1001,7 @@ def main():
             "mode": "health_only" if args.health_only else "daily_run",
             "steps_total": len(results),
             "steps_ok": ok,
+            "steps_no_action": no_action,
             "steps_failed": failed + errors + blocked,
             "total_elapsed_seconds": round(total_time, 1),
             "results": results,
@@ -933,7 +1024,7 @@ def main():
             status_emoji = "✓" if not (failed or errors or blocked) else "⚠"
             notify_info(
                 f"{status_emoji} Daily run complete: "
-                f"{ok}/{len(results)} passed, {total_time:.0f}s. "
+                f"{ok + no_action}/{len(results)} completed, {total_time:.0f}s. "
                 f"{now.strftime('%Y-%m-%d %H:%M')}"
             )
         except Exception:

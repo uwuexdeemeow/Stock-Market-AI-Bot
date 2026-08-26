@@ -40,6 +40,8 @@ signals/*
 # fails with "Missing approved live config file".
 !signals/core_satellite_live_configs.json
 !signals/core_satellite_nested_walkforward.json
+!signals/core_satellite_validation_bundle.json
+!signals/paper_validation_epoch.json
 !signals/adaptive_factor_weights.json
 # Feature quality artefacts — track the known-good baseline so GitHub
 # Actions starts from a fresh cluster gate even if the morning's

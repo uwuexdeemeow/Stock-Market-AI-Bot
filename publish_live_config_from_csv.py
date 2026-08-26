@@ -617,6 +617,14 @@ def write_publish_payloads(live_payload: dict, wf_payload: dict) -> tuple[Path, 
 
 
 def publish(source: str, force: bool, dry_run: bool):
+    # PLAIN ENGLISH: A CSV does not contain the dataset checksum or matching
+    # robustness reports. It may still be inspected with --dry-run, but it can
+    # no longer promote a strategy into the paper bot.
+    if not dry_run:
+        raise SystemExit(
+            "Direct CSV publishing is disabled. Run the nested walk-forward "
+            "with --publish-live-config so it creates a checksummed validation bundle."
+        )
     if not WF_CSV.exists():
         print(f"✗ Missing CSV: {WF_CSV}")
         sys.exit(1)

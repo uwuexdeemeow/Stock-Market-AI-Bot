@@ -1,119 +1,130 @@
-"""Build a safe project bundle for running a walk-forward in Google Colab.
+"""Package a reproducible, secret-free walk-forward snapshot for Google Colab.
 
-The bundle contains the current local code, market data, model files, and
-research signals. It deliberately leaves out secrets, logs, Git history,
-virtual environments, and Python cache files.
+PLAIN ENGLISH: Colab needs the same parquet data and research metadata as this
+computer. This script packages only those inputs, writes a checksum, and
+refuses to include account credentials or broker state.
 """
-
 from __future__ import annotations
 
-# argparse turns command-line options into Python values.
 import argparse
-# fnmatch compares file names with simple patterns such as "*.pyc".
-from fnmatch import fnmatch
-# Path makes file and folder paths easier to work with on every platform.
+import hashlib
+import json
+import subprocess
+import tarfile
+from datetime import datetime, timezone
 from pathlib import Path
-# zipfile creates the compressed archive that the user uploads to Google Drive.
-from zipfile import ZIP_DEFLATED, ZipFile
+
+from safe_io import atomic_write_json
 
 
-# These whole folders are local-only or can be recreated automatically.
-EXCLUDED_FOLDERS = {
-    ".git",
-    ".idea",
-    ".mypy_cache",
-    ".pytest_cache",
-    ".ruff_cache",
-    ".venv",
-    "__pycache__",
-    "logs",
-    "node_modules",
-    "venv",
-}
-
-# These file patterns may contain secrets or are temporary computer files.
-EXCLUDED_FILE_PATTERNS = (
-    ".DS_Store",
-    ".env",
-    ".env.*",
-    "*.lock",
-    "*.log",
-    "*.pyc",
-    "*.pyo",
-    "*credentials*.json",
-    "*secret*.json",
-    "access_token.json",
-    "oauth_token.json",
-    "refresh_token.json",
-    "token.json",
-    "tokens.json",
+DEFAULT_OUTPUT_DIR = Path("colab")
+SAFE_SIGNAL_INPUTS = (
+    "research_run_manifest.json",
+    "feature_quality_report.json",
+    "feature_quality_summary.csv",
+    "feature_health_profile.json",
+    "feature_health_profile.csv",
+    "adaptive_factor_weights.json",
+    "core_satellite_live_configs.json",
+    "core_satellite_validation_bundle.json",
+)
+SAFE_LOG_INPUTS = (
+    "feature_ic_shortlist.csv",
+    "core_satellite_survivorship_audit.json",
+    "core_satellite_execution_stress.json",
+    "factor_decay_monitor.json",
 )
 
 
-def should_include(path: Path, project_root: Path, output_path: Path) -> bool:
-    """Return True when a project file is safe and useful for Colab.
-
-    PLAIN ENGLISH: The walk-forward needs code and research data. It does not
-    need passwords, old logs, Git history, or a local Python environment.
-    """
-    # Never put the archive inside itself when the output is under the project.
-    if path.resolve() == output_path.resolve():
-        return False
-
-    relative_path = path.relative_to(project_root)
-    if any(part in EXCLUDED_FOLDERS for part in relative_path.parts):
-        return False
-
-    return not any(fnmatch(path.name, pattern) for pattern in EXCLUDED_FILE_PATTERNS)
+def _sha256(path: Path) -> str:
+    """Hash the completed archive for upload verification."""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
-def build_bundle(project_root: Path, output_path: Path) -> tuple[int, int]:
-    """Create the zip archive and return its file count and uncompressed size."""
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    file_count = 0
-    source_bytes = 0
+def _git_commit() -> str:
+    """Record the exact code version Colab must check out."""
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
 
-    # ZIP_DEFLATED makes large Parquet/model files smaller for the Drive upload.
-    with ZipFile(output_path, mode="w", compression=ZIP_DEFLATED, compresslevel=6) as archive:
-        for path in sorted(project_root.rglob("*")):
-            if not path.is_file() or not should_include(path, project_root, output_path):
-                continue
 
-            # Keep one top-level project folder so extraction is predictable.
-            archive_name = Path(project_root.name) / path.relative_to(project_root)
-            archive.write(path, arcname=archive_name)
-            file_count += 1
-            source_bytes += path.stat().st_size
+def _working_tree_changes() -> list[str]:
+    """List uncommitted files that Colab could not reproduce from Git."""
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return [line for line in result.stdout.splitlines() if line.strip()]
 
-    return file_count, source_bytes
+
+def build_snapshot(
+    output_dir: Path = DEFAULT_OUTPUT_DIR,
+    *,
+    allow_dirty: bool = False,
+) -> tuple[Path, Path]:
+    """Create the compressed snapshot and its small checksum manifest."""
+    changes = _working_tree_changes()
+    if changes and not allow_dirty:
+        raise RuntimeError(
+            "Commit and push the project changes before preparing Colab; "
+            "otherwise the recorded Git commit would not reproduce this run."
+        )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    archive = output_dir / f"stockbot_walkforward_snapshot_{stamp}.tar.gz"
+    temporary = archive.with_suffix(archive.suffix + ".tmp")
+    inputs = sorted(Path("data").glob("*.parquet"))
+    inputs += sorted(Path("data/manifests").glob("*.json"))
+    inputs += [Path("signals") / name for name in SAFE_SIGNAL_INPUTS if (Path("signals") / name).exists()]
+    inputs += [Path("logs") / name for name in SAFE_LOG_INPUTS if (Path("logs") / name).exists()]
+    with tarfile.open(temporary, "w:gz") as handle:
+        for path in inputs:
+            handle.add(path, arcname=path.as_posix(), recursive=False)
+    temporary.replace(archive)
+    manifest = {
+        "schema_version": 1,
+        "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "archive": archive.name,
+        "sha256": _sha256(archive),
+        "git_commit": _git_commit(),
+        "file_count": len(inputs),
+        "contains_secrets": False,
+        "working_tree_clean": not changes,
+        "files": [path.as_posix() for path in inputs],
+    }
+    manifest_path = archive.with_suffix(".manifest.json")
+    atomic_write_json(manifest, manifest_path)
+    return archive, manifest_path
 
 
 def main() -> int:
-    """Read options, build the archive, and print the exact upload location."""
-    project_root = Path(__file__).resolve().parent
-    default_output = project_root.parent / "Stock_Market_AI_Bot_Colab.zip"
-
-    parser = argparse.ArgumentParser(
-        description="Package the current Stock Market AI Bot for Google Colab."
-    )
+    """CLI entry point."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument(
-        "--output",
-        type=Path,
-        default=default_output,
-        help=f"Archive path (default: {default_output})",
+        "--allow-dirty",
+        action="store_true",
+        help="Package data even when code changes are uncommitted (not reproducible).",
     )
     args = parser.parse_args()
-    output_path = args.output.expanduser().resolve()
-
-    file_count, source_bytes = build_bundle(project_root, output_path)
-    archive_bytes = output_path.stat().st_size
-    mib = 1024 * 1024
-    print("Colab bundle ready")
-    print(f"  file: {output_path}")
-    print(f"  files included: {file_count}")
-    print(f"  source size: {source_bytes / mib:.1f} MiB")
-    print(f"  bundle size: {archive_bytes / mib:.1f} MiB")
-    print("  secrets and local logs were excluded")
+    archive, manifest = build_snapshot(args.output_dir, allow_dirty=args.allow_dirty)
+    print(f"Colab snapshot -> {archive}")
+    print(f"Checksum manifest -> {manifest}")
+    print("Upload both files to Google Drive; no Alpaca credentials are included")
     return 0
 
 

@@ -188,3 +188,13 @@ python3 walkforward_analyzer.py
 
 It checks four failure modes the raw return numbers hide.  See
 `Documentation/doc_walkforward_analyzer.md`.
+
+## Reliability Approval Gates
+
+Every fold records strict failures, relaxed fallback use, and candidate counts.
+Approval fails when fallback exceeds 20% or appears in a latest-three fold,
+selector score has non-positive correlation with realized QQQ alpha, predicted
+success overstates realized success by more than 20 percentage points, or the
+selector trails the frozen factor baseline. Turnover, rebalance count, and cost
+are reported separately. Publishing writes one tracked validation bundle and
+keeps real-capital approval false.

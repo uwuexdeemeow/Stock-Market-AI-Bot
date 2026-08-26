@@ -59,3 +59,11 @@ scanner.py → data/shortlist.csv
                                 ↓
                            train.py (reads the parquet)
 ```
+
+## Data Provenance And Speed
+
+Each ticker parquet receives a JSON sidecar in `data/manifests/` with provider,
+adjustment mode, dates, rows, schema, checksum, and quality checks. Incremental
+refresh can use multiple workers and calculates shared market inputs once.
+Scheduled bulk refresh skips sentiment until an after-cost out-of-sample
+ablation proves that it adds value.

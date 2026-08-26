@@ -80,3 +80,10 @@ script is interrupted.
   config is allowed to generate paper/live signals.
 - **Live config hash**: a short ID for the approved config used to create the
   signal.
+
+## Validation Source
+
+Paper signals verify the tracked validation bundle checksum and config
+fingerprint. An ignored scratch walk-forward cannot replace it. Simulated cost
+uses conservative Alpaca fill calibration after enough observations, otherwise
+the configured floor. The strategy remains `paper_provisional`.

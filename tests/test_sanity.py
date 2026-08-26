@@ -594,6 +594,7 @@ def test_nested_write_outputs_only_publishes_live_config_when_requested(tmp_path
     nested_wf.write_outputs(result, output_prefix="publish", publish_live_config=True)
     live = json.loads(live_path.read_text())
     assert live["source_json"].endswith("publish.json")
+    assert (tmp_path / "core_satellite_validation_bundle.json").exists()
     assert live["approvals"]["core-alpha"] == {"approved": False, "reasons": ["smoke"]}
     assert "tqqq" not in live["approvals"]
     assert "both" not in live["approvals"]
@@ -1219,7 +1220,7 @@ def test_selector_replay_fast_inner_score_only_avoids_cost_stress(monkeypatch):
     assert len(calls) == 2
 
 
-def test_fixed_validator_approves_repeat_fixed_rows_with_passed_reviews():
+def test_fixed_validator_rejects_candidate_without_frozen_baseline_comparison():
     signature = _wf_sig(shape="top3", vol_mode="percentile")
     config = selector_diag.config_from_signature(signature)
     rows = [
@@ -1248,8 +1249,9 @@ def test_fixed_validator_approves_repeat_fixed_rows_with_passed_reviews():
     )
 
     assert summary["fixed_cost_stress_pass_ratio"] == 1.0
-    assert summary["live_config_approval"]["approved"] is True
-    assert summary["approved_live_config"]["approved_exact_config"] == signature
+    assert summary["live_config_approval"]["approved"] is False
+    assert "frozen_factor_baseline_missing" in summary["live_config_approval"]["reasons"]
+    assert "approved_live_config" not in summary
 
 
 def test_nested_live_approval_uses_specific_config_frequency_and_turnover():

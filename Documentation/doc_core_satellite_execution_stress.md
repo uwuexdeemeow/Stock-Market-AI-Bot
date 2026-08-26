@@ -35,3 +35,6 @@ half-written stress report.
 - Turnover cost: extra simulated trading cost from rebalancing.
 - Stress scenario: a harder version of the same backtest.
 - Gate: a pass/fail safety check before promoting a config.
+
+The JSON report includes the exact strategy and dataset fingerprints. The
+validation bundle rejects a report from an older config or data snapshot.

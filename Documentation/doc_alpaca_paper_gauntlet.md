@@ -113,3 +113,7 @@ MAX_DRIFT = 0.10
 
 These are tuned for paper trading.  Tighten before considering real
 capital (e.g., MIN_SHARPE 1.0+, MAX_DRAWDOWN_PCT -10).
+
+During the first 30 trading days the result is `collecting`, not a misleading
+pass or failure. Final operational acceptance is tracked by the separate paper
+validation epoch after enough days, rebalances, and accepted orders exist.

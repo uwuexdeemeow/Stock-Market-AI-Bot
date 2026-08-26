@@ -5,12 +5,14 @@ research.py — Build training parquet files using the shared production feature
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 import os
 import sys
 from datetime import timedelta
 
 import pandas as pd
+import data_provider
 
 from settings import (
     DATA_DIR,
@@ -25,6 +27,11 @@ from pipeline_shared import build_research_feature_frame
 from fundamental_features import apply_sector_fundamental_zscores
 from cross_sectional_features import apply_cross_sectional_rank_features
 from safe_io import atomic_write_parquet
+from data_manifest import (
+    read_parquet_manifest,
+    validate_provider_transition,
+    write_parquet_manifest,
+)
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -35,6 +42,29 @@ logging.basicConfig(
     handlers=[logging.FileHandler(log_path), logging.StreamHandler(sys.stdout)]
 )
 log = logging.getLogger("research")
+
+
+def _write_ticker_manifest(
+    ticker: str,
+    frame: pd.DataFrame,
+    out_path: str,
+    *,
+    provider_transition: dict | None = None,
+) -> None:
+    """Record the provider and checksum after one ticker parquet is saved."""
+    previous = read_parquet_manifest(out_path)
+    provider = data_provider.provider_for_ticker.get(
+        str(ticker).upper(),
+        str(previous.get("provider", "unknown")),
+    )
+    write_parquet_manifest(
+        out_path,
+        ticker=ticker,
+        provider=provider,
+        adjustment_mode="adjusted_ohlcv",
+        frame=frame,
+        provider_transition=provider_transition,
+    )
 
 def research_ticker(ticker: str, start: str, end: str) -> bool:
     """Build or rebuild the full parquet for a single ticker.
@@ -55,6 +85,7 @@ def research_ticker(ticker: str, start: str, end: str) -> bool:
     out = os.path.join(DATA_DIR, f"{ticker}.parquet")
 
     atomic_write_parquet(df, out, index=True)
+    _write_ticker_manifest(ticker, df, out)
 
     log.info(
         "[%s] saved %s rows x %s cols -> %s",
@@ -236,6 +267,8 @@ def research_ticker_incremental(
     # Already reaches the latest real trading session.
     if last_date >= target_session:
         log.info("[%s] already up-to-date (last=%s) — skipped", ticker, last_date.date())
+        if not read_parquet_manifest(out_path):
+            _write_ticker_manifest(ticker, existing, out_path)
         return True
 
     # Too stale — full rebuild is safer (catches schema changes, delistings, etc.)
@@ -266,6 +299,25 @@ def research_ticker_incremental(
     if fresh.empty:
         log.error("[%s] incremental build returned empty — keeping existing", ticker)
         return True  # Don't destroy existing data
+
+    previous_manifest = read_parquet_manifest(out_path)
+    previous_provider = str(previous_manifest.get("provider", ""))
+    new_provider = data_provider.provider_for_ticker.get(str(ticker).upper(), "unknown")
+    provider_transition = validate_provider_transition(
+        existing,
+        fresh,
+        previous_provider=previous_provider,
+        new_provider=new_provider,
+    )
+    if not provider_transition.get("ok", False):
+        log.error(
+            "[%s] provider changed %s -> %s but overlap failed: %s; keeping existing parquet",
+            ticker,
+            previous_provider or "unknown",
+            new_provider,
+            provider_transition,
+        )
+        return False
 
     # Schema compatibility check: if core pipeline columns changed, do a full
     # rebuild.  Post-pass columns such as xs_rank_* are expected to be absent
@@ -320,6 +372,12 @@ def research_ticker_incremental(
     combined = combined.sort_index()
 
     atomic_write_parquet(combined, out_path, index=True)
+    _write_ticker_manifest(
+        ticker,
+        combined,
+        out_path,
+        provider_transition=provider_transition,
+    )
     log.info(
         "[%s] incremental save: %d rows (was %d, fresh contributed %d) -> %s",
         ticker, len(combined), len(existing), len(fresh), out_path,
@@ -383,6 +441,12 @@ def main():
         action="store_true",
         help="Skip parquet rebuild; only run the cross-sectional rank post-pass on existing parquets.",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=int(os.environ.get("RESEARCH_INCREMENTAL_WORKERS", "4")),
+        help="Parallel ticker workers for incremental refresh (default: 4).",
+    )
     args = parser.parse_args()
 
     # ── Fast path: only re-run cross-sectional rank post-pass ────────────────
@@ -429,19 +493,39 @@ def main():
 
     ok = True
     built_tickers: list[str] = []
-    for t in tickers:
+
+    def _build_one(ticker: str) -> bool:
+        """Build one ticker using the selected full or incremental mode."""
         if args.incremental:
-            built = research_ticker_incremental(
-                t,
+            return research_ticker_incremental(
+                ticker,
                 TRAIN_START,
                 TRAIN_END,
                 backfill_new_columns=bool(args.backfill_new_columns),
                 target_end=incremental_target_end,
             )
-        else:
-            built = research_ticker(t, TRAIN_START, TRAIN_END)
+        return research_ticker(ticker, TRAIN_START, TRAIN_END)
+
+    worker_count = max(1, int(args.workers)) if args.incremental else 1
+    if worker_count == 1:
+        outcomes = [(ticker, _build_one(ticker)) for ticker in tickers]
+    else:
+        # PLAIN ENGLISH: Each ticker is independent until the two shared
+        # cross-sectional post-passes below. A small worker pool cuts GitHub
+        # refresh time without launching provider-internal thread storms.
+        outcomes = []
+        with ThreadPoolExecutor(max_workers=min(worker_count, len(tickers))) as pool:
+            futures = {pool.submit(_build_one, ticker): ticker for ticker in tickers}
+            for future in as_completed(futures):
+                ticker = futures[future]
+                try:
+                    outcomes.append((ticker, bool(future.result())))
+                except Exception as exc:
+                    log.error("[%s] incremental worker failed: %s", ticker, exc)
+                    outcomes.append((ticker, False))
+    for ticker, built in outcomes:
         if built:
-            built_tickers.append(t)
+            built_tickers.append(ticker)
         ok = built and ok
     if built_tickers:
         try:
@@ -483,6 +567,17 @@ def main():
         except Exception as exc:
             log.error("[xs_rank] cross-sectional rank post-pass failed: %s", exc)
             ok = False
+
+        # The post-passes rewrite parquet bytes. Refresh sidecar checksums only
+        # after both passes finish so manifests describe the final stored file.
+        for ticker in built_tickers:
+            path = os.path.join(DATA_DIR, f"{ticker}.parquet")
+            try:
+                final_frame = pd.read_parquet(path)
+                _write_ticker_manifest(ticker, final_frame, path)
+            except Exception as exc:
+                log.error("[%s] manifest refresh failed: %s", ticker, exc)
+                ok = False
 
     # ── Adaptive factor weight update ────────────────────────────────────
     # PLAIN ENGLISH: Now that parquets are fresh, recompute how well each

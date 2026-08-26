@@ -171,5 +171,10 @@
         "reason": "rank IC is weak/negative but top-bucket edge and overlay alpha remain positive"
       }
     }
-  }
+  },
+  "validation_bundle_path": "signals/core_satellite_validation_bundle.json",
+  "validation_bundle_hash": "323cbf9b7bf46ee4e2a8becd204bfca380551e67c905ebb539c1ecadb3ae0cd5",
+  "deployment_status": "paper_provisional",
+  "paper_approved": true,
+  "real_capital_approved": false
 }

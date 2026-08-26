@@ -45,3 +45,10 @@ stale, partial, or otherwise unhealthy after validation.
 | Parquet | A fast table file format used for price and feature data. |
 | Trading session | A real NYSE market day. |
 | Force refresh | Download and replace the local ETF file even if it already looks healthy. |
+
+## Provider Safety
+
+ETF prices use the adjusted-OHLCV contract. When a provider changes,
+overlapping closes must agree within 0.5% at the median and 2% at the maximum.
+An unexplained mismatch is rejected and each successful file gets a provenance
+sidecar.

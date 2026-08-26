@@ -14,6 +14,22 @@ def _write_parquet(path, date: str, *, columns: list[str] | None = None) -> None
     values = {column: [100.0 if column == "Close" else 0.1] for column in selected}
     df = pd.DataFrame(values, index=pd.DatetimeIndex([pd.Timestamp(date)]))
     df.to_parquet(path)
+    # Live factor data now requires a provenance sidecar. Tests create the
+    # smallest valid sidecar so failures still measure the behavior named by
+    # each test instead of failing earlier at the provenance gate.
+    manifest_dir = path.parent / "manifests"
+    manifest_dir.mkdir(exist_ok=True)
+    (manifest_dir / f"{path.stem}.json").write_text(
+        json.dumps({
+            "ticker": path.stem,
+            "provider": "test_provider",
+            "adjustment_mode": "adjusted_ohlcv",
+            "row_count": len(df),
+            "last_date": date,
+            "quality_issues": [],
+        }),
+        encoding="utf-8",
+    )
 
 
 def _write_feature_quality(path, *, mtime: int = 2_000_000_000) -> None:
@@ -164,6 +180,30 @@ def test_factor_data_health_blocks_required_column_gaps(tmp_path, monkeypatch):
     assert "hvol_20d" in manifest["missing_required_column_tickers"][0]["missing_columns"]
     assert manifest["tickers"]["AAA"]["status"] == "missing_required_columns"
     assert "factor_data_missing_required_columns" in manifest["reasons"]
+
+
+def test_factor_data_health_blocks_missing_provenance_manifest(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    signal_dir = tmp_path / "signals"
+    data_dir.mkdir()
+    signal_dir.mkdir()
+    monkeypatch.setattr(fdh, "ADAPTIVE_WEIGHTS_FILE", str(signal_dir / "missing_adaptive.json"))
+    _write_parquet(data_dir / "AAA.parquet", "2026-05-18")
+    (data_dir / "manifests" / "AAA.json").unlink()
+    _write_feature_quality(signal_dir / "feature_quality_report.json")
+    _write_feature_health(signal_dir)
+
+    manifest = fdh.build_factor_data_health(
+        data_dir=data_dir,
+        signal_dir=signal_dir,
+        tickers=["AAA"],
+        optional_tickers=[],
+        now=pd.Timestamp("2026-05-19"),
+    )
+
+    assert manifest["trade_ready"] is False
+    assert manifest["manifest_error_tickers"][0]["ticker"] == "AAA"
+    assert "factor_data_manifest_errors" in manifest["reasons"]
 
 
 def test_feature_quality_stale_vs_required_factor_data_but_ignores_etf(tmp_path, monkeypatch):

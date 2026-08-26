@@ -34,3 +34,6 @@ decay report.
 - Overlay alpha: return from the stock overlay above the benchmark.
 - Lookback window: recent period, such as 60 or 120 trading days.
 - Real-capital block: a severe status that should stop real-money promotion.
+
+Saved JSON records the strategy and dataset fingerprints measured. Old decay
+evidence cannot be reused to approve a newer configuration.

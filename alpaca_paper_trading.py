@@ -120,7 +120,144 @@ STATUS_FILE = Path(SIGNAL_DIR) / "alpaca_daily_status.json"
 # Execution-quality report — tracks slippage and post-fill reversals.
 SLIPPAGE_REPORT_FILE = Path(SIGNAL_DIR) / "alpaca_slippage_reversal_report.json"
 EXECUTION_SCORECARD_FILE = Path(SIGNAL_DIR) / "alpaca_execution_scorecard.json"
+SUBMIT_OUTCOME_FILE = Path(SIGNAL_DIR) / "alpaca_submit_outcome.json"
+SUBMIT_OUTCOME_JOURNAL_FILE = Path(SIGNAL_DIR) / "alpaca_submit_outcomes.csv"
 ALERT_DEDUPE_FILE = Path(LOG_DIR) / "notification_dedupe.json"
+
+# PLAIN ENGLISH: A process exit code only says whether Python crashed. This
+# report says what trading actually happened. It is overwritten at the start
+# of every --submit run, so yesterday's success cannot mask today's failure.
+_SUBMIT_OUTCOME_ACTIVE = False
+_SUBMIT_OUTCOME: dict = {}
+_SUBMIT_OUTCOME_LOGGED = False
+
+
+def _begin_submit_outcome() -> None:
+    """Create a fail-closed outcome before connecting to Alpaca."""
+    global _SUBMIT_OUTCOME_ACTIVE, _SUBMIT_OUTCOME, _SUBMIT_OUTCOME_LOGGED
+    _SUBMIT_OUTCOME_ACTIVE = True
+    _SUBMIT_OUTCOME_LOGGED = False
+    _SUBMIT_OUTCOME = {
+        "schema_version": 1,
+        "run_id": datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ"),
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "status": "failed",
+        "reason_code": "process_exited_before_final_outcome",
+        "market_open": None,
+        "planned_orders": 0,
+        "submitted_orders": 0,
+        "accepted_orders": 0,
+        "filled_orders": 0,
+        "open_orders": 0,
+        "skipped_orders": 0,
+        "rejected_orders": 0,
+        "failed_orders": 0,
+        "account_alignment": {},
+        "errors": [],
+    }
+    atomic_write_json(_SUBMIT_OUTCOME, SUBMIT_OUTCOME_FILE)
+
+
+def _set_submit_outcome(status: str, reason_code: str, **updates) -> dict:
+    """Update and atomically persist the current submission outcome."""
+    if not _SUBMIT_OUTCOME_ACTIVE:
+        return {}
+    global _SUBMIT_OUTCOME_LOGGED
+    _SUBMIT_OUTCOME.update(updates)
+    _SUBMIT_OUTCOME.update({
+        "status": str(status),
+        "reason_code": str(reason_code),
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    })
+    atomic_write_json(_SUBMIT_OUTCOME, SUBMIT_OUTCOME_FILE)
+    if status in {"executed", "no_action", "blocked", "failed"} and not _SUBMIT_OUTCOME_LOGGED:
+        row = {
+            key: value if not isinstance(value, (dict, list)) else json.dumps(value, sort_keys=True)
+            for key, value in _SUBMIT_OUTCOME.items()
+        }
+        current = pd.DataFrame([row])
+        if SUBMIT_OUTCOME_JOURNAL_FILE.exists():
+            try:
+                prior = pd.read_csv(SUBMIT_OUTCOME_JOURNAL_FILE)
+                if "run_id" in prior.columns:
+                    prior = prior[prior["run_id"].astype(str) != str(row["run_id"])]
+                current = pd.concat([prior, current], ignore_index=True)
+            except Exception:
+                pass
+        atomic_write_csv(current, SUBMIT_OUTCOME_JOURNAL_FILE, index=False)
+        _SUBMIT_OUTCOME_LOGGED = True
+    return dict(_SUBMIT_OUTCOME)
+
+
+def _today_is_nyse_session(now: datetime | None = None) -> bool:
+    """Return whether today is an official NYSE trading session."""
+    try:
+        import exchange_calendars as xcals
+
+        clock = now or datetime.now(timezone.utc)
+        new_york_day = pd.Timestamp(clock).tz_convert("America/New_York").normalize().tz_localize(None)
+        return bool(xcals.get_calendar("XNYS").is_session(new_york_day))
+    except Exception:
+        # A missing calendar must not label a normal weekday as a holiday.
+        clock = now or datetime.now(timezone.utc)
+        return clock.weekday() < 5
+
+
+def _finalize_submit_outcome(
+    broker,
+    *,
+    planned_count: int,
+    order_ids: list[str],
+) -> dict:
+    """Account for each order and attach a final broker-truth snapshot."""
+    accepted_ids = [oid for oid in order_ids if not str(oid).startswith(("ERROR", "SKIPPED"))]
+    skipped_count = sum(str(oid).startswith("SKIPPED") for oid in order_ids)
+    failed_count = sum(str(oid).startswith("ERROR") for oid in order_ids)
+    statuses = {oid: _order_status(broker, oid) for oid in accepted_ids}
+    filled_count = sum(status == "filled" for status in statuses.values())
+    rejected_count = sum(status in {"rejected", "canceled", "expired"} for status in statuses.values())
+    open_count = sum(status not in {"filled", "rejected", "canceled", "expired"} for status in statuses.values())
+
+    alignment: dict = {}
+    errors: list[str] = []
+    try:
+        truth = _write_broker_truth_gate_report()
+        alignment = {
+            "status": truth.get("status"),
+            "score": truth.get("score"),
+            "fail_count": (truth.get("summary", {}) or {}).get("fail_count"),
+            "warning_count": (truth.get("summary", {}) or {}).get("warning_count"),
+        }
+    except Exception as exc:
+        errors.append(f"broker_truth_refresh_failed:{exc}")
+
+    if failed_count or rejected_count:
+        status = "failed"
+        reason = "partial_or_rejected_submission"
+    elif accepted_ids:
+        status = "executed"
+        reason = "orders_accepted"
+    elif skipped_count:
+        status = "blocked"
+        reason = "all_orders_safety_skipped"
+    else:
+        status = "no_action"
+        reason = "no_submit_ready_orders"
+    return _set_submit_outcome(
+        status,
+        reason,
+        planned_orders=int(planned_count),
+        submitted_orders=int(len(order_ids) - skipped_count),
+        accepted_orders=int(len(accepted_ids)),
+        filled_orders=int(filled_count),
+        open_orders=int(open_count),
+        skipped_orders=int(skipped_count),
+        rejected_orders=int(rejected_count),
+        failed_orders=int(failed_count),
+        account_alignment=alignment,
+        errors=errors,
+        order_statuses=statuses,
+    )
 
 # Retry config for price fetches
 PRICE_RETRY_ATTEMPTS = int(os.environ.get("ALPACA_PRICE_RETRIES", "3"))
@@ -3163,6 +3300,9 @@ def main():
                         help="Block submit if latest_factor_date is older than this many trading days")
     args = parser.parse_args()
 
+    if args.submit:
+        _begin_submit_outcome()
+
     # ── Connect to Alpaca ───────────────────────────────────────────────
     try:
         broker = AlpacaBroker()
@@ -3301,7 +3441,13 @@ def main():
             repair_all_overlay_trailing_stops(broker)
         if args.submit:
             warn_if_margin_exposure(broker)
-        return
+            _set_submit_outcome(
+                "no_action",
+                "portfolio_within_rebalance_thresholds",
+                market_open=bool(broker.is_market_open()),
+                planned_orders=0,
+            )
+        return 0
 
     # ── Submit orders ───────────────────────────────────────────────────
     if not args.submit:
@@ -3334,7 +3480,14 @@ def main():
         snapshot_equity(broker)
         snapshot_status(broker)
         build_slippage_reversal_report(broker)
-        return
+        _set_submit_outcome(
+            "blocked",
+            "broker_truth_gate_removed_all_orders",
+            market_open=bool(broker.is_market_open()),
+            planned_orders=len(pre_submit_skipped_orders),
+            skipped_orders=len(pre_submit_skipped_orders),
+        )
+        return 2
 
     # ── Auto-clear halt if drawdown has recovered ──────────────────────
     # PLAIN ENGLISH: If we halted trading yesterday because of a big
@@ -3353,7 +3506,13 @@ def main():
         print(f"     Threshold: {PORTFOLIO_DRAWDOWN_HALT_PCT*100:.0f}%")
         print(f"     No new orders until drawdown recovers. Use --force to override.")
         _emergency_liquidate(broker)
-        return
+        _set_submit_outcome(
+            "blocked",
+            "portfolio_drawdown_halt",
+            market_open=bool(broker.is_market_open()),
+            planned_orders=len(orders),
+        )
+        return 2
     elif current_dd < -0.05:
         # Warn if drawdown is notable but not halting
         print(f"  ⚠  Portfolio drawdown: {current_dd*100:.1f}% from peak "
@@ -3363,9 +3522,16 @@ def main():
     if _already_submitted_today(broker) and not args.force:
         print("  ⚠  Orders already submitted today. Use --force to override.")
         print(f"     Check Alpaca orders or local log: {PAPER_LOG_FILE}")
-        return
+        _set_submit_outcome(
+            "no_action",
+            "duplicate_retry_already_submitted",
+            market_open=bool(broker.is_market_open()),
+            planned_orders=len(orders),
+        )
+        return 0
 
-    if not broker.is_market_open():
+    market_open = bool(broker.is_market_open())
+    if not market_open:
         print("  ⚠  Market is CLOSED.")
         # PLAIN ENGLISH: Queueing marketable orders before the open caused
         # several bad fills.  Default behavior is now fail-closed unless a
@@ -3379,13 +3545,19 @@ def main():
                 snapshot_equity(broker)
                 snapshot_status(broker)
                 build_slippage_reversal_report(broker)
-                return
+                status = "no_action" if not _today_is_nyse_session() else "blocked"
+                reason = "market_holiday" if status == "no_action" else "market_closed_during_session"
+                _set_submit_outcome(status, reason, market_open=False, planned_orders=len(orders))
+                return 0 if status == "no_action" else 2
         else:
             print("  Aborting: closed-market queue disabled. Use --allow-closed-market-queue to override.")
             snapshot_equity(broker)
             snapshot_status(broker)
             build_slippage_reversal_report(broker)
-            return
+            status = "no_action" if not _today_is_nyse_session() else "blocked"
+            reason = "market_holiday" if status == "no_action" else "market_closed_during_session"
+            _set_submit_outcome(status, reason, market_open=False, planned_orders=len(orders))
+            return 0 if status == "no_action" else 2
 
     # ── Core ETF protective stops — clear before rebalance ───────────────
     # PLAIN ENGLISH: Broker-side trailing stops reserve shares. If we are
@@ -3407,7 +3579,13 @@ def main():
         if any(row.get("status") == "failed" for row in protection_cancels):
             print("  ✗ Could not cancel all affected core ETF protective stops. Aborting rebalance.")
             print("     Existing stops may reserve shares and cause sell orders to fail.")
-            return
+            _set_submit_outcome(
+                "blocked",
+                "core_stop_cancellation_failed",
+                market_open=market_open,
+                planned_orders=len(orders),
+            )
+            return 2
 
     # ── Overlay trailing stops — clear before rebalance sells ────────────
     # PLAIN ENGLISH: Overlay trailing stops also reserve shares.  Cancel the
@@ -3428,7 +3606,13 @@ def main():
         if any(row.get("status") == "failed" for row in overlay_stop_cancels):
             print("  ✗ Could not cancel all affected overlay trailing stops. Aborting rebalance.")
             print("     Existing stops may reserve shares and cause sell orders to fail.")
-            return
+            _set_submit_outcome(
+                "blocked",
+                "overlay_stop_cancellation_failed",
+                market_open=market_open,
+                planned_orders=len(orders),
+            )
+            return 2
 
     # ── TQQQ fast circuit breaker — pre-trade check ───────────────────────
     # PLAIN ENGLISH: Before submitting any TQQQ buy, verify that TQQQ hasn't
@@ -3546,6 +3730,17 @@ def main():
 
     print(f"    Check fills: python3 alpaca_paper_trading.py --reconcile")
 
+    outcome = _finalize_submit_outcome(
+        broker,
+        planned_count=len(logged_orders),
+        order_ids=logged_order_ids,
+    )
+    if outcome.get("status") == "failed":
+        return 1
+    if outcome.get("status") == "blocked":
+        return 2
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

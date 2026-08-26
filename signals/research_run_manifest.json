@@ -1,0 +1,1209 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-08-26T12:58:41.538126+00:00",
+  "generated_at_local": "2026-08-26T20:58:41.538131+08:00",
+  "command": "reliability-first local data fingerprint",
+  "cwd": "/Users/amos/Code/Stock Market AI Bot",
+  "git": {
+    "commit": "20cd64ca5f3726db450ae2814df7d2663abec91d",
+    "branch": "main",
+    "origin_main": "20cd64ca5f3726db450ae2814df7d2663abec91d",
+    "dirty": true,
+    "status_short": [
+      "M .github/workflows/daily_paper_trading.yml",
+      " M .github/workflows/factor_data_refresh.yml",
+      " M .gitignore",
+      " M Colab/stockbot_walkforward.ipynb",
+      " M Documentation/doc_alpaca_paper_gauntlet.md",
+      " M Documentation/doc_alpaca_paper_trading.md",
+      " M Documentation/doc_core_satellite_alpha.md",
+      " M Documentation/doc_core_satellite_execution_stress.md",
+      " M Documentation/doc_core_satellite_nested_walkforward.md",
+      " M Documentation/doc_core_satellite_survivorship_audit.md",
+      " M Documentation/doc_daily_run.md",
+      " M Documentation/doc_factor_data_health.md",
+      " M Documentation/doc_factor_decay_monitor.md",
+      " M Documentation/doc_prepare_colab_walkforward.md",
+      " M Documentation/doc_publish_live_config_from_csv.md",
+      " M Documentation/doc_refresh_etf_data.md",
+      " M Documentation/doc_research.md",
+      " M Documentation/doc_stockbot_walkforward_colab.md",
+      " M alpaca_paper_gauntlet.py",
+      " M alpaca_paper_trading.py",
+      " M core_satellite_alpha.py",
+      " M core_satellite_execution_stress.py",
+      " M core_satellite_nested_walkforward.py",
+      " M core_satellite_survivorship_audit.py",
+      " M daily_run.py",
+      " M data_provider.py",
+      " M factor_data_health.py",
+      " M factor_decay_monitor.py",
+      " M prepare_colab_walkforward.py",
+      " M publish_live_config_from_csv.py",
+      " M refresh_etf_data.py",
+      " M research.py",
+      " M signals/core_satellite_live_configs.json",
+      " M tests/test_daily_run.py",
+      " M tests/test_factor_data_health.py",
+      " M tests/test_sanity.py",
+      "?? Documentation/RELIABILITY_FIRST_WORKFLOW.md",
+      "?? Documentation/WALKFORWARD_COLAB.md",
+      "?? Documentation/data_manifest.md",
+      "?? Documentation/doc_data_provider.md",
+      "?? Documentation/execution_cost_calibration.md",
+      "?? Documentation/paper_validation_epoch.md",
+      "?? Documentation/universe_membership.md",
+      "?? Documentation/validation_bundle.md",
+      "?? data_manifest.py",
+      "?? execution_cost_calibration.py",
+      "?? paper_validation_epoch.py",
+      "?? signals/core_satellite_validation_bundle.json",
+      "?? signals/paper_validation_epoch.json",
+      "?? tests/test_reliability_hardening.py",
+      "?? universe_membership.py",
+      "?? validation_bundle.py"
+    ]
+  },
+  "system": {
+    "hostname": "Amoss-MacBook-Pro.local",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "system": "Darwin",
+    "machine": "arm64",
+    "python_version": "3.12.7",
+    "python_executable": "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3"
+  },
+  "packages": {
+    "numpy": "2.4.4",
+    "pandas": "3.0.2",
+    "scipy": "1.17.1",
+    "scikit-learn": "1.8.0",
+    "xgboost": "3.2.0",
+    "yfinance": "0.2.40",
+    "pyarrow": "23.0.1",
+    "alpaca-trade-api": "3.2.0"
+  },
+  "environment": {},
+  "random_seed": {
+    "PYTHONHASHSEED": "",
+    "NUMPY_RANDOM_SEED": "",
+    "RANDOM_SEED": ""
+  },
+  "validation": {
+    "status": "pass",
+    "checked_count": 7,
+    "failed_count": 0,
+    "files": [
+      {
+        "path": "signals/adaptive_factor_weights.json",
+        "exists": true,
+        "status": "pass",
+        "issues": [],
+        "bytes": 643,
+        "top_level_type": "dict",
+        "top_level_keys": [
+          "weights",
+          "ics",
+          "lookback_days",
+          "halflife",
+          "floor",
+          "target_horizon_days",
+          "target_source",
+          "weight_status",
+          "n_trading_days_used",
+          "n_tickers_in_panel",
+          "computed_at"
+        ]
+      },
+      {
+        "path": "signals/feature_quality_report.json",
+        "exists": true,
+        "status": "pass",
+        "issues": [],
+        "bytes": 110287,
+        "top_level_type": "dict",
+        "top_level_keys": [
+          "n_features",
+          "grade_counts",
+          "features",
+          "correlation_clusters",
+          "recommendations"
+        ]
+      },
+      {
+        "path": "signals/feature_quality_summary.csv",
+        "exists": true,
+        "status": "pass",
+        "issues": [],
+        "bytes": 4209,
+        "rows": 42,
+        "columns": 13
+      },
+      {
+        "path": "signals/feature_health_profile.json",
+        "exists": true,
+        "status": "pass",
+        "issues": [],
+        "bytes": 20911,
+        "top_level_type": "dict",
+        "top_level_keys": [
+          "purpose",
+          "correlation_cluster_threshold",
+          "decay_quarantine_ratio",
+          "decay_watch_ratio",
+          "min_active_clusters",
+          "max_cluster_weight_allowed",
+          "summary",
+          "features",
+          "clusters"
+        ]
+      },
+      {
+        "path": "signals/feature_health_profile.csv",
+        "exists": true,
+        "status": "pass",
+        "issues": [],
+        "bytes": 4112,
+        "rows": 36,
+        "columns": 11
+      },
+      {
+        "path": "signals/feature_research_report.json",
+        "exists": true,
+        "status": "pass",
+        "issues": [],
+        "bytes": 112446,
+        "top_level_type": "dict",
+        "top_level_keys": [
+          "n_features",
+          "return_col",
+          "n_tickers",
+          "n_dates",
+          "elapsed_seconds",
+          "created_at",
+          "features",
+          "interaction_pairs",
+          "recommendations"
+        ]
+      },
+      {
+        "path": "signals/feature_research_summary.csv",
+        "exists": true,
+        "status": "pass",
+        "issues": [],
+        "bytes": 6882,
+        "rows": 24,
+        "columns": 34
+      }
+    ]
+  },
+  "outputs": {
+    "files": [
+      {
+        "path": "signals/adaptive_factor_weights.json",
+        "bytes": 643,
+        "mtime_utc": "2026-08-25T18:40:30.205317+00:00",
+        "sha256": "9b0223e801477d1539fcf9465ca98824c550745e6720ba8d3fbddb4ed60c5781"
+      },
+      {
+        "path": "signals/feature_quality_report.json",
+        "bytes": 110287,
+        "mtime_utc": "2026-08-25T18:45:35.290452+00:00",
+        "sha256": "f01a51b23ccdc3c9fa85c630018a789e964fc2e175ce5360064749b28d3f925c"
+      },
+      {
+        "path": "signals/feature_quality_summary.csv",
+        "bytes": 4209,
+        "mtime_utc": "2026-08-25T18:45:35.293936+00:00",
+        "sha256": "ceef7c188d3809467f5958e9285ec4673b36bd6c7bcf03232c6ab4421d992fa1"
+      },
+      {
+        "path": "signals/feature_health_profile.json",
+        "bytes": 20911,
+        "mtime_utc": "2026-08-26T07:29:03.092782+00:00",
+        "sha256": "cc280686003fc8eb831b6eefd60a7ac9c671edc65ce460e28314c5ab60714232"
+      },
+      {
+        "path": "signals/feature_health_profile.csv",
+        "bytes": 4112,
+        "mtime_utc": "2026-08-26T07:29:03.093451+00:00",
+        "sha256": "97d91102bca934766af350bbbab9dd26b741b3569839e85c8e6fda155f05ecbc"
+      },
+      {
+        "path": "signals/feature_research_report.json",
+        "bytes": 112446,
+        "mtime_utc": "2026-06-30T07:37:49.035067+00:00",
+        "sha256": "b81cefa0836499c83f1e25c3dfd160f29e2ed4b59808b92c7e8bc552a227c9a7"
+      },
+      {
+        "path": "signals/feature_research_summary.csv",
+        "bytes": 6882,
+        "mtime_utc": "2026-06-30T07:37:49.035227+00:00",
+        "sha256": "aa382b2d3d5805fbfea4a4ba424ece23803a609f8ced71af828c0dc4c24b3047"
+      }
+    ]
+  },
+  "input_data": {
+    "data_dir": "data",
+    "exists": true,
+    "file_count": 159,
+    "fingerprinted_count": 159,
+    "max_files": 250,
+    "combined_sha256": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
+    "files": [
+      {
+        "path": "data/AAPL.parquet",
+        "bytes": 4817574,
+        "mtime_utc": "2026-08-25T18:40:25.996876+00:00",
+        "sha256": "8415577489781c1f123c4ce81e2fd2657907274b1b1257ef2ddbf8a80402a843"
+      },
+      {
+        "path": "data/ABBV.parquet",
+        "bytes": 3506970,
+        "mtime_utc": "2026-08-25T18:40:26.032413+00:00",
+        "sha256": "c2982f565dea41073b574fa4f2b74ca69330b96620a5c6fe98d3444d5fc03709"
+      },
+      {
+        "path": "data/ABT.parquet",
+        "bytes": 3852412,
+        "mtime_utc": "2026-05-02T15:12:56.615456+00:00",
+        "sha256": "4b44431f7283863e964f677d4a01912382fe33d9cb0a16b983409099289ee6c1"
+      },
+      {
+        "path": "data/ADBE.parquet",
+        "bytes": 3802235,
+        "mtime_utc": "2026-05-02T15:12:56.649112+00:00",
+        "sha256": "fa838f5bf0df39879bd25ac41b4c42e1a50f4429468f91a3783aed19cb0b2d3d"
+      },
+      {
+        "path": "data/AEP.parquet",
+        "bytes": 4760801,
+        "mtime_utc": "2026-08-25T18:40:26.071352+00:00",
+        "sha256": "39ff6c3f16f0bab1a4b1f57440c6031019d237c1766b3d2b33c2f2ae346c47db"
+      },
+      {
+        "path": "data/AIG.parquet",
+        "bytes": 3857430,
+        "mtime_utc": "2026-05-02T15:12:56.717472+00:00",
+        "sha256": "3f0b2953f10ac3a171c1df537c5a33881503bafe5165d9f9d4e0e53305c7cbfd"
+      },
+      {
+        "path": "data/AMAT.parquet",
+        "bytes": 4758102,
+        "mtime_utc": "2026-08-25T18:40:26.111113+00:00",
+        "sha256": "b550c2e94654408b8ff1abe07e6d68427fee4164f08aed98132999385a013fe5"
+      },
+      {
+        "path": "data/AMD.parquet",
+        "bytes": 4696962,
+        "mtime_utc": "2026-08-25T18:40:26.152656+00:00",
+        "sha256": "ff2caae77667f755d308f59208aa60e73cd42e58ff2cace8e5bf4d73ec6891da"
+      },
+      {
+        "path": "data/AMGN.parquet",
+        "bytes": 3857519,
+        "mtime_utc": "2026-05-02T15:12:56.815755+00:00",
+        "sha256": "7e289d5ff398945b95629a46cb7a0138430b3145ac431235552956a032e0850a"
+      },
+      {
+        "path": "data/AMT.parquet",
+        "bytes": 3672541,
+        "mtime_utc": "2026-08-25T18:40:26.189977+00:00",
+        "sha256": "6eb724644bb4ebd6f1cba6610eb0faa0b5af00c48e6f745a866eb356a682046e"
+      },
+      {
+        "path": "data/AMZN.parquet",
+        "bytes": 4720537,
+        "mtime_utc": "2026-08-25T18:40:26.229123+00:00",
+        "sha256": "2cc354e94ac072acf8231e34b5a007135ae62643ca8fb246e1a4b96ba582992b"
+      },
+      {
+        "path": "data/APD.parquet",
+        "bytes": 4684573,
+        "mtime_utc": "2026-08-25T18:40:26.268948+00:00",
+        "sha256": "d4d36335855cf457346cc44d36b760f3531523dd23bdebbb627aed6a6638346e"
+      },
+      {
+        "path": "data/AVB.parquet",
+        "bytes": 3834486,
+        "mtime_utc": "2026-05-02T15:12:56.947435+00:00",
+        "sha256": "c3219c064f5b8618658dc27d09cd5ed545a9bf88b56885c347113e4fb63e15d0"
+      },
+      {
+        "path": "data/AVGO.parquet",
+        "bytes": 4704334,
+        "mtime_utc": "2026-08-25T18:40:26.308903+00:00",
+        "sha256": "ab323597d3106f7654dcc57399d05b35821e25c99eb1d55affdcc767320bb2dc"
+      },
+      {
+        "path": "data/AXP.parquet",
+        "bytes": 3861251,
+        "mtime_utc": "2026-05-02T15:12:57.068568+00:00",
+        "sha256": "1115cf9989ceb90982dba42007a525b907c8d208592bd0e71df3308b7b2e5ee3"
+      },
+      {
+        "path": "data/BA.parquet",
+        "bytes": 3845537,
+        "mtime_utc": "2026-05-02T15:12:57.103418+00:00",
+        "sha256": "7d723192019ebb717bc53529cd64114c29ae625db6ff0c7982acdff606dcaf88"
+      },
+      {
+        "path": "data/BAC.parquet",
+        "bytes": 3469832,
+        "mtime_utc": "2026-08-25T18:40:26.344850+00:00",
+        "sha256": "7393043abca438e96853471ce20cc43ff39a724faff581fd81ca7c6e8cbfb465"
+      },
+      {
+        "path": "data/BBBY.parquet",
+        "bytes": 3408695,
+        "mtime_utc": "2026-08-25T18:40:26.374416+00:00",
+        "sha256": "eada45aab8e6770ca98253d6ba91baa2777adabf607a0b6eafb1286e3266f27b"
+      },
+      {
+        "path": "data/BIL.parquet",
+        "bytes": 106081,
+        "mtime_utc": "2026-08-25T18:13:49.697587+00:00",
+        "sha256": "7b03191628f2b53f89b74e40b0209fc7af935da4731629b9d9fcb29373feadf8"
+      },
+      {
+        "path": "data/BKNG.parquet",
+        "bytes": 3730075,
+        "mtime_utc": "2026-08-25T18:40:26.411144+00:00",
+        "sha256": "b1c36e9110d61d666ffdc58403deb58213dc72a38afc63657d865b39b3938d2d"
+      },
+      {
+        "path": "data/BLK.parquet",
+        "bytes": 3854589,
+        "mtime_utc": "2026-05-02T15:12:57.228611+00:00",
+        "sha256": "58d392466678b60e7aa6880565c5f1212a55fbd98263535568362c3838eb7e51"
+      },
+      {
+        "path": "data/BMY.parquet",
+        "bytes": 3854820,
+        "mtime_utc": "2026-05-02T15:12:57.263001+00:00",
+        "sha256": "409032a6dabaf57d2e85ffd85a83bdaf3e9de2bbcf279db6408be0e184a1d5df"
+      },
+      {
+        "path": "data/BRK-B.parquet",
+        "bytes": 3793188,
+        "mtime_utc": "2026-05-02T15:12:57.295563+00:00",
+        "sha256": "7c4ec0251fd7769862b9986d8798109bc7642137cf45aee5912096bd26adac9f"
+      },
+      {
+        "path": "data/BSX.parquet",
+        "bytes": 3770595,
+        "mtime_utc": "2026-05-02T15:12:57.329713+00:00",
+        "sha256": "4b30703d1ec5057043c35fe39f6ca0fda496fb00c1425146be117a0a697e8f95"
+      },
+      {
+        "path": "data/BTC-USD.parquet",
+        "bytes": 3235757,
+        "mtime_utc": "2026-04-28T11:33:31.313078+00:00",
+        "sha256": "152cc1aac41fef1e871e1de2d2ffb8bf6c10a239c80f285bd6264e9baa02513e"
+      },
+      {
+        "path": "data/C.parquet",
+        "bytes": 4748682,
+        "mtime_utc": "2026-08-25T18:40:26.450595+00:00",
+        "sha256": "a9d98f526e2554bc454dfe7c4a75443f89f6ce4674acff3a0e9c3edaba21d9f9"
+      },
+      {
+        "path": "data/CAT.parquet",
+        "bytes": 4760344,
+        "mtime_utc": "2026-08-25T18:40:26.489657+00:00",
+        "sha256": "b9ae2f68d7362f47473bd955e07996447ecfb7de81555e2997f6f44942b543a1"
+      },
+      {
+        "path": "data/CCI.parquet",
+        "bytes": 4005418,
+        "mtime_utc": "2026-08-25T18:40:26.526185+00:00",
+        "sha256": "39fb48af0a58fa0c1c8af2f0d58e09442678f9ef1407495b09536b27fba59947"
+      },
+      {
+        "path": "data/CHTR.parquet",
+        "bytes": 3671565,
+        "mtime_utc": "2026-08-25T18:40:26.563031+00:00",
+        "sha256": "f2cbb67bf9c590b429a9146b53976087859ef152a9e23ddbf46b9ba47bfacff8"
+      },
+      {
+        "path": "data/CI.parquet",
+        "bytes": 3864323,
+        "mtime_utc": "2026-05-02T15:12:57.496679+00:00",
+        "sha256": "16926388529cca84992e17c6ad1fce98a1422198e339217366b78e7fd7df2b60"
+      },
+      {
+        "path": "data/CL.parquet",
+        "bytes": 3839808,
+        "mtime_utc": "2026-05-02T15:12:57.528781+00:00",
+        "sha256": "213a182bfd146d3e9e12ae7756bff183a8f3905b4db5091bc6775026dd154ce7"
+      },
+      {
+        "path": "data/CMCSA.parquet",
+        "bytes": 4011332,
+        "mtime_utc": "2026-08-25T18:40:26.599873+00:00",
+        "sha256": "caa474959dc80ebb2105f0ab2ee830458d2cad8fa3da74834c46058e23f714db"
+      },
+      {
+        "path": "data/COF.parquet",
+        "bytes": 3860488,
+        "mtime_utc": "2026-05-02T15:12:57.594679+00:00",
+        "sha256": "c8fd4b0f933aba577a9753a3b1790b65074471ee0c52581d8d810694fdb04577"
+      },
+      {
+        "path": "data/COP.parquet",
+        "bytes": 4760907,
+        "mtime_utc": "2026-08-25T18:40:26.639029+00:00",
+        "sha256": "d10d90a92aead479b67069ef8a789bdc600ca9a53647ba12c2d4fe23f038f05b"
+      },
+      {
+        "path": "data/COST.parquet",
+        "bytes": 4554366,
+        "mtime_utc": "2026-08-25T18:40:26.677580+00:00",
+        "sha256": "66702c8b451a9840b83d267733e571fc02fff76af8f0ed0b28cde079cd799ae5"
+      },
+      {
+        "path": "data/CRC.parquet",
+        "bytes": 1246243,
+        "mtime_utc": "2026-05-03T18:47:36.957648+00:00",
+        "sha256": "7a83d42f0e82289782b9969de5d2e14bb08f5ccba81249e0c83e09d9d3ef648e"
+      },
+      {
+        "path": "data/CRM.parquet",
+        "bytes": 3860990,
+        "mtime_utc": "2026-05-02T15:12:57.696083+00:00",
+        "sha256": "c9228e51dc3afc5d86184e289fb591fe0c032bf9fb9b15df985430603d92a069"
+      },
+      {
+        "path": "data/CSCO.parquet",
+        "bytes": 3846229,
+        "mtime_utc": "2026-05-02T15:12:57.729601+00:00",
+        "sha256": "9568f0247c00b3b2ffc7b5569fd114efc7a34fc1e3b8d73408067238c7a95d51"
+      },
+      {
+        "path": "data/CSX.parquet",
+        "bytes": 3857567,
+        "mtime_utc": "2026-05-02T15:12:57.763319+00:00",
+        "sha256": "ef03a607414d979782351ffd736474c1fd615abd6babfb20880c93ef037366f4"
+      },
+      {
+        "path": "data/CVS.parquet",
+        "bytes": 3860147,
+        "mtime_utc": "2026-05-02T15:12:57.796410+00:00",
+        "sha256": "1ad244dafeba6a5bdada7387e4b609702a6a4343eb90a7d926c9f050ec789fc9"
+      },
+      {
+        "path": "data/CVX.parquet",
+        "bytes": 4827095,
+        "mtime_utc": "2026-08-25T18:40:26.717504+00:00",
+        "sha256": "d25cb59d1a31f4d2a0a2c144acc3be3989045772df565d33b80a14e755c4d3f6"
+      },
+      {
+        "path": "data/D.parquet",
+        "bytes": 3873463,
+        "mtime_utc": "2026-05-02T15:12:57.863100+00:00",
+        "sha256": "817e3ed53137da8f5f3e490cca4832643f06dd7eb8b95145568907e21da5fc9d"
+      },
+      {
+        "path": "data/DD.parquet",
+        "bytes": 3850819,
+        "mtime_utc": "2026-05-02T15:12:57.895024+00:00",
+        "sha256": "14cda1ae214223fa1b526a0d7d4db9175306982f492363580a5d8a49bebac754"
+      },
+      {
+        "path": "data/DE.parquet",
+        "bytes": 4781591,
+        "mtime_utc": "2026-08-25T18:40:26.756195+00:00",
+        "sha256": "3af9f44cea68a903ae403f2a0c76554cec701cb41fc03b777706cc9ff059e3a2"
+      },
+      {
+        "path": "data/DHR.parquet",
+        "bytes": 3847845,
+        "mtime_utc": "2026-05-02T15:12:57.961809+00:00",
+        "sha256": "0120a05014c100e8ad4b3c5da68f743f97d325a3f7c3ff34a7082c0ada52780a"
+      },
+      {
+        "path": "data/DIS.parquet",
+        "bytes": 4324771,
+        "mtime_utc": "2026-08-25T18:40:26.794434+00:00",
+        "sha256": "aaa7358296dbd20abcc8b0d362ac4055540b2613ff220d6fa7780ebfdf9812d5"
+      },
+      {
+        "path": "data/DOW.parquet",
+        "bytes": 1699763,
+        "mtime_utc": "2026-05-02T15:12:58.019763+00:00",
+        "sha256": "946f6b68332b7bbba2141018f1d98209ab6134e0a8e6771210679615bd76a395"
+      },
+      {
+        "path": "data/DUK.parquet",
+        "bytes": 4761130,
+        "mtime_utc": "2026-08-25T18:40:26.833510+00:00",
+        "sha256": "1191defadc30317465340a256f2669d8910130cc23e67192efcd2f18df735b6d"
+      },
+      {
+        "path": "data/EA.parquet",
+        "bytes": 3849037,
+        "mtime_utc": "2026-05-02T15:12:58.085440+00:00",
+        "sha256": "e047bdf4907897e5ad121f4f438e966ee0bcccf16bb4a4d58c495f77a337bdbf"
+      },
+      {
+        "path": "data/EBAY.parquet",
+        "bytes": 3849901,
+        "mtime_utc": "2026-05-02T15:12:58.117100+00:00",
+        "sha256": "490b8daf6a8a50a8b646c91487d1e31dbde103ec02ba6796aabacb636ac93950"
+      },
+      {
+        "path": "data/ECL.parquet",
+        "bytes": 3842666,
+        "mtime_utc": "2026-05-02T15:12:58.150696+00:00",
+        "sha256": "b16abb7476d7e2f6ec099889dc2a10a3b69e24cd2333a8e5818123bb04250549"
+      },
+      {
+        "path": "data/ED.parquet",
+        "bytes": 3862918,
+        "mtime_utc": "2026-05-02T15:12:58.186213+00:00",
+        "sha256": "c44211c7a00a11207c6e49b7758e39b806b1986ebb62d49c02c1e73b27ac823a"
+      },
+      {
+        "path": "data/EMR.parquet",
+        "bytes": 3857201,
+        "mtime_utc": "2026-05-02T15:12:58.218424+00:00",
+        "sha256": "23d25d140e0f9b4e9f69481a341bdad7a669541e7aeea95fd12a8e05693a85f5"
+      },
+      {
+        "path": "data/EOG.parquet",
+        "bytes": 4762839,
+        "mtime_utc": "2026-08-25T18:40:26.872341+00:00",
+        "sha256": "e9b696185c405267ada6223b6cd34df5aab792809fba5382882de742b6fc5f7d"
+      },
+      {
+        "path": "data/EQIX.parquet",
+        "bytes": 4754486,
+        "mtime_utc": "2026-08-25T18:40:26.911688+00:00",
+        "sha256": "bd7592fc89b78e464af4308d668904e23eae606dc1978f5e846bd5eee91c750f"
+      },
+      {
+        "path": "data/EQR.parquet",
+        "bytes": 3827203,
+        "mtime_utc": "2026-05-02T15:12:58.317784+00:00",
+        "sha256": "11b8d76a24c0e4e37d3d6f324fb2b1dc9eaf6663f9283f88a51ee65d4ebb6791"
+      },
+      {
+        "path": "data/ETN.parquet",
+        "bytes": 3858603,
+        "mtime_utc": "2026-05-02T15:12:58.350213+00:00",
+        "sha256": "5f6c6c809d3aa2b842033a21cc36012a64e4bc8d7e2aafda353920923e5cf37a"
+      },
+      {
+        "path": "data/EXC.parquet",
+        "bytes": 4760013,
+        "mtime_utc": "2026-08-25T18:40:26.951247+00:00",
+        "sha256": "c0442fbea745d7d42b40905beff0f2ef46a5659feb50680f0242ae696c11c5dc"
+      },
+      {
+        "path": "data/F.parquet",
+        "bytes": 3870139,
+        "mtime_utc": "2026-05-02T15:12:58.417642+00:00",
+        "sha256": "1408f8961d25b4cb9e875fea68a3334588f70278ce17c60f98084763765cae7c"
+      },
+      {
+        "path": "data/FCX.parquet",
+        "bytes": 3993122,
+        "mtime_utc": "2026-08-25T18:40:26.990144+00:00",
+        "sha256": "b3a810fe0147aa60f69902b023a467b272fa748776dc07659173235fc0398eb9"
+      },
+      {
+        "path": "data/FDX.parquet",
+        "bytes": 3858929,
+        "mtime_utc": "2026-05-02T15:12:58.485750+00:00",
+        "sha256": "987247016e58936de33a95d43c3a8394bcfad566e8af3167ea780184e94c3b74"
+      },
+      {
+        "path": "data/FRC.parquet",
+        "bytes": 3226955,
+        "mtime_utc": "2026-08-25T18:40:27.019511+00:00",
+        "sha256": "ad6546758d927eecffa842bdba004a8366f46e689db1ee4cb6a93fdc7ab8e4f9"
+      },
+      {
+        "path": "data/GE.parquet",
+        "bytes": 4836165,
+        "mtime_utc": "2026-08-25T18:40:27.059649+00:00",
+        "sha256": "0c0b7e7e02505a58d355f90483f616cd4a33a9361176c0d81240b074cf9314e2"
+      },
+      {
+        "path": "data/GILD.parquet",
+        "bytes": 3865931,
+        "mtime_utc": "2026-05-02T15:12:58.577877+00:00",
+        "sha256": "556bbb93e38cebb7adcb47f03429eae93b1b604760d1c1204f554e25c5fcd088"
+      },
+      {
+        "path": "data/GIS.parquet",
+        "bytes": 3843705,
+        "mtime_utc": "2026-05-02T15:12:58.611301+00:00",
+        "sha256": "f0cb355917da3e651a964a19c17ce211f4933364a2d2c3f512743fae0a396e2a"
+      },
+      {
+        "path": "data/GLD.parquet",
+        "bytes": 258182,
+        "mtime_utc": "2026-08-25T18:13:51.606690+00:00",
+        "sha256": "5a10ffe509fdd78c8ef132e3e71e47d9b7a3e89256be6c9c8e90caa6cea63da9"
+      },
+      {
+        "path": "data/GM.parquet",
+        "bytes": 3626919,
+        "mtime_utc": "2026-05-02T15:12:58.643483+00:00",
+        "sha256": "b0125137c3be0bba8f469613916be7221ce231cac29b901c9a0eaa4747221c2d"
+      },
+      {
+        "path": "data/GOOGL.parquet",
+        "bytes": 4821098,
+        "mtime_utc": "2026-08-25T18:40:27.102619+00:00",
+        "sha256": "e336d17f2f902e8cb703d1572183dd295e9e953aceb0cb0856f82a6b6b0cb690"
+      },
+      {
+        "path": "data/GS.parquet",
+        "bytes": 3828585,
+        "mtime_utc": "2026-08-25T18:40:27.140296+00:00",
+        "sha256": "64c32774252afc7c0edef14fb9e5d4b3fccd00b14f1e38f993a3871578509b76"
+      },
+      {
+        "path": "data/HD.parquet",
+        "bytes": 4774279,
+        "mtime_utc": "2026-08-25T18:40:27.180197+00:00",
+        "sha256": "eafa057a8507c8003b7876eb4be8b29509ccc8d8c32a99e5ca6ffb6e690e4c37"
+      },
+      {
+        "path": "data/HON.parquet",
+        "bytes": 4759904,
+        "mtime_utc": "2026-08-25T18:40:27.220076+00:00",
+        "sha256": "80d559b63f12f6ab898e87d2aa284f693e9cf551a6b4c53a0c0dcc75056d705c"
+      },
+      {
+        "path": "data/HSY.parquet",
+        "bytes": 4678997,
+        "mtime_utc": "2026-08-25T18:40:27.259043+00:00",
+        "sha256": "85f608fd67e5199b5c6490c099bbc99276ee2593db6b538f0e02e3c763e73ff9"
+      },
+      {
+        "path": "data/HTZ.parquet",
+        "bytes": 1080983,
+        "mtime_utc": "2026-05-03T18:47:32.653380+00:00",
+        "sha256": "0af4331173b7ee6dcadaa7e09b01e6a4da168ee9abafadf0f251e1a3d2032393"
+      },
+      {
+        "path": "data/IBM.parquet",
+        "bytes": 3844378,
+        "mtime_utc": "2026-05-02T15:12:58.842281+00:00",
+        "sha256": "6be4371bd86c418b84bce1c81f753b8985ab9f053a4c5d69fc86e33d1510459b"
+      },
+      {
+        "path": "data/IEF.parquet",
+        "bytes": 237056,
+        "mtime_utc": "2026-08-25T18:13:50.785243+00:00",
+        "sha256": "29c08ca9c042c7577b5adc0078761cb093a3a8f4644d74fb41d613551eb19313"
+      },
+      {
+        "path": "data/IFF.parquet",
+        "bytes": 4740177,
+        "mtime_utc": "2026-08-25T18:40:27.299050+00:00",
+        "sha256": "9e2595cfb833ba15e2a09854c925cf1f13e8df2b6907cb933a5debd987be7913"
+      },
+      {
+        "path": "data/INTC.parquet",
+        "bytes": 4693103,
+        "mtime_utc": "2026-08-25T18:40:27.337512+00:00",
+        "sha256": "102b783372bb431c37b7f52958e037c0cf3d46cd15e11acc3dd8e06677d1c0d6"
+      },
+      {
+        "path": "data/ISRG.parquet",
+        "bytes": 3804740,
+        "mtime_utc": "2026-05-02T15:12:58.941799+00:00",
+        "sha256": "41f8508db2c801d42a95441549217bb90fbe65e4f96e5dd1d3cd99c70e7f21dc"
+      },
+      {
+        "path": "data/JNJ.parquet",
+        "bytes": 4752564,
+        "mtime_utc": "2026-08-25T18:40:27.376599+00:00",
+        "sha256": "47f5e8de48d5b42b1b893235065cd819e0a5be5b67fe9b9a909a64144f705b99"
+      },
+      {
+        "path": "data/JPM.parquet",
+        "bytes": 4591864,
+        "mtime_utc": "2026-08-25T18:40:27.415603+00:00",
+        "sha256": "558ebc2df981245908aca91a624b0fda90bd8d6ff7eb7b97928f8e46059766f5"
+      },
+      {
+        "path": "data/KMB.parquet",
+        "bytes": 3841553,
+        "mtime_utc": "2026-05-02T15:12:59.042489+00:00",
+        "sha256": "fec949bb8cb148d5aedb82c3b6cb7059910e68c198ef0fa0f603483e4d642860"
+      },
+      {
+        "path": "data/KMI.parquet",
+        "bytes": 3569703,
+        "mtime_utc": "2026-05-02T15:12:59.074892+00:00",
+        "sha256": "1db4a48c009b3bf7a2b1ed8f4fe672a6566b569369bed2cc081d281b2deae341"
+      },
+      {
+        "path": "data/KO.parquet",
+        "bytes": 4750004,
+        "mtime_utc": "2026-08-25T18:40:27.454174+00:00",
+        "sha256": "95765fe9f29250d4741eb7ed2a55a64a11bc183eca949b70f59904159324f97c"
+      },
+      {
+        "path": "data/LIN.parquet",
+        "bytes": 4492121,
+        "mtime_utc": "2026-08-25T18:40:27.493284+00:00",
+        "sha256": "da9918c3b81d2c18fd5d256c202b61136e4eb1b9bd25d6c2642cf0131e716768"
+      },
+      {
+        "path": "data/LLY.parquet",
+        "bytes": 4763911,
+        "mtime_utc": "2026-08-25T18:40:27.532916+00:00",
+        "sha256": "d06c173357763232ff9697d62be114bc6b9d97711808d882bad808477306357b"
+      },
+      {
+        "path": "data/LMT.parquet",
+        "bytes": 3840354,
+        "mtime_utc": "2026-05-02T15:12:59.207823+00:00",
+        "sha256": "dd74602a24a5aaeafc598b972c99563b06b724baeffcbe6d7c3c7d32c2575ee5"
+      },
+      {
+        "path": "data/LOW.parquet",
+        "bytes": 3872192,
+        "mtime_utc": "2026-05-02T15:12:59.241108+00:00",
+        "sha256": "b8e9fed5aeefb49a9b3daf62eb874e54eccb11aaf09c3a82b7872713a3b7860c"
+      },
+      {
+        "path": "data/LYV.parquet",
+        "bytes": 4251798,
+        "mtime_utc": "2026-08-25T18:40:27.571566+00:00",
+        "sha256": "dd0e54cd860eeae330b11e7edbe3668e3d1f144201e4528d4736398bdad2e378"
+      },
+      {
+        "path": "data/MA.parquet",
+        "bytes": 3815512,
+        "mtime_utc": "2026-08-25T18:40:27.608916+00:00",
+        "sha256": "6b637f1ad5e4bb67bdd146c4c7485dc6643e2b3b2aa760c5dc7c47fe9856007c"
+      },
+      {
+        "path": "data/MAR.parquet",
+        "bytes": 3873571,
+        "mtime_utc": "2026-05-02T15:12:59.339867+00:00",
+        "sha256": "a29b6eb5891d706dfb1f035e56b0ee05dde61acb0917b862b3a0280116b2b984"
+      },
+      {
+        "path": "data/MCD.parquet",
+        "bytes": 3853358,
+        "mtime_utc": "2026-05-02T15:12:59.372290+00:00",
+        "sha256": "c3a49255dd214e4cecbafe498793e9e0440798f8e7d36c5bdd42b27283f4523e"
+      },
+      {
+        "path": "data/MDT.parquet",
+        "bytes": 3860698,
+        "mtime_utc": "2026-05-02T15:12:59.405316+00:00",
+        "sha256": "1f2419b3942e065de2cd3e80195c42c23bfd0acd284985299ce6cb4f30acb5be"
+      },
+      {
+        "path": "data/META.parquet",
+        "bytes": 4105519,
+        "mtime_utc": "2026-08-25T18:40:27.647181+00:00",
+        "sha256": "86bdbc26dce5b5bd809d752104b0e7e324572d3e0bcde0308607aa2adbe54917"
+      },
+      {
+        "path": "data/MMM.parquet",
+        "bytes": 3855910,
+        "mtime_utc": "2026-05-02T15:12:59.470359+00:00",
+        "sha256": "67deb5d14f77c46ee2d33d775b9bd4135a57292179dc1cba56ac68cc869745db"
+      },
+      {
+        "path": "data/MO.parquet",
+        "bytes": 3851245,
+        "mtime_utc": "2026-05-02T15:12:59.503764+00:00",
+        "sha256": "cb44b2012700d8e63cabc6de90096db3187a127c4f786ad21c33c1a313c4c70d"
+      },
+      {
+        "path": "data/MPC.parquet",
+        "bytes": 3490234,
+        "mtime_utc": "2026-05-02T15:12:59.534982+00:00",
+        "sha256": "d164272e232db72bf03c6bbdbb25c4b799c0d80e94979c892da2f2dc5bfa745c"
+      },
+      {
+        "path": "data/MRK.parquet",
+        "bytes": 4764125,
+        "mtime_utc": "2026-08-25T18:40:27.685604+00:00",
+        "sha256": "b44bbbb4749b2614b79e468cd61c9ba336e3e631f9e895b5cf37739c40194324"
+      },
+      {
+        "path": "data/MS.parquet",
+        "bytes": 3847231,
+        "mtime_utc": "2026-05-02T15:12:59.601830+00:00",
+        "sha256": "f6cd8c27c1f0b1ba65c71ee8c8bf7080d62b9e42ae5c72782ed2f4bef9058c97"
+      },
+      {
+        "path": "data/MSFT.parquet",
+        "bytes": 4817057,
+        "mtime_utc": "2026-08-25T18:40:27.725863+00:00",
+        "sha256": "ddc9edd64835d617aaf29f5ec1c20583d29dd7e83cd9e0f022f68f440e9e9b47"
+      },
+      {
+        "path": "data/MU.parquet",
+        "bytes": 4690884,
+        "mtime_utc": "2026-08-25T18:40:27.764388+00:00",
+        "sha256": "f52041626eb14a720b5399aebc4ebfdb97ded2eaada229f23be3071bc3d597d0"
+      },
+      {
+        "path": "data/NEE.parquet",
+        "bytes": 4765973,
+        "mtime_utc": "2026-08-25T18:40:27.804440+00:00",
+        "sha256": "509be7e278e5084de03ae2146c820a5e9651becf212e2b5633f44969501d1b11"
+      },
+      {
+        "path": "data/NEM.parquet",
+        "bytes": 4121098,
+        "mtime_utc": "2026-08-25T18:40:27.842205+00:00",
+        "sha256": "585b48801acb9b0ad21d11ca5049d8a130e64ac91323411ee1facb735919e7c7"
+      },
+      {
+        "path": "data/NFLX.parquet",
+        "bytes": 4014759,
+        "mtime_utc": "2026-08-25T18:40:27.881363+00:00",
+        "sha256": "81a91a525be98eda74cc2c809c1c4c9cef250fe662b7615e2011c156127365d7"
+      },
+      {
+        "path": "data/NKE.parquet",
+        "bytes": 3856438,
+        "mtime_utc": "2026-05-02T15:12:59.799587+00:00",
+        "sha256": "4470194a8d743b5d0224d0ffb6f5c6f9b2eed25a4fba2ea96f4b7d0ebc09165e"
+      },
+      {
+        "path": "data/NOC.parquet",
+        "bytes": 3846921,
+        "mtime_utc": "2026-05-02T15:12:59.833778+00:00",
+        "sha256": "9a9fc954c9beb7e698220f729c548c27ca37b4ffed9938901a44aa3fce2a4f33"
+      },
+      {
+        "path": "data/NOW.parquet",
+        "bytes": 3202961,
+        "mtime_utc": "2026-05-02T15:12:59.864589+00:00",
+        "sha256": "4697e064d354b7f278c56bfad57a7fb57690a9f499b546b1a06f7ee5355b3cce"
+      },
+      {
+        "path": "data/NUE.parquet",
+        "bytes": 3843183,
+        "mtime_utc": "2026-05-02T15:12:59.897537+00:00",
+        "sha256": "288e542c48b9d2de6902ecbad57864c37835e480a5c4ceefcc68b3d6496b2071"
+      },
+      {
+        "path": "data/NVDA.parquet",
+        "bytes": 4798082,
+        "mtime_utc": "2026-08-25T18:40:27.924102+00:00",
+        "sha256": "c0efbd91df66bc29d16771aa4b67c72d0c66b73af5de107dda300286646720ef"
+      },
+      {
+        "path": "data/O.parquet",
+        "bytes": 3866848,
+        "mtime_utc": "2026-05-02T15:12:59.963920+00:00",
+        "sha256": "91e634cd149429abeafd7a33076a2f336d70b3fc750dee68e5ae2776865d2fba"
+      },
+      {
+        "path": "data/OMC.parquet",
+        "bytes": 3825656,
+        "mtime_utc": "2026-05-02T15:12:59.997755+00:00",
+        "sha256": "1f78c29e515e661e3051f8809e3f0703a3bb62cb9e113cedb6708962d376264b"
+      },
+      {
+        "path": "data/ORCL.parquet",
+        "bytes": 3850716,
+        "mtime_utc": "2026-05-02T15:13:00.030183+00:00",
+        "sha256": "910aec57c42cd3489e66619757c58f5757f96622aaeca34483c0e9a9041f1cb0"
+      },
+      {
+        "path": "data/OXY.parquet",
+        "bytes": 3854738,
+        "mtime_utc": "2026-05-02T15:13:00.063816+00:00",
+        "sha256": "b5cbf2054a7574c0e099b42847d7a9ce2d6ab0a59e0a9152914c6291ed07eb58"
+      },
+      {
+        "path": "data/PEG.parquet",
+        "bytes": 3848093,
+        "mtime_utc": "2026-05-02T15:13:00.097295+00:00",
+        "sha256": "265b5bec1beef96612bd30287eabb8cad2ced75effe45f4ef4390be8e467a0f6"
+      },
+      {
+        "path": "data/PEP.parquet",
+        "bytes": 4684926,
+        "mtime_utc": "2026-08-25T18:40:27.963332+00:00",
+        "sha256": "b4ea82e355b7dee7676a3b20426a24fd54b5ec09f1d4685be8a1e427bb236ebe"
+      },
+      {
+        "path": "data/PFE.parquet",
+        "bytes": 3851490,
+        "mtime_utc": "2026-05-02T15:13:00.164116+00:00",
+        "sha256": "f1dc6dfc92f93c73f074acfe6c2bd5d91fda179b55f7a8bbfbd33e197676b839"
+      },
+      {
+        "path": "data/PG.parquet",
+        "bytes": 4684920,
+        "mtime_utc": "2026-08-25T18:40:28.002154+00:00",
+        "sha256": "1c29cf07ef045e80f8aee4e9b84222fa750cd61d70a89fafe0556725af080052"
+      },
+      {
+        "path": "data/PH.parquet",
+        "bytes": 3848992,
+        "mtime_utc": "2026-05-02T15:13:00.229084+00:00",
+        "sha256": "170853b1208cc38cc048b56b29d658e0a82e5ac6964b71a71bd61257dd77a25a"
+      },
+      {
+        "path": "data/PLD.parquet",
+        "bytes": 4819254,
+        "mtime_utc": "2026-08-25T18:40:28.041595+00:00",
+        "sha256": "729fbad9edd922ef114d2a5b485cc85305fcd06ae19198c1ac3bda21355d4227"
+      },
+      {
+        "path": "data/PM.parquet",
+        "bytes": 3855720,
+        "mtime_utc": "2026-05-02T15:13:00.295081+00:00",
+        "sha256": "2761865d618496fc85c305b00c39e06053ce2c96b905e10a5d53a3516678ef2a"
+      },
+      {
+        "path": "data/PNC.parquet",
+        "bytes": 3862358,
+        "mtime_utc": "2026-05-02T15:13:00.327299+00:00",
+        "sha256": "c6753e770aa80fc0f64d815a359d659347b14cdf1e800ce782c948036238a063"
+      },
+      {
+        "path": "data/PSA.parquet",
+        "bytes": 3613764,
+        "mtime_utc": "2026-08-25T18:40:28.079502+00:00",
+        "sha256": "19b57b3b1e06671b0ce48a4ea4a5ec7a1192145f79e4fb694ca6c31d8267a6c1"
+      },
+      {
+        "path": "data/PSX.parquet",
+        "bytes": 3298234,
+        "mtime_utc": "2026-05-02T15:13:00.391101+00:00",
+        "sha256": "33c9b7b2a723680afc9d3e7320ccf285e43890df8bf9e61c183db0aea18355b7"
+      },
+      {
+        "path": "data/QCOM.parquet",
+        "bytes": 3840217,
+        "mtime_utc": "2026-05-02T15:13:00.424139+00:00",
+        "sha256": "7e4c072b6de740e9bb4efdc033cc28dfb2d7aed8a948813a79f8c97466f9353a"
+      },
+      {
+        "path": "data/QQQ.parquet",
+        "bytes": 333158,
+        "mtime_utc": "2026-08-25T18:13:47.892955+00:00",
+        "sha256": "9274fdd52e20eeeebacb21e241611c1f3fc80dbf6d72ae82207a45859ec8a530"
+      },
+      {
+        "path": "data/ROST.parquet",
+        "bytes": 3856405,
+        "mtime_utc": "2026-05-02T15:13:00.457824+00:00",
+        "sha256": "3a94d622b03815fe01eab320c82685c6b7ac78fa7b9fd99b781210f286fba82b"
+      },
+      {
+        "path": "data/RTX.parquet",
+        "bytes": 4767000,
+        "mtime_utc": "2026-08-25T18:40:28.118697+00:00",
+        "sha256": "cd5ec1e1f04d261581e498a1e69607e66120ade6a49515a8dadf286fc6110fe9"
+      },
+      {
+        "path": "data/SBUX.parquet",
+        "bytes": 3843578,
+        "mtime_utc": "2026-05-02T15:13:00.523322+00:00",
+        "sha256": "77609614ee2b7ca8e3e6de7cb399772a63dd7ee9c01ceb0150c01641a95cf018"
+      },
+      {
+        "path": "data/SCHW.parquet",
+        "bytes": 3858978,
+        "mtime_utc": "2026-05-02T15:13:00.556986+00:00",
+        "sha256": "3c6346d4e155db405f11617522c5761c0cef9e288b9b62911f1666f100cc48d8"
+      },
+      {
+        "path": "data/SHLD.parquet",
+        "bytes": 618093,
+        "mtime_utc": "2026-05-03T18:47:28.710662+00:00",
+        "sha256": "4db4e2429c75cc91fd7a162e343d14c22a7cc5878dff2c7abb12433cb89bbd35"
+      },
+      {
+        "path": "data/SHW.parquet",
+        "bytes": 4605094,
+        "mtime_utc": "2026-08-25T18:40:28.158452+00:00",
+        "sha256": "39d5a65c3439ebf1ff6533569740c39fb2f6331853c5fad2d8a0a510bb4b4569"
+      },
+      {
+        "path": "data/SLB.parquet",
+        "bytes": 4763559,
+        "mtime_utc": "2026-08-25T18:40:28.196988+00:00",
+        "sha256": "b4dc5fa41c3684e865210b990a13cc2cb202b8b4c15371c98cc35f3b44e78f35"
+      },
+      {
+        "path": "data/SO.parquet",
+        "bytes": 4767727,
+        "mtime_utc": "2026-08-25T18:40:28.235336+00:00",
+        "sha256": "d91bd06cd07de15df4ba6675c3a40c060ec1e2827377ee9df288753566bf3b93"
+      },
+      {
+        "path": "data/SPG.parquet",
+        "bytes": 3844277,
+        "mtime_utc": "2026-05-02T15:13:00.692063+00:00",
+        "sha256": "5f9b850c1457aef743ab50d21cf81d6cc0314da4218bb6a91e06b850f56a96e4"
+      },
+      {
+        "path": "data/SPGI.parquet",
+        "bytes": 3852217,
+        "mtime_utc": "2026-05-02T15:13:00.723856+00:00",
+        "sha256": "969eca79d6579027744cc03cd064f199d8b4abf3af1424dfac3954a1766af4cf"
+      },
+      {
+        "path": "data/SPY.parquet",
+        "bytes": 339780,
+        "mtime_utc": "2026-08-25T18:13:46.942937+00:00",
+        "sha256": "6f5ce2ddd8d6a5b9f88371a82981dc3ec3d32146b3e421acb8e38a9aed8caf37"
+      },
+      {
+        "path": "data/SRE.parquet",
+        "bytes": 3841043,
+        "mtime_utc": "2026-05-02T15:13:00.757550+00:00",
+        "sha256": "0acee0c9d1d692d0fafae9bd17f5beb2c293f87c149b8dfcdcc7060153b2130a"
+      },
+      {
+        "path": "data/SYK.parquet",
+        "bytes": 3852870,
+        "mtime_utc": "2026-05-02T15:13:00.791369+00:00",
+        "sha256": "d4be3f36303c24dd1fff3dae3123187751dc3e7e7f8a2b3644553127b7b984d4"
+      },
+      {
+        "path": "data/SYY.parquet",
+        "bytes": 3834114,
+        "mtime_utc": "2026-05-02T15:13:00.824845+00:00",
+        "sha256": "6f60f41bdd3970c321f3cbc0080bd52ab6b7be32fdb95cc64693cdf650ff9f32"
+      },
+      {
+        "path": "data/T.parquet",
+        "bytes": 3861596,
+        "mtime_utc": "2026-05-02T15:13:00.860330+00:00",
+        "sha256": "f3e52b1210a35eff0608ebdf25a80cc89f618655d154806b199f1a6bf56e76f9"
+      },
+      {
+        "path": "data/TJX.parquet",
+        "bytes": 3862634,
+        "mtime_utc": "2026-05-02T15:13:00.892816+00:00",
+        "sha256": "6271dd301eca9bbc5da6ad0deec7ec60fc31a3a6e91e0109e61aa271b577b44d"
+      },
+      {
+        "path": "data/TMO.parquet",
+        "bytes": 3863527,
+        "mtime_utc": "2026-05-02T15:13:00.926215+00:00",
+        "sha256": "705814200e835407bfa8e6779dfb62559a0c0478c6fecc02c44d1c93285d902e"
+      },
+      {
+        "path": "data/TMUS.parquet",
+        "bytes": 3819132,
+        "mtime_utc": "2026-05-02T15:13:00.959681+00:00",
+        "sha256": "2a95853c5f38a166bef478c53f404efa21e98e1bd54b0e96b207e37a8f43efd4"
+      },
+      {
+        "path": "data/TQQQ.parquet",
+        "bytes": 215764,
+        "mtime_utc": "2026-08-25T18:13:48.803387+00:00",
+        "sha256": "af8ad7a04545bbe8ab88e28e4d830ee3b768a6dc176de246e9fb3b1b54893a7c"
+      },
+      {
+        "path": "data/TRV.parquet",
+        "bytes": 3851782,
+        "mtime_utc": "2026-05-02T15:13:00.993275+00:00",
+        "sha256": "5f57f21a2ad705256add43ab9d541e6b73fe28e6d047d57a49ec9e9de79fbbe7"
+      },
+      {
+        "path": "data/TSLA.parquet",
+        "bytes": 4515487,
+        "mtime_utc": "2026-08-25T18:40:28.274371+00:00",
+        "sha256": "76c559868ca80c42ff94ed7127e536ad93071a8a079ad9bf3c65daea9d975904"
+      },
+      {
+        "path": "data/TXN.parquet",
+        "bytes": 3852488,
+        "mtime_utc": "2026-05-02T15:13:01.057992+00:00",
+        "sha256": "4c776ee35df6db4ccadc9f8ff0b13b231127d97e422798c0f62e99046b0503e2"
+      },
+      {
+        "path": "data/UNH.parquet",
+        "bytes": 4766284,
+        "mtime_utc": "2026-08-25T18:40:28.314144+00:00",
+        "sha256": "3fca5fdce7d013c6f1af135bce2ef414d942d435159d545d4cc6f80f06cec98d"
+      },
+      {
+        "path": "data/UNP.parquet",
+        "bytes": 3854246,
+        "mtime_utc": "2026-05-02T15:13:01.124169+00:00",
+        "sha256": "197cdc25aae19532539264d8bf26e8fbac51ae81a8051855fc62575ac181a5d6"
+      },
+      {
+        "path": "data/UPS.parquet",
+        "bytes": 3836621,
+        "mtime_utc": "2026-05-02T15:13:01.158272+00:00",
+        "sha256": "43ced5eda472cc30c3ba706c48d22e3076b215f14e6cd43a8583cb5706e1f569"
+      },
+      {
+        "path": "data/USB.parquet",
+        "bytes": 3850749,
+        "mtime_utc": "2026-05-02T15:13:01.191522+00:00",
+        "sha256": "b266db7ca1413a9b0143d1cfe404dcbe7d62d1abac1e9532550ced6014f9036d"
+      },
+      {
+        "path": "data/V.parquet",
+        "bytes": 4172369,
+        "mtime_utc": "2026-08-25T18:40:28.352229+00:00",
+        "sha256": "7f6f0863fe11391fa346d1c7a2799168cd692f2e6e05b8812245eee10dbb301e"
+      },
+      {
+        "path": "data/VLO.parquet",
+        "bytes": 3853833,
+        "mtime_utc": "2026-05-02T15:13:01.257880+00:00",
+        "sha256": "7da389cfff033ca4d995065ebf77e81e1356ff959d4b972c1884341adfc8e131"
+      },
+      {
+        "path": "data/VZ.parquet",
+        "bytes": 3825438,
+        "mtime_utc": "2026-05-02T15:13:01.290984+00:00",
+        "sha256": "85fe37f8c78dd525d6b7292a8ceadf763e5e68d46f0706279c0a31105ac05ce1"
+      },
+      {
+        "path": "data/WELL.parquet",
+        "bytes": 3839242,
+        "mtime_utc": "2026-05-02T15:13:01.377296+00:00",
+        "sha256": "e9680003ef019e8ad0759830f42b20b27c2e86472127e4d6d74510db3d353b90"
+      },
+      {
+        "path": "data/WFC.parquet",
+        "bytes": 3848429,
+        "mtime_utc": "2026-05-02T15:13:01.411973+00:00",
+        "sha256": "ee72c4192c3227934e049429034fc6c68f1ed772485ff9b761cc292f02480427"
+      },
+      {
+        "path": "data/WMB.parquet",
+        "bytes": 3853794,
+        "mtime_utc": "2026-05-02T15:13:01.445216+00:00",
+        "sha256": "3d4d42da26e801a93bcc97d56d04eeb2b238f533fe1ca0344a34fed220218f92"
+      },
+      {
+        "path": "data/WMT.parquet",
+        "bytes": 4688263,
+        "mtime_utc": "2026-08-25T18:40:28.392544+00:00",
+        "sha256": "ede0bd06872665aded9a0c8c8a8df49f3d6a4ccfd908d9e46efe5cbc178e6017"
+      },
+      {
+        "path": "data/XEL.parquet",
+        "bytes": 3830807,
+        "mtime_utc": "2026-05-02T15:13:01.510985+00:00",
+        "sha256": "47992b05c9007d27139cbea4125abe19a13506d6a5c1fab2bb779fb8cbd90ed9"
+      },
+      {
+        "path": "data/XOM.parquet",
+        "bytes": 4758323,
+        "mtime_utc": "2026-08-25T18:40:28.431285+00:00",
+        "sha256": "6e91553ec7cf9348f36d96c49c4fba65ea3b8f8c66caf78a5a53460488960404"
+      }
+    ]
+  }
+}

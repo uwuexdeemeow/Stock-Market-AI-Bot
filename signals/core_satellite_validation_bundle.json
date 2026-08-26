@@ -1,0 +1,275 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-08-26T13:02:13+00:00",
+  "strategy": "core-alpha",
+  "source_json": "",
+  "source_json_sha256": "",
+  "git_commit": "20cd64ca5f3726db450ae2814df7d2663abec91d",
+  "config": {
+    "strategy": "core-alpha",
+    "core_preset": "nested_qqq_trend_switch_overlay70_core55_cashbuffer_h20_ov0.50_ma100_volpercentile0.30_tqqq0.00_riskoff",
+    "regime_mode": "qqq_trend_switch_overlay70_core55_cashbuffer",
+    "regime_preset": {
+      "ma_window": 100,
+      "high_vol": 0.3,
+      "risk_on": {
+        "core_weights": {
+          "SPY": 0.0,
+          "QQQ": 1.0,
+          "TQQQ": 0.0
+        },
+        "core_gross": 0.75,
+        "overlay_gross": 0.5
+      },
+      "neutral": {
+        "core_weights": {
+          "SPY": 0.25,
+          "QQQ": 0.75,
+          "TQQQ": 0.0
+        },
+        "core_gross": 0.5,
+        "overlay_gross": 0.5
+      },
+      "risk_off": {
+        "core_weights": {
+          "SPY": 0.6,
+          "QQQ": 0.4,
+          "TQQQ": 0.0
+        },
+        "core_gross": 0.55,
+        "overlay_gross": 0.25
+      },
+      "high_vol_mode": "percentile"
+    },
+    "regime_ma_window": 100,
+    "regime_high_vol": 0.3,
+    "high_vol_mode": "percentile",
+    "score_blend": false,
+    "early_rebalance_on_regime_change": false,
+    "core_weights": {
+      "SPY": 0.0,
+      "QQQ": 1.0,
+      "TQQQ": 0.0
+    },
+    "tqqq_preset": "tqqq_enhanced_cashbuffer",
+    "score_source": "regime_adaptive",
+    "shape": "top3",
+    "weighting": "sticky_score",
+    "exit_rank_floor": 0.8,
+    "adaptive_exit_mode": "fixed",
+    "max_per_sector": 2,
+    "earnings_blackout_days": 5,
+    "core_gross": 0.75,
+    "overlay_gross": 0.5,
+    "max_gross_exposure": 1.25,
+    "max_single_name_weight": 0.25,
+    "holding_days": 20,
+    "risk_control_mode": "off",
+    "drawdown_circuit_breaker": 0.0,
+    "vol_target": 0.0
+  },
+  "config_identity": {
+    "score_source": "regime_adaptive",
+    "shape": "top3",
+    "weighting": "sticky_score",
+    "holding_days": 20,
+    "overlay_gross": 0.5,
+    "regime_ma_window": 100,
+    "regime_high_vol": 0.3,
+    "high_vol_mode": "percentile",
+    "tqqq_weight": 0.0,
+    "risk_control_mode": "off"
+  },
+  "config_fingerprint": "b7e97bb46c8aaa04",
+  "dataset": {
+    "manifest_path": "signals/research_run_manifest.json",
+    "manifest_exists": true,
+    "manifest_sha256": "6fb4ce229ee0c5e91d450a1e4908a1eaa4825c047e61d8a43190d410a5ec8970",
+    "dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
+    "file_count": 159,
+    "fingerprinted_count": 159,
+    "generated_at": "2026-08-26T12:58:41.538126+00:00",
+    "reason": ""
+  },
+  "universe_membership": {
+    "complete": false,
+    "path": "data/universe_membership.csv",
+    "rows": 0,
+    "required_tickers": 62,
+    "missing_required_tickers": [
+      "AAPL",
+      "ABBV",
+      "AEP",
+      "AMAT",
+      "AMD",
+      "AMT",
+      "AMZN",
+      "APD",
+      "AVGO",
+      "BAC",
+      "BKNG",
+      "C",
+      "CAT",
+      "CCI",
+      "CHTR",
+      "CMCSA",
+      "COP",
+      "COST",
+      "CVX",
+      "DE",
+      "DIS",
+      "DUK",
+      "EOG",
+      "EQIX",
+      "EXC",
+      "FCX",
+      "GE",
+      "GOOGL",
+      "GS",
+      "HD",
+      "HON",
+      "HSY",
+      "IFF",
+      "INTC",
+      "JNJ",
+      "JPM",
+      "KO",
+      "LIN",
+      "LLY",
+      "LYV",
+      "MA",
+      "META",
+      "MRK",
+      "MSFT",
+      "MU",
+      "NEE",
+      "NEM",
+      "NFLX",
+      "NVDA",
+      "PEP",
+      "PG",
+      "PLD",
+      "PSA",
+      "RTX",
+      "SHW",
+      "SLB",
+      "SO",
+      "TSLA",
+      "UNH",
+      "V",
+      "WMT",
+      "XOM"
+    ],
+    "delisted_tickers": 0,
+    "delisted_tickers_with_data": [],
+    "reasons": [
+      "membership_table_missing",
+      "required_ticker_membership_missing",
+      "delisted_membership_missing"
+    ]
+  },
+  "folds": [],
+  "summary": {
+    "fold_count": null,
+    "mean_oos_cagr_pct": null,
+    "mean_oos_sharpe": null,
+    "mean_oos_alpha_vs_spy_pct": null,
+    "mean_oos_alpha_vs_qqq_pct": null,
+    "oos_positive_alpha_hit_rate": null,
+    "mean_oos_turnover_pct": null,
+    "worst_oos_turnover_pct": null,
+    "cumulative_oos_turnover_pct": null,
+    "selection_bias_gap_sharpe": null,
+    "fallback_fold_count": null,
+    "fallback_rate": null,
+    "fallback_years": null
+  },
+  "analyzer": {},
+  "robustness_reports": {
+    "survivorship": {
+      "name": "survivorship",
+      "path": "logs/core_satellite_survivorship_audit.json",
+      "exists": true,
+      "match": false,
+      "reasons": [
+        "config_fingerprint_mismatch",
+        "dataset_fingerprint_missing"
+      ],
+      "sha256": "67d879967388b51e78fd472507f499a4cd89735dcbef12cbd8517f2e5b8fe2e5",
+      "generated_at": "2026-05-20T00:57:45.576268",
+      "observed_config_fingerprint": "6ba9a949c336a9ed",
+      "observed_dataset_fingerprint": ""
+    },
+    "execution_stress": {
+      "name": "execution_stress",
+      "path": "logs/core_satellite_execution_stress.json",
+      "exists": true,
+      "match": false,
+      "reasons": [
+        "config_fingerprint_mismatch",
+        "dataset_fingerprint_missing"
+      ],
+      "sha256": "95543e7ab2aef148f346916b5200b21d3b5a78b7245d42d525e6977b4c300a7c",
+      "generated_at": "2026-05-20T00:57:30.536240",
+      "observed_config_fingerprint": "6ba9a949c336a9ed",
+      "observed_dataset_fingerprint": ""
+    },
+    "factor_decay": {
+      "name": "factor_decay",
+      "path": "logs/factor_decay_monitor.json",
+      "exists": true,
+      "match": false,
+      "reasons": [
+        "config_fingerprint_missing",
+        "dataset_fingerprint_missing"
+      ],
+      "sha256": "7d7f1ee078f6b1fd907d923982650e3442caec4ff42969e6183ac29d4c4aa364",
+      "generated_at": "2026-05-22T02:00:09.319212",
+      "observed_config_fingerprint": "",
+      "observed_dataset_fingerprint": ""
+    }
+  },
+  "approval": {
+    "approved": true,
+    "reasons": [],
+    "thresholds": {
+      "min_folds": 3,
+      "min_config_frequency": 0.2,
+      "min_mean_oos_sharpe": 0.5,
+      "min_oos_alpha_hit_rate": 0.6,
+      "max_mean_oos_drawdown_pct": -25.0,
+      "max_worst_oos_drawdown_pct": -35.0,
+      "max_worst_oos_turnover_pct": 600.0,
+      "max_selection_bias_gap_sharpe": 1.5
+    },
+    "warnings": [],
+    "strategy": "core-alpha",
+    "approved_config_family": "score=regime_adaptive,shape=top3,weighting=sticky_score,risk=off,tqqq=0.0",
+    "approved_family_signature": "score=regime_adaptive,shape=top3,weighting=sticky_score,risk=off,tqqq=0.0",
+    "approved_family_fold_count": 7,
+    "approved_family_frequency": 0.5,
+    "approved_exact_config": "h=20,ov=0.5,ma=100,vol=percentile:0.3,score=regime_adaptive,shape=top3,weighting=sticky_score,tqqq=0.0,risk=off",
+    "approved_config_fold_count": 7,
+    "approved_config_frequency": 0.5,
+    "source": "nested_walkforward",
+    "created_at": "2026-08-26T07:28:28+00:00"
+  },
+  "deployment": {
+    "status": "paper_provisional",
+    "paper_approved": true,
+    "real_capital_approved": false,
+    "integrity_status": "provisional",
+    "reasons": [
+      "execution_stress:config_fingerprint_mismatch",
+      "execution_stress:dataset_fingerprint_missing",
+      "factor_decay:config_fingerprint_missing",
+      "factor_decay:dataset_fingerprint_missing",
+      "point_in_time_universe_incomplete",
+      "survivorship:config_fingerprint_mismatch",
+      "survivorship:dataset_fingerprint_missing",
+      "walkforward_folds_missing",
+      "walkforward_source_missing"
+    ]
+  },
+  "validation_bundle_hash": "323cbf9b7bf46ee4e2a8becd204bfca380551e67c905ebb539c1ecadb3ae0cd5"
+}

@@ -1,60 +1,34 @@
-# prepare_colab_walkforward.py - Colab Bundle Builder
+# prepare_colab_walkforward.py - Colab Snapshot Builder
 
-## What it does
+## What It Does
 
-This script makes one compressed copy of the current project for Google Colab.
-It includes the code, saved market data, models, and research signals needed by
-the walk-forward. It excludes passwords, `.env` files, logs, Git history,
-virtual environments, and temporary Python files.
+This script makes a small, secret-free research snapshot for Google Colab. It
+includes parquet prices, their provenance manifests, and approved research
+reports. Colab clones the code separately at the exact Git commit recorded in
+the snapshot manifest. Alpaca credentials and broker account logs are excluded.
 
-This matters because cloning GitHub alone may not reproduce the exact local
-project. Local code changes and ignored market-data files can be newer than the
-copy on GitHub.
+## How To Run It
 
-## How to run it
-
-From the project folder:
+First commit and push the project. Then run:
 
 ```bash
 python3 prepare_colab_walkforward.py
 ```
 
-Expected output:
-
-```text
-../Stock_Market_AI_Bot_Colab.zip
-```
-
-To choose a different location:
-
-```bash
-python3 prepare_colab_walkforward.py --output /path/to/my_bundle.zip
-```
-
-Upload the finished zip file to this Google Drive folder:
-
-```text
-My Drive/StockBotColab/Stock_Market_AI_Bot_Colab.zip
-```
-
-Then open `Colab/stockbot_walkforward.ipynb` in Google Colab and run its cells
-from top to bottom.
-
-## Inputs
-
-- Current project code
-- `data/` market and factor files
-- `models/` saved model files
-- `signals/` research inputs and previous results
+The command refuses a dirty working tree because uncommitted code cannot be
+reproduced in Colab. `--allow-dirty` exists for disposable research only. Use
+`--output-dir /path/to/folder` to choose another destination.
 
 ## Outputs
 
-- `Stock_Market_AI_Bot_Colab.zip`, ready to upload to Google Drive
+Two files appear in `colab/`: a compressed `.tar.gz` snapshot and a matching
+`.manifest.json`. The manifest records the archive checksum, exact Git commit,
+file list, and whether the working tree was clean. Upload both files to
+`My Drive/StockBotWalkforward/`.
 
-## Key terms
+## Key Terms
 
-- **Bundle**: one compressed file containing many project files.
-- **Secret**: private information such as an API key, broker password, or token.
-- **Checkpoint**: a small progress file that lets a stopped walk-forward resume.
-- **Walk-forward**: a historical test that repeatedly trains on earlier periods
-  and tests on a later period without using future knowledge.
+- **Snapshot:** a frozen copy of research inputs.
+- **Checksum:** a fingerprint proving the upload was not damaged.
+- **Git commit:** the exact saved version of the code.
+- **Checkpoint:** saved progress used to resume a stopped walk-forward.

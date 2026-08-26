@@ -9,7 +9,13 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 from settings import DATA_DIR, LOG_DIR
+import data_provider
 from data_provider import download_single, flatten_yf
+from data_manifest import (
+    read_parquet_manifest,
+    validate_provider_transition,
+    write_parquet_manifest,
+)
 from safe_io import atomic_write_json, atomic_write_parquet
 
 
@@ -138,7 +144,7 @@ def _download(symbol: str) -> pd.DataFrame:
     This way the pipeline doesn't break when one provider is down.
     """
     try:
-        frame = download_single(symbol, period="max", auto_adjust=False)
+        frame = download_single(symbol, period="max", auto_adjust=True)
     except RuntimeError:
         return pd.DataFrame()
     if frame.empty:
@@ -159,9 +165,29 @@ def validate_etfs(symbols: list[str], *, refresh: bool = False, force: bool = Fa
             downloaded = _download(symbol)
             downloaded_check = _validate_etf_frame(downloaded, symbol=symbol)
             if downloaded_check["ok"]:
-                atomic_write_parquet(downloaded, DATA / f"{symbol}.parquet", index=True)
-                local = downloaded_check
-                refreshed = True
+                parquet_path = DATA / f"{symbol}.parquet"
+                previous = read_parquet_manifest(parquet_path)
+                provider = data_provider.provider_for_ticker.get(symbol, "unknown")
+                transition = validate_provider_transition(
+                    frame,
+                    downloaded,
+                    previous_provider=str(previous.get("provider", "")),
+                    new_provider=provider,
+                )
+                if transition.get("ok", False):
+                    atomic_write_parquet(downloaded, parquet_path, index=True)
+                    write_parquet_manifest(
+                        parquet_path,
+                        ticker=symbol,
+                        provider=provider,
+                        adjustment_mode="adjusted_ohlcv",
+                        frame=downloaded,
+                        provider_transition=transition,
+                    )
+                    local = downloaded_check
+                    refreshed = True
+                else:
+                    local = {**local, "download_issues": [transition.get("reason", "provider_transition_failed")]}
             else:
                 local = {**local, "download_issues": downloaded_check.get("issues", [])}
         results.append({**local, "refreshed": refreshed})

@@ -307,6 +307,7 @@ from core_satellite_alpha import (
 from settings import LOG_DIR, SIGNAL_DIR
 from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
 from safe_io import atomic_write_csv, atomic_write_text
+from validation_bundle import DEFAULT_BUNDLE_PATH, build_validation_bundle, write_validation_bundle
 
 
 BASE_REGIME = "qqq_trend_switch_overlay70_core55_cashbuffer"
@@ -412,6 +413,29 @@ SURVIVORSHIP_MAX_AUDIT_SELECTIONS = 60  # allow up to 60 selections (realistic w
 SURVIVORSHIP_MIN_RETURN_DELTA_PCT = -5000.0  # absolute return delta (wide, since returns are compounded %)
 SURVIVORSHIP_MIN_DRAWDOWN_DELTA_PCT = -5.0  # drawdown can't get >5% worse
 EXECUTION_STRESS_MIN_WORST_DRAWDOWN_PCT = -35.0  # allow up to 35% dd under worst stress (delay+25bps)
+
+
+def _load_frozen_factor_baseline_config() -> dict | None:
+    """Load the already deployed factor config before a new search begins."""
+    if not LIVE_CONFIG_PATH.exists():
+        return None
+    try:
+        payload = json.loads(LIVE_CONFIG_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    approved = (payload.get("approved_live_configs", {}) or {}).get("core-alpha", {}) or {}
+    config = approved.get("config")
+    return dict(config) if isinstance(config, dict) else None
+
+
+def _finite_correlation(left: list[float], right: list[float]) -> float | None:
+    """Return Pearson correlation, or None when too little variation exists."""
+    a = np.asarray(left, dtype=float)
+    b = np.asarray(right, dtype=float)
+    mask = np.isfinite(a) & np.isfinite(b)
+    if int(mask.sum()) < 4 or float(np.std(a[mask])) <= 1e-12 or float(np.std(b[mask])) <= 1e-12:
+        return None
+    return float(np.corrcoef(a[mask], b[mask])[0, 1])
 
 # ── Checkpoint helpers ────────────────────────────────────────────────────────
 # The walkforward can take hours.  After each outer fold we persist the
@@ -568,6 +592,11 @@ _APPROVAL_THRESHOLDS: dict[str, dict[str, float]] = {
         "max_worst_oos_drawdown_pct": -35.0,     # worst single-fold max drawdown
         "max_worst_oos_turnover_pct": 600.0,     # reject one-off churn blowups
         "max_selection_bias_gap_sharpe": 1.50,   # inner-vs-OOS Sharpe gap (overfitting detector)
+        "min_selector_alpha_correlation": 0.0,
+        "max_overconfidence_gap_pct": 20.0,
+        "max_fallback_rate": 0.20,
+        "min_selector_sharpe_uplift": 0.0,
+        "min_selector_alpha_hit_uplift": 0.0,
     },
     "tqqq": {
         "min_folds": 3,
@@ -578,6 +607,11 @@ _APPROVAL_THRESHOLDS: dict[str, dict[str, float]] = {
         "max_worst_oos_drawdown_pct": -25.0,     # must prove regime switching protects in crashes
         "max_worst_oos_turnover_pct": 600.0,
         "max_selection_bias_gap_sharpe": 1.00,   # tighter — overfitting on leverage is costly
+        "min_selector_alpha_correlation": 0.0,
+        "max_overconfidence_gap_pct": 20.0,
+        "max_fallback_rate": 0.20,
+        "min_selector_sharpe_uplift": 0.0,
+        "min_selector_alpha_hit_uplift": 0.0,
         "min_worst_oos_return_pct": -30.0,       # TQQQ-only: catch crash-year blowups
     },
 }
@@ -1082,10 +1116,18 @@ def evaluate_window(panel: pd.DataFrame, config: dict, start: pd.Timestamp, end:
         bench = _get_cached_bench_raw(pd.DatetimeIndex(window.index))
         comps = compare_to_benchmarks(window, bench)
         turnover_pct = None
+        rebalance_count = 0
+        estimated_cost_pct = 0.0
         if not trades.empty and "date" in trades.columns and "turnover" in trades.columns:
             trade_dates = pd.to_datetime(trades["date"], errors="coerce")
             mask = (trade_dates >= start_ts) & (trade_dates <= end_ts)
             turnover_pct = round(float(pd.to_numeric(trades.loc[mask, "turnover"], errors="coerce").fillna(0.0).sum()) * 100.0, 2)
+            rebalance_count = int(mask.sum())
+            if "cost" in trades.columns:
+                estimated_cost_pct = round(
+                    float(pd.to_numeric(trades.loc[mask, "cost"], errors="coerce").fillna(0.0).sum()) * 100.0,
+                    4,
+                )
 
         return {
             **stats,
@@ -1094,6 +1136,8 @@ def evaluate_window(panel: pd.DataFrame, config: dict, start: pd.Timestamp, end:
             "alpha_vs_blend_pct": comps["BLEND"]["alpha_pct"],
             "benchmark_blend_return_pct": comps["BLEND"]["benchmark_return_pct"],
             "turnover_pct": turnover_pct if turnover_pct is not None else metrics.get("turnover_pct"),
+            "rebalance_count": rebalance_count,
+            "estimated_cost_pct": estimated_cost_pct,
             "window_start": str(pd.Timestamp(window.index[0]).date()),
             "window_end": str(pd.Timestamp(window.index[-1]).date()),
             "n_equity_points": int(len(window)),
@@ -1446,6 +1490,45 @@ def approval_status(result: dict) -> dict:
             f"selection_bias_gap={bias_gap:.2f}>{thresholds['max_selection_bias_gap_sharpe']:.2f}"
         )
 
+    # The selector itself must predict OOS alpha. High backtest returns are not
+    # enough when the ranking rule favors the wrong configurations.
+    selector_corr = result.get("inner_score_vs_oos_qqq_alpha_correlation")
+    if selector_corr is None:
+        reasons.append("selector_alpha_correlation_missing")
+    elif float(selector_corr) <= thresholds["min_selector_alpha_correlation"]:
+        reasons.append(
+            f"selector_alpha_correlation={float(selector_corr):.3f}"
+            f"<={thresholds['min_selector_alpha_correlation']:.1f}"
+        )
+
+    overconfidence = result.get("overconfidence_gap_pct")
+    if overconfidence is None:
+        reasons.append("overconfidence_gap_missing")
+    elif float(overconfidence) > thresholds["max_overconfidence_gap_pct"]:
+        reasons.append(
+            f"overconfidence_gap={float(overconfidence):.1f}pp>"
+            f"{thresholds['max_overconfidence_gap_pct']:.0f}pp"
+        )
+
+    fallback_rate = float(result.get("fallback_rate", 0.0) or 0.0)
+    if fallback_rate > thresholds["max_fallback_rate"]:
+        reasons.append(
+            f"fallback_rate={fallback_rate:.3f}>{thresholds['max_fallback_rate']:.2f}"
+        )
+    recent_fallbacks = list(result.get("recent_fallback_years", []) or [])
+    if recent_fallbacks:
+        reasons.append("recent_relaxed_fallbacks:" + ",".join(str(year) for year in recent_fallbacks))
+
+    if not bool(result.get("frozen_baseline_available", False)):
+        reasons.append("frozen_factor_baseline_missing")
+    else:
+        sharpe_uplift = float(result.get("selector_sharpe_uplift_vs_baseline", -999.0) or 0.0)
+        alpha_hit_uplift = float(result.get("selector_alpha_hit_uplift_vs_baseline", -999.0) or 0.0)
+        if sharpe_uplift < thresholds["min_selector_sharpe_uplift"]:
+            reasons.append(f"selector_sharpe_uplift={sharpe_uplift:.3f}<0")
+        if alpha_hit_uplift < thresholds["min_selector_alpha_hit_uplift"]:
+            reasons.append(f"selector_alpha_hit_uplift={alpha_hit_uplift:.3f}<0")
+
     # ── TQQQ-only: worst single-fold return ─────────────────────────────────
     # A single fold losing more than the threshold means regime switching
     # failed to protect during a crash year.
@@ -1700,6 +1783,7 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
     MAX_PLAUSIBLE_FOLD_SCORE = 5.0
 
     eval_cache: dict[str, dict] = {}
+    frozen_baseline_config = _load_frozen_factor_baseline_config()
     fold_scores: list[float] = []
     fold_metrics: list[dict] = []
     failed = 0
@@ -2553,6 +2637,7 @@ def run_nested_walkforward(
             for sc in selected_configs
         ] if selected_configs else None
 
+        used_relaxed_fallback = False
         selected = select_config_from_inner_folds(
             panel, configs, inner_folds, eval_cache=eval_cache,
             low_memory=low_memory, n_workers=n_workers,
@@ -2605,6 +2690,7 @@ def run_nested_walkforward(
             )
             best_config = selected.get("config")
             if best_config is not None:
+                used_relaxed_fallback = True
                 print(f"    ✓ Fallback found config (stress gate relaxed)", flush=True)
 
         if best_config is None:
@@ -2644,6 +2730,18 @@ def run_nested_walkforward(
 
         params = best_config["nested_params"]
         inner_metrics = selected["metrics"]
+        relaxed_selection_diagnostics = selected.get("selection_diagnostics", {})
+        baseline_metrics: dict = {}
+        if frozen_baseline_config:
+            try:
+                baseline_metrics = evaluate_window(
+                    panel,
+                    frozen_baseline_config,
+                    split.outer_start,
+                    split.outer_end,
+                )
+            except (ValueError, KeyError, RuntimeError, ZeroDivisionError) as exc:
+                baseline_metrics = {"error": str(exc)}
         row = {
             "valid": True,
             "fold_year": int(split.outer_year),
@@ -2660,7 +2758,12 @@ def run_nested_walkforward(
             "inner_score_std": inner_metrics["inner_score_std"],
             "failed_evaluations": int(selected.get("failed_evaluations", 0)),
             "candidate_configs": int(len(configs)),
-            "inner_selection_diagnostics": selected.get("selection_diagnostics", {}),
+            "used_relaxed_fallback": bool(used_relaxed_fallback),
+            "strict_inner_selection_diagnostics": strict_selection_diagnostics,
+            "relaxed_inner_selection_diagnostics": relaxed_selection_diagnostics if used_relaxed_fallback else {},
+            "inner_selection_diagnostics": relaxed_selection_diagnostics,
+            "screened_config_count": int(strict_selection_diagnostics.get("evaluated_configs", len(configs)) or 0),
+            "survivor_config_count": int(strict_selection_diagnostics.get("valid_configs", 0) or 0),
             "selected_config": config_signature(best_config),
             "holding_days": params["holding_days"],
             "overlay_gross": params["overlay_gross"],
@@ -2673,8 +2776,14 @@ def run_nested_walkforward(
             "oos_sharpe": outer_metrics.get("sharpe"),
             "oos_drawdown_pct": outer_metrics.get("max_drawdown_pct"),
             "oos_turnover_pct": outer_metrics.get("turnover_pct"),
+            "oos_rebalance_count": outer_metrics.get("rebalance_count", 0),
+            "oos_estimated_cost_pct": outer_metrics.get("estimated_cost_pct", 0.0),
             "oos_alpha_vs_spy_pct": outer_metrics.get("alpha_vs_spy_pct"),
             "oos_alpha_vs_qqq_pct": outer_metrics.get("alpha_vs_qqq_pct"),
+            "baseline_oos_sharpe": baseline_metrics.get("sharpe"),
+            "baseline_oos_alpha_vs_qqq_pct": baseline_metrics.get("alpha_vs_qqq_pct"),
+            "baseline_oos_turnover_pct": baseline_metrics.get("turnover_pct"),
+            "baseline_error": baseline_metrics.get("error", ""),
         }
         row.update(inner_metrics)
         for prefix, metrics in (("oos", outer_metrics),):
@@ -2758,9 +2867,35 @@ def run_nested_walkforward(
     oos_drawdowns = np.array([float(row["oos_max_drawdown_pct"]) for row in valid_rows], dtype=float)
     oos_turnovers = np.array([float(row["oos_turnover_pct"]) for row in valid_rows], dtype=float)
     inner_alpha = np.array([float(row["inner_mean_alpha_vs_spy_pct"]) for row in valid_rows], dtype=float)
+    inner_qqq_alpha = np.array([float(row.get("inner_mean_alpha_vs_qqq_pct", 0.0) or 0.0) for row in valid_rows], dtype=float)
     oos_alpha = np.array([float(row["oos_alpha_vs_blend_pct"]) for row in valid_rows], dtype=float)
     oos_spy_alpha = np.array([float(row["oos_alpha_vs_spy_pct"]) for row in valid_rows], dtype=float)
     oos_qqq_alpha = np.array([float(row["oos_alpha_vs_qqq_pct"]) for row in valid_rows], dtype=float)
+    fallback_years = [int(row["outer_year"]) for row in valid_rows if bool(row.get("used_relaxed_fallback", False))]
+    recent_outer_years = sorted(int(row["outer_year"]) for row in valid_rows)[-3:]
+    recent_fallback_years = [year for year in fallback_years if year in recent_outer_years]
+    score_alpha_corr = _finite_correlation(
+        [float(row.get("inner_score", np.nan)) for row in valid_rows],
+        [float(row.get("oos_alpha_vs_qqq_pct", np.nan)) for row in valid_rows],
+    )
+    inner_predicts_beat_rate = float(np.mean(inner_qqq_alpha > 0.0))
+    oos_beats_qqq_rate = float(np.mean(oos_qqq_alpha > 0.0))
+    overconfidence_gap_pct = (inner_predicts_beat_rate - oos_beats_qqq_rate) * 100.0
+    baseline_rows = [
+        row for row in valid_rows
+        if row.get("baseline_oos_sharpe") is not None
+        and row.get("baseline_oos_alpha_vs_qqq_pct") is not None
+    ]
+    baseline_mean_sharpe = (
+        float(np.mean([float(row["baseline_oos_sharpe"]) for row in baseline_rows]))
+        if len(baseline_rows) == len(valid_rows)
+        else None
+    )
+    baseline_alpha_hit_rate = (
+        float(np.mean([float(row["baseline_oos_alpha_vs_qqq_pct"]) > 0.0 for row in baseline_rows]))
+        if len(baseline_rows) == len(valid_rows)
+        else None
+    )
     signatures = Counter(str(row["selected_config"]) for row in valid_rows)
     most_common_sig, most_common_count = signatures.most_common(1)[0]
     config_stability = round(float(most_common_count / len(valid_rows)), 3)
@@ -2843,7 +2978,12 @@ def run_nested_walkforward(
         "mean_oos_max_drawdown_pct": round(float(np.mean(oos_drawdowns)), 2),
         "worst_oos_max_drawdown_pct": round(float(np.min(oos_drawdowns)), 2),
         "mean_oos_turnover_pct": round(float(np.mean(oos_turnovers)), 2),
+        "annualized_turnover_pct": round(float(np.mean(oos_turnovers)), 2),
         "worst_oos_turnover_pct": round(float(np.max(oos_turnovers)), 2),
+        "worst_year_turnover_pct": round(float(np.max(oos_turnovers)), 2),
+        "cumulative_oos_turnover_pct": round(float(np.sum(oos_turnovers)), 2),
+        "oos_rebalance_count": int(sum(int(row.get("oos_rebalance_count", 0) or 0) for row in valid_rows)),
+        "oos_estimated_cost_pct": round(float(sum(float(row.get("oos_estimated_cost_pct", 0.0) or 0.0) for row in valid_rows)), 4),
         "worst_oos_return_pct": round(float(np.min(oos_returns)) * 100.0, 2),
         "mean_oos_alpha_vs_blend_pct": round(float(np.mean(oos_alpha)), 2),
         "mean_oos_alpha_vs_spy_pct": round(float(np.mean(oos_spy_alpha)), 2),
@@ -2853,6 +2993,19 @@ def run_nested_walkforward(
         "mean_inner_alpha_vs_spy_pct": round(float(np.mean(inner_alpha)), 2),
         "selection_bias_gap_sharpe": round(float(np.mean(inner_sharpes) - np.mean(oos_sharpes)), 3),
         "selection_bias_gap_alpha_vs_spy_pct": round(float(np.mean(inner_alpha) - np.mean(oos_spy_alpha)), 2),
+        "inner_score_vs_oos_qqq_alpha_correlation": None if score_alpha_corr is None else round(score_alpha_corr, 3),
+        "inner_predicts_beat_qqq_pct": round(inner_predicts_beat_rate * 100.0, 1),
+        "oos_beats_qqq_pct": round(oos_beats_qqq_rate * 100.0, 1),
+        "overconfidence_gap_pct": round(overconfidence_gap_pct, 1),
+        "fallback_fold_count": int(len(fallback_years)),
+        "fallback_rate": round(float(len(fallback_years) / len(valid_rows)), 3),
+        "fallback_years": fallback_years,
+        "recent_fallback_years": recent_fallback_years,
+        "frozen_baseline_available": bool(baseline_mean_sharpe is not None),
+        "frozen_baseline_mean_oos_sharpe": None if baseline_mean_sharpe is None else round(baseline_mean_sharpe, 3),
+        "frozen_baseline_oos_alpha_hit_rate": None if baseline_alpha_hit_rate is None else round(baseline_alpha_hit_rate, 3),
+        "selector_sharpe_uplift_vs_baseline": None if baseline_mean_sharpe is None else round(float(np.mean(oos_sharpes)) - baseline_mean_sharpe, 3),
+        "selector_alpha_hit_uplift_vs_baseline": None if baseline_alpha_hit_rate is None else round(oos_beats_qqq_rate - baseline_alpha_hit_rate, 3),
         "config_stability": config_stability,
         "best_config_frequency": round(float(most_common_count / len(valid_rows)), 3),
         "approved_config_fold_count": approved_exact_count,
@@ -2874,6 +3027,21 @@ def run_nested_walkforward(
         "inner_fold_details": inner_details,
         "selected_configs": selected_configs,
     }
+    # Store the same diagnostics used by the standalone analyzer inside the
+    # approval artifact. Warnings can no longer be separated from promotion.
+    try:
+        from walkforward_analyzer import check_calibration, check_score_predictiveness
+
+        analyzer_frame = pd.DataFrame(valid_rows)
+        summary["walkforward_analyzer"] = {
+            "score_predictiveness": check_score_predictiveness(analyzer_frame),
+            "calibration": check_calibration(analyzer_frame),
+        }
+    except Exception as exc:
+        summary["walkforward_analyzer"] = {
+            "valid": False,
+            "reason": f"analyzer_failed:{exc}",
+        }
     approval = approval_status(summary)
     summary["live_config_approval"] = {
         **approval,
@@ -2982,6 +3150,24 @@ def write_outputs(
     if not publish_live_config:
         return json_path, csv_path
 
+    # PLAIN ENGLISH: Keep the requested output name for research history, but
+    # copy approved evidence to the one tracked canonical path. The validation
+    # bundle always fingerprints that canonical file, never an ignored scratch
+    # filename.
+    canonical_json_path = signal_dir / f"{DEFAULT_OUTPUT_PREFIX}.json"
+    canonical_csv_path = signal_dir / f"{DEFAULT_OUTPUT_PREFIX}.csv"
+    if canonical_json_path != json_path:
+        atomic_write_text(canonical_json_path, json_path.read_text(encoding="utf-8"))
+        atomic_write_csv(pd.DataFrame(result.get("folds", [])), canonical_csv_path, index=False)
+    bundle = build_validation_bundle(result, source_json=str(canonical_json_path))
+    # Use this run's signal directory. Tests and isolated research runs replace
+    # SIGNAL_DIR with a temporary folder and must never overwrite production
+    # validation state through a default path captured at import time.
+    bundle_path = write_validation_bundle(
+        bundle,
+        signal_dir / DEFAULT_BUNDLE_PATH.name,
+    )
+
     if result.get("strategy") == "both":
         approvals = dict(result.get("live_config_approvals", {}))
         approved_configs = dict(result.get("approved_live_configs", {}))
@@ -3016,11 +3202,22 @@ def write_outputs(
     live_payload = {
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "source_json": str(json_path),
+        "source_json_sha256": bundle.get("source_json_sha256", ""),
+        "validation_bundle_path": str(bundle_path),
+        "validation_bundle_hash": bundle.get("validation_bundle_hash", ""),
+        "deployment_status": bundle.get("deployment", {}).get("status", "rejected"),
+        "paper_approved": bool(bundle.get("deployment", {}).get("paper_approved", False)),
+        "real_capital_approved": False,
         "method": result.get("method"),
         "approvals": merged_approvals,
         "approved_live_configs": merged_configs,
         "medium_risk_reviews": medium_reviews,
     }
+    for published in live_payload["approved_live_configs"].values():
+        if isinstance(published, dict):
+            published["deployment_status"] = live_payload["deployment_status"]
+            published["validation_bundle_hash"] = live_payload["validation_bundle_hash"]
+            published["real_capital_approved"] = False
     atomic_write_text(LIVE_CONFIG_PATH, json.dumps(live_payload, indent=2, default=_json_default))
     return json_path, csv_path
 

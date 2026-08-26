@@ -22,6 +22,7 @@ import core_satellite_alpha as core
 from settings import LOG_DIR, SIGNAL_DIR, SURVIVORSHIP_AUDIT_TICKERS, WATCHLIST
 from safe_io import atomic_write_csv, atomic_write_json
 from survivorship_audit import available_audit_tickers, existing_audit_profiles
+from validation_bundle import add_validation_context
 
 
 OUT_JSON = Path(LOG_DIR) / "core_satellite_survivorship_audit.json"
@@ -173,7 +174,7 @@ def main() -> None:
         "rows": rows,
         "profile_summary": profiles,
     }
-    atomic_write_json(payload, OUT_JSON)
+    atomic_write_json(add_validation_context(payload, config=config), OUT_JSON)
 
     print(f"Core-satellite survivorship audit written -> {OUT_CSV}")
     print(f"Detailed report -> {OUT_JSON}")

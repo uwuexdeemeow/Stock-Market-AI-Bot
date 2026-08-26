@@ -52,6 +52,42 @@ import numpy as np
 
 # ── Track which provider was last used (for diagnostics) ──────────────
 last_provider: str = "none"
+# PLAIN ENGLISH: Callers often download one ticker at a time. This map lets the
+# parquet writer record which source supplied each ticker instead of relying on
+# one process-wide "last provider" string.
+provider_for_ticker: dict[str, str] = {}
+
+
+def _normalize_provider_result(
+    frame: pd.DataFrame,
+    *,
+    provider: str,
+    auto_adjust: bool,
+) -> pd.DataFrame:
+    """Apply one predictable date/column contract to every provider result."""
+    out = frame.copy()
+    out.index = pd.to_datetime(out.index, errors="coerce")
+    out = out[~out.index.isna()]
+    out = out[~out.index.duplicated(keep="last")].sort_index()
+    if not isinstance(out.columns, pd.MultiIndex):
+        rename = {
+            str(column).lower().replace("_", ""): canonical
+            for column, canonical in (
+                ("open", "Open"), ("high", "High"), ("low", "Low"),
+                ("close", "Close"), ("adjclose", "Adj Close"),
+                ("volume", "Volume"),
+            )
+        }
+        out = out.rename(columns={
+            column: rename.get(str(column).lower().replace("_", ""), column)
+            for column in out.columns
+        })
+        for column in ("Open", "High", "Low", "Close", "Adj Close", "Volume"):
+            if column in out.columns:
+                out[column] = pd.to_numeric(out[column], errors="coerce")
+    out.attrs["price_provider"] = provider
+    out.attrs["adjustment_mode"] = "adjusted_ohlcv" if auto_adjust else "raw_ohlcv"
+    return out
 
 
 def _provider_order() -> list[str]:
@@ -449,7 +485,9 @@ def download_prices(
             tickers, start=start, end=end, period=period,
             auto_adjust=auto_adjust,
         ),
-        "stooq": lambda: _try_stooq(
+        # Stooq does not provide the adjusted OHLC contract needed by training.
+        # It remains available only for callers that explicitly request raw data.
+        "stooq": lambda: None if auto_adjust else _try_stooq(
             tickers, start=start, end=end, period=period,
         ),
     }
@@ -457,9 +495,16 @@ def download_prices(
     for provider in _provider_order():
         result = providers[provider]()
         if result is not None and not result.empty:
+            result = _normalize_provider_result(
+                result,
+                provider=provider,
+                auto_adjust=auto_adjust,
+            )
             if last_provider != provider:
                 print(f"  INFO: Using {provider} price data")
             last_provider = provider
+            for ticker in tickers:
+                provider_for_ticker[str(ticker).upper()] = provider
             return result
         errors.append(f"{provider}: returned empty or failed")
 

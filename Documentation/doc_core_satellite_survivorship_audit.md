@@ -35,3 +35,7 @@ stress report.
 - Audit ticker: a failed or delisted ticker available for stress testing.
 - Stressed universe: normal watchlist plus available audit tickers.
 - Alpha: return above a benchmark such as QQQ or a blended benchmark.
+
+The report carries strategy and dataset fingerprints. Testing remains partial
+until date-effective membership and delisted-name data are complete, so it
+cannot authorize real capital.

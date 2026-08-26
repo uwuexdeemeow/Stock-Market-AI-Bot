@@ -1,0 +1,156 @@
+from __future__ import annotations
+
+import json
+
+import pandas as pd
+
+import alpaca_paper_trading as alpaca
+import core_satellite_nested_walkforward as walkforward
+import data_manifest
+import validation_bundle
+
+
+def _passing_walkforward_result() -> dict:
+    """Return the smallest result that clears every reliability approval gate."""
+    return {
+        "valid": True,
+        "strategy": "core-alpha",
+        "fold_count": 5,
+        "approved_family_frequency": 0.6,
+        "approved_config_frequency": 0.6,
+        "mean_oos_sharpe": 1.0,
+        "oos_positive_alpha_hit_rate": 0.8,
+        "cost_stress_approval_pass": True,
+        "mean_oos_max_drawdown_pct": -10.0,
+        "worst_oos_max_drawdown_pct": -15.0,
+        "worst_oos_turnover_pct": 100.0,
+        "selection_bias_gap_sharpe": 0.2,
+        "inner_score_vs_oos_qqq_alpha_correlation": 0.3,
+        "overconfidence_gap_pct": 5.0,
+        "fallback_rate": 0.0,
+        "recent_fallback_years": [],
+        "frozen_baseline_available": True,
+        "selector_sharpe_uplift_vs_baseline": 0.0,
+        "selector_alpha_hit_uplift_vs_baseline": 0.0,
+    }
+
+
+def test_walkforward_rejects_negative_selector_correlation_and_hidden_fallbacks():
+    result = _passing_walkforward_result()
+    assert walkforward.approval_status(result)["approved"] is True
+
+    result["inner_score_vs_oos_qqq_alpha_correlation"] = -0.1
+    result["fallback_rate"] = 0.4
+    result["recent_fallback_years"] = [2026]
+    result["overconfidence_gap_pct"] = 25.0
+    approval = walkforward.approval_status(result)
+
+    assert approval["approved"] is False
+    assert any(reason.startswith("selector_alpha_correlation=") for reason in approval["reasons"])
+    assert any(reason.startswith("fallback_rate=") for reason in approval["reasons"])
+    assert "recent_relaxed_fallbacks:2026" in approval["reasons"]
+    assert any(reason.startswith("overconfidence_gap=") for reason in approval["reasons"])
+
+
+def test_validation_bundle_detects_stale_report_fingerprint(tmp_path, monkeypatch):
+    source = tmp_path / "walkforward.json"
+    source.write_text("{}", encoding="utf-8")
+    config = {"score_source": "regime_adaptive", "holding_days": 20}
+    config_fingerprint = validation_bundle.strategy_config_fingerprint(config)
+    dataset_fingerprint = "dataset-v1"
+    report_paths = {}
+    for name in ("survivorship", "execution_stress", "factor_decay"):
+        path = tmp_path / f"{name}.json"
+        path.write_text(json.dumps({
+            "validation_context": {
+                "config_fingerprint": config_fingerprint,
+                "dataset_fingerprint": dataset_fingerprint,
+            }
+        }), encoding="utf-8")
+        report_paths[name] = path
+    monkeypatch.setattr(validation_bundle, "membership_status", lambda: {"complete": False})
+    result = {
+        "strategy": "core-alpha",
+        "live_config_approval": {"approved": True},
+        "approved_live_config": {"config": config},
+    }
+    dataset = {"dataset_fingerprint": dataset_fingerprint, "manifest_path": "test"}
+
+    bundle = validation_bundle.build_validation_bundle(
+        result,
+        source_json=str(source),
+        report_paths=report_paths,
+        dataset_context=dataset,
+    )
+    assert bundle["deployment"]["paper_approved"] is True
+    assert bundle["deployment"]["real_capital_approved"] is False
+    assert validation_bundle.validate_validation_bundle(bundle) == (True, [])
+
+    stale = json.loads(report_paths["factor_decay"].read_text(encoding="utf-8"))
+    stale["validation_context"]["dataset_fingerprint"] = "older-dataset"
+    report_paths["factor_decay"].write_text(json.dumps(stale), encoding="utf-8")
+    stale_bundle = validation_bundle.build_validation_bundle(
+        result,
+        source_json=str(source),
+        report_paths=report_paths,
+        dataset_context=dataset,
+    )
+    assert stale_bundle["robustness_reports"]["factor_decay"]["match"] is False
+    assert stale_bundle["deployment"]["integrity_status"] == "provisional"
+
+
+def test_provider_overlap_accepts_adjusted_match_and_rejects_price_scale_change():
+    dates = pd.date_range("2026-01-01", periods=10, freq="B")
+    existing = pd.DataFrame({"Close": range(100, 110)}, index=dates)
+    matching = pd.DataFrame({"Close": [value * 1.001 for value in range(100, 110)]}, index=dates)
+    split_scaled = pd.DataFrame({"Close": [value / 2 for value in range(100, 110)]}, index=dates)
+
+    assert data_manifest.compare_provider_overlap(existing, matching)["ok"] is True
+    mismatch = data_manifest.compare_provider_overlap(existing, split_scaled)
+    assert mismatch["ok"] is False
+    assert mismatch["reason"] == "provider_overlap_price_mismatch"
+
+
+def test_submit_outcome_is_fail_closed_and_journaled_once(tmp_path, monkeypatch):
+    outcome_path = tmp_path / "outcome.json"
+    journal_path = tmp_path / "outcomes.csv"
+    monkeypatch.setattr(alpaca, "SUBMIT_OUTCOME_FILE", outcome_path)
+    monkeypatch.setattr(alpaca, "SUBMIT_OUTCOME_JOURNAL_FILE", journal_path)
+
+    alpaca._begin_submit_outcome()
+    initial = json.loads(outcome_path.read_text(encoding="utf-8"))
+    assert initial["status"] == "failed"
+    assert initial["reason_code"] == "process_exited_before_final_outcome"
+
+    alpaca._set_submit_outcome("no_action", "portfolio_already_aligned", planned_orders=0)
+    alpaca._set_submit_outcome("no_action", "portfolio_already_aligned", planned_orders=0)
+    journal = pd.read_csv(journal_path)
+    assert len(journal) == 1
+    assert journal.iloc[0]["status"] == "no_action"
+
+
+def test_every_planned_order_receives_a_final_execution_state(tmp_path, monkeypatch):
+    monkeypatch.setattr(alpaca, "SUBMIT_OUTCOME_FILE", tmp_path / "outcome.json")
+    monkeypatch.setattr(alpaca, "SUBMIT_OUTCOME_JOURNAL_FILE", tmp_path / "outcomes.csv")
+    monkeypatch.setattr(
+        alpaca,
+        "_write_broker_truth_gate_report",
+        lambda: {"status": "pass", "summary": {"fail_count": 0, "warning_count": 0}},
+    )
+    statuses = {"accepted-filled": "filled", "accepted-open": "new"}
+    monkeypatch.setattr(alpaca, "_order_status", lambda broker, order_id: statuses[order_id])
+
+    alpaca._begin_submit_outcome()
+    outcome = alpaca._finalize_submit_outcome(
+        object(),
+        planned_count=4,
+        order_ids=["accepted-filled", "accepted-open", "SKIPPED:cash", "ERROR:rejected"],
+    )
+
+    accounted = (
+        outcome["filled_orders"] + outcome["open_orders"]
+        + outcome["skipped_orders"] + outcome["failed_orders"]
+        + outcome["rejected_orders"]
+    )
+    assert accounted == outcome["planned_orders"]
+    assert outcome["status"] == "failed"

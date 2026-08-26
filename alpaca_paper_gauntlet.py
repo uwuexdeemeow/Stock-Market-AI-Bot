@@ -677,6 +677,14 @@ def main() -> None:
     # Run the gauntlet
     result = evaluate_alpaca_paper(verbose=args.verbose)
 
+    # PLAIN ENGLISH: "collecting" is not the same as "passed." During the
+    # first 30 trading days the bot lacks enough evidence, so say that clearly
+    # while allowing the daily paper pipeline to continue gathering data.
+    if result.get("status") == "failed" and int(result.get("trading_days", 0) or 0) < 30:
+        result["underlying_status"] = "failed"
+        result["status"] = "collecting"
+        result["collection_target_trading_days"] = 30
+
     # Save to JSON
     out_path = write_gauntlet_report(result)
 
@@ -718,13 +726,6 @@ def main() -> None:
     # to the workflow without depending on string parsing.
     if result.get("status") == "failed":
         import sys
-        # Use exit 0 for the first 30 days (data accumulation period) so the
-        # workflow doesn't go red every day for an expected reason.  After
-        # that, fail loudly.
-        n_days = int(result.get("trading_days", 0) or 0)
-        if n_days < 30:
-            print("  (gauntlet failure expected during data accumulation — workflow not failed)")
-            sys.exit(0)
         sys.exit(1)
 
 

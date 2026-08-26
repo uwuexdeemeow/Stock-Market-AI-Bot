@@ -34,6 +34,11 @@ from backtest import INITIAL_CAPITAL, _load_etf_price_frame
 from feature_health import enrich_feature_specs
 from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
 from signal_freshness import latest_completed_us_trading_day, live_config_fingerprint
+from validation_bundle import (
+    strategy_config_fingerprint,
+    validate_validation_bundle,
+)
+from execution_cost_calibration import calibrated_turnover_cost_pct
 from settings import (
     DATA_DIR,
     SIGNAL_DIR,
@@ -1647,7 +1652,8 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
         aligned = pd.concat([prev_overlay.rename("prev"), overlay.rename("now")], axis=1).fillna(0.0)
         turnover = float((aligned["now"] - aligned["prev"]).abs().sum())
         extra_cost = turnover * float(config.get("extra_turnover_cost_bps", 0.0)) / 10_000.0
-        cost = turnover * SLIPPAGE_BASE_PCT * float(config.get("cost_stress", COST_STRESS_MULTIPLIERS[0])) + extra_cost
+        base_turnover_cost = calibrated_turnover_cost_pct()
+        cost = turnover * base_turnover_cost * float(config.get("cost_stress", COST_STRESS_MULTIPLIERS[0])) + extra_cost
         total_turnover += turnover
         total_cost += cost
 
@@ -2486,6 +2492,43 @@ def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
     config = approved.get("config") if isinstance(approved, dict) else None
     if not isinstance(config, dict):
         raise SystemExit(f"Approved live config for {strategy} is missing from {LIVE_CONFIG_PATH}.")
+
+    # PLAIN ENGLISH: The live config is only an index card. The validation
+    # bundle is the signed evidence behind it. Refuse to trade when the card
+    # points at missing, damaged, or different evidence.
+    bundle_path_text = str(payload.get("validation_bundle_path", "")).strip()
+    expected_bundle_hash = str(payload.get("validation_bundle_hash", "")).strip()
+    if not bundle_path_text or not expected_bundle_hash:
+        return {
+            "approved": False,
+            "reasons": ["validation_bundle_reference_missing"],
+            "approval": approval,
+        }
+    bundle_path = Path(bundle_path_text)
+    if not bundle_path.is_absolute():
+        bundle_path = Path.cwd() / bundle_path
+    try:
+        bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {
+            "approved": False,
+            "reasons": [f"validation_bundle_unreadable:{exc.__class__.__name__}"],
+            "approval": approval,
+        }
+    bundle_ok, bundle_issues = validate_validation_bundle(bundle)
+    if expected_bundle_hash != str(bundle.get("validation_bundle_hash", "")):
+        bundle_issues.append("live_config_bundle_hash_mismatch")
+    if strategy_config_fingerprint(config) != str(bundle.get("config_fingerprint", "")):
+        bundle_issues.append("live_config_strategy_fingerprint_mismatch")
+    deployment = bundle.get("deployment", {}) or {}
+    if not bool(deployment.get("paper_approved", False)):
+        bundle_issues.append("validation_bundle_not_paper_approved")
+    if not bundle_ok or bundle_issues:
+        return {
+            "approved": False,
+            "reasons": sorted(set(bundle_issues)),
+            "approval": approval,
+        }
     # PLAIN ENGLISH: This short hash is the approved config's ID card.  The
     # broker compares it against the signal so an old signal cannot be traded
     # after a new walkforward config is published.
@@ -2501,6 +2544,10 @@ def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
         "source_json": payload.get("source_json"),
         "created_at": payload.get("created_at"),
         "live_config_hash": config_hash,
+        "validation_bundle_path": str(bundle_path),
+        "validation_bundle_hash": expected_bundle_hash,
+        "deployment_status": deployment.get("status", "paper_provisional"),
+        "real_capital_approved": False,
     }
 
 

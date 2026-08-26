@@ -147,3 +147,11 @@ The workflow file `.github/workflows/daily_paper_trading.yml` invokes
      `python3 feature_quality_diagnostic.py --top 48`.
    - **Market closed** — the Alpaca submit step prompts in interactive
      mode but auto-proceeds in CI.  Orders queue for next open.
+
+## Reliability Order
+
+Broker health and submission are critical. After a critical failure,
+reconciliation, broker truth, health reports, cost calibration, the gauntlet,
+and paper-epoch status still run. Telegram therefore reports the real account
+condition. `no_action` is healthy when the market is closed, the portfolio is
+aligned, or a deliberate safety rule correctly prevents trading.
