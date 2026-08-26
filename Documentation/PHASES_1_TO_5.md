@@ -17,10 +17,11 @@ directory and a venv with `requirements.txt` is active.
 - *Feature* — one input column the model sees (e.g., 14-day RSI).
 - *Leakage* — feature value at time `t` depends on data from time `t+1` or later. Fatal bug.
 
-### `universe.py`
-**What:** Loads training/backtest universe (S&P 500) and live universe (4 approved).
-**Run:** `python universe.py` (prints counts)
-**Use in code:** `from universe import sp500_universe, live_universe`
+### `settings.py` and `universe_membership.py`
+**What:** `settings.py` defines research/watchlist universes;
+`universe_membership.py` validates optional point-in-time membership evidence.
+**Run:** `python3 universe_membership.py --status`
+**Important:** incomplete historical membership never receives a silent pass.
 **Key terms:**
 - *Survivorship bias* — using only today's S&P 500 in a 2015 backtest omits the losers, flattering results.
 
@@ -43,8 +44,9 @@ directory and a venv with `requirements.txt` is active.
 
 ### `shap_feature_reducer.py`
 **What:** Drops weak features, keeps top ~15 by SHAP importance.
-**Use:** `from shap_feature_reducer import reduce_features`
-**Output:** `models/selected_features.json`.
+**Run:** `python3 shap_feature_reducer.py --model MODEL --features FEATURES.csv`
+**Output:** a research report chosen with `--output`; production features remain
+unchanged until a separate out-of-sample comparison proves the smaller set.
 **Key terms:**
 - *SHAP value* — how much each feature changed one specific prediction.
 
@@ -87,16 +89,19 @@ linearly cuts gross/net exposure budgets toward zero before the hard halt.
 
 ## Phase 4 — Production plumbing
 
-### `orchestration.py`
-**What:** Single entry point chaining scanner → research → predict → paper trade.
-**Run:** `python orchestration.py daily`
-**Cron:** `30 16 * * 1-5 cd /path/to/project && python orchestration.py daily >> logs/cron.log 2>&1`
-**Output:** `logs/pipeline_runs.jsonl`.
+### `daily_run.py`
+**What:** Single fail-closed entry point for data checks, signal generation,
+broker checks, paper order submission, reconciliation, and status outputs.
+**Run:** `python3 daily_run.py --dry-run --alpaca` for a preview; the GitHub
+Actions workflow runs the authorized paper route on schedule.
+**Output:** classified step results and daily status artifacts.
 
 ### `model_registry.py`
 **What:** Versioned storage for trained models + metrics + git SHA.
 **Use:** `from model_registry import register, latest`
-**Notes:** Uses MLflow if installed, otherwise writes `models/registry.json`.
+**Notes:** Writes an append-only `models/registry.json` with artifact checksums.
+Existing models are not backfilled because their original training inputs
+cannot be proven; the next successful training run creates the first entry.
 
 ### `data_validation.py`
 **What:** Schema + freshness checks before data enters train/infer.
@@ -133,7 +138,7 @@ linearly cuts gross/net exposure budgets toward zero before the hard halt.
 ## End-to-end workflow (updated)
 
 ```
-scanner.py         → shortlist candidates
+settings.py        → define research candidates
   ↓
 research.py        → pull features, news, macro
   ↓  (validate with data_validation.validate_price_frame)

@@ -1784,6 +1784,66 @@ def test_repair_all_overlay_trailing_stops_uses_live_positions(monkeypatch):
     assert result["errors"] == []
 
 
+def test_build_experimental_atr_stop_uses_local_true_range(tmp_path, monkeypatch):
+    import alpaca_paper_trading as apt
+
+    dates = pd.date_range("2026-01-01", periods=20, freq="B")
+    pd.DataFrame({
+        "High": [105.0] * 20,
+        "Low": [95.0] * 20,
+        "Close": [100.0] * 20,
+    }, index=dates).to_parquet(tmp_path / "MU.parquet")
+    monkeypatch.setattr(apt, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(apt, "OVERLAY_STOP_MODE", "atr")
+    monkeypatch.setattr(apt, "EXPERIMENTAL_ATR_STOPS_ENABLED", True)
+    monkeypatch.setattr(apt, "ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
+    monkeypatch.setattr(apt, "LIVE_RISK_ATR_MULT", 2.0)
+
+    order = apt._build_overlay_stop_order("MU", 10, 100.0)
+
+    assert order.type == "stop"
+    assert order.stop_price == 80.0
+    assert order.trail_percent is None
+
+
+def test_experimental_atr_stop_needs_double_gate(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "OVERLAY_STOP_MODE", "atr")
+    monkeypatch.setattr(apt, "EXPERIMENTAL_ATR_STOPS_ENABLED", False)
+
+    with pytest.raises(RuntimeError, match="needs ALPACA_ENABLE_EXPERIMENTAL_ATR_STOPS"):
+        apt._overlay_stop_type()
+
+
+def test_experimental_atr_stop_refuses_real_endpoint(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "OVERLAY_STOP_MODE", "atr")
+    monkeypatch.setattr(apt, "EXPERIMENTAL_ATR_STOPS_ENABLED", True)
+    monkeypatch.setattr(apt, "ALPACA_BASE_URL", "https://api.alpaca.markets")
+
+    with pytest.raises(RuntimeError, match="only on Alpaca paper"):
+        apt._overlay_stop_type()
+
+
+def test_cancel_overlay_stops_treats_fixed_atr_stop_as_protection(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "TRAILING_STOP_ENABLED", True)
+    broker = _StopBroker(orders=[
+        _open_order("MU", "fixed-mu", order_type="stop", side="sell", qty=20),
+    ])
+
+    actions = apt.cancel_overlay_trailing_stops_for_sells(
+        broker,
+        [{"ticker": "MU", "side": "sell"}],
+    )
+
+    assert broker.cancelled == ["fixed-mu"]
+    assert actions[0]["qty"] == 20
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # ALPACA BROKER CONNECTION TEST
 # ─────────────────────────────────────────────────────────────────────────────

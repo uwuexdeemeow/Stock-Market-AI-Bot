@@ -208,6 +208,29 @@ jobs:
             fi
           done
 
+      # A brand-new signals/latest branch has no orders yet, so it has no
+      # paper log. Create a header-only log before any health or broker step
+      # reads it. Later order submissions append real rows to this same file.
+      - name: Initialize paper trade log
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        run: |
+          python3 - <<'PY'
+          import csv
+          from pathlib import Path
+
+          path = Path("signals/alpaca_paper_log.csv")
+          if not path.exists() or path.stat().st_size == 0:
+              path.parent.mkdir(parents=True, exist_ok=True)
+              with path.open("w", newline="", encoding="utf-8") as handle:
+                  csv.writer(handle).writerow([
+                      "submitted_at", "order_id", "ticker", "side", "quantity",
+                      "price", "trade_value", "target_weight", "fill_status",
+                  ])
+              print("Initialized empty paper trade log.")
+          else:
+              print("Restored paper trade log is ready.")
+          PY
+
       # ── 6. Write .env from GitHub Secrets ──────────────────────────
       #    Secrets are stored encrypted in repo settings, injected at
       #    runtime.  The .env file is never committed to git.
@@ -231,6 +254,8 @@ jobs:
           ALPACA_EXECUTION_RISK_HIGH_BUY_SCALE=0.50
           # Experimental ATR/vol sizing stays off until separate OOS proof.
           ALPACA_LIVE_RISK_CAP_ENABLED=0
+          ALPACA_OVERLAY_STOP_MODE=trailing
+          ALPACA_ENABLE_EXPERIMENTAL_ATR_STOPS=0
           ALPACA_EXECUTION_SCORECARD_THROTTLE=1
           ALPACA_EXECUTION_SCORECARD_MAX_AGE_HOURS=72
           ALPACA_EXECUTION_SCORECARD_FAIL_BUY_SCALE=0.75

@@ -39,7 +39,7 @@ import pandas as pd
 from broker_interface import Broker, Order, Position, Fill
 from safe_io import atomic_write_csv, atomic_write_json, atomic_write_text, configure_console_output
 from settings import DATA_DIR, LOG_DIR, SIGNAL_DIR
-from risk_sizing import annualized_realized_vol, position_size_with_stop, vol_target_size
+from risk_sizing import atr_stop, annualized_realized_vol, position_size_with_stop, vol_target_size
 from signal_freshness import (
     extract_signal_weights,
     validate_live_config_match,
@@ -105,6 +105,12 @@ TRAILING_STOP_ENABLED = os.environ.get("ALPACA_TRAILING_STOP", "1").strip().lowe
 # Default 8% trailing stop — matches trade_rules.py take_profit_pct as a
 # reasonable "let winners run but cut losers" threshold.
 TRAILING_STOP_PCT = float(os.environ.get("ALPACA_TRAILING_STOP_PCT", "0.08"))
+# The validated behavior remains "trailing".  ATR mode needs two explicit
+# paper-only switches so an accidental environment typo cannot change stops.
+OVERLAY_STOP_MODE = os.environ.get("ALPACA_OVERLAY_STOP_MODE", "trailing").strip().lower()
+EXPERIMENTAL_ATR_STOPS_ENABLED = os.environ.get(
+    "ALPACA_ENABLE_EXPERIMENTAL_ATR_STOPS", "0"
+).strip().lower() in {"true", "1", "yes", "y", "on"}
 # Portfolio-level drawdown circuit breaker — if total account drops more than
 # this from peak, cancel all pending orders and don't submit new ones.
 PORTFOLIO_DRAWDOWN_HALT_PCT = float(os.environ.get("ALPACA_DD_HALT_PCT", "0.12"))
@@ -1155,7 +1161,7 @@ def _releasable_protective_stop_qty(broker: AlpacaBroker) -> dict[str, int]:
     reserved_by_ticker: dict[str, int] = {}
     for open_order in open_orders:
         ticker = order_symbol(open_order)
-        if order_side(open_order) != "sell" or order_type(open_order) != "trailing_stop":
+        if order_side(open_order) != "sell" or order_type(open_order) not in {"trailing_stop", "stop"}:
             continue
 
         # Core ETF stops are cancelled only when core protection is enabled.
@@ -1627,7 +1633,7 @@ def _alpaca_rebalance_orders_submitted_today(
     today_prefix = now_utc.strftime("%Y%m%d") + "_"
     matches: list[dict] = []
     for order in _list_recent_alpaca_orders(broker):
-        if order_type(order) == "trailing_stop":
+        if order_type(order) in {"trailing_stop", "stop"}:
             continue
         client_id = str(getattr(order, "client_order_id", "") or "")
         if not client_id.startswith(today_prefix):
@@ -2925,8 +2931,72 @@ def print_order_plan(orders: list[dict]) -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TRAILING STOP-LOSS — protect overlay positions from catastrophic drops
+# OVERLAY STOP-LOSS — protect overlay positions from catastrophic drops
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _overlay_stop_type() -> str:
+    """Validate the selected overlay stop mode and return its broker order type."""
+    if OVERLAY_STOP_MODE == "trailing":
+        return "trailing_stop"
+    if OVERLAY_STOP_MODE != "atr":
+        raise RuntimeError(f"Unknown ALPACA_OVERLAY_STOP_MODE: {OVERLAY_STOP_MODE}")
+    if not EXPERIMENTAL_ATR_STOPS_ENABLED:
+        raise RuntimeError("ATR stop mode needs ALPACA_ENABLE_EXPERIMENTAL_ATR_STOPS=1")
+    if "paper-api.alpaca.markets" not in ALPACA_BASE_URL.lower():
+        raise RuntimeError("Experimental ATR stops are allowed only on Alpaca paper trading")
+    return "stop"
+
+
+def _latest_atr_14(ticker: str) -> float:
+    """Read local OHLC history and return the latest 14-day average true range."""
+    path = Path(DATA_DIR) / f"{str(ticker).upper()}.parquet"
+    if not path.exists():
+        raise RuntimeError(f"ATR stop price history is missing for {ticker}")
+    try:
+        history = pd.read_parquet(path, columns=["High", "Low", "Close"]).sort_index()
+        history = history.replace([np.inf, -np.inf], np.nan).dropna(subset=["High", "Low", "Close"])
+    except Exception as exc:
+        raise RuntimeError(f"ATR stop could not read valid price history for {ticker}: {exc}") from exc
+    if len(history) < 15:
+        raise RuntimeError(f"ATR stop needs at least 15 price rows for {ticker}")
+    previous_close = history["Close"].shift(1)
+    true_range = pd.concat(
+        [
+            history["High"] - history["Low"],
+            (history["High"] - previous_close).abs(),
+            (history["Low"] - previous_close).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
+    value = float(true_range.tail(14).mean())
+    if not np.isfinite(value) or value <= 0:
+        raise RuntimeError(f"ATR stop calculated an invalid range for {ticker}")
+    return value
+
+
+def _build_overlay_stop_order(ticker: str, quantity: int, entry_price: float) -> Order:
+    """Build the validated trailing stop or the gated experimental ATR stop."""
+    stop_type = _overlay_stop_type()
+    if stop_type == "trailing_stop":
+        return Order(
+            ticker=ticker,
+            side="sell",
+            quantity=quantity,
+            type="trailing_stop",
+            trail_percent=TRAILING_STOP_PCT,
+        )
+
+    atr_14 = _latest_atr_14(ticker)
+    stop_price = round(atr_stop(entry_price, atr_14, k=LIVE_RISK_ATR_MULT, side="long"), 2)
+    if not np.isfinite(stop_price) or stop_price <= 0 or stop_price >= entry_price:
+        raise RuntimeError(f"ATR stop calculated an invalid stop price for {ticker}")
+    return Order(
+        ticker=ticker,
+        side="sell",
+        quantity=quantity,
+        type="stop",
+        stop_price=stop_price,
+    )
 
 def submit_trailing_stops(broker: AlpacaBroker, buy_orders: list[dict]) -> list[str]:
     """
@@ -2951,21 +3021,26 @@ def submit_trailing_stops(broker: AlpacaBroker, buy_orders: list[dict]) -> list[
     if not overlay_buys:
         return []
 
-    print(f"\n  Placing trailing stops ({TRAILING_STOP_PCT*100:.0f}%) on {len(overlay_buys)} overlay stocks...")
+    selected_stop_type = _overlay_stop_type()
+    label = (
+        f"trailing stops ({TRAILING_STOP_PCT*100:.0f}%)"
+        if selected_stop_type == "trailing_stop" else f"ATR stops ({LIVE_RISK_ATR_MULT:g}x)"
+    )
+    print(f"\n  Placing {label} on {len(overlay_buys)} overlay stocks...")
     stop_ids = []
     for o in overlay_buys:
         try:
-            stop_order = Order(
-                ticker=o["ticker"],
-                side="sell",
-                quantity=o["quantity"],
-                type="trailing_stop",
-                trail_percent=TRAILING_STOP_PCT,
+            stop_order = _build_overlay_stop_order(
+                o["ticker"], o["quantity"], float(o.get("fill_price") or o["price"])
             )
             oid = broker.place_order(stop_order)
             stop_ids.append(oid)
-            print(f"    ✓ TRAIL STOP {o['ticker']} qty={o['quantity']} "
-                  f"trail={TRAILING_STOP_PCT*100:.0f}% → {oid[:12]}...")
+            stop_detail = (
+                f"trail={TRAILING_STOP_PCT*100:.0f}%"
+                if stop_order.type == "trailing_stop" else f"stop=${stop_order.stop_price:.2f}"
+            )
+            print(f"    ✓ {stop_order.type.upper()} {o['ticker']} qty={o['quantity']} "
+                  f"{stop_detail} → {oid[:12]}...")
         except Exception as e:
             print(f"    ✗ TRAIL STOP {o['ticker']} FAILED: {e}")
             stop_ids.append(f"ERROR: {e}")
@@ -3051,7 +3126,7 @@ def cancel_overlay_trailing_stops_for_sells(
         ticker = order_symbol(open_order)
         if ticker not in tickers:
             continue
-        if order_side(open_order) != "sell" or order_type(open_order) != "trailing_stop":
+        if order_side(open_order) != "sell" or order_type(open_order) not in {"trailing_stop", "stop"}:
             continue
         oid = order_id(open_order)
         status = "cancelled" if broker.cancel_order(oid) else "failed"
@@ -3085,22 +3160,24 @@ def repair_overlay_trailing_stops(
         result["skipped"].append({"reason": "disabled_or_empty"})
         return result
 
-    positions = {
-        str(p.ticker).upper(): int(p.quantity)
+    position_rows = {
+        str(p.ticker).upper(): p
         for p in broker.get_positions()
         if str(p.ticker).upper() in watch and int(p.quantity) > 0
     }
+    desired_stop_type = _overlay_stop_type()
     open_orders = list_open_orders(broker)
     for ticker in sorted(watch):
-        pos_qty = int(positions.get(ticker, 0))
+        position = position_rows.get(ticker)
+        pos_qty = int(position.quantity) if position is not None else 0
         ticker_orders = [o for o in open_orders if order_symbol(o) == ticker]
         stops = [
             o for o in ticker_orders
-            if order_side(o) == "sell" and order_type(o) == "trailing_stop"
+            if order_side(o) == "sell" and order_type(o) in {"trailing_stop", "stop"}
         ]
         open_sells = [
             o for o in ticker_orders
-            if order_side(o) == "sell" and order_type(o) != "trailing_stop"
+            if order_side(o) == "sell" and order_type(o) not in {"trailing_stop", "stop"}
         ]
         result["checked"].append({
             "ticker": ticker,
@@ -3133,7 +3210,8 @@ def repair_overlay_trailing_stops(
             continue
 
         stop_qty = sum(order_qty(stop) for stop in stops)
-        if stops and abs(stop_qty - float(pos_qty)) < 1e-6:
+        correct_stop_mode = stops and all(order_type(stop) == desired_stop_type for stop in stops)
+        if correct_stop_mode and abs(stop_qty - float(pos_qty)) < 1e-6:
             result["skipped"].append({
                 "ticker": ticker,
                 "reason": "already_protected",
@@ -3160,22 +3238,23 @@ def repair_overlay_trailing_stops(
             continue
 
         try:
-            stop_order = Order(
-                ticker=ticker,
-                side="sell",
-                quantity=pos_qty,
-                type="trailing_stop",
-                trail_percent=TRAILING_STOP_PCT,
-            )
+            entry_price = float(position.avg_price)
+            stop_order = _build_overlay_stop_order(ticker, pos_qty, entry_price)
             oid = broker.place_order(stop_order)
             result["submitted"].append({
                 "ticker": ticker,
                 "qty": pos_qty,
-                "trail_pct": TRAILING_STOP_PCT,
+                "stop_type": stop_order.type,
+                "trail_pct": stop_order.trail_percent or "",
+                "stop_price": stop_order.stop_price or "",
                 "order_id": oid,
                 "status": "submitted",
             })
-            print(f"    submitted: overlay stop {ticker} qty={pos_qty} trail={TRAILING_STOP_PCT*100:.0f}% order={oid[:12]}")
+            detail = (
+                f"trail={TRAILING_STOP_PCT*100:.0f}%"
+                if stop_order.type == "trailing_stop" else f"stop=${stop_order.stop_price:.2f}"
+            )
+            print(f"    submitted: overlay stop {ticker} qty={pos_qty} {detail} order={oid[:12]}")
         except Exception as exc:
             result["errors"].append({"ticker": ticker, "qty": pos_qty, "error": str(exc)})
             print(f"    failed: overlay stop {ticker} qty={pos_qty}: {exc}")

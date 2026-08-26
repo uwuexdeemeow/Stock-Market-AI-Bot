@@ -182,6 +182,13 @@ The script has multiple layers of protection:
    `ALPACA_LIVE_RISK_PER_TRADE` (default 1%), `ALPACA_LIVE_RISK_ATR_MULT`
    (default 2), and `ALPACA_LIVE_RISK_VOL_TARGET` (default 8%). An enabled cap
    fails closed when its local OHLC history is missing or invalid.
+   Experimental fixed ATR stops use a separate double gate:
+   `ALPACA_OVERLAY_STOP_MODE=atr` and
+   `ALPACA_ENABLE_EXPERIMENTAL_ATR_STOPS=1`. They calculate a fixed stop at
+   entry minus `ALPACA_LIVE_RISK_ATR_MULT` times the latest 14-day ATR. They
+   are refused outside Alpaca paper trading, and missing data fails closed.
+   The nightly workflow pins the validated `trailing` mode and disables the
+   ATR gate until out-of-sample and shadow-paper evidence justify a switch.
 9. **Spread/quote guard** — skips and logs individual orders when spread is
    too wide or Alpaca cannot provide a quote (configurable via
    `MAX_SPREAD_PCT_*` and `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT`).  Skipped rows

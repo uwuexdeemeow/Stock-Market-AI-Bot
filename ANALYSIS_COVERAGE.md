@@ -17,13 +17,17 @@ Implemented:
 [x] improved position sizing
 
 Partially addressed:
-[~] confidence calibration (improved margin-based, not full baseline-calibration)
+[x] confidence calibration with saved calibrators and stability diagnostics
 [~] threshold overfitting (replaced by fixed default; no fancy threshold optimiser)
-[~] look-ahead bias verification (not implemented as a standalone audit script)
+[x] standalone multi-layer look-ahead audit in `leakage_audit.py`
 [~] fundamental fraud/SEC filter (not implemented)
 
 Optional future work:
-[ ] XGBoost scanner ranker
-[ ] CPI / Fed calendar features
-[ ] bid-ask spread microstructure features
-[ ] explicit feature look-ahead audit utility
+[x] XGBoost cross-sectional ranker utilities and daily IC evaluation
+[ ] CPI / Fed calendar features — research-gated until a versioned,
+    point-in-time event calendar is supplied; do not infer old calendars from
+    today's page.
+[ ] bid-ask spread microstructure features — live quotes are available for
+    execution guards, but no historical quote archive exists for honest model
+    training yet.
+[x] explicit feature look-ahead audit utility

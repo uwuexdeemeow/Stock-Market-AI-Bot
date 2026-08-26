@@ -126,6 +126,29 @@ jobs:
             fi
           done
 
+      # Shadow checks read the real paper-trade history. On the first run that
+      # history is empty, not broken, so make a CSV with column names instead
+      # of letting a missing file stop the workflow.
+      - name: Initialize paper trade log
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        run: |
+          python3 - <<'PY'
+          import csv
+          from pathlib import Path
+
+          path = Path("signals/alpaca_paper_log.csv")
+          if not path.exists() or path.stat().st_size == 0:
+              path.parent.mkdir(parents=True, exist_ok=True)
+              with path.open("w", newline="", encoding="utf-8") as handle:
+                  csv.writer(handle).writerow([
+                      "submitted_at", "order_id", "ticker", "side", "quantity",
+                      "price", "trade_value", "target_weight", "fill_status",
+                  ])
+              print("Initialized empty paper trade log.")
+          else:
+              print("Paper trade log is ready.")
+          PY
+
       - name: Create .env from secrets
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
