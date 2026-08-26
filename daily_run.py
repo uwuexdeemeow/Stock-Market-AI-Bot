@@ -33,6 +33,7 @@ Schedule with cron (9:30 AM ET on weekdays):
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -154,6 +155,7 @@ class Step:
     critical: bool = False
     timeout_seconds: int | None = None
     always_run: bool = False
+    env: dict[str, str] | None = None
 
 
 # Data refresh steps — run BEFORE signal generation so factors/ETFs are fresh.
@@ -178,6 +180,17 @@ FACTOR_REFRESH_STEPS = [
         "Refresh factor panel data incrementally (only download new days since last run)",
         critical=True,
         timeout_seconds=1800,
+        env={
+            "SENTIMENT_ENGINE_LEVEL": os.environ.get("SENTIMENT_ENGINE_LEVEL", "vader"),
+            "STOCKBOT_PRICE_PROVIDER_ORDER": os.environ.get(
+                "STOCKBOT_PRICE_PROVIDER_ORDER",
+                "yahooquery,yfinance,stooq",
+            ),
+            "STOCKBOT_SKIP_RESEARCH_SENTIMENT": os.environ.get(
+                "STOCKBOT_SKIP_RESEARCH_SENTIMENT",
+                "1",
+            ),
+        },
     ),
     Step(
         "refresh_feature_quality",
@@ -337,6 +350,7 @@ def run_step(
     description: str,
     dry_run: bool = False,
     timeout: int = 300,
+    env: dict[str, str] | None = None,
 ) -> dict:
     """
     Run a single pipeline step and capture the result.
@@ -370,6 +384,7 @@ def run_step(
             stderr=subprocess.PIPE,
             bufsize=1,  # line-buffered
             cwd=str(Path(__file__).parent),
+            env=env,
         )
         # Use background threads for both streams so a quiet or long-running
         # child process is still governed by the timeout below.
@@ -611,7 +626,14 @@ def run_steps(steps: list[Step], *, dry_run: bool, timeout: int) -> list[dict]:
         if blocked_by and step.always_run:
             print(f"\n{'─'*60}")
             print(f"  [{step.name}] running despite earlier blocker: {blocked_by}")
-        result = run_step(step.name, step.cmd, step.description, dry_run=dry_run, timeout=effective_timeout)
+        result = run_step(
+            step.name,
+            step.cmd,
+            step.description,
+            dry_run=dry_run,
+            timeout=effective_timeout,
+            env=step.env,
+        )
         if blocked_by and step.always_run:
             # Keep the original blocker visible in the JSON log while still
             # letting watchdog/cleanup style steps refresh their output files.
@@ -842,7 +864,8 @@ def main():
     if args.health_only and not args.no_github_sync:
         pre_results.append(sync_latest_github_signals(dry_run=bool(args.dry_run)))
 
-    _write_startup_stubs(now, steps, write_daily_stub=not bool(args.health_only))
+    if not args.dry_run:
+        _write_startup_stubs(now, steps, write_daily_stub=not bool(args.health_only))
 
     # Run each step
     results = pre_results + run_steps(steps, dry_run=bool(args.dry_run), timeout=int(args.timeout))
@@ -878,21 +901,22 @@ def main():
 
     print(f"\n{'═'*60}\n")
 
-    # Save run log
-    import json
-    log_prefix = "local_health" if args.health_only else "daily_run"
-    log_path = LOGS / f"{log_prefix}_{now.strftime('%Y%m%d')}.json"
-    run_log = {
-        "timestamp": now.isoformat(),
-        "mode": "health_only" if args.health_only else "daily_run",
-        "steps_total": len(results),
-        "steps_ok": ok,
-        "steps_failed": failed + errors + blocked,
-        "total_elapsed_seconds": round(total_time, 1),
-        "results": results,
-    }
-    atomic_write_json(run_log, log_path)
-    print(f"  Run log saved → {log_path}")
+    if not args.dry_run:
+        # Save run log
+        import json
+        log_prefix = "local_health" if args.health_only else "daily_run"
+        log_path = LOGS / f"{log_prefix}_{now.strftime('%Y%m%d')}.json"
+        run_log = {
+            "timestamp": now.isoformat(),
+            "mode": "health_only" if args.health_only else "daily_run",
+            "steps_total": len(results),
+            "steps_ok": ok,
+            "steps_failed": failed + errors + blocked,
+            "total_elapsed_seconds": round(total_time, 1),
+            "results": results,
+        }
+        atomic_write_json(run_log, log_path)
+        print(f"  Run log saved → {log_path}")
 
     # Send notifications if any step failed
     # PLAIN ENGLISH: Pop a macOS notification and optionally email you so you

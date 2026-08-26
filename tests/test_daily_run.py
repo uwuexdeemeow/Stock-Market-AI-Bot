@@ -165,7 +165,7 @@ def test_factor_data_health_failure_blocks_signal_and_orders(monkeypatch):
     )
     called: list[str] = []
 
-    def fake_run_step(name, cmd, description, dry_run=False, timeout=300):
+    def fake_run_step(name, cmd, description, dry_run=False, timeout=300, env=None):
         called.append(name)
         if name == "factor_data_health":
             return {"name": name, "status": "failed", "elapsed": 0.1}
@@ -186,7 +186,7 @@ def test_core_signal_failure_blocks_broker_steps(monkeypatch):
     ]
     called: list[str] = []
 
-    def fake_run_step(name, cmd, description, dry_run=False, timeout=300):
+    def fake_run_step(name, cmd, description, dry_run=False, timeout=300, env=None):
         called.append(name)
         if name == "core_satellite_signal":
             return {"name": name, "status": "failed", "elapsed": 0.1}
@@ -206,7 +206,7 @@ def test_refresh_failure_blocks_all_later_steps(monkeypatch):
     )
     called: list[str] = []
 
-    def fake_run_step(name, cmd, description, dry_run=False, timeout=300):
+    def fake_run_step(name, cmd, description, dry_run=False, timeout=300, env=None):
         called.append(name)
         if name == "refresh_factor_data":
             return {"name": name, "status": "error", "elapsed": 0.1}
@@ -227,7 +227,7 @@ def test_refresh_factor_data_uses_longer_step_timeout(monkeypatch):
     captured: dict[str, int] = {}
     step = next(step for step in daily_run.DATA_REFRESH_STEPS if step.name == "refresh_factor_data")
 
-    def fake_run_step(name, cmd, description, dry_run=False, timeout=300):
+    def fake_run_step(name, cmd, description, dry_run=False, timeout=300, env=None):
         captured[name] = timeout
         return {"name": name, "status": "ok", "elapsed": 0.1}
 
@@ -257,7 +257,7 @@ def test_dry_run_skipped_critical_steps_do_not_block(monkeypatch):
         daily_run.ALPACA_STEPS[0],
     ]
 
-    def fake_run_step(name, cmd, description, dry_run=False, timeout=300):
+    def fake_run_step(name, cmd, description, dry_run=False, timeout=300, env=None):
         return {"name": name, "status": "skipped", "elapsed": 0.0}
 
     monkeypatch.setattr(daily_run, "run_step", fake_run_step)

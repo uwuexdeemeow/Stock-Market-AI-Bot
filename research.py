@@ -82,8 +82,10 @@ def research_ticker(ticker: str, start: str, end: str) -> bool:
 INCREMENTAL_RECOMPUTE_WINDOW_DAYS = 380
 
 # If an existing parquet is stale by more than this many calendar days,
-# fall back to a full rebuild (incremental savings not worth the complexity).
-INCREMENTAL_MAX_STALENESS_DAYS = 30
+# fall back to a full rebuild.  PLAIN ENGLISH: the daily bot can safely catch
+# up after a few missed months because the incremental rebuild already
+# recomputes a 380-day window, which covers the longest lookback features.
+INCREMENTAL_MAX_STALENESS_DAYS = int(os.environ.get("INCREMENTAL_MAX_STALENESS_DAYS", "120"))
 POST_PASS_COLUMN_PREFIXES = ("xs_rank_",)
 
 

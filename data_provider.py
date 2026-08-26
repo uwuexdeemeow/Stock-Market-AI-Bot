@@ -42,6 +42,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import logging
+import os
 import warnings
 from datetime import datetime, timedelta
 from typing import Optional
@@ -51,6 +52,20 @@ import numpy as np
 
 # ── Track which provider was last used (for diagnostics) ──────────────
 last_provider: str = "none"
+
+
+def _provider_order() -> list[str]:
+    """Return the configured price-provider order.
+
+    PLAIN ENGLISH: If one data source is slow or broken today, set
+    STOCKBOT_PRICE_PROVIDER_ORDER=yahooquery,yfinance,stooq so the bot tries
+    the working source first instead of waiting for avoidable failures.
+    """
+    raw = os.environ.get("STOCKBOT_PRICE_PROVIDER_ORDER", "yfinance,yahooquery,stooq")
+    allowed = {"yfinance", "yahooquery", "stooq"}
+    order = [item.strip().lower() for item in raw.split(",") if item.strip()]
+    order = [item for item in order if item in allowed]
+    return order or ["yfinance", "yahooquery", "stooq"]
 
 
 @contextmanager
@@ -425,39 +440,28 @@ def download_prices(
 
     errors: list[str] = []
 
-    # ── Try Provider 1: yfinance ──────────────────────────────────────
-    result = _try_yfinance(
-        tickers, start=start, end=end, period=period,
-        auto_adjust=auto_adjust, progress=progress,
-    )
-    if result is not None and not result.empty:
-        last_provider = "yfinance"
-        return result
-    errors.append("yfinance: returned empty or failed")
+    providers = {
+        "yfinance": lambda: _try_yfinance(
+            tickers, start=start, end=end, period=period,
+            auto_adjust=auto_adjust, progress=progress,
+        ),
+        "yahooquery": lambda: _try_yahooquery(
+            tickers, start=start, end=end, period=period,
+            auto_adjust=auto_adjust,
+        ),
+        "stooq": lambda: _try_stooq(
+            tickers, start=start, end=end, period=period,
+        ),
+    }
 
-    # ── Try Provider 2: yahooquery ────────────────────────────────────
-    result = _try_yahooquery(
-        tickers, start=start, end=end, period=period,
-        auto_adjust=auto_adjust,
-    )
-    if result is not None and not result.empty:
-        # Only print the fallback notice once per session, not for every ticker
-        if last_provider != "yahooquery":
-            print("  INFO: Using yahooquery fallback (yfinance unavailable)")
-        last_provider = "yahooquery"
-        return result
-    errors.append("yahooquery: returned empty or failed")
-
-    # ── Try Provider 3: Stooq ─────────────────────────────────────────
-    result = _try_stooq(
-        tickers, start=start, end=end, period=period,
-    )
-    if result is not None and not result.empty:
-        if last_provider != "stooq":
-            print("  INFO: Using Stooq fallback (yfinance and yahooquery unavailable)")
-        last_provider = "stooq"
-        return result
-    errors.append("stooq: returned empty or failed")
+    for provider in _provider_order():
+        result = providers[provider]()
+        if result is not None and not result.empty:
+            if last_provider != provider:
+                print(f"  INFO: Using {provider} price data")
+            last_provider = provider
+            return result
+        errors.append(f"{provider}: returned empty or failed")
 
     # ── All providers failed ──────────────────────────────────────────
     raise RuntimeError(

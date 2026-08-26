@@ -1,7 +1,7 @@
 {
-  "created_at": "2026-05-22T11:31:33+00:00",
-  "source_json": "D:\\Stock Market AI Bot\\signals\\wf_fixed_old_live_publish_20260522.json",
-  "method": "fixed_config_outer_walkforward_validation",
+  "created_at": "2026-08-26T07:28:28+00:00",
+  "source_json": "/Users/amos/Code/Stock Market AI Bot/signals/wf_low_turnover.json",
+  "method": "nested_walk_forward_yearly_outer_multi_inner_validation",
   "approvals": {
     "core-alpha": {
       "approved": true,
@@ -20,13 +20,13 @@
       "strategy": "core-alpha",
       "approved_config_family": "score=regime_adaptive,shape=top3,weighting=sticky_score,risk=off,tqqq=0.0",
       "approved_family_signature": "score=regime_adaptive,shape=top3,weighting=sticky_score,risk=off,tqqq=0.0",
-      "approved_family_fold_count": 14,
-      "approved_family_frequency": 1.0,
+      "approved_family_fold_count": 7,
+      "approved_family_frequency": 0.5,
       "approved_exact_config": "h=20,ov=0.5,ma=100,vol=percentile:0.3,score=regime_adaptive,shape=top3,weighting=sticky_score,tqqq=0.0,risk=off",
-      "approved_config_fold_count": 14,
-      "approved_config_frequency": 1.0,
-      "source": "fixed_config_validation",
-      "created_at": "2026-05-22T11:23:34+00:00"
+      "approved_config_fold_count": 7,
+      "approved_config_frequency": 0.5,
+      "source": "nested_walkforward",
+      "created_at": "2026-08-26T07:28:28+00:00"
     }
   },
   "approved_live_configs": {
@@ -100,31 +100,30 @@
       },
       "source_metrics": {
         "fold_count": 14,
-        "best_config_frequency": 1.0,
-        "approved_family_fold_count": 14,
-        "approved_family_frequency": 1.0,
-        "approved_family_worst_oos_turnover_pct": 533.25,
-        "approved_family_mean_oos_max_drawdown_pct": -11.01,
-        "approved_family_mean_oos_sharpe": 1.601,
-        "mean_oos_sharpe": 1.601,
-        "mean_oos_cagr_pct": 37.54,
-        "mean_oos_alpha_vs_spy_pct": 21.87,
-        "mean_oos_alpha_vs_qqq_pct": 14.82,
-        "oos_positive_alpha_hit_rate": 0.857,
+        "best_config_frequency": 0.5,
+        "approved_family_fold_count": 7,
+        "approved_family_frequency": 0.5,
+        "approved_family_worst_oos_turnover_pct": 519.24,
+        "approved_family_mean_oos_max_drawdown_pct": -12.67,
+        "approved_family_mean_oos_sharpe": 1.372,
+        "mean_oos_sharpe": 1.544,
+        "mean_oos_cagr_pct": 30.3,
+        "mean_oos_alpha_vs_spy_pct": 16.04,
+        "mean_oos_alpha_vs_qqq_pct": 9.21,
+        "oos_positive_alpha_hit_rate": 0.786,
         "cost_stress_approval_pass": true,
-        "fixed_cost_stress_pass_ratio": 0.857,
         "required_cost_stresses": [
           2.0,
           3.0,
           5.0
         ],
-        "mean_oos_max_drawdown_pct": -11.01,
-        "worst_oos_max_drawdown_pct": -26.69,
-        "worst_oos_turnover_pct": 533.25,
-        "worst_oos_return_pct": -11.13,
-        "selection_bias_gap_sharpe": 0.0,
-        "approved_config_fold_count": 14,
-        "approved_config_frequency": 1.0,
+        "mean_oos_max_drawdown_pct": -10.7,
+        "worst_oos_max_drawdown_pct": -23.95,
+        "worst_oos_turnover_pct": 519.24,
+        "worst_oos_return_pct": -16.23,
+        "selection_bias_gap_sharpe": 0.208,
+        "approved_config_fold_count": 7,
+        "approved_config_frequency": 0.5,
         "medium_risk_review_pass": true
       },
       "medium_risk_review": {
@@ -132,15 +131,15 @@
         "reasons": [],
         "survivorship_review": {
           "pass": true,
-          "survivorship_adjusted_score": 0.9801,
-          "audit_rebalance_selections": 19,
-          "total_return_delta_pct": -126.44,
-          "max_drawdown_delta_pct": -0.24
+          "survivorship_adjusted_score": 0.8658,
+          "audit_rebalance_selections": 31,
+          "total_return_delta_pct": -980.51,
+          "max_drawdown_delta_pct": -0.26
         },
         "execution_stress_review": {
           "pass": true,
           "failed_scenarios": 0,
-          "worst_stressed_drawdown_pct": -31.06
+          "worst_stressed_drawdown_pct": -31.05
         },
         "factor_decay_review": {
           "pass": true,
@@ -156,15 +155,15 @@
       "reasons": [],
       "survivorship_review": {
         "pass": true,
-        "survivorship_adjusted_score": 0.9801,
-        "audit_rebalance_selections": 19,
-        "total_return_delta_pct": -126.44,
-        "max_drawdown_delta_pct": -0.24
+        "survivorship_adjusted_score": 0.8658,
+        "audit_rebalance_selections": 31,
+        "total_return_delta_pct": -980.51,
+        "max_drawdown_delta_pct": -0.26
       },
       "execution_stress_review": {
         "pass": true,
         "failed_scenarios": 0,
-        "worst_stressed_drawdown_pct": -31.06
+        "worst_stressed_drawdown_pct": -31.05
       },
       "factor_decay_review": {
         "pass": true,

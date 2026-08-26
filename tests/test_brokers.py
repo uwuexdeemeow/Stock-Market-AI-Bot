@@ -543,6 +543,32 @@ def test_generate_orders_skips_sell_when_broker_reports_zero_sellable():
     assert apt.generate_orders(broker, {"FCX": 0.0}, force=True) == []
 
 
+def test_generate_orders_counts_shares_reserved_by_bot_trailing_stop(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    broker = _OrderBroker(
+        equity=100_000.0,
+        positions={"FCX": 302},
+        prices={"FCX": 64.665},
+        sellable={"FCX": 0},
+    )
+    protective_stop = SimpleNamespace(
+        symbol="FCX",
+        side="sell",
+        type="trailing_stop",
+        qty="302",
+    )
+    monkeypatch.setattr(apt, "list_open_orders", lambda _broker: [protective_stop])
+
+    orders = apt.generate_orders(broker, {"FCX": 0.0}, force=True)
+
+    assert orders[0]["side"] == "sell"
+    assert orders[0]["quantity"] == 302
+    assert orders[0]["broker_sellable_qty"] == 302
+    assert orders[0]["broker_reserved_stop_qty"] == 302
+    assert orders[0]["quantity_clamped_to_sellable"] is False
+
+
 def test_execution_quality_summary_separates_minor_and_material_bad_slippage(monkeypatch):
     import alpaca_paper_trading as apt
 
@@ -632,6 +658,9 @@ def test_generate_orders_ignores_stale_execution_risk_report(tmp_path, monkeypat
     monkeypatch.setattr(apt, "SLIPPAGE_REPORT_FILE", report_path)
     monkeypatch.setattr(apt, "EXECUTION_RISK_ENABLED", True)
     monkeypatch.setattr(apt, "EXECUTION_RISK_REPORT_MAX_AGE_HOURS", 1)
+    # This test isolates the per-symbol report. A fresh project-wide
+    # execution scorecard from a real paper run must not change its result.
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_THROTTLE_ENABLED", False)
 
     broker = _OrderBroker(equity=100_000.0, positions={}, prices={"MU": 100.0})
 

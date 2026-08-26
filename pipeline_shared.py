@@ -894,6 +894,36 @@ def apply_feature_lag(df: pd.DataFrame, keywords: list[str], lag_days: int = 5) 
 def build_sentiment_features(ticker: str, dates: pd.DatetimeIndex) -> pd.DataFrame:
     if not USE_NEWS_SENTIMENT:
         return pd.DataFrame(index=dates)
+    if os.environ.get("STOCKBOT_SKIP_RESEARCH_SENTIMENT", "").strip().lower() in {"1", "true", "yes"}:
+        # PLAIN ENGLISH: During emergency catch-up, external news feeds can be
+        # slow or flaky.  Return neutral sentiment columns so the feature table
+        # shape stays stable while price/factor data gets fresh.
+        neutral_cols = [
+            "sent_yahoo_finance",
+            "sent_cnbc",
+            "sent_marketwatch",
+            "sent_google_news",
+            "sent_business_insider",
+            "news_sentiment",
+            "sent_pos",
+            "sent_neg",
+            "sent_premarket",
+            "sent_afterhours",
+            "sentiment_disagreement",
+            "headline_volume",
+            "headline_vol_spike",
+            "sent_decay_1d",
+            "sent_decay_3d",
+            "sent_neg_decay",
+            "sent_pos_decay",
+            "sentiment_3d",
+            "sentiment_7d",
+            "sentiment_delta",
+            "sentiment_accel",
+        ]
+        data = {col: 0.0 for col in neutral_cols}
+        data["headline_volume"] = 1.0
+        return pd.DataFrame(index=dates, data=data)
     return build_sentiment_feature_dataframe(ticker, dates, finnhub_client=None, engine_level=SENTIMENT_ENGINE_LEVEL, sleep_rss=0.1, logger=None)
 
 def build_research_feature_frame(ticker: str, start: str, end: str) -> pd.DataFrame:

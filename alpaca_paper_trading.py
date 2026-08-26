@@ -981,6 +981,41 @@ def _broker_sellable_qty(
     return min(fallback_qty, max(0, int(sellable)))
 
 
+def _releasable_protective_stop_qty(broker: AlpacaBroker) -> dict[str, int]:
+    """Return shares reserved by stops the rebalance will cancel.
+
+    PLAIN ENGLISH: Alpaca reports shares protected by an open trailing stop as
+    unavailable to sell. The rebalance already cancels those bot-managed stops
+    immediately before submitting sells. Count those reserved shares while
+    building the plan so the matching sell does not disappear from the plan.
+    Normal open sell orders are not counted because the bot will not cancel
+    them here.
+    """
+    try:
+        open_orders = list_open_orders(broker)
+    except Exception as exc:
+        print(f"    WARN Could not inspect protective stops for order planning: {exc}")
+        return {}
+
+    reserved_by_ticker: dict[str, int] = {}
+    for open_order in open_orders:
+        ticker = order_symbol(open_order)
+        if order_side(open_order) != "sell" or order_type(open_order) != "trailing_stop":
+            continue
+
+        # Core ETF stops are cancelled only when core protection is enabled.
+        # Non-ETF trailing stops are overlay protection and are cancelled by
+        # cancel_overlay_trailing_stops_for_sells() before the rebalance sell.
+        is_releasable_core_stop = CORE_PROTECTION_ENABLED and ticker in CORE_PROTECTION_TICKERS
+        is_releasable_overlay_stop = ticker not in ETF_TICKERS
+        if not (is_releasable_core_stop or is_releasable_overlay_stop):
+            continue
+
+        qty = max(0, int(order_qty(open_order)))
+        reserved_by_ticker[ticker] = reserved_by_ticker.get(ticker, 0) + qty
+    return reserved_by_ticker
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # ORDER GENERATION — compares target weights to current positions
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1005,6 +1040,7 @@ def generate_orders(
     if not np.isfinite(equity) or equity <= 0:
         raise RuntimeError("Invalid broker equity; refusing to generate orders")
     positions = broker.get_position_map()
+    releasable_stop_qty = _releasable_protective_stop_qty(broker)
 
     # Get current prices for all relevant tickers
     all_tickers = sorted(set(target_weights.keys()) | set(positions.keys()))
@@ -1059,9 +1095,20 @@ def generate_orders(
         side = "buy" if delta_qty > 0 else "sell"
         requested_quantity = abs(delta_qty)
         broker_sellable_qty = None
+        broker_reserved_stop_qty = 0
         quantity_clamped_to_sellable = False
         if side == "sell":
-            broker_sellable_qty = _broker_sellable_qty(broker, ticker, current_qty)
+            immediately_sellable = _broker_sellable_qty(broker, ticker, current_qty)
+            broker_reserved_stop_qty = releasable_stop_qty.get(ticker, 0)
+            broker_sellable_qty = min(
+                current_qty,
+                immediately_sellable + broker_reserved_stop_qty,
+            )
+            if broker_reserved_stop_qty > 0:
+                print(
+                    f"    INFO SELL {ticker}: {broker_reserved_stop_qty} shares "
+                    "will be released by cancelling its protective stop"
+                )
             if broker_sellable_qty < requested_quantity:
                 if broker_sellable_qty <= 0:
                     print(f"    WARN Skipped SELL {ticker}: broker reports 0 sellable shares")
@@ -1112,6 +1159,7 @@ def generate_orders(
             "trade_value": trade_value,
             "requested_quantity": requested_quantity,
             "broker_sellable_qty": broker_sellable_qty,
+            "broker_reserved_stop_qty": broker_reserved_stop_qty,
             "quantity_clamped_to_sellable": quantity_clamped_to_sellable,
             **execution_risk,
             "current_weight": round(current_w, 4),

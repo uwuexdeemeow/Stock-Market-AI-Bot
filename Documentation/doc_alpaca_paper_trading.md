@@ -84,7 +84,10 @@ can later be corrected to `filled` once Alpaca reports the final state.
 
 The paper log also records execution-planning diagnostics such as the
 original requested quantity, Alpaca sellable quantity, and whether a sell
-order was clamped to broker-available shares.  For buys, it now also records
+order was clamped to broker-available shares. When a bot-managed trailing stop
+reserves shares, planning records `broker_reserved_stop_qty` and counts those
+shares because that stop is cancelled immediately before the rebalance sell.
+Normal open sell orders remain reserved and are never added back. For buys, it now also records
 whether the share quantity was reduced to fit available cash, the original
 quantity before that clamp, the reserved cash buffer, broker buying power used
 for the cash check, and the cash-clamp reason.
@@ -188,6 +191,8 @@ The script has multiple layers of protection:
    not reject the sell because shares are already reserved.  After the
    rebalance or reconcile step, it recreates a fresh trailing stop for any
    remaining shares unless another sell order is still open.
+   Order planning counts shares reserved by these cancellable bot stops, so
+   required sells remain in the plan and happen before replacement buys.
 13. **Alpaca-authoritative overlay stop repair** — during submit/reconcile,
    the script reads current Alpaca positions and repairs trailing stops for
    every non-ETF holding.  This catches missing or partial stops even when
