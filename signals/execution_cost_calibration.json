@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-26T19:39:55+00:00",
+  "source_generated_at": "2026-08-26T19:39:49+00:00",
+  "status": "ready",
+  "sample_count": 25,
+  "minimum_sample_count": 20,
+  "recommended_one_way_slippage_bps": 10.0,
+  "configured_floor_bps": 10.0,
+  "segments": [
+    {
+      "side": "buy",
+      "order_type": "limit",
+      "liquidity_bucket": "low",
+      "median_notional": 3322.18,
+      "samples": 6,
+      "median_slippage_bps": 4.76,
+      "p75_slippage_bps": 5.445,
+      "mean_slippage_bps": 4.485
+    },
+    {
+      "side": "buy",
+      "order_type": "limit",
+      "liquidity_bucket": "unknown",
+      "median_notional": 22880.95,
+      "samples": 4,
+      "median_slippage_bps": 0.295,
+      "p75_slippage_bps": 1.4975,
+      "mean_slippage_bps": 1.2025
+    },
+    {
+      "side": "sell",
+      "order_type": "limit",
+      "liquidity_bucket": "low",
+      "median_notional": 17113.84,
+      "samples": 0,
+      "median_slippage_bps": null,
+      "p75_slippage_bps": null
+    },
+    {
+      "side": "sell",
+      "order_type": "limit",
+      "liquidity_bucket": "unknown",
+      "median_notional": 35266.82,
+      "samples": 0,
+      "median_slippage_bps": null,
+      "p75_slippage_bps": null
+    },
+    {
+      "side": "sell",
+      "order_type": "trailing_stop",
+      "liquidity_bucket": "low",
+      "median_notional": 3035.76,
+      "samples": 7,
+      "median_slippage_bps": 4.94,
+      "p75_slippage_bps": 10.805,
+      "mean_slippage_bps": 8.8786
+    },
+    {
+      "side": "sell",
+      "order_type": "trailing_stop",
+      "liquidity_bucket": "unknown",
+      "median_notional": 41182.65,
+      "samples": 2,
+      "median_slippage_bps": 1.15,
+      "p75_slippage_bps": 1.725,
+      "mean_slippage_bps": 1.15
+    }
+  ]
+}

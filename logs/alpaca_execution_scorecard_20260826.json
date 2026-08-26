@@ -1,0 +1,107 @@
+{
+  "generated_at": "2026-08-26T19:39:54+00:00",
+  "status": "fail",
+  "score": 50.0,
+  "lookback_days": 30,
+  "summary": {
+    "paper_log_rows": 6,
+    "accepted_orders": 6,
+    "filled_orders": 6,
+    "skipped_orders": 0,
+    "fill_rate": 1.0,
+    "skipped_rate": 0.0,
+    "orders_analyzed": 19,
+    "avg_slippage_bps": 4.15,
+    "bad_slippage_count": 14,
+    "bad_slippage_rate": 0.7368,
+    "bad_slippage_threshold_bps": 2.0,
+    "raw_bad_slippage_count": 15,
+    "raw_bad_slippage_rate": 0.7895,
+    "minor_bad_slippage_count": 1,
+    "adverse_15m_rate": 0.6316,
+    "adverse_60m_rate": 0.7895,
+    "limit_avg_slippage_bps": 2.14,
+    "market_avg_slippage_bps": null,
+    "limit_vs_market_delta_bps": null,
+    "source": "alpaca_api",
+    "slippage_delta_vs_prior_scorecard_bps": null
+  },
+  "throttle": {
+    "throttled_buy_orders": 0,
+    "throttled_buy_filled": 0,
+    "throttled_buy_fill_rate": null,
+    "throttled_buy_avg_slippage_bps": null,
+    "unthrottled_buy_avg_slippage_bps": null,
+    "quantity_reduced": 0,
+    "notional_reduced": 0.0,
+    "examples": []
+  },
+  "checks": [
+    {
+      "name": "avg_slippage_bps",
+      "status": "pass",
+      "value": 4.15,
+      "threshold": 10.0,
+      "operator": "<=",
+      "reason": "ok"
+    },
+    {
+      "name": "bad_slippage_rate",
+      "status": "fail",
+      "value": 0.7368,
+      "threshold": 0.6,
+      "operator": "<=",
+      "reason": "0.7368 <= 0.6 failed"
+    },
+    {
+      "name": "fill_rate",
+      "status": "pass",
+      "value": 1.0,
+      "threshold": 0.8,
+      "operator": ">=",
+      "reason": "ok"
+    },
+    {
+      "name": "skipped_rate",
+      "status": "pass",
+      "value": 0.0,
+      "threshold": 0.35,
+      "operator": "<=",
+      "reason": "ok"
+    },
+    {
+      "name": "adverse_15m_rate",
+      "status": "fail",
+      "value": 0.6316,
+      "threshold": 0.6,
+      "operator": "<=",
+      "reason": "0.6316 <= 0.6 failed"
+    },
+    {
+      "name": "adverse_60m_rate",
+      "status": "fail",
+      "value": 0.7895,
+      "threshold": 0.7,
+      "operator": "<=",
+      "reason": "0.7895 <= 0.7 failed"
+    }
+  ],
+  "thresholds": {
+    "max_avg_slippage_bps": 10.0,
+    "max_bad_slippage_rate": 0.6,
+    "bad_slippage_bps": 2.0,
+    "min_fill_rate": 0.8,
+    "max_skipped_rate": 0.35,
+    "max_adverse_15m_rate": 0.6,
+    "max_adverse_60m_rate": 0.7
+  },
+  "recommendations": [
+    "review_failed_execution_checks:bad_slippage_rate,adverse_15m_rate,adverse_60m_rate",
+    "collect_more_throttled_buy_samples"
+  ],
+  "source_files": {
+    "paper_log": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_paper_log.csv",
+    "slippage_report": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_slippage_reversal_report.json",
+    "previous_scorecard": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json"
+  }
+}

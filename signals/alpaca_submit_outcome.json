@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "run_id": "20260826T193934.328603Z",
+  "generated_at": "2026-08-26T19:39:45+00:00",
+  "status": "executed",
+  "reason_code": "orders_accepted",
+  "market_open": null,
+  "planned_orders": 6,
+  "submitted_orders": 6,
+  "accepted_orders": 6,
+  "filled_orders": 6,
+  "open_orders": 0,
+  "skipped_orders": 0,
+  "rejected_orders": 0,
+  "failed_orders": 0,
+  "account_alignment": {
+    "status": "warning",
+    "score": 70.0,
+    "fail_count": 0,
+    "warning_count": 6
+  },
+  "errors": [],
+  "order_statuses": {
+    "a9ca6630-f8e6-449e-a62c-d996005d609c": "filled",
+    "ebccd4bb-d2f2-420d-aeb3-2fc986ba83cf": "filled",
+    "8a9206b6-5f92-4776-8824-1259cd6807c3": "filled",
+    "3544df2b-d47d-4fba-93a4-c2b80a6bf670": "filled",
+    "ed4b917b-67f4-4b82-a3c4-916654472479": "filled",
+    "d588e7ba-9e90-4ffd-a336-f4a07cd3ce73": "filled"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "checked_at": "2026-08-26T19:36:55+00:00",
+  "lookback_days": 2,
+  "status": "ok",
+  "reason": "alpaca_paper_log_empty",
+  "total_checked": 0,
+  "filled": 0,
+  "cancelled": 0,
+  "partial": 0,
+  "unknown": 0,
+  "not_submitted": 0,
+  "problems": [],
+  "fill_rate": 0
+}

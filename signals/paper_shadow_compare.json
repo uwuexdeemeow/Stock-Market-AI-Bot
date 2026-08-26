@@ -1,0 +1,27 @@
+{
+  "generated_at": "2026-08-25T14:37:36+00:00",
+  "status": "ok",
+  "common_start_date": "2026-08-25",
+  "aligned_days": 1,
+  "latest_dates_match": true,
+  "alpaca": {
+    "latest_date": "2026-08-25",
+    "latest_equity": 107076.58,
+    "start_equity": 107076.58,
+    "return_pct_since_common_start": 0.0
+  },
+  "shadow": {
+    "latest_date": "2026-08-25",
+    "latest_equity": 101812.52,
+    "start_equity": 101812.52,
+    "return_pct_since_common_start": 0.0
+  },
+  "spread": {
+    "alpaca_minus_shadow_return_pct": 0.0,
+    "leader": "tie"
+  },
+  "sources": {
+    "alpaca_equity_csv": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_paper_equity.csv",
+    "shadow_equity_csv": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/shadow_paper_equity.csv"
+  }
+}

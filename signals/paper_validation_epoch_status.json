@@ -1,0 +1,28 @@
+{
+  "epoch_id": "paper-v20260826T084315Z",
+  "evaluated_at": "2026-08-26T19:39:57+00:00",
+  "status": "collecting",
+  "trading_days": 1,
+  "rebalance_events": 1,
+  "accepted_orders": 6,
+  "classified_sessions": 1,
+  "duplicate_orders": 0,
+  "unexplained_orders": 0,
+  "maximum_target_weight_gap": 0.007106999999999999,
+  "fill_rate": 1.0,
+  "average_slippage_bps": 4.15,
+  "bad_slippage_rate": 0.56,
+  "checks": {
+    "trading_days": false,
+    "rebalance_events": false,
+    "accepted_orders": false,
+    "classified_sessions": false,
+    "duplicate_orders": true,
+    "unexplained_orders": true,
+    "target_weight_gap": true,
+    "fill_rate": true,
+    "average_slippage": true,
+    "bad_slippage_rate": true
+  },
+  "real_capital_approved": false
+}

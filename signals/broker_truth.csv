@@ -1,0 +1,8 @@
+ticker,target_weight,broker_qty,broker_value,broker_weight,planned_side,planned_quantity,planned_buy_qty,planned_sell_qty,planned_current_qty,planned_target_qty,planned_target_weight,submitted_quantity,accepted_quantity,filled_quantity,failed_quantity,skipped_quantity,open_quantity,latest_fill_status,expected_qty_from_log,quantity_gap,open_buy_qty,open_sell_qty,trailing_stop_qty,trailing_stop_count,stop_required,issue_severity,issues
+COP,0.0,0.0,0.0,0.0,sell,131.0,0.0,131.0,131.0,0.0,0.0,131.0,131.0,131.0,0.0,0.0,0.0,filled,0.0,0.0,0.0,0.0,0.0,0,False,pass,
+FCX,0.029245,30.0,2366.85,0.022138,buy,40.0,40.0,0.0,0.0,40.0,0.0292,30.0,30.0,30.0,0.0,0.0,0.0,filled,30.0,0.0,0.0,30.0,30.0,1,True,pass,
+INTC,0.170755,208.0,18235.36,0.170561,buy,208.0,208.0,0.0,0.0,208.0,0.1708,208.0,208.0,208.0,0.0,0.0,0.0,filled,208.0,0.0,0.0,208.0,208.0,1,True,pass,
+MU,0.2,23.0,21579.06,0.201835,buy,23.0,23.0,0.0,0.0,23.0,0.2,23.0,23.0,23.0,0.0,0.0,0.0,filled,23.0,0.0,0.0,23.0,23.0,1,True,pass,
+QQQ,0.6,90.0,64074.6,0.599308,buy,90.0,90.0,0.0,0.0,90.0,0.6,90.0,90.0,90.0,0.0,0.0,0.0,filled,90.0,0.0,0.0,90.0,90.0,1,True,pass,
+SPY,0.0,0.0,0.0,0.0,sell,46.0,0.0,46.0,46.0,0.0,0.0,46.0,46.0,46.0,0.0,0.0,0.0,filled,0.0,0.0,0.0,0.0,0.0,0,False,pass,
+TQQQ,0.0,0.0,0.0,0.0,,0.0,0.0,0.0,,,,0.0,0.0,0.0,0.0,0.0,0.0,,,,0.0,0.0,0.0,0,False,pass,

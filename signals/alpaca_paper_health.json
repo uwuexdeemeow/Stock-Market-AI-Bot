@@ -1,0 +1,349 @@
+{
+  "generated_at": "2026-08-26T19:39:54+00:00",
+  "strategy": "core_satellite_alpha",
+  "paper_ready": true,
+  "gates_all_pass": true,
+  "medium_risk_review_pass": true,
+  "strategy_ready": true,
+  "readiness_block_reasons": [],
+  "readiness_source": "core_satellite_alpha_signal.csv",
+  "freshness_ok": true,
+  "freshness_issues": [],
+  "freshness_source": "core_satellite_alpha_signal.csv",
+  "paper_equity_days": 1,
+  "paper_equity_rows": 1,
+  "paper_trades": 6,
+  "submitted_orders": 6,
+  "skipped_orders": 0,
+  "submission_failed_orders": 0,
+  "fill_status_counts": {
+    "filled": 6
+  },
+  "current_signal_fill_status_counts": {
+    "filled": 6
+  },
+  "current_signal_open_orders": 0,
+  "current_order_lifecycle": [
+    {
+      "ticker": "SPY",
+      "action": "SELL",
+      "broker_order_id": "a9ca6630-f8e6-449e-a62c-d996005d609c",
+      "fill_status": "filled",
+      "broker_order_status": "filled",
+      "requested_qty": 46.0,
+      "filled_qty": 46.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-08-26T19:39:40.091988+00:00",
+      "broker_updated_time": ""
+    },
+    {
+      "ticker": "COP",
+      "action": "SELL",
+      "broker_order_id": "ebccd4bb-d2f2-420d-aeb3-2fc986ba83cf",
+      "fill_status": "filled",
+      "broker_order_status": "filled",
+      "requested_qty": 131.0,
+      "filled_qty": 131.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-08-26T19:39:40.091988+00:00",
+      "broker_updated_time": ""
+    },
+    {
+      "ticker": "QQQ",
+      "action": "BUY",
+      "broker_order_id": "8a9206b6-5f92-4776-8824-1259cd6807c3",
+      "fill_status": "filled",
+      "broker_order_status": "filled",
+      "requested_qty": 90.0,
+      "filled_qty": 90.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-08-26T19:39:40.091988+00:00",
+      "broker_updated_time": ""
+    },
+    {
+      "ticker": "MU",
+      "action": "BUY",
+      "broker_order_id": "3544df2b-d47d-4fba-93a4-c2b80a6bf670",
+      "fill_status": "filled",
+      "broker_order_status": "filled",
+      "requested_qty": 23.0,
+      "filled_qty": 23.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-08-26T19:39:40.091988+00:00",
+      "broker_updated_time": ""
+    },
+    {
+      "ticker": "INTC",
+      "action": "BUY",
+      "broker_order_id": "ed4b917b-67f4-4b82-a3c4-916654472479",
+      "fill_status": "filled",
+      "broker_order_status": "filled",
+      "requested_qty": 208.0,
+      "filled_qty": 208.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-08-26T19:39:40.091988+00:00",
+      "broker_updated_time": ""
+    },
+    {
+      "ticker": "FCX",
+      "action": "BUY",
+      "broker_order_id": "d588e7ba-9e90-4ffd-a336-f4a07cd3ce73",
+      "fill_status": "filled",
+      "broker_order_status": "filled",
+      "requested_qty": 30.0,
+      "filled_qty": 30.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-08-26T19:39:40.091988+00:00",
+      "broker_updated_time": ""
+    }
+  ],
+  "stale_open_order_alerts": [],
+  "drift_breakdown": [],
+  "current_signal_paper_trades": 0,
+  "fill_stats_scope": null,
+  "filled_orders": 6,
+  "fill_rate": 1.0,
+  "cancel_rate": 0.0,
+  "account_equity": 106926.55,
+  "current_gross_exposure": null,
+  "target_gross_exposure": null,
+  "max_drift_abs": null,
+  "gauntlet_status": "failed",
+  "approved_for_real_capital": false,
+  "gauntlet_reason": "trading_days 1 < 20 minimum",
+  "slippage": {
+    "source": "alpaca_slippage_reversal_report.json",
+    "report_generated_at": "2026-08-26T19:39:49+00:00",
+    "latest_fill_at": "2026-08-26T19:39:41+00:00",
+    "filled_orders_with_slippage": 25,
+    "avg_slippage_bps": 4.15,
+    "median_slippage_bps": 4.45,
+    "worst_slippage_bps": 25.75,
+    "total_slippage_dollars": null,
+    "slippage_bad_count": 14,
+    "adverse_5m_count": 9,
+    "adverse_15m_count": 12,
+    "adverse_30m_count": 12,
+    "adverse_60m_count": 15,
+    "avg_worst_adverse_60m_bps": 71.55,
+    "max_worst_adverse_60m_bps": 349.02,
+    "segments": {
+      "all_orders": {
+        "orders_analyzed": 25,
+        "avg_slippage_bps": 4.15,
+        "median_slippage_bps": 4.45,
+        "slippage_bad_threshold_bps": 2.0,
+        "slippage_bad_count": 14,
+        "raw_slippage_bad_count": 15,
+        "minor_bad_slippage_count": 1,
+        "adverse_5m_count": 9,
+        "adverse_15m_count": 12,
+        "adverse_30m_count": 12,
+        "adverse_60m_count": 15,
+        "avg_worst_adverse_60m_bps": 71.55,
+        "max_worst_adverse_60m_bps": 349.02
+      },
+      "limit_orders": {
+        "orders_analyzed": 16,
+        "avg_slippage_bps": 2.14,
+        "median_slippage_bps": 3.55,
+        "slippage_bad_threshold_bps": 2.0,
+        "slippage_bad_count": 7,
+        "raw_slippage_bad_count": 8,
+        "minor_bad_slippage_count": 1,
+        "adverse_5m_count": 4,
+        "adverse_15m_count": 6,
+        "adverse_30m_count": 6,
+        "adverse_60m_count": 7,
+        "avg_worst_adverse_60m_bps": 44.21,
+        "max_worst_adverse_60m_bps": 115.2
+      },
+      "market_orders": {
+        "orders_analyzed": 0,
+        "avg_slippage_bps": null,
+        "median_slippage_bps": null,
+        "slippage_bad_threshold_bps": 2.0,
+        "slippage_bad_count": 0,
+        "raw_slippage_bad_count": 0,
+        "minor_bad_slippage_count": 0,
+        "adverse_5m_count": 0,
+        "adverse_15m_count": 0,
+        "adverse_30m_count": 0,
+        "adverse_60m_count": 0,
+        "avg_worst_adverse_60m_bps": null,
+        "max_worst_adverse_60m_bps": null
+      },
+      "trailing_stops": {
+        "orders_analyzed": 9,
+        "avg_slippage_bps": 6.39,
+        "median_slippage_bps": 4.94,
+        "slippage_bad_threshold_bps": 2.0,
+        "slippage_bad_count": 7,
+        "raw_slippage_bad_count": 7,
+        "minor_bad_slippage_count": 0,
+        "adverse_5m_count": 5,
+        "adverse_15m_count": 6,
+        "adverse_30m_count": 6,
+        "adverse_60m_count": 8,
+        "avg_worst_adverse_60m_bps": 101.93,
+        "max_worst_adverse_60m_bps": 349.02
+      }
+    }
+  },
+  "slippage_warning": false,
+  "equity_risk": {
+    "paper_return_pct": null,
+    "paper_drawdown_pct": null,
+    "paper_drawdown_warning": false
+  },
+  "equity_sanity": {
+    "ok": true,
+    "warnings": [],
+    "max_abs_daily_move_pct": null,
+    "threshold_pct": 25.0
+  },
+  "concentration": {
+    "ticker_weights": {
+      "FCX": 0.022135,
+      "INTC": 0.170629,
+      "MU": 0.201823,
+      "QQQ": 0.599256
+    },
+    "core_ticker_weights": {
+      "QQQ": 0.599256
+    },
+    "overlay_ticker_weights": {
+      "FCX": 0.022135,
+      "INTC": 0.170629,
+      "MU": 0.201823
+    },
+    "sector_weights": {
+      "OTHER": 0.599256,
+      "XLB": 0.022135,
+      "XLK": 0.372451
+    },
+    "overlay_sector_weights": {
+      "XLB": 0.022135,
+      "XLK": 0.372451
+    },
+    "max_ticker_weight": 0.599256,
+    "max_ticker": "QQQ",
+    "max_core_ticker_weight": 0.599256,
+    "max_core_ticker": "QQQ",
+    "max_overlay_ticker_weight": 0.201823,
+    "max_overlay_ticker": "MU",
+    "max_sector_weight": 0.599256,
+    "max_sector": "OTHER",
+    "max_overlay_sector_weight": 0.372451,
+    "max_overlay_sector": "XLK",
+    "ticker_concentration_warning": false,
+    "core_ticker_concentration_warning": false,
+    "overlay_ticker_concentration_warning": false,
+    "sector_concentration_warning": false,
+    "overlay_sector_concentration_warning": false
+  },
+  "open_position_attribution": {
+    "data_available": false,
+    "reason": "no_filled_buy_orders"
+  },
+  "factor_data": {
+    "latest_data_date": "2026-08-25",
+    "age_trading_days": 0,
+    "missing_or_unreadable_count": 0,
+    "missing_or_unreadable_sample": []
+  },
+  "backtest_vs_live_drift": {
+    "data_available": false,
+    "reason": "too_few_live_days (1 < 10)",
+    "warnings": [],
+    "backtest_mean_oos_sharpe": 1.544,
+    "backtest_mean_oos_cagr_pct": 30.3,
+    "backtest_worst_oos_drawdown_pct": -23.95,
+    "backtest_mean_oos_drawdown_pct": -10.7
+  },
+  "readiness_flags": {
+    "strategy_ready": true,
+    "signal_fresh": true,
+    "broker_synced": true,
+    "account_aligned": false,
+    "slippage_ok": true,
+    "drawdown_ok": true,
+    "concentration_ok": true,
+    "real_capital_allowed": false,
+    "backtest_drift_ok": true
+  },
+  "go_live_scorecard": {
+    "passed": 9,
+    "total": 11,
+    "ready": false,
+    "criteria": [
+      {
+        "name": "strategy_ready",
+        "passed": true,
+        "actual": true,
+        "target": true
+      },
+      {
+        "name": "signal_fresh",
+        "passed": true,
+        "actual": true,
+        "target": true
+      },
+      {
+        "name": "no_current_signal_open_orders",
+        "passed": true,
+        "actual": 0,
+        "target": 0
+      },
+      {
+        "name": "broker_synced",
+        "passed": true,
+        "actual": true,
+        "target": true
+      },
+      {
+        "name": "paper_equity_days",
+        "passed": false,
+        "actual": 1,
+        "target": 20
+      },
+      {
+        "name": "fill_rate",
+        "passed": true,
+        "actual": 1.0,
+        "target": 0.95
+      },
+      {
+        "name": "max_drift_abs",
+        "passed": false,
+        "actual": null,
+        "target": 0.15
+      },
+      {
+        "name": "avg_slippage_bps",
+        "passed": true,
+        "actual": 4.15,
+        "target": 10.0
+      },
+      {
+        "name": "drawdown_ok",
+        "passed": true,
+        "actual": true,
+        "target": true
+      },
+      {
+        "name": "concentration_ok",
+        "passed": true,
+        "actual": true,
+        "target": true
+      },
+      {
+        "name": "backtest_drift_ok",
+        "passed": true,
+        "actual": true,
+        "target": true
+      }
+    ]
+  },
+  "broker": "alpaca"
+}
