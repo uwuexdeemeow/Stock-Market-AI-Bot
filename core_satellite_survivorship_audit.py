@@ -48,6 +48,10 @@ CONFIG_KEYS = (
     "holding_days",
     "regime_ma_window",
     "regime_high_vol",
+    # Keep report identity aligned with the approved live configuration.
+    "high_vol_mode",
+    "tqqq_weight",
+    "risk_control_mode",
 )
 
 

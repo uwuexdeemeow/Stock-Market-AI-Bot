@@ -229,6 +229,8 @@ jobs:
           ALPACA_EXECUTION_RISK_HIGH_SCORE=60
           ALPACA_EXECUTION_RISK_WARN_BUY_SCALE=0.75
           ALPACA_EXECUTION_RISK_HIGH_BUY_SCALE=0.50
+          # Experimental ATR/vol sizing stays off until separate OOS proof.
+          ALPACA_LIVE_RISK_CAP_ENABLED=0
           ALPACA_EXECUTION_SCORECARD_THROTTLE=1
           ALPACA_EXECUTION_SCORECARD_MAX_AGE_HOURS=72
           ALPACA_EXECUTION_SCORECARD_FAIL_BUY_SCALE=0.75
@@ -407,16 +409,12 @@ jobs:
             FLAGS="$FLAGS --dry-run"
           fi
 
-          # First attempt
-          if python3 daily_run.py $FLAGS; then
-            echo "✓ Pipeline completed successfully"
-          else
-            EXIT_CODE=$?
-            echo "⚠ First attempt failed (exit $EXIT_CODE) — retrying in 30s..."
-            sleep 30
-            # Second attempt — if this fails, the step fails
-            python3 daily_run.py $FLAGS
-          fi
+          # Run the trading pipeline exactly once.  PLAIN ENGLISH: a failed
+          # attempt may already have submitted some orders.  Retrying the whole
+          # pipeline could return "already submitted" and turn a partial broker
+          # failure into a misleading green workflow.  A nonzero exit now stays
+          # failed so the operator can reconcile the account safely.
+          python3 daily_run.py $FLAGS
         env:
           PYTHONUNBUFFERED: "1"
 

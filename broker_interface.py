@@ -11,7 +11,7 @@ from typing import Literal
 
 
 Side = Literal["buy", "sell"]
-OrderType = Literal["market", "limit", "trailing_stop"]
+OrderType = Literal["market", "limit", "stop", "trailing_stop"]
 
 
 @dataclass
@@ -21,6 +21,7 @@ class Order:
     quantity: int
     type: OrderType = "market"
     limit_price: float | None = None
+    stop_price: float | None = None  # for a fixed stop-loss order
     trail_percent: float | None = None  # for trailing_stop orders (e.g., 0.06 = 6%)
     client_id: str | None = None
 
@@ -123,7 +124,16 @@ class DryRunBroker(Broker):
             raise ValueError(f"No executable price available for {ticker}; set a mark or limit_price first")
 
         oid = f"dry-{len(self._orders) + 1}"
-        self._orders[oid] = Order(ticker=ticker, side=order.side, quantity=int(order.quantity), type=order.type, limit_price=order.limit_price, client_id=order.client_id)
+        self._orders[oid] = Order(
+            ticker=ticker,
+            side=order.side,
+            quantity=int(order.quantity),
+            type=order.type,
+            limit_price=order.limit_price,
+            stop_price=order.stop_price,
+            trail_percent=order.trail_percent,
+            client_id=order.client_id,
+        )
 
         qty = int(order.quantity)
         signed = qty if order.side == "buy" else -qty

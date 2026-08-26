@@ -241,6 +241,12 @@ FACTOR_DATA_HEALTH_STEP = Step(
     critical=True,
 )
 
+DRIFT_MONITOR_STEP = Step(
+    "drift_monitor",
+    [sys.executable, "drift_monitor.py", "--run-name", "pooled"],
+    "Compare recent model inputs with the training-time feature baseline",
+)
+
 ALPACA_STATUS_STEP = Step(
     "alpaca_status",
     [sys.executable, "alpaca_paper_trading.py", "--status"],
@@ -568,8 +574,9 @@ def build_steps(
             "Pre-flight Alpaca connectivity check",
             critical=False,
         ))
-        steps.append(FACTOR_DATA_HEALTH_STEP)
-        steps.append(CORE_SATELLITE_SIGNAL_STEP)
+    steps.append(FACTOR_DATA_HEALTH_STEP)
+    steps.append(DRIFT_MONITOR_STEP)
+    steps.append(CORE_SATELLITE_SIGNAL_STEP)
     if run_alpaca:
         steps.extend(ALPACA_STEPS)
     steps.append(REGIME_MONITOR_STEP)

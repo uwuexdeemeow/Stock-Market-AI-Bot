@@ -22,6 +22,22 @@ strategy as `paper_provisional`.
 Expected result: paper trading can continue, but `real_capital_approved` stays
 false.
 
+If a prior migration dropped folds from an otherwise matching approved
+walk-forward, repair the canonical evidence with:
+
+```bash
+python3 validation_bundle.py \
+  --source-walkforward signals/wf_low_turnover.json \
+  --run-robustness
+```
+
+The repair refuses evidence for a different live configuration. With
+`--run-robustness`, it refreshes the paper signal and the execution-stress,
+survivorship, and factor-decay reports before rebuilding the bundle. These are
+research-only commands: no broker order is submitted. The resulting source is
+stored at `signals/core_satellite_nested_walkforward.json` so GitHub can restore
+it without depending on a developer's ignored or absolute scratch path.
+
 ## Key Terms
 
 An old paper configuration with no matching tracked folds is recorded with

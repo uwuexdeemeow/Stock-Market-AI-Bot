@@ -44,6 +44,12 @@ CONFIG_KEYS = (
     "holding_days",
     "regime_ma_window",
     "regime_high_vol",
+    # These fields are part of the strategy fingerprint.  PLAIN ENGLISH: if
+    # they are omitted, a percentile-volatility result is mislabeled as the
+    # older fixed-volatility strategy even though the calculation was correct.
+    "high_vol_mode",
+    "tqqq_weight",
+    "risk_control_mode",
 )
 
 

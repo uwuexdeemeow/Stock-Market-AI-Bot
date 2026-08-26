@@ -1,6 +1,6 @@
 {
   "created_at": "2026-08-26T07:28:28+00:00",
-  "source_json": "/Users/amos/Code/Stock Market AI Bot/signals/wf_low_turnover.json",
+  "source_json": "signals/core_satellite_nested_walkforward.json",
   "method": "nested_walk_forward_yearly_outer_multi_inner_validation",
   "approvals": {
     "core-alpha": {
@@ -173,8 +173,9 @@
     }
   },
   "validation_bundle_path": "signals/core_satellite_validation_bundle.json",
-  "validation_bundle_hash": "323cbf9b7bf46ee4e2a8becd204bfca380551e67c905ebb539c1ecadb3ae0cd5",
+  "validation_bundle_hash": "ca29ac851a726ed1f82ce8a49ea6a700b772b0fdfc2aad7567a2dfe99e40e1da",
   "deployment_status": "paper_provisional",
   "paper_approved": true,
-  "real_capital_approved": false
+  "real_capital_approved": false,
+  "source_json_sha256": "436a627cf25f013f22aba07addee68747833d22bc952b27280cf38a8604e38ad"
 }

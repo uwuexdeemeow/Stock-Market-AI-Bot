@@ -38,7 +38,8 @@ import pandas as pd
 
 from broker_interface import Broker, Order, Position, Fill
 from safe_io import atomic_write_csv, atomic_write_json, atomic_write_text, configure_console_output
-from settings import LOG_DIR, SIGNAL_DIR
+from settings import DATA_DIR, LOG_DIR, SIGNAL_DIR
+from risk_sizing import annualized_realized_vol, position_size_with_stop, vol_target_size
 from signal_freshness import (
     extract_signal_weights,
     validate_live_config_match,
@@ -79,6 +80,17 @@ MIN_TRADE_VALUE = float(os.environ.get("ALPACA_MIN_TRADE_VALUE", "25.0"))
 MAX_GROSS_EXPOSURE = float(os.environ.get("ALPACA_MAX_GROSS_EXPOSURE", "1.00"))
 DEFAULT_MAX_SIGNAL_AGE_HOURS = float(os.environ.get("ALPACA_MAX_SIGNAL_AGE_HOURS", "24.0"))
 DEFAULT_MAX_FACTOR_AGE_TRADING_DAYS = int(os.environ.get("ALPACA_MAX_FACTOR_AGE_TRADING_DAYS", "5"))
+
+# Experimental paper-only overlay sizing cap.  It is deliberately OFF until
+# walk-forward and shadow-paper evidence prove that it improves the approved
+# strategy.  When enabled, it may shrink a stock BUY but can never enlarge it
+# or turn it into a sell.  Core ETFs keep their validated target weights.
+LIVE_RISK_CAP_ENABLED = os.environ.get("ALPACA_LIVE_RISK_CAP_ENABLED", "0").strip().lower() in {
+    "true", "1", "yes", "y", "on"
+}
+LIVE_RISK_PER_TRADE = float(os.environ.get("ALPACA_LIVE_RISK_PER_TRADE", "0.01"))
+LIVE_RISK_ATR_MULT = float(os.environ.get("ALPACA_LIVE_RISK_ATR_MULT", "2.0"))
+LIVE_RISK_VOL_TARGET = float(os.environ.get("ALPACA_LIVE_RISK_VOL_TARGET", "0.08"))
 
 # ── STOP-LOSS CONFIGURATION ───────────────────────────────────────────────────
 # PLAIN ENGLISH: After buying overlay stocks, we place a trailing stop order
@@ -851,6 +863,12 @@ class AlpacaBroker(Broker):
             kwargs["type"] = "trailing_stop"
             kwargs["trail_percent"] = str(round(float(order.trail_percent) * 100, 2))
             kwargs["time_in_force"] = "gtc"  # trailing stops must be GTC
+        elif order.type == "stop" and order.stop_price is not None:
+            # A fixed stop waits at a specific price.  Alpaca activates a sell
+            # when the market reaches that price; it is not filled immediately.
+            kwargs["type"] = "stop"
+            kwargs["stop_price"] = round(float(order.stop_price), 2)
+            kwargs["time_in_force"] = "gtc"
         elif order.type == "limit" and order.limit_price is not None:
             kwargs["type"] = "limit"
             kwargs["limit_price"] = round(float(order.limit_price), 2)
@@ -1157,6 +1175,96 @@ def _releasable_protective_stop_qty(broker: AlpacaBroker) -> dict[str, int]:
 # ORDER GENERATION — compares target weights to current positions
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _overlay_risk_cap(
+    ticker: str,
+    *,
+    equity: float,
+    price: float,
+    current_qty: int,
+    signal_target_qty: int,
+    signal_target_weight: float,
+) -> tuple[int, dict]:
+    """Return a paper-only overlay target that is never above the signal target.
+
+    PLAIN ENGLISH: the approved signal remains the boss.  This experimental
+    guard looks at recent volatility and ATR (a typical daily price move), then
+    reduces a proposed stock buy when its risk budget is smaller.  Missing or
+    bad data stops an enabled experiment instead of silently removing its cap.
+    """
+    metadata = {
+        "live_risk_cap_enabled": LIVE_RISK_CAP_ENABLED,
+        "live_risk_signal_target_qty": signal_target_qty,
+        "live_risk_capped_target_qty": signal_target_qty,
+        "live_risk_realized_vol": "",
+        "live_risk_atr_14": "",
+        "live_risk_reason": "",
+    }
+    if not LIVE_RISK_CAP_ENABLED or ticker in ETF_TICKERS or signal_target_qty <= current_qty:
+        return signal_target_qty, metadata
+
+    # This is research behavior, not a permission to trade real money.  Fail
+    # closed if somebody enables it while pointing at Alpaca's live endpoint.
+    if "paper-api.alpaca.markets" not in ALPACA_BASE_URL.lower():
+        raise RuntimeError("Experimental live risk cap is allowed only on Alpaca paper trading")
+
+    path = Path(DATA_DIR) / f"{ticker.upper()}.parquet"
+    if not path.exists():
+        raise RuntimeError(f"Risk cap enabled but price history is missing for {ticker}")
+    try:
+        history = pd.read_parquet(path, columns=["High", "Low", "Close"]).sort_index()
+        history = history.replace([np.inf, -np.inf], np.nan).dropna(subset=["High", "Low", "Close"])
+    except Exception as exc:
+        raise RuntimeError(f"Risk cap could not read valid price history for {ticker}: {exc}") from exc
+    if len(history) < 21:
+        raise RuntimeError(f"Risk cap needs at least 21 price rows for {ticker}")
+
+    # True range includes overnight gaps, so ATR does not underestimate a stock
+    # merely because the move happened between yesterday's close and today's open.
+    previous_close = history["Close"].shift(1)
+    true_range = pd.concat(
+        [
+            history["High"] - history["Low"],
+            (history["High"] - previous_close).abs(),
+            (history["Low"] - previous_close).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
+    atr_14 = float(true_range.tail(14).mean())
+    realized_vol = annualized_realized_vol(history["Close"])
+    if not np.isfinite(atr_14) or atr_14 <= 0 or not np.isfinite(realized_vol) or realized_vol <= 0:
+        raise RuntimeError(f"Risk cap calculated invalid volatility data for {ticker}")
+
+    # Both independent limits must agree.  The signal target is included in
+    # min(), which mathematically guarantees the overlay cannot add exposure.
+    vol_notional = vol_target_size(
+        equity,
+        realized_vol,
+        target_vol_annual=LIVE_RISK_VOL_TARGET,
+        max_weight=max(0.0, signal_target_weight),
+    )
+    vol_qty = max(0, int(vol_notional // price))
+    atr_qty = position_size_with_stop(
+        equity,
+        price,
+        atr_14,
+        risk_per_trade=LIVE_RISK_PER_TRADE,
+        k_atr=LIVE_RISK_ATR_MULT,
+    )
+    raw_cap = min(signal_target_qty, vol_qty, atr_qty)
+    # A cap below today's holding must not create an unvalidated sell.  It just
+    # blocks additional buying; normal approved sell logic remains untouched.
+    capped_target_qty = max(current_qty, raw_cap)
+    metadata.update({
+        "live_risk_capped_target_qty": capped_target_qty,
+        "live_risk_realized_vol": round(realized_vol, 6),
+        "live_risk_atr_14": round(atr_14, 6),
+        "live_risk_reason": (
+            f"vol_qty={vol_qty};atr_qty={atr_qty}"
+            if capped_target_qty < signal_target_qty else ""
+        ),
+    })
+    return capped_target_qty, metadata
+
 def generate_orders(
     broker: AlpacaBroker,
     target_weights: dict[str, float],
@@ -1215,6 +1323,17 @@ def generate_orders(
         # Round to nearest share to minimize drift from target weight.
         # int() truncates toward zero and systematically under-allocates.
         target_qty = round(target_value / px)
+
+        # The experimental cap is applied only to a proposed overlay BUY.  It
+        # is off by default and cannot increase the approved signal quantity.
+        target_qty, live_risk = _overlay_risk_cap(
+            ticker,
+            equity=equity,
+            price=px,
+            current_qty=current_qty,
+            signal_target_qty=target_qty,
+            signal_target_weight=target_w,
+        )
 
         # Drift = difference between target and current weight
         drift = abs(target_w - current_w)
@@ -1304,6 +1423,7 @@ def generate_orders(
             "drift": round(drift, 4),
             "current_qty": current_qty,
             "target_qty": target_qty,
+            **live_risk,
         })
 
     # Sort: sells first (free up cash), then buys by size
@@ -1351,6 +1471,12 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
             "buying_power_used_for_cash_check": order.get("buying_power_used_for_cash_check", ""),
             "broker_sellable_qty": order.get("broker_sellable_qty", ""),
             "quantity_clamped_to_sellable": order.get("quantity_clamped_to_sellable", False),
+            "live_risk_cap_enabled": order.get("live_risk_cap_enabled", False),
+            "live_risk_signal_target_qty": order.get("live_risk_signal_target_qty", ""),
+            "live_risk_capped_target_qty": order.get("live_risk_capped_target_qty", ""),
+            "live_risk_realized_vol": order.get("live_risk_realized_vol", ""),
+            "live_risk_atr_14": order.get("live_risk_atr_14", ""),
+            "live_risk_reason": order.get("live_risk_reason", ""),
             "execution_risk_score": order.get("execution_risk_score", ""),
             "execution_risk_band": order.get("execution_risk_band", ""),
             "execution_risk_buy_scale": order.get("execution_risk_buy_scale", ""),

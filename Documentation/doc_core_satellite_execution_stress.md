@@ -38,3 +38,5 @@ half-written stress report.
 
 The JSON report includes the exact strategy and dataset fingerprints. The
 validation bundle rejects a report from an older config or data snapshot.
+Volatility mode, leverage choice, and risk-control mode are included in that
+identity so a report cannot be mislabeled as a different strategy.

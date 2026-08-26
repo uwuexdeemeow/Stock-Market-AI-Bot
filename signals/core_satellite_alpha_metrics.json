@@ -61,7 +61,7 @@
   "drawdown_circuit_breaker": 0.0,
   "vol_target": 0.0,
   "live_config_source": "nested_walkforward",
-  "live_config_source_json": "/Users/amos/Code/Stock Market AI Bot/signals/wf_low_turnover.json",
+  "live_config_source_json": "signals/core_satellite_nested_walkforward.json",
   "total_return_pct": 6076.56,
   "cagr_pct": 28.07,
   "sharpe": 1.255,
@@ -639,7 +639,7 @@
   "grid_rows": 0,
   "best_config_source": "nested_walkforward_approved_live_config",
   "full_sample_grid_used_for_selection": false,
-  "live_config_hash": "2fea445d2bbc6505",
+  "live_config_hash": "70987a70735b8b8e",
   "live_config_created_at": "2026-08-26T07:28:28+00:00",
   "approved_family_signature": "score=regime_adaptive,shape=top3,weighting=sticky_score,risk=off,tqqq=0.0",
   "approved_exact_config": "h=20,ov=0.5,ma=100,vol=percentile:0.3,score=regime_adaptive,shape=top3,weighting=sticky_score,tqqq=0.0,risk=off",
@@ -700,9 +700,9 @@
       "approved_config_frequency": 0.5,
       "medium_risk_review_pass": true
     },
-    "source_json": "/Users/amos/Code/Stock Market AI Bot/signals/wf_low_turnover.json",
+    "source_json": "signals/core_satellite_nested_walkforward.json",
     "created_at": "2026-08-26T07:28:28+00:00",
-    "live_config_hash": "2fea445d2bbc6505"
+    "live_config_hash": "70987a70735b8b8e"
   },
   "full_sample_core_satellite_gate_results": {
     "alpha_vs_spy_pass": true,

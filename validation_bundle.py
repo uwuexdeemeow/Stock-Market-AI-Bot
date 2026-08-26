@@ -10,18 +10,23 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from safe_io import atomic_write_json
+import pandas as pd
+
+from safe_io import atomic_write_csv, atomic_write_json, atomic_write_text
 from universe_membership import membership_status
 
 
 DEFAULT_BUNDLE_PATH = Path("signals/core_satellite_validation_bundle.json")
 DEFAULT_LIVE_CONFIG_PATH = Path("signals/core_satellite_live_configs.json")
 DEFAULT_RESEARCH_MANIFEST_PATH = Path("signals/research_run_manifest.json")
+DEFAULT_CANONICAL_WALKFORWARD_PATH = Path("signals/core_satellite_nested_walkforward.json")
 DEFAULT_REPORT_PATHS = {
     "survivorship": Path("logs/core_satellite_survivorship_audit.json"),
     "execution_stress": Path("logs/core_satellite_execution_stress.json"),
@@ -304,6 +309,97 @@ def write_validation_bundle(bundle: dict, path: Path = DEFAULT_BUNDLE_PATH) -> P
     return path
 
 
+def _matching_approved_config(result: dict, live: dict) -> tuple[bool, str]:
+    """Confirm that walk-forward evidence describes the config used by paper trading."""
+    evidence_config = ((result.get("approved_live_config", {}) or {}).get("config", {}) or {})
+    live_config = (
+        ((live.get("approved_live_configs", {}) or {}).get("core-alpha", {}) or {}).get("config", {})
+        or {}
+    )
+    if not evidence_config:
+        return False, "walkforward_approved_config_missing"
+    if not live_config:
+        return False, "live_approved_config_missing"
+    if strategy_config_fingerprint(evidence_config) != strategy_config_fingerprint(live_config):
+        return False, "walkforward_live_config_mismatch"
+    return True, ""
+
+
+def rebuild_from_walkforward(
+    source_path: Path,
+    *,
+    live_config_path: Path = DEFAULT_LIVE_CONFIG_PATH,
+    bundle_path: Path = DEFAULT_BUNDLE_PATH,
+    canonical_source_path: Path = DEFAULT_CANONICAL_WALKFORWARD_PATH,
+    run_robustness: bool = False,
+) -> tuple[Path, Path]:
+    """Rebuild canonical evidence without ever enabling real-capital trading.
+
+    PLAIN ENGLISH: old migrations sometimes kept the approved paper config but
+    dropped its folds.  This repair accepts a complete walk-forward JSON only
+    when its approved strategy exactly matches the strategy already used by the
+    paper account.  That prevents an unrelated backtest from being attached to
+    today's trading configuration.
+    """
+    result = json.loads(source_path.read_text(encoding="utf-8"))
+    live = json.loads(live_config_path.read_text(encoding="utf-8"))
+    if not bool((result.get("live_config_approval", {}) or {}).get("approved", False)):
+        raise ValueError("walkforward_evidence_not_approved")
+    if not result.get("folds"):
+        raise ValueError("walkforward_folds_missing")
+    matches, reason = _matching_approved_config(result, live)
+    if not matches:
+        raise ValueError(reason)
+
+    # Store the accepted evidence at the tracked canonical path.  GitHub runners
+    # cannot restore a developer's absolute or gitignored scratch filename.
+    canonical_source_path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_text(canonical_source_path, json.dumps(result, indent=2, default=str))
+    atomic_write_csv(
+        pd.DataFrame(result.get("folds", [])),
+        canonical_source_path.with_suffix(".csv"),
+        index=False,
+    )
+
+    if run_robustness:
+        # Each command performs research calculations and writes a report; none
+        # connects to the broker or submits an order.  The signal refresh makes
+        # sure those reports read metrics from the same approved live config.
+        env = dict(os.environ)
+        env["STOCKBOT_SCRIPT_TELEGRAM_ENABLED"] = "0"
+        for script in (
+            "core_satellite_alpha.py",
+            "core_satellite_execution_stress.py",
+            "core_satellite_survivorship_audit.py",
+            "factor_decay_monitor.py",
+        ):
+            completed = subprocess.run(
+                [sys.executable, script],
+                cwd=str(Path(__file__).resolve().parent),
+                env=env,
+                check=False,
+            )
+            if completed.returncode != 0:
+                raise RuntimeError(f"validation_report_failed:{script}:exit_{completed.returncode}")
+
+    # Build after optional report refresh so fingerprints are compared against
+    # the newest evidence, not reports that existed before the repair began.
+    bundle = build_validation_bundle(result, source_json=str(canonical_source_path))
+    write_validation_bundle(bundle, bundle_path)
+    live.update({
+        "source_json": str(canonical_source_path),
+        "source_json_sha256": bundle.get("source_json_sha256", ""),
+        "validation_bundle_path": str(bundle_path),
+        "validation_bundle_hash": bundle.get("validation_bundle_hash", ""),
+        "deployment_status": bundle.get("deployment", {}).get("status", "rejected"),
+        "paper_approved": bool(bundle.get("deployment", {}).get("paper_approved", False)),
+        # This repair is evidence plumbing, never permission to use real money.
+        "real_capital_approved": False,
+    })
+    atomic_write_json(live, live_config_path)
+    return live_config_path, bundle_path
+
+
 def migrate_existing_live_config(
     live_config_path: Path = DEFAULT_LIVE_CONFIG_PATH,
     bundle_path: Path = DEFAULT_BUNDLE_PATH,
@@ -340,7 +436,28 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--live-config", type=Path, default=DEFAULT_LIVE_CONFIG_PATH)
     parser.add_argument("--output", type=Path, default=DEFAULT_BUNDLE_PATH)
+    parser.add_argument(
+        "--source-walkforward",
+        type=Path,
+        help="Repair the bundle from matching approved walk-forward JSON instead of creating an empty migration.",
+    )
+    parser.add_argument(
+        "--run-robustness",
+        action="store_true",
+        help="Refresh signal, execution stress, survivorship, and factor-decay reports before rebuilding.",
+    )
     args = parser.parse_args()
+    if args.source_walkforward:
+        live_path, bundle_path = rebuild_from_walkforward(
+            args.source_walkforward,
+            live_config_path=args.live_config,
+            bundle_path=args.output,
+            run_robustness=bool(args.run_robustness),
+        )
+        print(f"Updated paper config: {live_path}")
+        print(f"Wrote validation bundle: {bundle_path}")
+        print("Matching folds restored; real capital remains blocked")
+        return 0
     live_path, bundle_path = migrate_existing_live_config(args.live_config, args.output)
     print(f"Updated paper config: {live_path}")
     print(f"Wrote validation bundle: {bundle_path}")

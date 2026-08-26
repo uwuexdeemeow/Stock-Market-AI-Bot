@@ -39,3 +39,5 @@ stress report.
 The report carries strategy and dataset fingerprints. Testing remains partial
 until date-effective membership and delisted-name data are complete, so it
 cannot authorize real capital.
+The fingerprint includes volatility and risk-control modes, preventing results
+for one strategy variant from being attached to another.

@@ -23,6 +23,7 @@ from feature_health import (
 )
 from robustness_scoring import robustness_score_components
 from settings import DATA_DIR, SECTOR_MAP, SIGNAL_DIR, SLIPPAGE_BASE_PCT, WATCHLIST
+from universe_membership import apply_membership_if_complete
 
 
 HORIZON_DAYS = 5
@@ -199,6 +200,12 @@ def load_factor_panel(specs: list[dict], *, require_forward_returns: bool = True
         panel = panel.dropna(subset=["entry_price", "exit_price", "forward_return"])
         panel = panel[np.isfinite(panel["forward_return"])]
         panel = panel[(panel["entry_price"] > 0) & (panel["exit_price"] > 0)]
+    # PLAIN ENGLISH: when the audited historical membership table is complete,
+    # remove ticker/date rows from periods when that company was not eligible.
+    # If the table is missing or partial, keep today's research behavior and let
+    # the validation bundle remain provisional instead of applying biased data.
+    panel, membership_result = apply_membership_if_complete(panel)
+    panel.attrs["point_in_time_membership"] = membership_result
     return panel.sort_values(["date", "ticker"]).reset_index(drop=True)
 
 

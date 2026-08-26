@@ -123,8 +123,16 @@ def evaluate_epoch(epoch: dict) -> dict:
         if timestamp_col:
             paper_log["_time"] = pd.to_datetime(paper_log[timestamp_col], errors="coerce", utc=True)
             paper_log = paper_log[paper_log["_time"] >= start]
-    if not equity.empty and "date" in equity:
-        equity["_time"] = pd.to_datetime(equity["date"], errors="coerce", utc=True)
+    # The equity file stores both a calendar ``date`` and an exact ``timestamp``.
+    # PLAIN ENGLISH: an epoch can start in the middle of a day.  Reading only
+    # ``date`` turns that day's observation into midnight, which can make a real
+    # post-start snapshot look older than the epoch.  Prefer the exact clock time
+    # and use ``date`` only for older files that do not have it yet.
+    if not equity.empty:
+        equity_time_col = next((column for column in ("timestamp", "date") if column in equity), None)
+        if equity_time_col:
+            equity["_time"] = pd.to_datetime(equity[equity_time_col], errors="coerce", utc=True)
+    if "_time" in equity:
         equity = equity[equity["_time"] >= start]
 
     accepted = int(pd.to_numeric(journal.get("accepted_orders", pd.Series(dtype=float)), errors="coerce").fillna(0).sum())

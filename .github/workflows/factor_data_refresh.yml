@@ -147,6 +147,7 @@ jobs:
           ENVEOF
 
       - name: Refresh factor parquets
+        id: refresh_factor_parquets
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           if [ "${{ github.event.inputs.xs_only }}" = "true" ]; then
@@ -168,9 +169,21 @@ jobs:
           PYTHONUNBUFFERED: "1"
 
       - name: Validate factor data health
+        id: validate_factor_data_health
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
-          python3 factor_data_health.py --strict
+          # Keep the strict gate: a bad cache must never look like a good one.
+          # Print the report when it blocks the job so the Actions page shows
+          # the exact cause instead of only Python's generic exit code 1.
+          if ! python3 factor_data_health.py --strict; then
+            echo "::error::Factor-data health gate blocked this refresh. Full report follows."
+            if [ -f signals/factor_data_health.json ]; then
+              python3 -m json.tool signals/factor_data_health.json
+            else
+              echo "Health report was not written."
+            fi
+            exit 1
+          fi
         env:
           PYTHONUNBUFFERED: "1"
 
@@ -202,7 +215,10 @@ jobs:
           retention-days: 30
 
       - name: Save data cache
-        if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        # Research may finish but a later safety gate may block trading.  Keep
+        # that freshly built data for the next run; the health report remains
+        # the authority that decides whether it is safe to trade.
+        if: ${{ always() && steps.refresh_factor_parquets.outcome == 'success' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v4
         with:
           path: data/
@@ -210,7 +226,10 @@ jobs:
 
       # Git-tracked files excluded — they're owned by main, not cache.
       - name: Save state cache
-        if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        # Only publish state after its strict health check passes.  A failed
+        # report stays in the run artifact, while later runs keep using the
+        # last known-good state rather than inheriting a broken one.
+        if: ${{ always() && steps.validate_factor_data_health.outcome == 'success' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v4
         with:
           path: |

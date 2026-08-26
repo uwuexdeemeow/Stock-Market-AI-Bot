@@ -8,6 +8,9 @@ the fixed rules the improved bot must satisfy.
 
 Operational files are copied, not removed, because order reconciliation still
 needs them. All new measurements are filtered using the epoch start time.
+Equity observations use their exact snapshot timestamp when available, so a
+snapshot taken later on the epoch's first day is counted correctly. Older files
+that only contain a calendar date remain supported.
 
 ## How To Run It
 

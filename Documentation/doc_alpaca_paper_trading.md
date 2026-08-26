@@ -174,6 +174,14 @@ The script has multiple layers of protection:
    execution quality before and after order-style changes.  The portfolio-wide
    `alpaca_execution_scorecard.json` can also shrink all BUY orders when recent
    execution quality fails, via `ALPACA_EXECUTION_SCORECARD_THROTTLE=1`.
+   A separate ATR/volatility sizing cap exists behind
+   `ALPACA_LIVE_RISK_CAP_ENABLED=1`. It is paper-only, applies only to overlay
+   stock buys, and can reduce but never increase the approved signal target.
+   It stays explicitly off in the nightly workflow until its own out-of-sample
+   and shadow-paper results prove an improvement. When testing it, configure
+   `ALPACA_LIVE_RISK_PER_TRADE` (default 1%), `ALPACA_LIVE_RISK_ATR_MULT`
+   (default 2), and `ALPACA_LIVE_RISK_VOL_TARGET` (default 8%). An enabled cap
+   fails closed when its local OHLC history is missing or invalid.
 9. **Spread/quote guard** — skips and logs individual orders when spread is
    too wide or Alpaca cannot provide a quote (configurable via
    `MAX_SPREAD_PCT_*` and `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT`).  Skipped rows

@@ -6,7 +6,10 @@ import pandas as pd
 
 import alpaca_paper_trading as alpaca
 import core_satellite_nested_walkforward as walkforward
+import core_satellite_execution_stress as execution_stress
+import core_satellite_survivorship_audit as survivorship_stress
 import data_manifest
+import factor_decay_monitor
 import validation_bundle
 
 
@@ -97,6 +100,101 @@ def test_validation_bundle_detects_stale_report_fingerprint(tmp_path, monkeypatc
     )
     assert stale_bundle["robustness_reports"]["factor_decay"]["match"] is False
     assert stale_bundle["deployment"]["integrity_status"] == "provisional"
+
+
+def test_validation_bundle_rebuild_restores_only_matching_approved_folds(tmp_path, monkeypatch):
+    """Repair keeps matching evidence and never promotes paper state to real money."""
+    source = tmp_path / "source.json"
+    canonical = tmp_path / "signals" / "core_satellite_nested_walkforward.json"
+    live_path = tmp_path / "signals" / "core_satellite_live_configs.json"
+    bundle_path = tmp_path / "signals" / "core_satellite_validation_bundle.json"
+    config = {"score_source": "regime_adaptive", "shape": "top3", "holding_days": 20}
+    source.write_text(json.dumps({
+        "strategy": "core-alpha",
+        "fold_count": 1,
+        "folds": [{"outer_year": 2025, "valid": True}],
+        "live_config_approval": {"approved": True},
+        "approved_live_config": {"config": config},
+    }), encoding="utf-8")
+    live_path.parent.mkdir(parents=True)
+    live_path.write_text(json.dumps({
+        "approved_live_configs": {"core-alpha": {"config": config}},
+        "real_capital_approved": True,
+    }), encoding="utf-8")
+    monkeypatch.setattr(validation_bundle, "membership_status", lambda: {"complete": False})
+
+    validation_bundle.rebuild_from_walkforward(
+        source,
+        live_config_path=live_path,
+        bundle_path=bundle_path,
+        canonical_source_path=canonical,
+    )
+
+    bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+    live = json.loads(live_path.read_text(encoding="utf-8"))
+    assert len(bundle["folds"]) == 1
+    assert "walkforward_folds_missing" not in bundle["deployment"]["reasons"]
+    assert "walkforward_source_missing" not in bundle["deployment"]["reasons"]
+    assert live["source_json"] == str(canonical)
+    assert live["validation_bundle_hash"] == bundle["validation_bundle_hash"]
+    assert live["real_capital_approved"] is False
+
+
+def test_validation_bundle_rebuild_refuses_different_live_config(tmp_path):
+    """Evidence for top-five holdings cannot be attached to a top-three bot."""
+    source = tmp_path / "source.json"
+    live_path = tmp_path / "live.json"
+    source.write_text(json.dumps({
+        "folds": [{"outer_year": 2025}],
+        "live_config_approval": {"approved": True},
+        "approved_live_config": {"config": {"shape": "top5"}},
+    }), encoding="utf-8")
+    live_path.write_text(json.dumps({
+        "approved_live_configs": {"core-alpha": {"config": {"shape": "top3"}}},
+    }), encoding="utf-8")
+
+    try:
+        validation_bundle.rebuild_from_walkforward(
+            source,
+            live_config_path=live_path,
+            bundle_path=tmp_path / "bundle.json",
+            canonical_source_path=tmp_path / "canonical.json",
+        )
+    except ValueError as exc:
+        assert str(exc) == "walkforward_live_config_mismatch"
+    else:
+        raise AssertionError("mismatched strategy evidence was accepted")
+
+
+def test_robustness_reports_preserve_full_live_config_identity(tmp_path, monkeypatch):
+    """Every report must fingerprint the same behavior-changing live fields."""
+    metrics_path = tmp_path / "core_satellite_alpha_metrics.json"
+    expected = {
+        "score_source": "regime_adaptive",
+        "shape": "top3",
+        "weighting": "sticky_score",
+        "holding_days": 20,
+        "overlay_gross": 0.5,
+        "regime_ma_window": 100,
+        "regime_high_vol": 0.3,
+        "high_vol_mode": "percentile",
+        "risk_control_mode": "off",
+    }
+    metrics_path.write_text(json.dumps(expected), encoding="utf-8")
+    monkeypatch.setattr(execution_stress, "SIGNAL_DIR", str(tmp_path))
+    monkeypatch.setattr(survivorship_stress, "SIGNAL_DIR", str(tmp_path))
+    monkeypatch.setattr(factor_decay_monitor, "METRICS_PATH", metrics_path)
+
+    configs = (
+        execution_stress._selected_config(),
+        survivorship_stress._load_selected_config(),
+        factor_decay_monitor._selected_config(),
+    )
+    expected_fingerprint = validation_bundle.strategy_config_fingerprint(expected)
+    assert all(
+        validation_bundle.strategy_config_fingerprint(config) == expected_fingerprint
+        for config in configs
+    )
 
 
 def test_provider_overlap_accepts_adjusted_match_and_rejects_price_scale_change():

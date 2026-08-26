@@ -10,6 +10,10 @@ Training has strict rules to prevent cheating:
 - The calibrator (which converts raw model scores to probabilities) is fit only on the calibration slice.
 
 **Output:** model files saved in `models/` for each ticker.
+After every successful save, `models/registry.json` receives a reproducibility
+record containing the Git commit, dataset fingerprint, metrics, command, and
+checksums of the model artifacts. Failed or incomplete training is not
+registered.
 
 ---
 
@@ -32,6 +36,8 @@ python train.py --ticker AAPL --verbose
 - `models/<TICKER>_scaler.pkl` — feature normalizer
 - `models/<TICKER>_calibrator.pkl` — confidence calibrator
 - `logs/train.log` — accuracy metrics per ticker
+- `models/registry.json` — append-only reproducibility history
+- `models/<name>_drift_baseline.json` — compact input distribution baseline
 
 ---
 

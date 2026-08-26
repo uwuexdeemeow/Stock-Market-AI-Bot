@@ -8,6 +8,11 @@ It also carries the feature-health gate into the factor research path. That mean
 - At least 6 active feature clusters
 - No single cluster above 25% of total factor weight
 
+When `data/universe_membership.csv` passes completeness checks, the loader also
+filters every ticker/date row to its effective membership interval. Incomplete
+membership data is not partially applied; real-capital validation stays
+blocked instead.
+
 ## How To Run It
 Run the main factor backtest:
 

@@ -30,6 +30,10 @@ watchdog/housekeeping steps still run so their output files stay fresh.
 | 14 | `monitor_heartbeat` | always-run | Watchdog over all monitors |
 | 15 | `log_cleanup` | always-run | Disk usage check |
 
+Before signal generation, `drift_monitor` also compares recent ML inputs with
+the pooled model's training baseline. It is advisory: a missing baseline is
+reported as `no_data`, and the next successful training run creates one.
+
 ## How to run
 
 ```bash
@@ -111,6 +115,10 @@ The workflow file `.github/workflows/daily_paper_trading.yml` invokes
   silent and prints no progress.
 - **Internal Telegram alert** — sends a warning when any step fails,
   regardless of the workflow exit code.
+- **No automatic trading retry** — GitHub runs the trading pipeline once. A
+  failed attempt may already have submitted some orders, so the workflow stays
+  failed and waits for broker reconciliation instead of rerunning the full plan
+  and possibly hiding a partial failure behind duplicate-order protection.
 
 ## Key concepts
 

@@ -499,6 +499,79 @@ def test_generate_orders_skips_nonfinite_prices():
     assert apt.generate_orders(broker, {"SPY": 0.5}, force=True) == []
 
 
+def test_experimental_live_risk_cap_is_off_by_default(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "LIVE_RISK_CAP_ENABLED", False)
+    monkeypatch.setattr(apt, "EXECUTION_RISK_ENABLED", False)
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_THROTTLE_ENABLED", False)
+    broker = _OrderBroker(equity=100_000.0, prices={"MU": 100.0})
+
+    orders = apt.generate_orders(broker, {"MU": 0.20}, force=True)
+
+    assert orders[0]["quantity"] == 200
+    assert orders[0]["live_risk_cap_enabled"] is False
+    assert orders[0]["live_risk_signal_target_qty"] == 200
+    assert orders[0]["live_risk_capped_target_qty"] == 200
+
+
+def test_experimental_live_risk_cap_can_only_reduce_buy(tmp_path, monkeypatch):
+    import alpaca_paper_trading as apt
+
+    dates = pd.date_range("2026-01-01", periods=40, freq="B")
+    close = pd.Series(np.linspace(90.0, 100.0, len(dates)), index=dates)
+    pd.DataFrame({"High": close + 5.0, "Low": close - 5.0, "Close": close}).to_parquet(
+        tmp_path / "MU.parquet"
+    )
+    monkeypatch.setattr(apt, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(apt, "LIVE_RISK_CAP_ENABLED", True)
+    monkeypatch.setattr(apt, "ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
+    monkeypatch.setattr(apt, "EXECUTION_RISK_ENABLED", False)
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_THROTTLE_ENABLED", False)
+    broker = _OrderBroker(equity=100_000.0, positions={"MU": 20}, prices={"MU": 100.0})
+
+    orders = apt.generate_orders(broker, {"MU": 0.20}, force=True)
+
+    # ATR is $10, so risking 1% with a 2×ATR stop permits 50 total shares.
+    assert orders[0]["side"] == "buy"
+    assert orders[0]["quantity"] == 30
+    assert orders[0]["live_risk_signal_target_qty"] == 200
+    assert orders[0]["live_risk_capped_target_qty"] == 50
+    assert orders[0]["target_qty"] == 50
+    assert orders[0]["live_risk_reason"].endswith("atr_qty=50")
+
+
+def test_experimental_live_risk_cap_never_turns_buy_into_sell(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "LIVE_RISK_CAP_ENABLED", True)
+    monkeypatch.setattr(apt, "_overlay_risk_cap", lambda *args, **kwargs: (
+        kwargs["current_qty"],
+        {
+            "live_risk_cap_enabled": True,
+            "live_risk_signal_target_qty": kwargs["signal_target_qty"],
+            "live_risk_capped_target_qty": kwargs["current_qty"],
+            "live_risk_realized_vol": 0.5,
+            "live_risk_atr_14": 10.0,
+            "live_risk_reason": "cap_below_holding",
+        },
+    ))
+    broker = _OrderBroker(equity=100_000.0, positions={"MU": 100}, prices={"MU": 100.0})
+
+    assert apt.generate_orders(broker, {"MU": 0.20}, force=True) == []
+
+
+def test_experimental_live_risk_cap_refuses_real_endpoint(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "LIVE_RISK_CAP_ENABLED", True)
+    monkeypatch.setattr(apt, "ALPACA_BASE_URL", "https://api.alpaca.markets")
+    broker = _OrderBroker(equity=100_000.0, prices={"MU": 100.0})
+
+    with pytest.raises(RuntimeError, match="only on Alpaca paper"):
+        apt.generate_orders(broker, {"MU": 0.20}, force=True)
+
+
 def test_generate_orders_adds_marketable_limit_prices():
     import alpaca_paper_trading as apt
 
@@ -794,6 +867,30 @@ def test_build_submission_order_can_force_market():
     assert order.type == "market"
     assert order.limit_price is None
     assert planned["submitted_order_type"] == "market"
+
+
+def test_alpaca_broker_maps_fixed_stop_to_gtc_stop_order():
+    import alpaca_paper_trading as apt
+    from broker_interface import Order
+
+    submitted = {}
+    broker = apt.AlpacaBroker.__new__(apt.AlpacaBroker)
+    broker._api = SimpleNamespace(
+        submit_order=lambda **kwargs: submitted.update(kwargs) or SimpleNamespace(id="stop-1")
+    )
+
+    oid = broker.place_order(Order(
+        ticker="MU",
+        side="sell",
+        quantity=10,
+        type="stop",
+        stop_price=91.234,
+    ))
+
+    assert oid == "stop-1"
+    assert submitted["type"] == "stop"
+    assert submitted["stop_price"] == 91.23
+    assert submitted["time_in_force"] == "gtc"
 
 
 def test_quote_based_limit_is_available_for_submission():

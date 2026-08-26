@@ -16,6 +16,11 @@ Create `data/universe_membership.csv` from a trustworthy historical membership
 source. The validation bundle automatically reports whether coverage is
 complete. Until it is complete, real-money approval remains blocked.
 
+`alpha_factor_backtest.load_factor_panel()` now applies the table automatically
+once it is complete. A partial table is never applied: research rows remain
+unchanged and the validation bundle continues showing the blocker. This avoids
+the more subtle bias caused by filtering only the few tickers entered so far.
+
 ## Key Terms
 
 - **Point in time:** Using only information known on the historical date.

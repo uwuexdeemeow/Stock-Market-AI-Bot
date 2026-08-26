@@ -21,6 +21,8 @@ def test_default_steps_include_one_shared_signal_before_alpaca():
     names = _names(steps)
     assert names.count("core_satellite_signal") == 1
     assert names.index("factor_data_health") < names.index("core_satellite_signal")
+    assert names.index("factor_data_health") < names.index("drift_monitor")
+    assert names.index("drift_monitor") < names.index("core_satellite_signal")
     assert names.index("core_satellite_signal") < names.index("alpaca_submit")
 
 
@@ -86,6 +88,17 @@ def test_daily_workflow_pins_execution_safety_env():
     ]
     for line in required_lines:
         assert line in workflow
+
+
+def test_daily_workflow_never_retries_the_trading_pipeline():
+    """A partial order failure must stay red instead of being hidden by retry."""
+    workflow = Path(".github/workflows/daily_paper_trading.yml").read_text(encoding="utf-8")
+
+    # PLAIN ENGLISH: one failed run may already have changed the Alpaca account.
+    # The workflow must stop and report that failure, not execute the whole trade
+    # plan again and accidentally treat duplicate protection as success.
+    assert workflow.count("python3 daily_run.py $FLAGS") == 1
+    assert "retrying in 30s" not in workflow
 
 
 def test_signal_latest_workflows_share_publish_lock():
@@ -183,6 +196,7 @@ def test_factor_data_health_failure_blocks_signal_and_orders(monkeypatch):
         "log_cleanup",
     ]
     assert next(r for r in results if r["name"] == "core_satellite_signal")["status"] == "blocked"
+    assert next(r for r in results if r["name"] == "drift_monitor")["status"] == "blocked"
     assert next(r for r in results if r["name"] == "alpaca_submit")["blocked_by"] == "factor_data_health"
     assert next(r for r in results if r["name"] == "monitor_heartbeat")["upstream_blocked_by"] == "factor_data_health"
 

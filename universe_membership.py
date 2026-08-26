@@ -75,6 +75,38 @@ def membership_status(
     }
 
 
+def apply_membership_if_complete(
+    panel: pd.DataFrame,
+    *,
+    path: Path = DEFAULT_MEMBERSHIP_PATH,
+    required_tickers: Iterable[str] = WATCHLIST,
+    data_dir: Path = Path(DATA_DIR),
+) -> tuple[pd.DataFrame, dict]:
+    """Apply point-in-time membership only when the table passes validation.
+
+    PLAIN ENGLISH: silently filtering with a half-built membership file can be
+    worse than not filtering because it removes companies unevenly.  This
+    helper therefore has two honest outcomes: use a complete table, or leave
+    the panel unchanged and return the reasons validation is still blocked.
+    """
+    status = membership_status(
+        path,
+        required_tickers=required_tickers,
+        data_dir=data_dir,
+    )
+    if not status.get("complete", False):
+        return panel.copy(), {**status, "applied": False}
+    membership = load_membership(path)
+    filtered = filter_panel_point_in_time(panel, membership)
+    return filtered, {
+        **status,
+        "applied": True,
+        "input_rows": int(len(panel)),
+        "output_rows": int(len(filtered)),
+        "removed_rows": int(len(panel) - len(filtered)),
+    }
+
+
 def filter_panel_point_in_time(panel: pd.DataFrame, membership: pd.DataFrame) -> pd.DataFrame:
     """Keep a ticker/date row only while that ticker's membership is active."""
     if panel.empty:

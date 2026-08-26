@@ -37,3 +37,5 @@ decay report.
 
 Saved JSON records the strategy and dataset fingerprints measured. Old decay
 evidence cannot be reused to approve a newer configuration.
+The fingerprint also records selection shape, weighting, overlay size,
+volatility mode, and risk mode even when a field does not alter the IC formula.

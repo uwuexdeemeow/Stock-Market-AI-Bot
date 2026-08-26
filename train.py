@@ -40,6 +40,7 @@ from sklearn.metrics import (
 from sklearn.preprocessing import StandardScaler
 
 from confidence_calibration import fit_direction_calibrator, save_direction_calibrator
+from drift_monitor import snapshot_from_metadata
 from labels import (
     make_direction_target as shared_make_direction_target,
     make_forward_return_target,
@@ -47,6 +48,7 @@ from labels import (
     make_spy_forward_return,
 )
 from model_quality import evaluate_model_quality, update_scaler_metadata, upsert_quality_report
+from model_registry import register as register_model_run
 from nested_cv import nested_walk_forward_search
 from pipeline_shared import apply_sentiment_distribution_matching, fit_sentiment_zscore_stats
 from safe_io import run_utf8
@@ -1102,6 +1104,34 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
     )
     update_scaler_metadata(ticker, quality_row)
     upsert_quality_report([quality_row])
+
+    # Register only after every artifact and quality update succeeded.  This
+    # keeps incomplete training attempts out of reproducibility history.
+    drift_baseline_path = snapshot_from_metadata(ticker, metadata, tickers=[ticker])
+    register_model_run(
+        ticker,
+        [
+            os.path.join(MODEL_DIR, f"{ticker}_xgb_dir.json"),
+            os.path.join(MODEL_DIR, f"{ticker}_xgb_ret.json"),
+            os.path.join(MODEL_DIR, f"{ticker}_scaler.pkl"),
+            os.path.join(MODEL_DIR, f"{ticker}_direction_calibrator.pkl"),
+            os.path.join(MODEL_DIR, f"{ticker}_train_summary.json"),
+            feature_audit_path,
+            drift_baseline_path,
+        ],
+        metrics={
+            "direction_accuracy": round(dir_acc, 4),
+            "baseline_up_rate": round(baseline_up_rate, 4),
+            "test_auc": metadata.get("test_auc"),
+            "confidence_threshold": round(threshold, 4),
+        },
+        metadata={
+            "training_mode": "single_ticker",
+            "prediction_target": PREDICTION_TARGET,
+            "model_version": metadata["model_version"],
+            "ticker": ticker,
+        },
+    )
 
     log.info(
         "RESULTS %s: acc=%.2f%% baseline=%.2f%% threshold=%.1f%% fallback=%s",
@@ -2397,6 +2427,45 @@ def train_pooled(
                 "pooled_tickers": valid_tickers,
             }, f, indent=2)
         log.info("[pooled] Saved artefacts for %s", ticker)
+
+    # One pooled registry entry points at the shared artifacts. Per-ticker
+    # compatibility copies are reproducible from these files and metadata.
+    pooled_artifacts = [
+        os.path.join(MODEL_DIR, "pooled_xgb_dir.json"),
+        os.path.join(MODEL_DIR, "pooled_xgb_ret.json"),
+        os.path.join(MODEL_DIR, "pooled_xgb_dir_h5.json"),
+        os.path.join(MODEL_DIR, "pooled_scaler.pkl"),
+        os.path.join(MODEL_DIR, "pooled_direction_calibrator.pkl"),
+    ]
+    pooled_artifacts.extend(
+        path for path in (
+            os.path.join(MODEL_DIR, "pooled_xgb_dir_bull.json"),
+            os.path.join(MODEL_DIR, "pooled_xgb_dir_bear.json"),
+        )
+        if os.path.exists(path)
+    )
+    drift_baseline_path = snapshot_from_metadata(
+        "pooled",
+        pooled_meta,
+        tickers=valid_tickers,
+    )
+    register_model_run(
+        "pooled",
+        [*pooled_artifacts, drift_baseline_path],
+        metrics={
+            "direction_accuracy": round(dir_acc, 4),
+            "baseline_up_rate": round(baseline, 4),
+            "test_auc": pooled_meta.get("test_auc"),
+            "test_average_precision": pooled_meta.get("test_average_precision"),
+        },
+        metadata={
+            "training_mode": "pooled",
+            "prediction_target": PREDICTION_TARGET,
+            "model_version": pooled_meta["model_version"],
+            "pooled_tickers": pooled_meta["pooled_tickers"],
+            "survivorship_training_tickers": pooled_meta["survivorship_training_tickers"],
+        },
+    )
 
     log.info("[pooled] Done. %d tickers, %.2f%% acc vs %.2f%% baseline",
              len(valid_tickers), dir_acc, baseline)

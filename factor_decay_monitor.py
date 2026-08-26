@@ -181,9 +181,17 @@ def _selected_config() -> dict:
     keys = (
         "regime_mode",
         "score_source",
+        # These fields may not change the IC calculation below, but they do
+        # identify which live strategy this evidence belongs to.
+        "shape",
+        "weighting",
         "holding_days",
+        "overlay_gross",
         "regime_ma_window",
         "regime_high_vol",
+        "high_vol_mode",
+        "tqqq_weight",
+        "risk_control_mode",
     )
     return {key: metrics[key] for key in keys if key in metrics}
 
