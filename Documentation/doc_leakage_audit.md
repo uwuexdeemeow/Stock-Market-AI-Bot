@@ -50,6 +50,7 @@ Strict audit output:
 | **Forward fill (ffill)** | Carrying the last known value forward when data is missing. Can leak if the "last known value" is actually from a future merge. |
 | **Timezone alignment** | Multi-market features (SPY, VIX) from different exchanges must be aligned carefully. A 1-row offset creates 1-day lookahead bias. |
 | **Embargo** | The 5-day gap between splits. A feature that changes only on the last row might be legitimate near-future leakage within the embargo window. |
+| **External market input** | Data such as QQQ/QQQE concentration that is independent of the ticker being perturbed. The ticker audit freezes it to avoid mistaking provider rounding jitter for look-ahead; a separate deterministic test perturbs future ETF prices directly. |
 
 ---
 

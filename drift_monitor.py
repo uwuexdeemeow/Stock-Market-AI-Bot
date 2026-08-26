@@ -140,15 +140,22 @@ def build_feature_frame(
     *,
     tickers: Iterable[str] = WATCHLIST,
     lookback_rows: int | None = None,
+    end_date: str | pd.Timestamp | None = None,
 ) -> pd.DataFrame:
     """Read requested feature columns from local ticker parquets."""
     requested = list(dict.fromkeys(str(name) for name in features))
+    # Saved metadata uses ISO dates.  Converting both sides to UTC lets this
+    # filter work with either timezone-aware or ordinary date indexes.
+    cutoff = pd.to_datetime(end_date, utc=True) if end_date is not None else None
     frames: list[pd.DataFrame] = []
     for ticker in tickers:
         path = Path(DATA_DIR) / f"{str(ticker).upper()}.parquet"
         if not path.exists():
             continue
         data = pd.read_parquet(path, columns=None)
+        if cutoff is not None:
+            row_dates = pd.to_datetime(data.index, errors="coerce", utc=True)
+            data = data.loc[row_dates <= cutoff]
         present = [name for name in requested if name in data.columns]
         if not present:
             continue
@@ -164,11 +171,21 @@ def snapshot_from_metadata(
     metadata: dict,
     *,
     tickers: Iterable[str] = WATCHLIST,
+    output_dir: str | Path = MODEL_DIR,
 ) -> Path:
     """Create the training-time baseline associated with one registered model."""
     features = metadata.get("feature_cols_raw") or metadata.get("feature_cols") or []
-    frame = build_feature_frame(features, tickers=tickers, lookback_rows=None)
-    output = Path(MODEL_DIR) / f"{run_name}_drift_baseline.json"
+    training_data_end = metadata.get("training_data_end")
+    frame = build_feature_frame(
+        features,
+        tickers=tickers,
+        lookback_rows=None,
+        end_date=training_data_end,
+    )
+    # Training may deliberately write a challenger into an isolated shadow
+    # directory. Keep its baseline beside that model instead of accidentally
+    # overwriting the production monitor baseline.
+    output = Path(output_dir) / f"{run_name}_drift_baseline.json"
     snapshot_baseline(
         frame,
         output_path=output,
@@ -177,6 +194,9 @@ def snapshot_from_metadata(
             "model_version": metadata.get("model_version"),
             "prediction_target": metadata.get("prediction_target"),
             "tickers": [str(ticker) for ticker in tickers],
+            # This proves the baseline excludes calibration, test, and newer
+            # rows instead of silently learning what later data looks like.
+            "training_data_end": training_data_end,
         },
     )
     return output

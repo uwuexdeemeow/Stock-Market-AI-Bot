@@ -91,6 +91,37 @@ def test_incremental_skips_closed_market_when_latest_session_present(tmp_path, m
     )
 
     assert research.research_ticker_incremental("AAA", "2024-01-01", "2024-01-07") is True
+    manifest = research.read_parquet_manifest(tmp_path / "AAA.parquet")
+    assert manifest["ticker"] == "AAA"
+    assert manifest["provider"] == "legacy_unknown"
+    assert manifest["row_count"] == 1
+
+
+def test_incremental_repairs_stale_manifest_for_current_parquet(tmp_path, monkeypatch):
+    """A fresh cached parquet must repair stale provenance without a download."""
+    research = _load_research_module()
+    monkeypatch.setattr(research, "DATA_DIR", str(tmp_path))
+    existing = pd.DataFrame(
+        {"Open": [10.0], "Close": [10.5]},
+        index=pd.to_datetime(["2024-01-05"]),
+    )
+    path = tmp_path / "AAA.parquet"
+    existing.to_parquet(path, index=True)
+    research.write_parquet_manifest(
+        path,
+        ticker="WRONG",
+        provider="legacy_unknown",
+        adjustment_mode="adjusted_ohlcv",
+        frame=existing,
+    )
+    monkeypatch.setattr(
+        research,
+        "build_research_feature_frame",
+        lambda *args, **kwargs: pytest.fail("current parquet should not download"),
+    )
+
+    assert research.research_ticker_incremental("AAA", "2024-01-01", "2024-01-07") is True
+    assert research.read_parquet_manifest(path)["ticker"] == "AAA"
 
 
 def test_closed_market_noop_detects_all_tickers_current(tmp_path, monkeypatch):

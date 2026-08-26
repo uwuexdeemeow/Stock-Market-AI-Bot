@@ -48,6 +48,36 @@ def _git_commit() -> str:
     return completed.stdout.strip() if completed.returncode == 0 else ""
 
 
+def _git_dirty() -> bool:
+    """Report whether tracked or untracked project source differs from Git."""
+    completed = subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=all"],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    return completed.returncode != 0 or bool(completed.stdout.strip())
+
+
+def _source_fingerprint() -> str:
+    """Hash trainer source so a dirty local run still has exact identity."""
+    candidates = list(PROJECT_ROOT.glob("*.py"))
+    for name in ("requirements.txt", "requirements.lock", "pyproject.toml"):
+        path = PROJECT_ROOT / name
+        if path.is_file():
+            candidates.append(path)
+    digest = hashlib.sha256()
+    for path in sorted(set(candidates), key=lambda item: item.name):
+        digest.update(path.name.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
 def _dataset_fingerprint() -> str:
     """Read the checksum of all research inputs without rehashing every parquet."""
     try:
@@ -110,6 +140,8 @@ def register(
         "run_name": str(run_name),
         "created_at": created_at,
         "git_commit": _git_commit(),
+        "git_dirty": _git_dirty(),
+        "source_fingerprint": _source_fingerprint(),
         "dataset_fingerprint": _dataset_fingerprint(),
         "python_version": sys.version.split()[0],
         "command": [str(value) for value in sys.argv],
@@ -132,8 +164,8 @@ def latest(run_name: str | None = None, *, registry_path: Path = DEFAULT_REGISTR
     return dict(runs[-1]) if runs else None
 
 
-def verify(run: dict) -> tuple[bool, list[str]]:
-    """Rehash saved artifacts and report any missing or changed file."""
+def verify_artifacts(run: dict) -> tuple[bool, list[str]]:
+    """Rehash saved artifacts without conflating them with source-code drift."""
     issues: list[str] = []
     for artifact in run.get("artifacts", []):
         path = Path(str(artifact.get("path", "")))
@@ -143,6 +175,15 @@ def verify(run: dict) -> tuple[bool, list[str]]:
             issues.append(f"missing:{artifact.get('path')}")
         elif _file_sha256(path) != str(artifact.get("sha256", "")):
             issues.append(f"checksum_mismatch:{artifact.get('path')}")
+    return not issues, issues
+
+
+def verify(run: dict) -> tuple[bool, list[str]]:
+    """Verify both saved artifacts and the current trainer source identity."""
+    _artifacts_ok, issues = verify_artifacts(run)
+    expected_source = str(run.get("source_fingerprint", ""))
+    if expected_source and _source_fingerprint() != expected_source:
+        issues.append("source_fingerprint_mismatch")
     return not issues, issues
 
 
@@ -156,8 +197,16 @@ def main() -> int:
     if run is None:
         print("No registered model runs found")
         return 1
+    artifacts_ok, artifact_issues = verify_artifacts(run)
     ok, issues = verify(run)
-    print(json.dumps({**run, "artifacts_valid": ok, "verification_issues": issues}, indent=2))
+    source_matches = "source_fingerprint_mismatch" not in issues
+    print(json.dumps({
+        **run,
+        "artifacts_valid": artifacts_ok,
+        "source_matches_current": source_matches,
+        "reproducibility_valid": ok,
+        "verification_issues": issues,
+    }, indent=2))
     return 0 if ok else 2
 
 

@@ -189,6 +189,10 @@ def fit_direction_calibrator(
 
 def save_direction_calibrator(model: Optional[IsotonicRegression], path: str) -> None:
     if model is None:
+        # A fallback retrain must not leave yesterday's calibrator beside
+        # today's model. That stale file would apply an incompatible mapping.
+        if os.path.exists(path):
+            os.remove(path)
         return
     with open(path, "wb") as f:
         pickle.dump(model, f)

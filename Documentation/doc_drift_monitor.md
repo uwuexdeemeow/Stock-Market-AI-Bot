@@ -3,8 +3,10 @@
 ## What It Does
 
 After successful training, `train.py` saves a compact baseline describing the
-model's input distributions. The daily workflow compares the latest 60 rows per
-ticker with those training-time distributions.
+model's input distributions. The baseline stops at the final date used by the
+training split, so calibration, test, and newer rows cannot make the baseline
+look artificially familiar. The daily workflow compares the latest 60 rows per
+ticker with those honest training-time distributions.
 
 Results are appended to `logs/drift.jsonl`. `monitor.py` reads the newest entry
 and alerts when PSI or KS crosses its configured threshold. If no baseline
@@ -24,7 +26,8 @@ Expected output includes an overall status (`ok`, `caution`, `drift`, or
 
 ## Key Concepts
 
-- **Baseline:** Compact training-time picture of normal feature values.
+- **Baseline:** Compact picture of normal feature values from the training era
+  only. It does not include the model's later calibration or test data.
 - **PSI:** Measures changes in how values fill training-time bins.
 - **KS statistic:** Largest distance between current and baseline distributions.
 - **Drift:** Inputs changed enough that model predictions deserve caution.
