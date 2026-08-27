@@ -19,6 +19,7 @@ def _clear_dashboard_caches() -> None:
         data.load_factor_data_health,
         data.load_quant_performance_audit,
         data.load_paper_shadow_compare,
+        data.load_fractional_shadow,
         data.load_broker_truth,
     ):
         try:
@@ -168,6 +169,32 @@ def test_dashboard_trade_gate_state_ready_only_when_all_submit_gates_pass():
 
     assert gate_state["trade_ready"] is True
     assert gate_state["block_reasons"] == []
+
+
+def test_fractional_shadow_loader_keeps_safety_and_ledger_together(tmp_path, monkeypatch):
+    report_path = tmp_path / "fractional_shadow_report.json"
+    equity_path = tmp_path / "fractional_shadow_equity.csv"
+    orders_path = tmp_path / "fractional_shadow_orders.csv"
+    compare_json = tmp_path / "fractional_shadow_compare.json"
+    compare_csv = tmp_path / "fractional_shadow_compare.csv"
+    report_path.write_text(json.dumps({"status": "ok", "safety": {"shadow_only": True}}))
+    equity_path.write_text("valuation_date,equity\n2026-08-27,399.50\n")
+    orders_path.write_text("order_id,ticker,quantity\npretend,QQQ,0.33\n")
+    compare_json.write_text(json.dumps({"status": "ok"}))
+    compare_csv.write_text("date,shadow_equity\n2026-08-27,399.50\n")
+    monkeypatch.setattr(data, "FRACTIONAL_SHADOW_REPORT", report_path)
+    monkeypatch.setattr(data, "FRACTIONAL_SHADOW_EQUITY", equity_path)
+    monkeypatch.setattr(data, "FRACTIONAL_SHADOW_ORDERS", orders_path)
+    monkeypatch.setattr(data, "FRACTIONAL_SHADOW_COMPARE_JSON", compare_json)
+    monkeypatch.setattr(data, "FRACTIONAL_SHADOW_COMPARE_CSV", compare_csv)
+    _clear_dashboard_caches()
+
+    payload = data.load_fractional_shadow()
+
+    assert payload["report"]["safety"]["shadow_only"] is True
+    assert payload["comparison"]["status"] == "ok"
+    assert payload["equity"].iloc[-1]["equity"] == 399.50
+    assert payload["orders"].iloc[-1]["ticker"] == "QQQ"
 
 
 def test_broker_truth_loader_returns_payload_and_issue_table(tmp_path, monkeypatch):

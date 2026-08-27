@@ -120,6 +120,39 @@ if compare_status == "ok":
 else:
     st.info("Paper-vs-shadow comparison will appear after Alpaca and shadow equity files exist.")
 
+# The small-account panel is deliberately labeled as pretend evidence.  It
+# helps a beginner see whether $400 can track the signal without implying that
+# real-money trading has been approved or connected.
+fractional_payload = data.load_fractional_shadow()
+fractional_report = fractional_payload.get("report") or {}
+if fractional_report.get("status") == "ok":
+    capital = fractional_report.get("capital") or {}
+    allocation = fractional_report.get("allocation") or {}
+    execution = fractional_report.get("execution") or {}
+    safety = fractional_report.get("safety") or {}
+    st.markdown("##### $400 fractional shadow · pretend account")
+    frac1, frac2, frac3, frac4 = st.columns(4)
+    with frac1:
+        st.metric("Shadow equity", f"${float(capital.get('current_equity') or 0):,.2f}")
+    with frac2:
+        st.metric("Cash", f"${float(capital.get('cash') or 0):,.2f}")
+    with frac3:
+        st.metric(
+            "Largest target gap",
+            f"{float(allocation.get('max_absolute_target_weight_gap') or 0):.2%}",
+        )
+    with frac4:
+        costs = float(execution.get("slippage_cost_today") or 0) + float(
+            execution.get("regulatory_fees_today") or 0
+        )
+        st.metric("Today's modeled costs", f"${costs:,.2f}")
+    if safety.get("shadow_only") is True and execution.get("broker_orders_submitted") is False:
+        status_chip("Shadow only · no broker orders", "ok")
+    else:
+        status_chip("Fractional safety evidence failed", "fail")
+else:
+    st.caption("$400 fractional shadow will appear after its first workflow run.")
+
 workflow_df = data.load_workflow_heartbeats()
 if not workflow_df.empty:
     hb_cols = st.columns(min(2, len(workflow_df)))

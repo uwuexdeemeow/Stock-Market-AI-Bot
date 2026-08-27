@@ -513,6 +513,12 @@ jobs:
             signals/shadow_paper_equity.csv
             signals/paper_shadow_compare.csv
             signals/paper_shadow_compare.json
+            signals/fractional_shadow_state.json
+            signals/fractional_shadow_orders.csv
+            signals/fractional_shadow_equity.csv
+            signals/fractional_shadow_report.json
+            signals/fractional_shadow_compare.csv
+            signals/fractional_shadow_compare.json
             signals/workflow_heartbeat_daily.json
             signals/workflow_heartbeat_shadow.json
           retention-days: 30
@@ -540,6 +546,12 @@ jobs:
               signals/shadow_paper_equity.csv \
               signals/paper_shadow_compare.csv \
               signals/paper_shadow_compare.json \
+              signals/fractional_shadow_state.json \
+              signals/fractional_shadow_orders.csv \
+              signals/fractional_shadow_equity.csv \
+              signals/fractional_shadow_report.json \
+              signals/fractional_shadow_compare.csv \
+              signals/fractional_shadow_compare.json \
               signals/workflow_heartbeat_shadow.json ; do
             if git show "origin/signals/latest:${f}" > "$tmp_shadow_dir/$(basename "$f")" 2>/dev/null; then
               echo "  preserving $f from signals/latest"
@@ -556,6 +568,12 @@ jobs:
               shadow_paper_equity.csv \
               paper_shadow_compare.csv \
               paper_shadow_compare.json \
+              fractional_shadow_state.json \
+              fractional_shadow_orders.csv \
+              fractional_shadow_equity.csv \
+              fractional_shadow_report.json \
+              fractional_shadow_compare.csv \
+              fractional_shadow_compare.json \
               workflow_heartbeat_shadow.json ; do
             if [ -f "$tmp_shadow_dir/$f" ]; then
               cp "$tmp_shadow_dir/$f" "signals/$f"
@@ -596,7 +614,13 @@ jobs:
               signals/shadow_paper_journal.csv \
               signals/shadow_paper_equity.csv \
               signals/paper_shadow_compare.csv \
-              signals/paper_shadow_compare.json ; do
+              signals/paper_shadow_compare.json \
+              signals/fractional_shadow_state.json \
+              signals/fractional_shadow_orders.csv \
+              signals/fractional_shadow_equity.csv \
+              signals/fractional_shadow_report.json \
+              signals/fractional_shadow_compare.csv \
+              signals/fractional_shadow_compare.json ; do
             if [ -f "$f" ]; then
               git add -f "$f"
               added=$((added + 1))
