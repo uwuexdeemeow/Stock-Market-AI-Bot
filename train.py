@@ -107,6 +107,17 @@ logging.basicConfig(
 )
 log = logging.getLogger("train")
 
+# The default remains the established models directory. A caller may select an
+# isolated shadow directory from the CLI; registry names then carry a shadow/
+# prefix so a challenger can never masquerade as the latest production model.
+PRODUCTION_MODEL_DIR = str(MODEL_DIR)
+TRAINING_DEPLOYMENT_ROLE = "production"
+
+
+def _registry_run_name(name: str) -> str:
+    """Separate shadow registry history from production lookup names."""
+    return str(name) if TRAINING_DEPLOYMENT_ROLE == "production" else f"shadow/{name}"
+
 N_RETURN_BINS = len(RETURN_BIN_LABELS)
 RETURN_BIN_CENTRES = np.array([-0.04, -0.02, 0.00, 0.02, 0.04], dtype=float)
 FEATURE_MIN_STD = 1e-9
@@ -973,6 +984,7 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
     calibrator = fit_direction_calibrator(cal_probs, y_dir_all[calib_start:calib_end])
     cal_path = os.path.join(MODEL_DIR, f"{ticker}_direction_calibrator.pkl")
     save_direction_calibrator(calibrator, cal_path)
+    saved_calibrator_path = cal_path if os.path.exists(cal_path) else None
 
     # Track whether the calibrator was usable or fell back to the fixed default.
     # Pass raw cal_probs + labels so compute_dynamic_threshold can derive a
@@ -1037,9 +1049,12 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
         "selected_model_name": None,
         "confidence_threshold": threshold,
         "threshold_used_fallback": threshold_used_fallback,
-        "confidence_calibrator": cal_path,
+        "confidence_calibrator": saved_calibrator_path,
         "xgb_model_format": "json",
         "train_split_end": train_end,
+        # Drift monitoring must learn its normal range only from dates the
+        # model was allowed to train on, never calibration or test dates.
+        "training_data_end": pd.Timestamp(df.index[train_end - 1]).isoformat(),
         "calib_split_start": calib_start,
         "calib_split_end": calib_end,
         "calib_set_size": calib_end - calib_start,
@@ -1107,18 +1122,23 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
 
     # Register only after every artifact and quality update succeeded.  This
     # keeps incomplete training attempts out of reproducibility history.
-    drift_baseline_path = snapshot_from_metadata(ticker, metadata, tickers=[ticker])
-    register_model_run(
+    drift_baseline_path = snapshot_from_metadata(
         ticker,
-        [
+        metadata,
+        tickers=[ticker],
+        output_dir=MODEL_DIR,
+    )
+    register_model_run(
+        _registry_run_name(ticker),
+        [path for path in [
             os.path.join(MODEL_DIR, f"{ticker}_xgb_dir.json"),
             os.path.join(MODEL_DIR, f"{ticker}_xgb_ret.json"),
             os.path.join(MODEL_DIR, f"{ticker}_scaler.pkl"),
-            os.path.join(MODEL_DIR, f"{ticker}_direction_calibrator.pkl"),
+            saved_calibrator_path,
             os.path.join(MODEL_DIR, f"{ticker}_train_summary.json"),
             feature_audit_path,
             drift_baseline_path,
-        ],
+        ] if path],
         metrics={
             "direction_accuracy": round(dir_acc, 4),
             "baseline_up_rate": round(baseline_up_rate, 4),
@@ -1130,6 +1150,10 @@ def train_ticker(ticker: str, param_overrides: dict | None = None) -> bool:
             "prediction_target": PREDICTION_TARGET,
             "model_version": metadata["model_version"],
             "ticker": ticker,
+            "deployment_role": TRAINING_DEPLOYMENT_ROLE,
+            "threshold_used_fallback": bool(threshold_used_fallback),
+            "confidence_validated": bool(conf_diag.get("confidence_validated", False)),
+            "confidence_validation_reason": conf_diag.get("reason", ""),
         },
     )
 
@@ -2301,6 +2325,7 @@ def train_pooled(
     log.info("[pooled] Saved h5 model to pooled_xgb_dir_h5.json")
     cal_path = os.path.join(MODEL_DIR, "pooled_direction_calibrator.pkl")
     save_direction_calibrator(calibrator, cal_path)
+    saved_calibrator_path = cal_path if os.path.exists(cal_path) else None
 
     pooled_meta = {
         "scaler": scaler,
@@ -2351,7 +2376,7 @@ def train_pooled(
         "selected_model_name": None,
         "confidence_threshold": threshold,
         "threshold_used_fallback": fallback,
-        "confidence_calibrator": cal_path,
+        "confidence_calibrator": saved_calibrator_path,
         "xgb_model_format": "json",
         # Multi-horizon ensemble: path to the 5-day secondary direction model.
         # predict.py and backtest.py load this alongside pooled_xgb_dir.json
@@ -2389,6 +2414,9 @@ def train_pooled(
         "prediction_target": PREDICTION_TARGET,
         "model_version": "xgb_pooled_v1",
         "trained_at": datetime.now().isoformat(),
+        # The pooled split is date-based.  Saving its final training date lets
+        # drift_monitor rebuild an honest, training-era-only baseline.
+        "training_data_end": pd.Timestamp(all_ts[train_mask].max()).isoformat(),
         "sentiment_features_removed": False,
         "sentiment_features_distribution_matched": bool(pooled_sentiment_stats),
         "sentiment_zscore_stats_by_ticker": pooled_sentiment_stats,
@@ -2435,8 +2463,9 @@ def train_pooled(
         os.path.join(MODEL_DIR, "pooled_xgb_ret.json"),
         os.path.join(MODEL_DIR, "pooled_xgb_dir_h5.json"),
         os.path.join(MODEL_DIR, "pooled_scaler.pkl"),
-        os.path.join(MODEL_DIR, "pooled_direction_calibrator.pkl"),
     ]
+    if saved_calibrator_path:
+        pooled_artifacts.append(saved_calibrator_path)
     pooled_artifacts.extend(
         path for path in (
             os.path.join(MODEL_DIR, "pooled_xgb_dir_bull.json"),
@@ -2448,9 +2477,10 @@ def train_pooled(
         "pooled",
         pooled_meta,
         tickers=valid_tickers,
+        output_dir=MODEL_DIR,
     )
     register_model_run(
-        "pooled",
+        _registry_run_name("pooled"),
         [*pooled_artifacts, drift_baseline_path],
         metrics={
             "direction_accuracy": round(dir_acc, 4),
@@ -2464,6 +2494,10 @@ def train_pooled(
             "model_version": pooled_meta["model_version"],
             "pooled_tickers": pooled_meta["pooled_tickers"],
             "survivorship_training_tickers": pooled_meta["survivorship_training_tickers"],
+            "deployment_role": TRAINING_DEPLOYMENT_ROLE,
+            "threshold_used_fallback": bool(fallback),
+            "confidence_validated": bool(conf_diag.get("confidence_validated", False)),
+            "confidence_validation_reason": conf_diag.get("reason", ""),
         },
     )
 
@@ -2473,7 +2507,7 @@ def train_pooled(
 
 
 def main() -> None:
-    global PREDICTION_TARGET
+    global MODEL_DIR, PREDICTION_TARGET, TRAINING_DEPLOYMENT_ROLE
 
     parser = argparse.ArgumentParser(description="XGBoost-only trainer")
     parser.add_argument("--ticker", type=str, default=None)
@@ -2514,7 +2548,24 @@ def main() -> None:
             "Writes separate ranker artifacts without replacing the classifier."
         ),
     )
+    parser.add_argument(
+        "--shadow-output-dir",
+        type=str,
+        help=(
+            "Write all generated model artifacts to an isolated challenger directory. "
+            "The registry run is named shadow/<ticker> or shadow/pooled, and existing "
+            "production model files are not overwritten."
+        ),
+    )
     args = parser.parse_args()
+    if args.shadow_output_dir:
+        shadow_dir = os.path.abspath(args.shadow_output_dir)
+        if shadow_dir == os.path.abspath(PRODUCTION_MODEL_DIR):
+            parser.error("--shadow-output-dir must differ from the production models directory")
+        MODEL_DIR = shadow_dir
+        TRAINING_DEPLOYMENT_ROLE = "shadow"
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        log.info("Shadow training enabled — artifacts will be isolated in %s", MODEL_DIR)
     if args.target:
         PREDICTION_TARGET = args.target
         log.info("Using prediction target override: %s", PREDICTION_TARGET)

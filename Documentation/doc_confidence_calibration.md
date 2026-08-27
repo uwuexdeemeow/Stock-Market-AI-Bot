@@ -41,6 +41,7 @@ threshold = compute_dynamic_threshold(calibrator, target_precision=0.58)
 | **Precision** | Of all the times the model said "LONG with high confidence," what % actually went up? This is the key metric — not raw accuracy. |
 | **Dynamic threshold** | Instead of a fixed 57.5 threshold, this finds the minimum score where precision ≥ 58%. Different for each ticker and each training run. |
 | **out_of_bounds="clip"** | If a live prediction has a score outside the range seen during calibration, it's clamped to the edge rather than extrapolating. Safer. |
+| **Fallback calibration** | If no calibration candidate improves validation quality, raw probabilities are used. Retraining deletes any old calibrator so a stale curve cannot be applied to the new model. |
 
 ---
 

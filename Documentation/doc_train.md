@@ -8,6 +8,8 @@ Training has strict rules to prevent cheating:
 - Data is split into train / calibration / test in chronological order (never shuffled).
 - A 5-day embargo gap sits between each split so the model can't accidentally learn from near-future data.
 - The calibrator (which converts raw model scores to probabilities) is fit only on the calibration slice.
+- Model metadata records the final training date. Drift baselines use that date
+  to exclude calibration, test, and newer market rows.
 
 **Output:** model files saved in `models/` for each ticker.
 After every successful save, `models/registry.json` receives a reproducibility
@@ -29,6 +31,19 @@ python train.py --ticker AAPL
 # Train and show verbose output
 python train.py --ticker AAPL --verbose
 ```
+
+To train a challenger without overwriting any existing model, use an isolated
+shadow directory:
+
+```bash
+python3 train.py --no-tune --shadow-output-dir models/shadow_YYYYMMDD
+```
+
+Every artifact and its drift baseline stays in that directory. The registry
+entry is named `shadow/pooled` (or `shadow/AAPL` for a single ticker), so tools
+looking for the latest production `pooled` run cannot select it accidentally.
+Only copy a shadow model into production after a separate out-of-sample
+comparison proves it is better.
 
 **Expected output:**
 - `models/<TICKER>_xgb_dir.json` — direction model (up/down)
