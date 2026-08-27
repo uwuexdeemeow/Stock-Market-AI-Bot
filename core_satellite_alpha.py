@@ -1646,6 +1646,10 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
             config["weighting"],
             prev_overlay,
             max_single_name_weight=float(config.get("max_single_name_weight", MAX_SINGLE_NAME_WEIGHT)),
+            # A candidate may ask for more weight persistence.  The approved
+            # live configuration omits this key, so its historical 0.65 value
+            # remains frozen unless a shadow experiment sets it explicitly.
+            sticky_blend=float(config.get("sticky_blend", 0.65)),
         )
         held = set(overlay.index.astype(str))
 

@@ -17,6 +17,7 @@ def _clear_dashboard_caches() -> None:
         data.load_execution_scorecard,
         data.load_etf_data_health,
         data.load_factor_data_health,
+        data.load_quant_performance_audit,
         data.load_paper_shadow_compare,
         data.load_broker_truth,
     ):
@@ -47,6 +48,9 @@ def test_execution_report_falls_back_to_alpaca_paper_log(tmp_path, monkeypatch):
     assert report is not None
     assert report["source"] == "alpaca_paper_log.csv fallback"
     assert report["summary"]["orders_analyzed"] == 2
+    assert report["schema_version"] == 2
+    assert report["summary"]["slippage_measured_orders"] == 2
+    assert report["summary"]["adverse_15m_measured_orders"] == 0
     assert report["summary"]["avg_slippage_bps"] is not None
     assert report["segments"]["all_orders"]["orders_analyzed"] == 2
     assert {row["symbol"] for row in report["orders"]} == {"NEM", "CAT"}
@@ -77,6 +81,36 @@ def test_execution_report_prefers_full_slippage_report(tmp_path, monkeypatch):
     assert report is not None
     assert report["source"] == "alpaca_api"
     assert report["orders"][0]["symbol"] == "API"
+
+
+def test_execution_evidence_states_are_not_conflated():
+    assert data.execution_evidence_state(None)["category"] == "operational_failure"
+    collecting = data.execution_evidence_state({
+        "status": "collecting",
+        "decision_eligible": False,
+        "decision_blockers": ["adverse_60m_coverage_below_80pct"],
+    })
+    assert collecting["category"] == "insufficient_evidence"
+    stale = data.execution_evidence_state({
+        "status": "collecting",
+        "decision_eligible": False,
+        "decision_blockers": ["scorecard_stale"],
+    })
+    assert stale["category"] == "stale_evidence"
+    failed = data.execution_evidence_state({
+        "status": "fail",
+        "decision_eligible": True,
+        "checks": [{"name": "bad_slippage_rate", "status": "fail"}],
+    })
+    assert failed["category"] == "measured_failure"
+    assert "bad_slippage_rate" in failed["reason"]
+
+
+def test_account_alignment_missing_evidence_is_collecting_not_false_failure():
+    collecting = data.account_alignment_evidence_state({"account_aligned_with_target": False})
+    assert collecting["status"] == "collecting"
+    assert data.account_alignment_evidence_state({"account_alignment_status": "pass"})["status"] == "pass"
+    assert data.account_alignment_evidence_state({"account_alignment_status": "fail"})["status"] == "fail"
 
 
 def test_account_summary_uses_equity_csv_when_status_missing(tmp_path, monkeypatch):
@@ -205,6 +239,21 @@ def test_file_status_tracks_factor_data_health(tmp_path, monkeypatch):
     table = data.file_status_table()
 
     assert "Factor data health" in set(table["File"])
+
+
+def test_quant_audit_loader_keeps_json_and_candidate_table_together(tmp_path, monkeypatch):
+    audit_json = tmp_path / "quant_performance_audit.json"
+    audit_csv = tmp_path / "quant_shadow_experiments.csv"
+    audit_json.write_text(json.dumps({"reference_audit_status": "blocked"}), encoding="utf-8")
+    audit_csv.write_text("name,gate_pass\nbaseline_frozen_active,true\n", encoding="utf-8")
+    monkeypatch.setattr(data, "QUANT_AUDIT_JSON", audit_json)
+    monkeypatch.setattr(data, "QUANT_AUDIT_CSV", audit_csv)
+    _clear_dashboard_caches()
+
+    loaded = data.load_quant_performance_audit()
+
+    assert loaded["payload"]["reference_audit_status"] == "blocked"
+    assert list(loaded["experiments"]["name"]) == ["baseline_frozen_active"]
 
 
 def test_action_checklist_prioritizes_broker_truth_fail(monkeypatch):

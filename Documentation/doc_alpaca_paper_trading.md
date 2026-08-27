@@ -27,6 +27,12 @@ Before sending sell orders, it also checks Alpaca's broker-reported
 sellable share count so the plan does not ask to sell shares that are
 reserved by another open order or stop.
 
+The execution scorecard can reduce future BUY sizes only when its evidence is
+complete, fresh, and `decision_eligible=true`. Missing, unreadable, stale, or
+still-collecting scorecards leave size unchanged. Every planned-order row keeps
+an explicit `execution_scorecard_reason` so the dashboard and audit log show
+why no throttle was applied.
+
 ## Why it exists
 
 Without this script the strategy's signals would just sit in a CSV.

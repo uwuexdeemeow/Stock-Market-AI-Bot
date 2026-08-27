@@ -113,6 +113,18 @@ def test_signal_latest_workflows_share_publish_lock():
     assert "cancel-in-progress: false" in shadow_workflow
 
 
+def test_shadow_workflow_requires_safe_defaults_and_verified_evidence():
+    """The shadow job stays strict and publishes only matching fresh evidence."""
+    workflow = Path(".github/workflows/shadow_paper_journal.yml").read_text(encoding="utf-8")
+    assert workflow.count('default: "false"') >= 2
+    assert "validation_bundle_valid" in workflow
+    assert "validation_fingerprint_match" in workflow
+    assert "Paper-vs-shadow comparison is stale" in workflow
+    # The journal observes a strategy; it never submits or mutates an order.
+    forbidden = ["--submit", "--reconcile", "execution_guard.py", "cancel_order", "replace_order"]
+    assert all(token not in workflow for token in forbidden)
+
+
 def test_alpaca_only_still_generates_shared_signal():
     steps = daily_run.build_steps(
         skip_refresh=True,

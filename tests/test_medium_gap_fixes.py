@@ -114,6 +114,26 @@ def test_factor_decay_uses_non_overlapping_rebalance_cohorts():
     assert summary["decile_monotonicity_spearman"] == 1.0
 
 
+def test_factor_decay_exposes_inverted_score_direction():
+    """Higher scores paired with lower returns must produce negative monotonicity."""
+    dates = pd.date_range("2026-01-02", periods=41, freq="B")
+    scored = pd.DataFrame(
+        {
+            "date": [date for date in dates for _ticker in range(20)],
+            "ticker": [f"T{ticker:02d}" for _date in dates for ticker in range(20)],
+            "_monitor_score": [ticker for _date in dates for ticker in range(20)],
+            "_monitor_return": [-ticker / 100.0 for _date in dates for ticker in range(20)],
+        }
+    )
+
+    cohorts = factor_decay_monitor._non_overlapping_rebalance_panel(scored, 20)
+    summary = factor_decay_monitor._ic_summary(cohorts, 365, pd.Timestamp(dates[-1]))
+
+    assert summary["daily_ic_mean"] == -1.0
+    assert summary["decile_monotonicity_spearman"] == -1.0
+    assert summary["top_vs_rest_return_pct"] < 0.0
+
+
 def _passing_survivorship():
     return {
         "survivorship_adjusted_score": 0.9,
@@ -197,4 +217,3 @@ def test_live_gate_requires_medium_risk_review_pass():
     assert out["core_satellite_gate_results"]["all_pass"] is False
     assert out["medium_risk_review_pass"] is False
     assert any("medium_risk_review_failed" in reason for reason in out["live_gate_reasons"])
-

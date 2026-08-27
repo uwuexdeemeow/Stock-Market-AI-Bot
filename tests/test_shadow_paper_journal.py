@@ -80,12 +80,24 @@ def test_journal_row_carries_signal_and_validation_metrics():
     }
     metrics = {"sharpe": 1.2, "max_drawdown_pct": -9.5, "total_return_pct": 42.0}
 
-    row = spj._journal_row(signal, metrics)
+    row = spj._journal_row(
+        signal,
+        metrics,
+        {
+            "bundle_valid": True,
+            "fingerprint_match": True,
+            "config_fingerprint": "abc123",
+            "issues": [],
+        },
+    )
 
     assert row["shadow_name"] == spj.SHADOW_NAME
     assert row["paper_ready"] is True
     assert row["source_worst_oos_drawdown_pct"] == -27.56
     assert row["backtest_sharpe"] == 1.2
+    assert row["validation_bundle_valid"] is True
+    assert row["validation_fingerprint_match"] is True
+    assert row["validation_config_fingerprint"] == "abc123"
 
 
 def test_update_shadow_equity_initializes_first_row(tmp_path):

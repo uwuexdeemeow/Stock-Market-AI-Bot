@@ -31,6 +31,13 @@ Expected output:
   the shadow config, starting at `$100,000` by default.
 - The GitHub shadow workflow then runs `paper_shadow_compare.py`, which writes
   `signals/paper_shadow_compare.csv` and `signals/paper_shadow_compare.json`.
+- Every journal row now records whether the temporary validation bundle was
+  structurally valid and whether its config fingerprint exactly matched the
+  shadow config. The workflow fails before publishing if either value is false
+  or if the new paper-versus-shadow comparison is more than 15 minutes old.
+- Normal scheduled and manual runs keep `force=false` and `ignore_stale=false`.
+  Those safety checks change only when a person deliberately selects the debug
+  input in GitHub Actions.
 - `signals/core_satellite_alpha_signal.csv` is restored after the shadow run.
 - No Alpaca orders are submitted.
 - A temporary validation bundle is made only for the shadow config while its

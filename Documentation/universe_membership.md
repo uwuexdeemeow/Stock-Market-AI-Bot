@@ -6,9 +6,12 @@ This helper prevents survivorship bias by describing when each ticker entered
 and left the strategy universe. Historical rows can then be filtered using the
 membership that was valid on that date.
 
-Required CSV columns are `ticker`, `effective_from`, `effective_to`, `status`,
-and `source`. Delisted names must remain in the table and retain local price
-history where available.
+Required identity columns are `ticker`, `effective_from`, `effective_to`,
+`status`, and `source`. Promotion-quality evidence must also include
+`source_url`, `retrieved_at`, `license`, and `access_cost`. `source_url` must be
+an HTTP(S) page, `retrieved_at` must be a valid timestamp, the license cannot
+be blank, and `access_cost` must say `free`. Delisted names must remain in the
+table and retain local price history where available.
 
 The completeness gate also requires a realistically broad historical universe:
 at least 400 constituents active at the backtest start, at least 17 removed
@@ -19,7 +22,8 @@ name from being mislabeled as point-in-time evidence.
 ## How To Use It
 
 Create `data/universe_membership.csv` from a trustworthy historical membership
-source. The validation bundle automatically reports whether coverage is
+free, lawful, source-attributed source. Never reconstruct old membership from
+today's constituents. The validation bundle automatically reports whether coverage is
 complete. Until it is complete, real-money approval remains blocked.
 
 Check it with `python3 universe_membership.py --status`. The JSON output shows

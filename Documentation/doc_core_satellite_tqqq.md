@@ -6,6 +6,10 @@
 value to the core-satellite strategy. It supports one configuration, a weight
 grid, a historical backtest, and cost stress. It does not submit broker orders.
 
+Research trade rows include the exact ETF and stock target-weight maps. That
+evidence lets `quant_performance_audit.py` rebuild daily profit/loss from raw
+prices. Standalone TQQQ live signal generation remains disabled.
+
 ## How to run it
 
 Use `python3 core_satellite_tqqq.py --backtest`, or add `--grid` to compare

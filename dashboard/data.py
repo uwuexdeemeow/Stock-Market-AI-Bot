@@ -48,6 +48,8 @@ DATA_DIR = PROJECT_ROOT / "data"
 LIVE_CONFIG_FILE = SIGNALS_DIR / "core_satellite_live_configs.json"
 WALKFORWARD_CSV = SIGNALS_DIR / "core_satellite_nested_walkforward.csv"
 WALKFORWARD_JSON = SIGNALS_DIR / "core_satellite_nested_walkforward.json"
+QUANT_AUDIT_JSON = SIGNALS_DIR / "quant_performance_audit.json"
+QUANT_AUDIT_CSV = SIGNALS_DIR / "quant_shadow_experiments.csv"
 SIGNAL_CSV = SIGNALS_DIR / "core_satellite_alpha_signal.csv"
 METRICS_JSON = SIGNALS_DIR / "core_satellite_alpha_metrics.json"
 ORDERS_CSV = SIGNALS_DIR / "core_satellite_alpha_orders.csv"
@@ -270,10 +272,24 @@ def _execution_report_from_order_log(log: pd.DataFrame) -> dict | None:
     by_symbol.sort(key=lambda row: float(row.get("execution_risk_score") or 0), reverse=True)
 
     return {
+        "schema_version": 2,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "source": "alpaca_paper_log.csv fallback",
         "summary": {
             "orders_analyzed": len(report_rows),
+            "eligible_orders": len(report_rows),
+            "slippage_eligible_orders": len(report_rows),
+            "slippage_measured_orders": len(slip_values),
+            "slippage_coverage_rate": round(len(slip_values) / len(report_rows), 4),
+            "adverse_5m_eligible_orders": len(report_rows),
+            "adverse_5m_measured_orders": 0,
+            "adverse_5m_coverage_rate": 0.0,
+            "adverse_15m_eligible_orders": len(report_rows),
+            "adverse_15m_measured_orders": 0,
+            "adverse_15m_coverage_rate": 0.0,
+            "adverse_60m_eligible_orders": len(report_rows),
+            "adverse_60m_measured_orders": 0,
+            "adverse_60m_coverage_rate": 0.0,
             "avg_slippage_bps": round(_safe_mean(slip_values), 2) if _safe_mean(slip_values) is not None else None,
             "median_slippage_bps": round(_safe_median(slip_values), 2) if _safe_median(slip_values) is not None else None,
             "slippage_bad_count": int(sum(1 for value in slip_values if float(value) > 0)),
@@ -362,6 +378,16 @@ def load_walkforward_results() -> pd.DataFrame:
 def load_walkforward_summary() -> dict | None:
     """Return the aggregate walkforward stats from the JSON."""
     return _read_json_safe(WALKFORWARD_JSON)
+
+
+@st.cache_data(ttl=60)
+def load_quant_performance_audit() -> dict:
+    """Return the independent daily OOS audit and bounded experiment table."""
+    payload = _read_json_safe(QUANT_AUDIT_JSON)
+    return {
+        "payload": payload if isinstance(payload, dict) else {},
+        "experiments": _read_csv_safe(QUANT_AUDIT_CSV),
+    }
 
 
 # ── TODAY'S SIGNAL (what the bot decided to trade) ────────────────────
@@ -531,6 +557,91 @@ def load_execution_scorecard() -> dict | None:
     """Return the latest execution scorecard payload."""
     payload = _read_json_safe(ALPACA_EXECUTION_SCORECARD)
     return payload if isinstance(payload, dict) else None
+
+
+def execution_evidence_state(scorecard: dict | None) -> dict:
+    """Classify execution evidence without turning missing data into a pass/fail.
+
+    PLAIN ENGLISH: A measured bad fill, an observation still waiting for its
+    60-minute price, an old scorecard, and a broken reporting job require four
+    different operator responses. This helper gives every dashboard page the
+    same unambiguous label.
+    """
+    if not isinstance(scorecard, dict) or not scorecard:
+        return {
+            "category": "operational_failure",
+            "label": "Operational failure",
+            "chip_status": "fail",
+            "reason": "execution scorecard missing or unreadable",
+        }
+    status = str(scorecard.get("status") or "unknown").lower().strip()
+    blockers = [str(item) for item in scorecard.get("decision_blockers", []) or []]
+    reason_text = ", ".join(blockers)
+    if status in {"error", "missing", "unknown"}:
+        return {
+            "category": "operational_failure",
+            "label": "Operational failure",
+            "chip_status": "fail",
+            "reason": reason_text or f"scorecard status is {status}",
+        }
+    stale = any("stale" in item.lower() or "old" in item.lower() for item in blockers)
+    if stale:
+        return {
+            "category": "stale_evidence",
+            "label": "Stale evidence",
+            "chip_status": "warn",
+            "reason": reason_text or "execution measurements are too old",
+        }
+    if not bool(scorecard.get("decision_eligible", False)):
+        return {
+            "category": "insufficient_evidence",
+            "label": "Insufficient evidence",
+            "chip_status": "unknown",
+            "reason": reason_text or "fill measurements are still collecting",
+        }
+    if status == "fail":
+        failed = [
+            str(check.get("name"))
+            for check in scorecard.get("checks", []) or []
+            if isinstance(check, dict) and str(check.get("status")).lower() == "fail"
+        ]
+        return {
+            "category": "measured_failure",
+            "label": "Measured failure",
+            "chip_status": "fail",
+            "reason": ", ".join(failed) or "eligible execution checks failed",
+        }
+    return {
+        "category": "measured_pass",
+        "label": "Measured pass",
+        "chip_status": "ok",
+        "reason": "complete eligible scorecard passed",
+    }
+
+
+def account_alignment_evidence_state(health: dict | None) -> dict:
+    """Return pass/fail/collecting account alignment from canonical broker truth."""
+    payload = health or {}
+    status = str(payload.get("account_alignment_status") or "").lower().strip()
+    if status not in {"pass", "fail", "collecting"}:
+        # Old files may contain only a compatibility boolean. Missing evidence
+        # must remain collecting instead of becoming a false measured failure.
+        if payload.get("account_aligned_with_target") is True:
+            status = "pass"
+        else:
+            status = "collecting"
+    nested = payload.get("account_alignment") if isinstance(payload.get("account_alignment"), dict) else {}
+    reason = str(payload.get("account_alignment_reason") or nested.get("reason") or "")
+    return {
+        "status": status,
+        "label": {
+            "pass": "Alignment pass",
+            "fail": "Alignment fail",
+            "collecting": "Alignment collecting",
+        }[status],
+        "chip_status": {"pass": "ok", "fail": "fail", "collecting": "unknown"}[status],
+        "reason": reason or ("broker-truth evidence unavailable" if status == "collecting" else ""),
+    }
 
 
 @st.cache_data(ttl=60)
@@ -986,6 +1097,7 @@ def file_status_table() -> pd.DataFrame:
         "Daily workflow": WORKFLOW_HEARTBEATS["Daily paper"],
         "Shadow workflow": WORKFLOW_HEARTBEATS["Shadow journal"],
         "Factor data health": FACTOR_DATA_HEALTH,
+        "Quant performance audit": QUANT_AUDIT_JSON,
         "Feature health": FEATURE_HEALTH,
         "Feature quality": FEATURE_QUALITY,
         "Broker health": BROKER_HEALTH,

@@ -48,6 +48,10 @@ def test_complete_membership_filters_ineligible_ticker_dates(tmp_path):
             "effective_to": "",
             "status": "active",
             "source": "test-fixture",
+            "source_url": "https://example.test/membership.csv",
+            "retrieved_at": "2026-01-02T00:00:00Z",
+            "license": "CC-BY-4.0",
+            "access_cost": "free",
         },
         {
             "ticker": "BBB",
@@ -55,6 +59,10 @@ def test_complete_membership_filters_ineligible_ticker_dates(tmp_path):
             "effective_to": "2020-12-31",
             "status": "delisted",
             "source": "test-fixture",
+            "source_url": "https://example.test/membership.csv",
+            "retrieved_at": "2026-01-02T00:00:00Z",
+            "license": "CC-BY-4.0",
+            "access_cost": "free",
         },
     ]).to_csv(path, index=False)
     # The strict production gate requires price files for the historical
@@ -110,6 +118,33 @@ def test_incomplete_membership_never_partially_filters_panel(tmp_path):
     assert status["applied"] is False
     assert "required_ticker_membership_missing" in status["reasons"]
     pd.testing.assert_frame_equal(filtered, _panel())
+
+
+def test_membership_without_free_source_provenance_stays_blocked(tmp_path):
+    """A current-looking table cannot pass without URL, retrieval, and license proof."""
+    path = tmp_path / "membership.csv"
+    pd.DataFrame([{
+        "ticker": "AAA",
+        "effective_from": "2019-01-01",
+        "effective_to": "",
+        "status": "active",
+        "source": "vague-source-name",
+    }]).to_csv(path, index=False)
+
+    status = universe_membership.membership_status(
+        path,
+        required_tickers=["AAA"],
+        data_dir=tmp_path,
+        coverage_start="2020-01-01",
+        coverage_end="2021-01-01",
+        min_active_members=1,
+        min_inactive_members=0,
+        min_price_coverage=0.0,
+    )
+
+    assert status["complete"] is False
+    assert "membership_provenance_columns_missing" in status["reasons"]
+    assert "membership_source_not_verified_free" in status["reasons"]
 
 
 def test_current_only_membership_cannot_fake_historical_completeness(tmp_path):

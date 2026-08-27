@@ -5,6 +5,11 @@
 `factor_decay_monitor.py` checks whether the overlay score still has recent
 predictive power and whether recent overlay trades are still adding alpha.
 
+The report names top-decile minus rest return with both the legacy
+`top_bucket_excess_return_pct` field and the clearer
+`top_vs_rest_return_pct` field. They are the same non-overlapping-cohort
+statistic.
+
 Plain language: it watches for the strategy edge getting weaker before the
 paper/live system relies on it too much.
 

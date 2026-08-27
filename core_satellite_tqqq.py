@@ -518,6 +518,7 @@ def run_tqqq_backtest(
         overlay = _sticky_overlay_weights(
             selected, overlay_gross, config["weighting"], prev_overlay,
             max_single_name_weight=float(config["max_single_name_weight"]),
+            sticky_blend=float(config.get("sticky_blend", 0.65)),
         )
         held = set(overlay.index.astype(str))
 
@@ -585,6 +586,20 @@ def run_tqqq_backtest(
             "turnover": turnover,
             "strategy_ret": strategy_ret,
             "n_overlay": len(overlay),
+            # Store the target positions so the independent daily audit can
+            # rebuild each day's profit/loss from raw prices instead of
+            # trusting only this backtest's holding-period return.
+            "entry_delay_days": 0,
+            "core_gross": core_gross,
+            "overlay_gross": overlay_gross,
+            "core_weights_json": json.dumps(
+                {str(k): round(float(v), 6) for k, v in core_weights.items()},
+                sort_keys=True,
+            ),
+            "overlay_weights_json": json.dumps(
+                {str(k): round(float(v), 6) for k, v in overlay.items()},
+                sort_keys=True,
+            ),
             "tqqq_weight_used": float(core_weights.get("TQQQ", 0.0)),
             "concentration_overlay_target": concentration_overlay_target,
             "concentration_overlay_adjustment": concentration_overlay_adjustment,

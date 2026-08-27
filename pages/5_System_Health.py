@@ -84,7 +84,26 @@ else:
 
 st.divider()
 
-# ── 3. Drift detection (live vs walkforward) ────────────────────
+# ── 3. Execution and account-alignment evidence ─────────────────
+st.markdown("### Execution and alignment evidence")
+execution_state = data.execution_evidence_state(data.load_execution_scorecard())
+alignment_state = data.account_alignment_evidence_state(data.load_health_report())
+e1, e2 = st.columns(2)
+with e1:
+    status_chip(execution_state["label"], execution_state["chip_status"])
+    st.caption(execution_state["reason"])
+with e2:
+    status_chip(alignment_state["label"], alignment_state["chip_status"])
+    st.caption(alignment_state["reason"])
+
+st.caption(
+    "Measured failure means complete evidence failed. Insufficient evidence is still collecting. "
+    "Stale evidence is old. Operational failure means the report is missing or broken."
+)
+
+st.divider()
+
+# ── 4. Drift detection (live vs walkforward) ────────────────────
 st.markdown("### Drift detection (live vs walkforward expectations)")
 health = data.load_health_report()
 if health is None:
@@ -113,13 +132,13 @@ else:
 
 st.divider()
 
-# ── 4. Data freshness ──────────────────────────────────────────
+# ── 5. Data freshness ──────────────────────────────────────────
 st.markdown("### Data file freshness")
 st.dataframe(data.file_status_table(), use_container_width=True, hide_index=True)
 
 st.divider()
 
-# ── 5. Live config snapshot ──────────────────────────────────────
+# ── 6. Live config snapshot ──────────────────────────────────────
 st.markdown("### Active live config")
 live = data.load_live_config()
 if live is None:

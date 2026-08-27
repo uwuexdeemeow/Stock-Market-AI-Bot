@@ -19,6 +19,11 @@ from settings import DATA_DIR, SURVIVORSHIP_AUDIT_TICKERS, TRAIN_START, WATCHLIS
 
 DEFAULT_MEMBERSHIP_PATH = Path("data/universe_membership.csv")
 REQUIRED_COLUMNS = {"ticker", "effective_from", "effective_to", "status", "source"}
+# Production-quality membership needs enough provenance for another person to
+# retrieve and legally inspect the same free source. A ticker/date table with
+# only a vague source label remains useful research input but cannot clear the
+# survivorship gate.
+PROVENANCE_COLUMNS = {"source_url", "retrieved_at", "license", "access_cost"}
 DEFAULT_MIN_ACTIVE_MEMBERS = 400
 DEFAULT_MIN_INACTIVE_MEMBERS = len(SURVIVORSHIP_AUDIT_TICKERS)
 
@@ -64,6 +69,20 @@ def membership_status(
     missing = sorted(required - covered)
     invalid_dates = frame[frame["effective_from"].isna()] if not frame.empty else frame
     invalid_sources = frame[frame["source"].fillna("").astype(str).str.strip() == ""] if not frame.empty else frame
+    missing_provenance_columns = sorted(PROVENANCE_COLUMNS - set(frame.columns))
+    if missing_provenance_columns:
+        invalid_source_urls = frame
+        invalid_retrieved_at = frame
+        invalid_licenses = frame
+        non_free_sources = frame
+    else:
+        source_urls = frame["source_url"].fillna("").astype(str).str.strip()
+        invalid_source_urls = frame[~source_urls.str.match(r"^https?://", case=False)]
+        retrieved_at = pd.to_datetime(frame["retrieved_at"], errors="coerce", utc=True)
+        invalid_retrieved_at = frame[retrieved_at.isna()]
+        invalid_licenses = frame[frame["license"].fillna("").astype(str).str.strip() == ""]
+        access_cost = frame["access_cost"].fillna("").astype(str).str.strip().str.lower()
+        non_free_sources = frame[access_cost != "free"]
     start = pd.Timestamp(coverage_start).tz_localize(None).normalize()
     end = (
         pd.Timestamp(coverage_end).tz_localize(None).normalize()
@@ -97,6 +116,16 @@ def membership_status(
         reasons.append("effective_from_missing")
     if len(invalid_sources):
         reasons.append("membership_source_missing")
+    if missing_provenance_columns:
+        reasons.append("membership_provenance_columns_missing")
+    if len(invalid_source_urls):
+        reasons.append("membership_source_url_missing_or_invalid")
+    if len(invalid_retrieved_at):
+        reasons.append("membership_retrieved_at_missing_or_invalid")
+    if len(invalid_licenses):
+        reasons.append("membership_license_missing")
+    if len(non_free_sources):
+        reasons.append("membership_source_not_verified_free")
     if int(active_at_start["ticker"].nunique()) < int(min_active_members):
         reasons.append("historical_universe_too_small")
     if int(inactive["ticker"].nunique()) < int(min_inactive_members):
@@ -107,6 +136,13 @@ def membership_status(
         "complete": not reasons,
         "path": str(path),
         "rows": int(len(frame)),
+        "source_count": int(frame["source"].nunique()) if not frame.empty else 0,
+        "required_provenance_columns": sorted(PROVENANCE_COLUMNS),
+        "missing_provenance_columns": missing_provenance_columns,
+        "provenance_valid_rows": int(
+            len(frame)
+            - len(set(invalid_source_urls.index) | set(invalid_retrieved_at.index) | set(invalid_licenses.index) | set(non_free_sources.index))
+        ) if not missing_provenance_columns else 0,
         "required_tickers": len(required),
         "missing_required_tickers": missing,
         "coverage_start": start.strftime("%Y-%m-%d"),

@@ -21,10 +21,47 @@ st.title("Walkforward Validation")
 
 wf_df = data.load_walkforward_results()
 wf_summary = data.load_walkforward_summary() or {}
+quant_audit = data.load_quant_performance_audit()
+quant_payload = quant_audit.get("payload") or {}
 
 if wf_df.empty:
     st.warning("No walkforward results found. Run `core_satellite_nested_walkforward.py` first.")
     st.stop()
+
+# The periodic fold summary remains visible for continuity, but the independent
+# daily audit is the truth reference for risk and after-cost comparison.
+st.markdown("### Independent daily audit")
+if not quant_payload:
+    st.warning("Daily mark-to-market audit not built yet. Periodic headline results are provisional.")
+else:
+    audited = (quant_payload.get("selected_walkforward_audit") or {}).get("net") or {}
+    audit_status = str(quant_payload.get("reference_audit_status") or "unknown")
+    status_chip(
+        f"Reference audit {audit_status}",
+        "ok" if audit_status == "passed" else "warn" if audit_status == "blocked" else "fail",
+    )
+    a1, a2, a3, a4 = st.columns(4)
+    with a1:
+        st.metric("Audited net CAGR", f"{float(audited.get('strategy_cagr_pct') or 0):.1f}%")
+    with a2:
+        st.metric("Net alpha vs QQQ", f"{float(audited.get('net_alpha_vs_qqq_pct') or 0):+.1f}%")
+    with a3:
+        st.metric("Daily information ratio", f"{float(audited.get('information_ratio_vs_qqq') or 0):.2f}")
+    with a4:
+        st.metric("Daily max drawdown", f"{float(audited.get('max_drawdown_pct') or 0):.1f}%")
+    blockers = quant_payload.get("promotion_blockers") or []
+    if blockers:
+        st.caption("Promotion blocked: " + "; ".join(str(item) for item in blockers))
+    recommendation = quant_payload.get("ranked_shadow_recommendation") or {}
+    st.caption(
+        f"Shadow recommendation: {recommendation.get('candidate', 'none')} · "
+        f"{recommendation.get('reason', 'not available')}"
+    )
+    experiments = quant_audit.get("experiments")
+    if isinstance(experiments, pd.DataFrame) and not experiments.empty:
+        st.dataframe(experiments, hide_index=True, use_container_width=True)
+
+st.divider()
 
 # ── Top-line stats ──────────────────────────────────────────────────
 st.markdown("### Aggregate stats")

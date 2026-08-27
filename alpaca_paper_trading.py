@@ -465,19 +465,21 @@ def _load_execution_scorecard_state(now: datetime | None = None) -> dict:
         "reason": "",
         "failed_checks": "",
     }
-    if not EXECUTION_SCORECARD_THROTTLE_ENABLED or not EXECUTION_SCORECARD_FILE.exists():
-        return empty
+    if not EXECUTION_SCORECARD_THROTTLE_ENABLED:
+        return {**empty, "status": "disabled", "reason": "execution_scorecard_throttle_disabled_sizing_unchanged"}
+    if not EXECUTION_SCORECARD_FILE.exists():
+        return {**empty, "reason": "execution_scorecard_missing_sizing_unchanged"}
     try:
         payload = json.loads(EXECUTION_SCORECARD_FILE.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {**empty, "status": "unreadable"}
+        return {**empty, "status": "unreadable", "reason": "execution_scorecard_unreadable_sizing_unchanged"}
 
     generated_at = _parse_report_timestamp(payload.get("generated_at"))
     max_age_hours = max(0.0, float(EXECUTION_SCORECARD_MAX_AGE_HOURS))
     if generated_at is not None and max_age_hours > 0:
         clock = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
         if clock - generated_at > timedelta(hours=max_age_hours):
-            return {**empty, "status": "stale"}
+            return {**empty, "status": "stale", "reason": "execution_scorecard_stale_sizing_unchanged"}
 
     status = str(payload.get("status") or "unknown").strip().lower()
     score = _float_or_none(payload.get("score"))

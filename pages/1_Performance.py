@@ -21,6 +21,7 @@ from dashboard.components import (
     COLOR_WARN,
     live_fragment_decorator,
     sidebar_refresh,
+    status_chip,
 )
 
 
@@ -441,18 +442,25 @@ execution_report = data.load_slippage_reversal_report()
 if execution_report:
     st.divider()
     st.markdown("##### Execution quality")
+    execution_state = data.execution_evidence_state(data.load_execution_scorecard())
+    status_chip(execution_state["label"], execution_state["chip_status"])
+    st.caption(execution_state["reason"])
     if execution_report.get("source") != "alpaca_api":
         st.caption("Showing basic fill data from `alpaca_paper_log.csv`; run `alpaca_paper_trading.py --slippage-report` for reversal metrics.")
     execution_summary = execution_report.get("summary") or {}
     execution_rows = execution_report.get("orders") or []
     execution_total = int(execution_summary.get("orders_analyzed") or len(execution_rows) or 0)
+    eligible_total = int(execution_summary.get("eligible_orders") or execution_total)
+    slippage_measured = int(execution_summary.get("slippage_measured_orders") or execution_total)
+    adverse_5m_measured = int(execution_summary.get("adverse_5m_measured_orders") or 0)
+    adverse_15m_measured = int(execution_summary.get("adverse_15m_measured_orders") or 0)
 
     ex1, ex2, ex3, ex4, ex5 = st.columns(5)
     with ex1:
         st.metric(
             "Avg slippage",
             _fmt_bps(execution_summary.get("avg_slippage_bps")),
-            delta=f"bad {_fmt_count(execution_summary.get('slippage_bad_count', 0), execution_total)}",
+            delta=f"bad {_fmt_count(execution_summary.get('slippage_bad_count', 0), slippage_measured)} · measured {slippage_measured}/{eligible_total}",
             delta_color="inverse",
         )
     with ex2:
@@ -460,13 +468,13 @@ if execution_report:
     with ex3:
         st.metric(
             "5m reversals",
-            _fmt_count(execution_summary.get("adverse_5m_count", 0), execution_total),
+            _fmt_count(execution_summary.get("adverse_5m_count", 0), adverse_5m_measured),
             delta_color="inverse",
         )
     with ex4:
         st.metric(
             "15m reversals",
-            _fmt_count(execution_summary.get("adverse_15m_count", 0), execution_total),
+            _fmt_count(execution_summary.get("adverse_15m_count", 0), adverse_15m_measured),
             delta_color="inverse",
         )
     with ex5:
@@ -488,8 +496,14 @@ if execution_report:
                 "Orders": seg.get("orders_analyzed"),
                 "Avg slip": _fmt_bps(seg.get("avg_slippage_bps")),
                 "Median slip": _fmt_bps(seg.get("median_slippage_bps")),
-                "Bad slip": _fmt_count(seg.get("slippage_bad_count", 0), int(seg.get("orders_analyzed") or 0)),
-                "15m reversals": _fmt_count(seg.get("adverse_15m_count", 0), int(seg.get("orders_analyzed") or 0)),
+                "Bad slip": _fmt_count(
+                    seg.get("slippage_bad_count", 0),
+                    int(seg.get("slippage_measured_orders") or seg.get("orders_analyzed") or 0),
+                ),
+                "15m reversals": _fmt_count(
+                    seg.get("adverse_15m_count", 0),
+                    int(seg.get("adverse_15m_measured_orders") or 0),
+                ),
                 "Worst 60m avg": _fmt_bps(seg.get("avg_worst_adverse_60m_bps")),
             })
         if segment_rows:

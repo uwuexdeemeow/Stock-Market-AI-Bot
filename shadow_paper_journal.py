@@ -23,7 +23,12 @@ import core_satellite_alpha as csa
 import core_satellite_nested_walkforward as nested
 from safe_io import atomic_write_csv, atomic_write_json, configure_console_output
 from settings import DATA_DIR, SIGNAL_DIR
-from validation_bundle import build_validation_bundle, write_validation_bundle
+from validation_bundle import (
+    build_validation_bundle,
+    strategy_config_fingerprint,
+    validate_validation_bundle,
+    write_validation_bundle,
+)
 
 
 configure_console_output()
@@ -367,8 +372,13 @@ def _first_signal_row(signal_path: Path) -> dict[str, Any]:
     return rows[0]
 
 
-def _journal_row(signal: dict[str, Any], metrics: dict[str, Any]) -> dict[str, Any]:
+def _journal_row(
+    signal: dict[str, Any],
+    metrics: dict[str, Any],
+    validation: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Flatten the generated signal into one append-only journal row."""
+    validation = validation or {}
     return {
         "journaled_at": _utc_now_text(),
         "run_date": datetime.now(timezone.utc).date().isoformat(),
@@ -406,6 +416,10 @@ def _journal_row(signal: dict[str, Any], metrics: dict[str, Any]) -> dict[str, A
         "backtest_sharpe": metrics.get("sharpe"),
         "backtest_max_drawdown_pct": metrics.get("max_drawdown_pct"),
         "backtest_total_return_pct": metrics.get("total_return_pct"),
+        "validation_bundle_valid": bool(validation.get("bundle_valid", False)),
+        "validation_fingerprint_match": bool(validation.get("fingerprint_match", False)),
+        "validation_config_fingerprint": validation.get("config_fingerprint", ""),
+        "validation_issues": ",".join(str(item) for item in validation.get("issues", []) or []),
     }
 
 
@@ -558,6 +572,23 @@ def run_shadow_journal(
         evidence_path=shadow_evidence_path,
         bundle_path=shadow_bundle_path,
     )
+    bundle_valid, bundle_issues = validate_validation_bundle(shadow_bundle)
+    expected_fingerprint = strategy_config_fingerprint(
+        (shadow_payload.get("approved_live_configs", {}).get("core-alpha", {}) or {}).get("config", {})
+    )
+    observed_fingerprint = str(shadow_bundle.get("config_fingerprint") or "")
+    fingerprint_match = bool(observed_fingerprint and observed_fingerprint == expected_fingerprint)
+    if not bundle_valid or not fingerprint_match:
+        raise RuntimeError(
+            "Shadow validation bundle failed: "
+            + ",".join([*bundle_issues, "config_fingerprint_mismatch" if not fingerprint_match else ""])
+        )
+    validation_context = {
+        "bundle_valid": bundle_valid,
+        "fingerprint_match": fingerprint_match,
+        "config_fingerprint": observed_fingerprint,
+        "issues": bundle_issues,
+    }
     shadow_payload["validation_bundle_path"] = str(shadow_bundle_path)
     shadow_payload["validation_bundle_hash"] = shadow_bundle["validation_bundle_hash"]
     shadow_payload["deployment_status"] = shadow_bundle["deployment"]["status"]
@@ -602,7 +633,7 @@ def run_shadow_journal(
             freshness=freshness,
         )
         signal = _first_signal_row(signal_path)
-        journal_row = _journal_row(signal, metrics)
+        journal_row = _journal_row(signal, metrics, validation_context)
         out_path = append_shadow_journal(
             journal_row,
             journal_path=journal_path,

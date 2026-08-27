@@ -52,3 +52,52 @@ It refreshes account status and execution reports without submitting,
 reconciling, cancelling, replacing, or creating orders. It shares the
 `signals-latest-publisher` lock with the daily and shadow workflows, then saves
 the mature scorecard for the next trading session.
+
+## Independent Quant Performance Audit
+
+`quant_performance_audit.py` is the reference check for historical performance.
+It starts with target positions emitted by the strategy, but it does not trust
+the strategy's periodic equity curve. It reloads each stock and ETF's raw Open
+and Close history, enters after the signal at the next executable Open, marks
+positions and cash every day, charges turnover across both ETFs and stocks,
+and stitches outer OOS years into one continuous curve.
+
+The JSON report shows gross and transaction-cost net return and alpha versus
+QQQ, exact overlap, elapsed-time CAGR, daily Sharpe and information ratio,
+daily drawdown, Newey-West alpha evidence, calendar-year bootstrap uncertainty,
+and a quantified reconciliation to the old periodic headline. The old 2,701%
+headline stays visible only as provisional context; it is not replaced until
+the independent reference blockers are cleared.
+
+The same script runs a bounded shadow comparison around the frozen active
+configuration: top five, 40% overlay, and stronger sticky weighting. It records
+each attempt in the experiment ledger and creates a combined candidate only if
+an isolated change passes every predeclared gate. It never writes the active
+configuration and never calls Alpaca.
+
+Point-in-time membership remains fail-closed. A complete table needs effective
+dates plus source URL, retrieval timestamp, license, and `access_cost=free`.
+Today's constituents are never treated as historical membership. Missing
+coverage stays a visible survivorship and promotion blocker.
+
+## Dashboard Evidence Meanings
+
+The dashboard keeps four execution outcomes separate:
+
+- **Measured failure:** a complete, decision-eligible population failed.
+- **Insufficient evidence:** observations are collecting or coverage is small.
+- **Stale evidence:** measurements exist but are too old for a decision.
+- **Operational failure:** the scorecard is missing, unreadable, or errored.
+
+Account alignment is separately shown as pass, fail, or collecting from
+canonical broker truth. A missing broker snapshot cannot appear as a measured
+alignment failure. The Walkforward page also shows the independent daily audit
+beside the periodic fold summary and lists every promotion blocker.
+
+## Shadow Workflow Acceptance
+
+The Shadow Paper Journal defaults remain `force=false` and
+`ignore_stale=false`. Each journal row records validation-bundle validity and
+an exact config-fingerprint match. After generating the paper-versus-shadow
+comparison, the workflow verifies those fields and requires the comparison
+artifact to be less than 15 minutes old before it can publish journal evidence.

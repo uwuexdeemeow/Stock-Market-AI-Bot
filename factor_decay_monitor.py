@@ -295,6 +295,7 @@ def _ic_summary(scored: pd.DataFrame, lookback_days: int, as_of: pd.Timestamp) -
             "daily_ic_mean": np.nan,
             "daily_ic_positive_rate": np.nan,
             "top_bucket_excess_return_pct": np.nan,
+            "top_vs_rest_return_pct": np.nan,
             "daily_ic_newey_west_tstat": 0.0,
             "cross_sections": 0,
             "observations": 0,
@@ -310,12 +311,16 @@ def _ic_summary(scored: pd.DataFrame, lookback_days: int, as_of: pd.Timestamp) -
         rest = group.loc[ranks < 0.90, "_monitor_return"]
         if not top.empty and not rest.empty:
             top_returns.append(float(top.mean() - rest.mean()))
+    top_vs_rest = round(float(np.nanmean(top_returns) * 100.0), 4) if top_returns else np.nan
     return {
         "lookback_days": lookback_days,
         "daily_ic_mean": round(float(daily_ic.mean()), 5) if daily_ic.notna().any() else np.nan,
         "daily_ic_positive_rate": round(float((daily_ic.dropna() > 0).mean()), 4) if daily_ic.notna().any() else np.nan,
         "daily_ic_newey_west_tstat": round(_newey_west_tstat(daily_ic.dropna()), 4),
-        "top_bucket_excess_return_pct": round(float(np.nanmean(top_returns) * 100.0), 4) if top_returns else np.nan,
+        # Keep the old field for dashboard compatibility and add the explicit
+        # name used by the independent quant-audit evidence contract.
+        "top_bucket_excess_return_pct": top_vs_rest,
+        "top_vs_rest_return_pct": top_vs_rest,
         "cross_sections": int(daily_ic.notna().sum()),
         "observations": int(len(recent)),
         **_decile_shape(recent),

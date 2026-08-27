@@ -21,6 +21,11 @@ rule reads the trailing 120-trading-day QQQ-vs-SPY return gap.  If QQQ is
 strongly leading SPY, the config can raise the overlay gross for a compact
 top-three basket; otherwise it can keep a smaller overlay in broader markets.
 
+The optional `sticky_blend` research setting controls how much of a retained
+position's old weight is kept. The approved live configuration omits it and
+therefore remains frozen at the historical 0.65 default. The quant audit uses
+0.80 only in a named shadow experiment.
+
 ## How To Run It
 
 Generate the daily signal:

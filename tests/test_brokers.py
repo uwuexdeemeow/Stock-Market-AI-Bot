@@ -839,6 +839,7 @@ def test_generate_orders_ignores_stale_execution_scorecard(tmp_path, monkeypatch
     assert orders[0]["execution_scorecard_status"] == "stale"
     assert orders[0]["execution_scorecard_buy_scale"] == 1.0
     assert orders[0]["execution_risk_reason"] == ""
+    assert orders[0]["execution_scorecard_reason"] == "execution_scorecard_stale_sizing_unchanged"
 
 
 def test_generate_orders_ignores_ineligible_execution_scorecard(tmp_path, monkeypatch):
