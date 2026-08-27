@@ -45,6 +45,8 @@ MAX_SKIPPED_RATE = float(os.environ.get("EXECUTION_SCORECARD_MAX_SKIPPED_RATE", 
 MAX_ADVERSE_15M_RATE = float(os.environ.get("EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE", "0.60"))
 MAX_ADVERSE_60M_RATE = float(os.environ.get("EXECUTION_SCORECARD_MAX_ADVERSE_60M_RATE", "0.70"))
 LOOKBACK_DAYS = int(os.environ.get("EXECUTION_SCORECARD_LOOKBACK_DAYS", "30"))
+MIN_DECISION_ORDERS = int(os.environ.get("EXECUTION_SCORECARD_MIN_DECISION_ORDERS", "20"))
+MIN_DECISION_COVERAGE = float(os.environ.get("EXECUTION_SCORECARD_MIN_DECISION_COVERAGE", "0.80"))
 
 
 def _read_csv(path: Path) -> pd.DataFrame:
@@ -239,10 +241,11 @@ def _throttle_summary(frame: pd.DataFrame) -> dict:
     }
 
 
-def _report_summary(slippage_report: dict, log: pd.DataFrame) -> dict:
+def _report_summary(slippage_report: dict, log: pd.DataFrame, *, now: datetime) -> dict:
     """Combine the API slippage report with paper-log fallback metrics."""
     summary = dict(slippage_report.get("summary", {}) or {})
-    orders_analyzed = int(_to_float(summary.get("orders_analyzed")) or 0)
+    eligible_orders = int(_to_float(summary.get("eligible_orders", summary.get("orders_analyzed"))) or 0)
+    orders_analyzed = int(_to_float(summary.get("slippage_measured_orders", summary.get("orders_analyzed"))) or 0)
     avg_slippage = _to_float(summary.get("avg_slippage_bps"))
     raw_bad_count = int(_to_float(summary.get("slippage_bad_count")) or 0)
     bad_count = raw_bad_count
@@ -256,6 +259,55 @@ def _report_summary(slippage_report: dict, log: pd.DataFrame) -> dict:
         )
         if value is not None
     ]
+    report_orders = [row for row in slippage_report.get("orders", []) or [] if isinstance(row, dict)]
+    if report_orders:
+        eligible_orders = len(report_orders)
+    adverse_15_values = [
+        float(value)
+        for value in (_to_float(row.get("adverse_15m_bps")) for row in report_orders)
+        if value is not None
+    ]
+    adverse_60_values = [
+        float(value)
+        for value in (_to_float(row.get("adverse_60m_bps")) for row in report_orders)
+        if value is not None
+    ]
+    timestamped_rows: list[tuple[pd.Timestamp, dict]] = []
+    for row in report_orders:
+        filled_at = pd.to_datetime(row.get("filled_at"), errors="coerce", utc=True)
+        if not pd.isna(filled_at):
+            timestamped_rows.append((pd.Timestamp(filled_at), row))
+    latest_run_coverage: dict[str, object] = {
+        "run_date_new_york": None,
+        "eligible_orders": 0,
+        "slippage_measured_orders": 0,
+        "adverse_15m_measured_orders": 0,
+        "adverse_60m_measured_orders": 0,
+    }
+    if timestamped_rows:
+        latest_day = max(timestamp for timestamp, _row in timestamped_rows).tz_convert("America/New_York").date()
+        latest_rows = [
+            row
+            for timestamp, row in timestamped_rows
+            if timestamp.tz_convert("America/New_York").date() == latest_day
+        ]
+        latest_run_coverage = {
+            "run_date_new_york": str(latest_day),
+            "eligible_orders": len(latest_rows),
+            "slippage_measured_orders": sum(_to_float(row.get("slippage_bps")) is not None for row in latest_rows),
+            "adverse_15m_measured_orders": sum(_to_float(row.get("adverse_15m_bps")) is not None for row in latest_rows),
+            "adverse_60m_measured_orders": sum(_to_float(row.get("adverse_60m_bps")) is not None for row in latest_rows),
+        }
+        for field in ("slippage", "adverse_15m", "adverse_60m"):
+            latest_run_coverage[f"{field}_coverage_rate"] = _rate(
+                int(latest_run_coverage[f"{field}_measured_orders"]),
+                int(latest_run_coverage["eligible_orders"]),
+            )
+    measured_fill_times = [
+        timestamp
+        for timestamp, row in timestamped_rows
+        if any(_to_float(row.get(field)) is not None for field in ("slippage_bps", "adverse_15m_bps", "adverse_60m_bps"))
+    ]
     if slip_values:
         # PLAIN ENGLISH: A fill that is 0.01 bps worse than fill-minute VWAP is
         # technically unfavorable, but it is market micro-noise. The scorecard
@@ -266,6 +318,10 @@ def _report_summary(slippage_report: dict, log: pd.DataFrame) -> dict:
         bad_count = int(sum(1 for value in slip_values if value > BAD_SLIPPAGE_BPS))
         if avg_slippage is None:
             avg_slippage = round(float(np.mean(slip_values)), 3)
+    if adverse_15_values:
+        adverse_15m_count = int(sum(1 for value in adverse_15_values if value > 0))
+    if adverse_60_values:
+        adverse_60m_count = int(sum(1 for value in adverse_60_values if value > 0))
 
     # If the rich API report is missing, fall back to fill prices in the paper log.
     if orders_analyzed <= 0:
@@ -275,11 +331,31 @@ def _report_summary(slippage_report: dict, log: pd.DataFrame) -> dict:
         raw_bad_count = int(sum(1 for value in fallback_slip_values if value > 0))
         bad_count = int(sum(1 for value in fallback_slip_values if value > BAD_SLIPPAGE_BPS))
 
+    # PLAIN ENGLISH: every measurement owns its denominator. A fill with a
+    # VWAP but no 60-minute price can affect slippage, but cannot vote on the
+    # 60-minute reversal check.
+    slippage_eligible = int(_to_float(summary.get("slippage_eligible_orders")) or eligible_orders or orders_analyzed)
+    adverse_15_eligible = int(_to_float(summary.get("adverse_15m_eligible_orders")) or eligible_orders)
+    adverse_60_eligible = int(_to_float(summary.get("adverse_60m_eligible_orders")) or eligible_orders)
+    legacy_report = int(_to_float(slippage_report.get("schema_version")) or 1) < 2
+    adverse_15_measured = len(adverse_15_values) or int(
+        _to_float(summary.get("adverse_15m_measured_orders"))
+        or (orders_analyzed if legacy_report and "adverse_15m_count" in summary else 0)
+    )
+    adverse_60_measured = len(adverse_60_values) or int(
+        _to_float(summary.get("adverse_60m_measured_orders"))
+        or (orders_analyzed if legacy_report and "adverse_60m_count" in summary else 0)
+    )
+
     segments = slippage_report.get("segments", {}) or {}
     limit_avg = _to_float((segments.get("limit_orders", {}) or {}).get("avg_slippage_bps"))
     market_avg = _to_float((segments.get("market_orders", {}) or {}).get("avg_slippage_bps"))
     return {
         "orders_analyzed": orders_analyzed,
+        "eligible_orders": eligible_orders or slippage_eligible,
+        "slippage_eligible_orders": slippage_eligible,
+        "slippage_measured_orders": orders_analyzed,
+        "slippage_coverage_rate": _rate(orders_analyzed, slippage_eligible),
         "avg_slippage_bps": round(avg_slippage, 3) if avg_slippage is not None else None,
         "bad_slippage_count": bad_count,
         "bad_slippage_rate": _rate(bad_count, orders_analyzed),
@@ -287,13 +363,28 @@ def _report_summary(slippage_report: dict, log: pd.DataFrame) -> dict:
         "raw_bad_slippage_count": raw_bad_count,
         "raw_bad_slippage_rate": _rate(raw_bad_count, orders_analyzed),
         "minor_bad_slippage_count": max(0, int(raw_bad_count) - int(bad_count)),
-        "adverse_15m_rate": _rate(adverse_15m_count, orders_analyzed),
-        "adverse_60m_rate": _rate(adverse_60m_count, orders_analyzed),
+        "adverse_15m_count": adverse_15m_count,
+        "adverse_15m_eligible_orders": adverse_15_eligible,
+        "adverse_15m_measured_orders": adverse_15_measured,
+        "adverse_15m_coverage_rate": _rate(adverse_15_measured, adverse_15_eligible),
+        "adverse_15m_rate": _rate(adverse_15m_count, adverse_15_measured),
+        "adverse_60m_count": adverse_60m_count,
+        "adverse_60m_eligible_orders": adverse_60_eligible,
+        "adverse_60m_measured_orders": adverse_60_measured,
+        "adverse_60m_coverage_rate": _rate(adverse_60_measured, adverse_60_eligible),
+        "adverse_60m_rate": _rate(adverse_60m_count, adverse_60_measured),
         "limit_avg_slippage_bps": limit_avg,
         "market_avg_slippage_bps": market_avg,
         "limit_vs_market_delta_bps": (
             round(float(limit_avg - market_avg), 3)
             if limit_avg is not None and market_avg is not None
+            else None
+        ),
+        "newest_measured_fill_at": max(measured_fill_times).isoformat() if measured_fill_times else None,
+        "latest_run_coverage": latest_run_coverage,
+        "measurement_age_minutes": (
+            round((pd.Timestamp(now) - max(measured_fill_times)).total_seconds() / 60.0, 1)
+            if measured_fill_times
             else None
         ),
         "source": slippage_report.get("source", "paper_log_fallback" if orders_analyzed else "none"),
@@ -353,7 +444,7 @@ def build_execution_scorecard(
     accepted = log[_accepted_mask(log)] if not log.empty else log
     filled = accepted[_filled_mask(accepted)] if not accepted.empty else accepted
     skipped = log[_skipped_mask(log)] if not log.empty else log
-    report_metrics = _report_summary(slippage_report, log)
+    report_metrics = _report_summary(slippage_report, log, now=clock)
     throttle = _throttle_summary(log)
 
     accepted_orders = int(len(accepted))
@@ -407,6 +498,22 @@ def build_execution_scorecard(
         ),
     ]
     status, score = _overall_status(checks)
+    coverage_fields = (
+        ("slippage", report_metrics["slippage_measured_orders"], report_metrics["slippage_coverage_rate"]),
+        ("adverse_15m", report_metrics["adverse_15m_measured_orders"], report_metrics["adverse_15m_coverage_rate"]),
+        ("adverse_60m", report_metrics["adverse_60m_measured_orders"], report_metrics["adverse_60m_coverage_rate"]),
+    )
+    decision_blockers = [
+        f"{name}_sample_{measured}_below_{MIN_DECISION_ORDERS}"
+        for name, measured, _coverage in coverage_fields
+        if int(measured or 0) < MIN_DECISION_ORDERS
+    ]
+    decision_blockers.extend(
+        f"{name}_coverage_{float(coverage or 0.0):.4f}_below_{MIN_DECISION_COVERAGE:.4f}"
+        for name, _measured, coverage in coverage_fields
+        if coverage is None or float(coverage) < MIN_DECISION_COVERAGE
+    )
+    decision_eligible = not decision_blockers
 
     prior_summary = previous.get("summary", {}) if isinstance(previous, dict) else {}
     prior_avg = _to_float(prior_summary.get("avg_slippage_bps"))
@@ -429,9 +536,13 @@ def build_execution_scorecard(
         recommendations.append("limit_orders_are_beating_market_orders")
 
     return {
+        "schema_version": 2,
         "generated_at": clock.isoformat(timespec="seconds"),
+        "measurement_cutoff_60m": (pd.Timestamp(clock) - pd.Timedelta(minutes=60)).isoformat(),
         "status": status,
         "score": score,
+        "decision_eligible": decision_eligible,
+        "decision_blockers": decision_blockers,
         "lookback_days": int(lookback_days),
         "summary": {
             "paper_log_rows": total_rows,
@@ -453,6 +564,8 @@ def build_execution_scorecard(
             "max_skipped_rate": MAX_SKIPPED_RATE,
             "max_adverse_15m_rate": MAX_ADVERSE_15M_RATE,
             "max_adverse_60m_rate": MAX_ADVERSE_60M_RATE,
+            "min_decision_orders": MIN_DECISION_ORDERS,
+            "min_decision_coverage": MIN_DECISION_COVERAGE,
         },
         "recommendations": recommendations,
         "source_files": {

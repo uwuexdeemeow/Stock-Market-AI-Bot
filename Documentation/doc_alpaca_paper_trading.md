@@ -123,6 +123,10 @@ It also refreshes the execution-quality report.
 - **Execution segment** — a dashboard-only slice of the same fill report.
   It separates all orders, limit orders, market orders, and trailing stops so
   old market-order behavior does not hide newer limit-order behavior.
+- **Eligible versus measured order** — an eligible order is old enough for a
+  requested horizon; a measured order also has the required market bar. Each
+  horizon reports its own coverage so missing or immature fills cannot dilute
+  a bad-result rate.
 - **Drawdown halt** — when account drops 12% from peak, stop submitting
   new buys (sells/stops still allowed).  Auto-clears when account
   recovers past 50% of halt threshold.
@@ -173,7 +177,9 @@ The script has multiple layers of protection:
    The same report also includes all/limit/market summaries so you can compare
    execution quality before and after order-style changes.  The portfolio-wide
    `alpaca_execution_scorecard.json` can also shrink all BUY orders when recent
-   execution quality fails, via `ALPACA_EXECUTION_SCORECARD_THROTTLE=1`.
+   execution quality fails, via `ALPACA_EXECUTION_SCORECARD_THROTTLE=1`. The
+   scorecard must be fresh and `decision_eligible`; thin or incomplete evidence
+   leaves BUY size unchanged and records a collecting reason.
    A separate ATR/volatility sizing cap exists behind
    `ALPACA_LIVE_RISK_CAP_ENABLED=1`. It is paper-only, applies only to overlay
    stock buys, and can reduce but never increase the approved signal target.

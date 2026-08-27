@@ -752,6 +752,7 @@ def test_generate_orders_throttles_buys_when_execution_scorecard_fails(tmp_path,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": "fail",
         "score": 66.67,
+        "decision_eligible": True,
         "checks": [{"name": "avg_slippage_bps", "status": "fail"}],
     }), encoding="utf-8")
     monkeypatch.setattr(apt, "EXECUTION_SCORECARD_FILE", scorecard_path)
@@ -778,6 +779,7 @@ def test_generate_orders_throttles_buys_when_execution_scorecard_fails(tmp_path,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": "fail",
         "score": 20.0,
+        "decision_eligible": True,
         "checks": [{"name": "fill_rate", "status": "fail"}],
     }), encoding="utf-8")
     monkeypatch.setattr(apt, "EXECUTION_SCORECARD_SEVERE_BUY_SCALE", 0.50)
@@ -797,6 +799,7 @@ def test_generate_orders_keeps_scorecard_fail_sells_exit_ready(tmp_path, monkeyp
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": "fail",
         "score": 20.0,
+        "decision_eligible": True,
         "checks": [{"name": "fill_rate", "status": "fail"}],
     }), encoding="utf-8")
     monkeypatch.setattr(apt, "EXECUTION_SCORECARD_FILE", scorecard_path)
@@ -836,6 +839,30 @@ def test_generate_orders_ignores_stale_execution_scorecard(tmp_path, monkeypatch
     assert orders[0]["execution_scorecard_status"] == "stale"
     assert orders[0]["execution_scorecard_buy_scale"] == 1.0
     assert orders[0]["execution_risk_reason"] == ""
+
+
+def test_generate_orders_ignores_ineligible_execution_scorecard(tmp_path, monkeypatch):
+    """Thin or immature execution evidence must never shrink a new buy."""
+    import alpaca_paper_trading as apt
+
+    scorecard_path = tmp_path / "alpaca_execution_scorecard.json"
+    scorecard_path.write_text(json.dumps({
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "status": "fail",
+        "score": 0.0,
+        "decision_eligible": False,
+        "decision_blockers": ["adverse_60m_sample_0_below_20"],
+        "checks": [{"name": "adverse_60m_rate", "status": "fail"}],
+    }), encoding="utf-8")
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_FILE", scorecard_path)
+    monkeypatch.setattr(apt, "EXECUTION_SCORECARD_THROTTLE_ENABLED", True)
+
+    broker = _OrderBroker(equity=100_000.0, positions={}, prices={"QQQ": 100.0})
+    orders = apt.generate_orders(broker, {"QQQ": 0.60}, force=True)
+
+    assert orders[0]["quantity"] == 600
+    assert orders[0]["execution_scorecard_status"] == "collecting"
+    assert orders[0]["execution_scorecard_buy_scale"] == 1.0
 
 
 def test_build_submission_order_defaults_to_limit():

@@ -481,6 +481,14 @@ def _load_execution_scorecard_state(now: datetime | None = None) -> dict:
 
     status = str(payload.get("status") or "unknown").strip().lower()
     score = _float_or_none(payload.get("score"))
+    if not bool(payload.get("decision_eligible", False)):
+        blockers = ",".join(str(item) for item in payload.get("decision_blockers", [])[:6])
+        return {
+            **empty,
+            "status": "collecting",
+            "band": "ineligible",
+            "reason": "execution_scorecard_not_decision_eligible" + (f"_{blockers}" if blockers else ""),
+        }
     failed_checks = [
         str(check.get("name", "")).strip()
         for check in payload.get("checks", []) or []
@@ -2576,44 +2584,103 @@ def _safe_median(values: list[float]) -> float | None:
     return float(np.median(clean))
 
 
-def _execution_quality_summary(rows: list[dict]) -> dict:
+def _measurement_counts(
+    rows: list[dict],
+    field: str,
+    *,
+    now: datetime,
+    maturity_minutes: int = 0,
+) -> dict:
+    """Count orders that could be measured separately from those measured.
+
+    PLAIN ENGLISH: a new fill cannot have a 60-minute result yet. It is
+    "not eligible" instead of good or bad. An older fill with missing market
+    bars is eligible but unmeasured, which exposes a real data-coverage gap.
+    """
+    eligible_rows: list[dict] = []
+    measured_values: list[float] = []
+    for row in rows:
+        filled_at = _parse_broker_datetime(row.get("filled_at"))
+        if maturity_minutes and (
+            filled_at is None or now - filled_at < timedelta(minutes=maturity_minutes)
+        ):
+            continue
+        eligible_rows.append(row)
+        value = _float_or_none(row.get(field))
+        if value is not None:
+            measured_values.append(float(value))
+    return {
+        "eligible_orders": int(len(eligible_rows)),
+        "measured_orders": int(len(measured_values)),
+        "coverage_rate": (
+            round(float(len(measured_values) / len(eligible_rows)), 4)
+            if eligible_rows
+            else None
+        ),
+        "values": measured_values,
+    }
+
+
+def _execution_quality_summary(rows: list[dict], *, now: datetime | None = None) -> dict:
     """Summarize a group of filled orders for dashboard comparison.
 
     PLAIN ENGLISH: The overall report can mix old market orders with newer
     limit orders.  This helper lets the dashboard compare those groups without
     changing how orders are placed.
     """
-    slip_values = [r["slippage_bps"] for r in rows if r.get("slippage_bps") is not None]
+    clock = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    slippage = _measurement_counts(rows, "slippage_bps", now=clock)
+    adverse_5 = _measurement_counts(rows, "adverse_5m_bps", now=clock, maturity_minutes=5)
+    adverse_15 = _measurement_counts(rows, "adverse_15m_bps", now=clock, maturity_minutes=15)
+    adverse_30 = _measurement_counts(rows, "adverse_30m_bps", now=clock, maturity_minutes=30)
+    adverse_60 = _measurement_counts(rows, "adverse_60m_bps", now=clock, maturity_minutes=60)
+    slip_values = slippage["values"]
     worst_values = [r["worst_adverse_60m_bps"] for r in rows if r.get("worst_adverse_60m_bps") is not None]
     raw_bad_count = int(sum(1 for v in slip_values if float(v) > 0))
     material_bad_count = int(sum(1 for v in slip_values if float(v) > EXECUTION_BAD_SLIPPAGE_BPS))
     return {
         "orders_analyzed": len(rows),
+        "eligible_orders": len(rows),
+        "slippage_eligible_orders": slippage["eligible_orders"],
+        "slippage_measured_orders": slippage["measured_orders"],
+        "slippage_coverage_rate": slippage["coverage_rate"],
         "avg_slippage_bps": round(_safe_avg(slip_values), 2) if _safe_avg(slip_values) is not None else None,
         "median_slippage_bps": round(_safe_median(slip_values), 2) if _safe_median(slip_values) is not None else None,
         "slippage_bad_threshold_bps": EXECUTION_BAD_SLIPPAGE_BPS,
         "slippage_bad_count": material_bad_count,
         "raw_slippage_bad_count": raw_bad_count,
         "minor_bad_slippage_count": max(0, raw_bad_count - material_bad_count),
-        "adverse_5m_count": int(sum(1 for r in rows if (r.get("adverse_5m_bps") or 0) > 0)),
-        "adverse_15m_count": int(sum(1 for r in rows if (r.get("adverse_15m_bps") or 0) > 0)),
-        "adverse_30m_count": int(sum(1 for r in rows if (r.get("adverse_30m_bps") or 0) > 0)),
-        "adverse_60m_count": int(sum(1 for r in rows if (r.get("adverse_60m_bps") or 0) > 0)),
+        "adverse_5m_eligible_orders": adverse_5["eligible_orders"],
+        "adverse_5m_measured_orders": adverse_5["measured_orders"],
+        "adverse_5m_coverage_rate": adverse_5["coverage_rate"],
+        "adverse_5m_count": int(sum(1 for value in adverse_5["values"] if value > 0)),
+        "adverse_15m_eligible_orders": adverse_15["eligible_orders"],
+        "adverse_15m_measured_orders": adverse_15["measured_orders"],
+        "adverse_15m_coverage_rate": adverse_15["coverage_rate"],
+        "adverse_15m_count": int(sum(1 for value in adverse_15["values"] if value > 0)),
+        "adverse_30m_eligible_orders": adverse_30["eligible_orders"],
+        "adverse_30m_measured_orders": adverse_30["measured_orders"],
+        "adverse_30m_coverage_rate": adverse_30["coverage_rate"],
+        "adverse_30m_count": int(sum(1 for value in adverse_30["values"] if value > 0)),
+        "adverse_60m_eligible_orders": adverse_60["eligible_orders"],
+        "adverse_60m_measured_orders": adverse_60["measured_orders"],
+        "adverse_60m_coverage_rate": adverse_60["coverage_rate"],
+        "adverse_60m_count": int(sum(1 for value in adverse_60["values"] if value > 0)),
         "avg_worst_adverse_60m_bps": round(_safe_avg(worst_values), 2) if _safe_avg(worst_values) is not None else None,
         "max_worst_adverse_60m_bps": round(max(worst_values), 2) if worst_values else None,
     }
 
 
-def _execution_quality_segments(rows: list[dict]) -> dict:
+def _execution_quality_segments(rows: list[dict], *, now: datetime | None = None) -> dict:
     """Return all/market/limit/trailing-stop slices of the same fill report."""
     limit_rows = [r for r in rows if str(r.get("order_type", "")).lower() == "limit"]
     market_rows = [r for r in rows if str(r.get("order_type", "")).lower() == "market"]
     trailing_rows = [r for r in rows if str(r.get("order_type", "")).lower() == "trailing_stop"]
     return {
-        "all_orders": _execution_quality_summary(rows),
-        "limit_orders": _execution_quality_summary(limit_rows),
-        "market_orders": _execution_quality_summary(market_rows),
-        "trailing_stops": _execution_quality_summary(trailing_rows),
+        "all_orders": _execution_quality_summary(rows, now=now),
+        "limit_orders": _execution_quality_summary(limit_rows, now=now),
+        "market_orders": _execution_quality_summary(market_rows, now=now),
+        "trailing_stops": _execution_quality_summary(trailing_rows, now=now),
     }
 
 
@@ -2630,6 +2697,7 @@ def build_slippage_reversal_report(
     fill to the fill-minute VWAP, then checks whether price moved against the
     trade 5/15/30/60 minutes later.
     """
+    report_clock = datetime.now(timezone.utc)
     report_rows: list[dict] = []
     errors: list[str] = []
 
@@ -2668,6 +2736,8 @@ def build_slippage_reversal_report(
         filled_ts = pd.Timestamp(filled_at).tz_convert("UTC")
         vwap = _fill_minute_vwap(bars, filled_at)
         row: dict[str, object] = {
+            "order_id": str(_obj_value(raw, "id", "")),
+            "client_order_id": str(_obj_value(raw, "client_order_id", "")),
             "filled_at": filled_at.isoformat(timespec="seconds"),
             "symbol": ticker,
             "side": side,
@@ -2709,7 +2779,7 @@ def build_slippage_reversal_report(
 
         report_rows.append(row)
 
-    summary = _execution_quality_summary(report_rows)
+    summary = _execution_quality_summary(report_rows, now=report_clock)
     by_symbol: list[dict] = []
     if report_rows:
         report_df = pd.DataFrame(report_rows)
@@ -2750,12 +2820,14 @@ def build_slippage_reversal_report(
         by_symbol.sort(key=lambda row: float(row.get("execution_risk_score") or 0), reverse=True)
 
     report = {
-        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "schema_version": 2,
+        "generated_at": report_clock.isoformat(timespec="seconds"),
+        "measurement_cutoff_60m": (report_clock - timedelta(minutes=60)).isoformat(timespec="seconds"),
         "source": "alpaca_api",
         "api_order_limit": int(api_order_limit),
         "lookback_orders": int(lookback_orders),
         "summary": summary,
-        "segments": _execution_quality_segments(report_rows),
+        "segments": _execution_quality_segments(report_rows, now=report_clock),
         "by_symbol": by_symbol,
         "orders": report_rows,
         "errors": errors,

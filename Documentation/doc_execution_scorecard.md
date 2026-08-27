@@ -9,6 +9,12 @@ slippage, skipped orders, and post-fill reversals. This script turns those raw
 records into one JSON scorecard that says whether execution quality is passing,
 failing, or still collecting enough data.
 
+Schema version 2 keeps a separate denominator for slippage, 15-minute moves,
+and 60-minute moves. A fresh fill with no 60-minute observation is shown as
+unmeasured instead of being silently counted as a good outcome. The scorecard
+also exposes coverage and a `decision_eligible` flag. Order sizing may use a
+failed scorecard only when that flag is true.
+
 It checks:
 - average slippage in basis points
 - bad-slippage rate
@@ -78,6 +84,8 @@ python execution_scorecard.py --strict
 | `EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE` | `0.60` | Max adverse 15-minute reversal rate |
 | `EXECUTION_SCORECARD_MAX_ADVERSE_60M_RATE` | `0.70` | Max adverse 60-minute reversal rate |
 | `EXECUTION_SCORECARD_LOOKBACK_DAYS` | `30` | How many recent order-log days to grade |
+| `EXECUTION_SCORECARD_MIN_DECISION_ORDERS` | `20` | Minimum measured fills required for each decision metric |
+| `EXECUTION_SCORECARD_MIN_DECISION_COVERAGE` | `0.80` | Minimum measured share of eligible fills before throttling is allowed |
 | `ALPACA_EXECUTION_SCORECARD_THROTTLE` | `1` | Let order planning shrink BUY orders when this scorecard fails |
 | `ALPACA_EXECUTION_SCORECARD_MAX_AGE_HOURS` | `72` | Ignore stale scorecards older than this many hours |
 | `ALPACA_EXECUTION_SCORECARD_FAIL_BUY_SCALE` | `0.75` | BUY quantity multiplier when scorecard status is fail |

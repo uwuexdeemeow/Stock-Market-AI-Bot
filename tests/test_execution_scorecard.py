@@ -211,6 +211,91 @@ def test_bad_slippage_rate_uses_material_threshold_when_order_rows_exist(tmp_pat
     assert payload["summary"]["minor_bad_slippage_count"] == 1
 
 
+def test_each_execution_metric_uses_its_own_measured_denominator(tmp_path, monkeypatch):
+    """Fresh or missing horizon observations must not be counted as good fills."""
+    log_path = tmp_path / "alpaca_paper_log.csv"
+    report_path = tmp_path / "alpaca_slippage_reversal_report.json"
+    pd.DataFrame(
+        [
+            {
+                "submitted_at": "2026-06-04T14:00:00+00:00",
+                "order_id": f"order-{idx}",
+                "ticker": "QQQ",
+                "side": "buy",
+                "fill_status": "filled",
+                "filled_qty": 1,
+            }
+            for idx in range(25)
+        ]
+    ).to_csv(log_path, index=False)
+
+    orders = []
+    for idx in range(25):
+        orders.append(
+            {
+                "filled_at": "2026-06-04T14:00:00+00:00",
+                "slippage_bps": 3.0 if idx < 14 else (-1.0 if idx < 19 else None),
+                "adverse_15m_bps": 1.0 if idx < 10 else (-1.0 if idx < 18 else None),
+                "adverse_60m_bps": 1.0 if idx < 9 else (-1.0 if idx < 14 else None),
+            }
+        )
+    report_path.write_text(json.dumps({"schema_version": 2, "orders": orders}), encoding="utf-8")
+    monkeypatch.setattr(esc, "MIN_DECISION_ORDERS", 10)
+    monkeypatch.setattr(esc, "MIN_DECISION_COVERAGE", 0.50)
+
+    payload = esc.build_execution_scorecard(
+        paper_log_path=log_path,
+        slippage_report_path=report_path,
+        previous_scorecard_path=tmp_path / "missing.json",
+        now=datetime(2026, 6, 5, tzinfo=timezone.utc),
+    )
+
+    summary = payload["summary"]
+    assert payload["schema_version"] == 2
+    assert summary["eligible_orders"] == 25
+    assert summary["slippage_measured_orders"] == 19
+    assert summary["bad_slippage_count"] == 14
+    assert summary["bad_slippage_rate"] == 0.7368
+    assert summary["adverse_15m_measured_orders"] == 18
+    assert summary["adverse_15m_rate"] == 0.5556
+    assert summary["adverse_60m_measured_orders"] == 14
+    assert summary["adverse_60m_rate"] == 0.6429
+    assert payload["decision_eligible"] is True
+
+
+def test_fresh_unmeasured_fills_make_scorecard_ineligible(tmp_path, monkeypatch):
+    """A score may be displayed while sizing remains unchanged until evidence matures."""
+    report_path = tmp_path / "report.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "orders": [
+                    {
+                        "filled_at": "2026-06-05T14:55:00+00:00",
+                        "slippage_bps": None,
+                        "adverse_15m_bps": None,
+                        "adverse_60m_bps": None,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(esc, "MIN_DECISION_ORDERS", 1)
+
+    payload = esc.build_execution_scorecard(
+        paper_log_path=tmp_path / "missing.csv",
+        slippage_report_path=report_path,
+        previous_scorecard_path=tmp_path / "missing-scorecard.json",
+        now=datetime(2026, 6, 5, 15, 0, tzinfo=timezone.utc),
+    )
+
+    assert payload["decision_eligible"] is False
+    assert payload["summary"]["latest_run_coverage"]["eligible_orders"] == 1
+    assert payload["summary"]["latest_run_coverage"]["adverse_60m_measured_orders"] == 0
+
+
 def test_write_execution_scorecard_writes_latest_and_dated_snapshot(tmp_path, monkeypatch):
     output_path = tmp_path / "signals" / "alpaca_execution_scorecard.json"
     log_dir = tmp_path / "logs"
