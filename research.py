@@ -98,7 +98,10 @@ def _manifest_matches_frame(ticker: str, frame: pd.DataFrame, out_path: str) -> 
         # Rebuild manifests made before the OHLC rounding-tolerance fix. They
         # can contain a false "invalid" note even though the stored prices are
         # valid, which would otherwise keep the health gate blocked forever.
-        and "invalid_ohlc_relationship" not in set(manifest.get("quality_issues") or [])
+        and not {
+            "invalid_ohlc_relationship",
+            "unexplained_move_over_50pct",
+        }.intersection(manifest.get("quality_issues") or [])
     )
 
 def research_ticker(ticker: str, start: str, end: str) -> bool:

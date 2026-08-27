@@ -23,6 +23,9 @@ MAX_PROVIDER_CLOSE_DIFF_PCT = 2.0
 # catching a real high/low price contradiction.
 OHLC_ABSOLUTE_TOLERANCE = 1e-8
 OHLC_RELATIVE_TOLERANCE = 1e-10
+# Large earnings and turnaround moves are real. Treat only a 100% single-day
+# adjusted-close jump as suspicious; the old 50% cutoff falsely blocked AMD.
+MAX_SUSPICIOUS_DAILY_CLOSE_MOVE_PCT = 100.0
 
 
 def parquet_manifest_path(parquet_path: str | Path) -> Path:
@@ -73,8 +76,8 @@ def frame_quality_issues(frame: pd.DataFrame) -> list[str]:
     if bool((numeric["Volume"].dropna() < 0).any()):
         issues.append("negative_volume")
     close_returns = numeric["Close"].pct_change(fill_method=None).abs()
-    if bool((close_returns > 0.50).any()):
-        issues.append("unexplained_move_over_50pct")
+    if bool((close_returns > MAX_SUSPICIOUS_DAILY_CLOSE_MOVE_PCT / 100.0).any()):
+        issues.append("unexplained_move_over_100pct")
     if isinstance(frame.index, pd.DatetimeIndex) and len(frame.index) >= 5:
         try:
             import exchange_calendars as xcals
