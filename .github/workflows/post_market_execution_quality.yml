@@ -1,0 +1,172 @@
+name: Post-Market Execution Quality
+
+on:
+  schedule:
+    # 5:15 PM New York in daylight-saving and standard time.
+    - cron: "15 21 * * 1-5"
+    - cron: "15 22 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  # PLAIN ENGLISH: every workflow writing signals/latest takes the same lock.
+  group: signals-latest-publisher
+  cancel-in-progress: false
+
+jobs:
+  execution-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: New York schedule gate
+        id: ny_schedule_gate
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          NY_OFFSET="$(TZ=America/New_York date +%z)"
+          TRIGGER="${{ github.event.schedule }}"
+          if [ "$TRIGGER" = "15 21 * * 1-5" ] && [ "$NY_OFFSET" = "-0400" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          elif [ "$TRIGGER" = "15 22 * * 1-5" ] && [ "$NY_OFFSET" = "-0500" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout repository
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        run: pip install -r requirements-ci.txt
+
+      - name: Restore market data cache
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: data/
+          key: post-market-data-${{ github.run_id }}
+          restore-keys: data-parquets-
+
+      - name: Restore operational evidence
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        run: |
+          git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest || true
+          for f in \
+            signals/core_satellite_alpha_signal.csv \
+            signals/core_satellite_alpha_orders.csv \
+            signals/core_satellite_alpha_metrics.json \
+            signals/alpaca_paper_equity.csv \
+            signals/alpaca_paper_log.csv \
+            signals/alpaca_daily_status.json \
+            signals/alpaca_submit_outcomes.csv \
+            signals/paper_validation_epoch.json \
+            signals/alpaca_execution_scorecard.json; do
+            mkdir -p "$(dirname "$f")"
+            if git show "origin/signals/latest:$f" > "$f.restore" 2>/dev/null; then
+              mv "$f.restore" "$f"
+            else
+              rm -f "$f.restore"
+            fi
+          done
+
+      - name: Refresh read-only execution evidence
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_BASE_URL: https://paper-api.alpaca.markets
+          STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
+          EXECUTION_SCORECARD_MIN_DECISION_ORDERS: "20"
+          EXECUTION_SCORECARD_MIN_DECISION_COVERAGE: "0.80"
+        run: |
+          python3 alpaca_paper_trading.py --status
+          python3 broker_truth.py
+          python3 execution_scorecard.py
+          python3 execution_cost_calibration.py
+          python3 paper_health.py
+          python3 paper_validation_epoch.py --status
+
+      - name: Write workflow heartbeat
+        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        env:
+          WORKFLOW_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          Path("signals").mkdir(exist_ok=True)
+          payload = {
+              "workflow": "Post-Market Execution Quality",
+              "status": os.environ.get("WORKFLOW_STATUS"),
+              "run_url": os.environ.get("RUN_URL"),
+              "completed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+              "trading_actions_allowed": False,
+          }
+          Path("signals/workflow_heartbeat_execution.json").write_text(
+              json.dumps(payload, indent=2), encoding="utf-8"
+          )
+          PY
+
+      - name: Upload audit artifact
+        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-market-execution-${{ github.run_number }}
+          retention-days: 30
+          path: |
+            signals/alpaca_slippage_reversal_report.json
+            signals/alpaca_execution_scorecard.json
+            signals/execution_cost_calibration.json
+            signals/broker_truth.csv
+            signals/broker_truth.json
+            signals/alpaca_paper_health.json
+            signals/paper_validation_epoch_status.json
+            signals/workflow_heartbeat_execution.json
+
+      - name: Publish refreshed evidence
+        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        run: |
+          generated_dir="$(mktemp -d)"
+          for f in \
+            signals/alpaca_paper_equity.csv \
+            signals/alpaca_daily_status.json \
+            signals/alpaca_slippage_reversal_report.json \
+            signals/alpaca_execution_scorecard.json \
+            signals/execution_cost_calibration.json \
+            signals/broker_truth.csv \
+            signals/broker_truth.json \
+            signals/alpaca_paper_health.json \
+            signals/paper_validation_epoch_status.json \
+            signals/workflow_heartbeat_execution.json; do
+            if [ -f "$f" ]; then
+              mkdir -p "$generated_dir/$(dirname "$f")"
+              cp "$f" "$generated_dir/$f"
+            fi
+          done
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest
+          git checkout -B signals/latest origin/signals/latest
+          cp -R "$generated_dir/signals/." signals/
+          git add -f signals/
+          git commit -m "signals: post-market execution run #${{ github.run_number }}" || exit 0
+          git push origin signals/latest
+

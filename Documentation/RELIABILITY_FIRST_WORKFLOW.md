@@ -43,3 +43,12 @@ not enough when data sources can be mixed, selection does not predict future
 alpha, or planned orders can disappear without a final state. Paper trading
 stays active to collect execution evidence while real-capital approval stays
 false.
+
+# Post-market execution evidence
+
+The morning paper workflow can finish before 15-minute and 60-minute price
+observations exist. A separate GitHub workflow runs at 5:15 PM New York time.
+It refreshes account status and execution reports without submitting,
+reconciling, cancelling, replacing, or creating orders. It shares the
+`signals-latest-publisher` lock with the daily and shadow workflows, then saves
+the mature scorecard for the next trading session.
