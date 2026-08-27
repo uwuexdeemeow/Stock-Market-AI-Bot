@@ -17,6 +17,52 @@ def test_readiness_flags_require_medium_risk_review():
     assert flags["strategy_ready"] is False
 
 
+def test_account_alignment_is_tri_state_and_uses_broker_truth():
+    """Missing evidence collects; complete weights can pass or fail."""
+    missing = paper_health._account_alignment({})
+    assert missing["status"] == "collecting"
+    assert missing["passed"] is False
+
+    aligned = paper_health._account_alignment(
+        {
+            "summary": {"target_comparison_enabled": True},
+            "rows": [
+                {"target_weight": 0.60, "broker_weight": 0.595},
+                {"target_weight": 0.20, "broker_weight": 0.205},
+            ],
+        }
+    )
+    assert aligned["status"] == "pass"
+    assert aligned["max_weight_gap"] == 0.005
+
+    misaligned = paper_health._account_alignment(
+        {
+            "summary": {"target_comparison_enabled": True},
+            "rows": [
+                {"target_weight": 0.60, "broker_weight": 0.50},
+                {"target_weight": 0.20, "broker_weight": 0.20},
+            ],
+        }
+    )
+    assert misaligned["status"] == "fail"
+    assert "max_weight_gap" in misaligned["reason"]
+
+
+def test_readiness_exposes_collecting_account_alignment():
+    flags = paper_health._readiness_flags(
+        {
+            "paper_ready": True,
+            "gates_all_pass": True,
+            "medium_risk_review_pass": True,
+            "freshness_ok": True,
+            "account_alignment": {"status": "collecting"},
+        }
+    )
+
+    assert flags["account_alignment_status"] == "collecting"
+    assert flags["account_aligned"] is False
+
+
 def test_build_health_reads_submit_gates_from_signal_csv(tmp_path, monkeypatch):
     status_path = tmp_path / "alpaca_daily_status.json"
     signal_path = tmp_path / "core_satellite_alpha_signal.csv"

@@ -32,6 +32,9 @@ It computes:
 13. **Execution report preference** - uses the richer Alpaca API
     `alpaca_slippage_reversal_report.json` for slippage and post-fill reversal
     stats when it exists, falling back to the local paper log only if needed.
+14. **Broker-truth alignment** - compares target weights with reconciled Alpaca
+    weights and reports `pass`, `fail`, or `collecting`. Missing evidence is
+    never mislabeled as a confirmed account mismatch.
 
 If anything is off, the script warns via Telegram (and writes the
 detail to JSON for later inspection).
@@ -68,6 +71,7 @@ python3 paper_health.py --json
 | `signals/alpaca_daily_status.json` | Current positions/equity |
 | `signals/core_satellite_alpha_signal.csv` | Broker-submit readiness gates and signal freshness fields |
 | `signals/core_satellite_nested_walkforward.json` | Backtest expectations to compare against |
+| `signals/broker_truth.json` | Canonical target-versus-broker position reconciliation |
 | `data/*.parquet` | Cached factor price/features used to check data freshness |
 
 ## Outputs
@@ -118,6 +122,8 @@ the comparison is meaningless noise.
   `medium_risk_review_pass`.
 - **Signal freshness** — whether the signal was generated recently enough and
   is based on recent enough factor data for broker submission.
+- **Collecting** — the evidence required for a check is missing or incomplete;
+  this is different from a measured failure.
 
 ## When to run
 

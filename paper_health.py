@@ -28,6 +28,7 @@ PAPER_HEALTH = SIGNALS / "alpaca_paper_health.json"
 CORE_SIGNAL = SIGNALS / "core_satellite_alpha_signal.csv"
 CORE_ORDER_PLAN = SIGNALS / "core_satellite_alpha_orders.csv"
 SLIPPAGE_REPORT = SIGNALS / "alpaca_slippage_reversal_report.json"
+BROKER_TRUTH = SIGNALS / "broker_truth.json"
 
 
 MAX_SLIPPAGE_WARN_BPS = float(__import__("os").environ.get("PAPER_HEALTH_MAX_AVG_SLIPPAGE_BPS", "10"))
@@ -39,6 +40,12 @@ MAX_SECTOR_WEIGHT_WARN = float(__import__("os").environ.get("PAPER_HEALTH_MAX_SE
 MAX_CORE_TICKER_WEIGHT_WARN = float(__import__("os").environ.get("PAPER_HEALTH_MAX_CORE_TICKER_WEIGHT", "0.65"))
 STALE_OPEN_ORDER_MINUTES = float(__import__("os").environ.get("PAPER_HEALTH_STALE_OPEN_ORDER_MINUTES", "60"))
 MAX_EQUITY_DAILY_MOVE_WARN_PCT = float(__import__("os").environ.get("PAPER_HEALTH_MAX_EQUITY_DAILY_MOVE_WARN_PCT", "25"))
+ACCOUNT_ALIGNMENT_MAX_WEIGHT_GAP = float(
+    __import__("os").environ.get("PAPER_HEALTH_MAX_TARGET_WEIGHT_GAP", "0.02")
+)
+ACCOUNT_ALIGNMENT_MAX_GROSS_GAP = float(
+    __import__("os").environ.get("PAPER_HEALTH_MAX_GROSS_EXPOSURE_GAP", "0.05")
+)
 CORE_TICKERS = {
     item.strip().upper()
     for item in __import__("os").environ.get("PAPER_HEALTH_CORE_TICKERS", "SPY,QQQ,TQQQ").split(",")
@@ -110,6 +117,77 @@ def _to_float(value: object, default: float = 0.0) -> float:
         return float(pd.to_numeric(pd.Series([value]), errors="coerce").fillna(default).iloc[0])
     except Exception:
         return float(default)
+
+
+def _account_alignment(broker_truth: dict) -> dict:
+    """Derive account alignment from the same broker reconciliation report.
+
+    PLAIN ENGLISH: missing evidence is not a failed account. It is a collecting
+    state. When evidence exists, target and broker weights are compared ticker
+    by ticker and at the total-exposure level.
+    """
+    summary = broker_truth.get("summary", {}) if isinstance(broker_truth, dict) else {}
+    if not broker_truth:
+        return {
+            "status": "collecting",
+            "passed": False,
+            "reason": "broker_truth_missing",
+            "comparable_tickers": 0,
+            "max_weight_gap": None,
+            "current_gross_exposure": None,
+            "target_gross_exposure": None,
+            "gross_exposure_gap": None,
+        }
+    if not bool(summary.get("target_comparison_enabled", False)):
+        return {
+            "status": "collecting",
+            "passed": False,
+            "reason": "broker_truth_target_comparison_unavailable",
+            "comparable_tickers": 0,
+            "max_weight_gap": None,
+            "current_gross_exposure": None,
+            "target_gross_exposure": None,
+            "gross_exposure_gap": None,
+        }
+
+    pairs: list[tuple[float, float]] = []
+    for row in broker_truth.get("rows", []) or []:
+        target = pd.to_numeric(row.get("target_weight"), errors="coerce")
+        actual = pd.to_numeric(row.get("broker_weight"), errors="coerce")
+        if pd.notna(target) and pd.notna(actual):
+            pairs.append((float(target), float(actual)))
+    if not pairs:
+        return {
+            "status": "collecting",
+            "passed": False,
+            "reason": "broker_truth_has_no_comparable_weights",
+            "comparable_tickers": 0,
+            "max_weight_gap": None,
+            "current_gross_exposure": None,
+            "target_gross_exposure": None,
+            "gross_exposure_gap": None,
+        }
+
+    target_gross = float(sum(abs(target) for target, _actual in pairs))
+    current_gross = float(sum(abs(actual) for _target, actual in pairs))
+    max_gap = float(max(abs(target - actual) for target, actual in pairs))
+    gross_gap = abs(current_gross - target_gross)
+    passed = max_gap <= ACCOUNT_ALIGNMENT_MAX_WEIGHT_GAP and gross_gap <= ACCOUNT_ALIGNMENT_MAX_GROSS_GAP
+    reasons = []
+    if max_gap > ACCOUNT_ALIGNMENT_MAX_WEIGHT_GAP:
+        reasons.append(f"max_weight_gap_{max_gap:.6f}_above_{ACCOUNT_ALIGNMENT_MAX_WEIGHT_GAP:.6f}")
+    if gross_gap > ACCOUNT_ALIGNMENT_MAX_GROSS_GAP:
+        reasons.append(f"gross_exposure_gap_{gross_gap:.6f}_above_{ACCOUNT_ALIGNMENT_MAX_GROSS_GAP:.6f}")
+    return {
+        "status": "pass" if passed else "fail",
+        "passed": passed,
+        "reason": "ok" if passed else ";".join(reasons),
+        "comparable_tickers": len(pairs),
+        "max_weight_gap": round(max_gap, 6),
+        "current_gross_exposure": round(current_gross, 6),
+        "target_gross_exposure": round(target_gross, 6),
+        "gross_exposure_gap": round(gross_gap, 6),
+    }
 
 
 def _to_bool(value: object) -> bool:
@@ -690,11 +768,12 @@ def _readiness_flags(health: dict) -> dict:
         ),
         "signal_fresh": bool(health.get("freshness_ok")),
         "broker_synced": bool(health.get("submitted_orders", 0) > 0 and health.get("filled_orders", 0) > 0),
-        "account_aligned": bool(
-            health.get("max_drift_abs") is not None
-            and float(health.get("max_drift_abs") or 0.0) <= 0.03
-            and abs(float(health.get("current_gross_exposure") or 0.0) - float(health.get("target_gross_exposure") or 0.0)) <= 0.05
+        "account_alignment_status": str(
+            (health.get("account_alignment", {}) or {}).get("status", "collecting")
         ),
+        "account_aligned": str(
+            (health.get("account_alignment", {}) or {}).get("status", "collecting")
+        ) == "pass",
         "slippage_ok": bool(
             slippage.get("avg_slippage_bps") is None
             or float(slippage.get("avg_slippage_bps") or 0.0) <= MAX_SLIPPAGE_WARN_BPS
@@ -754,10 +833,11 @@ def _go_live_scorecard(health: dict) -> dict:
         },
         {
             "name": "max_drift_abs",
-            "passed": health.get("max_drift_abs") is not None
-            and float(health.get("max_drift_abs") or 0.0) <= float(alpaca_paper_gauntlet.MAX_DRIFT),
+            "status": str((health.get("account_alignment", {}) or {}).get("status", "collecting")),
+            "passed": str((health.get("account_alignment", {}) or {}).get("status", "collecting")) == "pass",
             "actual": health.get("max_drift_abs"),
-            "target": float(alpaca_paper_gauntlet.MAX_DRIFT),
+            "target": ACCOUNT_ALIGNMENT_MAX_WEIGHT_GAP,
+            "reason": (health.get("account_alignment", {}) or {}).get("reason"),
         },
         {
             "name": "avg_slippage_bps",
@@ -944,6 +1024,8 @@ def build_health() -> dict:
     signal = _read_csv(CORE_SIGNAL)
     slippage_report = _read_json(SLIPPAGE_REPORT)
     status = _read_json(PAPER_STATUS)
+    broker_truth = _read_json(BROKER_TRUTH)
+    account_alignment = _account_alignment(broker_truth)
     gate_status = _signal_gate_status(signal, status)
     freshness_status = _signal_freshness_status(signal, status)
     gauntlet = alpaca_paper_gauntlet.evaluate_alpaca_paper()
@@ -1003,9 +1085,11 @@ def build_health() -> dict:
         "fill_rate": float(gauntlet.get("fill_rate", 0.0) or 0.0),
         "cancel_rate": float(gauntlet.get("cancel_rate", 0.0) or 0.0),
         "account_equity": status.get("account_equity"),
-        "current_gross_exposure": status.get("current_gross_exposure"),
-        "target_gross_exposure": status.get("target_gross_exposure"),
-        "max_drift_abs": status.get("max_drift_abs"),
+        "account_alignment": account_alignment,
+        "account_alignment_status": account_alignment["status"],
+        "current_gross_exposure": account_alignment["current_gross_exposure"],
+        "target_gross_exposure": account_alignment["target_gross_exposure"],
+        "max_drift_abs": account_alignment["max_weight_gap"],
         "gauntlet_status": gauntlet.get("status"),
         "approved_for_real_capital": bool(gauntlet.get("approved_for_real_capital", False)),
         "gauntlet_reason": gauntlet.get("reason"),

@@ -148,12 +148,14 @@ def evaluate_epoch(epoch: dict) -> dict:
     filled_log_rows = statuses.eq("filled")
     fill_rate = float(filled_log_rows.sum() / accepted_log_rows.sum()) if int(accepted_log_rows.sum()) else None
 
-    slippage = _read_json(Path(SIGNAL_DIR) / "alpaca_slippage_reversal_report.json")
-    slippage_summary = (slippage.get("segments", {}) or {}).get("all_orders", {}) or slippage.get("summary", {}) or {}
-    avg_slippage = slippage_summary.get("avg_slippage_bps")
-    bad_count = int(slippage_summary.get("slippage_bad_count", 0) or 0)
-    analyzed = int(slippage_summary.get("orders_analyzed", 0) or 0)
-    bad_rate = float(bad_count / analyzed) if analyzed else None
+    # PLAIN ENGLISH: the execution scorecard owns denominator policy. Reusing
+    # its canonical rate prevents this epoch from reporting 14/25 while the
+    # scorecard reports 14/19 for the same fills.
+    execution_scorecard = _read_json(Path(SIGNAL_DIR) / "alpaca_execution_scorecard.json")
+    execution_summary = execution_scorecard.get("summary", {}) or {}
+    avg_slippage = execution_summary.get("avg_slippage_bps")
+    bad_rate = execution_summary.get("bad_slippage_rate")
+    execution_decision_eligible = bool(execution_scorecard.get("decision_eligible", False))
 
     broker_truth = _read_json(Path(SIGNAL_DIR) / "broker_truth.json")
     truth_summary = broker_truth.get("summary", {}) or {}
@@ -176,8 +178,8 @@ def evaluate_epoch(epoch: dict) -> dict:
         "unexplained_orders": unexplained <= int(requirements.get("maximum_unexplained_orders", 0)),
         "target_weight_gap": max_weight_gap is not None and max_weight_gap <= float(requirements.get("maximum_target_weight_gap", 0.02)),
         "fill_rate": fill_rate is not None and fill_rate >= float(requirements.get("minimum_fill_rate", 0.80)),
-        "average_slippage": avg_slippage is not None and float(avg_slippage) <= float(requirements.get("maximum_average_slippage_bps", 10.0)),
-        "bad_slippage_rate": bad_rate is not None and bad_rate <= float(requirements.get("maximum_bad_slippage_rate", 0.60)),
+        "average_slippage": execution_decision_eligible and avg_slippage is not None and float(avg_slippage) <= float(requirements.get("maximum_average_slippage_bps", 10.0)),
+        "bad_slippage_rate": execution_decision_eligible and bad_rate is not None and float(bad_rate) <= float(requirements.get("maximum_bad_slippage_rate", 0.60)),
     }
     return {
         "epoch_id": epoch.get("epoch_id"),
@@ -193,6 +195,8 @@ def evaluate_epoch(epoch: dict) -> dict:
         "fill_rate": fill_rate,
         "average_slippage_bps": avg_slippage,
         "bad_slippage_rate": bad_rate,
+        "execution_scorecard_decision_eligible": execution_decision_eligible,
+        "execution_scorecard_schema_version": execution_scorecard.get("schema_version"),
         "checks": checks,
         "real_capital_approved": False,
     }

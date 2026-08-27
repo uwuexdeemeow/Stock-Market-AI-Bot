@@ -12,6 +12,12 @@ Equity observations use their exact snapshot timestamp when available, so a
 snapshot taken later on the epoch's first day is counted correctly. Older files
 that only contain a calendar date remain supported.
 
+Execution acceptance now reads average and material bad-slippage rates from
+`alpaca_execution_scorecard.json`. That scorecard owns measurement denominators,
+so the epoch cannot accidentally grade 14 bad fills out of 25 while the
+execution dashboard grades the same evidence out of 19 measured fills. Thin or
+incomplete scorecards remain in `collecting` state.
+
 ## How To Run It
 
 Start a new epoch:
