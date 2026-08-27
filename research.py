@@ -56,9 +56,19 @@ def _write_ticker_manifest(
     # A restored legacy parquet may be current, so no provider download occurs
     # during this run. Say that provenance is unknown honestly instead of
     # pretending an unobserved provider supplied it.
+    previous_provider = str(previous.get("provider") or "").strip().lower()
+    # Old cache versions wrote the word "unknown". That is not a verified
+    # provider, so normalize it to the explicit legacy label that the health
+    # gate recognizes. This preserves the data while preventing an old label
+    # plus a historical quality note from blocking every later refresh.
+    fallback_provider = (
+        "legacy_unknown"
+        if previous_provider in {"", "unknown", "legacy_unknown"}
+        else previous_provider
+    )
     provider = data_provider.provider_for_ticker.get(
         str(ticker).upper(),
-        str(previous.get("provider") or "legacy_unknown"),
+        fallback_provider,
     )
     write_parquet_manifest(
         out_path,
@@ -81,6 +91,10 @@ def _manifest_matches_frame(ticker: str, frame: pd.DataFrame, out_path: str) -> 
         and int(manifest.get("row_count", -1) or -1) == len(frame)
         and str(manifest.get("last_date", "")) == str(latest.date())
         and str(manifest.get("adjustment_mode", "")) == "adjusted_ohlcv"
+        # Rewrite old generic providers once so factor_data_health.py does
+        # not keep treating their historical quality notes as new failures.
+        and str(manifest.get("provider", "")).strip().lower()
+        not in {"", "unknown"}
     )
 
 def research_ticker(ticker: str, start: str, end: str) -> bool:

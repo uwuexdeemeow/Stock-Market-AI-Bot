@@ -67,6 +67,7 @@ adjustment mode, dates, rows, schema, checksum, and quality checks. Incremental
 refresh can use multiple workers and calculates shared market inputs once.
 When a restored parquet is already current but its sidecar is missing or stale,
 incremental refresh repairs the sidecar without downloading prices again. An
-older file with no provable provider is labeled `legacy_unknown` honestly.
+older file with no provable provider (including the old `unknown` label) is
+labeled `legacy_unknown` honestly.
 Scheduled bulk refresh skips sentiment until an after-cost out-of-sample
 ablation proves that it adds value.
