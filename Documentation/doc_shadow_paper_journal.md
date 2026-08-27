@@ -33,6 +33,10 @@ Expected output:
   `signals/paper_shadow_compare.csv` and `signals/paper_shadow_compare.json`.
 - `signals/core_satellite_alpha_signal.csv` is restored after the shadow run.
 - No Alpaca orders are submitted.
+- A temporary validation bundle is made only for the shadow config while its
+  signal is built. This lets the normal safety checks verify that the shadow
+  config and its evidence match, without changing the real paper config or
+  allowing real-money trading.
 - If the journal file exists but is empty, the script starts a fresh journal
   instead of crashing.
 
