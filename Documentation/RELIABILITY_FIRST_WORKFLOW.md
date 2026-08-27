@@ -75,6 +75,17 @@ each attempt in the experiment ledger and creates a combined candidate only if
 an isolated change passes every predeclared gate. It never writes the active
 configuration and never calls Alpaca.
 
+### Small-capital fractional shadow
+
+The 9:55 AM New York Shadow Paper Journal workflow also runs a separate $400
+fractional ledger from the restored active signal. It simulates market/day
+fractional fills, cash, slippage, and regulatory fees without importing a broker
+client. Daily and shadow workflows preserve its state together on
+`signals/latest`, so one workflow cannot erase the small-account history.
+
+This evidence does not approve real capital. Broker fractionability and a safe
+fractional protective-stop design remain explicit promotion blockers.
+
 Point-in-time membership remains fail-closed. A complete table needs effective
 dates plus source URL, retrieval timestamp, license, and `access_cost=free`.
 Today's constituents are never treated as historical membership. Missing

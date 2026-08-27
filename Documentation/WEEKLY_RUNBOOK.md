@@ -40,6 +40,7 @@ If you just want one command, find your goal here:
 | Build execution scorecard | `python execution_scorecard.py` |
 | Reconcile broker truth | `python broker_truth.py` |
 | Run the shadow paper journal locally | `python shadow_paper_journal.py` |
+| Run the $400 fractional shadow locally | `python fractional_shadow_paper.py` |
 | Compare Alpaca vs shadow equity | `python paper_shadow_compare.py` |
 | Refresh local data + features before research | `python refresh_local_research_data.py` |
 | Check restored factor cache before trading | `python factor_data_health.py --strict --no-write` |
@@ -66,6 +67,9 @@ If you just want one command, find your goal here:
 | **Monthly (1st of month)** | Walkforward + medium-risk review + republish | you |
 | **Quarterly** | ML retrain + feature_research --pairs | you |
 
+The 9:55 AM workflow also runs the independent $400 fractional ledger. It
+submits no broker orders and leaves the $100,000 Alpaca paper account unchanged.
+
 ---
 
 ## Daily routine
@@ -87,6 +91,11 @@ Pulls yesterday's Actions outputs into `signals/` and `logs/`. Refreshes:
 - `shadow_paper_journal.csv` — shadow config signal journal
 - `shadow_paper_equity.csv` — shadow config simulated equity curve
 - `paper_shadow_compare.json` / `.csv` — Alpaca-vs-shadow return comparison
+- `fractional_shadow_state.json` — pretend $400 cash and fractional positions
+- `fractional_shadow_orders.csv` — simulated fractional fills and modeled costs
+- `fractional_shadow_equity.csv` — marked small-account equity history
+- `fractional_shadow_report.json` — allocation gaps, safety, and blockers
+- `fractional_shadow_compare.json` / `.csv` — normalized Alpaca comparison
 - `workflow_heartbeat_daily.json` / `workflow_heartbeat_shadow.json` — cron proof files
 - Daily and shadow Actions share the `signals-latest-publisher` concurrency
   lock, so their force-pushes to `signals/latest` cannot overlap and erase each
@@ -344,6 +353,7 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `risk_sizing.py` | Position sizing helpers | library |
 | `signal_freshness.py` | Reject stale signals at trade time | library |
 | `shadow_paper_journal.py` | Record shadow config signal + simulated equity without sending orders | `--journal-path PATH`, `--equity-path PATH`, `--ignore-stale`, `--append-duplicate`, `--no-restore-signal-artifacts` |
+| `fractional_shadow_paper.py` | Track a broker-free fractional account starting at $400 | `--initial-equity`, `--signal-path`, `--state-path`, `--orders-path`, `--equity-path`, `--report-path`, `--data-dir` |
 | `status.py` | One-page CLI status snapshot | none |
 | `trade_rules.py` | Order generation rules | library |
 
@@ -446,6 +456,11 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `signals/shadow_paper_equity.csv` | Simulated equity curve for the shadow config |
 | `signals/paper_shadow_compare.csv` | Row-by-row Alpaca-vs-shadow return comparison |
 | `signals/paper_shadow_compare.json` | Compact Alpaca-vs-shadow summary for dashboard tiles |
+| `signals/fractional_shadow_state.json` | Cash and fractional positions for the $400 shadow |
+| `signals/fractional_shadow_orders.csv` | Append-only simulated fractional fills |
+| `signals/fractional_shadow_equity.csv` | Daily fractional-shadow account curve |
+| `signals/fractional_shadow_report.json` | Latest allocation, cost, safety, and blocker report |
+| `signals/fractional_shadow_compare.json` | Alpaca-vs-fractional normalized comparison |
 | `signals/workflow_heartbeat_daily.json` | Last daily trading workflow event/run proof |
 | `signals/workflow_heartbeat_shadow.json` | Last shadow workflow event/run proof |
 | `signals/core_satellite_alpha_signal.csv` | Today's target portfolio (tickers + weights) |
@@ -749,6 +764,7 @@ Shadow paper parameter:
 | Variable | Default | What it controls |
 |---|---:|---|
 | `SHADOW_PAPER_INITIAL_EQUITY` | `100000` | Starting fake equity for `shadow_paper_equity.csv` when no prior row exists. |
+| `FRACTIONAL_SHADOW_INITIAL_EQUITY` | `400` | Starting cash for the independent fractional shadow ledger. |
 
 ---
 

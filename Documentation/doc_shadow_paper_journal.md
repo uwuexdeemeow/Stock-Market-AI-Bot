@@ -76,4 +76,9 @@ tail -n 20 signals/shadow_paper_equity.csv
 target weights and the latest available close prices. It lets you compare the
 shadow config against the real Alpaca paper account without sending orders.
 
+The GitHub workflow also runs `fractional_shadow_paper.py` after restoring the
+active signal from `signals/latest`. This independent ledger starts at $400,
+uses fractional quantities, models costs, and does not alter the risk-off shadow
+candidate or the active Alpaca paper account.
+
 **Sticky holdings**: Existing live holdings that the signal generator tries to keep when they still rank well.

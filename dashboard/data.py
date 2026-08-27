@@ -65,6 +65,11 @@ BROKER_TRUTH_CSV = SIGNALS_DIR / "broker_truth.csv"
 SHADOW_EQUITY = SIGNALS_DIR / "shadow_paper_equity.csv"
 PAPER_SHADOW_COMPARE_JSON = SIGNALS_DIR / "paper_shadow_compare.json"
 PAPER_SHADOW_COMPARE_CSV = SIGNALS_DIR / "paper_shadow_compare.csv"
+FRACTIONAL_SHADOW_EQUITY = SIGNALS_DIR / "fractional_shadow_equity.csv"
+FRACTIONAL_SHADOW_ORDERS = SIGNALS_DIR / "fractional_shadow_orders.csv"
+FRACTIONAL_SHADOW_REPORT = SIGNALS_DIR / "fractional_shadow_report.json"
+FRACTIONAL_SHADOW_COMPARE_JSON = SIGNALS_DIR / "fractional_shadow_compare.json"
+FRACTIONAL_SHADOW_COMPARE_CSV = SIGNALS_DIR / "fractional_shadow_compare.csv"
 FEATURE_HEALTH = SIGNALS_DIR / "feature_health_profile.json"
 FEATURE_QUALITY = SIGNALS_DIR / "feature_quality_summary.csv"
 FACTOR_DATA_HEALTH = SIGNALS_DIR / "factor_data_health.json"
@@ -519,6 +524,25 @@ def load_paper_shadow_compare() -> dict:
             "summary": {"status": "error", "reason": str(exc)},
             "table": pd.DataFrame(),
         }
+
+
+@st.cache_data(ttl=60)
+def load_fractional_shadow() -> dict:
+    """Return the safe $400 fractional-shadow account and comparison evidence.
+
+    PLAIN ENGLISH: This is a pretend small account, not the Alpaca account.
+    Keeping all four files together prevents the dashboard from presenting an
+    old equity value beside a newer safety report without making that visible.
+    """
+    report = _read_json_safe(FRACTIONAL_SHADOW_REPORT)
+    comparison = _read_json_safe(FRACTIONAL_SHADOW_COMPARE_JSON)
+    return {
+        "report": report if isinstance(report, dict) else {},
+        "comparison": comparison if isinstance(comparison, dict) else {},
+        "equity": _read_csv_safe(FRACTIONAL_SHADOW_EQUITY),
+        "orders": _read_csv_safe(FRACTIONAL_SHADOW_ORDERS),
+        "comparison_table": _read_csv_safe(FRACTIONAL_SHADOW_COMPARE_CSV),
+    }
 
 
 @st.cache_data(ttl=60)
@@ -1094,6 +1118,8 @@ def file_status_table() -> pd.DataFrame:
         "Alpaca orders log": ALPACA_LOG,
         "Shadow equity": SHADOW_EQUITY,
         "Paper vs shadow": PAPER_SHADOW_COMPARE_JSON,
+        "$400 fractional shadow": FRACTIONAL_SHADOW_REPORT,
+        "Fractional comparison": FRACTIONAL_SHADOW_COMPARE_JSON,
         "Daily workflow": WORKFLOW_HEARTBEATS["Daily paper"],
         "Shadow workflow": WORKFLOW_HEARTBEATS["Shadow journal"],
         "Factor data health": FACTOR_DATA_HEALTH,
@@ -1139,6 +1165,8 @@ def file_status_table() -> pd.DataFrame:
         "Broker health":     (26 * 60, 72 * 60),
         "Shadow equity":     (26 * 60, 72 * 60),
         "Paper vs shadow":   (26 * 60, 72 * 60),
+        "$400 fractional shadow": (26 * 60, 72 * 60),
+        "Fractional comparison": (26 * 60, 72 * 60),
         "Daily workflow":    (26 * 60, 72 * 60),
         "Shadow workflow":   (26 * 60, 72 * 60),
         "Factor data health": (26 * 60, 72 * 60),

@@ -23,6 +23,11 @@ on:
         options:
           - "false"
           - "true"
+      fractional_initial_equity:
+        description: "Pretend fractional account size in US dollars"
+        required: false
+        default: "400"
+        type: string
 
 permissions:
   contents: write
@@ -102,6 +107,12 @@ jobs:
             signals/factor_decay_monitor.csv
             signals/shadow_paper_journal.csv
             signals/shadow_paper_equity.csv
+            signals/fractional_shadow_state.json
+            signals/fractional_shadow_orders.csv
+            signals/fractional_shadow_equity.csv
+            signals/fractional_shadow_report.json
+            signals/fractional_shadow_compare.csv
+            signals/fractional_shadow_compare.json
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json
@@ -115,7 +126,16 @@ jobs:
         run: |
           git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest || true
           mkdir -p signals
-          for f in signals/shadow_paper_journal.csv signals/shadow_paper_equity.csv; do
+          for f in \
+            signals/core_satellite_alpha_signal.csv \
+            signals/shadow_paper_journal.csv \
+            signals/shadow_paper_equity.csv \
+            signals/fractional_shadow_state.json \
+            signals/fractional_shadow_orders.csv \
+            signals/fractional_shadow_equity.csv \
+            signals/fractional_shadow_report.json \
+            signals/fractional_shadow_compare.csv \
+            signals/fractional_shadow_compare.json ; do
             tmp_file="$(mktemp)"
             if git show "origin/signals/latest:${f}" > "$tmp_file" 2>/dev/null && [ -s "$tmp_file" ]; then
               mv "$tmp_file" "$f"
@@ -258,11 +278,34 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
 
+      # This is a second, independent shadow ledger. It reads the restored
+      # active signal and writes pretend $400 fractional fills only. The script
+      # contains no Alpaca client and cannot submit, cancel, or replace orders.
+      - name: Run $400 fractional shadow account
+        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        run: python3 fractional_shadow_paper.py --initial-equity "$FRACTIONAL_SHADOW_INITIAL_EQUITY"
+        env:
+          PYTHONUNBUFFERED: "1"
+          FRACTIONAL_SHADOW_INITIAL_EQUITY: ${{ github.event.inputs.fractional_initial_equity || '400' }}
+
+      - name: Compare Alpaca paper vs $400 fractional shadow
+        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        run: |
+          python3 paper_shadow_compare.py \
+            --shadow-equity signals/fractional_shadow_equity.csv \
+            --csv-out signals/fractional_shadow_compare.csv \
+            --json-out signals/fractional_shadow_compare.json
+        env:
+          PYTHONUNBUFFERED: "1"
+
       - name: Verify shadow evidence and current comparison
         if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        env:
+          FRACTIONAL_EXPECTED_INITIAL_EQUITY: ${{ github.event.inputs.fractional_initial_equity || '400' }}
         run: |
           python3 - <<'PY'
           import json
+          import os
           from datetime import datetime, timedelta, timezone
           from pathlib import Path
 
@@ -285,7 +328,27 @@ jobs:
           generated = datetime.fromisoformat(str(comparison["generated_at"]).replace("Z", "+00:00"))
           if generated < datetime.now(timezone.utc) - timedelta(minutes=15):
               raise SystemExit("Paper-vs-shadow comparison is stale")
-          print("Shadow validation fingerprint and comparison artifact verified.")
+
+          fractional = json.loads(Path("signals/fractional_shadow_report.json").read_text(encoding="utf-8"))
+          if fractional.get("status") != "ok":
+              raise SystemExit(f"Fractional shadow is not healthy: {fractional.get('status')}")
+          safety = fractional.get("safety") or {}
+          execution = fractional.get("execution") or {}
+          if safety.get("shadow_only") is not True or execution.get("broker_orders_submitted") is not False:
+              raise SystemExit("Fractional shadow safety invariant failed")
+          expected_initial = float(os.environ["FRACTIONAL_EXPECTED_INITIAL_EQUITY"])
+          if abs(float((fractional.get("capital") or {}).get("initial_equity", 0)) - expected_initial) > 0.01:
+              raise SystemExit("Fractional shadow did not start from the requested capital")
+          gap = float((fractional.get("allocation") or {}).get("max_absolute_target_weight_gap", 1))
+          if gap > 0.02:
+              raise SystemExit(f"Fractional shadow allocation gap is too large: {gap:.2%}")
+
+          fractional_comparison = json.loads(
+              Path("signals/fractional_shadow_compare.json").read_text(encoding="utf-8")
+          )
+          if fractional_comparison.get("status") != "ok":
+              raise SystemExit("Fractional paper comparison is not current")
+          print("Shadow fingerprint, $400 safety, allocation, and comparisons verified.")
           PY
 
       - name: Write workflow heartbeat
@@ -327,6 +390,12 @@ jobs:
             signals/shadow_paper_equity.csv
             signals/paper_shadow_compare.csv
             signals/paper_shadow_compare.json
+            signals/fractional_shadow_state.json
+            signals/fractional_shadow_orders.csv
+            signals/fractional_shadow_equity.csv
+            signals/fractional_shadow_report.json
+            signals/fractional_shadow_compare.csv
+            signals/fractional_shadow_compare.json
             signals/alpaca_daily_status.json
             signals/workflow_heartbeat_shadow.json
           retention-days: 60
@@ -342,6 +411,12 @@ jobs:
               signals/shadow_paper_equity.csv \
               signals/paper_shadow_compare.csv \
               signals/paper_shadow_compare.json \
+              signals/fractional_shadow_state.json \
+              signals/fractional_shadow_orders.csv \
+              signals/fractional_shadow_equity.csv \
+              signals/fractional_shadow_report.json \
+              signals/fractional_shadow_compare.csv \
+              signals/fractional_shadow_compare.json \
               signals/workflow_heartbeat_shadow.json ; do
             if [ -f "$f" ]; then
               cp "$f" "$tmp_shadow_dir/$(basename "$f")"
@@ -356,6 +431,12 @@ jobs:
                 shadow_paper_equity.csv \
                 paper_shadow_compare.csv \
                 paper_shadow_compare.json \
+                fractional_shadow_state.json \
+                fractional_shadow_orders.csv \
+                fractional_shadow_equity.csv \
+                fractional_shadow_report.json \
+                fractional_shadow_compare.csv \
+                fractional_shadow_compare.json \
                 workflow_heartbeat_shadow.json ; do
               if [ -f "$tmp_shadow_dir/$f" ]; then
                 cp "$tmp_shadow_dir/$f" "signals/$f"
@@ -389,6 +470,12 @@ jobs:
             signals/shadow_paper_equity.csv
             signals/paper_shadow_compare.csv
             signals/paper_shadow_compare.json
+            signals/fractional_shadow_state.json
+            signals/fractional_shadow_orders.csv
+            signals/fractional_shadow_equity.csv
+            signals/fractional_shadow_report.json
+            signals/fractional_shadow_compare.csv
+            signals/fractional_shadow_compare.json
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json
