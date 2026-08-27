@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from alpha_factor_backtest import attach_scores, load_factor_panel, load_feature_specs, load_prediction_scores
+from backtest import _newey_west_tstat
 import core_satellite_alpha as core
 from settings import LOG_DIR, SIGNAL_DIR
 from safe_io import atomic_write_csv, atomic_write_json
@@ -203,6 +204,54 @@ def _safe_spearman(group: pd.DataFrame, score_col: str, return_col: str) -> floa
     return float(sub[score_col].corr(sub[return_col], method="spearman"))
 
 
+def _non_overlapping_rebalance_panel(scored: pd.DataFrame, holding_days: int) -> pd.DataFrame:
+    """Keep only the exact non-overlapping dates used by the strategy.
+
+    PLAIN ENGLISH: a 20-day future return observed every day overlaps the next
+    19 observations. Treating all of those as independent makes the sample look
+    much larger than it is. The strategy rebalances every 20 trading dates, so
+    the decay monitor now measures those same independent cohorts.
+    """
+    if scored.empty:
+        return scored.copy()
+    dates = pd.DatetimeIndex(sorted(pd.to_datetime(scored["date"], errors="coerce").dropna().unique()))
+    step = max(1, int(holding_days))
+    cohort_dates = set(pd.Timestamp(value) for value in dates[::step])
+    return scored[pd.to_datetime(scored["date"], errors="coerce").isin(cohort_dates)].copy()
+
+
+def _decile_shape(recent: pd.DataFrame) -> dict:
+    """Describe whether higher score deciles generally earn higher returns."""
+    decile_returns: dict[int, list[float]] = {decile: [] for decile in range(1, 11)}
+    for _date, group in recent.groupby("date"):
+        usable = group[["_monitor_score", "_monitor_return"]].dropna().copy()
+        if len(usable) < 10 or usable["_monitor_score"].nunique() < 10:
+            continue
+        usable["_decile"] = pd.qcut(
+            usable["_monitor_score"].rank(method="first"),
+            10,
+            labels=False,
+        ) + 1
+        for decile, values in usable.groupby("_decile")["_monitor_return"]:
+            decile_returns[int(decile)].extend(float(value) for value in values)
+    means = {
+        str(decile): round(float(np.mean(values)) * 100.0, 4) if values else None
+        for decile, values in decile_returns.items()
+    }
+    populated = [(int(decile), value) for decile, value in means.items() if value is not None]
+    monotonicity = (
+        pd.Series([value for _decile, value in populated]).corr(
+            pd.Series([decile for decile, _value in populated]), method="spearman"
+        )
+        if len(populated) >= 3
+        else np.nan
+    )
+    return {
+        "decile_mean_return_pct": means,
+        "decile_monotonicity_spearman": round(float(monotonicity), 4) if pd.notna(monotonicity) else None,
+    }
+
+
 def _regime_score_panel(panel: pd.DataFrame, config: dict) -> pd.DataFrame:
     out = panel.copy()
     holding_days = int(config.get("holding_days", core.HORIZON_DAYS))
@@ -246,7 +295,10 @@ def _ic_summary(scored: pd.DataFrame, lookback_days: int, as_of: pd.Timestamp) -
             "daily_ic_mean": np.nan,
             "daily_ic_positive_rate": np.nan,
             "top_bucket_excess_return_pct": np.nan,
+            "daily_ic_newey_west_tstat": 0.0,
+            "cross_sections": 0,
             "observations": 0,
+            **_decile_shape(recent),
         }
     daily_ic = recent.groupby("date").apply(lambda g: _safe_spearman(g, "_monitor_score", "_monitor_return"))
     top_returns = []
@@ -262,8 +314,11 @@ def _ic_summary(scored: pd.DataFrame, lookback_days: int, as_of: pd.Timestamp) -
         "lookback_days": lookback_days,
         "daily_ic_mean": round(float(daily_ic.mean()), 5) if daily_ic.notna().any() else np.nan,
         "daily_ic_positive_rate": round(float((daily_ic.dropna() > 0).mean()), 4) if daily_ic.notna().any() else np.nan,
+        "daily_ic_newey_west_tstat": round(_newey_west_tstat(daily_ic.dropna()), 4),
         "top_bucket_excess_return_pct": round(float(np.nanmean(top_returns) * 100.0), 4) if top_returns else np.nan,
+        "cross_sections": int(daily_ic.notna().sum()),
         "observations": int(len(recent)),
+        **_decile_shape(recent),
     }
 
 
@@ -324,7 +379,9 @@ def main() -> None:
     config = _selected_config()
     specs = load_feature_specs()
     panel = core._ensure_robust_score_columns(attach_scores(load_factor_panel(specs), specs, load_prediction_scores()))
-    scored = _regime_score_panel(panel, config)
+    scored_all = _regime_score_panel(panel, config)
+    holding_days = int(config.get("holding_days", core.HORIZON_DAYS))
+    scored = _non_overlapping_rebalance_panel(scored_all, holding_days)
     as_of = pd.Timestamp(scored["date"].max())
     trades = pd.read_csv(TRADES_PATH) if TRADES_PATH.exists() else pd.DataFrame()
 
@@ -351,10 +408,15 @@ def main() -> None:
     edge_status = aggregate_edge_health_status(rows)
     real_capital_block = edge_status == "block"
     payload = {
+        "schema_version": 2,
         "generated_at": datetime.now().isoformat(),
         "purpose": "factor_decay_monitor",
         "as_of": str(as_of.date()),
         "selected_score_source": config.get("score_source"),
+        "score_direction": "higher_is_better",
+        "sampling_method": "non_overlapping_rebalance_cohorts",
+        "holding_days": holding_days,
+        "cohort_dates": int(scored["date"].nunique()),
         "rows": rows,
         "edge_health_status": edge_status,
         "warning": bool(edge_status == "warning"),

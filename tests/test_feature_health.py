@@ -108,6 +108,23 @@ def test_feature_health_profile_uses_live_diversification_gate_constants(tmp_pat
     assert summary["feature_health_gate_pass"] is True
 
 
+def test_structurally_dead_fundamental_features_never_contribute(tmp_path):
+    features = [
+        "fund_pe_sector_z",
+        "fund_fcf_yield_sector_z",
+        "fund_value_combo_z",
+        *[f"independent_signal_{idx}" for idx in range(MIN_ACTIVE_CLUSTERS)],
+    ]
+
+    profile = build_feature_health_profile(features, output_dir=tmp_path)
+    rows = {row["feature"]: row for row in profile["features"]}
+
+    for feature in ("fund_pe_sector_z", "fund_fcf_yield_sector_z", "fund_value_combo_z"):
+        assert rows[feature]["health_state"] == "quarantined"
+        assert rows[feature]["contributes_to_score"] is False
+        assert rows[feature]["forced_quarantine_reason"] == "structurally_unavailable_source"
+
+
 def test_feature_health_outputs_use_atomic_writers(monkeypatch, tmp_path):
     calls = []
 

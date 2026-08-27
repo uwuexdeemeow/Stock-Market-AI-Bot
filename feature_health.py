@@ -29,6 +29,15 @@ STRENGTHENING_RATIO = 1.50
 # so the report and the live capital gate judge the same thing.
 MIN_ACTIVE_CLUSTERS = 6
 MAX_CLUSTER_WEIGHT = 0.25
+# These columns are currently structural zeroes because their upstream
+# fundamental source is not populated across the live universe. Keeping them in
+# the candidate set creates fake diversification, so they stay quarantined until
+# a future data audit proves they contain real cross-sectional variation.
+STRUCTURALLY_UNAVAILABLE_FEATURES = {
+    "fund_pe_sector_z",
+    "fund_fcf_yield_sector_z",
+    "fund_value_combo_z",
+}
 
 
 _RANK_PREFIXES = ("xs_rank_market_", "xs_rank_sector_")
@@ -171,6 +180,10 @@ def build_feature_health_profile(
     feature_rows = []
     for feature in feature_list:
         state, ratio, recent_ic, full_ic = _health_state(research.get(feature))
+        forced_reason = ""
+        if feature in STRUCTURALLY_UNAVAILABLE_FEATURES:
+            state = "quarantined"
+            forced_reason = "structurally_unavailable_source"
         feature_rows.append({
             "feature": feature,
             "cluster_id": cluster_ids[feature],
@@ -180,6 +193,7 @@ def build_feature_health_profile(
             "recent_ic": recent_ic,
             "full_ic": full_ic,
             "active_candidate": state != "quarantined",
+            "forced_quarantine_reason": forced_reason,
         })
 
     root_states: dict[str, set[str]] = {}
@@ -246,6 +260,9 @@ def build_feature_health_profile(
         "effective_cluster_count": len(active_clusters),
         "quarantined_features": quarantined_features,
         "watchlist_features": watchlist_features,
+        "structurally_unavailable_features": sorted(
+            feature for feature in feature_list if feature in STRUCTURALLY_UNAVAILABLE_FEATURES
+        ),
         "max_cluster_weight": round(float(max_cluster_weight), 6),
         "feature_health_gate_pass": bool(
             len(active_clusters) >= MIN_ACTIVE_CLUSTERS

@@ -5,6 +5,11 @@
 
 The script also checks whether recent research says a feature is decaying. Weak or decaying features can be quarantined so they do not help the live score.
 
+Three sector-relative fundamental columns are currently known structural
+zeroes: `fund_pe_sector_z`, `fund_fcf_yield_sector_z`, and
+`fund_value_combo_z`. They are forced into quarantine until their upstream
+source contains verified cross-sectional data.
+
 The live safety gate currently requires:
 
 - At least 6 active feature clusters
