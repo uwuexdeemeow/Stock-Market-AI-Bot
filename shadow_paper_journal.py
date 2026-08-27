@@ -23,6 +23,7 @@ import core_satellite_alpha as csa
 import core_satellite_nested_walkforward as nested
 from safe_io import atomic_write_csv, atomic_write_json, configure_console_output
 from settings import DATA_DIR, SIGNAL_DIR
+from validation_bundle import build_validation_bundle, write_validation_bundle
 
 
 configure_console_output()
@@ -31,6 +32,8 @@ SHADOW_NAME = "riskoff_guard"
 SHADOW_JOURNAL_PATH = Path(SIGNAL_DIR) / "shadow_paper_journal.csv"
 SHADOW_EQUITY_PATH = Path(SIGNAL_DIR) / "shadow_paper_equity.csv"
 SHADOW_LIVE_CONFIG_PATH = Path(SIGNAL_DIR) / "shadow_core_satellite_live_configs.json"
+SHADOW_VALIDATION_EVIDENCE_PATH = Path(SIGNAL_DIR) / "shadow_validation_evidence.json"
+SHADOW_VALIDATION_BUNDLE_PATH = Path(SIGNAL_DIR) / "shadow_core_satellite_validation_bundle.json"
 DEFAULT_SHADOW_INITIAL_EQUITY = 100_000.0
 
 # This is the candidate we validated but did NOT promote to paper trading.
@@ -299,6 +302,43 @@ def build_shadow_live_payload(
     }
 
 
+def write_shadow_validation_bundle(
+    shadow_payload: dict[str, Any],
+    *,
+    evidence_path: Path = SHADOW_VALIDATION_EVIDENCE_PATH,
+    bundle_path: Path = SHADOW_VALIDATION_BUNDLE_PATH,
+) -> dict:
+    """Write temporary paper-only evidence for the temporary shadow config.
+
+    PLAIN ENGLISH: The normal signal builder refuses to use a live config
+    unless it points to a matching evidence bundle. The shadow config is a
+    different, deliberately unpromoted config, so it needs its own temporary
+    bundle. This never changes the real config or approves real-money trading.
+    """
+    approved = (shadow_payload.get("approved_live_configs", {}) or {}).get("core-alpha", {})
+    approval = (shadow_payload.get("approvals", {}) or {}).get("core-alpha", {})
+    evidence = {
+        "shadow": True,
+        "shadow_name": SHADOW_NAME,
+        "shadow_config_signature": SHADOW_CONFIG_SIGNATURE,
+        "config": approved.get("config", {}),
+        "source_metrics": approved.get("source_metrics", {}),
+        "note": "Temporary paper-only evidence for shadow tracking; not real-capital approval.",
+    }
+    atomic_write_json(evidence, evidence_path)
+    bundle = build_validation_bundle(
+        {
+            "strategy": "core-alpha",
+            "folds": [{"kind": "shadow_fixed_config_validation"}],
+            "live_config_approval": approval,
+            "approved_live_config": approved,
+        },
+        source_json=str(evidence_path),
+    )
+    write_validation_bundle(bundle, bundle_path)
+    return bundle
+
+
 def _snapshot_paths(paths: list[Path]) -> dict[Path, bytes | None]:
     """Remember file bytes so the shadow run can put normal outputs back."""
     snapshots: dict[Path, bytes | None] = {}
@@ -511,6 +551,18 @@ def run_shadow_journal(
     live_config_path = signal_dir / "core_satellite_live_configs.json"
     base_payload = json.loads(live_config_path.read_text(encoding="utf-8"))
     shadow_payload = build_shadow_live_payload(base_payload)
+    shadow_evidence_path = signal_dir / SHADOW_VALIDATION_EVIDENCE_PATH.name
+    shadow_bundle_path = signal_dir / SHADOW_VALIDATION_BUNDLE_PATH.name
+    shadow_bundle = write_shadow_validation_bundle(
+        shadow_payload,
+        evidence_path=shadow_evidence_path,
+        bundle_path=shadow_bundle_path,
+    )
+    shadow_payload["validation_bundle_path"] = str(shadow_bundle_path)
+    shadow_payload["validation_bundle_hash"] = shadow_bundle["validation_bundle_hash"]
+    shadow_payload["deployment_status"] = shadow_bundle["deployment"]["status"]
+    shadow_payload["paper_approved"] = bool(shadow_bundle["deployment"]["paper_approved"])
+    shadow_payload["real_capital_approved"] = False
     atomic_write_json(shadow_payload, SHADOW_LIVE_CONFIG_PATH)
 
     touched = [
@@ -565,6 +617,8 @@ def run_shadow_journal(
     finally:
         csa.LIVE_CONFIG_PATH = original_live_path
         SHADOW_LIVE_CONFIG_PATH.unlink(missing_ok=True)
+        shadow_evidence_path.unlink(missing_ok=True)
+        shadow_bundle_path.unlink(missing_ok=True)
         if restore_signal_artifacts:
             _restore_paths(snapshots)
 

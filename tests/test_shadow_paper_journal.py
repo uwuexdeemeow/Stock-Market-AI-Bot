@@ -5,6 +5,7 @@ import json
 import pandas as pd
 
 import shadow_paper_journal as spj
+from validation_bundle import strategy_config_fingerprint, validate_validation_bundle
 
 
 def test_shadow_payload_builds_expected_candidate_from_grid():
@@ -18,6 +19,21 @@ def test_shadow_payload_builds_expected_candidate_from_grid():
     assert approved["config"]["score_source"] == "regime_adaptive_riskoff_guard"
     assert approved["source_metrics"]["mean_oos_alpha_vs_qqq_pct"] == 15.82
     assert payload["approvals"]["core-alpha"]["approved"] is True
+
+
+def test_shadow_validation_bundle_matches_shadow_config(tmp_path):
+    payload = spj.build_shadow_live_payload({"approvals": {"core-alpha": {"thresholds": {}}}})
+    bundle = spj.write_shadow_validation_bundle(
+        payload,
+        evidence_path=tmp_path / "shadow_evidence.json",
+        bundle_path=tmp_path / "shadow_bundle.json",
+    )
+
+    assert validate_validation_bundle(bundle) == (True, [])
+    assert bundle["deployment"]["paper_approved"] is True
+    assert bundle["deployment"]["real_capital_approved"] is False
+    config = payload["approved_live_configs"]["core-alpha"]["config"]
+    assert bundle["config_fingerprint"] == strategy_config_fingerprint(config)
 
 
 def test_append_shadow_journal_replaces_same_day_same_config(tmp_path):
