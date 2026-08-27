@@ -18,6 +18,11 @@ from safe_io import atomic_write_json
 
 MAX_PROVIDER_MEDIAN_CLOSE_DIFF_PCT = 0.5
 MAX_PROVIDER_CLOSE_DIFF_PCT = 2.0
+# Prices arrive as decimal numbers, but computers store them as tiny binary
+# approximations. This tolerance ignores microscopic rounding dust while still
+# catching a real high/low price contradiction.
+OHLC_ABSOLUTE_TOLERANCE = 1e-8
+OHLC_RELATIVE_TOLERANCE = 1e-10
 
 
 def parquet_manifest_path(parquet_path: str | Path) -> Path:
@@ -54,9 +59,13 @@ def frame_quality_issues(frame: pd.DataFrame) -> list[str]:
     numeric = frame[list(required)].apply(pd.to_numeric, errors="coerce")
     if numeric[["Open", "High", "Low", "Close"]].isna().all(axis=1).any():
         issues.append("session_missing_all_prices")
+    high_floor = numeric[["Open", "Close", "Low"]].max(axis=1)
+    low_ceiling = numeric[["Open", "Close", "High"]].min(axis=1)
+    price_scale = numeric[["Open", "High", "Low", "Close"]].abs().max(axis=1)
+    tolerance = OHLC_ABSOLUTE_TOLERANCE + OHLC_RELATIVE_TOLERANCE * price_scale
     invalid_ohlc = (
-        (numeric["High"] < numeric[["Open", "Close", "Low"]].max(axis=1))
-        | (numeric["Low"] > numeric[["Open", "Close", "High"]].min(axis=1))
+        (numeric["High"] + tolerance < high_floor)
+        | (numeric["Low"] - tolerance > low_ceiling)
         | (numeric[["Open", "High", "Low", "Close"]] <= 0).any(axis=1)
     )
     if bool(invalid_ohlc.fillna(False).any()):
