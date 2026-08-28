@@ -339,6 +339,10 @@ def write_shadow_validation_bundle(
             "approved_live_config": approved,
         },
         source_json=str(evidence_path),
+        # This shadow path records hypothetical output only. It cannot submit
+        # orders, so it does not borrow the production strategy's reports.
+        report_paths={},
+        require_robustness_reports=False,
     )
     write_validation_bundle(bundle, bundle_path)
     return bundle

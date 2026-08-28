@@ -1,17 +1,17 @@
 {
   "weights": {
-    "factor_idio_vol_252_spy": 0.163116,
-    "hvol_20d": 0.197454,
-    "atr_norm": 0.302882,
-    "factor_beta_252_spy": 0.061964,
-    "xs_rank_sector_hvol_20d": 0.274584
+    "factor_idio_vol_252_spy": 0.159526,
+    "hvol_20d": 0.193697,
+    "atr_norm": 0.264547,
+    "factor_beta_252_spy": 0.14389,
+    "xs_rank_sector_hvol_20d": 0.238339
   },
   "ics": {
-    "factor_idio_vol_252_spy": 0.011729,
-    "hvol_20d": 0.01529,
-    "atr_norm": 0.026222,
-    "factor_beta_252_spy": 0.001241,
-    "xs_rank_sector_hvol_20d": 0.023287
+    "factor_idio_vol_252_spy": 0.013414,
+    "hvol_20d": 0.017598,
+    "atr_norm": 0.026275,
+    "factor_beta_252_spy": 0.011499,
+    "xs_rank_sector_hvol_20d": 0.023066
   },
   "lookback_days": 252,
   "halflife": 63,
@@ -21,5 +21,5 @@
   "weight_status": "adaptive",
   "n_trading_days_used": 252,
   "n_tickers_in_panel": 151,
-  "computed_at": "2026-08-26T02:40:30"
+  "computed_at": "2026-08-29T01:47:44"
 }

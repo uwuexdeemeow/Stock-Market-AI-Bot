@@ -74,6 +74,7 @@ def test_validation_bundle_detects_stale_report_fingerprint(tmp_path, monkeypatc
     monkeypatch.setattr(validation_bundle, "membership_status", lambda: {"complete": False})
     result = {
         "strategy": "core-alpha",
+        "folds": [{"outer_year": 2025, "valid": True}],
         "live_config_approval": {"approved": True},
         "approved_live_config": {"config": config},
     }
@@ -100,6 +101,7 @@ def test_validation_bundle_detects_stale_report_fingerprint(tmp_path, monkeypatc
     )
     assert stale_bundle["robustness_reports"]["factor_decay"]["match"] is False
     assert stale_bundle["deployment"]["integrity_status"] == "provisional"
+    assert stale_bundle["deployment"]["paper_approved"] is False
 
 
 def test_validation_bundle_rebuild_restores_only_matching_approved_folds(tmp_path, monkeypatch):

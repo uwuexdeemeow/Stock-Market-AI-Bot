@@ -8,8 +8,10 @@ reconciliation and duplicate protection keep working.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -20,7 +22,44 @@ from settings import LOG_DIR, SIGNAL_DIR
 
 
 EPOCH_FILE = Path(SIGNAL_DIR) / "paper_validation_epoch.json"
+PAPER_VERSION_LOCK_FILE = Path(__file__).resolve().parent / "paper_version_lock.json"
 ARCHIVE_ROOT = Path("archive/paper_epochs")
+# These files can change what gets selected, sized, submitted, protected, or
+# graded during the paper epoch.  Documentation and dashboard-only files are
+# intentionally excluded so harmless wording/layout work does not halt paper
+# trading.
+PAPER_LOGIC_FILES = (
+    ".github/workflows/daily_paper_trading.yml",
+    ".github/workflows/factor_data_refresh.yml",
+    ".github/workflows/post_market_execution_quality.yml",
+    "alpaca_paper_trading.py",
+    "alpaca_protection.py",
+    "broker_interface.py",
+    "broker_truth.py",
+    "core_satellite_alpha.py",
+    "daily_run.py",
+    "data_manifest.py",
+    "data_provider.py",
+    "execution_guard.py",
+    "execution_model.py",
+    "execution_scorecard.py",
+    "factor_data_health.py",
+    "fill_monitor.py",
+    "logs/core_satellite_execution_stress.json",
+    "logs/core_satellite_survivorship_audit.json",
+    "logs/factor_decay_monitor.json",
+    "paper_health.py",
+    "paper_validation_epoch.py",
+    "pipeline_shared.py",
+    "portfolio_manager.py",
+    "risk_sizing.py",
+    "settings.py",
+    "signal_freshness.py",
+    "trade_rules.py",
+    "validation_bundle.py",
+    "signals/core_satellite_live_configs.json",
+    "signals/core_satellite_validation_bundle.json",
+)
 EVIDENCE_FILES = (
     Path(SIGNAL_DIR) / "alpaca_paper_log.csv",
     Path(SIGNAL_DIR) / "alpaca_paper_equity.csv",
@@ -68,6 +107,135 @@ def start_epoch(*, now: datetime | None = None) -> dict:
     }
     atomic_write_json(payload, EPOCH_FILE)
     return payload
+
+
+def _sha256_file(path: Path) -> str:
+    """Return one file checksum so later edits are detectable."""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _current_git_commit(project_root: Path) -> str:
+    """Return the current saved Git version for human audit context."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=project_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()
+    except Exception:
+        return "unknown"
+
+
+def build_paper_version_lock(
+    epoch: dict,
+    *,
+    project_root: Path | None = None,
+    now: datetime | None = None,
+) -> dict:
+    """Build a checksum lock without changing the active epoch start.
+
+    PLAIN ENGLISH: This takes a fingerprint of every file that can change paper
+    decisions.  Future submission stops if one of those files moves.  The epoch
+    ID and August 26 start time are copied exactly; no evidence is archived or
+    reset.
+    """
+    root = (project_root or Path(__file__).resolve().parent).resolve()
+    files: dict[str, str] = {}
+    missing: list[str] = []
+    for relative_name in PAPER_LOGIC_FILES:
+        path = root / relative_name
+        if path.is_file():
+            files[relative_name] = _sha256_file(path)
+        else:
+            missing.append(relative_name)
+    if missing:
+        raise RuntimeError(f"Cannot freeze paper version; missing files: {', '.join(missing)}")
+    fingerprint_input = json.dumps(files, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return {
+        "schema_version": 1,
+        "frozen_at": (now or datetime.now(timezone.utc)).isoformat(timespec="seconds"),
+        "epoch_id": str(epoch.get("epoch_id", "")),
+        "epoch_started_at": str(epoch.get("started_at", "")),
+        "git_commit_at_freeze": _current_git_commit(root),
+        "logic_fingerprint": hashlib.sha256(fingerprint_input).hexdigest(),
+        "files": files,
+        "policy": "block_paper_submission_on_locked_file_change",
+        "real_capital_approved": False,
+    }
+
+
+def freeze_current_paper_version(
+    *,
+    epoch_path: Path = EPOCH_FILE,
+    lock_path: Path = PAPER_VERSION_LOCK_FILE,
+    project_root: Path | None = None,
+    now: datetime | None = None,
+) -> dict:
+    """Write the current paper lock while preserving the existing epoch."""
+    if not epoch_path.exists():
+        raise RuntimeError(f"Active paper epoch is missing: {epoch_path}")
+    epoch = json.loads(epoch_path.read_text(encoding="utf-8"))
+    lock = build_paper_version_lock(epoch, project_root=project_root, now=now)
+    atomic_write_json(lock, lock_path)
+    return lock
+
+
+def validate_paper_version_lock(
+    *,
+    epoch_path: Path = EPOCH_FILE,
+    lock_path: Path = PAPER_VERSION_LOCK_FILE,
+    project_root: Path | None = None,
+) -> tuple[bool, list[str]]:
+    """Check that the active epoch and all frozen paper files still match."""
+    issues: list[str] = []
+    if not lock_path.exists():
+        return False, ["paper_version_lock_missing"]
+    if not epoch_path.exists():
+        return False, ["paper_epoch_missing"]
+    try:
+        lock = json.loads(lock_path.read_text(encoding="utf-8"))
+        epoch = json.loads(epoch_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return False, [f"paper_version_lock_unreadable:{type(exc).__name__}"]
+
+    if str(lock.get("epoch_id", "")) != str(epoch.get("epoch_id", "")):
+        issues.append("paper_epoch_id_changed")
+    if str(lock.get("epoch_started_at", "")) != str(epoch.get("started_at", "")):
+        issues.append("paper_epoch_start_changed")
+
+    root = (project_root or Path(__file__).resolve().parent).resolve()
+    observed: dict[str, str] = {}
+    expected = lock.get("files", {}) or {}
+    for relative_name, expected_hash in expected.items():
+        path = root / str(relative_name)
+        if not path.is_file():
+            issues.append(f"locked_file_missing:{relative_name}")
+            continue
+        observed_hash = _sha256_file(path)
+        observed[str(relative_name)] = observed_hash
+        if observed_hash != str(expected_hash):
+            issues.append(f"locked_file_changed:{relative_name}")
+    if not expected:
+        issues.append("paper_version_file_manifest_empty")
+    observed_input = json.dumps(observed, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    observed_fingerprint = hashlib.sha256(observed_input).hexdigest()
+    if len(observed) == len(expected) and observed_fingerprint != str(lock.get("logic_fingerprint", "")):
+        issues.append("paper_logic_fingerprint_mismatch")
+    return not issues, issues
+
+
+def assert_paper_version_frozen() -> None:
+    """Raise before submission when the frozen paper logic no longer matches."""
+    valid, issues = validate_paper_version_lock()
+    if not valid:
+        raise RuntimeError(", ".join(issues))
 
 
 def _read_csv(path: Path) -> pd.DataFrame:
@@ -181,6 +349,8 @@ def evaluate_epoch(epoch: dict) -> dict:
         "average_slippage": execution_decision_eligible and avg_slippage is not None and float(avg_slippage) <= float(requirements.get("maximum_average_slippage_bps", 10.0)),
         "bad_slippage_rate": execution_decision_eligible and bad_rate is not None and float(bad_rate) <= float(requirements.get("maximum_bad_slippage_rate", 0.60)),
     }
+    version_lock_valid, version_lock_issues = validate_paper_version_lock()
+    checks["paper_version_lock"] = version_lock_valid
     return {
         "epoch_id": epoch.get("epoch_id"),
         "evaluated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -197,6 +367,8 @@ def evaluate_epoch(epoch: dict) -> dict:
         "bad_slippage_rate": bad_rate,
         "execution_scorecard_decision_eligible": execution_decision_eligible,
         "execution_scorecard_schema_version": execution_scorecard.get("schema_version"),
+        "paper_version_lock_valid": version_lock_valid,
+        "paper_version_lock_issues": version_lock_issues,
         "checks": checks,
         "real_capital_approved": False,
     }
@@ -206,7 +378,18 @@ def main() -> int:
     """Start a new epoch or print progress for the active one."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--status", action="store_true", help="Evaluate the current epoch without starting a new one.")
+    parser.add_argument(
+        "--freeze-current",
+        action="store_true",
+        help="Freeze current paper logic without changing the active epoch start.",
+    )
     args = parser.parse_args()
+    if args.freeze_current:
+        lock = freeze_current_paper_version()
+        print(f"Frozen paper version for existing epoch: {lock['epoch_id']}")
+        print(f"Epoch start preserved: {lock['epoch_started_at']}")
+        print(f"Logic fingerprint: {lock['logic_fingerprint']}")
+        return 0
     if args.status:
         epoch = json.loads(EPOCH_FILE.read_text(encoding="utf-8"))
         report = evaluate_epoch(epoch)

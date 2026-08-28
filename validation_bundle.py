@@ -209,6 +209,7 @@ def build_validation_bundle(
     analyzer: dict | None = None,
     report_paths: dict[str, Path] | None = None,
     dataset_context: dict | None = None,
+    require_robustness_reports: bool = True,
 ) -> dict:
     """Build the complete, checksummed strategy-validation bundle."""
     approved = result.get("approved_live_config", {}) or {}
@@ -216,7 +217,9 @@ def build_validation_bundle(
     config_fingerprint = strategy_config_fingerprint(config)
     dataset_context = dataset_context or load_dataset_context()
     dataset_fingerprint = str(dataset_context.get("dataset_fingerprint", ""))
-    report_paths = report_paths or DEFAULT_REPORT_PATHS
+    # An empty mapping is meaningful for an explicitly non-trading shadow.
+    # Only ``None`` asks for the normal production report set.
+    report_paths = DEFAULT_REPORT_PATHS if report_paths is None else report_paths
     reports = {
         name: report_validation_record(
             name,
@@ -226,9 +229,14 @@ def build_validation_bundle(
         )
         for name, path in report_paths.items()
     }
-    report_matches = bool(reports) and all(row.get("match") for row in reports.values())
+    # Normal paper trading must carry all matching robustness evidence. A
+    # temporary shadow experiment can explicitly opt out because it never
+    # submits orders and cannot authorize real capital.
+    report_matches = bool(
+        (reports and all(row.get("match") for row in reports.values()))
+        or (not require_robustness_reports and not reports)
+    )
     base_approval = dict(result.get("live_config_approval", {}) or {})
-    paper_approved = bool(base_approval.get("approved", False) and config)
 
     provisional_reasons: list[str] = []
     source_path = Path(source_json) if source_json else None
@@ -239,12 +247,27 @@ def build_validation_bundle(
         provisional_reasons.append("walkforward_folds_missing")
     if not dataset_fingerprint:
         provisional_reasons.append("dataset_fingerprint_missing")
-    for name, row in reports.items():
-        for reason in row.get("reasons", []):
-            provisional_reasons.append(f"{name}:{reason}")
+    if require_robustness_reports:
+        for name, row in reports.items():
+            for reason in row.get("reasons", []):
+                provisional_reasons.append(f"{name}:{reason}")
     universe = membership_status()
     if not universe.get("complete", False):
         provisional_reasons.append("point_in_time_universe_incomplete")
+
+    # PLAIN ENGLISH: A profitable fold summary is not enough to authorize
+    # paper orders.  The exact walk-forward file, dataset fingerprint, folds,
+    # and all three matching robustness reports must exist.  Point-in-time
+    # universe completeness remains a real-money blocker, but does not stop the
+    # deliberately provisional paper experiment.
+    paper_approved = bool(
+        base_approval.get("approved", False)
+        and config
+        and source_is_file
+        and result.get("folds")
+        and dataset_fingerprint
+        and report_matches
+    )
 
     bundle = {
         "schema_version": 1,
@@ -277,7 +300,11 @@ def build_validation_bundle(
             "status": "paper_provisional" if paper_approved else "rejected",
             "paper_approved": paper_approved,
             "real_capital_approved": False,
-            "integrity_status": "verified" if report_matches and dataset_fingerprint else "provisional",
+            "integrity_status": (
+                "verified"
+                if report_matches and dataset_fingerprint and source_is_file and result.get("folds")
+                else "provisional"
+            ),
             "reasons": sorted(set(provisional_reasons)),
         },
     }

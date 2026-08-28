@@ -44,6 +44,9 @@ Expected output:
   signal is built. This lets the normal safety checks verify that the shadow
   config and its evidence match, without changing the real paper config or
   allowing real-money trading.
+- That temporary bundle does not reuse the production robustness reports.
+  This is safe only because the shadow script records hypothetical results and
+  has no order-submission path.
 - If the journal file exists but is empty, the script starts a fresh journal
   instead of crashing.
 

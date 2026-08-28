@@ -27,6 +27,11 @@ Before sending sell orders, it also checks Alpaca's broker-reported
 sellable share count so the plan does not ask to sell shares that are
 reserved by another open order or stop.
 
+Paper submission also requires the reviewed `paper_version_lock.json` to match
+the current trading files. The script refuses a non-paper Alpaca API endpoint,
+skips all buys when account cash cannot be verified, and immediately attempts
+to restore protective stops if a pre-submit cancellation sequence aborts.
+
 The execution scorecard can reduce future BUY sizes only when its evidence is
 complete, fresh, and `decision_eligible=true`. Missing, unreadable, stale, or
 still-collecting scorecards leave size unchanged. Every planned-order row keeps

@@ -780,6 +780,13 @@ class AlpacaBroker(Broker):
                 "  export ALPACA_API_KEY='your-key'\n"
                 "  export ALPACA_SECRET_KEY='your-secret'"
             )
+        # PLAIN ENGLISH: This project is not approved for real capital.  A
+        # copied environment variable must never silently redirect this paper
+        # trader to Alpaca's live-money endpoint.
+        if "paper-api.alpaca.markets" not in ALPACA_BASE_URL.lower():
+            raise ValueError(
+                "Refusing non-paper Alpaca endpoint; real-capital trading is not approved"
+            )
 
         self._api = REST(
             key_id=ALPACA_API_KEY,
@@ -2190,7 +2197,12 @@ def submit_rebalance_orders(
                             f"skipped={len(cash_skipped_buy_orders)}; cash_left={cash_left:.2f}"
                         )
             except Exception as exc:
-                print(f"  ⚠ Could not check cash before buys: {exc}")
+                # PLAIN ENGLISH: A broker/account read failure means we do not
+                # know whether the account can afford the buys.  Selling can
+                # still reduce risk, but submitting unchecked buys could create
+                # margin, so the buy phase must fail closed.
+                skip_buy_reason = f"cash_safety_check_failed:{type(exc).__name__}"
+                print(f"  ⚠ Could not check cash before buys; buys will be skipped: {exc}")
 
     if buy_orders and skip_buy_reason:
         print(f"  Buy phase skipped: {skip_buy_reason}")
@@ -3385,8 +3397,51 @@ def check_portfolio_drawdown(broker: AlpacaBroker) -> tuple[bool, float]:
         if drawdown < -PORTFOLIO_DRAWDOWN_HALT_PCT:
             return True, drawdown
         return False, drawdown
-    except Exception:
-        return False, 0.0
+    except Exception as exc:
+        # PLAIN ENGLISH: Treat unreadable risk evidence as a hard error.  The
+        # old fallback returned a harmless-looking 0% drawdown, which could
+        # allow new orders or even clear an emergency halt when the bot did not
+        # actually know the account's drawdown.
+        raise RuntimeError(f"Could not verify portfolio drawdown: {exc}") from exc
+
+
+def _repair_protection_after_aborted_rebalance(
+    broker: AlpacaBroker,
+    *,
+    core_tickers: set[str],
+    overlay_tickers: set[str],
+) -> dict:
+    """Best-effort repair of stops after a pre-submit rebalance abort.
+
+    PLAIN ENGLISH: A rebalance temporarily cancels protective stops so shares
+    can be sold.  If a later cancellation fails, this helper immediately puts
+    protection back instead of leaving already-cancelled positions exposed.
+    """
+    result = {"core_attempted": False, "overlay_attempted": False, "errors": []}
+    if CORE_PROTECTION_ENABLED and core_tickers:
+        result["core_attempted"] = True
+        try:
+            repair_core_etf_protective_stops(
+                broker,
+                tickers=core_tickers,
+                logger=lambda msg: print(f"    {msg}"),
+            )
+        except Exception as exc:
+            result["errors"].append(f"core_stop_repair_failed:{exc}")
+            print(f"  ✗ Emergency core stop repair failed: {exc}")
+    if TRAILING_STOP_ENABLED and overlay_tickers:
+        result["overlay_attempted"] = True
+        try:
+            overlay_result = repair_overlay_trailing_stops(
+                broker,
+                tickers=overlay_tickers,
+            )
+            for row in overlay_result.get("errors", []) or []:
+                result["errors"].append(f"overlay_stop_repair_failed:{row}")
+        except Exception as exc:
+            result["errors"].append(f"overlay_stop_repair_failed:{exc}")
+            print(f"  ✗ Emergency overlay stop repair failed: {exc}")
+    return result
 
 
 def _tqqq_pre_trade_check(broker: AlpacaBroker) -> tuple[bool, float]:
@@ -3581,6 +3636,21 @@ def main():
 
     if args.submit:
         _begin_submit_outcome()
+        # PLAIN ENGLISH: The August paper epoch must measure one frozen bot.
+        # Refuse broker submission when any locked strategy, risk, execution,
+        # or workflow file changed without an explicit re-freeze review.
+        try:
+            from paper_validation_epoch import assert_paper_version_frozen
+
+            assert_paper_version_frozen()
+        except RuntimeError as exc:
+            print(f"  ✗ Paper version lock failed: {exc}")
+            _set_submit_outcome(
+                "blocked",
+                "paper_version_lock_failed",
+                errors=[str(exc)],
+            )
+            return 2
 
     # ── Connect to Alpaca ───────────────────────────────────────────────
     try:
@@ -3858,6 +3928,11 @@ def main():
         if any(row.get("status") == "failed" for row in protection_cancels):
             print("  ✗ Could not cancel all affected core ETF protective stops. Aborting rebalance.")
             print("     Existing stops may reserve shares and cause sell orders to fail.")
+            _repair_protection_after_aborted_rebalance(
+                broker,
+                core_tickers=core_order_tickers,
+                overlay_tickers=set(),
+            )
             _set_submit_outcome(
                 "blocked",
                 "core_stop_cancellation_failed",
@@ -3885,6 +3960,11 @@ def main():
         if any(row.get("status") == "failed" for row in overlay_stop_cancels):
             print("  ✗ Could not cancel all affected overlay trailing stops. Aborting rebalance.")
             print("     Existing stops may reserve shares and cause sell orders to fail.")
+            _repair_protection_after_aborted_rebalance(
+                broker,
+                core_tickers=core_order_tickers,
+                overlay_tickers=overlay_sell_tickers,
+            )
             _set_submit_outcome(
                 "blocked",
                 "overlay_stop_cancellation_failed",

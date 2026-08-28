@@ -32,9 +32,24 @@ Check progress:
 python3 paper_validation_epoch.py --status
 ```
 
+Freeze the reviewed paper code without restarting the active epoch:
+
+```bash
+python3 paper_validation_epoch.py --freeze-current
+```
+
+This writes `paper_version_lock.json` while keeping the existing epoch ID and
+`started_at` value unchanged. Before any Alpaca paper submission, the trader
+checks the locked strategy, risk, execution, workflow, live-config, and
+validation-bundle files. If one changes, new orders are blocked until a senior
+review deliberately freezes the reviewed version again. Documentation and
+dashboard-only changes do not break the lock.
+
 ## Key Terms
 
 - **Epoch:** A dated evaluation period for one bot version.
+- **Version lock:** Checksums proving the decision and execution files still
+  match the reviewed paper version.
 - **Rebalance:** Changing positions to match new target weights.
 - **Accepted order:** An order Alpaca received successfully.
 - **Operational pass:** The bot met the reliability sample requirements.

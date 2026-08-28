@@ -1264,6 +1264,86 @@ def test_submit_rebalance_orders_skips_buys_when_cash_negative(monkeypatch):
     assert broker.orders == []
 
 
+def test_submit_rebalance_orders_skips_buys_when_cash_check_errors(monkeypatch):
+    """Unknown cash is unsafe, so broker read failure must never allow a buy."""
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "_send_submit_guard_alert", lambda *args, **kwargs: None)
+    monkeypatch.setattr(apt, "SKIP_BUYS_WHEN_CASH_BELOW", 0.0)
+    broker = _SubmitBroker(cash=1_000.0)
+
+    def fail_cash_read():
+        raise RuntimeError("account endpoint unavailable")
+
+    broker.get_cash = fail_cash_read
+    submitted, order_ids = apt.submit_rebalance_orders(
+        broker,
+        [_planned_order("MU", "buy")],
+        use_market_order=False,
+        use_quote_limit=False,
+    )
+
+    assert [order["ticker"] for order in submitted] == ["MU"]
+    assert order_ids == ["SKIPPED: cash_safety_check_failed:RuntimeError"]
+    assert broker.orders == []
+
+
+def test_drawdown_check_fails_closed_when_evidence_is_unreadable(tmp_path, monkeypatch):
+    """Broken drawdown evidence must raise instead of pretending drawdown is zero."""
+    import alpaca_paper_trading as apt
+
+    equity_path = tmp_path / "equity.csv"
+    equity_path.write_text("equity\n100000\n", encoding="utf-8")
+    monkeypatch.setattr(apt, "EQUITY_FILE", equity_path)
+
+    class BrokenBroker:
+        def get_equity(self):
+            raise RuntimeError("account unavailable")
+
+    with pytest.raises(RuntimeError, match="Could not verify portfolio drawdown"):
+        apt.check_portfolio_drawdown(BrokenBroker())
+
+
+def test_abort_repair_attempts_both_core_and_overlay_stops(monkeypatch):
+    """A partial pre-submit cancellation must immediately restore protection."""
+    import alpaca_paper_trading as apt
+
+    calls = []
+    monkeypatch.setattr(apt, "CORE_PROTECTION_ENABLED", True)
+    monkeypatch.setattr(apt, "TRAILING_STOP_ENABLED", True)
+    monkeypatch.setattr(
+        apt,
+        "repair_core_etf_protective_stops",
+        lambda broker, tickers, logger: calls.append(("core", set(tickers))),
+    )
+    monkeypatch.setattr(
+        apt,
+        "repair_overlay_trailing_stops",
+        lambda broker, tickers: calls.append(("overlay", set(tickers))) or {"errors": []},
+    )
+
+    result = apt._repair_protection_after_aborted_rebalance(
+        SimpleNamespace(),
+        core_tickers={"QQQ"},
+        overlay_tickers={"MU"},
+    )
+
+    assert calls == [("core", {"QQQ"}), ("overlay", {"MU"})]
+    assert result["errors"] == []
+
+
+def test_alpaca_broker_rejects_live_money_endpoint(monkeypatch):
+    """This paper-only project must not connect when pointed at Alpaca live."""
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "ALPACA_API_KEY", "paper-key")
+    monkeypatch.setattr(apt, "ALPACA_SECRET_KEY", "paper-secret")
+    monkeypatch.setattr(apt, "ALPACA_BASE_URL", "https://api.alpaca.markets")
+
+    with pytest.raises(ValueError, match="Refusing non-paper Alpaca endpoint"):
+        apt.AlpacaBroker()
+
+
 def test_submit_rebalance_orders_skips_buys_when_cash_cannot_afford_one_share(monkeypatch):
     import alpaca_paper_trading as apt
 

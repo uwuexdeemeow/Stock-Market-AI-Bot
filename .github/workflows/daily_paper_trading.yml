@@ -157,6 +157,9 @@ jobs:
       #   signals/core_satellite_live_configs.json
       #   signals/core_satellite_nested_walkforward.json
       #   signals/adaptive_factor_weights.json
+      #   logs/factor_decay_monitor.json
+      #   logs/core_satellite_execution_stress.json
+      #   logs/core_satellite_survivorship_audit.json
       # Only NON-git-tracked state files belong in cache below.
       - name: Cache signals and logs state
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
@@ -166,9 +169,6 @@ jobs:
             signals/core_satellite_alpha_metrics.json
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
-            logs/factor_decay_monitor.json
-            logs/core_satellite_execution_stress.json
-            logs/core_satellite_survivorship_audit.json
           key: state-files-${{ github.run_id }}
           restore-keys: |
             state-files-

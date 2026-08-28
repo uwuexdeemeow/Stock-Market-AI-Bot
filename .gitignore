@@ -56,7 +56,10 @@ signals/*
 !signals/research_run_manifest.json
 
 # Logs (runtime output — not source code)
-logs/
+logs/*
+!logs/factor_decay_monitor.json
+!logs/core_satellite_execution_stress.json
+!logs/core_satellite_survivorship_audit.json
 # Exception: feature_ic_shortlist drives the spec loader and is used by
 # the feature quality guard.  Track it so GH Actions has a baseline.
 !logs/feature_ic_shortlist.csv

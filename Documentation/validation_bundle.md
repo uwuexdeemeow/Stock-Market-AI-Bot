@@ -19,6 +19,15 @@ The script reads `signals/core_satellite_live_configs.json`, writes
 `signals/core_satellite_validation_bundle.json`, and marks the existing
 strategy as `paper_provisional`.
 
+Paper approval fails closed unless the walk-forward source, folds, dataset
+fingerprint, and all three robustness reports exist and have matching strategy
+and dataset fingerprints. A signed bundle with missing or mismatched robustness
+evidence cannot authorize new paper orders.
+
+The temporary shadow journal is the only exception. It creates a separate
+paper-only bundle without production robustness reports because that path only
+records hypothetical results and cannot submit orders or approve real money.
+
 Expected result: paper trading can continue, but `real_capital_approved` stays
 false.
 

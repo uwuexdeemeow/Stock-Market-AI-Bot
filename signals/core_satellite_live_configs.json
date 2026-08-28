@@ -1,6 +1,6 @@
 {
   "created_at": "2026-08-26T07:28:28+00:00",
-  "source_json": "signals/core_satellite_nested_walkforward.json",
+  "source_json": "signals\\core_satellite_nested_walkforward.json",
   "method": "nested_walk_forward_yearly_outer_multi_inner_validation",
   "approvals": {
     "core-alpha": {
@@ -172,10 +172,10 @@
       }
     }
   },
-  "validation_bundle_path": "signals/core_satellite_validation_bundle.json",
-  "validation_bundle_hash": "ca29ac851a726ed1f82ce8a49ea6a700b772b0fdfc2aad7567a2dfe99e40e1da",
+  "validation_bundle_path": "signals\\core_satellite_validation_bundle.json",
+  "validation_bundle_hash": "bbe701bc84e37a4e3ce24d1c43803a53ba9bf9577d31422cb987629f4faee756",
   "deployment_status": "paper_provisional",
   "paper_approved": true,
   "real_capital_approved": false,
-  "source_json_sha256": "436a627cf25f013f22aba07addee68747833d22bc952b27280cf38a8604e38ad"
+  "source_json_sha256": "b65be8a69142bea13a1fc954ebc083d351f61a4a3430bc8475596998e105d3af"
 }

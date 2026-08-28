@@ -1,10 +1,51 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 
 import pandas as pd
 
 import paper_validation_epoch as epoch_module
+
+
+def test_freeze_preserves_existing_epoch_start_and_detects_logic_change(tmp_path, monkeypatch):
+    """Freezing must not restart August evidence, and later code edits must fail."""
+    signal_dir = tmp_path / "signals"
+    signal_dir.mkdir()
+    epoch_path = signal_dir / "paper_validation_epoch.json"
+    lock_path = tmp_path / "paper_version_lock.json"
+    logic_path = tmp_path / "trading_logic.py"
+    original_started_at = "2026-08-26T08:43:15+00:00"
+    epoch_path.write_text(
+        json.dumps({"epoch_id": "paper-v20260826T084315Z", "started_at": original_started_at}),
+        encoding="utf-8",
+    )
+    logic_path.write_text("SAFE = True\n", encoding="utf-8")
+    monkeypatch.setattr(epoch_module, "PAPER_LOGIC_FILES", ("trading_logic.py",))
+
+    lock = epoch_module.freeze_current_paper_version(
+        epoch_path=epoch_path,
+        lock_path=lock_path,
+        project_root=tmp_path,
+        now=datetime(2026, 8, 29, tzinfo=timezone.utc),
+    )
+
+    assert lock["epoch_started_at"] == original_started_at
+    assert json.loads(epoch_path.read_text(encoding="utf-8"))["started_at"] == original_started_at
+    assert epoch_module.validate_paper_version_lock(
+        epoch_path=epoch_path,
+        lock_path=lock_path,
+        project_root=tmp_path,
+    ) == (True, [])
+
+    logic_path.write_text("SAFE = False\n", encoding="utf-8")
+    valid, issues = epoch_module.validate_paper_version_lock(
+        epoch_path=epoch_path,
+        lock_path=lock_path,
+        project_root=tmp_path,
+    )
+    assert valid is False
+    assert "locked_file_changed:trading_logic.py" in issues
 
 
 def test_same_day_equity_snapshot_after_epoch_start_counts_as_trading_day(tmp_path, monkeypatch):

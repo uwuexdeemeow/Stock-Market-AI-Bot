@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "created_at": "2026-08-26T13:27:42+00:00",
+  "created_at": "2026-08-28T18:07:32+00:00",
   "strategy": "core-alpha",
-  "source_json": "signals/core_satellite_nested_walkforward.json",
-  "source_json_sha256": "436a627cf25f013f22aba07addee68747833d22bc952b27280cf38a8604e38ad",
-  "git_commit": "0bc0f448be56100409733a4f6951b1c4b3dc76d9",
+  "source_json": "signals\\core_satellite_nested_walkforward.json",
+  "source_json_sha256": "b65be8a69142bea13a1fc954ebc083d351f61a4a3430bc8475596998e105d3af",
+  "git_commit": "f2971d2102f932a9dbba88056d6f10cb57b99944",
   "config": {
     "strategy": "core-alpha",
     "core_preset": "nested_qqq_trend_switch_overlay70_core55_cashbuffer_h20_ov0.50_ma100_volpercentile0.30_tqqq0.00_riskoff",
@@ -82,9 +82,9 @@
   },
   "config_fingerprint": "b7e97bb46c8aaa04",
   "dataset": {
-    "manifest_path": "signals/research_run_manifest.json",
+    "manifest_path": "signals\\research_run_manifest.json",
     "manifest_exists": true,
-    "manifest_sha256": "6fb4ce229ee0c5e91d450a1e4908a1eaa4825c047e61d8a43190d410a5ec8970",
+    "manifest_sha256": "71925835647fdbac6482273247eedc16a7cc9794d9296ec660167f20e2c866da",
     "dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
     "file_count": 159,
     "fingerprinted_count": 159,
@@ -93,8 +93,22 @@
   },
   "universe_membership": {
     "complete": false,
-    "path": "data/universe_membership.csv",
+    "path": "data\\universe_membership.csv",
     "rows": 0,
+    "source_count": 0,
+    "required_provenance_columns": [
+      "access_cost",
+      "license",
+      "retrieved_at",
+      "source_url"
+    ],
+    "missing_provenance_columns": [
+      "access_cost",
+      "license",
+      "retrieved_at",
+      "source_url"
+    ],
+    "provenance_valid_rows": 0,
     "required_tickers": 62,
     "missing_required_tickers": [
       "AAPL",
@@ -160,12 +174,24 @@
       "WMT",
       "XOM"
     ],
-    "delisted_tickers": 0,
-    "delisted_tickers_with_data": [],
+    "coverage_start": "2010-01-01",
+    "coverage_end": "2026-08-28",
+    "active_members_at_coverage_start": 0,
+    "minimum_active_members": 400,
+    "inactive_members": 0,
+    "minimum_inactive_members": 17,
+    "historical_tickers": 0,
+    "historical_tickers_with_data": 0,
+    "historical_price_coverage": 0.0,
+    "minimum_price_coverage": 0.95,
+    "missing_historical_price_tickers": [],
     "reasons": [
       "membership_table_missing",
       "required_ticker_membership_missing",
-      "delisted_membership_missing"
+      "membership_provenance_columns_missing",
+      "historical_universe_too_small",
+      "inactive_membership_coverage_too_small",
+      "historical_price_coverage_incomplete"
     ]
   },
   "folds": [
@@ -1326,34 +1352,34 @@
   "robustness_reports": {
     "survivorship": {
       "name": "survivorship",
-      "path": "logs/core_satellite_survivorship_audit.json",
+      "path": "logs\\core_satellite_survivorship_audit.json",
       "exists": true,
       "match": true,
       "reasons": [],
-      "sha256": "8a4fb385fe8fa2d592de49a840eebf9315a68f5626457f7d11d802f5a3a71ec3",
-      "generated_at": "2026-08-26T21:27:20.246154",
+      "sha256": "f19d9b0ab9ef46ad374d4e79b8646ad2116bea86fc445bdb2c1179bea94d5571",
+      "generated_at": "2026-08-29T02:06:58.128296",
       "observed_config_fingerprint": "b7e97bb46c8aaa04",
       "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c"
     },
     "execution_stress": {
       "name": "execution_stress",
-      "path": "logs/core_satellite_execution_stress.json",
+      "path": "logs\\core_satellite_execution_stress.json",
       "exists": true,
       "match": true,
       "reasons": [],
-      "sha256": "2f206ae34bbde522ff9774d65c08376e7cb6647c2e3e2e18c08d77f1719351ad",
-      "generated_at": "2026-08-26T21:26:38.474317",
+      "sha256": "79f79542e7ef0b955aef523ce372cd7e72665ba2b3713890bce535d8d52a86e2",
+      "generated_at": "2026-08-29T02:05:53.670731",
       "observed_config_fingerprint": "b7e97bb46c8aaa04",
       "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c"
     },
     "factor_decay": {
       "name": "factor_decay",
-      "path": "logs/factor_decay_monitor.json",
+      "path": "logs\\factor_decay_monitor.json",
       "exists": true,
       "match": true,
       "reasons": [],
-      "sha256": "6a92754dce62770059fdb745eb402f128c3ff54057bab52cb05ed5ffb33f0a25",
-      "generated_at": "2026-08-26T21:27:41.789011",
+      "sha256": "8ff900dac0b574af7799a3f7a50c6b15630eb9f349b9327c3d534845ec343500",
+      "generated_at": "2026-08-29T02:07:31.863878",
       "observed_config_fingerprint": "b7e97bb46c8aaa04",
       "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c"
     }
@@ -1392,5 +1418,5 @@
       "point_in_time_universe_incomplete"
     ]
   },
-  "validation_bundle_hash": "ca29ac851a726ed1f82ce8a49ea6a700b772b0fdfc2aad7567a2dfe99e40e1da"
+  "validation_bundle_hash": "bbe701bc84e37a4e3ce24d1c43803a53ba9bf9577d31422cb987629f4faee756"
 }

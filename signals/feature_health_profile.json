@@ -22,6 +22,7 @@
       "xs_rank_sector_factor_liquidity_dollar_vol_20d",
       "vol_trend_20_60"
     ],
+    "structurally_unavailable_features": [],
     "max_cluster_weight": 0.125,
     "feature_health_gate_pass": true,
     "feature_health_gate_reasons": []
@@ -36,6 +37,7 @@
       "recent_ic": -0.018002,
       "full_ic": -0.017627,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -49,6 +51,7 @@
       "recent_ic": -0.024437,
       "full_ic": -0.020364,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -62,6 +65,7 @@
       "recent_ic": 0.041771,
       "full_ic": 0.020589,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -75,6 +79,7 @@
       "recent_ic": 0.032554,
       "full_ic": 0.017126,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -88,6 +93,7 @@
       "recent_ic": -0.013537,
       "full_ic": -0.015493,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -101,6 +107,7 @@
       "recent_ic": -0.019458,
       "full_ic": -0.014657,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -114,6 +121,7 @@
       "recent_ic": -0.015984,
       "full_ic": -0.014884,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -127,6 +135,7 @@
       "recent_ic": -0.02068,
       "full_ic": -0.01412,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -140,6 +149,7 @@
       "recent_ic": -0.019957,
       "full_ic": -0.014158,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -153,6 +163,7 @@
       "recent_ic": -0.02068,
       "full_ic": -0.014106,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -166,6 +177,7 @@
       "recent_ic": -0.02068,
       "full_ic": -0.01407,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -179,6 +191,7 @@
       "recent_ic": 0.059748,
       "full_ic": 0.022541,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -192,6 +205,7 @@
       "recent_ic": -0.025716,
       "full_ic": -0.014233,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -205,6 +219,7 @@
       "recent_ic": -0.029968,
       "full_ic": -0.014952,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -218,6 +233,7 @@
       "recent_ic": -0.030353,
       "full_ic": -0.014933,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -231,6 +247,7 @@
       "recent_ic": -0.008885,
       "full_ic": -0.011948,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.0625
@@ -244,6 +261,7 @@
       "recent_ic": -0.013919,
       "full_ic": -0.018704,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": false,
       "effective_weight": 0.0
@@ -257,6 +275,7 @@
       "recent_ic": -0.006235,
       "full_ic": -0.012714,
       "active_candidate": false,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": false,
       "effective_weight": 0.0
@@ -270,6 +289,7 @@
       "recent_ic": 0.009211,
       "full_ic": -0.010272,
       "active_candidate": false,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": false,
       "effective_weight": 0.0
@@ -283,6 +303,7 @@
       "recent_ic": -0.005201,
       "full_ic": -0.012265,
       "active_candidate": false,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": false,
       "effective_weight": 0.0
@@ -296,6 +317,7 @@
       "recent_ic": -0.006764,
       "full_ic": -0.009978,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.0625
@@ -309,6 +331,7 @@
       "recent_ic": -0.027557,
       "full_ic": -0.00992,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -322,6 +345,7 @@
       "recent_ic": -0.001806,
       "full_ic": -0.011599,
       "active_candidate": false,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": false,
       "effective_weight": 0.0
@@ -335,6 +359,7 @@
       "recent_ic": -0.004948,
       "full_ic": -0.010285,
       "active_candidate": false,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": false,
       "effective_weight": 0.0
@@ -348,6 +373,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -361,6 +387,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -374,6 +401,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -387,6 +415,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -400,6 +429,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -413,6 +443,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -426,6 +457,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -439,6 +471,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -452,6 +485,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -465,6 +499,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -478,6 +513,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -491,6 +527,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -504,6 +541,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -517,6 +555,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -530,6 +569,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -543,6 +583,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -556,6 +597,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125
@@ -569,6 +611,7 @@
       "recent_ic": null,
       "full_ic": null,
       "active_candidate": true,
+      "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
       "effective_weight": 0.125

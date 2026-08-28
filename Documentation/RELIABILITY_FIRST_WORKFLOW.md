@@ -19,6 +19,12 @@
 8. `paper_validation_epoch.py` measures a clean operational period. Real-money
    trading remains disabled until a separate explicit human review.
 
+The active August 26 epoch is protected by `paper_version_lock.json`. The lock
+fingerprints every file that can alter strategy selection, sizing, submission,
+protection, or execution grading. Alpaca paper submission fails closed if a
+locked file changes; freezing a reviewed version never changes the epoch's
+original start time.
+
 ## Beginner Use
 
 Preview the daily route without orders:
