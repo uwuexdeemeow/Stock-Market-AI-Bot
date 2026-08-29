@@ -83,9 +83,11 @@ def test_build_execution_scorecard_scores_fill_quality_and_throttle(tmp_path):
         slippage_report_path=report_path,
         previous_scorecard_path=previous_path,
         now=datetime(2026, 6, 5, tzinfo=timezone.utc),
+        min_rebalance_fills=1,
+        min_rebalance_sessions=1,
     )
 
-    assert payload["status"] == "pass"
+    assert payload["status"] == "warning"
     assert payload["score"] == 100.0
     assert payload["summary"]["accepted_orders"] == 2
     assert payload["summary"]["filled_orders"] == 2
@@ -149,11 +151,15 @@ def test_build_execution_scorecard_fails_bad_execution(tmp_path):
         slippage_report_path=report_path,
         previous_scorecard_path=tmp_path / "missing.json",
         now=datetime(2026, 6, 5, tzinfo=timezone.utc),
+        min_rebalance_fills=1,
+        min_rebalance_sessions=1,
     )
 
     assert payload["status"] == "fail"
     failed = {check["name"] for check in payload["checks"] if check["status"] == "fail"}
-    assert {"avg_slippage_bps", "bad_slippage_rate", "fill_rate", "adverse_15m_rate", "adverse_60m_rate"} <= failed
+    assert {"avg_slippage_bps", "bad_slippage_rate", "fill_rate"} <= failed
+    assert "adverse_15m_rate" not in failed
+    assert "adverse_60m_rate" not in failed
     assert any(item.startswith("review_failed_execution_checks:") for item in payload["recommendations"])
 
 
@@ -200,9 +206,11 @@ def test_bad_slippage_rate_uses_material_threshold_when_order_rows_exist(tmp_pat
         slippage_report_path=report_path,
         previous_scorecard_path=tmp_path / "missing.json",
         now=datetime(2026, 6, 5, tzinfo=timezone.utc),
+        min_rebalance_fills=1,
+        min_rebalance_sessions=0,
     )
 
-    assert payload["status"] == "pass"
+    assert payload["status"] == "warning"
     assert payload["summary"]["bad_slippage_threshold_bps"] == 2.0
     assert payload["summary"]["bad_slippage_count"] == 2
     assert payload["summary"]["bad_slippage_rate"] == 0.5
@@ -243,3 +251,59 @@ def test_daily_workflow_publishes_execution_scorecard():
 
     assert "signals/alpaca_execution_scorecard.json" in workflow
     assert "logs/alpaca_execution_scorecard_*.json" in workflow
+
+
+def test_scorecard_filters_old_fills_and_separates_protective_stops(tmp_path):
+    report_path = tmp_path / "report.json"
+    report_path.write_text(json.dumps({
+        "source": "alpaca_api",
+        "orders": [
+            {"filled_at": "2026-06-04T14:00:00Z", "order_type": "limit", "slippage_bps": 1.0},
+            {"filled_at": "2026-06-03T14:00:00Z", "order_type": "limit", "slippage_bps": 3.0},
+            {"filled_at": "2026-06-03T14:05:00Z", "order_type": "trailing_stop", "slippage_bps": 25.0,
+             "adverse_15m_bps": 100.0, "adverse_60m_bps": 200.0},
+            {"filled_at": "2026-04-01T14:00:00Z", "order_type": "limit", "slippage_bps": 99.0},
+        ],
+    }), encoding="utf-8")
+
+    payload = esc.build_execution_scorecard(
+        paper_log_path=tmp_path / "missing.csv",
+        slippage_report_path=report_path,
+        previous_scorecard_path=tmp_path / "missing.json",
+        now=datetime(2026, 6, 5, tzinfo=timezone.utc),
+        lookback_days=30,
+        min_rebalance_fills=2,
+        min_rebalance_sessions=2,
+    )
+
+    assert payload["summary"]["orders_analyzed"] == 2
+    assert payload["summary"]["avg_slippage_bps"] == 2.0
+    assert payload["protective_stops"]["orders_seen"] == 1
+    assert payload["protective_stops"]["avg_slippage_bps"] == 25.0
+    assert all("adverse" not in check["name"] for check in payload["checks"])
+
+
+def test_scorecard_uses_metric_specific_denominators_and_sample_gate(tmp_path):
+    report_path = tmp_path / "report.json"
+    report_path.write_text(json.dumps({
+        "orders": [
+            {"filled_at": "2026-06-04T14:00:00Z", "order_type": "limit", "slippage_bps": 3.0,
+             "adverse_15m_bps": 5.0, "adverse_60m_bps": None},
+            {"filled_at": "2026-06-04T14:01:00Z", "order_type": "limit", "slippage_bps": None,
+             "adverse_15m_bps": -2.0, "adverse_60m_bps": None},
+        ],
+    }), encoding="utf-8")
+
+    payload = esc.build_execution_scorecard(
+        paper_log_path=tmp_path / "missing.csv",
+        slippage_report_path=report_path,
+        previous_scorecard_path=tmp_path / "missing.json",
+        now=datetime(2026, 6, 5, tzinfo=timezone.utc),
+    )
+
+    assert payload["summary"]["measured_slippage_count"] == 1
+    assert payload["summary"]["bad_slippage_rate"] == 1.0
+    assert payload["entry_timing"]["adverse_15m_observations"] == 2
+    assert payload["entry_timing"]["adverse_60m_observations"] == 0
+    assert payload["sample_gate"]["ready"] is False
+    assert payload["status"] == "collecting"

@@ -157,11 +157,11 @@ The Alpaca submit path now has extra no-margin guards:
 - default order type is protective day limits (`ALPACA_ORDER_TYPE=limit`)
 - accidental market-order override is locked (`ALPACA_ALLOW_MARKET_ORDER_OVERRIDE=0`)
 - default limit anchor is live bid/ask (`ALPACA_LIMIT_REFERENCE=quote`)
-- recent execution-risk scores shrink risky overlay BUY orders before submit (`ALPACA_EXECUTION_RISK_ENABLED=1`)
-- failed execution scorecards shrink all new BUY orders while SELL exits stay full-size (`ALPACA_EXECUTION_SCORECARD_THROTTLE=1`)
+- normal rebalances try a passive midpoint limit, then one capped replacement for the confirmed remainder
+- execution-risk scores and scorecards explain price policy without changing approved target quantities
 - closed-market queueing is off by default (`ALPACA_ALLOW_CLOSED_MARKET_QUEUE=0`)
 - sells submit before buys
-- quote/spread guard logs skipped orders when a quote is missing or the spread is too wide
+- quote/spread guard logs skipped orders above 0.10% for ETFs or 0.50% for stocks
 - buys are skipped if sells fail, sells do not fill quickly, or cash is below the no-margin threshold
 - cash-limited buys are resized down to the largest whole-share quantity that fits available cash after a default 0.5% equity cash buffer; if even one share cannot fit or the trade falls below `ALPACA_MIN_TRADE_VALUE`, the buy is skipped and logged
 - buy cash checks use the smaller of Alpaca cash and buying power, so pending order reservations cannot be double-spent
@@ -328,12 +328,12 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | Script | What it does | Common flags |
 |---|---|---|
 | `alpaca_paper_gauntlet.py` | Health gate — pass/fail for "should real money trust this?" | `--verbose` |
-| `alpaca_paper_trading.py` | Generate and (optionally) submit Alpaca orders | `--submit`, `--status`, `--reconcile`, `--slippage-report`, `--market-order`, `--limit-order`, `--quote-limit`, `--last-trade-limit`, `--allow-closed-market-queue`, `--allow-stale-signal`, `--max-signal-age-hours H`, `--max-factor-age-trading-days N` |
+| `alpaca_paper_trading.py` | Generate and (optionally) submit Alpaca orders | `--submit`, `--status`, `--reconcile`, `--slippage-report`, `--quote-limit`, `--last-trade-limit`, `--allow-outside-execution-window`, `--allow-closed-market-queue`, `--allow-stale-signal` |
 | `broker_health.py` | Pre-flight Alpaca connectivity check | none |
 | `broker_truth.py` | Reconcile Alpaca positions, local logs, order plan, target weights, and trailing stops | `--json`, `--strict`, `--offline` |
 | `core_satellite_alpha.py` | Generate today's signal (which 3 stocks + ETF weights) | `--ignore-stale`, `--walkforward` |
 | `daily_run.py` | Run the entire daily pipeline (15+ steps) | `--alpaca`, `--dry-run`, `--force`, `--health-only`, `--skip-refresh`, `--skip-factor-refresh`, `--no-github-sync`, `--timeout N` |
-| `execution_scorecard.py` | Grade Alpaca fill quality, slippage, skipped rate, and execution-risk throttle outcomes | `--json`, `--strict` |
+| `execution_scorecard.py` | Grade rebalance fills separately from protective stops and compare execution stages | `--json`, `--strict` |
 | `execution_guard.py` | Repair ETF stop-loss protection, cancel stale orders | `--once`, `--loop`, `--dry-run` |
 | `fill_monitor.py` | Verify yesterday's fills (cancelled, partial, slipped) | `--days N` |
 | `monitor_heartbeat.py` | Watchdog — all monitors produced fresh output? | none |
@@ -438,7 +438,7 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `signals/alpaca_paper_equity.csv` | Daily equity snapshots |
 | `signals/alpaca_daily_status.json` | Today's positions + equity + cash (dashboard equity card reads this) |
 | `signals/alpaca_paper_health.json` | Slippage, drift, concentration, equity sanity, P&L breakdown |
-| `signals/alpaca_execution_scorecard.json` | Fill-quality pass/fail scorecard and throttle outcome summary |
+| `signals/alpaca_execution_scorecard.json` | Rebalance verdict, stop diagnostics, timing advice, and stage comparison |
 | `signals/broker_truth.csv` / `.json` | Per-ticker Alpaca-vs-local truth reconciliation |
 | `signals/alpaca_slippage_reversal_report.json` | Recent fill slippage and 5/15/30/60 minute post-fill reversal stats |
 | `logs/etf_data_health.json` | ETF benchmark/cache health; dashboard checklist flags stale or partial ETF data |
@@ -640,33 +640,45 @@ daily GitHub workflow:
 | `ALPACA_LIMIT_REFERENCE` | `quote` | Limit anchor. `quote` uses live bid/ask; `last` rolls back to planned last-trade anchoring. |
 | `ALPACA_LIMIT_OFFSET_BPS_ETF` | `5` | ETF protective-limit cushion in basis points. |
 | `ALPACA_LIMIT_OFFSET_BPS_OVERLAY` | `12` | Overlay-stock protective-limit cushion in basis points. |
-| `ALPACA_EXECUTION_RISK_ENABLED` | `1` | Use the recent slippage/reversal report to shrink risky overlay BUY orders. |
+| `ALPACA_TWO_STAGE_EXECUTION` | `1` | Rest at midpoint first, then submit one capped replacement for any remainder. |
+| `ALPACA_EXECUTION_STAGE1_WAIT_SECONDS` | `15` | How long the passive midpoint order rests. |
+| `ALPACA_EXECUTION_STAGE2_OFFSET_BPS_ETF` | `1` | Maximum ETF cushion on the second attempt. |
+| `ALPACA_EXECUTION_STAGE2_OFFSET_BPS_OVERLAY` | `3` | Maximum stock cushion on the second attempt. |
+| `ALPACA_EXECUTION_QUOTE_MAX_AGE_SECONDS` | `5` | Reject timestamped quotes older than this. |
+| `ALPACA_EXECUTION_WINDOW_START` | `09:35` | Earliest routine submit time in New York. |
+| `ALPACA_EXECUTION_WINDOW_END` | `10:30` | Latest routine submit time in New York. |
+| `ALPACA_EXECUTION_SYMBOL_MIN_SAMPLES` | `5` | Rebalance fills required before symbol risk is used. |
+| `ALPACA_EXECUTION_RISK_ENABLED` | `1` | Read recent per-symbol execution evidence for audit context. |
 | `ALPACA_EXECUTION_RISK_REPORT_MAX_AGE_HOURS` | `168` | Ignore execution-risk reports older than this many hours. |
-| `ALPACA_EXECUTION_RISK_WARN_SCORE` | `40` | Score where overlay buys start getting reduced. |
-| `ALPACA_EXECUTION_RISK_HIGH_SCORE` | `60` | Score where the stronger buy reduction applies. |
-| `ALPACA_EXECUTION_RISK_WARN_BUY_SCALE` | `0.75` | Quantity multiplier for warning-risk overlay buys. |
-| `ALPACA_EXECUTION_RISK_HIGH_BUY_SCALE` | `0.50` | Quantity multiplier for high-risk overlay buys. |
-| `ALPACA_EXECUTION_SCORECARD_THROTTLE` | `1` | Use the portfolio-wide execution scorecard to shrink all BUY orders when execution fails. |
+| `ALPACA_EXECUTION_RISK_WARN_SCORE` | `40` | Informational warning-risk boundary. |
+| `ALPACA_EXECUTION_RISK_HIGH_SCORE` | `60` | Informational high-risk boundary. |
+| `ALPACA_EXECUTION_RISK_WARN_BUY_SCALE` | `0.75` | Legacy compatibility value; target quantities are no longer scaled. |
+| `ALPACA_EXECUTION_RISK_HIGH_BUY_SCALE` | `0.50` | Legacy compatibility value; target quantities are no longer scaled. |
+| `ALPACA_EXECUTION_SCORECARD_THROTTLE` | `1` | Read portfolio execution status for audit metadata. |
 | `ALPACA_EXECUTION_SCORECARD_MAX_AGE_HOURS` | `72` | Ignore stale scorecards older than this many hours. |
-| `ALPACA_EXECUTION_SCORECARD_FAIL_BUY_SCALE` | `0.75` | Quantity multiplier when execution scorecard status is fail. |
+| `ALPACA_EXECUTION_SCORECARD_FAIL_BUY_SCALE` | `0.75` | Legacy compatibility value; target quantities are no longer scaled. |
 | `ALPACA_EXECUTION_SCORECARD_SEVERE_SCORE` | `50` | Score at or below this uses the stronger severe multiplier. |
-| `ALPACA_EXECUTION_SCORECARD_SEVERE_BUY_SCALE` | `0.50` | Quantity multiplier for severe scorecard failures. |
+| `ALPACA_EXECUTION_SCORECARD_SEVERE_BUY_SCALE` | `0.50` | Legacy compatibility value; target quantities are no longer scaled. |
 | `EXECUTION_SCORECARD_MAX_AVG_SLIPPAGE_BPS` | `10` | Scorecard fails if average slippage is worse than this. |
 | `EXECUTION_SCORECARD_MAX_BAD_SLIPPAGE_RATE` | `0.60` | Scorecard fails if too many fills have bad slippage. |
 | `EXECUTION_SCORECARD_BAD_SLIPPAGE_BPS` | `2` | A fill must be worse than this many bps before it counts as materially bad slippage. |
 | `EXECUTION_SCORECARD_MIN_FILL_RATE` | `0.80` | Scorecard fails if accepted orders fill below this rate. |
 | `EXECUTION_SCORECARD_MAX_SKIPPED_RATE` | `0.35` | Scorecard fails if too many planned rows are skipped. |
-| `EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE` | `0.60` | Scorecard fails if too many fills reverse against us after 15 minutes. |
-| `EXECUTION_SCORECARD_MAX_ADVERSE_60M_RATE` | `0.70` | Scorecard fails if too many fills reverse against us after 60 minutes. |
+| `EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE` | `0.60` | Legacy reference; 15-minute movement is now advisory. |
+| `EXECUTION_SCORECARD_MAX_ADVERSE_60M_RATE` | `0.70` | Legacy reference; 60-minute movement is now advisory. |
 | `EXECUTION_SCORECARD_LOOKBACK_DAYS` | `30` | Recent paper-log days included in scorecard fill/skipped metrics. |
+| `EXECUTION_SCORECARD_WARN_AVG_SLIPPAGE_BPS` | `5` | Warning level below the 10 bps hard failure. |
+| `EXECUTION_SCORECARD_WARN_BAD_SLIPPAGE_RATE` | `0.40` | Warning level below the 60% hard failure. |
+| `EXECUTION_SCORECARD_MIN_REBALANCE_FILLS` | `10` | Measured rebalance fills needed for a verdict. |
+| `EXECUTION_SCORECARD_MIN_REBALANCE_SESSIONS` | `3` | Sessions needed for a verdict. |
 | `BROKER_TRUTH_QTY_TOLERANCE` | `0.001` | Ignore tiny share-count differences in broker truth. |
 | `BROKER_TRUTH_WEIGHT_TOLERANCE` | `0.02` | Warn when broker weight differs from target by more than this amount. |
 | `BROKER_TRUTH_REQUIRE_LIVE_ORDERS` | `0` | If `1`, broker truth fails when live open/trailing orders cannot be read. |
 | `ALPACA_BROKER_TRUTH_GATE` | `1` | Refresh broker truth before submit and use it as a pre-trade safety gate. |
 | `ALPACA_BROKER_TRUTH_BLOCK_BUYS_ON_FAIL` | `1` | When broker truth fails, skip BUY orders while still allowing SELL orders. |
 | `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT` | `1` | Skip/log an order when Alpaca cannot provide a quote for spread checking. |
-| `MAX_SPREAD_PCT_ETF` | `0.005` | Max ETF spread accepted before skipping an order. |
-| `MAX_SPREAD_PCT_OVERLAY` | `0.015` | Max overlay-stock spread accepted before skipping an order. |
+| `MAX_SPREAD_PCT_ETF` | `0.001` | Max ETF spread accepted before skipping an order. |
+| `MAX_SPREAD_PCT_OVERLAY` | `0.005` | Max overlay-stock spread accepted before skipping an order. |
 | `SPREAD_GUARD_ALERT_TTL_HOURS` | `20` | Suppress repeated identical spread-guard alerts for this many hours. |
 | `ALPACA_ALLOW_CLOSED_MARKET_QUEUE` | `0` | Whether non-interactive runs may queue orders while market is closed. Keep `0`. |
 | `ALPACA_SKIP_BUYS_UNTIL_SELLS_FILLED` | `1` | Skip buys unless same-run sells fill first. |
@@ -697,6 +709,16 @@ ALPACA_ALLOW_MARKET_ORDER_OVERRIDE=0
 ALPACA_LIMIT_REFERENCE=quote
 ALPACA_LIMIT_OFFSET_BPS_ETF=5
 ALPACA_LIMIT_OFFSET_BPS_OVERLAY=12
+ALPACA_TWO_STAGE_EXECUTION=1
+ALPACA_EXECUTION_STAGE1_WAIT_SECONDS=15
+ALPACA_EXECUTION_STAGE_POLL_SECONDS=1
+ALPACA_EXECUTION_CANCEL_WAIT_SECONDS=10
+ALPACA_EXECUTION_STAGE2_OFFSET_BPS_ETF=1
+ALPACA_EXECUTION_STAGE2_OFFSET_BPS_OVERLAY=3
+ALPACA_EXECUTION_QUOTE_MAX_AGE_SECONDS=5
+ALPACA_EXECUTION_WINDOW_START=09:35
+ALPACA_EXECUTION_WINDOW_END=10:30
+ALPACA_EXECUTION_SYMBOL_MIN_SAMPLES=5
 ALPACA_EXECUTION_RISK_ENABLED=1
 ALPACA_EXECUTION_RISK_REPORT_MAX_AGE_HOURS=168
 ALPACA_EXECUTION_RISK_WARN_SCORE=40
@@ -716,14 +738,18 @@ EXECUTION_SCORECARD_MAX_SKIPPED_RATE=0.35
 EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE=0.60
 EXECUTION_SCORECARD_MAX_ADVERSE_60M_RATE=0.70
 EXECUTION_SCORECARD_LOOKBACK_DAYS=30
+EXECUTION_SCORECARD_WARN_AVG_SLIPPAGE_BPS=5
+EXECUTION_SCORECARD_WARN_BAD_SLIPPAGE_RATE=0.40
+EXECUTION_SCORECARD_MIN_REBALANCE_FILLS=10
+EXECUTION_SCORECARD_MIN_REBALANCE_SESSIONS=3
 BROKER_TRUTH_QTY_TOLERANCE=0.001
 BROKER_TRUTH_WEIGHT_TOLERANCE=0.02
 BROKER_TRUTH_REQUIRE_LIVE_ORDERS=0
 ALPACA_BROKER_TRUTH_GATE=1
 ALPACA_BROKER_TRUTH_BLOCK_BUYS_ON_FAIL=1
 ALPACA_REQUIRE_QUOTE_FOR_SUBMIT=1
-MAX_SPREAD_PCT_ETF=0.005
-MAX_SPREAD_PCT_OVERLAY=0.015
+MAX_SPREAD_PCT_ETF=0.001
+MAX_SPREAD_PCT_OVERLAY=0.005
 ALPACA_ALLOW_CLOSED_MARKET_QUEUE=0
 ALPACA_SKIP_BUYS_UNTIL_SELLS_FILLED=1
 ALPACA_SKIP_BUYS_WHEN_CASH_BELOW=0

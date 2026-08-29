@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 
 import pandas as pd
@@ -53,3 +54,25 @@ def test_legacy_equity_file_without_timestamp_still_uses_date(tmp_path, monkeypa
     result = epoch_module.evaluate_epoch(epoch)
 
     assert result["trading_days"] == 1
+
+
+def test_epoch_slippage_uses_only_post_start_rebalances(tmp_path, monkeypatch):
+    signal_dir = tmp_path / "signals"
+    signal_dir.mkdir()
+    (signal_dir / "alpaca_slippage_reversal_report.json").write_text(json.dumps({
+        "orders": [
+            {"filled_at": "2026-08-25T14:00:00Z", "order_type": "limit", "slippage_bps": 50.0},
+            {"filled_at": "2026-08-27T14:00:00Z", "order_type": "trailing_stop", "slippage_bps": 30.0},
+            {"filled_at": "2026-08-27T14:05:00Z", "order_type": "limit", "slippage_bps": 3.0},
+        ]
+    }), encoding="utf-8")
+    monkeypatch.setattr(epoch_module, "SIGNAL_DIR", str(signal_dir))
+
+    result = epoch_module.evaluate_epoch({
+        "epoch_id": "paper-test",
+        "started_at": "2026-08-26T08:43:15+00:00",
+        "requirements": {"bad_slippage_threshold_bps": 2.0},
+    })
+
+    assert result["average_slippage_bps"] == 3.0
+    assert result["bad_slippage_rate"] == 1.0

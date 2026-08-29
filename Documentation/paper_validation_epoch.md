@@ -32,3 +32,10 @@ python3 paper_validation_epoch.py --status
 - **Rebalance:** Changing positions to match new target weights.
 - **Accepted order:** An order Alpaca received successfully.
 - **Operational pass:** The bot met the reliability sample requirements.
+
+## Approval Requirements
+
+The clean epoch needs 30 trading days, 20 accepted orders, three rebalances,
+and 10 consecutive classified sessions. It also requires at least a 95% fill
+rate, average rebalance slippage no worse than 5 bps, a materially bad
+slippage rate no higher than 40%, and no duplicate or unexplained orders.

@@ -45,6 +45,10 @@ MAX_SKIPPED_RATE = float(os.environ.get("EXECUTION_SCORECARD_MAX_SKIPPED_RATE", 
 MAX_ADVERSE_15M_RATE = float(os.environ.get("EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE", "0.60"))
 MAX_ADVERSE_60M_RATE = float(os.environ.get("EXECUTION_SCORECARD_MAX_ADVERSE_60M_RATE", "0.70"))
 LOOKBACK_DAYS = int(os.environ.get("EXECUTION_SCORECARD_LOOKBACK_DAYS", "30"))
+WARN_AVG_SLIPPAGE_BPS = float(os.environ.get("EXECUTION_SCORECARD_WARN_AVG_SLIPPAGE_BPS", "5"))
+WARN_BAD_SLIPPAGE_RATE = float(os.environ.get("EXECUTION_SCORECARD_WARN_BAD_SLIPPAGE_RATE", "0.40"))
+MIN_REBALANCE_FILLS = int(os.environ.get("EXECUTION_SCORECARD_MIN_REBALANCE_FILLS", "10"))
+MIN_REBALANCE_SESSIONS = int(os.environ.get("EXECUTION_SCORECARD_MIN_REBALANCE_SESSIONS", "3"))
 
 
 def _read_csv(path: Path) -> pd.DataFrame:
@@ -152,6 +156,9 @@ def _skipped_mask(frame: pd.DataFrame) -> pd.Series:
 
 def _row_slippage_bps(row: pd.Series | dict) -> float | None:
     """Compute signed slippage from one paper-log row when fill price exists."""
+    recorded = _to_float(row.get("realized_slippage_bps"))
+    if recorded is not None:
+        return recorded
     side = str(_first_nonempty(row, "side", "action", default="")).lower().strip()
     reference = _to_float(_first_nonempty(row, "price", "limit_price"))
     fill_price = _to_float(_first_nonempty(row, "filled_avg_price", "broker_dealt_avg_price"))
@@ -239,65 +246,159 @@ def _throttle_summary(frame: pd.DataFrame) -> dict:
     }
 
 
-def _report_summary(slippage_report: dict, log: pd.DataFrame) -> dict:
-    """Combine the API slippage report with paper-log fallback metrics."""
-    summary = dict(slippage_report.get("summary", {}) or {})
-    orders_analyzed = int(_to_float(summary.get("orders_analyzed")) or 0)
-    avg_slippage = _to_float(summary.get("avg_slippage_bps"))
-    raw_bad_count = int(_to_float(summary.get("slippage_bad_count")) or 0)
-    bad_count = raw_bad_count
-    adverse_15m_count = int(_to_float(summary.get("adverse_15m_count")) or 0)
-    adverse_60m_count = int(_to_float(summary.get("adverse_60m_count")) or 0)
-    slip_values = [
+def _metric_values(rows: list[dict], key: str) -> list[float]:
+    """Return real observations only, so missing future bars do not dilute rates."""
+    return [
         float(value)
-        for value in (
-            _to_float((row or {}).get("slippage_bps"))
-            for row in slippage_report.get("orders", []) or []
-        )
+        for value in (_to_float((row or {}).get(key)) for row in rows)
         if value is not None
     ]
-    if slip_values:
-        # PLAIN ENGLISH: A fill that is 0.01 bps worse than fill-minute VWAP is
-        # technically unfavorable, but it is market micro-noise. The scorecard
-        # fails only on material bad slippage, while still reporting the raw
-        # any-positive count for visibility.
-        orders_analyzed = len(slip_values)
-        raw_bad_count = int(sum(1 for value in slip_values if value > 0))
-        bad_count = int(sum(1 for value in slip_values if value > BAD_SLIPPAGE_BPS))
-        if avg_slippage is None:
-            avg_slippage = round(float(np.mean(slip_values)), 3)
 
-    # If the rich API report is missing, fall back to fill prices in the paper log.
-    if orders_analyzed <= 0:
-        fallback_slip_values = _slippage_from_log(log)
-        orders_analyzed = len(fallback_slip_values)
-        avg_slippage = round(float(np.mean(fallback_slip_values)), 3) if fallback_slip_values else None
-        raw_bad_count = int(sum(1 for value in fallback_slip_values if value > 0))
-        bad_count = int(sum(1 for value in fallback_slip_values if value > BAD_SLIPPAGE_BPS))
 
-    segments = slippage_report.get("segments", {}) or {}
-    limit_avg = _to_float((segments.get("limit_orders", {}) or {}).get("avg_slippage_bps"))
-    market_avg = _to_float((segments.get("market_orders", {}) or {}).get("avg_slippage_bps"))
+def _row_group(row: dict) -> str:
+    """Separate safety exits from ordinary rebalance execution."""
+    order_kind = str((row or {}).get("order_type", "")).strip().lower()
+    return "protective_stop" if order_kind in {"trailing_stop", "stop", "stop_limit"} else "rebalance"
+
+
+def _filter_report_rows(slippage_report: dict, *, now: datetime, days: int) -> list[dict]:
+    """Apply the advertised lookback window to the Alpaca fill rows."""
+    cutoff = pd.Timestamp(now.astimezone(timezone.utc)) - pd.Timedelta(days=max(0, int(days)))
+    kept: list[dict] = []
+    for item in slippage_report.get("orders", []) or []:
+        if not isinstance(item, dict):
+            continue
+        filled_at = pd.to_datetime(item.get("filled_at"), errors="coerce", utc=True)
+        if pd.notna(filled_at) and days > 0 and filled_at < cutoff:
+            continue
+        kept.append(dict(item))
+    return kept
+
+
+def _quality_slice(rows: list[dict]) -> dict:
+    """Summarize one group with a separate denominator for every metric."""
+    slip = _metric_values(rows, "slippage_bps")
+    adverse_15 = _metric_values(rows, "adverse_15m_bps")
+    adverse_60 = _metric_values(rows, "adverse_60m_bps")
+    raw_bad = int(sum(value > 0 for value in slip))
+    material_bad = int(sum(value > BAD_SLIPPAGE_BPS for value in slip))
+    session_dates: set[str] = set()
+    for row in rows:
+        timestamp = pd.to_datetime(row.get("filled_at"), errors="coerce", utc=True)
+        if pd.notna(timestamp):
+            session_dates.add(str(timestamp.date()))
     return {
-        "orders_analyzed": orders_analyzed,
-        "avg_slippage_bps": round(avg_slippage, 3) if avg_slippage is not None else None,
-        "bad_slippage_count": bad_count,
-        "bad_slippage_rate": _rate(bad_count, orders_analyzed),
+        "orders_seen": len(rows),
+        "measured_slippage_count": len(slip),
+        "trading_sessions": len(session_dates),
+        "avg_slippage_bps": round(float(np.mean(slip)), 3) if slip else None,
+        "median_slippage_bps": round(float(np.median(slip)), 3) if slip else None,
+        "bad_slippage_count": material_bad,
+        "bad_slippage_rate": _rate(material_bad, len(slip)),
         "bad_slippage_threshold_bps": BAD_SLIPPAGE_BPS,
-        "raw_bad_slippage_count": raw_bad_count,
-        "raw_bad_slippage_rate": _rate(raw_bad_count, orders_analyzed),
-        "minor_bad_slippage_count": max(0, int(raw_bad_count) - int(bad_count)),
-        "adverse_15m_rate": _rate(adverse_15m_count, orders_analyzed),
-        "adverse_60m_rate": _rate(adverse_60m_count, orders_analyzed),
+        "raw_bad_slippage_count": raw_bad,
+        "raw_bad_slippage_rate": _rate(raw_bad, len(slip)),
+        "minor_bad_slippage_count": max(0, raw_bad - material_bad),
+        "adverse_15m_count": int(sum(value > 0 for value in adverse_15)),
+        "adverse_15m_observations": len(adverse_15),
+        "adverse_15m_rate": _rate(sum(value > 0 for value in adverse_15), len(adverse_15)),
+        "adverse_60m_count": int(sum(value > 0 for value in adverse_60)),
+        "adverse_60m_observations": len(adverse_60),
+        "adverse_60m_rate": _rate(sum(value > 0 for value in adverse_60), len(adverse_60)),
+    }
+
+
+def _stage_comparison(log: pd.DataFrame) -> dict:
+    """Compare passive and repriced attempts when their audit columns exist."""
+    if log.empty or "execution_stage" not in log.columns:
+        return {}
+    output: dict[str, dict] = {}
+    stage_series = _series_text(log, "execution_stage").str.lower()
+    for stage in sorted(set(stage_series) - {""}):
+        group = log[stage_series.eq(stage)]
+        filled = group[_filled_mask(group)]
+        slip = _slippage_from_log(filled)
+        latency = pd.to_numeric(group.get("fill_latency_seconds", pd.Series(dtype=float)), errors="coerce").dropna()
+        partial = int(_series_text(group, "stage1_status").str.lower().eq("partially_filled").sum())
+        cancelled = int(_series_text(group, "stage1_cancel_status").str.lower().eq("canceled").sum())
+        output[stage] = {
+            "orders": int(len(group)),
+            "filled_orders": int(len(filled)),
+            "fill_rate": _rate(len(filled), len(group)),
+            "avg_slippage_bps": round(float(np.mean(slip)), 3) if slip else None,
+            "median_slippage_bps": round(float(np.median(slip)), 3) if slip else None,
+            "material_bad_rate": _rate(sum(value > BAD_SLIPPAGE_BPS for value in slip), len(slip)),
+            "avg_fill_latency_seconds": round(float(latency.mean()), 2) if len(latency) else None,
+            "partial_fill_rate": _rate(partial, len(group)),
+            "cancellation_rate": _rate(cancelled, len(group)),
+        }
+    return output
+
+
+def _report_summary(
+    slippage_report: dict,
+    log: pd.DataFrame,
+    *,
+    now: datetime,
+    lookback_days: int,
+) -> tuple[dict, dict, dict]:
+    """Return rebalance quality, stop quality, and non-gating timing evidence."""
+    rows = _filter_report_rows(slippage_report, now=now, days=lookback_days)
+    rebalance_rows = [row for row in rows if _row_group(row) == "rebalance"]
+    rebalance = _quality_slice(rebalance_rows)
+    protective = _quality_slice([row for row in rows if _row_group(row) == "protective_stop"])
+
+    # Old reports sometimes contain only an aggregate summary. Preserve that
+    # fallback while all newly generated reports use typed rows above.
+    if not rows:
+        summary = dict(slippage_report.get("summary", {}) or {})
+        fallback = _slippage_from_log(log)
+        count = int(_to_float(summary.get("orders_analyzed")) or len(fallback))
+        avg = _to_float(summary.get("avg_slippage_bps"))
+        raw_bad = int(_to_float(summary.get("slippage_bad_count")) or sum(value > 0 for value in fallback))
+        submitted = pd.to_datetime(log.get("submitted_at", pd.Series(dtype=str)), errors="coerce", utc=True)
+        rebalance.update({
+            "orders_seen": count,
+            "measured_slippage_count": count,
+            "trading_sessions": int(submitted.dt.date.nunique()) if len(submitted) else 0,
+            "avg_slippage_bps": round(avg, 3) if avg is not None else (round(float(np.mean(fallback)), 3) if fallback else None),
+            "bad_slippage_count": raw_bad,
+            "bad_slippage_rate": _rate(raw_bad, count),
+            "raw_bad_slippage_count": raw_bad,
+            "raw_bad_slippage_rate": _rate(raw_bad, count),
+        })
+
+    if rows:
+        limit_values = _metric_values(
+            [row for row in rebalance_rows if str(row.get("order_type", "")).lower() == "limit"],
+            "slippage_bps",
+        )
+        market_values = _metric_values(
+            [row for row in rebalance_rows if str(row.get("order_type", "")).lower() == "market"],
+            "slippage_bps",
+        )
+        limit_avg = round(float(np.mean(limit_values)), 3) if limit_values else None
+        market_avg = round(float(np.mean(market_values)), 3) if market_values else None
+    else:
+        segments = slippage_report.get("segments", {}) or {}
+        limit_avg = _to_float((segments.get("limit_orders", {}) or {}).get("avg_slippage_bps"))
+        market_avg = _to_float((segments.get("market_orders", {}) or {}).get("avg_slippage_bps"))
+    rebalance.update({
+        "orders_analyzed": int(rebalance.get("measured_slippage_count") or 0),
         "limit_avg_slippage_bps": limit_avg,
         "market_avg_slippage_bps": market_avg,
-        "limit_vs_market_delta_bps": (
-            round(float(limit_avg - market_avg), 3)
-            if limit_avg is not None and market_avg is not None
-            else None
-        ),
-        "source": slippage_report.get("source", "paper_log_fallback" if orders_analyzed else "none"),
+        "limit_vs_market_delta_bps": round(limit_avg - market_avg, 3) if limit_avg is not None and market_avg is not None else None,
+        "source": slippage_report.get("source", "paper_log_fallback" if rebalance.get("orders_seen") else "none"),
+    })
+    timing = {
+        "status": "advisory",
+        "adverse_15m_rate": rebalance.get("adverse_15m_rate"),
+        "adverse_15m_observations": rebalance.get("adverse_15m_observations", 0),
+        "adverse_60m_rate": rebalance.get("adverse_60m_rate"),
+        "adverse_60m_observations": rebalance.get("adverse_60m_observations", 0),
+        "note": "Post-fill movement measures entry timing, not fill quality.",
     }
+    return rebalance, protective, timing
 
 
 def _make_check(name: str, value: float | None, operator: str, threshold: float, *, collecting_reason: str) -> dict:
@@ -322,16 +423,23 @@ def _make_check(name: str, value: float | None, operator: str, threshold: float,
     }
 
 
-def _overall_status(checks: list[dict]) -> tuple[str, float | None]:
+def _overall_status(
+    checks: list[dict],
+    *,
+    sample_ready: bool,
+    warning: bool,
+) -> tuple[str, float | None]:
     """Turn individual checks into an overall status and 0-100 score."""
     scored = [check for check in checks if check["status"] in {"pass", "fail"}]
     if not scored:
         return "collecting", None
     passed = sum(1 for check in scored if check["status"] == "pass")
     score = round(passed / len(scored) * 100.0, 2)
+    if not sample_ready:
+        return "collecting", score
     if any(check["status"] == "fail" for check in scored):
         return "fail", score
-    return "pass", score
+    return ("warning" if warning else "pass"), score
 
 
 def build_execution_scorecard(
@@ -341,6 +449,8 @@ def build_execution_scorecard(
     previous_scorecard_path: Path = SCORECARD_FILE,
     now: datetime | None = None,
     lookback_days: int = LOOKBACK_DAYS,
+    min_rebalance_fills: int = MIN_REBALANCE_FILLS,
+    min_rebalance_sessions: int = MIN_REBALANCE_SESSIONS,
 ) -> dict:
     """Build the execution scorecard payload without writing files."""
     clock = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
@@ -353,7 +463,12 @@ def build_execution_scorecard(
     accepted = log[_accepted_mask(log)] if not log.empty else log
     filled = accepted[_filled_mask(accepted)] if not accepted.empty else accepted
     skipped = log[_skipped_mask(log)] if not log.empty else log
-    report_metrics = _report_summary(slippage_report, log)
+    report_metrics, protective_stop_metrics, entry_timing = _report_summary(
+        slippage_report,
+        log,
+        now=clock,
+        lookback_days=lookback_days,
+    )
     throttle = _throttle_summary(log)
 
     accepted_orders = int(len(accepted))
@@ -391,22 +506,20 @@ def build_execution_scorecard(
             MAX_SKIPPED_RATE,
             collecting_reason="need_order_log_rows",
         ),
-        _make_check(
-            "adverse_15m_rate",
-            report_metrics["adverse_15m_rate"],
-            "<=",
-            MAX_ADVERSE_15M_RATE,
-            collecting_reason="need_slippage_reversal_report",
-        ),
-        _make_check(
-            "adverse_60m_rate",
-            report_metrics["adverse_60m_rate"],
-            "<=",
-            MAX_ADVERSE_60M_RATE,
-            collecting_reason="need_slippage_reversal_report",
-        ),
     ]
-    status, score = _overall_status(checks)
+    measured = int(report_metrics.get("measured_slippage_count") or 0)
+    sessions = int(report_metrics.get("trading_sessions") or 0)
+    sample_ready = bool(
+        measured >= int(min_rebalance_fills)
+        and sessions >= int(min_rebalance_sessions)
+        and fill_rate is not None
+        and skipped_rate is not None
+    )
+    warning = bool(
+        (report_metrics.get("avg_slippage_bps") is not None and report_metrics["avg_slippage_bps"] > WARN_AVG_SLIPPAGE_BPS)
+        or (report_metrics.get("bad_slippage_rate") is not None and report_metrics["bad_slippage_rate"] > WARN_BAD_SLIPPAGE_RATE)
+    )
+    status, score = _overall_status(checks, sample_ready=sample_ready, warning=warning)
 
     prior_summary = previous.get("summary", {}) if isinstance(previous, dict) else {}
     prior_avg = _to_float(prior_summary.get("avg_slippage_bps"))
@@ -421,10 +534,10 @@ def build_execution_scorecard(
     failed = [check["name"] for check in checks if check["status"] == "fail"]
     if failed:
         recommendations.append("review_failed_execution_checks:" + ",".join(failed))
-    if throttle["throttled_buy_orders"] == 0:
-        recommendations.append("collect_more_throttled_buy_samples")
-    elif throttle["throttled_buy_avg_slippage_bps"] is not None and throttle["throttled_buy_avg_slippage_bps"] > MAX_AVG_SLIPPAGE_BPS:
-        recommendations.append("consider_stronger_execution_risk_buy_scale")
+    if not sample_ready:
+        recommendations.append("collect_more_rebalance_fill_samples")
+    if not _stage_comparison(log):
+        recommendations.append("collect_two_stage_execution_samples")
     if report_metrics["limit_vs_market_delta_bps"] is not None and report_metrics["limit_vs_market_delta_bps"] < 0:
         recommendations.append("limit_orders_are_beating_market_orders")
 
@@ -443,6 +556,16 @@ def build_execution_scorecard(
             **report_metrics,
             "slippage_delta_vs_prior_scorecard_bps": slippage_delta,
         },
+        "sample_gate": {
+            "ready": sample_ready,
+            "measured_rebalance_fills": measured,
+            "minimum_rebalance_fills": int(min_rebalance_fills),
+            "rebalance_sessions": sessions,
+            "minimum_rebalance_sessions": int(min_rebalance_sessions),
+        },
+        "protective_stops": protective_stop_metrics,
+        "entry_timing": entry_timing,
+        "stage_comparison": _stage_comparison(log),
         "throttle": throttle,
         "checks": checks,
         "thresholds": {
@@ -453,6 +576,10 @@ def build_execution_scorecard(
             "max_skipped_rate": MAX_SKIPPED_RATE,
             "max_adverse_15m_rate": MAX_ADVERSE_15M_RATE,
             "max_adverse_60m_rate": MAX_ADVERSE_60M_RATE,
+            "warn_avg_slippage_bps": WARN_AVG_SLIPPAGE_BPS,
+            "warn_bad_slippage_rate": WARN_BAD_SLIPPAGE_RATE,
+            "minimum_rebalance_fills": int(min_rebalance_fills),
+            "minimum_rebalance_sessions": int(min_rebalance_sessions),
         },
         "recommendations": recommendations,
         "source_files": {

@@ -14,8 +14,10 @@
 5. `validation_bundle.py` combines config, Git commit, dataset, folds, analyzer,
    robustness reports, and approval into one checksummed source of truth.
 6. `core_satellite_alpha.py` verifies the bundle and creates paper signals.
-7. `daily_run.py` checks data and broker health, submits sell-first rebalances,
-   resizes buys to cash, restores stops, and always reconciles broker truth.
+7. `daily_run.py` checks data and broker health, then executes each normal
+   rebalance with a passive midpoint limit and one capped replacement for the
+   confirmed remainder. It keeps sells first, fits buys to cash, restores
+   stops, and always reconciles broker truth.
 8. `paper_validation_epoch.py` measures a clean operational period. Real-money
    trading remains disabled until a separate explicit human review.
 
@@ -42,4 +44,6 @@ Operational truth comes before prediction complexity. A profitable backtest is
 not enough when data sources can be mixed, selection does not predict future
 alpha, or planned orders can disappear without a final state. Paper trading
 stays active to collect execution evidence while real-capital approval stays
-false.
+false. Execution measurement grades normal rebalances separately from safety
+stops, uses only observations that actually have price data, and treats later
+market direction as timing advice instead of pretending it is fill quality.

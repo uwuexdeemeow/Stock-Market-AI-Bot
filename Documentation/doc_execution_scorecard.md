@@ -9,17 +9,22 @@ slippage, skipped orders, and post-fill reversals. This script turns those raw
 records into one JSON scorecard that says whether execution quality is passing,
 failing, or still collecting enough data.
 
+It scores only normal rebalance orders. Protective trailing-stop exits are
+reported in their own section because a stop intentionally fires during fast
+price movement and should not make entry execution look broken.
+
 It checks:
 - average slippage in basis points
 - bad-slippage rate
 - fill rate
 - skipped-order rate
-- adverse 15-minute and 60-minute reversal rates
-- whether execution-risk throttled buys are showing up and filling cleanly
+- whether enough measured fills and trading sessions exist for a verdict
+- Stage 1 versus Stage 2 fill, slippage, latency, partial-fill, and cancel rates
 
-`alpaca_paper_trading.py` also reads this file before planning orders. When
-the scorecard status is `fail`, BUY orders are reduced by the configured
-scorecard throttle, while SELL orders stay full-size so exits are not blocked.
+The 15-minute and 60-minute adverse-movement rates remain visible as entry-timing
+advice. They do not fail execution because later market direction is different
+from the quality of the fill itself. The trading script reads the scorecard for
+audit context but no longer silently changes approved portfolio quantities.
 
 ## How To Run It
 
@@ -64,7 +69,9 @@ python execution_scorecard.py --strict
 | Fill rate | Filled orders divided by orders accepted by Alpaca |
 | Skipped rate | Orders the bot intentionally did not submit divided by planned log rows |
 | Adverse reversal | Price moved against the trade after the fill |
-| Throttled buy | A buy order reduced because recent fills for that ticker looked risky |
+| Protective stop | A broker-side safety exit, scored separately from rebalances |
+| Collecting | Fewer than 10 measured rebalance fills or three sessions |
+| Warning | Hard gates pass, but average slippage exceeds 5 bps or the material-bad rate exceeds 40% |
 
 ## Environment Knobs
 
@@ -75,14 +82,13 @@ python execution_scorecard.py --strict
 | `EXECUTION_SCORECARD_BAD_SLIPPAGE_BPS` | `2` | Minimum unfavorable slippage, in bps, before a fill counts as materially bad |
 | `EXECUTION_SCORECARD_MIN_FILL_RATE` | `0.80` | Minimum accepted-order fill rate |
 | `EXECUTION_SCORECARD_MAX_SKIPPED_RATE` | `0.35` | Max planned-row skip rate |
-| `EXECUTION_SCORECARD_MAX_ADVERSE_15M_RATE` | `0.60` | Max adverse 15-minute reversal rate |
-| `EXECUTION_SCORECARD_MAX_ADVERSE_60M_RATE` | `0.70` | Max adverse 60-minute reversal rate |
 | `EXECUTION_SCORECARD_LOOKBACK_DAYS` | `30` | How many recent order-log days to grade |
-| `ALPACA_EXECUTION_SCORECARD_THROTTLE` | `1` | Let order planning shrink BUY orders when this scorecard fails |
+| `EXECUTION_SCORECARD_WARN_AVG_SLIPPAGE_BPS` | `5` | Warning level for average slippage |
+| `EXECUTION_SCORECARD_WARN_BAD_SLIPPAGE_RATE` | `0.40` | Warning level for materially bad fills |
+| `EXECUTION_SCORECARD_MIN_REBALANCE_FILLS` | `10` | Measured fills required before pass/warning |
+| `EXECUTION_SCORECARD_MIN_REBALANCE_SESSIONS` | `3` | Distinct sessions required before pass/warning |
+| `ALPACA_EXECUTION_SCORECARD_THROTTLE` | `1` | Preserve scorecard audit metadata; quantity shrinking is retired |
 | `ALPACA_EXECUTION_SCORECARD_MAX_AGE_HOURS` | `72` | Ignore stale scorecards older than this many hours |
-| `ALPACA_EXECUTION_SCORECARD_FAIL_BUY_SCALE` | `0.75` | BUY quantity multiplier when scorecard status is fail |
-| `ALPACA_EXECUTION_SCORECARD_SEVERE_SCORE` | `50` | Score at or below this uses the stronger severe multiplier |
-| `ALPACA_EXECUTION_SCORECARD_SEVERE_BUY_SCALE` | `0.50` | BUY quantity multiplier for severe scorecard failures |
 
 ## How It Fits The Workflow
 
