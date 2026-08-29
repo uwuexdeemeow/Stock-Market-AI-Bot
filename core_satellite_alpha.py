@@ -2444,6 +2444,20 @@ LIVE_CONFIG_PATH = Path(SIGNAL_DIR) / "core_satellite_live_configs.json"
 LIVE_CONFIG_MAX_AGE_DAYS = int(os.environ.get("LIVE_CONFIG_MAX_AGE_DAYS", "45"))
 
 
+def _portable_artifact_path(path_text: str, *, base_dir: Path | None = None) -> Path:
+    """Turn a stored Windows or Linux artifact path into a local path.
+
+    PLAIN ENGLISH: Research evidence may be created on Windows and consumed by
+    GitHub's Linux runner. Linux treats a backslash as a normal character, so
+    normalizing both slash styles prevents a valid bundle from looking absent.
+    """
+    normalized = str(path_text).strip().replace("\\", "/")
+    path = Path(normalized)
+    if not path.is_absolute():
+        path = (base_dir or Path.cwd()) / path
+    return path
+
+
 def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
     if not LIVE_CONFIG_PATH.exists():
         raise SystemExit(
@@ -2508,9 +2522,7 @@ def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
             "reasons": ["validation_bundle_reference_missing"],
             "approval": approval,
         }
-    bundle_path = Path(bundle_path_text)
-    if not bundle_path.is_absolute():
-        bundle_path = Path.cwd() / bundle_path
+    bundle_path = _portable_artifact_path(bundle_path_text)
     try:
         bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:

@@ -1,5 +1,9 @@
 # core_satellite_alpha.py
 
+Approved evidence paths are portable between Windows development machines and
+Linux GitHub runners. A stored backslash is normalized before the validation
+bundle is opened, so valid published evidence is not rejected as missing.
+
 ## What This Script Does
 
 `core_satellite_alpha.py` builds the daily core-satellite strategy signal.  In

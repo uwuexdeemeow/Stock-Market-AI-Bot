@@ -9,6 +9,16 @@ import pytest
 import core_satellite_alpha as csa
 
 
+def test_portable_artifact_path_accepts_windows_separator(tmp_path):
+    """A Windows-written bundle reference must work on Linux runners too."""
+    result = csa._portable_artifact_path(
+        "signals\\core_satellite_validation_bundle.json",
+        base_dir=tmp_path,
+    )
+
+    assert result == tmp_path / "signals" / "core_satellite_validation_bundle.json"
+
+
 def _write_status(path, *, equity=1000.0, position_values=None):
     payload = {
         "account_equity": equity,

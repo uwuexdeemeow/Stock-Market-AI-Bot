@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "frozen_at": "2026-08-29T17:23:05+00:00",
+  "frozen_at": "2026-08-29T17:51:10+00:00",
   "epoch_id": "paper-v20260826T084315Z",
   "epoch_started_at": "2026-08-26T08:43:15+00:00",
-  "git_commit_at_freeze": "6ec94f279978fc0ce165b00413c52c15b5294433",
-  "logic_fingerprint": "334272868eab531e9dee10cec9dece08024601d578462decf4ac6d17929832e6",
+  "git_commit_at_freeze": "9adfff69971d36b063c01ff7ce11e5bedf4fe466",
+  "logic_fingerprint": "e6a1dc812d1a4149bbdb7fb85838c55d8a324f5b2d2649b81c85b62f14d7c347",
   "files": {
     ".github/workflows/daily_paper_trading.yml": "232d3695f37fc4a68e63bf94500339726ab3091fd22ba4a7088a17e88a24259a",
     ".github/workflows/factor_data_refresh.yml": "d63b4b353850c204b67f562dc6c4a729a44d212651aacae15b08ace13bd16a65",
@@ -13,7 +13,7 @@
     "alpaca_protection.py": "a9dec7bd715ec6aea2f9b7285e7374788ab7aefc50522e03874ffa3f50c3fc43",
     "broker_interface.py": "3097bcfb7df4de53b0ca2d60d83146352378694599a9e3370c5327573763ea81",
     "broker_truth.py": "60436c54fd85c9d1b38f4de503e4462c942ab014a685a8b6bbfefe27a333d045",
-    "core_satellite_alpha.py": "f0db6936701b603013e8217b82fb439a25963a551f3d59b0e0481aad2ea49cd6",
+    "core_satellite_alpha.py": "96a8153f5e1d88cda60f076d0a493be9aabd936bfe3d81999acf812eb4eeaf10",
     "daily_run.py": "c2fd03a4ed2347846a05f30ed876e2b2e9eda3632099f378e1ea60baf593e35b",
     "data_manifest.py": "60bc70f5b487a4acca87eeeee18433ffe5d066c2b3ae8a9f49e0336e26afd3e0",
     "data_provider.py": "79bb5cc230b8022b9c46faf2ce90c4c9c3e1683446241071afd663c6ebd268d5",
