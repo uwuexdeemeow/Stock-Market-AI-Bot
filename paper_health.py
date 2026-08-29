@@ -119,7 +119,23 @@ def _to_float(value: object, default: float = 0.0) -> float:
         return float(default)
 
 
-def _account_alignment(broker_truth: dict) -> dict:
+def _signal_as_of(signal: pd.DataFrame | None) -> str:
+    """Return the timestamp identifying the newest strategy target row.
+
+    PLAIN ENGLISH: this small identity check prevents yesterday's broker report
+    from being compared with today's newly published target weights.
+    """
+    if signal is None or signal.empty:
+        return ""
+    row = signal.iloc[-1]
+    value = _first_nonempty(row, "predicted_at", "as_of", default="")
+    if value in (None, ""):
+        return ""
+    parsed = pd.to_datetime(value, errors="coerce", utc=True)
+    return str(value) if pd.isna(parsed) else parsed.isoformat()
+
+
+def _account_alignment(broker_truth: dict, signal: pd.DataFrame | None = None) -> dict:
     """Derive account alignment from the same broker reconciliation report.
 
     PLAIN ENGLISH: missing evidence is not a failed account. It is a collecting
@@ -148,6 +164,28 @@ def _account_alignment(broker_truth: dict) -> dict:
             "current_gross_exposure": None,
             "target_gross_exposure": None,
             "gross_exposure_gap": None,
+        }
+
+    # PLAIN ENGLISH: a valid old reconciliation is still the wrong evidence
+    # after a new signal is published.  Pause the verdict until broker_truth.py
+    # has compared Alpaca with that exact signal.
+    current_signal_as_of = _signal_as_of(signal)
+    report_signal_meta = broker_truth.get("inputs", {}).get("signal", {})
+    report_signal_as_of = _signal_as_of(
+        pd.DataFrame([{"as_of": report_signal_meta.get("as_of", "")}])
+    )
+    if current_signal_as_of and current_signal_as_of != report_signal_as_of:
+        return {
+            "status": "collecting",
+            "passed": False,
+            "reason": "broker_truth_does_not_match_current_signal",
+            "comparable_tickers": 0,
+            "max_weight_gap": None,
+            "current_gross_exposure": None,
+            "target_gross_exposure": None,
+            "gross_exposure_gap": None,
+            "current_signal_as_of": current_signal_as_of,
+            "broker_truth_signal_as_of": report_signal_as_of,
         }
 
     pairs: list[tuple[float, float]] = []
@@ -1025,7 +1063,7 @@ def build_health() -> dict:
     slippage_report = _read_json(SLIPPAGE_REPORT)
     status = _read_json(PAPER_STATUS)
     broker_truth = _read_json(BROKER_TRUTH)
-    account_alignment = _account_alignment(broker_truth)
+    account_alignment = _account_alignment(broker_truth, signal)
     gate_status = _signal_gate_status(signal, status)
     freshness_status = _signal_freshness_status(signal, status)
     gauntlet = alpaca_paper_gauntlet.evaluate_alpaca_paper()

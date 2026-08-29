@@ -749,7 +749,18 @@ def build_broker_truth(
         effective_plan = {} if plan_meta.get("freshness_status") == "fail" else plan
         effective_log = log
 
-    target_comparison_enabled = signal_meta.get("freshness_status") != "fail"
+    # PLAIN ENGLISH: zero parsed targets is missing evidence, not an instruction
+    # to compare every Alpaca holding with a 0% target.  Treating an empty or
+    # malformed signal as all-cash created false gaps as large as the biggest
+    # account position (for example, a 60% QQQ holding looked 60% wrong).
+    target_comparison_enabled = bool(
+        signal_meta.get("exists")
+        and not signal_meta.get("error")
+        and int(signal_meta.get("target_count", 0) or 0) > 0
+        and signal_meta.get("freshness_status") != "fail"
+    )
+    if signal_meta.get("exists") and signal_meta.get("rows", 0) and not targets:
+        global_issues.append(("fail", "signal_has_no_target_weights"))
     plan_comparison_enabled = bool(effective_plan)
     tickers = sorted(set(targets) | set(positions) | set(effective_plan) | set(effective_log) | set(open_summary))
     rows: list[dict[str, Any]] = []
@@ -847,6 +858,18 @@ def build_broker_truth(
     warning_count = sum(1 for row in rows if row["issue_severity"] == "warning") + sum(1 for severity, _ in global_issues if severity == "warning")
     score = max(0.0, 100.0 - fail_count * 30.0 - warning_count * 5.0)
 
+    # PLAIN ENGLISH: these headline numbers let health reports answer the
+    # alignment question directly without recalculating it from CSV rows.
+    target_gross_exposure = sum(abs(float(weight)) for weight in targets.values())
+    broker_gross_exposure = sum(
+        abs(_safe_float(position.get("weight"))) for position in positions.values()
+    )
+    maximum_target_weight_gap = (
+        max((abs(float(row["target_weight"]) - float(row["broker_weight"])) for row in rows), default=0.0)
+        if target_comparison_enabled
+        else None
+    )
+
     payload = {
         "schema_version": 1,
         "generated_at": clock.isoformat(timespec="seconds"),
@@ -868,6 +891,13 @@ def build_broker_truth(
             "order_plan_freshness_status": plan_meta.get("freshness_status"),
             "target_comparison_enabled": bool(target_comparison_enabled),
             "order_plan_comparison_enabled": bool(plan_comparison_enabled),
+            "target_weight_count": len(targets),
+            "target_weights": {ticker: round(weight, 6) for ticker, weight in sorted(targets.items())},
+            "target_gross_exposure": round(target_gross_exposure, 6),
+            "broker_gross_exposure": round(broker_gross_exposure, 6),
+            "maximum_target_weight_gap": (
+                None if maximum_target_weight_gap is None else round(maximum_target_weight_gap, 6)
+            ),
         },
         "inputs": {
             "signal": signal_meta,

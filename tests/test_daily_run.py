@@ -340,6 +340,9 @@ def test_startup_stubs_use_signal_dir_and_refresh_existing_fill_file(tmp_path, m
 
 
 def test_sync_latest_github_signals_fetches_branch_and_copies_files(tmp_path, monkeypatch):
+    # PLAIN ENGLISH: local account-alignment checks need the saved Alpaca
+    # positions as well as the strategy signal.
+    assert "signals/alpaca_daily_status.json" in daily_run.GITHUB_SIGNAL_SYNC_FILES
     monkeypatch.setattr(daily_run, "PROJECT_ROOT", tmp_path)
     calls: list[list[str]] = []
 

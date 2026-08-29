@@ -169,6 +169,42 @@ def test_live_positions_override_saved_status_snapshot(tmp_path):
     assert payload["inputs"]["broker_status"]["source"] == "alpaca_api"
 
 
+def test_empty_signal_targets_do_not_create_false_all_cash_weight_gap(tmp_path):
+    """A malformed signal must not make every real holding look 100% wrong."""
+    signal_path = tmp_path / "signal.csv"
+    plan_path = tmp_path / "orders.csv"
+    log_path = tmp_path / "alpaca_paper_log.csv"
+    status_path = tmp_path / "alpaca_daily_status.json"
+
+    pd.DataFrame([{"predicted_at": "2026-06-05T13:35:00+00:00"}]).to_csv(signal_path, index=False)
+    pd.DataFrame(columns=["ticker", "side", "quantity"]).to_csv(plan_path, index=False)
+    pd.DataFrame(columns=["submitted_at", "ticker", "side", "quantity"]).to_csv(log_path, index=False)
+    _write_json(
+        status_path,
+        {
+            "account_equity": 10000,
+            "positions": {"QQQ": 10},
+            "position_values": {"QQQ": 6000},
+        },
+    )
+
+    payload = broker_truth.build_broker_truth(
+        signal_path=signal_path,
+        plan_path=plan_path,
+        log_path=log_path,
+        status_path=status_path,
+        open_orders=[],
+        open_orders_meta={"available": True, "count": 0, "error": "", "source": "test"},
+        include_live_open_orders=False,
+        now=datetime(2026, 6, 5, 14, tzinfo=timezone.utc),
+    )
+
+    assert payload["summary"]["target_comparison_enabled"] is False
+    assert payload["summary"]["maximum_target_weight_gap"] is None
+    assert any(item["issue"] == "signal_has_no_target_weights" for item in payload["global_issues"])
+    assert "broker_weight_gap" not in payload["rows"][0]["issues"]
+
+
 def test_daily_workflow_publishes_broker_truth():
     workflow = Path(".github/workflows/daily_paper_trading.yml").read_text(encoding="utf-8")
 

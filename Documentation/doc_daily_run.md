@@ -109,7 +109,9 @@ The workflow file `.github/workflows/daily_paper_trading.yml` invokes
   laptop after GitHub Actions already traded.  It first fetches the
   `signals/latest` branch and copies signal/dashboard files into local
   `signals/` and `logs/`, then runs health checks without `alpaca_submit` or
-  `core_satellite_signal`.
+  `core_satellite_signal`. The synced files include
+  `alpaca_daily_status.json`, so local target-weight checks use the same saved
+  Alpaca positions and equity as the automated run.
 - **Per-step timeout** — default 5 min per step (10 min recommended
   for research.py).  The timeout is enforced even when a child script is
   silent and prints no progress.

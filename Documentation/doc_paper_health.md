@@ -35,6 +35,9 @@ It computes:
 14. **Broker-truth alignment** - compares target weights with reconciled Alpaca
     weights and reports `pass`, `fail`, or `collecting`. Missing evidence is
     never mislabeled as a confirmed account mismatch.
+15. **Signal identity check** - confirms the broker reconciliation used the
+    same `predicted_at` target row as the current signal. If a newer signal was
+    published, alignment stays `collecting` until Alpaca is checked again.
 
 If anything is off, the script warns via Telegram (and writes the
 detail to JSON for later inspection).

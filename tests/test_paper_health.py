@@ -48,6 +48,25 @@ def test_account_alignment_is_tri_state_and_uses_broker_truth():
     assert "max_weight_gap" in misaligned["reason"]
 
 
+def test_account_alignment_rejects_broker_report_for_older_signal():
+    """A new target file needs a new Alpaca reconciliation before grading."""
+    signal = paper_health.pd.DataFrame(
+        [{"predicted_at": "2026-08-30T01:49:00+08:00", "target_qqq_weight": 0.60}]
+    )
+    alignment = paper_health._account_alignment(
+        {
+            "summary": {"target_comparison_enabled": True},
+            "inputs": {"signal": {"as_of": "2026-08-29T00:00:22+00:00"}},
+            "rows": [{"target_weight": 0.0, "broker_weight": 0.60}],
+        },
+        signal,
+    )
+
+    assert alignment["status"] == "collecting"
+    assert alignment["max_weight_gap"] is None
+    assert alignment["reason"] == "broker_truth_does_not_match_current_signal"
+
+
 def test_readiness_exposes_collecting_account_alignment():
     flags = paper_health._readiness_flags(
         {

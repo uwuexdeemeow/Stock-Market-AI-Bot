@@ -52,6 +52,14 @@ python broker_truth.py --offline
 | Quantity gap | Difference between expected shares from local fills and broker shares |
 | Weight gap | Difference between target weight and actual broker weight |
 
+An empty or malformed signal is never treated as a 0% target for every ticker.
+In that case, target comparison is disabled, `maximum_target_weight_gap` is
+`null`, and the report records `signal_has_no_target_weights`. This avoids a
+false 60% mismatch when the account simply has a 60% QQQ position.
+
+The JSON summary also records the parsed target map, target and broker gross
+exposure, and the maximum target-weight gap for quick checking.
+
 ## Status Meanings
 
 | Status | Meaning |

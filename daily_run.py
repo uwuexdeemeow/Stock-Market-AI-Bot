@@ -61,6 +61,10 @@ GITHUB_SIGNAL_SYNC_FILES = (
     "signals/core_satellite_alpha_metrics.json",
     "signals/alpaca_paper_equity.csv",
     "signals/alpaca_paper_log.csv",
+    # PLAIN ENGLISH: the target-weight check needs Alpaca's saved positions,
+    # values, and equity. Without this file, a local health refresh cannot
+    # independently confirm that the account matches the latest signal.
+    "signals/alpaca_daily_status.json",
     "signals/factor_data_health.json",
     "signals/factor_decay_monitor.csv",
     "logs/etf_data_health.json",
