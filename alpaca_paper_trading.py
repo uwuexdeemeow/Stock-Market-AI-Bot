@@ -32,6 +32,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -286,9 +287,9 @@ PRICE_RETRY_BASE_DELAY = float(os.environ.get("ALPACA_PRICE_RETRY_DELAY", "1.0")
 # order would fill at a terrible price.  Better to skip it and alert.
 # Core ETFs (SPY/QQQ/TQQQ) typically have 0.01-0.05% spreads.
 # Overlay stocks typically have 0.05-0.3% spreads.
-# Anything above 1% is suspiciously illiquid or halted.
-MAX_SPREAD_PCT_ETF = float(os.environ.get("MAX_SPREAD_PCT_ETF", "0.005"))  # 0.5% for ETFs
-MAX_SPREAD_PCT_OVERLAY = float(os.environ.get("MAX_SPREAD_PCT_OVERLAY", "0.015"))  # 1.5% for stocks
+# The stricter live caps are 0.10% for ETFs and 0.50% for stocks.
+MAX_SPREAD_PCT_ETF = float(os.environ.get("MAX_SPREAD_PCT_ETF", "0.001"))  # 0.10% for ETFs
+MAX_SPREAD_PCT_OVERLAY = float(os.environ.get("MAX_SPREAD_PCT_OVERLAY", "0.005"))  # 0.50% for stocks
 REQUIRE_QUOTE_FOR_SUBMIT = os.environ.get("ALPACA_REQUIRE_QUOTE_FOR_SUBMIT", "1").strip().lower() in {
     "true", "1", "yes", "y", "on"
 }
@@ -318,6 +319,22 @@ ALLOW_MARKET_ORDER_OVERRIDE = os.environ.get("ALPACA_ALLOW_MARKET_ORDER_OVERRIDE
 }
 LIMIT_OFFSET_BPS_ETF = float(os.environ.get("ALPACA_LIMIT_OFFSET_BPS_ETF", "5"))
 LIMIT_OFFSET_BPS_OVERLAY = float(os.environ.get("ALPACA_LIMIT_OFFSET_BPS_OVERLAY", "12"))
+# Balanced execution first rests at the midpoint, then crosses once with a much
+# smaller cap. This improves price without ever creating an uncapped market order.
+TWO_STAGE_EXECUTION_ENABLED = os.environ.get("ALPACA_TWO_STAGE_EXECUTION", "1").strip().lower() in {
+    "true", "1", "yes", "y", "on"
+}
+EXECUTION_STAGE1_WAIT_SECONDS = float(os.environ.get("ALPACA_EXECUTION_STAGE1_WAIT_SECONDS", "15"))
+EXECUTION_STAGE_POLL_SECONDS = float(os.environ.get("ALPACA_EXECUTION_STAGE_POLL_SECONDS", "1"))
+EXECUTION_CANCEL_WAIT_SECONDS = float(os.environ.get("ALPACA_EXECUTION_CANCEL_WAIT_SECONDS", "10"))
+EXECUTION_STAGE2_OFFSET_BPS_ETF = float(os.environ.get("ALPACA_EXECUTION_STAGE2_OFFSET_BPS_ETF", "1"))
+EXECUTION_STAGE2_OFFSET_BPS_OVERLAY = float(os.environ.get("ALPACA_EXECUTION_STAGE2_OFFSET_BPS_OVERLAY", "3"))
+EXECUTION_QUOTE_MAX_AGE_SECONDS = float(os.environ.get("ALPACA_EXECUTION_QUOTE_MAX_AGE_SECONDS", "5"))
+EXECUTION_WINDOW_START = os.environ.get("ALPACA_EXECUTION_WINDOW_START", "09:35").strip()
+EXECUTION_WINDOW_END = os.environ.get("ALPACA_EXECUTION_WINDOW_END", "10:30").strip()
+EXECUTION_TIMEZONE = ZoneInfo("America/New_York")
+EXECUTION_SYMBOL_MIN_SAMPLES = int(os.environ.get("ALPACA_EXECUTION_SYMBOL_MIN_SAMPLES", "5"))
+EXECUTION_REPORT_LOOKBACK_DAYS = int(os.environ.get("EXECUTION_SCORECARD_LOOKBACK_DAYS", "30"))
 # Execution self-awareness.  PLAIN ENGLISH: the bot already measures which
 # symbols have recently filled badly.  These knobs let order planning use that
 # report instead of only showing it on the dashboard.
@@ -430,7 +447,8 @@ def _load_execution_risk_map(now: datetime | None = None) -> dict[str, dict]:
             continue
         symbol = str(row.get("symbol") or row.get("ticker") or "").strip().upper()
         score = _float_or_none(row.get("execution_risk_score"))
-        if not symbol or score is None:
+        samples = int(_float_or_none(row.get("rebalance_orders", row.get("orders"))) or 0)
+        if not symbol or score is None or samples < EXECUTION_SYMBOL_MIN_SAMPLES:
             continue
         risk_map[symbol] = {
             "score": score,
@@ -556,36 +574,18 @@ def _execution_risk_metadata(
     symbol_scale, band = _execution_risk_buy_scale(score)
     scorecard_state = scorecard_state or {}
     scorecard_scale = _clamped_buy_scale(scorecard_state.get("scale"), 1.0)
+    # PLAIN ENGLISH: Poor fills now change how patiently the order is priced,
+    # not how much of the approved portfolio target we buy. Silently shrinking
+    # quantity created unexplained underweights without fixing per-share price.
     adjusted_quantity = int(requested_quantity)
     reason = ""
-    applied_scales: list[float] = []
-    reason_parts: list[str] = []
-
-    if (
-        str(side).lower() == "buy"
-        and symbol not in ETF_TICKERS
-        and requested_quantity > 0
-        and symbol_scale < 1.0
-    ):
-        applied_scales.append(symbol_scale)
-        reason_parts.append(f"{band}_execution_risk_score_{score:.2f}_buy_scale_{symbol_scale:.2f}")
-
-    if str(side).lower() == "buy" and requested_quantity > 0 and scorecard_scale < 1.0:
-        applied_scales.append(scorecard_scale)
-        reason_parts.append(
-            str(scorecard_state.get("reason") or f"execution_scorecard_buy_scale_{scorecard_scale:.2f}")
-        )
-
-    final_scale = min(applied_scales) if applied_scales else 1.0
-    if final_scale < 1.0:
-        adjusted_quantity = max(1, int(math.floor(requested_quantity * final_scale)))
-        reason = ";".join(part for part in reason_parts if part)
+    final_scale = 1.0
 
     metadata = {
         "execution_risk_score": round(score, 2) if score is not None else "",
         "execution_risk_band": band,
         "execution_risk_buy_scale": final_scale,
-        "execution_symbol_risk_buy_scale": symbol_scale,
+        "execution_symbol_risk_buy_scale": 1.0,
         "execution_risk_quantity_before_scale": requested_quantity,
         "execution_risk_quantity_after_scale": adjusted_quantity,
         "execution_risk_reason": reason,
@@ -598,9 +598,10 @@ def _execution_risk_metadata(
             if _float_or_none(scorecard_state.get("score")) is not None
             else ""
         ),
-        "execution_scorecard_buy_scale": scorecard_scale,
+        "execution_scorecard_buy_scale": 1.0,
         "execution_scorecard_failed_checks": scorecard_state.get("failed_checks", ""),
         "execution_scorecard_reason": scorecard_state.get("reason", ""),
+        "execution_price_policy": "two_stage_limit" if str(side).lower() in {"buy", "sell"} else "none",
     }
     return adjusted_quantity, metadata
 
@@ -623,6 +624,65 @@ def _round_marketable_limit(raw_price: float, side: str) -> float:
         rounded = math.floor(units + 1e-12) * tick
     precision = 4 if tick < 0.01 else 2
     return round(max(rounded, tick), precision)
+
+
+def passive_midpoint_limit_price(bid_price: object, ask_price: object, side: str) -> float:
+    """Build a non-crossing midpoint limit for the first execution attempt.
+
+    PLAIN ENGLISH: The first order waits between buyers and sellers instead of
+    immediately paying the full spread. Buy prices round down and sell prices
+    round up so penny rounding cannot accidentally turn it into a marketable
+    order.
+    """
+    bid = _float_or_none(bid_price)
+    ask = _float_or_none(ask_price)
+    if bid is None or ask is None or bid <= 0 or ask <= 0 or ask < bid:
+        raise ValueError("A valid bid and ask are required for a passive midpoint limit")
+    raw = (bid + ask) / 2.0
+    tick = 0.0001 if raw < 1 else 0.01
+    units = raw / tick
+    rounded = math.floor(units + 1e-12) * tick if str(side).lower() == "buy" else math.ceil(units - 1e-12) * tick
+    return round(max(rounded, tick), 4 if tick < 0.01 else 2)
+
+
+def _stage2_offset_bps(ticker: str) -> float:
+    """Return the small final cushion allowed after the passive attempt."""
+    return EXECUTION_STAGE2_OFFSET_BPS_ETF if str(ticker).upper() in ETF_TICKERS else EXECUTION_STAGE2_OFFSET_BPS_OVERLAY
+
+
+def _quote_age_seconds(quote: dict, *, now: datetime | None = None) -> float | None:
+    """Return quote age when Alpaca supplies a timestamp."""
+    stamp = _parse_broker_datetime(quote.get("quote_timestamp"))
+    if stamp is None:
+        return None
+    clock = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    return max(0.0, (clock - stamp.astimezone(timezone.utc)).total_seconds())
+
+
+def _quote_is_fresh(quote: dict, *, now: datetime | None = None) -> bool:
+    """Reject a timestamped quote that is older than the configured cap."""
+    age = _quote_age_seconds(quote, now=now)
+    return age is None or age <= max(0.0, EXECUTION_QUOTE_MAX_AGE_SECONDS)
+
+
+def _two_stage_price_policy(order_row: dict) -> tuple[float, float, str]:
+    """Turn scorecard evidence into patience and price caps, never position size."""
+    status = str(order_row.get("execution_scorecard_status", "")).lower()
+    failed = str(order_row.get("execution_scorecard_failed_checks", "")).lower()
+    wait_seconds = float(EXECUTION_STAGE1_WAIT_SECONDS)
+    offset_bps = _stage2_offset_bps(str(order_row.get("ticker", "")))
+    policy = "balanced"
+    if status == "warning":
+        wait_seconds *= 1.5
+        policy = "warning_more_patient"
+    elif status == "fail" and ({"avg_slippage_bps", "bad_slippage_rate"} & set(failed.split(","))):
+        wait_seconds *= 2.0
+        offset_bps = min(offset_bps, 0.0 if str(order_row.get("ticker", "")).upper() in ETF_TICKERS else 1.0)
+        policy = "price_failure_more_patient"
+    elif status == "fail" and "fill_rate" in failed:
+        wait_seconds = min(wait_seconds, 10.0)
+        policy = "fill_failure_faster_reprice"
+    return max(0.0, wait_seconds), max(0.0, offset_bps), policy
 
 
 def marketable_limit_price(
@@ -689,7 +749,7 @@ def should_use_quote_limits(args: argparse.Namespace | None = None) -> bool:
 
 
 def should_use_market_orders(args: argparse.Namespace) -> bool:
-    """Return True only when CLI/env explicitly ask for unlocked market orders."""
+    """Keep normal rebalances capped even when an old market override is set."""
     requested = False
     if getattr(args, "market_order", False):
         requested = True
@@ -697,13 +757,11 @@ def should_use_market_orders(args: argparse.Namespace) -> bool:
         return False
     else:
         requested = DEFAULT_ORDER_TYPE == "market"
-    if requested and not ALLOW_MARKET_ORDER_OVERRIDE:
+    if requested:
         print(
-            "  Market-order override ignored. Set "
-            "ALPACA_ALLOW_MARKET_ORDER_OVERRIDE=1 only for an intentional emergency."
+            "  Market-order override ignored: normal rebalances always use capped limit orders."
         )
-        return False
-    return requested
+    return False
 
 
 def closed_market_queue_allowed(args: argparse.Namespace) -> bool:
@@ -712,6 +770,19 @@ def closed_market_queue_allowed(args: argparse.Namespace) -> bool:
         getattr(args, "allow_closed_market_queue", False)
         or ALLOW_CLOSED_MARKET_QUEUE
     )
+
+
+def execution_window_allowed(now: datetime | None = None) -> bool:
+    """Return whether normal rebalances may be submitted in New York time."""
+    clock = (now or datetime.now(timezone.utc)).astimezone(EXECUTION_TIMEZONE)
+    try:
+        start_hour, start_minute = (int(part) for part in EXECUTION_WINDOW_START.split(":", 1))
+        end_hour, end_minute = (int(part) for part in EXECUTION_WINDOW_END.split(":", 1))
+    except (TypeError, ValueError):
+        return False
+    start = clock.replace(hour=start_hour, minute=start_minute, second=0, microsecond=0)
+    end = clock.replace(hour=end_hour, minute=end_minute, second=0, microsecond=0)
+    return clock.weekday() < 5 and start <= clock <= end
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -973,6 +1044,7 @@ class AlpacaBroker(Broker):
             "ask_price": None,
             "quote_mid_price": None,
             "spread_pct": None,
+            "quote_timestamp": None,
         }
         try:
             snapshot = self._api.get_snapshot(ticker)
@@ -985,6 +1057,9 @@ class AlpacaBroker(Broker):
                 out["ask_price"] = ask
                 out["quote_mid_price"] = mid
                 out["spread_pct"] = (ask - bid) / mid
+                quote_timestamp = getattr(quote, "timestamp", getattr(quote, "t", None))
+                parsed_timestamp = _parse_broker_datetime(quote_timestamp)
+                out["quote_timestamp"] = parsed_timestamp.isoformat() if parsed_timestamp is not None else None
         except Exception:
             pass
         return out
@@ -1484,6 +1559,33 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
             "ask_price": order.get("ask_price", ""),
             "quote_mid_price": order.get("quote_mid_price", ""),
             "spread_pct": order.get("spread_pct", ""),
+            "parent_order_id": order.get("parent_order_id", ""),
+            "execution_stage": order.get("execution_stage", ""),
+            "quote_time": order.get("quote_time", ""),
+            "broker_quote_timestamp": order.get("broker_quote_timestamp", ""),
+            "quote_age_seconds": order.get("quote_age_seconds", ""),
+            "stage1_order_id": order.get("stage1_order_id", ""),
+            "stage1_limit_price": order.get("stage1_limit_price", ""),
+            "stage1_wait_seconds": order.get("stage1_wait_seconds", ""),
+            "stage1_status": order.get("stage1_status", ""),
+            "stage1_filled_qty": order.get("stage1_filled_qty", ""),
+            "stage1_filled_avg_price": order.get("stage1_filled_avg_price", ""),
+            "stage1_cancel_requested": order.get("stage1_cancel_requested", ""),
+            "stage1_cancel_status": order.get("stage1_cancel_status", ""),
+            "stage2_order_id": order.get("stage2_order_id", ""),
+            "stage2_quote_time": order.get("stage2_quote_time", ""),
+            "stage2_bid_price": order.get("stage2_bid_price", ""),
+            "stage2_ask_price": order.get("stage2_ask_price", ""),
+            "stage2_spread_pct": order.get("stage2_spread_pct", ""),
+            "stage2_quote_age_seconds": order.get("stage2_quote_age_seconds", ""),
+            "stage2_limit_price": order.get("stage2_limit_price", ""),
+            "stage2_offset_bps": order.get("stage2_offset_bps", ""),
+            "stage2_quantity": order.get("stage2_quantity", ""),
+            "remaining_quantity": order.get("remaining_quantity", ""),
+            "fill_latency_seconds": order.get("fill_latency_seconds", ""),
+            "filled_qty": order.get("filled_qty", ""),
+            "filled_avg_price": order.get("filled_avg_price", ""),
+            "realized_slippage_bps": order.get("realized_slippage_bps", ""),
             "trade_value": order["trade_value"],
             "requested_quantity": order.get("requested_quantity", order["quantity"]),
             "original_quantity_before_cash_clamp": order.get("original_quantity_before_cash_clamp", ""),
@@ -1515,6 +1617,7 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
             "execution_scorecard_buy_scale": order.get("execution_scorecard_buy_scale", ""),
             "execution_scorecard_failed_checks": order.get("execution_scorecard_failed_checks", ""),
             "execution_scorecard_reason": order.get("execution_scorecard_reason", ""),
+            "execution_price_policy": order.get("execution_price_policy", ""),
             "target_weight": order["target_weight"],
             "fill_status": fill_status,
         })
@@ -1608,7 +1711,12 @@ def build_submission_order(
     )
 
 
-def bot_client_order_id(order_row: dict, *, today: datetime | None = None) -> str:
+def bot_client_order_id(
+    order_row: dict,
+    *,
+    today: datetime | None = None,
+    attempt: int | None = None,
+) -> str:
     """
     Build the deterministic client order id used for rebalance orders.
 
@@ -1620,7 +1728,9 @@ def bot_client_order_id(order_row: dict, *, today: datetime | None = None) -> st
     ticker = str(order_row["ticker"]).upper()
     side = str(order_row["side"]).lower()
     quantity = int(order_row["quantity"])
-    return f"{day}_{ticker}_{side}_{quantity}"[:48]
+    base = f"{day}_{ticker}_{side}_{quantity}"
+    suffix = f"-a{int(attempt)}" if attempt is not None else ""
+    return (base[: 48 - len(suffix)] + suffix)[:48]
 
 
 def _list_recent_alpaca_orders(broker: AlpacaBroker, *, limit: int = 500) -> list:
@@ -1762,6 +1872,197 @@ def wait_for_order_fills(
     return statuses
 
 
+def _order_execution_snapshot(broker: AlpacaBroker, oid: str) -> dict:
+    """Read status and partial-fill details for one broker order."""
+    try:
+        raw = broker._api.get_order(oid)
+    except Exception:
+        return {"status": "query_failed", "filled_qty": 0, "filled_avg_price": None}
+    return {
+        "status": str(getattr(raw, "status", "") or "").lower(),
+        "filled_qty": int(float(getattr(raw, "filled_qty", 0) or 0)),
+        "filled_avg_price": _float_or_none(getattr(raw, "filled_avg_price", None)),
+    }
+
+
+def _wait_for_cancel_terminal(broker: AlpacaBroker, oid: str) -> dict:
+    """Wait briefly until a cancellation is final or a cancel/fill race resolves."""
+    deadline = time.time() + max(0.0, EXECUTION_CANCEL_WAIT_SECONDS)
+    snapshot = _order_execution_snapshot(broker, oid)
+    terminal = {"filled", "canceled", "cancelled", "rejected", "expired"}
+    while snapshot["status"] not in terminal and time.time() < deadline:
+        time.sleep(max(0.05, EXECUTION_STAGE_POLL_SECONDS))
+        snapshot = _order_execution_snapshot(broker, oid)
+    return snapshot
+
+
+def _submit_two_stage_limit(broker: AlpacaBroker, order_row: dict) -> str:
+    """Try a passive midpoint limit, then reprice the confirmed remainder once."""
+    ticker = str(order_row["ticker"]).upper()
+    side = str(order_row["side"]).lower()
+    requested_qty = int(order_row["quantity"])
+    started = datetime.now(timezone.utc)
+    stage1_wait, stage2_offset, price_policy = _two_stage_price_policy(order_row)
+    quote = broker.get_quote_snapshot(ticker)
+    bid = _float_or_none(quote.get("bid_price"))
+    ask = _float_or_none(quote.get("ask_price"))
+    spread = _float_or_none(quote.get("spread_pct"))
+    midpoint = _float_or_none(quote.get("quote_mid_price"))
+    quote_age = _quote_age_seconds(quote, now=started)
+    if bid is None or ask is None:
+        raise RuntimeError("two_stage_quote_unavailable")
+    if not _quote_is_fresh(quote, now=started):
+        raise RuntimeError(f"two_stage_quote_stale:{quote_age:.1f}s")
+
+    parent_id = bot_client_order_id(order_row)
+    stage1_limit = passive_midpoint_limit_price(bid, ask, side)
+    order_row.update({
+        "parent_order_id": parent_id,
+        "execution_stage": "stage1",
+        "quote_time": started.isoformat(timespec="milliseconds"),
+        "broker_quote_timestamp": quote.get("quote_timestamp") or "",
+        "quote_age_seconds": round(quote_age, 3) if quote_age is not None else "",
+        "bid_price": bid,
+        "ask_price": ask,
+        "quote_mid_price": midpoint if midpoint is not None else (bid + ask) / 2.0,
+        "spread_pct": spread,
+        "stage1_limit_price": stage1_limit,
+        "stage1_wait_seconds": stage1_wait,
+        "execution_price_policy": price_policy,
+        "submitted_order_type": "limit",
+        "submitted_limit_reference": "passive_midpoint",
+        "submitted_limit_price": stage1_limit,
+    })
+    stage1 = Order(
+        ticker=ticker,
+        side=side,
+        quantity=requested_qty,
+        type="limit",
+        limit_price=stage1_limit,
+        client_id=bot_client_order_id(order_row, attempt=1),
+    )
+    stage1_oid = broker.place_order(stage1)
+    order_row["stage1_order_id"] = stage1_oid
+    wait_for_order_fills(
+        broker,
+        [stage1_oid],
+        timeout_seconds=stage1_wait,
+        poll_seconds=EXECUTION_STAGE_POLL_SECONDS,
+    )
+    stage1_state = _order_execution_snapshot(broker, stage1_oid)
+    order_row["stage1_status"] = stage1_state["status"]
+    order_row["stage1_filled_qty"] = stage1_state["filled_qty"]
+    order_row["stage1_filled_avg_price"] = stage1_state["filled_avg_price"] or ""
+    if stage1_state["status"] == "filled" or stage1_state["filled_qty"] >= requested_qty:
+        order_row["fill_latency_seconds"] = round((datetime.now(timezone.utc) - started).total_seconds(), 3)
+        order_row["fill_status"] = "filled"
+        order_row["filled_qty"] = requested_qty
+        order_row["filled_avg_price"] = stage1_state["filled_avg_price"] or ""
+        print(f"    ✓ {side.upper()} {requested_qty} {ticker} passive limit=${stage1_limit:.2f} → filled")
+        return stage1_oid
+
+    cancel_requested = bool(broker.cancel_order(stage1_oid))
+    cancel_state = _wait_for_cancel_terminal(broker, stage1_oid)
+    order_row["stage1_cancel_requested"] = cancel_requested
+    order_row["stage1_cancel_status"] = cancel_state["status"]
+    stage1_filled_qty = max(stage1_state["filled_qty"], cancel_state["filled_qty"])
+    stage1_fill_price = cancel_state["filled_avg_price"] or stage1_state["filled_avg_price"]
+    order_row["stage1_filled_qty"] = stage1_filled_qty
+    order_row["stage1_filled_avg_price"] = stage1_fill_price or ""
+    if cancel_state["status"] == "filled" or stage1_filled_qty >= requested_qty:
+        order_row["execution_stage"] = "stage1_cancel_fill_race"
+        order_row["fill_status"] = "filled"
+        order_row["filled_qty"] = requested_qty
+        order_row["filled_avg_price"] = stage1_fill_price or ""
+        order_row["fill_latency_seconds"] = round((datetime.now(timezone.utc) - started).total_seconds(), 3)
+        return stage1_oid
+
+    if not cancel_requested or cancel_state["status"] not in {"canceled", "cancelled", "rejected", "expired"}:
+        order_row["execution_stage"] = "cancel_uncertain"
+        order_row["fill_status"] = "partially_filled" if stage1_filled_qty else "pending_cancel"
+        order_row["filled_qty"] = stage1_filled_qty
+        order_row["filled_avg_price"] = stage1_fill_price or ""
+        _send_submit_guard_alert(
+            "Two-stage cancel uncertain",
+            f"{ticker} stage-1 cancellation was not confirmed; no replacement order was sent.",
+            priority="critical",
+        )
+        return stage1_oid
+
+    remaining_qty = max(0, requested_qty - stage1_filled_qty)
+    order_row["remaining_quantity"] = remaining_qty
+    if remaining_qty == 0:
+        order_row["fill_status"] = "filled"
+        return stage1_oid
+
+    second_quote = broker.get_quote_snapshot(ticker)
+    second_bid = _float_or_none(second_quote.get("bid_price"))
+    second_ask = _float_or_none(second_quote.get("ask_price"))
+    second_spread = _float_or_none(second_quote.get("spread_pct"))
+    spread_limit = MAX_SPREAD_PCT_ETF if ticker in ETF_TICKERS else MAX_SPREAD_PCT_OVERLAY
+    second_quote_age = _quote_age_seconds(second_quote)
+    if (
+        second_bid is None
+        or second_ask is None
+        or second_spread is None
+        or second_spread > spread_limit
+        or not _quote_is_fresh(second_quote)
+    ):
+        order_row["execution_stage"] = "stage2_blocked"
+        order_row["fill_status"] = "partially_filled" if stage1_filled_qty else "canceled"
+        order_row["filled_qty"] = stage1_filled_qty
+        order_row["filled_avg_price"] = stage1_fill_price or ""
+        _send_submit_guard_alert(
+            "Two-stage reprice blocked",
+            f"{ticker} replacement blocked because its refreshed quote was missing or too wide.",
+        )
+        return stage1_oid
+
+    stage2_limit = quote_based_limit_price(
+        bid_price=second_bid,
+        ask_price=second_ask,
+        fallback_price=order_row.get("price"),
+        side=side,
+        ticker=ticker,
+        limit_offset_bps=stage2_offset,
+    )
+    stage2 = Order(
+        ticker=ticker,
+        side=side,
+        quantity=remaining_qty,
+        type="limit",
+        limit_price=stage2_limit,
+        client_id=bot_client_order_id(order_row, attempt=2),
+    )
+    try:
+        stage2_oid = broker.place_order(stage2)
+    except Exception as exc:
+        order_row["execution_stage"] = "stage2_failed"
+        order_row["stage2_error"] = str(exc)
+        order_row["fill_status"] = "partially_filled" if stage1_filled_qty else "canceled"
+        order_row["filled_qty"] = stage1_filled_qty
+        order_row["filled_avg_price"] = stage1_fill_price or ""
+        _send_submit_guard_alert("Two-stage replacement failed", f"{ticker} replacement failed: {exc}", priority="critical")
+        return stage1_oid
+    order_row.update({
+        "execution_stage": "stage2",
+        "stage2_order_id": stage2_oid,
+        "stage2_quote_time": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        "stage2_bid_price": second_bid,
+        "stage2_ask_price": second_ask,
+        "stage2_spread_pct": second_spread,
+        "stage2_quote_age_seconds": round(second_quote_age, 3) if second_quote_age is not None else "",
+        "stage2_limit_price": stage2_limit,
+        "stage2_offset_bps": stage2_offset,
+        "stage2_quantity": remaining_qty,
+        "submitted_limit_reference": "stage2_quote_cap",
+        "submitted_limit_price": stage2_limit,
+        "fill_status": "pending",
+    })
+    print(f"    ✓ {side.upper()} {remaining_qty} {ticker} repriced limit=${stage2_limit:.2f} → order_id={stage2_oid[:12]}...")
+    return stage2_oid
+
+
 def _submit_one_rebalance_order(
     broker: AlpacaBroker,
     order_row: dict,
@@ -1771,6 +2072,14 @@ def _submit_one_rebalance_order(
 ) -> str:
     """Submit one planned rebalance order and return the Alpaca id or ERROR."""
     try:
+        if (
+            TWO_STAGE_EXECUTION_ENABLED
+            and not use_market_order
+            and use_quote_limit
+            and hasattr(broker, "get_quote_snapshot")
+            and hasattr(broker, "cancel_order")
+        ):
+            return _submit_two_stage_limit(broker, order_row)
         order = build_submission_order(
             order_row,
             use_market_order=use_market_order,
@@ -1927,6 +2236,8 @@ def _apply_spread_guard(
             "ask_price": quote.get("ask_price"),
             "quote_mid_price": quote.get("quote_mid_price"),
             "spread_pct": quote.get("spread_pct"),
+            "broker_quote_timestamp": quote.get("quote_timestamp"),
+            "quote_age_seconds": _quote_age_seconds(quote),
         })
 
         threshold = MAX_SPREAD_PCT_ETF if ticker in ETF_TICKERS else MAX_SPREAD_PCT_OVERLAY
@@ -1934,6 +2245,9 @@ def _apply_spread_guard(
         reason = ""
         if spread is None and REQUIRE_QUOTE_FOR_SUBMIT:
             reason = "quote_unavailable"
+        elif not _quote_is_fresh(quote):
+            age = _quote_age_seconds(quote)
+            reason = f"quote_stale:{age:.1f}s" if age is not None else "quote_stale"
         elif spread is not None and spread > threshold:
             reason = f"spread_guard:{spread*100:.2f}%>{threshold*100:.1f}%"
 
@@ -2653,7 +2967,8 @@ def _execution_quality_summary(rows: list[dict], *, now: datetime | None = None)
     raw_bad_count = int(sum(1 for v in slip_values if float(v) > 0))
     material_bad_count = int(sum(1 for v in slip_values if float(v) > EXECUTION_BAD_SLIPPAGE_BPS))
     return {
-        "orders_analyzed": len(rows),
+        "orders_seen": len(rows),
+        "orders_analyzed": slippage["measured_orders"],
         "eligible_orders": len(rows),
         "slippage_eligible_orders": slippage["eligible_orders"],
         "slippage_measured_orders": slippage["measured_orders"],
@@ -2666,18 +2981,22 @@ def _execution_quality_summary(rows: list[dict], *, now: datetime | None = None)
         "minor_bad_slippage_count": max(0, raw_bad_count - material_bad_count),
         "adverse_5m_eligible_orders": adverse_5["eligible_orders"],
         "adverse_5m_measured_orders": adverse_5["measured_orders"],
+        "adverse_5m_observations": adverse_5["measured_orders"],
         "adverse_5m_coverage_rate": adverse_5["coverage_rate"],
         "adverse_5m_count": int(sum(1 for value in adverse_5["values"] if value > 0)),
         "adverse_15m_eligible_orders": adverse_15["eligible_orders"],
         "adverse_15m_measured_orders": adverse_15["measured_orders"],
+        "adverse_15m_observations": adverse_15["measured_orders"],
         "adverse_15m_coverage_rate": adverse_15["coverage_rate"],
         "adverse_15m_count": int(sum(1 for value in adverse_15["values"] if value > 0)),
         "adverse_30m_eligible_orders": adverse_30["eligible_orders"],
         "adverse_30m_measured_orders": adverse_30["measured_orders"],
+        "adverse_30m_observations": adverse_30["measured_orders"],
         "adverse_30m_coverage_rate": adverse_30["coverage_rate"],
         "adverse_30m_count": int(sum(1 for value in adverse_30["values"] if value > 0)),
         "adverse_60m_eligible_orders": adverse_60["eligible_orders"],
         "adverse_60m_measured_orders": adverse_60["measured_orders"],
+        "adverse_60m_observations": adverse_60["measured_orders"],
         "adverse_60m_coverage_rate": adverse_60["coverage_rate"],
         "adverse_60m_count": int(sum(1 for value in adverse_60["values"] if value > 0)),
         "avg_worst_adverse_60m_bps": round(_safe_avg(worst_values), 2) if _safe_avg(worst_values) is not None else None,
@@ -2690,8 +3009,12 @@ def _execution_quality_segments(rows: list[dict], *, now: datetime | None = None
     limit_rows = [r for r in rows if str(r.get("order_type", "")).lower() == "limit"]
     market_rows = [r for r in rows if str(r.get("order_type", "")).lower() == "market"]
     trailing_rows = [r for r in rows if str(r.get("order_type", "")).lower() == "trailing_stop"]
+    protective_rows = [r for r in rows if str(r.get("order_type", "")).lower() in {"trailing_stop", "stop", "stop_limit"}]
+    rebalance_rows = [r for r in rows if r not in protective_rows]
     return {
         "all_orders": _execution_quality_summary(rows, now=now),
+        "rebalance_orders": _execution_quality_summary(rebalance_rows, now=now),
+        "protective_stops": _execution_quality_summary(protective_rows, now=now),
         "limit_orders": _execution_quality_summary(limit_rows, now=now),
         "market_orders": _execution_quality_summary(market_rows, now=now),
         "trailing_stops": _execution_quality_summary(trailing_rows, now=now),
@@ -2702,7 +3025,8 @@ def build_slippage_reversal_report(
     broker: AlpacaBroker,
     *,
     api_order_limit: int = 100,
-    lookback_orders: int = 25,
+    lookback_orders: int = 100,
+    lookback_days: int = EXECUTION_REPORT_LOOKBACK_DAYS,
 ) -> dict:
     """
     Build and save a report for recent fill quality.
@@ -2732,10 +3056,15 @@ def build_slippage_reversal_report(
         filled_at = _parse_broker_datetime(_obj_value(raw, "filled_at"))
         fill_price = _float_or_none(_obj_value(raw, "filled_avg_price"))
         qty = _float_or_none(_obj_value(raw, "filled_qty"))
-        if status != "filled" or filled_at is None or fill_price is None or fill_price <= 0:
+        # A canceled Stage-1 order can still contain a real partial fill. Keep
+        # every broker order with positive filled quantity so that price
+        # improvement is not lost from execution evidence.
+        if filled_at is None or fill_price is None or fill_price <= 0 or qty is None or qty <= 0:
             continue
         filled_orders.append((filled_at, raw, fill_price, qty))
 
+    cutoff = datetime.now(timezone.utc) - timedelta(days=max(0, int(lookback_days)))
+    filled_orders = [item for item in filled_orders if lookback_days <= 0 or item[0] >= cutoff]
     filled_orders.sort(key=lambda item: item[0], reverse=True)
     filled_orders = filled_orders[:lookback_orders]
 
@@ -2756,6 +3085,7 @@ def build_slippage_reversal_report(
             "symbol": ticker,
             "side": side,
             "order_type": order_type,
+            "client_order_id": str(_obj_value(raw, "client_order_id", "") or ""),
             "filled_qty": int(qty) if qty is not None and np.isfinite(qty) else None,
             "fill_price": round(fill_price, 4),
             "fill_minute_vwap": round(vwap, 4) if vwap is not None else None,
@@ -2767,6 +3097,13 @@ def build_slippage_reversal_report(
             "worst_adverse_60m_bps": None,
             "best_favorable_60m_bps": None,
         }
+        client_order_id = str(row["client_order_id"])
+        if client_order_id.endswith("-a1") or client_order_id.endswith("-a2"):
+            row["parent_client_order_id"] = client_order_id[:-3]
+            row["execution_stage"] = "stage1" if client_order_id.endswith("-a1") else "stage2"
+        else:
+            row["parent_client_order_id"] = client_order_id
+            row["execution_stage"] = "legacy"
         slip = _signed_slippage_bps(side, fill_price, vwap)
         row["slippage_bps"] = round(slip, 2) if slip is not None else None
 
@@ -2795,8 +3132,12 @@ def build_slippage_reversal_report(
 
     summary = _execution_quality_summary(report_rows, now=report_clock)
     by_symbol: list[dict] = []
-    if report_rows:
-        report_df = pd.DataFrame(report_rows)
+    rebalance_rows = [
+        row for row in report_rows
+        if str(row.get("order_type", "")).lower() not in {"trailing_stop", "stop", "stop_limit"}
+    ]
+    if rebalance_rows:
+        report_df = pd.DataFrame(rebalance_rows)
         def _numeric_series(frame: pd.DataFrame, column: str) -> pd.Series:
             if column not in frame.columns:
                 return pd.Series(dtype=float)
@@ -2806,7 +3147,8 @@ def build_slippage_reversal_report(
             slippage = _numeric_series(grp, "slippage_bps")
             adverse_15 = _numeric_series(grp, "adverse_15m_bps")
             worst_60 = _numeric_series(grp, "worst_adverse_60m_bps")
-            count = int(len(grp))
+            orders_seen = int(len(grp))
+            count = int(len(slippage))
             bad_slip_rate = float((slippage > EXECUTION_BAD_SLIPPAGE_BPS).mean()) if len(slippage) else None
             raw_bad_slip_rate = float((slippage > 0).mean()) if len(slippage) else None
             adverse_15_rate = float((adverse_15 > 0).mean()) if len(adverse_15) else None
@@ -2823,6 +3165,9 @@ def build_slippage_reversal_report(
             by_symbol.append({
                 "symbol": str(symbol),
                 "orders": count,
+                "rebalance_orders": count,
+                "orders_seen": orders_seen,
+                "sample_ready": count >= EXECUTION_SYMBOL_MIN_SAMPLES,
                 "avg_slippage_bps": round(float(slippage.mean()), 2) if len(slippage) else None,
                 "bad_slippage_rate": round(bad_slip_rate, 3) if bad_slip_rate is not None else None,
                 "raw_bad_slippage_rate": round(raw_bad_slip_rate, 3) if raw_bad_slip_rate is not None else None,
@@ -2840,6 +3185,7 @@ def build_slippage_reversal_report(
         "source": "alpaca_api",
         "api_order_limit": int(api_order_limit),
         "lookback_orders": int(lookback_orders),
+        "lookback_days": int(lookback_days),
         "summary": summary,
         "segments": _execution_quality_segments(report_rows, now=report_clock),
         "by_symbol": by_symbol,
@@ -2928,15 +3274,45 @@ def reconcile_orders(broker: AlpacaBroker) -> None:
         try:
             order = broker._api.get_order(oid)
             status = str(order.status).lower()
-            log.at[idx, "fill_status"] = status
-            if hasattr(order, "filled_qty") and order.filled_qty:
-                log.at[idx, "filled_qty"] = int(float(order.filled_qty))
-            if hasattr(order, "filled_avg_price") and order.filled_avg_price:
-                log.at[idx, "filled_avg_price"] = float(order.filled_avg_price)
+            primary_qty = int(float(getattr(order, "filled_qty", 0) or 0))
+            primary_price = _float_or_none(getattr(order, "filled_avg_price", None))
+            stage1_oid = str(row.get("stage1_order_id", "") or "")
+            stage1_qty = int(_float_or_none(row.get("stage1_filled_qty")) or 0)
+            stage1_price = _float_or_none(row.get("stage1_filled_avg_price"))
+            # If the final logged ID is Stage 1, its quantity is already in the
+            # primary broker response and must not be counted twice.
+            if stage1_oid and stage1_oid != oid:
+                total_qty = stage1_qty + primary_qty
+            else:
+                total_qty = primary_qty
+                stage1_qty = 0
+            total_value = (stage1_qty * (stage1_price or 0.0)) + (primary_qty * (primary_price or 0.0))
+            average_price = total_value / total_qty if total_qty > 0 and total_value > 0 else (primary_price or stage1_price)
+            requested_qty = int(_float_or_none(row.get("quantity")) or 0)
+            if requested_qty > 0 and total_qty >= requested_qty:
+                logical_status = "filled"
+            elif total_qty > 0 and status in {"canceled", "cancelled", "expired", "rejected"}:
+                logical_status = "partially_filled"
+            else:
+                logical_status = status
+            log.at[idx, "fill_status"] = logical_status
+            log.at[idx, "filled_qty"] = total_qty
+            if average_price is not None:
+                log.at[idx, "filled_avg_price"] = average_price
+                reference = _float_or_none(row.get("quote_mid_price")) or _float_or_none(row.get("price"))
+                if reference is not None and reference > 0:
+                    signed = (average_price - reference) / reference * 10_000.0
+                    if str(row.get("side", "")).lower() == "sell":
+                        signed = -signed
+                    log.at[idx, "realized_slippage_bps"] = round(signed, 3)
+            filled_at = pd.to_datetime(getattr(order, "filled_at", None), errors="coerce", utc=True)
+            quote_time = pd.to_datetime(row.get("quote_time"), errors="coerce", utc=True)
+            if pd.notna(filled_at) and pd.notna(quote_time):
+                log.at[idx, "fill_latency_seconds"] = round((filled_at - quote_time).total_seconds(), 3)
             updated += 1
-            status_icon = "✓" if status == "filled" else "⚠"
+            status_icon = "✓" if logical_status == "filled" else "⚠"
             print(f"    {status_icon} {row['ticker']} {row['side']} "
-                  f"{int(row['quantity'])} → {status}")
+                  f"{int(row['quantity'])} → {logical_status}")
         except Exception as e:
             log.at[idx, "fill_status"] = "query_failed"
             print(f"    ✗ {row['ticker']} order {oid[:12]}... → query failed: {e}")
@@ -3624,6 +4000,8 @@ def main():
                         help="Use last trade as the limit reference even if ALPACA_LIMIT_REFERENCE=quote")
     parser.add_argument("--allow-closed-market-queue", action="store_true",
                         help="Allow submit while market is closed, queueing orders for the next open")
+    parser.add_argument("--allow-outside-execution-window", action="store_true",
+                        help="Emergency override for submits outside 09:35-10:30 New York time")
     parser.add_argument("--slippage-report", action="store_true",
                         help="Refresh recent fill slippage/reversal report and exit")
     parser.add_argument("--allow-stale-signal", action="store_true",
@@ -3908,6 +4286,22 @@ def main():
             _set_submit_outcome(status, reason, market_open=False, planned_orders=len(orders))
             return 0 if status == "no_action" else 2
 
+    # PLAIN ENGLISH: A late manual run can chase the closing auction and leaves
+    # too little time to measure 15/60-minute follow-through. Normal rebalances
+    # therefore use the same controlled morning window as the scheduled job.
+    if not execution_window_allowed() and not args.allow_outside_execution_window:
+        print(
+            f"  Aborting: outside execution window {EXECUTION_WINDOW_START}-{EXECUTION_WINDOW_END} "
+            "New York time. Use --allow-outside-execution-window only for an emergency."
+        )
+        _set_submit_outcome(
+            "blocked",
+            "outside_execution_window",
+            market_open=market_open,
+            planned_orders=len(orders),
+        )
+        return 2
+
     # ── Core ETF protective stops — clear before rebalance ───────────────
     # PLAIN ENGLISH: Broker-side trailing stops reserve shares. If we are
     # about to rebalance SPY/QQQ/TQQQ, those old sell stops can block the new
@@ -4015,8 +4409,8 @@ def main():
 
     # ── Spread sanity check: skip orders on abnormally wide spreads ──────
     # PLAIN ENGLISH: Before submitting, check the bid-ask spread for each ticker.
-    # If the spread is wider than our threshold (e.g. >1.5% for stocks), the market
-    # order would fill at a terrible price.  Skip it and log a warning instead.
+    # If the spread is wider than our threshold, even a capped replacement can
+    # produce poor execution. Skip it and log a warning instead.
     orders, spread_skipped_orders, spread_skipped_ids = _apply_spread_guard(broker, orders)
     pre_submit_skipped_orders.extend(spread_skipped_orders)
     pre_submit_skipped_ids.extend(spread_skipped_ids)
@@ -4025,7 +4419,7 @@ def main():
     use_quote_limit = should_use_quote_limits(args)
     order_style = "market" if use_market_order else "protective limit"
     if use_quote_limit and not use_market_order:
-        order_style = "quote-based protective limit"
+        order_style = "two-stage capped limit" if TWO_STAGE_EXECUTION_ENABLED else "quote-based protective limit"
     print(f"\n  Submitting {len(orders)} orders ({order_style})...")
     submitted_orders, order_ids = submit_rebalance_orders(
         broker,

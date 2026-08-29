@@ -96,41 +96,23 @@ def test_legacy_equity_file_without_timestamp_still_uses_date(tmp_path, monkeypa
     assert result["trading_days"] == 1
 
 
-def test_epoch_consumes_canonical_execution_scorecard_rate(tmp_path, monkeypatch):
-    """The epoch must not rebuild a conflicting bad-slippage denominator."""
+def test_epoch_slippage_uses_only_post_start_rebalances(tmp_path, monkeypatch):
     signal_dir = tmp_path / "signals"
     signal_dir.mkdir()
-    (signal_dir / "alpaca_execution_scorecard.json").write_text(
-        __import__("json").dumps(
-            {
-                "schema_version": 2,
-                "decision_eligible": True,
-                "summary": {
-                    "avg_slippage_bps": 4.15,
-                    "bad_slippage_count": 14,
-                    "slippage_measured_orders": 19,
-                    "bad_slippage_rate": 0.7368,
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-    # Deliberately conflicting legacy report. It must no longer win.
-    (signal_dir / "alpaca_slippage_reversal_report.json").write_text(
-        __import__("json").dumps(
-            {"summary": {"orders_analyzed": 25, "slippage_bad_count": 14, "avg_slippage_bps": 4.15}}
-        ),
-        encoding="utf-8",
-    )
+    (signal_dir / "alpaca_slippage_reversal_report.json").write_text(json.dumps({
+        "orders": [
+            {"filled_at": "2026-08-25T14:00:00Z", "order_type": "limit", "slippage_bps": 50.0},
+            {"filled_at": "2026-08-27T14:00:00Z", "order_type": "trailing_stop", "slippage_bps": 30.0},
+            {"filled_at": "2026-08-27T14:05:00Z", "order_type": "limit", "slippage_bps": 3.0},
+        ]
+    }), encoding="utf-8")
     monkeypatch.setattr(epoch_module, "SIGNAL_DIR", str(signal_dir))
-    epoch = {
+
+    result = epoch_module.evaluate_epoch({
         "epoch_id": "paper-test",
-        "started_at": "2026-08-26T00:00:00+00:00",
-        "requirements": {"maximum_bad_slippage_rate": 0.60},
-    }
+        "started_at": "2026-08-26T08:43:15+00:00",
+        "requirements": {"bad_slippage_threshold_bps": 2.0},
+    })
 
-    result = epoch_module.evaluate_epoch(epoch)
-
-    assert result["bad_slippage_rate"] == 0.7368
-    assert result["checks"]["bad_slippage_rate"] is False
-    assert result["execution_scorecard_decision_eligible"] is True
+    assert result["average_slippage_bps"] == 3.0
+    assert result["bad_slippage_rate"] == 1.0

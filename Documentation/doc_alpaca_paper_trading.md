@@ -64,8 +64,8 @@ python3 alpaca_paper_trading.py
 # Refresh recent fill slippage/reversal stats for the Performance dashboard
 python3 alpaca_paper_trading.py --slippage-report
 
-# Emergency/manual override: set env unlock, then send market orders
-ALPACA_ALLOW_MARKET_ORDER_OVERRIDE=1 python3 alpaca_paper_trading.py --submit --market-order
+# Emergency/manual run outside the normal morning window (still capped limits)
+python3 alpaca_paper_trading.py --submit --allow-outside-execution-window
 
 # Manual rollback: anchor limit prices to last trade instead of live bid/ask
 python3 alpaca_paper_trading.py --submit --last-trade-limit
@@ -93,7 +93,10 @@ can later be corrected to `filled` once Alpaca reports the final state.
 | `signals/alpaca_slippage_reversal_report.json` | Recent fills, slippage vs fill-minute VWAP, 5/15/30/60 minute reversals, and all/limit/market segment summaries |
 | `signals/alpaca_halt_active.txt` | Created when drawdown halt fires |
 
-The paper log also records execution-planning diagnostics such as the
+The paper log also records both execution attempts: parent and child IDs,
+quote time, bid/ask/midpoint, spread, limits, wait duration, cancel result,
+remaining quantity, fill latency, and realized slippage. It also records
+execution-planning diagnostics such as the
 original requested quantity, Alpaca sellable quantity, and whether a sell
 order was clamped to broker-available shares. When a bot-managed trailing stop
 reserves shares, planning records `broker_reserved_stop_qty` and counts those
@@ -112,13 +115,14 @@ It also refreshes the execution-quality report.
 
 - **Paper trading** — fake money but real prices and real fills.  Lets
   you test a strategy with real-time market behavior, no risk.
-- **Spread guard** — refuses to trade when the bid-ask spread is wider
-  than 1.5%.  Wide spreads mean illiquid markets — you'd get filled at
-  bad prices.  Common when market is closed.
-- **Marketable limit order** — a limit order placed just above the latest
-  price for buys or just below the latest price for sells.  It usually
-  fills quickly like a market order, but it caps how far the fill can run
-  away from the planned price.
+- **Spread guard** — refuses routine execution above 0.10% for ETFs or
+  0.50% for overlay stocks. Wide spreads mean poor or unreliable prices.
+- **Two-stage limit** — Stage 1 rests at the bid/ask midpoint for 15 seconds.
+  If needed, the bot confirms cancellation and sends only the unfilled shares
+  as Stage 2 at the current quote with a 1 bps ETF or 3 bps stock cap. A price-
+  quality failure makes Stage 1 more patient and tightens the second cap; a
+  fill-rate failure reprices sooner. Timestamped quotes older than five seconds
+  are rejected. Neither case changes target quantity.
 - **Bid/ask quote** — the best current buyer price (bid) and seller price
   (ask).  The script logs these into `alpaca_paper_log.csv` at submission
   time for audit.  Quote-based limit anchoring is now the default because the
@@ -169,28 +173,20 @@ The script has multiple layers of protection:
    from peak (configurable via `PORTFOLIO_DRAWDOWN_HALT_PCT`).
    The halt sentinel is written atomically, so a crash cannot leave a partial
    marker that confuses the next run.
-6. **Protective day limit orders** — normal submissions use small-cushion
-   limit orders by default (`ALPACA_ORDER_TYPE=limit`).  Use
-   `--market-order` only when you intentionally want market orders, and only
-   after setting `ALPACA_ALLOW_MARKET_ORDER_OVERRIDE=1`.
-7. **Quote-anchored limit orders** — every submitted order records current bid,
-   ask, midpoint, spread, and which limit reference was used.  Normal buys
-   anchor to the ask and sells anchor to the bid before adding the small limit
-   cushion.  If Alpaca cannot provide a usable quote, the spread/quote guard can
-   skip the order, or the builder falls back to the planned last-price limit
-   depending on the guard setting.
-8. **Execution risk scoring** — the slippage report ranks tickers by recent
-   bad slippage and post-fill reversal behavior.  Order planning now reads
-   that report and shrinks risky overlay BUY orders before submission while
-   leaving SELL exits unchanged.  The plan and paper log record the risk score,
-   scale, and reason so the dashboard can explain why a buy was reduced.
-   Set `ALPACA_EXECUTION_RISK_ENABLED=0` to roll this behavior back.
+6. **Two-stage capped limits** — normal rebalances never become market orders.
+   Stage 1 seeks midpoint price improvement. Stage 2 crosses once with a small
+   cap after cancellation is confirmed. Partial fills reprice only the remainder.
+7. **Quote audit trail** — every submitted order records current bid, ask,
+   midpoint, spread, stage, cancellation result, and which limit was used.
+8. **Execution risk scoring** — the slippage report ranks tickers after at
+   least five measured rebalance fills. The score changes execution reporting
+   and price policy context, never the strategy-approved target quantity.
    The same report also includes all/limit/market summaries so you can compare
-   execution quality before and after order-style changes.  The portfolio-wide
-   `alpaca_execution_scorecard.json` can also shrink all BUY orders when recent
-   execution quality fails, via `ALPACA_EXECUTION_SCORECARD_THROTTLE=1`. The
-   scorecard must be fresh and `decision_eligible`; thin or incomplete evidence
-   leaves BUY size unchanged and records a collecting reason.
+   execution quality before and after order-style changes. The portfolio-wide
+   scorecard also separates protective-stop behavior from normal rebalances.
+   It records whether evidence is `decision_eligible`, but poor execution now
+   changes price-policy context rather than silently shrinking approved target
+   quantities.
    A separate ATR/volatility sizing cap exists behind
    `ALPACA_LIVE_RISK_CAP_ENABLED=1`. It is paper-only, applies only to overlay
    stock buys, and can reduce but never increase the approved signal target.
@@ -216,20 +212,23 @@ The script has multiple layers of protection:
    market close, it aborts instead of queueing orders.  Use
    `--allow-closed-market-queue` or `ALPACA_ALLOW_CLOSED_MARKET_QUEUE=1`
    only when queueing is intentional.
-11. **Core ETF trailing stops** — broker-side stops on SPY/QQQ/TQQQ that
+11. **Morning execution window** — routine submissions run only from 09:35 to
+   10:30 New York time. Dry runs work anytime. Emergency overrides require
+   `--allow-outside-execution-window`.
+12. **Core ETF trailing stops** — broker-side stops on SPY/QQQ/TQQQ that
    stay active even if the local machine is offline.
-12. **Overlay stop cleanup before sells** — before selling an overlay
+13. **Overlay stop cleanup before sells** — before selling an overlay
    stock, the script cancels that stock's old trailing stop so Alpaca does
    not reject the sell because shares are already reserved.  After the
    rebalance or reconcile step, it recreates a fresh trailing stop for any
    remaining shares unless another sell order is still open.
    Order planning counts shares reserved by these cancellable bot stops, so
    required sells remain in the plan and happen before replacement buys.
-13. **Alpaca-authoritative overlay stop repair** — during submit/reconcile,
+14. **Alpaca-authoritative overlay stop repair** — during submit/reconcile,
    the script reads current Alpaca positions and repairs trailing stops for
    every non-ETF holding.  This catches missing or partial stops even when
    the local order log is incomplete.
-14. **Sells-before-buys submit guard** — rebalance sells are submitted first.
+15. **Sells-before-buys submit guard** — rebalance sells are submitted first.
    Buys are skipped if a sell fails, if a sell does not fill quickly, or if
    cash is still below the no-margin threshold.  If a buy is only too large
    because available cash is tight, the script shrinks the share quantity down

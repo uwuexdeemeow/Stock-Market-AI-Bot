@@ -40,7 +40,8 @@
 - [ ] Alpaca paper-trading credentials, connectivity, and guard checks pass.
 
 ## 7. Paper Gauntlet (Phase 5)
-- [ ] ≥60 trading days of continuous paper trading completed.
+- [ ] Fresh execution-validation epoch has ≥30 trading days, ≥20 accepted orders, ≥3 rebalances, and ≥10 consecutive classified sessions.
+- [ ] Epoch execution quality: fill rate ≥80%, average rebalance slippage ≤10 bps, materially bad slippage rate ≤60%, and zero duplicate/unexplained orders.
 - [ ] `python alpaca_paper_gauntlet.py` → `all_gates_passed = true`.
 - [ ] Manual review of 20 random trades: fills, sizing, stops all look sane.
 

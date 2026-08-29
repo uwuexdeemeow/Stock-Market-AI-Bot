@@ -53,3 +53,11 @@ dashboard-only changes do not break the lock.
 - **Rebalance:** Changing positions to match new target weights.
 - **Accepted order:** An order Alpaca received successfully.
 - **Operational pass:** The bot met the reliability sample requirements.
+
+## Approval Requirements
+
+New epochs started by the script use 30 trading days, 20 accepted orders, three
+rebalances, and 10 consecutive classified sessions. Their stricter defaults are
+a 95% fill rate, average rebalance slippage no worse than 5 bps, a materially
+bad slippage rate no higher than 40%, and no duplicate or unexplained orders.
+The frozen August 26 epoch keeps its original thresholds and start time.

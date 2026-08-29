@@ -668,7 +668,7 @@ def test_generate_orders_throttles_high_risk_overlay_buys(tmp_path, monkeypatch)
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "by_symbol": [{
             "symbol": "MU",
-            "orders": 3,
+            "orders": 5,
             "avg_slippage_bps": 12.0,
             "bad_slippage_rate": 1.0,
             "execution_risk_score": 65.0,
@@ -687,13 +687,13 @@ def test_generate_orders_throttles_high_risk_overlay_buys(tmp_path, monkeypatch)
 
     assert orders[0]["side"] == "buy"
     assert orders[0]["requested_quantity"] == 200
-    assert orders[0]["quantity"] == 100
+    assert orders[0]["quantity"] == 200
     assert orders[0]["execution_risk_score"] == 65.0
     assert orders[0]["execution_risk_band"] == "high"
-    assert orders[0]["execution_risk_buy_scale"] == 0.50
+    assert orders[0]["execution_risk_buy_scale"] == 1.0
     assert orders[0]["execution_risk_quantity_before_scale"] == 200
-    assert orders[0]["execution_risk_quantity_after_scale"] == 100
-    assert "high_execution_risk_score_65.00" in orders[0]["execution_risk_reason"]
+    assert orders[0]["execution_risk_quantity_after_scale"] == 200
+    assert orders[0]["execution_risk_reason"] == ""
 
 
 def test_generate_orders_keeps_high_risk_sells_exit_ready(tmp_path, monkeypatch):
@@ -702,7 +702,7 @@ def test_generate_orders_keeps_high_risk_sells_exit_ready(tmp_path, monkeypatch)
     report_path = tmp_path / "alpaca_slippage_reversal_report.json"
     report_path.write_text(json.dumps({
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "by_symbol": [{"symbol": "MU", "execution_risk_score": 65.0}],
+        "by_symbol": [{"symbol": "MU", "orders": 5, "execution_risk_score": 65.0}],
     }), encoding="utf-8")
     monkeypatch.setattr(apt, "SLIPPAGE_REPORT_FILE", report_path)
     monkeypatch.setattr(apt, "EXECUTION_RISK_ENABLED", True)
@@ -767,13 +767,13 @@ def test_generate_orders_throttles_buys_when_execution_scorecard_fails(tmp_path,
 
     assert orders[0]["side"] == "buy"
     assert orders[0]["requested_quantity"] == 600
-    assert orders[0]["quantity"] == 450
-    assert orders[0]["execution_risk_buy_scale"] == 0.75
+    assert orders[0]["quantity"] == 600
+    assert orders[0]["execution_risk_buy_scale"] == 1.0
     assert orders[0]["execution_scorecard_status"] == "fail"
     assert orders[0]["execution_scorecard_score"] == 66.67
-    assert orders[0]["execution_scorecard_buy_scale"] == 0.75
+    assert orders[0]["execution_scorecard_buy_scale"] == 1.0
     assert orders[0]["execution_scorecard_failed_checks"] == "avg_slippage_bps"
-    assert "fail_execution_scorecard_score_66.67" in orders[0]["execution_risk_reason"]
+    assert orders[0]["execution_risk_reason"] == ""
 
     scorecard_path.write_text(json.dumps({
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -786,9 +786,9 @@ def test_generate_orders_throttles_buys_when_execution_scorecard_fails(tmp_path,
 
     severe_orders = apt.generate_orders(broker, {"QQQ": 0.60}, force=True)
 
-    assert severe_orders[0]["quantity"] == 300
-    assert severe_orders[0]["execution_scorecard_buy_scale"] == 0.50
-    assert "severe_execution_scorecard_score_20.00" in severe_orders[0]["execution_risk_reason"]
+    assert severe_orders[0]["quantity"] == 600
+    assert severe_orders[0]["execution_scorecard_buy_scale"] == 1.0
+    assert severe_orders[0]["execution_risk_reason"] == ""
 
 
 def test_generate_orders_keeps_scorecard_fail_sells_exit_ready(tmp_path, monkeypatch):
@@ -988,7 +988,7 @@ def test_market_orders_require_explicit_env_unlock(monkeypatch):
     assert apt.should_use_market_orders(SimpleNamespace(market_order=True, limit_order=False)) is False
 
     monkeypatch.setattr(apt, "ALLOW_MARKET_ORDER_OVERRIDE", True)
-    assert apt.should_use_market_orders(SimpleNamespace(market_order=True, limit_order=False)) is True
+    assert apt.should_use_market_orders(SimpleNamespace(market_order=True, limit_order=False)) is False
 
 
 def test_market_order_env_default_is_ignored_until_unlocked(monkeypatch):
@@ -998,6 +998,44 @@ def test_market_order_env_default_is_ignored_until_unlocked(monkeypatch):
     monkeypatch.setattr(apt, "ALLOW_MARKET_ORDER_OVERRIDE", False)
 
     assert apt.should_use_market_orders(SimpleNamespace(market_order=False, limit_order=False)) is False
+
+
+def test_execution_window_uses_new_york_time(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "EXECUTION_WINDOW_START", "09:35")
+    monkeypatch.setattr(apt, "EXECUTION_WINDOW_END", "10:30")
+
+    assert apt.execution_window_allowed(datetime(2026, 6, 8, 14, 0, tzinfo=timezone.utc)) is True
+    assert apt.execution_window_allowed(datetime(2026, 6, 8, 19, 0, tzinfo=timezone.utc)) is False
+
+
+def test_two_stage_client_ids_are_deterministic_and_distinct():
+    import alpaca_paper_trading as apt
+
+    row = {"ticker": "MU", "side": "buy", "quantity": 10}
+    day = datetime(2026, 6, 8, tzinfo=timezone.utc)
+
+    assert apt.bot_client_order_id(row, today=day, attempt=1).endswith("-a1")
+    assert apt.bot_client_order_id(row, today=day, attempt=2).endswith("-a2")
+    assert apt.bot_client_order_id(row, today=day, attempt=1) != apt.bot_client_order_id(row, today=day, attempt=2)
+
+
+def test_scorecard_changes_price_policy_not_quantity(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "EXECUTION_STAGE1_WAIT_SECONDS", 15)
+    row = {
+        "ticker": "MU",
+        "execution_scorecard_status": "fail",
+        "execution_scorecard_failed_checks": "avg_slippage_bps,bad_slippage_rate",
+    }
+
+    wait_seconds, offset_bps, policy = apt._two_stage_price_policy(row)
+
+    assert wait_seconds == 30
+    assert offset_bps == 1
+    assert policy == "price_failure_more_patient"
 
 
 class _SubmitBroker:
@@ -1031,6 +1069,49 @@ class _SubmitBroker:
         return float(self.buying_power)
 
 
+class _TwoStageBroker:
+    """Broker fake that exposes quote, partial-fill, and cancellation behavior."""
+
+    def __init__(self, *, first_filled=0, cancel_ok=True, second_spread=0.001, fill_on_cancel=False):
+        self.first_filled = int(first_filled)
+        self.cancel_ok = bool(cancel_ok)
+        self.second_spread = float(second_spread)
+        self.fill_on_cancel = bool(fill_on_cancel)
+        self.cancelled = False
+        self.orders = []
+        self.quote_calls = 0
+        self._api = SimpleNamespace(get_order=self.get_order)
+
+    def get_quote_snapshot(self, ticker):
+        self.quote_calls += 1
+        spread = 0.001 if self.quote_calls == 1 else self.second_spread
+        return {
+            "bid_price": 99.9,
+            "ask_price": 100.1,
+            "quote_mid_price": 100.0,
+            "spread_pct": spread,
+        }
+
+    def place_order(self, order):
+        self.orders.append(order)
+        return f"oid-{len(self.orders)}"
+
+    def get_order(self, oid):
+        if oid == "oid-1":
+            if self.first_filled >= self.orders[0].quantity:
+                return SimpleNamespace(status="filled", filled_qty=self.first_filled, filled_avg_price="100.0")
+            status = "canceled" if self.cancelled else ("partially_filled" if self.first_filled else "new")
+            return SimpleNamespace(status=status, filled_qty=self.first_filled, filled_avg_price="100.0" if self.first_filled else None)
+        return SimpleNamespace(status="new", filled_qty=0, filled_avg_price=None)
+
+    def cancel_order(self, oid):
+        if self.cancel_ok:
+            if self.fill_on_cancel:
+                self.first_filled = self.orders[0].quantity
+            self.cancelled = True
+        return self.cancel_ok
+
+
 def _planned_order(ticker, side, quantity=1):
     return {
         "ticker": ticker,
@@ -1041,6 +1122,91 @@ def _planned_order(ticker, side, quantity=1):
         "trade_value": quantity * 100.0,
         "target_weight": 0.10,
     }
+
+
+def test_two_stage_limit_finishes_at_passive_midpoint(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "EXECUTION_STAGE1_WAIT_SECONDS", 0)
+    broker = _TwoStageBroker(first_filled=10)
+    row = _planned_order("MU", "buy", quantity=10)
+
+    oid = apt._submit_two_stage_limit(broker, row)
+
+    assert oid == "oid-1"
+    assert len(broker.orders) == 1
+    assert broker.orders[0].limit_price == 100.0
+    assert broker.orders[0].client_id.endswith("-a1")
+    assert row["execution_stage"] == "stage1"
+    assert row["fill_status"] == "filled"
+
+
+def test_two_stage_limit_reprices_only_unfilled_remainder(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "EXECUTION_STAGE1_WAIT_SECONDS", 0)
+    monkeypatch.setattr(apt, "EXECUTION_CANCEL_WAIT_SECONDS", 0)
+    broker = _TwoStageBroker(first_filled=4)
+    row = _planned_order("MU", "buy", quantity=10)
+
+    oid = apt._submit_two_stage_limit(broker, row)
+
+    assert oid == "oid-2"
+    assert [order.quantity for order in broker.orders] == [10, 6]
+    assert broker.orders[1].client_id.endswith("-a2")
+    assert broker.orders[1].type == "limit"
+    assert row["stage1_cancel_status"] == "canceled"
+    assert row["remaining_quantity"] == 6
+    assert row["execution_stage"] == "stage2"
+
+
+def test_two_stage_limit_does_not_replace_uncertain_cancel(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "EXECUTION_STAGE1_WAIT_SECONDS", 0)
+    monkeypatch.setattr(apt, "EXECUTION_CANCEL_WAIT_SECONDS", 0)
+    monkeypatch.setattr(apt, "_send_submit_guard_alert", lambda *args, **kwargs: None)
+    broker = _TwoStageBroker(cancel_ok=False)
+    row = _planned_order("MU", "buy", quantity=10)
+
+    oid = apt._submit_two_stage_limit(broker, row)
+
+    assert oid == "oid-1"
+    assert len(broker.orders) == 1
+    assert row["execution_stage"] == "cancel_uncertain"
+
+
+def test_two_stage_limit_handles_cancel_fill_race(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "EXECUTION_STAGE1_WAIT_SECONDS", 0)
+    monkeypatch.setattr(apt, "EXECUTION_CANCEL_WAIT_SECONDS", 0)
+    broker = _TwoStageBroker(fill_on_cancel=True)
+    row = _planned_order("MU", "buy", quantity=10)
+
+    oid = apt._submit_two_stage_limit(broker, row)
+
+    assert oid == "oid-1"
+    assert len(broker.orders) == 1
+    assert row["execution_stage"] == "stage1_cancel_fill_race"
+    assert row["fill_status"] == "filled"
+
+
+def test_two_stage_limit_blocks_wide_refreshed_quote(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "EXECUTION_STAGE1_WAIT_SECONDS", 0)
+    monkeypatch.setattr(apt, "EXECUTION_CANCEL_WAIT_SECONDS", 0)
+    monkeypatch.setattr(apt, "MAX_SPREAD_PCT_OVERLAY", 0.005)
+    monkeypatch.setattr(apt, "_send_submit_guard_alert", lambda *args, **kwargs: None)
+    broker = _TwoStageBroker(second_spread=0.02)
+    row = _planned_order("MU", "buy", quantity=10)
+
+    oid = apt._submit_two_stage_limit(broker, row)
+
+    assert oid == "oid-1"
+    assert len(broker.orders) == 1
+    assert row["execution_stage"] == "stage2_blocked"
 
 
 def test_broker_truth_gate_blocks_buys_on_fail_and_keeps_sells(monkeypatch):
@@ -1159,6 +1325,29 @@ def test_apply_spread_guard_blocks_missing_quote_when_required(monkeypatch):
     assert remaining == []
     assert skipped == [order]
     assert ids == ["SKIPPED: quote_unavailable"]
+
+
+def test_apply_spread_guard_blocks_stale_timestamped_quote(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "EXECUTION_QUOTE_MAX_AGE_SECONDS", 5)
+    monkeypatch.setattr(apt, "_send_deduped_submit_guard_alert", lambda *args, **kwargs: True)
+    broker = _QuoteBroker({
+        "MU": {
+            "bid_price": 99.9,
+            "ask_price": 100.1,
+            "quote_mid_price": 100.0,
+            "spread_pct": 0.002,
+            "quote_timestamp": "2020-01-01T00:00:00Z",
+        }
+    })
+    order = _planned_order("MU", "buy")
+
+    remaining, skipped, ids = apt._apply_spread_guard(broker, [order])
+
+    assert remaining == []
+    assert skipped == [order]
+    assert ids[0].startswith("SKIPPED: quote_stale")
 
 
 def test_spread_guard_alert_is_deduped(tmp_path, monkeypatch):

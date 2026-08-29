@@ -99,9 +99,10 @@ def start_epoch(*, now: datetime | None = None) -> dict:
             "maximum_duplicate_orders": 0,
             "maximum_unexplained_orders": 0,
             "maximum_target_weight_gap": 0.02,
-            "minimum_fill_rate": 0.80,
-            "maximum_average_slippage_bps": 10.0,
-            "maximum_bad_slippage_rate": 0.60,
+            "minimum_fill_rate": 0.95,
+            "maximum_average_slippage_bps": 5.0,
+            "bad_slippage_threshold_bps": 2.0,
+            "maximum_bad_slippage_rate": 0.40,
         },
         "real_capital_approved": False,
     }
@@ -316,14 +317,30 @@ def evaluate_epoch(epoch: dict) -> dict:
     filled_log_rows = statuses.eq("filled")
     fill_rate = float(filled_log_rows.sum() / accepted_log_rows.sum()) if int(accepted_log_rows.sum()) else None
 
-    # PLAIN ENGLISH: the execution scorecard owns denominator policy. Reusing
-    # its canonical rate prevents this epoch from reporting 14/25 while the
-    # scorecard reports 14/19 for the same fills.
+    # PLAIN ENGLISH: the scorecard decides whether enough observations exist,
+    # while the epoch computes its own rates from post-start rebalance fills.
+    # This keeps old fills and protective stops out of the August experiment.
     execution_scorecard = _read_json(Path(SIGNAL_DIR) / "alpaca_execution_scorecard.json")
-    execution_summary = execution_scorecard.get("summary", {}) or {}
-    avg_slippage = execution_summary.get("avg_slippage_bps")
-    bad_rate = execution_summary.get("bad_slippage_rate")
     execution_decision_eligible = bool(execution_scorecard.get("decision_eligible", False))
+    slippage = _read_json(Path(SIGNAL_DIR) / "alpaca_slippage_reversal_report.json")
+    # PLAIN ENGLISH: the operational report keeps older fills for context.
+    # A clean epoch must ignore those rows and must not mix protective stops
+    # with normal rebalance execution.
+    epoch_slippage_values: list[float] = []
+    for row in slippage.get("orders", []) or []:
+        filled_at = pd.to_datetime((row or {}).get("filled_at"), errors="coerce", utc=True)
+        order_type = str((row or {}).get("order_type", "")).lower()
+        value = pd.to_numeric((row or {}).get("slippage_bps"), errors="coerce")
+        if pd.isna(filled_at) or filled_at < start:
+            continue
+        if order_type in {"trailing_stop", "stop", "stop_limit"} or pd.isna(value):
+            continue
+        epoch_slippage_values.append(float(value))
+    avg_slippage = float(pd.Series(epoch_slippage_values).mean()) if epoch_slippage_values else None
+    bad_slippage_threshold = float((epoch.get("requirements", {}) or {}).get("bad_slippage_threshold_bps", 2.0))
+    bad_count = int(sum(value > bad_slippage_threshold for value in epoch_slippage_values))
+    analyzed = len(epoch_slippage_values)
+    bad_rate = float(bad_count / analyzed) if analyzed else None
 
     broker_truth = _read_json(Path(SIGNAL_DIR) / "broker_truth.json")
     truth_summary = broker_truth.get("summary", {}) or {}
