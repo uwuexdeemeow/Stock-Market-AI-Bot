@@ -1,5 +1,10 @@
 # data_manifest.py
 
+Each manifest records NYSE calendar/timezone details, duplicate calendar days,
+adjusted-price columns, and possible corporate-action dates caused by a 20% or
+larger move. Candidates are review evidence only: the checker never silently
+rewrites a price or changes the active signal.
+
 ## What This Script Does
 
 This helper records where each ticker parquet came from. The sidecar manifest

@@ -4,6 +4,42 @@ from datetime import datetime, timezone
 import paper_health
 
 
+def test_canonical_readiness_collects_formal_epoch_without_changing_strategy(tmp_path, monkeypatch):
+    execution = tmp_path / "execution.json"
+    epoch = tmp_path / "epoch.json"
+    heartbeat = tmp_path / "heartbeat.json"
+    execution.write_text('{"status":"collecting"}', encoding="utf-8")
+    epoch.write_text('{"status":"collecting","paper_version_lock_valid":true}', encoding="utf-8")
+    heartbeat.write_text('{"all_ok":true}', encoding="utf-8")
+    monkeypatch.setattr(paper_health, "EXECUTION_SCORECARD", execution)
+    monkeypatch.setattr(paper_health, "VALIDATION_EPOCH_STATUS", epoch)
+    monkeypatch.setattr(paper_health, "MONITOR_HEARTBEAT", heartbeat)
+    monkeypatch.setattr(paper_health, "BROKER_TRUTH", tmp_path / "missing.json")
+    monkeypatch.setattr(paper_health, "OPERATIONAL_INCIDENT_LEDGER", tmp_path / "missing-incidents.csv")
+    result = paper_health._canonical_readiness({
+        "strategy_ready": True,
+        "freshness_ok": True,
+        "account_alignment": {"status": "pass", "alignment_incidents_open": 0},
+    }, signal_as_of="2026-08-30T00:00:00Z")
+    assert result["status"] == "collecting"
+    assert "formal_validation_epoch_collecting" in result["collecting_reasons"]
+
+
+def test_canonical_readiness_fails_closed_on_missing_alignment_evidence(tmp_path, monkeypatch):
+    monkeypatch.setattr(paper_health, "EXECUTION_SCORECARD", tmp_path / "missing-execution.json")
+    monkeypatch.setattr(paper_health, "VALIDATION_EPOCH_STATUS", tmp_path / "missing-epoch.json")
+    monkeypatch.setattr(paper_health, "MONITOR_HEARTBEAT", tmp_path / "missing-heartbeat.json")
+    monkeypatch.setattr(paper_health, "BROKER_TRUTH", tmp_path / "missing-truth.json")
+    monkeypatch.setattr(paper_health, "OPERATIONAL_INCIDENT_LEDGER", tmp_path / "missing-incidents.csv")
+    result = paper_health._canonical_readiness({
+        "strategy_ready": True,
+        "freshness_ok": True,
+        "account_alignment": {"status": "collecting", "reason": "live_positions_unavailable"},
+    }, signal_as_of="")
+    assert result["status"] == "fail"
+    assert result["blockers"][0].startswith("alpaca_alignment_evidence_unavailable")
+
+
 def test_readiness_flags_require_medium_risk_review():
     flags = paper_health._readiness_flags(
         {
@@ -65,6 +101,52 @@ def test_account_alignment_rejects_broker_report_for_older_signal():
     assert alignment["status"] == "collecting"
     assert alignment["max_weight_gap"] is None
     assert alignment["reason"] == "broker_truth_does_not_match_current_signal"
+
+
+def test_account_alignment_prefers_canonical_broker_verdict():
+    alignment = paper_health._account_alignment(
+        {
+            "summary": {
+                "target_comparison_enabled": True,
+                "alignment_recovery_plan": {
+                    "path": "signals/alignment_recovery_plan.csv",
+                    "row_count": 2,
+                    "review_required": True,
+                    "orders_submitted": False,
+                },
+                "alignment_incident_ledger": {
+                    "path": "signals/alignment_incident_ledger.csv",
+                    "total_incidents": 3,
+                    "open_incidents": 1,
+                    "current_incident_id": "abc123",
+                    "orders_submitted": False,
+                },
+                "alignment": {
+                    "status": "pending",
+                    "reason": "exposure_changing_orders_open",
+                    "comparable_tickers": 2,
+                    "maximum_target_weight_gap": 0.08,
+                    "current_gross_exposure": 0.92,
+                    "target_gross_exposure": 1.0,
+                    "gross_exposure_gap": 0.08,
+                    "active_rebalance_order_count": 1,
+                    "waited_seconds": 5,
+                },
+            },
+            "rows": [{"target_weight": 1.0, "broker_weight": 1.0}],
+        }
+    )
+
+    assert alignment["status"] == "pending"
+    assert alignment["passed"] is False
+    assert alignment["source"] == "broker_truth_canonical"
+    assert alignment["active_rebalance_order_count"] == 1
+    assert alignment["recovery_plan_rows"] == 2
+    assert alignment["recovery_review_required"] is True
+    assert alignment["recovery_orders_submitted"] is False
+    assert alignment["alignment_incidents_total"] == 3
+    assert alignment["alignment_incidents_open"] == 1
+    assert alignment["current_alignment_incident_id"] == "abc123"
 
 
 def test_readiness_exposes_collecting_account_alignment():

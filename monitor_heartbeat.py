@@ -27,12 +27,17 @@ KEY CONCEPTS:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from safe_io import atomic_write_json
+import pandas as pd
+
+from safe_io import atomic_write_csv, atomic_write_json
+from run_evidence import enrich_payload
 from settings import SIGNAL_DIR, LOG_DIR
 
 SIGNALS = Path(SIGNAL_DIR)
@@ -57,6 +62,68 @@ MONITORED_FILES: dict[str, Path] = {
 
 # How old (hours) before we consider a monitor "dead"
 DEFAULT_MAX_AGE_HOURS = 36
+OPERATIONAL_INCIDENT_LEDGER = SIGNALS / "operational_incident_ledger.csv"
+
+
+def _update_operational_incidents(problems: list[dict], *, now: datetime) -> dict:
+    """Open, refresh, and resolve deduplicated operational incidents."""
+    ledger_path = SIGNALS / OPERATIONAL_INCIDENT_LEDGER.name
+    columns = [
+        "incident_id", "incident_key", "severity", "status", "first_seen_at",
+        "latest_seen_at", "resolved_at", "occurrences", "latest_reason", "run_id",
+    ]
+    try:
+        ledger = pd.read_csv(ledger_path, dtype=object) if ledger_path.exists() else pd.DataFrame(columns=columns)
+    except Exception:
+        ledger = pd.DataFrame(columns=columns)
+    for column in columns:
+        if column not in ledger:
+            ledger[column] = ""
+    ledger = ledger[columns].astype(object)
+    observed_keys = {str(item["key"]) for item in problems}
+    opened: list[str] = []
+    resolved: list[str] = []
+    timestamp = now.isoformat(timespec="seconds")
+
+    for problem in problems:
+        key = str(problem["key"])
+        mask = ledger["incident_key"].astype(str).eq(key) & ledger["status"].astype(str).eq("open")
+        if mask.any():
+            index = ledger.index[mask][-1]
+            ledger.at[index, "latest_seen_at"] = timestamp
+            ledger.at[index, "latest_reason"] = str(problem["reason"])
+            ledger.at[index, "occurrences"] = int(float(ledger.at[index, "occurrences"] or 0)) + 1
+            ledger.at[index, "run_id"] = os.environ.get("STOCKBOT_RUN_ID", "")
+        else:
+            incident_id = hashlib.sha256(f"{key}|{timestamp}".encode("utf-8")).hexdigest()[:16]
+            ledger.loc[len(ledger)] = {
+                "incident_id": incident_id,
+                "incident_key": key,
+                "severity": str(problem.get("severity", "warning")),
+                "status": "open",
+                "first_seen_at": timestamp,
+                "latest_seen_at": timestamp,
+                "resolved_at": "",
+                "occurrences": 1,
+                "latest_reason": str(problem["reason"]),
+                "run_id": os.environ.get("STOCKBOT_RUN_ID", ""),
+            }
+            opened.append(incident_id)
+
+    open_mask = ledger["status"].astype(str).eq("open")
+    for index in ledger.index[open_mask]:
+        if str(ledger.at[index, "incident_key"]) not in observed_keys:
+            ledger.at[index, "status"] = "resolved"
+            ledger.at[index, "resolved_at"] = timestamp
+            resolved.append(str(ledger.at[index, "incident_id"]))
+
+    atomic_write_csv(ledger, ledger_path, index=False)
+    return {
+        "path": str(ledger_path),
+        "open_count": int(ledger["status"].astype(str).eq("open").sum()),
+        "new_incident_ids": opened,
+        "resolved_incident_ids": resolved,
+    }
 
 
 def check_monitors(*, max_age_hours: float = DEFAULT_MAX_AGE_HOURS) -> dict:
@@ -114,6 +181,42 @@ def check_monitors(*, max_age_hours: float = DEFAULT_MAX_AGE_HOURS) -> dict:
 
         results[name] = entry
 
+    operational_problems = [
+        {"key": f"monitor:{name}", "severity": "critical", "reason": f"{name} is stale"}
+        for name in stale
+    ] + [
+        {"key": f"monitor:{name}", "severity": "critical", "reason": f"{name} output is missing"}
+        for name in missing
+    ]
+    # Canonical readiness can contribute alignment, data, version-lock, and
+    # execution failures to the same durable operational ledger.
+    health_path = SIGNALS / "alpaca_paper_health.json"
+    try:
+        health = json.loads(health_path.read_text(encoding="utf-8"))
+    except Exception:
+        health = {}
+    readiness = health.get("readiness", {}) or {}
+    expected_run = os.environ.get("STOCKBOT_RUN_ID", "").strip()
+    evidence_runs = readiness.get("evidence_run_ids", {}) or {}
+    readiness_is_current = bool(
+        not expected_run
+        or (
+            str(health.get("run_id", "")) == expected_run
+            and all(not value or str(value) == expected_run for value in evidence_runs.values())
+        )
+    )
+    if readiness_is_current:
+        for blocker in readiness.get("blockers", []) or []:
+            operational_problems.append({
+                "key": f"readiness:{str(blocker).split(':', 1)[0]}",
+                "severity": "critical",
+                "reason": str(blocker),
+            })
+
+    incident_summary = _update_operational_incidents(
+        operational_problems,
+        now=datetime.now(timezone.utc),
+    )
     summary = {
         "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "max_age_hours": max_age_hours,
@@ -121,7 +224,9 @@ def check_monitors(*, max_age_hours: float = DEFAULT_MAX_AGE_HOURS) -> dict:
         "stale_monitors": stale,
         "missing_monitors": missing,
         "monitors": results,
+        "operational_incidents": incident_summary,
     }
+    summary = enrich_payload(summary)
 
     # Save heartbeat results
     SIGNALS.mkdir(parents=True, exist_ok=True)
@@ -129,7 +234,7 @@ def check_monitors(*, max_age_hours: float = DEFAULT_MAX_AGE_HOURS) -> dict:
 
     # Alert if anything is stale or missing
     problems = stale + missing
-    if problems:
+    if problems and incident_summary.get("new_incident_ids"):
         try:
             from notifications import send_alert
             lines = []
@@ -142,6 +247,16 @@ def check_monitors(*, max_age_hours: float = DEFAULT_MAX_AGE_HOURS) -> dict:
                 f"Monitor heartbeat FAILED:\n" + "\n".join(lines),
                 title="Monitor Heartbeat",
                 priority="warning",
+            )
+        except Exception:
+            pass
+    if incident_summary.get("resolved_incident_ids"):
+        try:
+            from notifications import send_alert
+            send_alert(
+                f"Recovered incidents: {', '.join(incident_summary['resolved_incident_ids'])}",
+                title="Monitor Recovery",
+                priority="info",
             )
         except Exception:
             pass

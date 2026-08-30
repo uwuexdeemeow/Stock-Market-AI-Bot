@@ -12,6 +12,7 @@ import pandas as pd
 import alpaca_paper_gauntlet
 from factor_data_health import trading_day_age
 from safe_io import atomic_write_json
+from run_evidence import enrich_payload
 from signal_freshness import latest_completed_us_trading_day, validate_signal_freshness
 from settings import DATA_DIR, LOG_DIR, SECTOR_MAP, SIGNAL_DIR, WATCHLIST
 
@@ -29,6 +30,10 @@ CORE_SIGNAL = SIGNALS / "core_satellite_alpha_signal.csv"
 CORE_ORDER_PLAN = SIGNALS / "core_satellite_alpha_orders.csv"
 SLIPPAGE_REPORT = SIGNALS / "alpaca_slippage_reversal_report.json"
 BROKER_TRUTH = SIGNALS / "broker_truth.json"
+EXECUTION_SCORECARD = SIGNALS / "alpaca_execution_scorecard.json"
+VALIDATION_EPOCH_STATUS = SIGNALS / "paper_validation_epoch_status.json"
+MONITOR_HEARTBEAT = SIGNALS / "monitor_heartbeat.json"
+OPERATIONAL_INCIDENT_LEDGER = SIGNALS / "operational_incident_ledger.csv"
 
 
 MAX_SLIPPAGE_WARN_BPS = float(__import__("os").environ.get("PAPER_HEALTH_MAX_AVG_SLIPPAGE_BPS", "10"))
@@ -186,6 +191,43 @@ def _account_alignment(broker_truth: dict, signal: pd.DataFrame | None = None) -
             "gross_exposure_gap": None,
             "current_signal_as_of": current_signal_as_of,
             "broker_truth_signal_as_of": report_signal_as_of,
+        }
+
+    # PLAIN ENGLISH: new broker-truth reports already make the alignment
+    # decision from one live Alpaca snapshot. Reuse that verdict so the health
+    # report cannot accidentally apply different rules. Older reports still
+    # use the row calculation below.
+    canonical = summary.get("alignment")
+    if isinstance(canonical, dict) and canonical.get("status") in {
+        "pass",
+        "pending",
+        "fail",
+        "collecting",
+    }:
+        recovery = summary.get("alignment_recovery_plan", {}) or {}
+        incidents = summary.get("alignment_incident_ledger", {}) or {}
+        return {
+            "status": canonical["status"],
+            "passed": canonical["status"] == "pass",
+            "reason": canonical.get("reason", ""),
+            "comparable_tickers": int(canonical.get("comparable_tickers", 0) or 0),
+            "max_weight_gap": canonical.get("maximum_target_weight_gap"),
+            "current_gross_exposure": canonical.get("current_gross_exposure"),
+            "target_gross_exposure": canonical.get("target_gross_exposure"),
+            "gross_exposure_gap": canonical.get("gross_exposure_gap"),
+            "active_rebalance_order_count": int(
+                canonical.get("active_rebalance_order_count", 0) or 0
+            ),
+            "waited_seconds": float(canonical.get("waited_seconds", 0.0) or 0.0),
+            "source": "broker_truth_canonical",
+            "recovery_plan_path": recovery.get("path", ""),
+            "recovery_plan_rows": int(recovery.get("row_count", 0) or 0),
+            "recovery_review_required": bool(recovery.get("review_required", False)),
+            "recovery_orders_submitted": bool(recovery.get("orders_submitted", False)),
+            "incident_ledger_path": incidents.get("path", ""),
+            "alignment_incidents_total": int(incidents.get("total_incidents", 0) or 0),
+            "alignment_incidents_open": int(incidents.get("open_incidents", 0) or 0),
+            "current_alignment_incident_id": incidents.get("current_incident_id", ""),
         }
 
     pairs: list[tuple[float, float]] = []
@@ -912,6 +954,135 @@ def _go_live_scorecard(health: dict) -> dict:
     }
 
 
+def _canonical_readiness(health: dict, *, signal_as_of: str) -> dict:
+    """Create the single readiness verdict used by reports and notifications.
+
+    PLAIN ENGLISH: Other files provide evidence. This function gives that
+    evidence one consistent meaning. A failed safety check is red; a safe run
+    still gathering its 30-day sample is collecting; only complete evidence is
+    green. Nothing here changes a target or sends an order.
+    """
+    execution = _read_json(EXECUTION_SCORECARD)
+    epoch = _read_json(VALIDATION_EPOCH_STATUS)
+    heartbeat = _read_json(MONITOR_HEARTBEAT)
+    alignment = health.get("account_alignment", {}) or {}
+    failures: list[str] = []
+    collecting: list[str] = []
+    warnings: list[str] = []
+    actions: list[str] = []
+
+    if not health.get("strategy_ready"):
+        failures.append("strategy_submission_gates_not_ready")
+        actions.append("Review the signal gate reasons; do not override submission gates.")
+    if not health.get("freshness_ok"):
+        failures.append("signal_or_factor_data_not_fresh")
+        actions.append("Refresh and validate market data before the next trading run.")
+
+    alignment_status = str(alignment.get("status", "collecting"))
+    if alignment_status == "fail":
+        failures.append(f"alpaca_alignment_failed:{alignment.get('reason', 'unknown')}")
+        actions.append("Review the alignment recovery CSV; never submit it automatically.")
+    elif alignment_status == "pending":
+        failures.append(f"alpaca_alignment_pending:{alignment.get('reason', 'open_orders')}")
+        actions.append("Wait for or manually review the outstanding Alpaca rebalance orders.")
+    elif alignment_status != "pass":
+        failures.append(f"alpaca_alignment_evidence_unavailable:{alignment.get('reason', 'unknown')}")
+        actions.append("Run live broker reconciliation and confirm account equity and positions are available.")
+
+    open_incidents = int(alignment.get("alignment_incidents_open", 0) or 0)
+    if open_incidents:
+        failures.append(f"open_critical_incidents:{open_incidents}")
+        actions.append("Resolve the open incident and record a confirmed recovery observation.")
+    operational_ledger = _read_csv(OPERATIONAL_INCIDENT_LEDGER)
+    open_operational = 0
+    if not operational_ledger.empty and {"status", "severity"}.issubset(operational_ledger.columns):
+        open_operational = int(
+            (
+                operational_ledger["status"].astype(str).str.lower().eq("open")
+                & operational_ledger["severity"].astype(str).str.lower().eq("critical")
+            ).sum()
+        )
+    if open_operational:
+        failures.append(f"open_operational_incidents:{open_operational}")
+        actions.append("Resolve the critical operational incident before accepting the epoch.")
+
+    execution_status = str(execution.get("status", "missing"))
+    if execution_status == "fail":
+        failures.append("execution_scorecard_failed")
+        actions.append("Review execution diagnostics; keep live parameters frozen during this epoch.")
+    elif execution_status in {"collecting", "missing", ""}:
+        collecting.append("execution_evidence_collecting")
+
+    epoch_status = str(epoch.get("status", "missing"))
+    if epoch_status != "operational_pass":
+        collecting.append("formal_validation_epoch_collecting")
+    if epoch and not bool(epoch.get("paper_version_lock_valid", False)):
+        failures.append("paper_version_lock_invalid")
+        actions.append("Freeze the final committed safety release, then start a clean validation epoch.")
+
+    if not heartbeat:
+        collecting.append("workflow_continuity_not_yet_measured")
+    elif not bool(heartbeat.get("all_ok", False)):
+        failures.append("workflow_or_monitor_continuity_failed")
+        actions.append("Inspect stale or missing workflow heartbeat outputs.")
+
+    if health.get("slippage_warning"):
+        warnings.append("average_slippage_above_daily_warning_threshold")
+    if health.get("backtest_vs_live_drift", {}).get("drift_detected"):
+        warnings.append("backtest_vs_live_drift_detected")
+
+    # Reports from another run remain visible for diagnosis but cannot turn a
+    # mixed bundle green.
+    expected_run = __import__("os").environ.get("STOCKBOT_RUN_ID", "").strip()
+    evidence_runs = {
+        "broker_truth": str((_read_json(BROKER_TRUTH).get("run_context", {}) or {}).get("run_id", "")),
+        "execution_scorecard": str((execution.get("run_context", {}) or {}).get("run_id", "")),
+        "validation_epoch": str((epoch.get("run_context", {}) or {}).get("run_id", "")),
+        "monitor_heartbeat": str((heartbeat.get("run_context", {}) or {}).get("run_id", "")),
+    }
+    if expected_run:
+        mismatched = [name for name, value in evidence_runs.items() if value and value != expected_run]
+        if mismatched:
+            collecting.append("mixed_run_evidence:" + ",".join(mismatched))
+
+    overall = "fail" if failures else "collecting" if collecting else "pass"
+    return {
+        "status": overall,
+        "reason": failures[0] if failures else collecting[0] if collecting else "all_checks_passed",
+        "blockers": failures,
+        "collecting_reasons": collecting,
+        "warnings": warnings,
+        "recommended_actions": list(dict.fromkeys(actions)),
+        "signal_as_of": signal_as_of,
+        "components": {
+            "alignment": alignment,
+            "execution": {
+                "status": execution_status,
+                "score": execution.get("score"),
+                "sample_gate": execution.get("sample_gate", {}),
+                "decision_eligible": execution.get("decision_eligible", False),
+            },
+            "validation_epoch": {
+                "status": epoch_status,
+                "checks": epoch.get("checks", {}),
+                "trading_days": epoch.get("trading_days"),
+                "paper_version_lock_valid": epoch.get("paper_version_lock_valid"),
+            },
+            "workflow_continuity": {
+                "status": "pass" if heartbeat.get("all_ok") else "collecting" if not heartbeat else "fail",
+                "stale": heartbeat.get("stale_monitors", []),
+                "missing": heartbeat.get("missing_monitors", []),
+            },
+            "incidents": {
+                "open_alignment": open_incidents,
+                "open_operational_critical": open_operational,
+            },
+        },
+        "evidence_run_ids": evidence_runs,
+        "real_capital_approved": False,
+    }
+
+
 def _backtest_vs_live_drift(equity: pd.DataFrame) -> dict:
     """Compare live paper-trading performance against backtested expectations.
 
@@ -1145,13 +1316,26 @@ def build_health() -> dict:
     }
     health["readiness_flags"] = _readiness_flags(health)
     health["go_live_scorecard"] = _go_live_scorecard(health)
-    return health
+    signal_as_of = _signal_as_of(signal)
+    health["readiness"] = _canonical_readiness(health, signal_as_of=signal_as_of)
+    health["status"] = health["readiness"]["status"]
+    health["blockers"] = health["readiness"]["blockers"]
+    health["recommended_actions"] = health["readiness"]["recommended_actions"]
+    return enrich_payload(health, signal_as_of=signal_as_of)
 
 
 def print_health(health: dict) -> None:
     print("Paper Health")
     print("-" * 72)
     print(f"Strategy:              {health.get('strategy')}")
+    readiness = health.get("readiness", {}) or {}
+    print(
+        f"Canonical readiness:   {str(readiness.get('status', 'collecting')).upper()} "
+        f"reason={readiness.get('reason', '')}"
+    )
+    print(f"Run ID:                {health.get('run_id', '')}")
+    if readiness.get("blockers"):
+        print(f"Safety blockers:       {', '.join(readiness.get('blockers') or [])}")
     print(
         "Submit gates:          "
         f"paper={health.get('paper_ready')} "
@@ -1260,9 +1444,14 @@ def print_health(health: dict) -> None:
     print(f"Reason:                {health.get('gauntlet_reason')}")
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(description="Summarize Alpaca paper-trading health.")
     parser.add_argument("--json", action="store_true", help="Print the health summary as JSON.")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit nonzero only when canonical readiness is fail; collecting remains safe.",
+    )
     args = parser.parse_args()
 
     health = build_health()
@@ -1277,7 +1466,8 @@ def main() -> None:
         print_health(health)
         print(f"\nSaved -> {PAPER_HEALTH}")
         print(f"Snapshot -> {dated}")
+    return 1 if args.strict and health.get("status") == "fail" else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

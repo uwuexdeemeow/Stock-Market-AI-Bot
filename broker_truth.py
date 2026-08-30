@@ -14,9 +14,11 @@ How to run:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -24,6 +26,7 @@ from typing import Any, Callable
 import pandas as pd
 
 from safe_io import atomic_write_csv, atomic_write_json, configure_console_output
+from run_evidence import current_run_id, enrich_payload, update_rebalance_state
 from settings import LOG_DIR, SIGNAL_DIR
 
 configure_console_output()
@@ -38,11 +41,16 @@ STATUS_FILE = SIGNALS / "alpaca_daily_status.json"
 
 BROKER_TRUTH_CSV = SIGNALS / "broker_truth.csv"
 BROKER_TRUTH_JSON = SIGNALS / "broker_truth.json"
+ALIGNMENT_RECOVERY_PLAN_CSV = SIGNALS / "alignment_recovery_plan.csv"
+ALIGNMENT_INCIDENT_LEDGER_CSV = SIGNALS / "alignment_incident_ledger.csv"
 
 # PLAIN ENGLISH: these tolerances decide how big a mismatch must be before the
 # script complains.  A few cents or a fractional share can happen from rounding.
 QTY_TOLERANCE = float(os.environ.get("BROKER_TRUTH_QTY_TOLERANCE", "0.001"))
 WEIGHT_TOLERANCE = float(os.environ.get("BROKER_TRUTH_WEIGHT_TOLERANCE", "0.02"))
+GROSS_EXPOSURE_TOLERANCE = float(os.environ.get("BROKER_TRUTH_GROSS_EXPOSURE_TOLERANCE", "0.05"))
+ALIGNMENT_WAIT_SECONDS = float(os.environ.get("BROKER_TRUTH_ALIGNMENT_WAIT_SECONDS", "90"))
+ALIGNMENT_POLL_SECONDS = float(os.environ.get("BROKER_TRUTH_ALIGNMENT_POLL_SECONDS", "5"))
 REQUIRE_LIVE_OPEN_ORDERS = os.environ.get("BROKER_TRUTH_REQUIRE_LIVE_ORDERS", "0").strip().lower() in {
     "true",
     "1",
@@ -93,11 +101,59 @@ TRUTH_COLUMNS = [
     "quantity_gap",
     "open_buy_qty",
     "open_sell_qty",
+    "open_rebalance_sell_qty",
+    "open_rebalance_order_count",
     "trailing_stop_qty",
     "trailing_stop_count",
     "stop_required",
     "issue_severity",
     "issues",
+]
+
+RECOVERY_COLUMNS = [
+    "run_id",
+    "generated_at",
+    "signal_as_of",
+    "ticker",
+    "action",
+    "current_quantity",
+    "planned_target_quantity",
+    "suggested_quantity",
+    "quantity_basis",
+    "target_weight",
+    "broker_weight",
+    "weight_gap",
+    "target_value",
+    "broker_value",
+    "corrective_value",
+    "reference_price",
+    "review_status",
+    "reason",
+]
+
+INCIDENT_COLUMNS = [
+    "incident_id",
+    "run_id",
+    "status",
+    "opened_at",
+    "updated_at",
+    "resolved_at",
+    "duration_seconds",
+    "signal_as_of",
+    "initial_reason",
+    "latest_reason",
+    "initial_max_weight_gap",
+    "maximum_observed_weight_gap",
+    "latest_max_weight_gap",
+    "initial_gross_exposure_gap",
+    "maximum_observed_gross_gap",
+    "latest_gross_exposure_gap",
+    "latest_alignment_status",
+    "active_rebalance_order_count",
+    "recovery_plan_rows",
+    "human_action_required",
+    "orders_submitted",
+    "resolution",
 ]
 
 
@@ -579,6 +635,8 @@ def summarize_open_orders(open_orders: list[dict[str, Any]]) -> dict[str, dict[s
             {
                 "open_buy_qty": 0.0,
                 "open_sell_qty": 0.0,
+                "open_rebalance_sell_qty": 0.0,
+                "open_rebalance_order_count": 0,
                 "trailing_stop_qty": 0.0,
                 "trailing_stop_count": 0,
                 "open_order_ids": [],
@@ -588,6 +646,16 @@ def summarize_open_orders(open_orders: list[dict[str, Any]]) -> dict[str, dict[s
             entry["open_buy_qty"] += qty
         if side == "sell":
             entry["open_sell_qty"] += qty
+        # PLAIN ENGLISH: stop orders protect a position; they are not today's
+        # rebalance waiting to complete. Keep the old all-sells total for
+        # compatibility, but count only ordinary sells as alignment-changing.
+        if side == "sell" and order_type not in {"stop", "stop_limit", "trailing_stop"}:
+            entry["open_rebalance_sell_qty"] += qty
+        if qty > QTY_TOLERANCE and (
+            side == "buy"
+            or (side == "sell" and order_type not in {"stop", "stop_limit", "trailing_stop"})
+        ):
+            entry["open_rebalance_order_count"] += 1
         if side == "sell" and order_type == "trailing_stop":
             entry["trailing_stop_qty"] += qty
             entry["trailing_stop_count"] += 1
@@ -635,6 +703,79 @@ def _status_from_rows(
     return "pass"
 
 
+def _alignment_result(
+    *,
+    rows: list[dict[str, Any]],
+    target_comparison_enabled: bool,
+    status_meta: dict[str, Any],
+    live_positions_meta: dict[str, Any],
+    open_orders_meta: dict[str, Any],
+    waited_seconds: float = 0.0,
+    pending_timed_out: bool = False,
+) -> dict[str, Any]:
+    """Return the canonical target-versus-Alpaca alignment verdict.
+
+    PLAIN ENGLISH: normal reports may say "collecting" when live proof is
+    missing. The enforcing command treats every result except "pass" as a
+    failure, but this function never sends orders or changes positions.
+    """
+    comparable = len(rows) if target_comparison_enabled else 0
+    target_gross = sum(abs(_safe_float(row.get("target_weight"))) for row in rows)
+    broker_gross = sum(abs(_safe_float(row.get("broker_weight"))) for row in rows)
+    max_gap = (
+        max(
+            (abs(_safe_float(row.get("target_weight")) - _safe_float(row.get("broker_weight"))) for row in rows),
+            default=0.0,
+        )
+        if target_comparison_enabled
+        else None
+    )
+    gross_gap = abs(broker_gross - target_gross) if target_comparison_enabled else None
+    active_orders = sum(int(_safe_float(row.get("open_rebalance_order_count"))) for row in rows)
+
+    status = "collecting"
+    reason = "target_comparison_unavailable"
+    if not target_comparison_enabled:
+        pass
+    elif not live_positions_meta.get("available") or status_meta.get("source") != "alpaca_api":
+        reason = f"live_positions_unavailable:{live_positions_meta.get('error', '')}"
+    elif _safe_float(status_meta.get("equity")) <= 0:
+        reason = "live_account_equity_unavailable"
+    elif not open_orders_meta.get("available"):
+        reason = f"live_open_orders_unavailable:{open_orders_meta.get('error', '')}"
+    elif active_orders > 0 and pending_timed_out:
+        status = "fail"
+        reason = "alignment_pending_timeout"
+    elif active_orders > 0:
+        status = "pending"
+        reason = "exposure_changing_orders_open"
+    else:
+        reasons: list[str] = []
+        if max_gap is not None and max_gap > WEIGHT_TOLERANCE:
+            reasons.append(f"max_weight_gap_{max_gap:.6f}_above_{WEIGHT_TOLERANCE:.6f}")
+        if gross_gap is not None and gross_gap > GROSS_EXPOSURE_TOLERANCE:
+            reasons.append(
+                f"gross_exposure_gap_{gross_gap:.6f}_above_{GROSS_EXPOSURE_TOLERANCE:.6f}"
+            )
+        status = "fail" if reasons else "pass"
+        reason = ";".join(reasons) if reasons else "ok"
+
+    return {
+        "status": status,
+        "passed": status == "pass",
+        "reason": reason,
+        "comparable_tickers": comparable,
+        "maximum_target_weight_gap": None if max_gap is None else round(max_gap, 6),
+        "current_gross_exposure": None if not target_comparison_enabled else round(broker_gross, 6),
+        "target_gross_exposure": None if not target_comparison_enabled else round(target_gross, 6),
+        "gross_exposure_gap": None if gross_gap is None else round(gross_gap, 6),
+        "weight_tolerance": WEIGHT_TOLERANCE,
+        "gross_exposure_tolerance": GROSS_EXPOSURE_TOLERANCE,
+        "active_rebalance_order_count": active_orders,
+        "waited_seconds": round(max(0.0, float(waited_seconds)), 3),
+    }
+
+
 def build_broker_truth(
     *,
     signal_path: Path = SIGNAL_FILE,
@@ -649,6 +790,8 @@ def build_broker_truth(
     collect_live_state_fn: Callable[[], tuple[dict[str, dict[str, float]], dict[str, Any], list[dict[str, Any]], dict[str, Any]]] | None = None,
     include_live_open_orders: bool = True,
     now: datetime | None = None,
+    alignment_waited_seconds: float = 0.0,
+    alignment_pending_timed_out: bool = False,
 ) -> dict[str, Any]:
     """Build the full reconciliation payload without writing files."""
     clock = now or _now_utc()
@@ -675,11 +818,11 @@ def build_broker_truth(
             open_orders_meta = {"available": False, "count": 0, "error": "offline_mode", "source": "offline"}
     open_orders_meta = open_orders_meta or {"available": False, "count": len(open_orders), "error": "", "source": "injected"}
 
-    if live_positions:
+    if live_positions_meta.get("available"):
         # PLAIN ENGLISH: when the API read succeeds, the live broker account
-        # beats the saved JSON snapshot.  The saved file remains a fallback for
-        # offline laptop checks.
-        positions = live_positions
+        # beats the saved JSON snapshot, even when Alpaca correctly reports an
+        # empty all-cash account. The saved file remains an offline fallback.
+        positions = live_positions or {}
         status_meta = {
             **status_meta,
             **live_positions_meta,
@@ -790,8 +933,10 @@ def build_broker_truth(
         open_qty = _safe_float(log_row.get("open_quantity"))
         open_buy_qty = _safe_float(open_row.get("open_buy_qty"))
         open_sell_qty = _safe_float(open_row.get("open_sell_qty"))
+        open_rebalance_sell_qty = _safe_float(open_row.get("open_rebalance_sell_qty"))
         trailing_stop_qty = _safe_float(open_row.get("trailing_stop_qty"))
         trailing_stop_count = int(_safe_float(open_row.get("trailing_stop_count")))
+        open_rebalance_order_count = int(_safe_float(open_row.get("open_rebalance_order_count")))
         stop_required = _stop_required(symbol, broker_qty, target_weight)
 
         if plan_comparison_enabled and planned_qty > QTY_TOLERANCE and submitted_qty <= QTY_TOLERANCE and log_meta.get("exists"):
@@ -804,11 +949,11 @@ def build_broker_truth(
             issues.append(("warning", "latest_logged_order_still_open"))
         if expected_qty is not None and abs(float(quantity_gap)) > max(QTY_TOLERANCE, 0.01):
             issues.append(("warning", "broker_qty_differs_from_latest_log_expected_qty"))
-        if target_comparison_enabled and target_weight <= WEIGHT_TOLERANCE and broker_qty > QTY_TOLERANCE and open_sell_qty <= QTY_TOLERANCE:
+        if target_comparison_enabled and target_weight <= WEIGHT_TOLERANCE and broker_qty > QTY_TOLERANCE and open_rebalance_sell_qty <= QTY_TOLERANCE:
             issues.append(("warning", "extra_broker_position_not_in_target"))
         if target_comparison_enabled and target_weight > WEIGHT_TOLERANCE and broker_qty <= QTY_TOLERANCE and open_buy_qty <= QTY_TOLERANCE:
             issues.append(("warning", "target_position_missing_at_broker"))
-        if target_comparison_enabled and abs_weight_gap > WEIGHT_TOLERANCE and open_buy_qty + open_sell_qty <= QTY_TOLERANCE:
+        if target_comparison_enabled and abs_weight_gap > WEIGHT_TOLERANCE and open_buy_qty + open_rebalance_sell_qty <= QTY_TOLERANCE:
             issues.append(("warning", f"broker_weight_gap_{abs_weight_gap:.4f}"))
 
         if open_orders_meta.get("available") and stop_required:
@@ -845,6 +990,8 @@ def build_broker_truth(
             "quantity_gap": quantity_gap,
             "open_buy_qty": open_buy_qty,
             "open_sell_qty": open_sell_qty,
+            "open_rebalance_sell_qty": open_rebalance_sell_qty,
+            "open_rebalance_order_count": open_rebalance_order_count,
             "trailing_stop_qty": trailing_stop_qty,
             "trailing_stop_count": trailing_stop_count,
             "stop_required": stop_required,
@@ -868,6 +1015,15 @@ def build_broker_truth(
         max((abs(float(row["target_weight"]) - float(row["broker_weight"])) for row in rows), default=0.0)
         if target_comparison_enabled
         else None
+    )
+    alignment = _alignment_result(
+        rows=rows,
+        target_comparison_enabled=target_comparison_enabled,
+        status_meta=status_meta,
+        live_positions_meta=live_positions_meta,
+        open_orders_meta=open_orders_meta,
+        waited_seconds=alignment_waited_seconds,
+        pending_timed_out=alignment_pending_timed_out,
     )
 
     payload = {
@@ -898,6 +1054,7 @@ def build_broker_truth(
             "maximum_target_weight_gap": (
                 None if maximum_target_weight_gap is None else round(maximum_target_weight_gap, 6)
             ),
+            "alignment": alignment,
         },
         "inputs": {
             "signal": signal_meta,
@@ -908,6 +1065,7 @@ def build_broker_truth(
             "open_orders": open_orders_meta,
             "qty_tolerance": QTY_TOLERANCE,
             "weight_tolerance": WEIGHT_TOLERANCE,
+            "gross_exposure_tolerance": GROSS_EXPOSURE_TOLERANCE,
         },
         "global_issues": [
             {"severity": severity, "issue": message} for severity, message in global_issues
@@ -917,25 +1075,343 @@ def build_broker_truth(
     return payload
 
 
+def build_alignment_recovery_plan(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Build manual-review correction ideas for a settled alignment failure.
+
+    PLAIN ENGLISH: this is a calculator, not a trader. It writes what would
+    move each mismatched holding toward the target, but nothing here calls
+    Alpaca or submits an order. Missing prices stay blank instead of guessing.
+    """
+    summary = payload.get("summary", {}) or {}
+    alignment = summary.get("alignment", {}) or {}
+    if alignment.get("status") != "fail":
+        return []
+    if int(alignment.get("active_rebalance_order_count", 0) or 0) > 0:
+        # An open order may still fix the gap. Suggesting another order could
+        # duplicate it, so pending-timeout incidents receive no repair rows.
+        return []
+    reason = str(alignment.get("reason", "") or "")
+    if "weight_gap" not in reason and "gross_exposure_gap" not in reason:
+        return []
+
+    equity = _safe_float(summary.get("account_equity"))
+    if equity <= 0:
+        return []
+    signal_as_of = str(payload.get("inputs", {}).get("signal", {}).get("as_of", "") or "")
+    generated_at = str(payload.get("generated_at", "") or "")
+    run_id = str(payload.get("run_id") or current_run_id())
+    recovery_rows: list[dict[str, Any]] = []
+
+    for row in payload.get("rows", []) or []:
+        target_weight = _safe_float(row.get("target_weight"))
+        broker_weight = _safe_float(row.get("broker_weight"))
+        weight_gap = target_weight - broker_weight
+        if abs(weight_gap) <= 1e-9:
+            continue
+
+        ticker = _ticker(row.get("ticker"))
+        current_qty = max(0.0, _safe_float(row.get("broker_qty")))
+        broker_value = _safe_float(row.get("broker_value"))
+        target_value = target_weight * equity
+        corrective_value = target_value - broker_value
+        action = "buy" if corrective_value > 0 else "sell"
+
+        planned_target_qty = _float_or_none(row.get("planned_target_qty"))
+        planned_target_weight = _float_or_none(row.get("planned_target_weight"))
+        reference_price = broker_value / current_qty if current_qty > 0 and broker_value > 0 else None
+        suggested_qty: float | None = None
+        quantity_basis = "fresh_quote_required"
+
+        # The current order plan is the safest quantity source when it matches
+        # this exact target. Otherwise estimate only from the saved snapshot.
+        if (
+            planned_target_qty is not None
+            and planned_target_weight is not None
+            and abs(planned_target_weight - target_weight) <= 1e-6
+        ):
+            suggested_qty = abs(planned_target_qty - current_qty)
+            quantity_basis = "current_order_plan"
+            if reference_price is None and planned_target_qty > 0 and target_value > 0:
+                reference_price = target_value / planned_target_qty
+        elif reference_price is not None and reference_price > 0:
+            suggested_qty = abs(corrective_value) / reference_price
+            quantity_basis = "saved_broker_snapshot_estimate"
+
+        recovery_rows.append(
+            {
+                "run_id": run_id,
+                "generated_at": generated_at,
+                "signal_as_of": signal_as_of,
+                "ticker": ticker,
+                "action": action,
+                "current_quantity": round(current_qty, 6),
+                "planned_target_quantity": (
+                    "" if planned_target_qty is None else round(planned_target_qty, 6)
+                ),
+                "suggested_quantity": "" if suggested_qty is None else round(suggested_qty, 6),
+                "quantity_basis": quantity_basis,
+                "target_weight": round(target_weight, 6),
+                "broker_weight": round(broker_weight, 6),
+                "weight_gap": round(weight_gap, 6),
+                "target_value": round(target_value, 2),
+                "broker_value": round(broker_value, 2),
+                "corrective_value": round(corrective_value, 2),
+                "reference_price": "" if reference_price is None else round(reference_price, 6),
+                "review_status": "manual_review_required_not_submitted",
+                "reason": reason,
+            }
+        )
+    return recovery_rows
+
+
+def update_alignment_incident_ledger(
+    payload: dict[str, Any],
+    *,
+    ledger_path: Path,
+    recovery_plan_rows: int,
+) -> dict[str, Any]:
+    """Open, update, or resolve durable alignment incidents.
+
+    PLAIN ENGLISH: repeated polling updates one incident instead of adding
+    duplicate rows. A later passing live check closes open incidents and keeps
+    the full history. This ledger records events only; it never trades.
+    """
+    if ledger_path.exists() and ledger_path.stat().st_size > 0:
+        try:
+            ledger = pd.read_csv(ledger_path, dtype=object)
+        except Exception as exc:
+            raise RuntimeError(f"Alignment incident ledger is unreadable: {exc}") from exc
+        for column in INCIDENT_COLUMNS:
+            if column not in ledger.columns:
+                ledger[column] = ""
+        ledger = ledger[INCIDENT_COLUMNS].copy()
+    else:
+        ledger = pd.DataFrame(columns=INCIDENT_COLUMNS)
+    # Pandas may infer strict Arrow string columns from the first mostly-empty
+    # row. Object columns safely hold timestamps, numbers, booleans, and blanks.
+    ledger = ledger.astype(object)
+
+    summary = payload.get("summary", {}) or {}
+    alignment = summary.get("alignment", {}) or {}
+    alignment_status = str(alignment.get("status", "collecting") or "collecting")
+    generated_at = str(payload.get("generated_at", "") or _now_utc().isoformat(timespec="seconds"))
+    signal_as_of = str(payload.get("inputs", {}).get("signal", {}).get("as_of", "") or "")
+    run_id = str(payload.get("run_id") or current_run_id())
+    reason = str(alignment.get("reason", "") or "")
+    max_gap = alignment.get("maximum_target_weight_gap")
+    gross_gap = alignment.get("gross_exposure_gap")
+
+    open_mask = (
+        ledger["status"].astype(str).str.lower().eq("open")
+        if not ledger.empty
+        else pd.Series(dtype=bool)
+    )
+    same_signal_mask = (
+        open_mask & ledger["signal_as_of"].astype(str).eq(signal_as_of)
+        if not ledger.empty
+        else pd.Series(dtype=bool)
+    )
+    current_incident_id = ""
+
+    if alignment_status == "fail":
+        if same_signal_mask.any():
+            index = ledger.index[same_signal_mask][-1]
+        else:
+            incident_seed = f"{signal_as_of}|{generated_at}|{reason}"
+            current_incident_id = hashlib.sha256(incident_seed.encode("utf-8")).hexdigest()[:16]
+            new_row = {column: "" for column in INCIDENT_COLUMNS}
+            new_row.update(
+                {
+                    "incident_id": current_incident_id,
+                    "run_id": run_id,
+                    "status": "open",
+                    "opened_at": generated_at,
+                    "signal_as_of": signal_as_of,
+                    "initial_reason": reason,
+                    "initial_max_weight_gap": max_gap,
+                    "maximum_observed_weight_gap": max_gap,
+                    "initial_gross_exposure_gap": gross_gap,
+                    "maximum_observed_gross_gap": gross_gap,
+                    "human_action_required": True,
+                    "orders_submitted": False,
+                }
+            )
+            new_frame = pd.DataFrame([new_row], columns=INCIDENT_COLUMNS).astype(object)
+            ledger = pd.concat([ledger, new_frame], ignore_index=True).astype(object)
+            index = ledger.index[-1]
+
+        current_incident_id = str(ledger.at[index, "incident_id"])
+        ledger.at[index, "run_id"] = run_id
+        old_max_gap = _safe_float(ledger.at[index, "maximum_observed_weight_gap"])
+        old_gross_gap = _safe_float(ledger.at[index, "maximum_observed_gross_gap"])
+        ledger.at[index, "updated_at"] = generated_at
+        ledger.at[index, "latest_reason"] = reason
+        ledger.at[index, "latest_max_weight_gap"] = max_gap
+        ledger.at[index, "latest_gross_exposure_gap"] = gross_gap
+        ledger.at[index, "maximum_observed_weight_gap"] = max(old_max_gap, _safe_float(max_gap))
+        ledger.at[index, "maximum_observed_gross_gap"] = max(old_gross_gap, _safe_float(gross_gap))
+        ledger.at[index, "latest_alignment_status"] = alignment_status
+        ledger.at[index, "active_rebalance_order_count"] = int(
+            alignment.get("active_rebalance_order_count", 0) or 0
+        )
+        ledger.at[index, "recovery_plan_rows"] = int(recovery_plan_rows)
+        ledger.at[index, "human_action_required"] = True
+        ledger.at[index, "orders_submitted"] = False
+
+    elif alignment_status == "pending" and open_mask.any():
+        # Preserve the incident while Alpaca still has an exposure-changing
+        # order. Do not resolve it until a later live alignment pass.
+        index = ledger.index[open_mask][-1]
+        current_incident_id = str(ledger.at[index, "incident_id"])
+        ledger.at[index, "updated_at"] = generated_at
+        ledger.at[index, "latest_reason"] = reason
+        ledger.at[index, "latest_alignment_status"] = alignment_status
+        ledger.at[index, "active_rebalance_order_count"] = int(
+            alignment.get("active_rebalance_order_count", 0) or 0
+        )
+
+    elif alignment_status == "pass" and open_mask.any():
+        resolved_time = pd.to_datetime(generated_at, errors="coerce", utc=True)
+        for index in ledger.index[open_mask]:
+            opened_time = pd.to_datetime(ledger.at[index, "opened_at"], errors="coerce", utc=True)
+            duration = ""
+            if pd.notna(resolved_time) and pd.notna(opened_time):
+                duration = round(max(0.0, (resolved_time - opened_time).total_seconds()), 3)
+            ledger.at[index, "status"] = "resolved"
+            ledger.at[index, "updated_at"] = generated_at
+            ledger.at[index, "resolved_at"] = generated_at
+            ledger.at[index, "duration_seconds"] = duration
+            ledger.at[index, "latest_reason"] = reason
+            ledger.at[index, "latest_max_weight_gap"] = max_gap
+            ledger.at[index, "latest_gross_exposure_gap"] = gross_gap
+            ledger.at[index, "latest_alignment_status"] = alignment_status
+            ledger.at[index, "active_rebalance_order_count"] = 0
+            ledger.at[index, "recovery_plan_rows"] = 0
+            ledger.at[index, "human_action_required"] = False
+            ledger.at[index, "orders_submitted"] = False
+            ledger.at[index, "resolution"] = "alignment_passed"
+
+    atomic_write_csv(ledger, ledger_path)
+    remaining_open = int(ledger["status"].astype(str).str.lower().eq("open").sum()) if not ledger.empty else 0
+    return {
+        "path": str(ledger_path),
+        "total_incidents": int(len(ledger)),
+        "open_incidents": remaining_open,
+        "current_incident_id": current_incident_id,
+        "orders_submitted": False,
+    }
+
+
 def write_broker_truth(
     *,
     output_csv: Path = BROKER_TRUTH_CSV,
     output_json: Path = BROKER_TRUTH_JSON,
+    output_recovery_csv: Path | None = None,
+    output_incident_ledger_csv: Path | None = None,
     log_dir: Path = LOGS,
     now: datetime | None = None,
+    manage_alignment_lifecycle: bool = False,
     **kwargs: Any,
 ) -> dict[str, Any]:
     """Build broker truth, then write latest CSV/JSON plus a dated snapshot."""
     clock = now or _now_utc()
+    recovery_path = output_recovery_csv or output_csv.parent / ALIGNMENT_RECOVERY_PLAN_CSV.name
+    incident_path = (
+        output_incident_ledger_csv or output_csv.parent / ALIGNMENT_INCIDENT_LEDGER_CSV.name
+    )
     payload = build_broker_truth(now=clock, **kwargs)
+    signal_as_of = str(payload.get("inputs", {}).get("signal", {}).get("as_of", "") or "")
+    payload = enrich_payload(payload, signal_as_of=signal_as_of, now=clock)
     rows = payload.get("rows", [])
     df = pd.DataFrame(rows, columns=TRUTH_COLUMNS)
     atomic_write_csv(df, output_csv)
+
+    if manage_alignment_lifecycle:
+        # PLAIN ENGLISH: only the post-trade enforcing check may open/resolve
+        # incidents or replace the recovery plan. Pre-submit reports must not
+        # mistake an expected new target for a post-trade failure.
+        recovery_rows = build_alignment_recovery_plan(payload)
+        payload.setdefault("summary", {})["alignment_recovery_plan"] = {
+            "path": str(recovery_path),
+            "row_count": len(recovery_rows),
+            "review_required": bool(recovery_rows),
+            "orders_submitted": False,
+        }
+        payload["summary"]["alignment_incident_ledger"] = update_alignment_incident_ledger(
+            payload,
+            ledger_path=incident_path,
+            recovery_plan_rows=len(recovery_rows),
+        )
+        recovery_df = pd.DataFrame(recovery_rows, columns=RECOVERY_COLUMNS)
+        # Always write the header, even on pass. This clears yesterday's stale
+        # recovery suggestions after the account returns to alignment.
+        atomic_write_csv(recovery_df, recovery_path)
+        alignment = payload.get("summary", {}).get("alignment", {}) or {}
+        alignment_status = str(alignment.get("status", "collecting"))
+        lifecycle_status = {
+            "pass": "aligned",
+            "pending": "submitted",
+            "fail": "timed_out" if alignment.get("reason") == "alignment_pending_timeout" else "rejected",
+        }.get(alignment_status, "planned")
+        update_rebalance_state(
+            lifecycle_status,
+            run_id=payload.get("run_id"),
+            signal_as_of=signal_as_of,
+            details={
+                "alignment_status": alignment_status,
+                "reason": alignment.get("reason"),
+                "active_rebalance_order_count": alignment.get("active_rebalance_order_count", 0),
+                "maximum_target_weight_gap": alignment.get("maximum_target_weight_gap"),
+                "gross_exposure_gap": alignment.get("gross_exposure_gap"),
+            },
+        )
     atomic_write_json(payload, output_json)
 
     dated = log_dir / f"broker_truth_{clock.strftime('%Y%m%d')}.json"
     atomic_write_json(payload, dated)
     return payload
+
+
+def wait_for_required_alignment(
+    *,
+    wait_seconds: float = ALIGNMENT_WAIT_SECONDS,
+    poll_seconds: float = ALIGNMENT_POLL_SECONDS,
+    write_fn: Callable[..., dict[str, Any]] = write_broker_truth,
+    sleep_fn: Callable[[float], None] = time.sleep,
+    monotonic_fn: Callable[[], float] = time.monotonic,
+) -> dict[str, Any]:
+    """Poll live Alpaca until alignment settles or the bounded wait expires.
+
+    PLAIN ENGLISH: an order can be accepted before Alpaca updates positions.
+    We wait only for normal exposure-changing orders. Protective stops do not
+    delay this check, and this function never submits a repair order.
+    """
+    wait_limit = max(0.0, float(wait_seconds))
+    poll_interval = max(0.1, float(poll_seconds))
+    started = monotonic_fn()
+
+    while True:
+        elapsed = max(0.0, monotonic_fn() - started)
+        payload = write_fn(
+            include_live_open_orders=True,
+            alignment_waited_seconds=elapsed,
+            manage_alignment_lifecycle=True,
+        )
+        alignment = payload.get("summary", {}).get("alignment", {})
+        if alignment.get("status") != "pending":
+            return payload
+        if elapsed >= wait_limit:
+            # Refresh once more at the deadline so a just-completed fill can
+            # pass instead of being mislabeled as a timeout.
+            return write_fn(
+                include_live_open_orders=True,
+                alignment_waited_seconds=elapsed,
+                alignment_pending_timed_out=True,
+                manage_alignment_lifecycle=True,
+            )
+
+        remaining = wait_limit - elapsed
+        sleep_fn(min(poll_interval, remaining))
 
 
 def print_summary(payload: dict[str, Any]) -> None:
@@ -951,6 +1427,28 @@ def print_summary(payload: dict[str, Any]) -> None:
         f"{summary.get('warning_count', 0)} warning"
     )
     print(f"Live open orders: {summary.get('live_open_orders_available')} ({summary.get('live_open_orders_count', 0)})")
+    alignment = summary.get("alignment", {}) or {}
+    print(
+        "Alignment: "
+        f"{str(alignment.get('status', 'collecting')).upper()} | "
+        f"max gap={alignment.get('maximum_target_weight_gap')} | "
+        f"gross gap={alignment.get('gross_exposure_gap')} | "
+        f"reason={alignment.get('reason', '')}"
+    )
+    recovery = summary.get("alignment_recovery_plan", {}) or {}
+    print(
+        "Recovery plan: "
+        f"rows={recovery.get('row_count', 0)} | "
+        f"review_required={recovery.get('review_required', False)} | "
+        "orders_submitted=False"
+    )
+    incidents = summary.get("alignment_incident_ledger", {}) or {}
+    print(
+        "Alignment incidents: "
+        f"open={incidents.get('open_incidents', 0)} | "
+        f"total={incidents.get('total_incidents', 0)} | "
+        f"current={incidents.get('current_incident_id', '')}"
+    )
     for item in payload.get("global_issues", [])[:5]:
         print(f"  {str(item.get('severity', '')).upper():7s} GLOBAL: {item.get('issue', '')}")
     problem_rows = [
@@ -963,17 +1461,42 @@ def print_summary(payload: dict[str, Any]) -> None:
         print(f"  ... {len(problem_rows) - 10} more rows with issues")
     print(f"Saved: {BROKER_TRUTH_CSV}")
     print(f"Saved: {BROKER_TRUTH_JSON}")
+    print(f"Saved: {ALIGNMENT_RECOVERY_PLAN_CSV}")
+    print(f"Saved: {ALIGNMENT_INCIDENT_LEDGER_CSV}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Reconcile Alpaca broker truth with local bot records.")
     parser.add_argument("--json", action="store_true", help="Print full JSON payload.")
     parser.add_argument("--strict", action="store_true", help="Exit nonzero when broker truth status is fail.")
+    parser.add_argument(
+        "--require-alignment",
+        action="store_true",
+        help="Poll live Alpaca and exit nonzero unless settled target alignment passes.",
+    )
+    parser.add_argument(
+        "--alignment-wait-seconds",
+        type=float,
+        default=ALIGNMENT_WAIT_SECONDS,
+        help="Maximum seconds to wait for exposure-changing orders (default: 90).",
+    )
+    parser.add_argument(
+        "--alignment-poll-seconds",
+        type=float,
+        default=ALIGNMENT_POLL_SECONDS,
+        help="Seconds between live alignment checks (default: 5).",
+    )
     parser.add_argument("--offline", "--no-live-open-orders", dest="offline", action="store_true",
                         help="Do not call Alpaca for live open/trailing orders.")
     args = parser.parse_args()
 
-    payload = write_broker_truth(include_live_open_orders=not args.offline)
+    if args.require_alignment and not args.offline:
+        payload = wait_for_required_alignment(
+            wait_seconds=args.alignment_wait_seconds,
+            poll_seconds=args.alignment_poll_seconds,
+        )
+    else:
+        payload = write_broker_truth(include_live_open_orders=not args.offline)
     if args.json:
         print(json.dumps(payload, indent=2, default=str))
     else:
@@ -981,6 +1504,10 @@ def main() -> None:
 
     if args.strict and payload.get("status") == "fail":
         sys.exit(1)
+    if args.require_alignment:
+        alignment_status = payload.get("summary", {}).get("alignment", {}).get("status")
+        if alignment_status != "pass":
+            sys.exit(1)
 
 
 if __name__ == "__main__":

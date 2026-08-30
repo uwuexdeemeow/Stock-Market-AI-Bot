@@ -270,6 +270,7 @@ def send_signal_summary_telegram(
 
     signal_file = Path(signal_path)
     orders_file = Path(orders_path)
+    health_file = Path("signals/alpaca_paper_health.json")
 
     if not signal_file.exists():
         _log("No signal file to send via Telegram")
@@ -279,6 +280,23 @@ def send_signal_summary_telegram(
     try:
         sig = pd.read_csv(signal_file)
         lines = ["📊 <b>Daily Signal</b>\n"]
+
+        # One canonical health object prevents Telegram from disagreeing with
+        # the terminal, artifacts, or dashboard about whether evidence passed.
+        if health_file.exists():
+            try:
+                import json
+
+                health = json.loads(health_file.read_text(encoding="utf-8"))
+                readiness = health.get("readiness", {}) or {}
+                lines.append(
+                    "  Readiness: "
+                    f"<b>{str(readiness.get('status', 'collecting')).upper()}</b> "
+                    f"({readiness.get('reason', 'unknown')})"
+                )
+                lines.append(f"  Run: <code>{health.get('run_id', 'unknown')}</code>")
+            except Exception:
+                lines.append("  Readiness: unreadable")
 
         # Show target weights
         if "ticker" in sig.columns and "target_weight" in sig.columns:

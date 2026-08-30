@@ -167,6 +167,9 @@ def test_write_paper_signal_retains_and_blends_live_sticky_holding(tmp_path, mon
     assert row["sticky_held_tickers"] == "HELD"
     sticky_prev = json.loads(str(row["sticky_prev_overlay_json"]))
     assert round(float(sticky_prev["HELD"]), 6) == 0.10
+    snapshot = pd.read_csv(tmp_path / "core_satellite_alpha_input_snapshot.csv")
+    assert len(snapshot) == len(_live_panel())
+    assert snapshot["run_id"].astype(str).str.len().gt(0).all()
 
 
 def _approved_live(cost_pass=True) -> dict:

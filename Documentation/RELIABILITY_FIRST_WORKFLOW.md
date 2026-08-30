@@ -1,5 +1,16 @@
 # Reliability-First Project Workflow
 
+## Canonical daily evidence
+
+All daily paper outputs share one run ID. Broker truth, execution quality,
+validation progress, monitor continuity, and incidents are consolidated into
+`signals/alpaca_paper_health.json`. Only a complete same-run bundle receives a
+`signals/paper_run_manifest.json` status of `complete`; only that bundle may
+replace the `signals/latest` branch.
+
+The workflow stays paper-only. Alignment recovery and execution calibration
+are review-only, and no readiness result can approve real capital.
+
 ## End-To-End Flow
 
 1. `research.py` refreshes ticker data and writes a provider/checksum manifest

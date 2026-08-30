@@ -86,6 +86,8 @@ Pulls yesterday's Actions outputs into `signals/` and `logs/`. Refreshes:
 - `alpaca_paper_health.json` — health summary
 - `alpaca_execution_scorecard.json` - fill-quality scorecard
 - `broker_truth.json` / `broker_truth.csv` - Alpaca-vs-local truth table
+- `alignment_recovery_plan.csv` - review-only correction ideas for a settled account mismatch; never auto-submitted
+- `alignment_incident_ledger.csv` - durable alignment failure and resolution history
 - `alpaca_daily_status.json` — positions + equity snapshot
 - `alpaca_slippage_reversal_report.json` — fill slippage and reversal report
 - `shadow_paper_journal.csv` — shadow config signal journal
@@ -348,6 +350,35 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `monitor_heartbeat.py` | Watchdog — all monitors produced fresh output? | none |
 | `notifications.py` | Send Telegram / desktop alerts | library, not run directly |
 | `paper_health.py` | Build deep health dashboard (slippage, drift, risk) | `--broker alpaca` |
+| `run_evidence.py` | Verify and publish one same-run evidence manifest | `--check`, `--json` |
+| `workflow_watchdog.py` | Independently check scheduled GitHub workflows | `--json` |
+| `disaster_recovery.py` | Restore a verified artifact without trading | `--artifact`, `--from-github`, `--dry-run` |
+
+## Strategy-frozen stabilization release
+
+Finish safety, reporting, CI, and recovery work before starting the next clean
+paper epoch. Commit and push the release, confirm CI is green, then run
+`python paper_validation_epoch.py` followed by
+`python paper_validation_epoch.py --freeze-current`. Do not freeze a dirty
+working tree because its saved Git commit would not identify the frozen code.
+
+During the epoch, do not change model selection, features, universe, weights,
+holding period, rebalance logic, regime rules, risk sizing, protection settings,
+or execution parameters. A behavior-changing bug fix requires a new epoch.
+
+The canonical result is `signals/alpaca_paper_health.json` → `readiness`.
+`collecting` is expected while the 30-day sample grows. `fail` needs human
+review. Recovery CSV rows are suggestions only and are never submitted.
+
+Evidence artifacts are retained for 60 days. Epoch archives are not removed by
+automatic cleanup. Rehearse recovery without writing or trading:
+
+```bash
+python disaster_recovery.py --artifact path/to/downloaded/artifact --dry-run
+```
+
+The independent watchdog runs hourly on weekdays and checks all four scheduled
+paper workflows after their New York deadlines.
 | `paper_shadow_compare.py` | Compare Alpaca paper equity vs shadow paper equity | `--alpaca-equity PATH`, `--shadow-equity PATH`, `--csv-out PATH`, `--json-out PATH` |
 | `regime_monitor.py` | Detect risk_on / neutral / risk_off regime shifts | none |
 | `risk_sizing.py` | Position sizing helpers | library |
@@ -450,6 +481,8 @@ Then re-run the monthly routine to validate the new model is still approvable.
 | `signals/alpaca_paper_health.json` | Slippage, drift, concentration, equity sanity, P&L breakdown |
 | `signals/alpaca_execution_scorecard.json` | Rebalance verdict, stop diagnostics, timing advice, and stage comparison |
 | `signals/broker_truth.csv` / `.json` | Per-ticker Alpaca-vs-local truth reconciliation |
+| `signals/alignment_recovery_plan.csv` | Manual-review correction plan written only for settled alignment failures |
+| `signals/alignment_incident_ledger.csv` | Persistent alignment incident lifecycle and recovery-time audit |
 | `signals/alpaca_slippage_reversal_report.json` | Recent fill slippage and 5/15/30/60 minute post-fill reversal stats |
 | `logs/etf_data_health.json` | ETF benchmark/cache health; dashboard checklist flags stale or partial ETF data |
 | `signals/shadow_paper_journal.csv` | Daily shadow config targets, signal metadata, and comparison rows |
@@ -684,10 +717,13 @@ daily GitHub workflow:
 | `EXECUTION_SCORECARD_LOOKBACK_DAYS` | `30` | Recent paper-log days included in scorecard fill/skipped metrics. |
 | `EXECUTION_SCORECARD_WARN_AVG_SLIPPAGE_BPS` | `5` | Warning level below the 10 bps hard failure. |
 | `EXECUTION_SCORECARD_WARN_BAD_SLIPPAGE_RATE` | `0.40` | Warning level below the 60% hard failure. |
-| `EXECUTION_SCORECARD_MIN_REBALANCE_FILLS` | `10` | Measured rebalance fills needed for a verdict. |
+| `EXECUTION_SCORECARD_MIN_REBALANCE_FILLS` | `20` | Measured rebalance fills needed for a definitive verdict. Smaller samples remain collecting. |
 | `EXECUTION_SCORECARD_MIN_REBALANCE_SESSIONS` | `3` | Sessions needed for a verdict. |
 | `BROKER_TRUTH_QTY_TOLERANCE` | `0.001` | Ignore tiny share-count differences in broker truth. |
 | `BROKER_TRUTH_WEIGHT_TOLERANCE` | `0.02` | Warn when broker weight differs from target by more than this amount. |
+| `BROKER_TRUTH_GROSS_EXPOSURE_TOLERANCE` | `0.05` | Maximum settled total-exposure gap. |
+| `BROKER_TRUTH_ALIGNMENT_WAIT_SECONDS` | `90` | Bounded wait for exposure-changing orders to settle. |
+| `BROKER_TRUTH_ALIGNMENT_POLL_SECONDS` | `5` | Alpaca polling interval during the alignment wait. |
 | `BROKER_TRUTH_REQUIRE_LIVE_ORDERS` | `0` | If `1`, broker truth fails when live open/trailing orders cannot be read. |
 | `ALPACA_BROKER_TRUTH_GATE` | `1` | Refresh broker truth before submit and use it as a pre-trade safety gate. |
 | `ALPACA_BROKER_TRUTH_BLOCK_BUYS_ON_FAIL` | `1` | When broker truth fails, skip BUY orders while still allowing SELL orders. |
@@ -755,10 +791,13 @@ EXECUTION_SCORECARD_MAX_ADVERSE_60M_RATE=0.70
 EXECUTION_SCORECARD_LOOKBACK_DAYS=30
 EXECUTION_SCORECARD_WARN_AVG_SLIPPAGE_BPS=5
 EXECUTION_SCORECARD_WARN_BAD_SLIPPAGE_RATE=0.40
-EXECUTION_SCORECARD_MIN_REBALANCE_FILLS=10
+EXECUTION_SCORECARD_MIN_REBALANCE_FILLS=20
 EXECUTION_SCORECARD_MIN_REBALANCE_SESSIONS=3
 BROKER_TRUTH_QTY_TOLERANCE=0.001
 BROKER_TRUTH_WEIGHT_TOLERANCE=0.02
+BROKER_TRUTH_GROSS_EXPOSURE_TOLERANCE=0.05
+BROKER_TRUTH_ALIGNMENT_WAIT_SECONDS=90
+BROKER_TRUTH_ALIGNMENT_POLL_SECONDS=5
 BROKER_TRUTH_REQUIRE_LIVE_ORDERS=0
 ALPACA_BROKER_TRUTH_GATE=1
 ALPACA_BROKER_TRUTH_BLOCK_BUYS_ON_FAIL=1

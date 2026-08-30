@@ -1,5 +1,10 @@
 # monitor_heartbeat.py — Monitor Watchdog
 
+The monitor maintains `signals/operational_incident_ledger.csv` with severity,
+incident ID, first/latest observation, occurrence count, and resolution time.
+It sends only new-failure and recovery alerts. The independent GitHub watchdog
+covers the case where the whole daily workflow never starts.
+
 ## What It Does
 
 `monitor_heartbeat.py` checks whether the bot's safety monitors are still

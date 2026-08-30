@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 
 from safe_io import atomic_write_json, configure_console_output
+from run_evidence import enrich_payload
 from settings import LOG_DIR, SIGNAL_DIR
 
 
@@ -49,7 +50,7 @@ MIN_DECISION_ORDERS = int(os.environ.get("EXECUTION_SCORECARD_MIN_DECISION_ORDER
 MIN_DECISION_COVERAGE = float(os.environ.get("EXECUTION_SCORECARD_MIN_DECISION_COVERAGE", "0.80"))
 WARN_AVG_SLIPPAGE_BPS = float(os.environ.get("EXECUTION_SCORECARD_WARN_AVG_SLIPPAGE_BPS", "5"))
 WARN_BAD_SLIPPAGE_RATE = float(os.environ.get("EXECUTION_SCORECARD_WARN_BAD_SLIPPAGE_RATE", "0.40"))
-MIN_REBALANCE_FILLS = int(os.environ.get("EXECUTION_SCORECARD_MIN_REBALANCE_FILLS", "10"))
+MIN_REBALANCE_FILLS = int(os.environ.get("EXECUTION_SCORECARD_MIN_REBALANCE_FILLS", "20"))
 MIN_REBALANCE_SESSIONS = int(os.environ.get("EXECUTION_SCORECARD_MIN_REBALANCE_SESSIONS", "3"))
 
 
@@ -306,6 +307,11 @@ def _quality_slice(rows: list[dict], *, now: datetime) -> dict:
     slip = slip_metric["values"]
     adverse_15 = adverse_15_metric["values"]
     adverse_60 = adverse_60_metric["values"]
+    # A confidence interval makes a noisy five-fill sample visibly different
+    # from a mature sample. It is descriptive only and cannot change orders.
+    slip_mean = float(np.mean(slip)) if slip else None
+    slip_std = float(np.std(slip, ddof=1)) if len(slip) > 1 else None
+    half_width = 1.96 * slip_std / np.sqrt(len(slip)) if slip_std is not None else None
     raw_bad = int(sum(value > 0 for value in slip))
     material_bad = int(sum(value > BAD_SLIPPAGE_BPS for value in slip))
     session_dates: set[str] = set()
@@ -321,8 +327,14 @@ def _quality_slice(rows: list[dict], *, now: datetime) -> dict:
         "slippage_measured_orders": slip_metric["measured"],
         "slippage_coverage_rate": slip_metric["coverage"],
         "trading_sessions": len(session_dates),
-        "avg_slippage_bps": round(float(np.mean(slip)), 3) if slip else None,
+        "avg_slippage_bps": round(slip_mean, 3) if slip_mean is not None else None,
         "median_slippage_bps": round(float(np.median(slip)), 3) if slip else None,
+        "p75_slippage_bps": round(float(np.percentile(slip, 75)), 3) if slip else None,
+        "worst_slippage_bps": round(float(max(slip)), 3) if slip else None,
+        "mean_slippage_95ci_bps": (
+            [round(slip_mean - half_width, 3), round(slip_mean + half_width, 3)]
+            if slip_mean is not None and half_width is not None else None
+        ),
         "bad_slippage_count": material_bad,
         "bad_slippage_rate": _rate(material_bad, len(slip)),
         "bad_slippage_threshold_bps": BAD_SLIPPAGE_BPS,
@@ -341,6 +353,62 @@ def _quality_slice(rows: list[dict], *, now: datetime) -> dict:
         "adverse_60m_measured_orders": adverse_60_metric["measured"],
         "adverse_60m_coverage_rate": adverse_60_metric["coverage"],
         "adverse_60m_rate": _rate(sum(value > 0 for value in adverse_60), len(adverse_60)),
+    }
+
+
+def _diagnostic_breakdowns(rows: list[dict]) -> dict:
+    """Describe where slippage comes from without changing execution policy."""
+    usable = [row for row in rows if _to_float(row.get("slippage_bps")) is not None]
+
+    def grouped(key: str, normalizer=lambda value: str(value or "unknown").strip().lower() or "unknown") -> list[dict]:
+        buckets: dict[str, list[float]] = {}
+        for row in usable:
+            label = normalizer(row.get(key))
+            buckets.setdefault(label, []).append(float(row["slippage_bps"]))
+        return [
+            {
+                "group": label,
+                "samples": len(values),
+                "mean_bps": round(float(np.mean(values)), 3),
+                "median_bps": round(float(np.median(values)), 3),
+                "p75_bps": round(float(np.percentile(values, 75)), 3),
+                "worst_bps": round(float(max(values)), 3),
+            }
+            for label, values in sorted(buckets.items())
+        ]
+
+    def numeric_band(value: object, edges: tuple[float, float], unit: str) -> str:
+        parsed = _to_float(value)
+        if parsed is None:
+            return "unknown"
+        low, high = edges
+        if parsed <= low:
+            return f"<= {low:g}{unit}"
+        if parsed <= high:
+            return f"{low:g}-{high:g}{unit}"
+        return f"> {high:g}{unit}"
+
+    missing_reasons: dict[str, int] = {}
+    for row in rows:
+        if _to_float(row.get("slippage_bps")) is None:
+            reason = str(row.get("slippage_missing_reason") or "missing_reference_or_fill_price")
+            missing_reasons[reason] = missing_reasons.get(reason, 0) + 1
+        for horizon in ("adverse_15m_bps", "adverse_60m_bps"):
+            if row.get(horizon) in (None, ""):
+                reason = str(row.get(f"{horizon}_missing_reason") or f"{horizon}_not_observed")
+                missing_reasons[reason] = missing_reasons.get(reason, 0) + 1
+
+    return {
+        "status": "advisory",
+        "by_symbol": grouped("symbol", lambda value: str(value or "unknown").upper()),
+        "by_side": grouped("side"),
+        "by_order_stage": grouped("execution_stage"),
+        "by_order_type": grouped("order_type"),
+        "by_spread_band": grouped("spread_pct", lambda value: numeric_band(value, (0.001, 0.003), "%")),
+        "by_quote_age_band": grouped("quote_age_seconds", lambda value: numeric_band(value, (5, 30), "s")),
+        "by_fill_latency_band": grouped("fill_latency_seconds", lambda value: numeric_band(value, (30, 120), "s")),
+        "missing_measurement_reasons": missing_reasons,
+        "note": "Diagnostics are observation-only and do not tune live order parameters.",
     }
 
 
@@ -532,6 +600,8 @@ def build_execution_scorecard(
         lookback_days=lookback_days,
     )
     throttle = _throttle_summary(log)
+    report_rows = _filter_report_rows(slippage_report, now=clock, days=lookback_days)
+    rebalance_report_rows = [row for row in report_rows if _row_group(row) == "rebalance"]
 
     accepted_orders = int(len(accepted))
     filled_orders = int(len(filled))
@@ -572,6 +642,8 @@ def build_execution_scorecard(
     measured = int(report_metrics.get("measured_slippage_count") or 0)
     sessions = int(report_metrics.get("trading_sessions") or 0)
     sample_ready = bool(
+        # Twenty measured fills is the default minimum for a definitive
+        # verdict. Tests and manual research can pass a smaller explicit gate.
         measured >= int(min_rebalance_fills)
         and sessions >= int(min_rebalance_sessions)
         and fill_rate is not None
@@ -619,7 +691,7 @@ def build_execution_scorecard(
     if report_metrics["limit_vs_market_delta_bps"] is not None and report_metrics["limit_vs_market_delta_bps"] < 0:
         recommendations.append("limit_orders_are_beating_market_orders")
 
-    return {
+    payload = {
         "schema_version": 2,
         "generated_at": clock.isoformat(timespec="seconds"),
         "measurement_cutoff_60m": (pd.Timestamp(clock) - pd.Timedelta(minutes=60)).isoformat(),
@@ -642,11 +714,20 @@ def build_execution_scorecard(
             "ready": sample_ready,
             "measured_rebalance_fills": measured,
             "minimum_rebalance_fills": int(min_rebalance_fills),
+            "minimum_definitive_fills": int(min_rebalance_fills),
             "rebalance_sessions": sessions,
             "minimum_rebalance_sessions": int(min_rebalance_sessions),
         },
         "protective_stops": protective_stop_metrics,
         "entry_timing": entry_timing,
+        "diagnostics": _diagnostic_breakdowns(rebalance_report_rows),
+        "calibration_advisory": {
+            "status": "ready_for_shadow_review" if measured >= 20 else "collecting",
+            "measured_rebalance_fills": measured,
+            "minimum_samples": 20,
+            "may_change_live_parameters": False,
+            "requires_new_epoch_if_applied": True,
+        },
         "stage_comparison": _stage_comparison(log),
         "throttle": throttle,
         "checks": checks,
@@ -672,6 +753,10 @@ def build_execution_scorecard(
             "previous_scorecard": str(previous_scorecard_path),
         },
     }
+    signal_as_of = ""
+    if rebalance_report_rows:
+        signal_as_of = str(rebalance_report_rows[-1].get("signal_as_of") or "")
+    return enrich_payload(payload, signal_as_of=signal_as_of, now=clock)
 
 
 def write_execution_scorecard(

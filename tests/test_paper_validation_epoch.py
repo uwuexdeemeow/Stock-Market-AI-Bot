@@ -116,3 +116,35 @@ def test_epoch_slippage_uses_only_post_start_rebalances(tmp_path, monkeypatch):
 
     assert result["average_slippage_bps"] == 3.0
     assert result["bad_slippage_rate"] == 1.0
+
+
+def test_epoch_requires_canonical_ticker_and_gross_alignment(tmp_path, monkeypatch):
+    signal_dir = tmp_path / "signals"
+    signal_dir.mkdir()
+    (signal_dir / "broker_truth.json").write_text(json.dumps({
+        "inputs": {"signal": {"as_of": "2026-08-30T00:00:00Z"}},
+        "summary": {
+            "fail_count": 0,
+            "alignment": {
+                "status": "fail",
+                "maximum_target_weight_gap": 0.01,
+                "gross_exposure_gap": 0.06,
+            },
+            "alignment_incident_ledger": {"open_incidents": 1},
+        },
+    }), encoding="utf-8")
+    monkeypatch.setattr(epoch_module, "SIGNAL_DIR", str(signal_dir))
+    monkeypatch.setattr(epoch_module, "validate_paper_version_lock", lambda: (True, []))
+    result = epoch_module.evaluate_epoch({
+        "epoch_id": "paper-test",
+        "started_at": "2026-08-26T08:43:15+00:00",
+        "requirements": {
+            "maximum_target_weight_gap": 0.02,
+            "maximum_gross_exposure_gap": 0.05,
+            "maximum_open_critical_incidents": 0,
+        },
+    })
+    assert result["checks"]["target_weight_gap"] is False
+    assert result["checks"]["gross_exposure_gap"] is False
+    assert result["checks"]["critical_incidents"] is False
+    assert result["gross_exposure_gap"] == 0.06

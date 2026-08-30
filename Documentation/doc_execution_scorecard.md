@@ -1,5 +1,11 @@
 # execution_scorecard.py - Alpaca Execution Scorecard
 
+The scorecard keeps samples in `collecting` until 20 measured rebalance fills
+exist. It reports median, mean, p75, worst fill, a 95% confidence interval,
+coverage, missing-measurement reasons, and advisory breakdowns by symbol, side,
+stage/type, spread, quote age, and fill latency. Protective stops stay separate.
+Calibration is advisory and cannot change live parameters.
+
 ## What This Script Does
 
 `execution_scorecard.py` grades how well Alpaca paper orders are being executed.
@@ -92,7 +98,7 @@ python execution_scorecard.py --strict
 | `EXECUTION_SCORECARD_MIN_DECISION_COVERAGE` | `0.80` | Minimum measured share of eligible fills before throttling is allowed |
 | `EXECUTION_SCORECARD_WARN_AVG_SLIPPAGE_BPS` | `5` | Warning level for average slippage |
 | `EXECUTION_SCORECARD_WARN_BAD_SLIPPAGE_RATE` | `0.40` | Warning level for materially bad fills |
-| `EXECUTION_SCORECARD_MIN_REBALANCE_FILLS` | `10` | Measured fills required before pass/warning |
+| `EXECUTION_SCORECARD_MIN_REBALANCE_FILLS` | `20` | Measured fills required before a definitive pass/warning/fail verdict |
 | `EXECUTION_SCORECARD_MIN_REBALANCE_SESSIONS` | `3` | Distinct sessions required before pass/warning |
 | `ALPACA_EXECUTION_SCORECARD_THROTTLE` | `1` | Preserve scorecard audit metadata; quantity shrinking is retired |
 | `ALPACA_EXECUTION_SCORECARD_MAX_AGE_HOURS` | `72` | Ignore stale scorecards older than this many hours |

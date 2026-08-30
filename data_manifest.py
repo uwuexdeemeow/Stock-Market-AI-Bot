@@ -93,6 +93,40 @@ def frame_quality_issues(frame: pd.DataFrame) -> list[str]:
     return issues
 
 
+def frame_integrity_diagnostics(frame: pd.DataFrame) -> dict:
+    """Describe calendar, adjustment, and possible corporate-action evidence.
+
+    PLAIN ENGLISH: A large move may be a real split, dividend adjustment, or a
+    bad bar. We record candidates for review instead of silently guessing and
+    rewriting prices. This report does not alter the active data.
+    """
+    if frame.empty:
+        return {"status": "unavailable", "reason": "empty_frame"}
+    index = pd.DatetimeIndex(pd.to_datetime(frame.index, errors="coerce")).dropna()
+    close = pd.to_numeric(frame.get("Close", pd.Series(dtype=float)), errors="coerce")
+    moves = close.pct_change(fill_method=None).abs()
+    candidate_positions = list(moves[moves >= 0.20].index)
+    adjusted_columns = [
+        str(column) for column in frame.columns
+        if str(column).lower().replace("_", " ") in {"adj close", "adjusted close"}
+    ]
+    duplicate_calendar_days = 0
+    if len(index):
+        normalized = index.tz_localize(None).normalize() if index.tz is not None else index.normalize()
+        duplicate_calendar_days = int(normalized.duplicated().sum())
+    return {
+        "status": "review" if candidate_positions or duplicate_calendar_days else "ok",
+        "calendar": "XNYS",
+        "index_timezone": str(index.tz) if len(index) and index.tz is not None else "naive",
+        "duplicate_calendar_days": duplicate_calendar_days,
+        "corporate_action_candidate_count": len(candidate_positions),
+        "corporate_action_candidate_dates": [str(pd.Timestamp(value).date()) for value in candidate_positions[-10:]],
+        "candidate_move_threshold_pct": 20.0,
+        "adjusted_price_columns": adjusted_columns,
+        "note": "Candidates require provider/corporate-action review; prices are not changed here.",
+    }
+
+
 def compare_provider_overlap(existing: pd.DataFrame, fresh: pd.DataFrame) -> dict:
     """Measure adjusted-close agreement across the shared date range."""
     if "Close" not in existing or "Close" not in fresh:
@@ -172,6 +206,7 @@ def write_parquet_manifest(
         "schema_sha256": hashlib.sha256(schema_text.encode("utf-8")).hexdigest(),
         "parquet_sha256": _file_sha256(path),
         "quality_issues": frame_quality_issues(frame),
+        "integrity_diagnostics": frame_integrity_diagnostics(frame),
         "provider_transition": provider_transition or {"ok": True, "reason": "not_applicable"},
     }
     out = parquet_manifest_path(path)

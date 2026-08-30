@@ -1,5 +1,11 @@
 # core_satellite_alpha.py
 
+Generated signals include a metadata-only `run_id`. It links the target to
+orders and reports without changing a score, target weight, or trading rule.
+The exact latest feature rows used by that calculation are saved to
+`signals/core_satellite_alpha_input_snapshot.csv` for later reproduction; live
+trading never reads this snapshot.
+
 Approved evidence paths are portable between Windows development machines and
 Linux GitHub runners. A stored backslash is normalized before the validation
 bundle is opened, so valid published evidence is not rejected as missing.

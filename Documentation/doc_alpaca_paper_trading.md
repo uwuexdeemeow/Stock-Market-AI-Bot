@@ -1,5 +1,10 @@
 # alpaca_paper_trading.py — Alpaca Paper Broker
 
+Every submission inherits the daily run ID and updates
+`signals/rebalance_state.json`. A connection is accepted only when the URL is
+Alpaca's paper endpoint and the returned account is active and unblocked. These
+checks never grant real-capital permission.
+
 ## What it does (plain English)
 
 This script is the bridge between the strategy's daily signal and the

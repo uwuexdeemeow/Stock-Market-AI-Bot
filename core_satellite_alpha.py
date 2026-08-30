@@ -50,6 +50,7 @@ from settings import (
 )
 # Atomic signal/report writes — broker readers never see half-written files.
 from safe_io import atomic_write_csv, atomic_write_json
+from run_evidence import current_run_id
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2232,6 +2233,9 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         "quarantined_features": ",".join(str(x) for x in metrics.get("quarantined_features", [])),
         "watchlist_features": ",".join(str(x) for x in metrics.get("watchlist_features", [])),
         "predicted_at": _paper_signal_timestamp(),
+        # Metadata only: this links the signal to reports and orders without
+        # changing any model score, target weight, or trade rule.
+        "run_id": current_run_id(),
         "sticky_holdings_source": str(sticky_state["source"]),
         "sticky_holdings_used": bool(sticky_state["used"]),
         "sticky_held_tickers": ",".join(sorted(held_tickers)),
@@ -2245,6 +2249,16 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
     out = Path(SIGNAL_DIR) / "core_satellite_alpha_signal.csv"
     # Atomic write — broker scripts polling this CSV never see a torn read.
     atomic_write_csv(pd.DataFrame([row]), out, index=False)
+    # Preserve the exact latest feature rows that produced this target. This is
+    # evidence only: it is written after the target calculation and never read
+    # back by live trading.
+    input_snapshot = day.copy()
+    input_snapshot["run_id"] = current_run_id()
+    atomic_write_csv(
+        input_snapshot,
+        Path(SIGNAL_DIR) / "core_satellite_alpha_input_snapshot.csv",
+        index=False,
+    )
     return out
 
 

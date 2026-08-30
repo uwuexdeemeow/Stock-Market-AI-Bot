@@ -39,6 +39,7 @@ import pandas as pd
 
 from broker_interface import Broker, Order, Position, Fill
 from safe_io import atomic_write_csv, atomic_write_json, atomic_write_text, configure_console_output
+from run_evidence import current_run_id, update_rebalance_state
 from settings import DATA_DIR, LOG_DIR, SIGNAL_DIR
 from risk_sizing import atr_stop, annualized_realized_vol, position_size_with_stop, vol_target_size
 from signal_freshness import (
@@ -158,7 +159,9 @@ def _begin_submit_outcome() -> None:
     _SUBMIT_OUTCOME_LOGGED = False
     _SUBMIT_OUTCOME = {
         "schema_version": 1,
-        "run_id": datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ"),
+        # All scripts launched by daily_run.py inherit this same ID. Standalone
+        # use still receives a safe unique identifier.
+        "run_id": current_run_id(),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "status": "failed",
         "reason_code": "process_exited_before_final_outcome",
@@ -175,6 +178,7 @@ def _begin_submit_outcome() -> None:
         "errors": [],
     }
     atomic_write_json(_SUBMIT_OUTCOME, SUBMIT_OUTCOME_FILE)
+    update_rebalance_state("planned", run_id=_SUBMIT_OUTCOME["run_id"])
 
 
 def _set_submit_outcome(status: str, reason_code: str, **updates) -> dict:
@@ -189,6 +193,26 @@ def _set_submit_outcome(status: str, reason_code: str, **updates) -> dict:
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     })
     atomic_write_json(_SUBMIT_OUTCOME, SUBMIT_OUTCOME_FILE)
+    open_orders = int(_SUBMIT_OUTCOME.get("open_orders", 0) or 0)
+    filled_orders = int(_SUBMIT_OUTCOME.get("filled_orders", 0) or 0)
+    lifecycle_status = {
+        # Only broker_truth.py may declare aligned after fresh live evidence.
+        "no_action": "filled",
+        "blocked": "rejected",
+        "failed": "rejected",
+    }.get(str(status), "partially_filled" if open_orders and filled_orders else "submitted" if open_orders else "filled")
+    update_rebalance_state(
+        lifecycle_status,
+        run_id=str(_SUBMIT_OUTCOME.get("run_id") or current_run_id()),
+        details={
+            "outcome_status": status,
+            "reason_code": reason_code,
+            "planned_orders": _SUBMIT_OUTCOME.get("planned_orders", 0),
+            "accepted_orders": _SUBMIT_OUTCOME.get("accepted_orders", 0),
+            "filled_orders": filled_orders,
+            "open_orders": open_orders,
+        },
+    )
     if status in {"executed", "no_action", "blocked", "failed"} and not _SUBMIT_OUTCOME_LOGGED:
         row = {
             key: value if not isinstance(value, (dict, list)) else json.dumps(value, sort_keys=True)
@@ -869,6 +893,17 @@ class AlpacaBroker(Broker):
             self._account = self._api.get_account()
         except Exception as e:
             raise ConnectionError(f"Could not connect to Alpaca: {e}")
+        # The paper URL proves the environment; the account response must also
+        # say trading is active and unblocked before this object can submit.
+        account_status = str(getattr(self._account, "status", "")).upper()
+        blocked = bool(
+            getattr(self._account, "account_blocked", False)
+            or getattr(self._account, "trading_blocked", False)
+        )
+        if account_status and account_status != "ACTIVE":
+            raise ConnectionError(f"Alpaca paper account is not active: {account_status}")
+        if blocked:
+            raise ConnectionError("Alpaca paper account reports trading_blocked/account_blocked")
 
     @_broker_retry
     def get_equity(self) -> float:
@@ -1545,6 +1580,7 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
         elif oid_str.startswith("SKIPPED"):
             fill_status = "skipped"
         rows.append({
+            "run_id": current_run_id(),
             "submitted_at": now,
             "order_id": oid,
             "ticker": order["ticker"],
@@ -4146,7 +4182,11 @@ def main():
     # CSV instead of leaving yesterday's plan in place.
     try:
         import pandas as _pd
-        atomic_write_csv(_pd.DataFrame(orders), ORDER_PLAN_FILE)
+        persisted_orders = [dict(order, run_id=current_run_id()) for order in orders]
+        plan_frame = _pd.DataFrame(persisted_orders)
+        if "run_id" not in plan_frame.columns:
+            plan_frame["run_id"] = _pd.Series(dtype=str)
+        atomic_write_csv(plan_frame, ORDER_PLAN_FILE)
         if orders:
             print(f"  Saved order plan -> {ORDER_PLAN_FILE.name} ({len(orders)} rows)")
         else:

@@ -1,5 +1,10 @@
 # daily_run.py — Daily Pipeline Orchestrator
 
+The runner gives all child scripts one run ID. After monitoring and formal
+validation finish, it refreshes canonical readiness and publishes a same-run
+evidence manifest. An incomplete manifest blocks `signals/latest`. Health-only
+mode refreshes the same report without enforcing failure.
+
 ## What it does (plain English)
 
 This is the "one command that runs everything" for daily paper trading.
@@ -141,7 +146,14 @@ The workflow file `.github/workflows/daily_paper_trading.yml` invokes
 - `broker_truth` step (June 6, 2026) runs after `alpaca_execution_guard` and
   before `alpaca_paper_health`.  It reconciles signal targets, planned orders,
   the paper log, live Alpaca positions, and trailing stops into
-  `signals/broker_truth.csv` and `signals/broker_truth.json`.
+  `signals/broker_truth.csv` and `signals/broker_truth.json`. Normal trading
+  runs now require settled alignment after a bounded 90-second wait; a failed
+  verdict fails the workflow while later always-run health reports still run.
+  Local `--health-only` mode remains report-only.
+  A settled failure also publishes `signals/alignment_recovery_plan.csv` for
+  manual review. It updates `signals/alignment_incident_ledger.csv` until a
+  later live pass records resolution. The daily runner never executes either
+  file.
 - `alpaca_paper_health` step (May 19, 2026) runs drift detection against
   walkforward results on the Alpaca pipeline.
 - `--health-only` mode (May 20, 2026) — added for local dashboard refresh

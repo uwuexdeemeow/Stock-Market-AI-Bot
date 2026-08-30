@@ -18,6 +18,7 @@ from pathlib import Path
 import pandas as pd
 
 from safe_io import atomic_write_json
+from run_evidence import enrich_payload
 from settings import LOG_DIR, SIGNAL_DIR
 
 
@@ -45,6 +46,7 @@ PAPER_LOGIC_FILES = (
     "execution_scorecard.py",
     "factor_data_health.py",
     "fill_monitor.py",
+    "monitor_heartbeat.py",
     "logs/core_satellite_execution_stress.json",
     "logs/core_satellite_survivorship_audit.json",
     "logs/factor_decay_monitor.json",
@@ -53,6 +55,7 @@ PAPER_LOGIC_FILES = (
     "pipeline_shared.py",
     "portfolio_manager.py",
     "risk_sizing.py",
+    "run_evidence.py",
     "settings.py",
     "signal_freshness.py",
     "trade_rules.py",
@@ -99,6 +102,8 @@ def start_epoch(*, now: datetime | None = None) -> dict:
             "maximum_duplicate_orders": 0,
             "maximum_unexplained_orders": 0,
             "maximum_target_weight_gap": 0.02,
+            "maximum_gross_exposure_gap": 0.05,
+            "maximum_open_critical_incidents": 0,
             "minimum_fill_rate": 0.95,
             "maximum_average_slippage_bps": 5.0,
             "bad_slippage_threshold_bps": 2.0,
@@ -132,6 +137,24 @@ def _current_git_commit(project_root: Path) -> str:
         return result.stdout.strip()
     except Exception:
         return "unknown"
+
+
+def assert_clean_release_worktree(project_root: Path | None = None) -> None:
+    """Refuse an epoch freeze when tracked or untracked code is not committed."""
+    root = (project_root or Path(__file__).resolve().parent).resolve()
+    if not (root / ".git").exists():
+        return
+    result = subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=normal"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    if result.stdout.strip():
+        raise RuntimeError(
+            "Paper epoch requires a clean committed release; commit/push and pass CI before freezing"
+        )
 
 
 def build_paper_version_lock(
@@ -345,13 +368,36 @@ def evaluate_epoch(epoch: dict) -> dict:
     broker_truth = _read_json(Path(SIGNAL_DIR) / "broker_truth.json")
     truth_summary = broker_truth.get("summary", {}) or {}
     unexplained = int(truth_summary.get("fail_count", 0) or 0)
-    weight_gaps = []
-    for row in broker_truth.get("rows", []) or []:
-        target = pd.to_numeric(row.get("target_weight"), errors="coerce")
-        actual = pd.to_numeric(row.get("broker_weight"), errors="coerce")
-        if pd.notna(target) and pd.notna(actual):
-            weight_gaps.append(abs(float(target) - float(actual)))
-    max_weight_gap = max(weight_gaps, default=None)
+    canonical_alignment = truth_summary.get("alignment", {}) or {}
+    alignment_status = str(canonical_alignment.get("status", ""))
+    max_weight_gap = pd.to_numeric(
+        canonical_alignment.get("maximum_target_weight_gap"), errors="coerce"
+    )
+    gross_exposure_gap = pd.to_numeric(
+        canonical_alignment.get("gross_exposure_gap"), errors="coerce"
+    )
+    if pd.isna(max_weight_gap):
+        # Compatibility for reports written before canonical alignment existed.
+        weight_gaps = []
+        for row in broker_truth.get("rows", []) or []:
+            target = pd.to_numeric(row.get("target_weight"), errors="coerce")
+            actual = pd.to_numeric(row.get("broker_weight"), errors="coerce")
+            if pd.notna(target) and pd.notna(actual):
+                weight_gaps.append(abs(float(target) - float(actual)))
+        max_weight_gap = max(weight_gaps, default=None)
+    else:
+        max_weight_gap = float(max_weight_gap)
+    gross_exposure_gap = None if pd.isna(gross_exposure_gap) else float(gross_exposure_gap)
+    incident_summary = truth_summary.get("alignment_incident_ledger", {}) or {}
+    open_critical_incidents = int(incident_summary.get("open_incidents", 0) or 0)
+    operational_ledger = _read_csv(Path(SIGNAL_DIR) / "operational_incident_ledger.csv")
+    if not operational_ledger.empty and {"status", "severity"}.issubset(operational_ledger.columns):
+        open_critical_incidents += int(
+            (
+                operational_ledger["status"].astype(str).str.lower().eq("open")
+                & operational_ledger["severity"].astype(str).str.lower().eq("critical")
+            ).sum()
+        )
 
     requirements = epoch.get("requirements", {}) or {}
     checks = {
@@ -361,14 +407,16 @@ def evaluate_epoch(epoch: dict) -> dict:
         "classified_sessions": classified_sessions >= int(requirements.get("minimum_consecutive_classified_sessions", 10)),
         "duplicate_orders": duplicates <= int(requirements.get("maximum_duplicate_orders", 0)),
         "unexplained_orders": unexplained <= int(requirements.get("maximum_unexplained_orders", 0)),
-        "target_weight_gap": max_weight_gap is not None and max_weight_gap <= float(requirements.get("maximum_target_weight_gap", 0.02)),
+        "target_weight_gap": alignment_status == "pass" and max_weight_gap is not None and max_weight_gap <= float(requirements.get("maximum_target_weight_gap", 0.02)),
+        "gross_exposure_gap": alignment_status == "pass" and gross_exposure_gap is not None and gross_exposure_gap <= float(requirements.get("maximum_gross_exposure_gap", 0.05)),
+        "critical_incidents": open_critical_incidents <= int(requirements.get("maximum_open_critical_incidents", 0)),
         "fill_rate": fill_rate is not None and fill_rate >= float(requirements.get("minimum_fill_rate", 0.80)),
         "average_slippage": execution_decision_eligible and avg_slippage is not None and float(avg_slippage) <= float(requirements.get("maximum_average_slippage_bps", 10.0)),
         "bad_slippage_rate": execution_decision_eligible and bad_rate is not None and float(bad_rate) <= float(requirements.get("maximum_bad_slippage_rate", 0.60)),
     }
     version_lock_valid, version_lock_issues = validate_paper_version_lock()
     checks["paper_version_lock"] = version_lock_valid
-    return {
+    report = {
         "epoch_id": epoch.get("epoch_id"),
         "evaluated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "status": "operational_pass" if all(checks.values()) else "collecting",
@@ -379,6 +427,9 @@ def evaluate_epoch(epoch: dict) -> dict:
         "duplicate_orders": duplicates,
         "unexplained_orders": unexplained,
         "maximum_target_weight_gap": max_weight_gap,
+        "gross_exposure_gap": gross_exposure_gap,
+        "alignment_status": alignment_status or "collecting",
+        "open_critical_incidents": open_critical_incidents,
         "fill_rate": fill_rate,
         "average_slippage_bps": avg_slippage,
         "bad_slippage_rate": bad_rate,
@@ -389,6 +440,8 @@ def evaluate_epoch(epoch: dict) -> dict:
         "checks": checks,
         "real_capital_approved": False,
     }
+    signal_as_of = str(broker_truth.get("inputs", {}).get("signal", {}).get("as_of", "") or "")
+    return enrich_payload(report, signal_as_of=signal_as_of)
 
 
 def main() -> int:
@@ -402,6 +455,7 @@ def main() -> int:
     )
     args = parser.parse_args()
     if args.freeze_current:
+        assert_clean_release_worktree()
         lock = freeze_current_paper_version()
         print(f"Frozen paper version for existing epoch: {lock['epoch_id']}")
         print(f"Epoch start preserved: {lock['epoch_started_at']}")
@@ -413,6 +467,7 @@ def main() -> int:
         atomic_write_json(report, Path(SIGNAL_DIR) / "paper_validation_epoch_status.json")
         print(json.dumps(report, indent=2))
         return 0
+    assert_clean_release_worktree()
     epoch = start_epoch()
     print(f"Started paper validation epoch: {epoch['epoch_id']}")
     print(f"Archived evidence -> {epoch['archive_dir']}")

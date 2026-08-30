@@ -71,10 +71,13 @@ def test_daily_workflow_pins_execution_safety_env():
         "EXECUTION_SCORECARD_LOOKBACK_DAYS=30",
         "EXECUTION_SCORECARD_WARN_AVG_SLIPPAGE_BPS=5",
         "EXECUTION_SCORECARD_WARN_BAD_SLIPPAGE_RATE=0.40",
-        "EXECUTION_SCORECARD_MIN_REBALANCE_FILLS=10",
+        "EXECUTION_SCORECARD_MIN_REBALANCE_FILLS=20",
         "EXECUTION_SCORECARD_MIN_REBALANCE_SESSIONS=3",
         "BROKER_TRUTH_QTY_TOLERANCE=0.001",
         "BROKER_TRUTH_WEIGHT_TOLERANCE=0.02",
+        "BROKER_TRUTH_GROSS_EXPOSURE_TOLERANCE=0.05",
+        "BROKER_TRUTH_ALIGNMENT_WAIT_SECONDS=90",
+        "BROKER_TRUTH_ALIGNMENT_POLL_SECONDS=5",
         "BROKER_TRUTH_REQUIRE_LIVE_ORDERS=0",
         "ALPACA_BROKER_TRUTH_GATE=1",
         "ALPACA_BROKER_TRUTH_BLOCK_BUYS_ON_FAIL=1",
@@ -99,6 +102,8 @@ def test_daily_workflow_pins_execution_safety_env():
     ]
     for line in required_lines:
         assert line in workflow
+    assert "Account alignment:" in workflow
+    assert "maximum_target_weight_gap" in workflow
 
 
 def test_daily_workflow_never_retries_the_trading_pipeline():
@@ -110,6 +115,29 @@ def test_daily_workflow_never_retries_the_trading_pipeline():
     # plan again and accidentally treat duplicate protection as success.
     assert workflow.count("python3 daily_run.py $FLAGS") == 1
     assert "retrying in 30s" not in workflow
+
+
+def test_daily_run_reads_canonical_alignment_for_audit_log(tmp_path, monkeypatch):
+    signal_dir = tmp_path / "signals"
+    signal_dir.mkdir()
+    monkeypatch.setattr(daily_run, "SIGNAL_DIR", signal_dir)
+    payload = {
+        "summary": {
+            "alignment": {
+                "status": "fail",
+                "maximum_target_weight_gap": 0.08,
+                "reason": "max_weight_gap_0.080000_above_0.020000",
+            }
+        }
+    }
+    path = signal_dir / "broker_truth.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    alignment, error = daily_run._read_fresh_broker_alignment(datetime.now())
+
+    assert error == ""
+    assert alignment["status"] == "fail"
+    assert alignment["maximum_target_weight_gap"] == 0.08
 
 
 def test_signal_latest_workflows_share_publish_lock():
@@ -149,6 +177,10 @@ def test_alpaca_only_still_generates_shared_signal():
     assert names.index("broker_truth") < names.index("alpaca_paper_health")
     assert names.index("alpaca_paper_health") < names.index("alpaca_execution_scorecard")
     assert names.index("alpaca_execution_scorecard") < names.index("alpaca_gauntlet")
+    broker_step = next(step for step in steps if step.name == "broker_truth")
+    assert "--require-alignment" in broker_step.cmd
+    assert broker_step.critical is True
+    assert broker_step.always_run is True
 
 
 def test_skip_factor_refresh_keeps_etf_refresh_and_signal():
@@ -192,8 +224,37 @@ def test_health_only_uses_synced_signal_without_order_submission():
         "paper_validation_epoch",
         "regime_monitor",
         "monitor_heartbeat",
+        "canonical_paper_readiness",
         "log_cleanup",
     ]
+    broker_step = next(step for step in steps if step.name == "broker_truth")
+    assert "--require-alignment" not in broker_step.cmd
+    assert broker_step.critical is False
+
+
+def test_alignment_gate_failure_still_runs_later_health_steps(monkeypatch):
+    later = daily_run.Step(
+        "later_health",
+        [sys.executable, "paper_health.py"],
+        "later report",
+        always_run=True,
+    )
+    called = []
+
+    def fake_run_step(name, cmd, description, dry_run=False, timeout=300, env=None):
+        called.append(name)
+        status = "failed" if name == "broker_truth" else "ok"
+        return {"name": name, "status": status, "elapsed": 0.1}
+
+    monkeypatch.setattr(daily_run, "run_step", fake_run_step)
+    results = daily_run.run_steps(
+        [daily_run.BROKER_ALIGNMENT_GATE_STEP, later],
+        dry_run=False,
+        timeout=1,
+    )
+
+    assert called == ["broker_truth", "later_health"]
+    assert results[1]["upstream_blocked_by"] == "broker_truth"
 
 
 def test_factor_data_health_failure_blocks_signal_and_orders(monkeypatch):
@@ -216,6 +277,7 @@ def test_factor_data_health_failure_blocks_signal_and_orders(monkeypatch):
         "alpaca_execution_guard", "broker_truth", "alpaca_paper_health",
         "alpaca_execution_scorecard", "execution_cost_calibration",
         "alpaca_gauntlet", "paper_validation_epoch", "monitor_heartbeat",
+        "canonical_paper_readiness", "paper_evidence_manifest",
         "log_cleanup",
     ]
     assert next(r for r in results if r["name"] == "core_satellite_signal")["status"] == "blocked"
@@ -264,7 +326,8 @@ def test_refresh_failure_blocks_all_later_steps(monkeypatch):
         "alpaca_reconcile", "alpaca_execution_guard", "broker_truth",
         "alpaca_paper_health", "alpaca_execution_scorecard",
         "execution_cost_calibration", "alpaca_gauntlet",
-        "paper_validation_epoch", "monitor_heartbeat", "log_cleanup",
+        "paper_validation_epoch", "monitor_heartbeat", "canonical_paper_readiness",
+        "paper_evidence_manifest", "log_cleanup",
     ]
     blocked = [r for r in results if r["status"] == "blocked"]
     assert blocked
@@ -343,6 +406,8 @@ def test_sync_latest_github_signals_fetches_branch_and_copies_files(tmp_path, mo
     # PLAIN ENGLISH: local account-alignment checks need the saved Alpaca
     # positions as well as the strategy signal.
     assert "signals/alpaca_daily_status.json" in daily_run.GITHUB_SIGNAL_SYNC_FILES
+    assert "signals/alignment_recovery_plan.csv" in daily_run.GITHUB_SIGNAL_SYNC_FILES
+    assert "signals/alignment_incident_ledger.csv" in daily_run.GITHUB_SIGNAL_SYNC_FILES
     monkeypatch.setattr(daily_run, "PROJECT_ROOT", tmp_path)
     calls: list[list[str]] = []
 

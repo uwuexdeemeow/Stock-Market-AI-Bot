@@ -1,0 +1,61 @@
+name: Independent Paper Workflow Watchdog
+
+on:
+  schedule:
+    # Run independently each weekday. The script uses New York deadlines and
+    # the NYSE calendar, so early hours, holidays, and DST do not false-alert.
+    - cron: "15 * * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: independent-paper-workflow-watchdog
+  cancel-in-progress: true
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install watchdog dependencies
+        run: pip install pandas exchange-calendars
+
+      - name: Restore alert-deduplication state
+        uses: actions/cache/restore@v4
+        with:
+          path: signals/workflow_watchdog_state.json
+          key: workflow-watchdog-state-${{ github.run_id }}
+          restore-keys: workflow-watchdog-state-
+
+      - name: Check scheduled workflows
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python workflow_watchdog.py --json
+
+      - name: Save alert-deduplication state
+        if: ${{ always() }}
+        uses: actions/cache/save@v4
+        with:
+          path: signals/workflow_watchdog_state.json
+          key: workflow-watchdog-state-${{ github.run_id }}
+
+      - name: Upload watchdog report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: independent-workflow-watchdog-${{ github.run_number }}
+          path: signals/workflow_watchdog*.json
+          retention-days: 60

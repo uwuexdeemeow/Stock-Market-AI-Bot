@@ -1,5 +1,9 @@
 # paper_validation_epoch.py
 
+Formal validation consumes canonical broker alignment. The 2% per-ticker and
+5% gross-exposure limits must both pass, and no critical incident may remain
+open. Every status report carries the shared daily run identity.
+
 ## What This Script Does
 
 This script starts a clean paper-trading evidence period after an important bot

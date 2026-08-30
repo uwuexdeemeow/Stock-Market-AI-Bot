@@ -1,5 +1,12 @@
 # paper_health.py — Live Health Summary + Drift Detector
 
+`readiness` is the canonical system verdict: `pass`, `collecting`, or `fail`.
+It includes exact blockers/actions and component status for alignment,
+execution, validation, incidents, and workflow continuity. The report carries
+the run ID, signal time, Git commit, configuration fingerprint, paper-version
+fingerprint, and a hashed account marker. `--strict` fails only on `fail`;
+`collecting` remains valid paper evidence.
+
 ## What it does (plain English)
 
 After each daily paper-trading run, this script builds a "health
@@ -38,6 +45,14 @@ It computes:
 15. **Signal identity check** - confirms the broker reconciliation used the
     same `predicted_at` target row as the current signal. If a newer signal was
     published, alignment stays `collecting` until Alpaca is checked again.
+16. **Canonical alignment verdict** - uses `summary.alignment` from broker
+    truth when available, so pending orders, thresholds, and failure reasons
+    stay identical between enforcement and health reporting.
+17. **Recovery-plan visibility** - reports whether a manual-review alignment
+    recovery CSV exists and explicitly records that no recovery orders were
+    submitted.
+18. **Alignment incident history** - exposes total/open incident counts and
+    the current incident ID from the durable broker-truth ledger.
 
 If anything is off, the script warns via Telegram (and writes the
 detail to JSON for later inspection).

@@ -37,6 +37,7 @@ import json
 import os
 import subprocess
 import sys
+from uuid import uuid4
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -44,6 +45,7 @@ from pathlib import Path
 import pandas as pd
 
 from safe_io import atomic_write_json, popen_utf8
+from run_evidence import current_run_id
 from settings import LOG_DIR, SIGNAL_DIR
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -57,6 +59,7 @@ SIGNALS_LATEST_REF = "origin/signals/latest"
 SIGNALS_LATEST_BRANCH = "signals/latest"
 GITHUB_SIGNAL_SYNC_FILES = (
     "signals/core_satellite_alpha_signal.csv",
+    "signals/core_satellite_alpha_input_snapshot.csv",
     "signals/core_satellite_alpha_orders.csv",
     "signals/core_satellite_alpha_metrics.json",
     "signals/alpaca_paper_equity.csv",
@@ -79,6 +82,11 @@ GITHUB_SIGNAL_SYNC_FILES = (
     "signals/paper_validation_epoch_status.json",
     "signals/broker_truth.csv",
     "signals/broker_truth.json",
+    "signals/alignment_recovery_plan.csv",
+    "signals/alignment_incident_ledger.csv",
+    "signals/operational_incident_ledger.csv",
+    "signals/rebalance_state.json",
+    "signals/paper_run_manifest.json",
     "signals/shadow_paper_journal.csv",
     "signals/guard_intraday_state.json",
     "signals/regime_history.json",
@@ -140,6 +148,14 @@ def notify_failures(results: list[dict], total_time: float) -> None:
     ]
     for r in failures:
         lines.append(f"  [{r['name']}] status={r['status']}")
+        alignment = r.get("alignment", {}) or {}
+        if alignment:
+            lines.append(
+                "    alignment="
+                f"{alignment.get('status')} "
+                f"max_gap={alignment.get('maximum_target_weight_gap')} "
+                f"reason={alignment.get('reason')}"
+            )
         if r.get("stderr_tail"):
             lines.append(f"    {r['stderr_tail'][:300]}")
         if r.get("error"):
@@ -254,6 +270,25 @@ ALPACA_STATUS_STEP = Step(
     "Sync Alpaca paper account status/equity without submitting orders",
 )
 
+# PLAIN ENGLISH: the trading run enforces settled alignment, while local
+# health-only refreshes use a one-shot report and never turn observation into a
+# failed trading run.
+BROKER_ALIGNMENT_GATE_STEP = Step(
+    "broker_truth",
+    [sys.executable, "broker_truth.py", "--require-alignment"],
+    "Require settled Alpaca positions to match current target weights",
+    critical=True,
+    always_run=True,
+)
+
+BROKER_TRUTH_HEALTH_STEP = Step(
+    "broker_truth",
+    [sys.executable, "broker_truth.py"],
+    "Report Alpaca target alignment without enforcing it",
+    always_run=True,
+)
+
+
 # Alpaca steps. core_satellite_alpha_signal.csv includes TQQQ weight when the nested
 # walkforward grid search determines it helps on a risk-adjusted basis).
 ALPACA_STEPS = [
@@ -275,12 +310,7 @@ ALPACA_STEPS = [
         "Repair ETF protection, cancel stale Alpaca orders, and check intraday P&L",
         always_run=True,
     ),
-    Step(
-        "broker_truth",
-        [sys.executable, "broker_truth.py"],
-        "Reconcile Alpaca positions, local logs, order plan, target weights, and stops",
-        always_run=True,
-    ),
+    BROKER_ALIGNMENT_GATE_STEP,
     Step(
         "alpaca_paper_health",
         [sys.executable, "paper_health.py"],
@@ -318,7 +348,7 @@ ALPACA_STEPS = [
 ALPACA_HEALTH_ONLY_STEPS = [
     ALPACA_STATUS_STEP,
     ALPACA_STEPS[1],  # alpaca_reconcile
-    ALPACA_STEPS[3],  # broker_truth
+    BROKER_TRUTH_HEALTH_STEP,
     ALPACA_STEPS[4],  # alpaca_paper_health
     ALPACA_STEPS[5],  # alpaca_execution_scorecard
     ALPACA_STEPS[6],  # execution_cost_calibration
@@ -346,6 +376,32 @@ LOG_CLEANUP_STEP = Step(
     "log_cleanup",
     [sys.executable, "log_cleanup.py", "--check-disk"],
     "Check disk usage and warn if nearing capacity",
+    always_run=True,
+)
+
+# The first health pass preserves existing dashboard behavior. This final pass
+# runs after execution, epoch, and heartbeat reports, so it is the authoritative
+# readiness verdict for logs, artifacts, and notifications.
+CANONICAL_READINESS_STEP = Step(
+    "canonical_paper_readiness",
+    [sys.executable, "paper_health.py", "--strict"],
+    "Publish one canonical paper-readiness verdict from all completed evidence",
+    critical=True,
+    always_run=True,
+)
+
+HEALTH_ONLY_READINESS_STEP = Step(
+    "canonical_paper_readiness",
+    [sys.executable, "paper_health.py"],
+    "Refresh canonical readiness without enforcing it in health-only mode",
+    always_run=True,
+)
+
+EVIDENCE_MANIFEST_STEP = Step(
+    "paper_evidence_manifest",
+    [sys.executable, "run_evidence.py"],
+    "Atomically publish the complete same-run evidence manifest",
+    critical=True,
     always_run=True,
 )
 
@@ -393,6 +449,28 @@ def _read_fresh_submit_outcome(started_at: datetime) -> tuple[dict, str]:
     if status not in {"executed", "no_action", "blocked", "failed"}:
         return payload, f"submit_outcome_unknown_status:{status or 'missing'}"
     return payload, ""
+
+
+def _read_fresh_broker_alignment(started_at: datetime) -> tuple[dict, str]:
+    """Read this step's canonical alignment result for the daily audit log."""
+    path = Path(SIGNAL_DIR) / "broker_truth.json"
+    if not path.exists():
+        return {}, "broker_truth_missing"
+    try:
+        if path.stat().st_mtime + 1.0 < started_at.timestamp():
+            return {}, "broker_truth_stale"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        alignment = payload.get("summary", {}).get("alignment", {})
+    except (OSError, json.JSONDecodeError) as exc:
+        return {}, f"broker_truth_invalid:{exc.__class__.__name__}"
+    if not isinstance(alignment, dict) or alignment.get("status") not in {
+        "pass",
+        "pending",
+        "fail",
+        "collecting",
+    }:
+        return {}, "broker_truth_alignment_missing"
+    return alignment, ""
 
 
 def run_step(
@@ -478,6 +556,10 @@ def run_step(
         submit_outcome_error = ""
         if name == "alpaca_submit":
             submit_outcome, submit_outcome_error = _read_fresh_submit_outcome(start)
+        broker_alignment: dict = {}
+        broker_alignment_error = ""
+        if name == "broker_truth":
+            broker_alignment, broker_alignment_error = _read_fresh_broker_alignment(start)
 
         if returncode != 0:
             print(f"  ✗ FAILED (exit code {returncode})")
@@ -492,6 +574,10 @@ def run_step(
                 result["execution_outcome"] = submit_outcome
             if submit_outcome_error:
                 result["execution_outcome_error"] = submit_outcome_error
+            if broker_alignment:
+                result["alignment"] = broker_alignment
+            if broker_alignment_error:
+                result["alignment_error"] = broker_alignment_error
             return result
 
         if name == "alpaca_submit":
@@ -528,6 +614,10 @@ def run_step(
         result = {"name": name, "status": "ok", "elapsed": round(elapsed, 1)}
         if submit_outcome:
             result["execution_outcome"] = submit_outcome
+        if broker_alignment:
+            result["alignment"] = broker_alignment
+        if broker_alignment_error:
+            result["alignment_error"] = broker_alignment_error
         return result
 
     except Exception as e:
@@ -558,6 +648,7 @@ def build_steps(
             steps.extend(ALPACA_HEALTH_ONLY_STEPS)
         steps.append(REGIME_MONITOR_STEP)
         steps.append(MONITOR_HEARTBEAT_STEP)
+        steps.append(HEALTH_ONLY_READINESS_STEP)
         steps.append(LOG_CLEANUP_STEP)
         if stress:
             steps.extend(STRESS_STEPS)
@@ -583,6 +674,8 @@ def build_steps(
     steps.append(REGIME_MONITOR_STEP)
     # Watchdog + housekeeping — non-critical, run last
     steps.append(MONITOR_HEARTBEAT_STEP)
+    steps.append(CANONICAL_READINESS_STEP)
+    steps.append(EVIDENCE_MANIFEST_STEP)
     steps.append(LOG_CLEANUP_STEP)
     if stress:
         steps.extend(STRESS_STEPS)
@@ -756,6 +849,7 @@ def _write_startup_stubs(now: datetime, steps: list[Step], *, write_daily_stub: 
             atomic_write_json(
                 {
                     "timestamp": now.isoformat(),
+                    "run_id": current_run_id(),
                     "status": "running",
                     "steps_total": len(steps),
                     "steps_ok": 0,
@@ -858,6 +952,15 @@ def main():
                         help="Max seconds per step (default: 300)")
     args = parser.parse_args()
 
+    # One environment value is inherited by every child process. GitHub's run
+    # ID is stable when available; local runs receive a timestamp plus nonce.
+    if not os.environ.get("STOCKBOT_RUN_ID", "").strip():
+        github_id = os.environ.get("GITHUB_RUN_ID", "").strip()
+        os.environ["STOCKBOT_RUN_ID"] = (
+            f"github-{github_id}" if github_id
+            else f"paper-{datetime.now().strftime('%Y%m%dT%H%M%S')}-{uuid4().hex[:8]}"
+        )
+
     LOGS.mkdir(parents=True, exist_ok=True)
 
     # ── PID lock — prevents cron + manual overlap from double-submitting ──
@@ -943,6 +1046,7 @@ def main():
     print(f"  DAILY PAPER TRADING RUN")
     print(f"  {now.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"  Steps: {len(steps)}")
+    print(f"  Run ID: {current_run_id()}")
     if run_alpaca:
         print(f"  Alpaca: core-satellite unified signal")
     if args.dry_run:
@@ -1006,6 +1110,7 @@ def main():
         log_path = LOGS / f"{log_prefix}_{now.strftime('%Y%m%d')}.json"
         run_log = {
             "timestamp": now.isoformat(),
+            "run_id": current_run_id(),
             "mode": "health_only" if args.health_only else "daily_run",
             "steps_total": len(results),
             "steps_ok": ok,

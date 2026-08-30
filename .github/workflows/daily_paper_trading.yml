@@ -197,6 +197,11 @@ jobs:
               signals/alpaca_execution_scorecard.json \
               signals/broker_truth.csv \
               signals/broker_truth.json \
+              signals/alignment_recovery_plan.csv \
+              signals/alignment_incident_ledger.csv \
+              signals/operational_incident_ledger.csv \
+              signals/rebalance_state.json \
+              signals/paper_run_manifest.json \
               signals/guard_intraday_state.json \
               signals/regime_history.json \
               signals/regime_changes_log.csv ; do
@@ -281,10 +286,13 @@ jobs:
           EXECUTION_SCORECARD_LOOKBACK_DAYS=30
           EXECUTION_SCORECARD_WARN_AVG_SLIPPAGE_BPS=5
           EXECUTION_SCORECARD_WARN_BAD_SLIPPAGE_RATE=0.40
-          EXECUTION_SCORECARD_MIN_REBALANCE_FILLS=10
+          EXECUTION_SCORECARD_MIN_REBALANCE_FILLS=20
           EXECUTION_SCORECARD_MIN_REBALANCE_SESSIONS=3
           BROKER_TRUTH_QTY_TOLERANCE=0.001
           BROKER_TRUTH_WEIGHT_TOLERANCE=0.02
+          BROKER_TRUTH_GROSS_EXPOSURE_TOLERANCE=0.05
+          BROKER_TRUTH_ALIGNMENT_WAIT_SECONDS=90
+          BROKER_TRUTH_ALIGNMENT_POLL_SECONDS=5
           BROKER_TRUTH_REQUIRE_LIVE_ORDERS=0
           ALPACA_BROKER_TRUTH_GATE=1
           ALPACA_BROKER_TRUTH_BLOCK_BUYS_ON_FAIL=1
@@ -495,6 +503,7 @@ jobs:
           path: |
             logs/
             signals/core_satellite_alpha_signal.csv
+            signals/core_satellite_alpha_input_snapshot.csv
             signals/core_satellite_alpha_orders.csv
             signals/core_satellite_alpha_metrics.json
             signals/alpaca_paper_equity.csv
@@ -519,6 +528,11 @@ jobs:
             signals/paper_validation_epoch_status.json
             signals/broker_truth.csv
             signals/broker_truth.json
+            signals/alignment_recovery_plan.csv
+            signals/alignment_incident_ledger.csv
+            signals/operational_incident_ledger.csv
+            signals/rebalance_state.json
+            signals/paper_run_manifest.json
             signals/guard_intraday_state.json
             signals/regime_history.json
             signals/regime_changes_log.csv
@@ -535,7 +549,7 @@ jobs:
             signals/fractional_shadow_compare.json
             signals/workflow_heartbeat_daily.json
             signals/workflow_heartbeat_shadow.json
-          retention-days: 30
+          retention-days: 60
 
       # ── 9. Commit signal files back to repo (signals/latest branch) ─
       #    PLAIN ENGLISH: Push today's signal files to a dedicated branch
@@ -547,6 +561,19 @@ jobs:
       - name: Commit signals to repo
         if: ${{ always() && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         run: |
+          # Never replace signals/latest with a mixed or partial daily bundle.
+          # Failed-but-complete evidence is publishable for diagnosis; missing
+          # or mismatched evidence stays only in the run artifact.
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path("signals/paper_run_manifest.json")
+          payload = json.loads(path.read_text()) if path.exists() else {}
+          if payload.get("status") != "complete":
+              raise SystemExit("Evidence manifest is incomplete; refusing signals/latest publication")
+          print(f"Publishing complete evidence run {payload.get('run_id')}")
+          PY
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
@@ -599,6 +626,7 @@ jobs:
           added=0
           for f in \
               signals/core_satellite_alpha_signal.csv \
+              signals/core_satellite_alpha_input_snapshot.csv \
               signals/core_satellite_alpha_orders.csv \
               signals/core_satellite_alpha_metrics.json \
               signals/alpaca_paper_equity.csv \
@@ -619,6 +647,11 @@ jobs:
               signals/paper_validation_epoch_status.json \
               signals/broker_truth.csv \
               signals/broker_truth.json \
+              signals/alignment_recovery_plan.csv \
+              signals/alignment_incident_ledger.csv \
+              signals/operational_incident_ledger.csv \
+              signals/rebalance_state.json \
+              signals/paper_run_manifest.json \
               signals/guard_intraday_state.json \
               signals/regime_history.json \
               signals/regime_changes_log.csv \
@@ -828,6 +861,23 @@ jobs:
                   lines.append(f"Alpaca order log unreadable: {exc}")
 
           broker_truth_path = Path("signals/broker_truth.json")
+          health_path = Path("signals/alpaca_paper_health.json")
+          if health_path.exists():
+              try:
+                  health = json.loads(health_path.read_text())
+                  readiness = health.get("readiness", {}) or {}
+                  lines.append(
+                      "Canonical readiness: "
+                      f"{readiness.get('status', '?')} | "
+                      f"reason={readiness.get('reason', '?')} | "
+                      f"run={health.get('run_id', '?')}"
+                  )
+                  blockers = readiness.get("blockers", []) or []
+                  if blockers:
+                      lines.append("Blockers: " + ", ".join(str(item) for item in blockers[:4]))
+              except Exception as exc:
+                  lines.append(f"Paper readiness unreadable: {exc}")
+
           if broker_truth_path.exists():
               try:
                   truth = json.loads(broker_truth_path.read_text())
@@ -837,6 +887,17 @@ jobs:
                       f"{truth.get('status', '?')} | "
                       f"fail={summary.get('fail_count', '?')} | "
                       f"warn={summary.get('warning_count', '?')}"
+                  )
+                  alignment = summary.get("alignment", {}) or {}
+                  recovery = summary.get("alignment_recovery_plan", {}) or {}
+                  incidents = summary.get("alignment_incident_ledger", {}) or {}
+                  lines.append(
+                      "Account alignment: "
+                      f"{alignment.get('status', '?')} | "
+                      f"max_gap={alignment.get('maximum_target_weight_gap', '?')} | "
+                      f"reason={alignment.get('reason', '?')} | "
+                      f"recovery_rows={recovery.get('row_count', 0)} | "
+                      f"open_incidents={incidents.get('open_incidents', 0)}"
                   )
               except Exception as exc:
                   lines.append(f"Broker truth unreadable: {exc}")
