@@ -22,10 +22,22 @@ from safe_io import atomic_write_json
 STATE_FILE = Path("signals/workflow_watchdog_state.json")
 REPORT_FILE = Path("signals/workflow_watchdog.json")
 WORKFLOWS = {
-    "factor_data": ("factor_data_refresh.yml", time(7, 30), time(9, 15)),
-    "daily_paper": ("daily_paper_trading.yml", time(9, 35), time(11, 0)),
-    "shadow_paper": ("shadow_paper_journal.yml", time(9, 55), time(11, 30)),
-    "execution_quality": ("post_market_execution_quality.yml", time(17, 15), time(19, 0)),
+    # Each tuple contains: workflow file, normal start, fallback-dispatch time,
+    # fallback cutoff, and final success deadline. The daily cutoff stays five
+    # minutes inside the bot's 10:30 AM New York execution window.
+    "factor_data": ("factor_data_refresh.yml", time(7, 30), time(7, 45), time(18, 0), time(9, 15)),
+    "daily_paper": ("daily_paper_trading.yml", time(9, 35), time(9, 45), time(10, 25), time(11, 0)),
+    "shadow_paper": ("shadow_paper_journal.yml", time(9, 55), time(10, 5), time(16, 0), time(11, 30)),
+    "execution_quality": ("post_market_execution_quality.yml", time(17, 15), time(17, 30), time(20, 0), time(19, 0)),
+}
+
+# Manual fallback inputs preserve normal safety rules. In particular, the
+# watchdog never passes the emergency override and never asks for a late trade.
+RECOVERY_INPUTS = {
+    "factor_data": {"xs_only": "false"},
+    "daily_paper": {"force": "false", "dry_run": "false"},
+    "shadow_paper": {"force": "false", "ignore_stale": "false", "fractional_initial_equity": "400"},
+    "execution_quality": {},
 }
 
 
@@ -66,11 +78,48 @@ def _github_runs(repository: str, workflow_file: str, token: str) -> list[dict]:
     return payload.get("workflow_runs", []) or []
 
 
+def _dispatch_workflow(
+    repository: str,
+    workflow_file: str,
+    token: str,
+    *,
+    inputs: dict[str, str],
+) -> bool:
+    """Ask GitHub to run one missed workflow from the protected main branch.
+
+    PLAIN ENGLISH: GitHub sometimes drops a cron event. This sends the same
+    workflow a manual start signal. The called workflow keeps all of its own
+    market-window, holiday, duplicate-order, and paper-account protections.
+    """
+    url = f"https://api.github.com/repos/{repository}/actions/workflows/{workflow_file}/dispatches"
+    body: dict[str, object] = {"ref": "main"}
+    if inputs:
+        body["inputs"] = inputs
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "stockbot-independent-watchdog",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            return response.status == 204
+    except Exception:
+        return False
+
+
 def _scheduled_run_for_today(runs: list[dict], *, clock: datetime, expected_start: time) -> dict:
-    """Select the DST-correct scheduled run, ignoring the duplicate UTC trigger."""
+    """Select today's intended cron run or one watchdog recovery dispatch."""
     expected_minutes = expected_start.hour * 60 + expected_start.minute
     for run in runs:
-        if str(run.get("event", "")) != "schedule":
+        event = str(run.get("event", ""))
+        if event not in {"schedule", "workflow_dispatch"}:
             continue
         try:
             created = datetime.fromisoformat(str(run.get("created_at", "")).replace("Z", "+00:00"))
@@ -78,7 +127,10 @@ def _scheduled_run_for_today(runs: list[dict], *, clock: datetime, expected_star
             continue
         created_ny = created.astimezone(ZoneInfo("America/New_York"))
         observed_minutes = created_ny.hour * 60 + created_ny.minute
-        if created_ny.date() == clock.date() and abs(observed_minutes - expected_minutes) <= 20:
+        same_day = created_ny.date() == clock.date()
+        intended_schedule = event == "schedule" and abs(observed_minutes - expected_minutes) <= 20
+        watchdog_recovery = event == "workflow_dispatch" and observed_minutes >= expected_minutes
+        if same_day and (intended_schedule or watchdog_recovery):
             return run
     return {}
 
@@ -113,12 +165,15 @@ def check_workflows(*, now: datetime | None = None) -> dict:
     session = _is_nyse_session(clock)
     checks: dict[str, dict] = {}
     problems: list[str] = []
+    dispatched: list[str] = []
 
-    for name, (workflow_file, expected_start, deadline) in WORKFLOWS.items():
+    for name, (workflow_file, expected_start, fallback_at, fallback_cutoff, deadline) in WORKFLOWS.items():
         due = bool(session and clock.time() >= deadline)
+        recovery_dispatched = False
         try:
+            runs = _github_runs(repository, workflow_file, token)
             latest = _scheduled_run_for_today(
-                _github_runs(repository, workflow_file, token),
+                runs,
                 clock=clock,
                 expected_start=expected_start,
             )
@@ -126,8 +181,35 @@ def check_workflows(*, now: datetime | None = None) -> dict:
             created_ny = created.astimezone(ZoneInfo("America/New_York")) if created else None
             ran_today = bool(created_ny and created_ny.date() == clock.date())
             conclusion = str(latest.get("conclusion") or latest.get("status") or "missing")
+            run_pending = conclusion in {"queued", "in_progress", "requested", "waiting", "pending"}
+
+            # Recover a missing cron only inside its safe time range. Once any
+            # intended run exists, let it finish instead of creating duplicates.
+            recovery_due = bool(
+                session
+                and fallback_at <= clock.time() <= fallback_cutoff
+                and not ran_today
+            )
+            recovery_dispatched = bool(
+                recovery_due
+                and _dispatch_workflow(
+                    repository,
+                    workflow_file,
+                    token,
+                    inputs=RECOVERY_INPUTS.get(name, {}),
+                )
+            )
+            if recovery_dispatched:
+                dispatched.append(name)
             healthy = bool(not due or (ran_today and conclusion == "success"))
-            reason = "not_due" if not due else "ok" if healthy else f"latest_today={ran_today},conclusion={conclusion}"
+            if recovery_dispatched:
+                reason = "fallback_dispatched"
+            elif healthy:
+                reason = "not_due" if not due else "ok"
+            elif run_pending:
+                reason = f"run_pending:{conclusion}"
+            else:
+                reason = f"latest_today={ran_today},conclusion={conclusion}"
         except Exception as exc:
             latest = {}
             ran_today = False
@@ -137,12 +219,15 @@ def check_workflows(*, now: datetime | None = None) -> dict:
         checks[name] = {
             "workflow_file": workflow_file,
             "expected_start_new_york": expected_start.isoformat(timespec="minutes"),
+            "fallback_at_new_york": fallback_at.isoformat(timespec="minutes"),
+            "fallback_cutoff_new_york": fallback_cutoff.isoformat(timespec="minutes"),
             "deadline_new_york": deadline.isoformat(timespec="minutes"),
             "due": due,
             "healthy": healthy,
             "ran_today": ran_today,
             "conclusion": conclusion,
             "run_url": latest.get("html_url", ""),
+            "recovery_dispatched": recovery_dispatched,
             "reason": reason,
         }
         if not healthy:
@@ -167,6 +252,7 @@ def check_workflows(*, now: datetime | None = None) -> dict:
         "problems": problems,
         "new_problems": newly_failed,
         "recovered_problems": recovered,
+        "recovery_dispatches": dispatched,
         "checks": checks,
         "trading_actions_allowed": False,
         "real_capital_approved": False,

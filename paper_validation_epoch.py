@@ -32,6 +32,7 @@ ARCHIVE_ROOT = Path("archive/paper_epochs")
 PAPER_LOGIC_FILES = (
     ".github/workflows/daily_paper_trading.yml",
     ".github/workflows/factor_data_refresh.yml",
+    ".github/workflows/independent_workflow_watchdog.yml",
     ".github/workflows/post_market_execution_quality.yml",
     "alpaca_paper_trading.py",
     "alpaca_protection.py",
@@ -64,6 +65,7 @@ PAPER_LOGIC_FILES = (
     "signal_freshness.py",
     "trade_rules.py",
     "validation_bundle.py",
+    "workflow_watchdog.py",
     "signals/core_satellite_live_configs.json",
     "signals/core_satellite_validation_bundle.json",
 )

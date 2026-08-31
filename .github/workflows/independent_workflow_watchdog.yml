@@ -2,13 +2,15 @@ name: Independent Paper Workflow Watchdog
 
 on:
   schedule:
-    # Run independently each weekday. The script uses New York deadlines and
-    # the NYSE calendar, so early hours, holidays, and DST do not false-alert.
-    - cron: "15 * * * 1-5"
+    # Multiple off-peak attempts make it unlikely that GitHub drops every
+    # watchdog event. The script itself decides whether any work is due.
+    - cron: "7,17,27,37,47,57 * * * 1-5"
   workflow_dispatch:
 
 permissions:
-  actions: read
+  # Read run history and manually dispatch a missed workflow. The target
+  # workflows keep their own holiday, market-window, and duplicate safeguards.
+  actions: write
   contents: read
 
 concurrency:

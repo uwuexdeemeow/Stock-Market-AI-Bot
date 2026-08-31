@@ -53,6 +53,9 @@ The lock also covers `requirements-ci.txt` and `requirements.txt`. Package
 version changes can alter model, market-data, or broker behavior even when the
 Python files themselves did not change.
 
+The independent watchdog workflow and `workflow_watchdog.py` are locked too,
+because their guarded fallback can start a missed paper-trading workflow.
+
 ## Key Terms
 
 - **Epoch:** A dated evaluation period for one bot version.
