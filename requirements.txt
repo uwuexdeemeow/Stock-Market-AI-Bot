@@ -26,6 +26,8 @@ exchange_calendars==4.13.2
 # NLP / Sentiment
 vaderSentiment==3.3.2
 finvader==1.0.2
+# FinVADER 1.0.2 requires this exact NLTK version. CI documents and narrowly
+# suppresses those upstream findings until FinVADER can be replaced safely.
 nltk==3.6.2
 
 # Social data

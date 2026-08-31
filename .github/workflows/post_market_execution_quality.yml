@@ -169,4 +169,3 @@ jobs:
           git add -f signals/
           git commit -m "signals: post-market execution run #${{ github.run_number }}" || exit 0
           git push origin signals/latest
-
