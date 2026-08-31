@@ -49,6 +49,10 @@ validation-bundle files. If one changes, new orders are blocked until a senior
 review deliberately freezes the reviewed version again. Documentation and
 dashboard-only changes do not break the lock.
 
+The lock also covers `requirements-ci.txt` and `requirements.txt`. Package
+version changes can alter model, market-data, or broker behavior even when the
+Python files themselves did not change.
+
 ## Key Terms
 
 - **Epoch:** A dated evaluation period for one bot version.

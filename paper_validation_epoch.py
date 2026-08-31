@@ -56,6 +56,10 @@ PAPER_LOGIC_FILES = (
     "portfolio_manager.py",
     "risk_sizing.py",
     "run_evidence.py",
+    # Dependency changes can alter data, sentiment, and broker behavior even
+    # when the Python source stays unchanged, so freeze them with the release.
+    "requirements-ci.txt",
+    "requirements.txt",
     "settings.py",
     "signal_freshness.py",
     "trade_rules.py",
