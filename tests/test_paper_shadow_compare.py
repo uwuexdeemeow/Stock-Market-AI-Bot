@@ -74,3 +74,16 @@ def test_non_overlapping_first_observations_are_collecting(tmp_path):
     assert summary["reason"] == "awaiting_overlapping_observation"
     assert summary["aligned_days"] == 0
     assert table.empty
+
+
+def test_fractional_valuation_date_is_accepted_as_first_observation(tmp_path):
+    alpaca_path = tmp_path / "alpaca.csv"
+    shadow_path = tmp_path / "fractional.csv"
+    pd.DataFrame({"date": ["2026-08-28"], "equity": [100_000.0]}).to_csv(alpaca_path, index=False)
+    pd.DataFrame({"valuation_date": ["2026-08-28"], "equity": [399.59]}).to_csv(shadow_path, index=False)
+
+    summary, table = psc.build_comparison_payload(alpaca_path=alpaca_path, shadow_path=shadow_path)
+
+    assert summary["status"] == "collecting"
+    assert summary["aligned_days"] == 1
+    assert not table.empty

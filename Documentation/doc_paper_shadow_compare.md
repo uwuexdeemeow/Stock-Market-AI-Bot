@@ -18,6 +18,8 @@ Then it writes:
 The comparison uses percentage return from the first date both curves can
 fairly compare.  This matters because Alpaca and shadow may not start on the
 same date or update at the exact same time.
+Both the standard `date` column and the fractional ledger's `valuation_date`
+column are accepted and normalized to the same meaning.
 
 ## How To Run
 

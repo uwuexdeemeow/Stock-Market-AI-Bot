@@ -42,6 +42,11 @@ def _read_equity_csv(path: Path, *, equity_column: str = "equity") -> pd.DataFra
         df = pd.read_csv(path)
     except (OSError, pd.errors.EmptyDataError):
         return pd.DataFrame(columns=["date", "equity"])
+    # The standard journal calls its trading day ``date`` while the fractional
+    # ledger calls the same idea ``valuation_date``. Accept either explicit
+    # name and normalize it below so both ledgers use one comparison path.
+    if "date" not in df.columns and "valuation_date" in df.columns:
+        df = df.rename(columns={"valuation_date": "date"})
     if "date" not in df.columns or equity_column not in df.columns:
         return pd.DataFrame(columns=["date", "equity"])
 
