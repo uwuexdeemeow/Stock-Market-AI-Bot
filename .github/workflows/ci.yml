@@ -30,7 +30,17 @@ jobs:
         env:
           ALPACA_BASE_URL: https://paper-api.alpaca.markets
           STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
-        run: pytest -q
+        run: |
+          # Preserve pytest's real exit code while publishing the failure tail
+          # as a check annotation that is visible without downloading logs.
+          set -o pipefail
+          pytest -q 2>&1 | tee pytest-output.txt
+          test_status=${PIPESTATUS[0]}
+          if [ "$test_status" -ne 0 ]; then
+            details=$(tail -n 80 pytest-output.txt | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
+            echo "::error file=.github/workflows/ci.yml,line=32,title=Linux pytest failure::$details"
+          fi
+          exit "$test_status"
 
   windows-paper-safety:
     runs-on: windows-latest
