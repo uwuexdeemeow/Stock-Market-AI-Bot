@@ -104,6 +104,11 @@ fractional fills, cash, slippage, and regulatory fees without importing a broker
 client. Daily and shadow workflows preserve its state together on
 `signals/latest`, so one workflow cannot erase the small-account history.
 
+Shadow restores only caches published by Factor Data Refresh. It no longer
+rebuilds research data inside the journal job. A missing or unhealthy factor
+cache fails quickly with a visible annotation, while a valid first observation
+is labeled `collecting` instead of failing the workflow.
+
 This evidence does not approve real capital. Broker fractionability and a safe
 fractional protective-stop design remain explicit promotion blockers.
 

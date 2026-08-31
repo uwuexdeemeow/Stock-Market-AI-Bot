@@ -54,3 +54,7 @@ curves from this date makes the comparison fairer.
 
 **Return spread**: Alpaca return minus shadow return. Positive means Alpaca is
 ahead. Negative means shadow is ahead.
+
+**Collecting**: Both input files are valid, but there are fewer than two shared
+observations. This is normal on the first day and exits successfully. Missing or
+malformed input files still fail so automation cannot hide lost evidence.

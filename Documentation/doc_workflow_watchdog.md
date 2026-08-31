@@ -25,6 +25,10 @@ watchdog itself. Reports and alert state are stored under `signals/`.
 The daily-paper fallback is allowed only from 9:45 through 10:25 AM New York.
 It never supplies the emergency override. Factor, shadow, and post-market
 fallbacks are also time-bounded and keep their original workflow safeguards.
+Each workflow gets at most one watchdog dispatch per New York session. The
+read-only shadow workflow may use that one dispatch to retry a failed or
+cancelled run. A manually launched daily dry run does not count as a successful
+real paper session.
 
 ## Key terms
 
@@ -33,3 +37,5 @@ fallbacks are also time-bounded and keep their original workflow safeguards.
 - **Deduplication:** one alert for a continuing problem.
 - **Recovery alert:** confirmation that the problem cleared.
 - **Fallback dispatch:** a guarded manual start when the normal cron is absent.
+- **Incident key:** a stable workflow identity used to avoid false recovery
+  messages when only the failure explanation changes.

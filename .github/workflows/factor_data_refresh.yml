@@ -108,9 +108,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: data/
-          key: data-parquets-${{ github.run_id }}
+          key: factor-data-parquets-${{ github.run_id }}
           restore-keys: |
-            data-parquets-
+            factor-data-parquets-
 
       # Files now tracked in git are intentionally excluded — caching them
       # would overwrite the known-good baseline checked out from git with
@@ -161,6 +161,7 @@ jobs:
           RESEARCH_INCREMENTAL_WORKERS: "4"
 
       - name: Refresh feature quality report
+        id: refresh_feature_quality
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           python3 feature_quality_diagnostic.py --top 48
@@ -188,6 +189,7 @@ jobs:
           PYTHONUNBUFFERED: "1"
 
       - name: Validate research outputs
+        id: validate_research_outputs
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           python3 research_output_guard.py \
@@ -222,7 +224,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: data/
-          key: data-parquets-${{ github.run_id }}
+          key: factor-data-parquets-${{ github.run_id }}
 
       # Git-tracked files excluded — they're owned by main, not cache.
       - name: Save state cache
@@ -342,3 +344,10 @@ jobs:
             -d disable_web_page_preview=true \
             --data-urlencode "text@/tmp/telegram_summary.txt" \
             || echo "Telegram notification failed (non-fatal)"
+
+      - name: Publish detailed failure annotation
+        if: ${{ failure() }}
+        env:
+          WORKFLOW_STEPS_JSON: ${{ toJSON(steps) }}
+          WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python3 workflow_failure_annotation.py --workflow-file .github/workflows/factor_data_refresh.yml --workflow-name "Factor Data Refresh"

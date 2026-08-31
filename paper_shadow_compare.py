@@ -108,7 +108,13 @@ def build_comparison_payload(
     alpaca_start = _first_row_on_or_after(alpaca, common_start_date)
     shadow_start = _first_row_on_or_after(shadow, common_start_date)
     if alpaca_start is None or shadow_start is None:
-        empty_summary["reason"] = "no_common_start_date"
+        # PLAIN ENGLISH: Both accounts have valid observations, but the newer
+        # account has not yet reached a date that the older account can compare
+        # against. This is normal on day one, so collect more evidence instead
+        # of reporting a broken workflow.
+        empty_summary["status"] = "collecting"
+        empty_summary["reason"] = "awaiting_overlapping_observation"
+        empty_summary["aligned_days"] = 0
         return empty_summary, pd.DataFrame()
 
     alpaca_latest = alpaca.iloc[-1]
@@ -151,9 +157,15 @@ def build_comparison_payload(
         elif return_spread < 0:
             winner = "shadow"
 
+    # One observation in either account only establishes a baseline and cannot
+    # yet measure a return difference. Mark that first day as collecting. Once
+    # both curves have history, their latest values can still be compared even
+    # when broker and shadow update on slightly different trading dates.
+    comparison_status = "ok" if min(len(alpaca), len(shadow)) >= 2 else "collecting"
     summary = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "status": "ok",
+        "status": comparison_status,
+        "reason": None if comparison_status == "ok" else "awaiting_second_aligned_observation",
         "common_start_date": str(common_start_date),
         "aligned_days": int(len(aligned_rows)),
         "latest_dates_match": bool(latest_dates_match),
@@ -225,7 +237,9 @@ def main() -> int:
         "leader=" + str((summary.get("spread") or {}).get("leader", "?")),
         "spread=" + str((summary.get("spread") or {}).get("alpaca_minus_shadow_return_pct", "?")),
     )
-    return 0 if summary.get("status") == "ok" else 1
+    # Collecting means the files are healthy but the sample is still young.
+    # Missing or malformed inputs remain a real failure and keep exit code 1.
+    return 0 if summary.get("status") in {"ok", "collecting"} else 1
 
 
 if __name__ == "__main__":

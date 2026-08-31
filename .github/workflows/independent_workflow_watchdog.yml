@@ -41,6 +41,7 @@ jobs:
           restore-keys: workflow-watchdog-state-
 
       - name: Check scheduled workflows
+        id: check_scheduled_workflows
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -61,3 +62,10 @@ jobs:
           name: independent-workflow-watchdog-${{ github.run_number }}
           path: signals/workflow_watchdog*.json
           retention-days: 60
+
+      - name: Publish detailed failure annotation
+        if: ${{ failure() }}
+        env:
+          WORKFLOW_STEPS_JSON: ${{ toJSON(steps) }}
+          WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python3 workflow_failure_annotation.py --workflow-file .github/workflows/independent_workflow_watchdog.yml --workflow-name "Independent Paper Workflow Watchdog"

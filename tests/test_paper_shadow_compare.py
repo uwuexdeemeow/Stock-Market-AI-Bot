@@ -57,6 +57,20 @@ def test_write_comparison_outputs_json_and_csv(tmp_path):
         json_out=json_out,
     )
 
-    assert summary["status"] == "ok"
+    assert summary["status"] == "collecting"
     assert json.loads(json_out.read_text())["aligned_days"] == 1
     assert pd.read_csv(csv_out).iloc[0]["alpaca_equity"] == 101.0
+
+
+def test_non_overlapping_first_observations_are_collecting(tmp_path):
+    alpaca_path = tmp_path / "alpaca.csv"
+    shadow_path = tmp_path / "shadow.csv"
+    pd.DataFrame({"date": ["2026-01-02"], "equity": [101.0]}).to_csv(alpaca_path, index=False)
+    pd.DataFrame({"date": ["2026-01-05"], "equity": [100.0]}).to_csv(shadow_path, index=False)
+
+    summary, table = psc.build_comparison_payload(alpaca_path=alpaca_path, shadow_path=shadow_path)
+
+    assert summary["status"] == "collecting"
+    assert summary["reason"] == "awaiting_overlapping_observation"
+    assert summary["aligned_days"] == 0
+    assert table.empty

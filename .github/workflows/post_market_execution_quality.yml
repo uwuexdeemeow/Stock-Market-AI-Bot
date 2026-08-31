@@ -58,7 +58,7 @@ jobs:
         with:
           path: data/
           key: post-market-data-${{ github.run_id }}
-          restore-keys: data-parquets-
+          restore-keys: factor-data-parquets-
 
       - name: Restore operational evidence
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
@@ -83,6 +83,7 @@ jobs:
           done
 
       - name: Refresh read-only execution evidence
+        id: refresh_execution_evidence
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         env:
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
@@ -169,3 +170,10 @@ jobs:
           git add -f signals/
           git commit -m "signals: post-market execution run #${{ github.run_number }}" || exit 0
           git push origin signals/latest
+
+      - name: Publish detailed failure annotation
+        if: ${{ failure() }}
+        env:
+          WORKFLOW_STEPS_JSON: ${{ toJSON(steps) }}
+          WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python3 workflow_failure_annotation.py --workflow-file .github/workflows/post_market_execution_quality.yml --workflow-name "Post-Market Execution Quality"

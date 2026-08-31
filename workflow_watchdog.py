@@ -114,7 +114,13 @@ def _dispatch_workflow(
         return False
 
 
-def _scheduled_run_for_today(runs: list[dict], *, clock: datetime, expected_start: time) -> dict:
+def _scheduled_run_for_today(
+    runs: list[dict],
+    *,
+    clock: datetime,
+    expected_start: time,
+    allow_workflow_dispatch: bool = True,
+) -> dict:
     """Select today's intended cron run or one watchdog recovery dispatch."""
     expected_minutes = expected_start.hour * 60 + expected_start.minute
     for run in runs:
@@ -129,7 +135,17 @@ def _scheduled_run_for_today(runs: list[dict], *, clock: datetime, expected_star
         observed_minutes = created_ny.hour * 60 + created_ny.minute
         same_day = created_ny.date() == clock.date()
         intended_schedule = event == "schedule" and abs(observed_minutes - expected_minutes) <= 20
-        watchdog_recovery = event == "workflow_dispatch" and observed_minutes >= expected_minutes
+        # A person may run Daily Paper Trading in dry-run mode. The Actions
+        # list API does not expose that input, so only accept a manual daily run
+        # when this watchdog recorded that it requested the recovery itself.
+        display_title = str(run.get("display_title") or run.get("name") or "").lower()
+        is_declared_dry_run = "dry-run" in display_title or "dry run" in display_title
+        watchdog_recovery = (
+            allow_workflow_dispatch
+            and event == "workflow_dispatch"
+            and observed_minutes >= expected_minutes
+            and not is_declared_dry_run
+        )
         if same_day and (intended_schedule or watchdog_recovery):
             return run
     return {}
@@ -163,6 +179,17 @@ def check_workflows(*, now: datetime | None = None) -> dict:
         raise RuntimeError("GITHUB_REPOSITORY and GITHUB_TOKEN are required")
     clock = (now or datetime.now(timezone.utc)).astimezone(ZoneInfo("America/New_York"))
     session = _is_nyse_session(clock)
+    previous = _read_json(STATE_FILE)
+    previous_attempts = dict(previous.get("recovery_attempts", {}) or {})
+    today_prefix = f"{clock.date().isoformat()}:"
+    # Keep state small: yesterday's strict limits no longer affect today.
+    recovery_attempts = {
+        key: value for key, value in previous_attempts.items() if str(key).startswith(today_prefix)
+    }
+    previous_retries = dict(previous.get("retry_attempts", {}) or {})
+    retry_attempts = {
+        key: value for key, value in previous_retries.items() if str(key).startswith(today_prefix)
+    }
     checks: dict[str, dict] = {}
     problems: list[str] = []
     dispatched: list[str] = []
@@ -170,12 +197,16 @@ def check_workflows(*, now: datetime | None = None) -> dict:
     for name, (workflow_file, expected_start, fallback_at, fallback_cutoff, deadline) in WORKFLOWS.items():
         due = bool(session and clock.time() >= deadline)
         recovery_dispatched = False
+        attempt_key = f"{clock.date().isoformat()}:{name}"
+        attempts_today = int(previous_attempts.get(attempt_key, 0) or 0)
+        retries_today = int(previous_retries.get(attempt_key, 0) or 0)
         try:
             runs = _github_runs(repository, workflow_file, token)
             latest = _scheduled_run_for_today(
                 runs,
                 clock=clock,
                 expected_start=expected_start,
+                allow_workflow_dispatch=name != "daily_paper" or attempts_today > 0,
             )
             created = datetime.fromisoformat(str(latest.get("created_at", "")).replace("Z", "+00:00")) if latest else None
             created_ny = created.astimezone(ZoneInfo("America/New_York")) if created else None
@@ -183,12 +214,21 @@ def check_workflows(*, now: datetime | None = None) -> dict:
             conclusion = str(latest.get("conclusion") or latest.get("status") or "missing")
             run_pending = conclusion in {"queued", "in_progress", "requested", "waiting", "pending"}
 
-            # Recover a missing cron only inside its safe time range. Once any
-            # intended run exists, let it finish instead of creating duplicates.
+            # Recover a missing cron once inside its safe time range. Shadow is
+            # also allowed one retry after a failed/cancelled run because it is
+            # read-only and cannot place broker orders. Every logical workflow
+            # has a strict one-dispatch-per-NYSE-session limit.
+            retryable_shadow_failure = bool(
+                name == "shadow_paper"
+                and ran_today
+                and conclusion in {"failure", "cancelled", "timed_out"}
+                and retries_today < 1
+            )
+            missing_run_recovery = bool(not ran_today and attempts_today < 1)
             recovery_due = bool(
                 session
                 and fallback_at <= clock.time() <= fallback_cutoff
-                and not ran_today
+                and (missing_run_recovery or retryable_shadow_failure)
             )
             recovery_dispatched = bool(
                 recovery_due
@@ -201,6 +241,9 @@ def check_workflows(*, now: datetime | None = None) -> dict:
             )
             if recovery_dispatched:
                 dispatched.append(name)
+                recovery_attempts[attempt_key] = attempts_today + 1
+                if retryable_shadow_failure:
+                    retry_attempts[attempt_key] = retries_today + 1
             healthy = bool(not due or (ran_today and conclusion == "success"))
             if recovery_dispatched:
                 reason = "fallback_dispatched"
@@ -228,16 +271,24 @@ def check_workflows(*, now: datetime | None = None) -> dict:
             "conclusion": conclusion,
             "run_url": latest.get("html_url", ""),
             "recovery_dispatched": recovery_dispatched,
+            "recovery_attempts_today": int(recovery_attempts.get(attempt_key, attempts_today)),
+            "retry_attempts_today": int(retry_attempts.get(attempt_key, retries_today)),
             "reason": reason,
         }
         if not healthy:
             problems.append(f"{name}:{reason}")
 
-    previous = _read_json(STATE_FILE)
-    previous_problems = set(previous.get("problems", []) or [])
-    current_problems = set(problems)
-    newly_failed = sorted(current_problems - previous_problems)
-    recovered = sorted(previous_problems - current_problems)
+    # Incident identity stays stable while its explanatory text changes. This
+    # prevents "pending" -> "failed" from generating a fake recovery alert.
+    current_problem_keys = {f"workflow:{item.split(':', 1)[0]}" for item in problems}
+    previous_problem_keys = set(previous.get("problem_keys", []) or [])
+    if not previous_problem_keys:
+        previous_problem_keys = {
+            f"workflow:{str(item).split(':', 1)[0]}"
+            for item in previous.get("problems", []) or []
+        }
+    newly_failed = sorted(current_problem_keys - previous_problem_keys)
+    recovered = sorted(previous_problem_keys - current_problem_keys)
     if newly_failed:
         _send_telegram("Paper workflow watchdog FAILED\n" + "\n".join(f"- {item}" for item in newly_failed))
     if recovered:
@@ -250,6 +301,7 @@ def check_workflows(*, now: datetime | None = None) -> dict:
         "nyse_session": session,
         "status": "fail" if problems else "pass",
         "problems": problems,
+        "problem_keys": sorted(current_problem_keys),
         "new_problems": newly_failed,
         "recovered_problems": recovered,
         "recovery_dispatches": dispatched,
@@ -258,7 +310,16 @@ def check_workflows(*, now: datetime | None = None) -> dict:
         "real_capital_approved": False,
     }
     atomic_write_json(report, REPORT_FILE)
-    atomic_write_json({"updated_at": report["checked_at"], "problems": problems}, STATE_FILE)
+    atomic_write_json(
+        {
+            "updated_at": report["checked_at"],
+            "problems": problems,
+            "problem_keys": sorted(current_problem_keys),
+            "recovery_attempts": recovery_attempts,
+            "retry_attempts": retry_attempts,
+        },
+        STATE_FILE,
+    )
     return report
 
 

@@ -55,6 +55,8 @@ Python files themselves did not change.
 
 The independent watchdog workflow and `workflow_watchdog.py` are locked too,
 because their guarded fallback can start a missed paper-trading workflow.
+The shadow workflow and paper-vs-shadow comparator are locked because they
+decide whether validation evidence is complete or still collecting.
 
 ## Key Terms
 

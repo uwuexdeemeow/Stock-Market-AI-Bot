@@ -41,7 +41,7 @@ concurrency:
 jobs:
   shadow-paper-journal:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
 
     steps:
       - name: New York schedule gate
@@ -93,9 +93,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: data/
-          key: data-parquets-shadow-${{ github.run_id }}
+          key: shadow-factor-reader-${{ github.run_id }}
           restore-keys: |
-            data-parquets-
+            factor-data-parquets-
 
       - name: Cache shadow journal state
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
@@ -227,31 +227,15 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
 
-      - name: Rebuild factor cache if restore is incomplete
+      - name: Require completed factor-data cache
+        id: require_factor_cache
         if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
         run: |
-          if python3 factor_data_health.py --strict --no-write; then
-            echo "Restored factor cache is trade-ready."
-          else
-            echo "Restored factor cache is missing or stale; rebuilding."
-            cp signals/feature_quality_report.json signals/feature_quality_report.json.gitbase 2>/dev/null || true
-            cp signals/feature_quality_summary.csv signals/feature_quality_summary.csv.gitbase 2>/dev/null || true
-            cp signals/feature_health_profile.json signals/feature_health_profile.json.gitbase 2>/dev/null || true
-            cp signals/feature_health_profile.csv signals/feature_health_profile.csv.gitbase 2>/dev/null || true
-            cp logs/feature_ic_shortlist.csv logs/feature_ic_shortlist.csv.gitbase 2>/dev/null || true
-
-            python3 research.py --incremental
-            python3 feature_quality_diagnostic.py --top 48
-            python3 feature_health.py --max-specs 48
-            python3 ci_check_feature_report.py --min-features 20
-
-            rm -f signals/feature_quality_report.json.gitbase \
-                  signals/feature_quality_summary.csv.gitbase \
-                  signals/feature_health_profile.json.gitbase \
-                  signals/feature_health_profile.csv.gitbase \
-                  logs/feature_ic_shortlist.csv.gitbase
-            python3 factor_data_health.py --strict
+          if ! python3 factor_data_health.py --strict --no-write; then
+            echo "::error::No healthy completed Factor Data Refresh cache was restored. Shadow will not rebuild research data; run Factor Data Refresh first."
+            exit 1
           fi
+          echo "Restored completed factor-data cache is trade-ready."
         env:
           PYTHONUNBUFFERED: "1"
 
@@ -262,6 +246,7 @@ jobs:
           PYTHONUNBUFFERED: "1"
 
       - name: Run shadow paper journal
+        id: run_shadow_journal
         if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
         run: |
           FLAGS=""
@@ -273,6 +258,7 @@ jobs:
           PYTHONUNBUFFERED: "1"
 
       - name: Compare Alpaca paper vs shadow paper
+        id: compare_standard_shadow
         if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
         run: python3 paper_shadow_compare.py
         env:
@@ -282,6 +268,7 @@ jobs:
       # active signal and writes pretend $400 fractional fills only. The script
       # contains no Alpaca client and cannot submit, cancel, or replace orders.
       - name: Run $400 fractional shadow account
+        id: run_fractional_shadow
         if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
         run: python3 fractional_shadow_paper.py --initial-equity "$FRACTIONAL_SHADOW_INITIAL_EQUITY"
         env:
@@ -289,6 +276,7 @@ jobs:
           FRACTIONAL_SHADOW_INITIAL_EQUITY: ${{ github.event.inputs.fractional_initial_equity || '400' }}
 
       - name: Compare Alpaca paper vs $400 fractional shadow
+        id: compare_fractional_shadow
         if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
         run: |
           python3 paper_shadow_compare.py \
@@ -299,6 +287,7 @@ jobs:
           PYTHONUNBUFFERED: "1"
 
       - name: Verify shadow evidence and current comparison
+        id: verify_shadow_evidence
         if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
         env:
           FRACTIONAL_EXPECTED_INITIAL_EQUITY: ${{ github.event.inputs.fractional_initial_equity || '400' }}
@@ -323,7 +312,7 @@ jobs:
 
           comparison_path = Path("signals/paper_shadow_compare.json")
           comparison = json.loads(comparison_path.read_text(encoding="utf-8"))
-          if comparison.get("status") != "ok":
+          if comparison.get("status") not in {"ok", "collecting"}:
               raise SystemExit(f"Paper-vs-shadow comparison is not current: {comparison.get('status')}")
           generated = datetime.fromisoformat(str(comparison["generated_at"]).replace("Z", "+00:00"))
           if generated < datetime.now(timezone.utc) - timedelta(minutes=15):
@@ -346,7 +335,7 @@ jobs:
           fractional_comparison = json.loads(
               Path("signals/fractional_shadow_compare.json").read_text(encoding="utf-8")
           )
-          if fractional_comparison.get("status") != "ok":
+          if fractional_comparison.get("status") not in {"ok", "collecting"}:
               raise SystemExit("Fractional paper comparison is not current")
           print("Shadow fingerprint, $400 safety, allocation, and comparisons verified.")
           PY
@@ -451,13 +440,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Save data cache
-        if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
-        uses: actions/cache/save@v4
-        with:
-          path: data/
-          key: data-parquets-shadow-${{ github.run_id }}
-
       - name: Save shadow journal state cache
         if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
         uses: actions/cache/save@v4
@@ -480,3 +462,10 @@ jobs:
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json
           key: shadow-state-files-${{ github.run_id }}
+
+      - name: Publish detailed failure annotation
+        if: ${{ failure() }}
+        env:
+          WORKFLOW_STEPS_JSON: ${{ toJSON(steps) }}
+          WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python3 workflow_failure_annotation.py --workflow-file .github/workflows/shadow_paper_journal.yml --workflow-name "Shadow Paper Journal"
