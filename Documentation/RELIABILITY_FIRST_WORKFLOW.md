@@ -109,6 +109,11 @@ rebuilds research data inside the journal job. A missing or unhealthy factor
 cache fails quickly with a visible annotation, while a valid first observation
 is labeled `collecting` instead of failing the workflow.
 
+Post-market execution evidence is copied outside the checkout before the
+workflow changes to the `signals/latest` publishing branch. Temporary runner
+changes are stashed first, preventing a safe read-only audit from failing while
+preserving every generated evidence file for publication.
+
 This evidence does not approve real capital. Broker fractionability and a safe
 fractional protective-stop design remain explicit promotion blockers.
 

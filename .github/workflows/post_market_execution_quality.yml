@@ -142,6 +142,7 @@ jobs:
             signals/workflow_heartbeat_execution.json
 
       - name: Publish refreshed evidence
+        id: publish_execution_evidence
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         run: |
           generated_dir="$(mktemp -d)"
@@ -164,6 +165,10 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Generated files are already copied outside the checkout. Stashing
+          # the runner's temporary changes lets Git switch branches without
+          # discarding the evidence that will be copied back below.
+          git stash push --include-untracked --message "post-market generated evidence" || true
           git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest
           git checkout -B signals/latest origin/signals/latest
           cp -R "$generated_dir/signals/." signals/
