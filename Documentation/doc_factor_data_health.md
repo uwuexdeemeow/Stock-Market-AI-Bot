@@ -16,6 +16,9 @@ It checks:
 
 Freshness is counted using NYSE trading sessions, not simple weekdays. That
 means weekends and market holidays do not make healthy data look stale.
+The clock is converted to New York time and only sessions whose closing bell
+has passed are counted. This prevents a Monday in Singapore from aging Friday
+data while New York is still on Sunday or before Monday's market close.
 
 ## How to Run It
 

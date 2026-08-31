@@ -78,6 +78,31 @@ def test_monitor_heartbeat_finds_daily_run_fill_stub(tmp_path, monkeypatch):
     assert summary["monitors"]["fill_monitor"]["status"] == "fresh"
 
 
+def test_monitor_heartbeat_can_use_local_health_run_stub(tmp_path, monkeypatch):
+    """A dashboard refresh must not masquerade as a real daily trading run."""
+    signal_dir = tmp_path / "signals"
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    today = datetime.now().strftime("%Y%m%d")
+    local_log = log_dir / f"local_health_{today}.json"
+    local_log.write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(monitor_heartbeat, "SIGNALS", signal_dir)
+    monkeypatch.setattr(
+        monitor_heartbeat,
+        "MONITORED_FILES",
+        {"daily_run": log_dir / "daily_run_{today}.json"},
+    )
+
+    summary = monitor_heartbeat.check_monitors(
+        max_age_hours=36,
+        run_log_prefix="local_health",
+    )
+
+    assert summary["all_ok"] is True
+    assert summary["monitors"]["daily_run"]["path"] == str(local_log)
+
+
 def test_monitor_heartbeat_tracks_execution_scorecard():
     assert "execution_scorecard" in monitor_heartbeat.MONITORED_FILES
     assert monitor_heartbeat.MONITORED_FILES["execution_scorecard"].name == "alpaca_execution_scorecard.json"

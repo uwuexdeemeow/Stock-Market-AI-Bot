@@ -13,7 +13,9 @@ quality warnings.
 
 It also compares overlapping prices when an incremental refresh changes data
 provider. A provider change is rejected when the median difference is above
-0.5% or any overlap difference is above 2%.
+1% or any overlap difference is above 2%. The small median allowance covers
+normal dividend-adjustment differences while the per-date ceiling still
+rejects split-scale and wrong-symbol data.
 
 ## How It Runs
 

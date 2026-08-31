@@ -211,6 +211,20 @@ def test_provider_overlap_accepts_adjusted_match_and_rejects_price_scale_change(
     assert mismatch["reason"] == "provider_overlap_price_mismatch"
 
 
+def test_provider_overlap_allows_small_dividend_adjustment_gap():
+    dates = pd.date_range("2026-01-01", periods=10, freq="B")
+    existing = pd.DataFrame({"Close": range(100, 110)}, index=dates)
+    dividend_adjusted = pd.DataFrame(
+        {"Close": [value * 0.9925 for value in range(100, 110)]},
+        index=dates,
+    )
+
+    result = data_manifest.compare_provider_overlap(existing, dividend_adjusted)
+
+    assert result["ok"] is True
+    assert result["median_limit_pct"] == 1.0
+
+
 def test_submit_outcome_is_fail_closed_and_journaled_once(tmp_path, monkeypatch):
     outcome_path = tmp_path / "outcome.json"
     journal_path = tmp_path / "outcomes.csv"

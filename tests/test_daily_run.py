@@ -230,6 +230,8 @@ def test_health_only_uses_synced_signal_without_order_submission():
     broker_step = next(step for step in steps if step.name == "broker_truth")
     assert "--require-alignment" not in broker_step.cmd
     assert broker_step.critical is False
+    heartbeat_step = next(step for step in steps if step.name == "monitor_heartbeat")
+    assert heartbeat_step.cmd[-2:] == ["--run-log-prefix", "local_health"]
 
 
 def test_alignment_gate_failure_still_runs_later_health_steps(monkeypatch):

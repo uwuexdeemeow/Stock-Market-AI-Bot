@@ -22,6 +22,7 @@ daily run log.
 python3 monitor_heartbeat.py
 python3 monitor_heartbeat.py --json
 python3 monitor_heartbeat.py --max-age 24
+python3 monitor_heartbeat.py --run-log-prefix local_health
 ```
 
 Inputs:
@@ -33,6 +34,10 @@ Inputs:
 Outputs:
 
 - `signals/monitor_heartbeat.json` — latest watchdog report.
+
+`--run-log-prefix local_health` is used by `daily_run.py --health-only`. It
+checks the local dashboard-refresh log without falsely recording that the
+computer performed the scheduled trading run.
 - Warning notification when any watched file is missing or stale.
 
 ## Key Terms

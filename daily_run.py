@@ -372,6 +372,16 @@ MONITOR_HEARTBEAT_STEP = Step(
     always_run=True,
 )
 
+# Health-only checks get their own watchdog target.  PLAIN ENGLISH: this tells
+# the watchdog to look for ``local_health_YYYYMMDD.json`` instead of claiming a
+# real trading run happened on the laptop.
+LOCAL_HEALTH_MONITOR_HEARTBEAT_STEP = Step(
+    "monitor_heartbeat",
+    [sys.executable, "monitor_heartbeat.py", "--run-log-prefix", "local_health"],
+    "Check if all local health monitors produced fresh output (watchdog)",
+    always_run=True,
+)
+
 LOG_CLEANUP_STEP = Step(
     "log_cleanup",
     [sys.executable, "log_cleanup.py", "--check-disk"],
@@ -647,7 +657,7 @@ def build_steps(
         if run_alpaca:
             steps.extend(ALPACA_HEALTH_ONLY_STEPS)
         steps.append(REGIME_MONITOR_STEP)
-        steps.append(MONITOR_HEARTBEAT_STEP)
+        steps.append(LOCAL_HEALTH_MONITOR_HEARTBEAT_STEP)
         steps.append(HEALTH_ONLY_READINESS_STEP)
         steps.append(LOG_CLEANUP_STEP)
         if stress:
@@ -832,7 +842,12 @@ def run_steps(steps: list[Step], *, dry_run: bool, timeout: int) -> list[dict]:
     return results
 
 
-def _write_startup_stubs(now: datetime, steps: list[Step], *, write_daily_stub: bool = True) -> None:
+def _write_startup_stubs(
+    now: datetime,
+    steps: list[Step],
+    *,
+    run_log_prefix: str = "daily_run",
+) -> None:
     """Write fresh watchdog files before the first step runs.
 
     PLAIN ENGLISH: `monitor_heartbeat.py` runs before `daily_run.py` writes the
@@ -843,8 +858,8 @@ def _write_startup_stubs(now: datetime, steps: list[Step], *, write_daily_stub: 
     # final results are written at the end of main()) doesn't false-positive
     # with "daily_run: output file missing".  The stub is overwritten with
     # the real summary when the run completes.
-    if write_daily_stub:
-        stub_path = LOGS / f"daily_run_{now.strftime('%Y%m%d')}.json"
+    if run_log_prefix:
+        stub_path = LOGS / f"{run_log_prefix}_{now.strftime('%Y%m%d')}.json"
         try:
             atomic_write_json(
                 {
@@ -1064,7 +1079,13 @@ def main():
         pre_results.append(sync_latest_github_signals(dry_run=bool(args.dry_run)))
 
     if not args.dry_run:
-        _write_startup_stubs(now, steps, write_daily_stub=not bool(args.health_only))
+        # Write the matching run-mode stub before the watchdog executes.  The
+        # final summary overwrites this same file after all steps finish.
+        _write_startup_stubs(
+            now,
+            steps,
+            run_log_prefix="local_health" if args.health_only else "daily_run",
+        )
 
     # Run each step
     results = pre_results + run_steps(steps, dry_run=bool(args.dry_run), timeout=int(args.timeout))

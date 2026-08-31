@@ -126,7 +126,11 @@ def _update_operational_incidents(problems: list[dict], *, now: datetime) -> dic
     }
 
 
-def check_monitors(*, max_age_hours: float = DEFAULT_MAX_AGE_HOURS) -> dict:
+def check_monitors(
+    *,
+    max_age_hours: float = DEFAULT_MAX_AGE_HOURS,
+    run_log_prefix: str = "daily_run",
+) -> dict:
     """Check freshness of all monitor output files.
 
     PLAIN ENGLISH: For each monitor, look at when its output file was last
@@ -152,8 +156,14 @@ def check_monitors(*, max_age_hours: float = DEFAULT_MAX_AGE_HOURS) -> dict:
             # Handle the daily_run special case (date in filename)
             today_str = datetime.now().strftime("%Y%m%d")
             yesterday_str = datetime.fromtimestamp(now - 86400).strftime("%Y%m%d")
-            path_today = Path(str(path_template).replace("{today}", today_str))
-            path_yesterday = Path(str(path_template).replace("{today}", yesterday_str))
+            # A local health refresh is not a real daily trading run.  Its
+            # startup stub and final report use ``local_health`` so the
+            # watchdog can verify that run without pretending orders ran.
+            template = str(path_template)
+            if name == "daily_run" and run_log_prefix != "daily_run":
+                template = template.replace("daily_run_{today}", f"{run_log_prefix}_{{today}}")
+            path_today = Path(template.replace("{today}", today_str))
+            path_yesterday = Path(template.replace("{today}", yesterday_str))
             # Use whichever exists and is newer
             path = path_today if path_today.exists() else path_yesterday
         else:
@@ -272,9 +282,18 @@ def main() -> None:
                         help="Output as JSON")
     parser.add_argument("--max-age", type=float, default=DEFAULT_MAX_AGE_HOURS,
                         help=f"Max file age in hours before alerting (default: {DEFAULT_MAX_AGE_HOURS})")
+    parser.add_argument(
+        "--run-log-prefix",
+        choices=("daily_run", "local_health"),
+        default="daily_run",
+        help="Which run log proves this watchdog invocation is alive.",
+    )
     args = parser.parse_args()
 
-    summary = check_monitors(max_age_hours=args.max_age)
+    summary = check_monitors(
+        max_age_hours=args.max_age,
+        run_log_prefix=args.run_log_prefix,
+    )
 
     if args.json:
         print(json.dumps(summary, indent=2))

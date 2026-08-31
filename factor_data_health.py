@@ -18,6 +18,7 @@ import pandas as pd
 from ranker_utils import load_adaptive_factor_weights
 from safe_io import atomic_write_json
 from data_manifest import read_parquet_manifest
+from data_validation import _latest_completed_session
 from settings import (
     ADAPTIVE_WEIGHTS_FILE,
     ADAPTIVE_WEIGHTS_MAX_AGE_DAYS,
@@ -61,12 +62,23 @@ def _count_nyse_sessions(start: pd.Timestamp, end: pd.Timestamp) -> int:
 
 
 def trading_day_age(latest: pd.Timestamp, *, now: pd.Timestamp | None = None) -> int:
-    """Count NYSE sessions since latest factor data."""
+    """Count completed NYSE sessions since the latest factor data.
+
+    PLAIN ENGLISH: Singapore can already be on Monday while New York is still
+    on Sunday. An aware clock therefore uses the last market session that has
+    actually closed, so Monday cannot make Friday data look one day older.
+    Naive test/date inputs keep their historical date-only meaning.
+    """
     latest = _as_timestamp(latest)
-    today = _as_timestamp(pd.Timestamp.now() if now is None else now)
-    if latest >= today:
+    clock = pd.Timestamp.now(tz="UTC") if now is None else pd.Timestamp(now)
+    completed = (
+        _latest_completed_session(clock)
+        if clock.tzinfo is not None
+        else _as_timestamp(clock)
+    )
+    if latest >= completed:
         return 0
-    return _count_nyse_sessions(latest + pd.Timedelta(days=1), today)
+    return _count_nyse_sessions(latest + pd.Timedelta(days=1), completed)
 
 
 def _latest_parquet_date(path: Path) -> tuple[pd.Timestamp, int, int, list[str]]:
@@ -238,7 +250,15 @@ def build_factor_data_health(
     signal_path = Path(signal_dir)
     required = _ticker_list(tickers)
     optional = [ticker for ticker in _ticker_list(optional_tickers) if ticker not in set(required)]
-    today = _as_timestamp(pd.Timestamp.now() if now is None else now)
+    # Keep the real clock timezone until freshness has found the latest market
+    # close. Normalizing first would silently turn a Singapore Monday into a
+    # New York Monday even when Wall Street is still on Sunday.
+    clock = pd.Timestamp.now(tz="UTC") if now is None else pd.Timestamp(now)
+    completed_session = (
+        _latest_completed_session(clock)
+        if clock.tzinfo is not None
+        else _as_timestamp(clock)
+    )
 
     per_ticker: dict[str, dict] = {}
     missing: list[str] = []
@@ -265,7 +285,7 @@ def build_factor_data_health(
             continue
 
         missing_cols = sorted(set(REQUIRED_FACTOR_COLUMNS) - set(column_names))
-        age = trading_day_age(latest, now=today)
+        age = trading_day_age(latest, now=clock)
         record = {
             "path": str(path),
             "status": "missing_required_columns" if missing_cols else "ok",
@@ -343,7 +363,7 @@ def build_factor_data_health(
         signal_dir=signal_path,
         factor_paths=existing_required_paths,
     )
-    adaptive_weights = _adaptive_weight_status(now=today)
+    adaptive_weights = _adaptive_weight_status(now=clock)
     trade_ready = bool(
         factor_data_fresh
         and feature_quality.get("ready", False)
@@ -377,7 +397,7 @@ def build_factor_data_health(
 
     return {
         "computed_at": pd.Timestamp.now().isoformat(),
-        "as_of_date": str(today.date()),
+        "as_of_date": str(completed_session.date()),
         "warn_trading_days": int(warn_days),
         "block_trading_days": int(block_days),
         "required_ticker_count": len(required),

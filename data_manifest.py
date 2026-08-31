@@ -16,7 +16,11 @@ import pandas as pd
 from safe_io import atomic_write_json
 
 
-MAX_PROVIDER_MEDIAN_CLOSE_DIFF_PCT = 0.5
+# Adjusted providers can differ by roughly one dividend accrual while still
+# agreeing on the same price series. The 1% median allowance accepted NEE's
+# verified 0.75% adjustment gap; the 2% per-date ceiling below still rejects
+# split-scale or wrong-symbol data.
+MAX_PROVIDER_MEDIAN_CLOSE_DIFF_PCT = 1.0
 MAX_PROVIDER_CLOSE_DIFF_PCT = 2.0
 # Prices arrive as decimal numbers, but computers store them as tiny binary
 # approximations. This tolerance ignores microscopic rounding dust while still

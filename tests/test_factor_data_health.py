@@ -71,6 +71,19 @@ def test_trading_day_age_uses_nyse_holiday_calendar():
     assert age == 1
 
 
+def test_trading_day_age_does_not_count_unfinished_new_york_session():
+    pytest.importorskip("exchange_calendars")
+
+    # At this UTC time New York is still before Monday's opening bell. Friday
+    # data is current and must not be aged by the unfinished Monday session.
+    age = fdh.trading_day_age(
+        pd.Timestamp("2026-08-28"),
+        now=pd.Timestamp("2026-08-31T12:00:00Z"),
+    )
+
+    assert age == 0
+
+
 def test_factor_data_health_does_not_warn_on_nyse_holiday_gap(tmp_path, monkeypatch):
     pytest.importorskip("exchange_calendars")
 

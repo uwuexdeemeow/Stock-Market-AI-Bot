@@ -33,6 +33,10 @@ watchdog/housekeeping steps still run so their output files stay fresh.
 | 12 | `alpaca_gauntlet` | — | Run go-live gauntlet check |
 | 13 | `regime_monitor` | — | Detect regime change + alert |
 | 14 | `monitor_heartbeat` | always-run | Watchdog over all monitors |
+
+In `--health-only` mode, the watchdog checks the matching
+`logs/local_health_YYYYMMDD.json` startup stub. This keeps a local dashboard
+refresh separate from the real scheduled `daily_run` evidence.
 | 15 | `log_cleanup` | always-run | Disk usage check |
 
 Before signal generation, `drift_monitor` also compares recent ML inputs with
