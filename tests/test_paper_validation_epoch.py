@@ -182,6 +182,7 @@ def test_epoch_reviews_both_execution_stages_after_twenty_measured_fills(tmp_pat
         rows.append({
             "filled_at": f"2026-08-27T14:{index:02d}:00Z",
             "order_type": "limit",
+            "client_order_id": f"paper-{index}-{'a1' if stage == 'stage1' else 'a2'}",
             "execution_stage": stage,
             "slippage_bps": 1.0 if stage == "stage1" else 3.0,
         })

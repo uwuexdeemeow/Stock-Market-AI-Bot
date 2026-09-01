@@ -57,6 +57,7 @@ CONFIG_IDENTITY_FIELDS = (
     "high_vol_mode",
     "tqqq_weight",
     "risk_control_mode",
+    "deployment_max_gross_exposure",
 )
 
 
@@ -86,6 +87,9 @@ def strategy_config_identity(config: dict | None) -> dict:
         "tqqq_weight": 0.0,
         "risk_control_mode": "off",
         "high_vol_mode": "fixed",
+        # Older research configs did not distinguish a deployment ceiling.
+        # None means no additional broker-style scaling was simulated.
+        "deployment_max_gross_exposure": None,
     }
     return {
         field: config.get(field, defaults.get(field))
@@ -333,6 +337,13 @@ def build_validation_bundle(
     universe = membership_status()
     if not universe.get("complete", False):
         provisional_reasons.append("point_in_time_universe_incomplete")
+    survivorship_capital_pass = bool(
+        ((robustness.get("medium_risk_review", {}) or {}).get("survivorship_review", {}) or {}).get(
+            "capital_approval_pass", False
+        )
+    )
+    if not survivorship_capital_pass:
+        provisional_reasons.append("survivorship_capital_evidence_incomplete")
 
     # PLAIN ENGLISH: A profitable fold summary is not enough to authorize
     # paper orders.  The exact walk-forward file, dataset fingerprint, folds,
@@ -380,6 +391,9 @@ def build_validation_bundle(
             "status": "paper_provisional" if paper_approved else "rejected",
             "paper_approved": paper_approved,
             "real_capital_approved": False,
+            "capital_approval_eligible": bool(
+                paper_approved and survivorship_capital_pass and universe.get("complete", False)
+            ),
             "integrity_status": (
                 "verified"
                 if report_matches and dataset_fingerprint and source_is_file and result.get("folds")

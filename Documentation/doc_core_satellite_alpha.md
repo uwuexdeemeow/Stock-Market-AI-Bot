@@ -36,6 +36,12 @@ position's old weight is kept. The approved live configuration omits it and
 therefore remains frozen at the historical 0.65 default. The quant audit uses
 0.80 only in a named shadow experiment.
 
+Nested validation can set `deployment_max_gross_exposure=1.00`. In that mode,
+the research engine finishes selection, caps, and sticky weighting first, then
+scales core and stock weights together just like the paper signal. The trade
+report records the raw gross, the final deployment scale, and the deployed
+gross so reviewers can verify parity.
+
 ## How To Run It
 
 Generate the daily signal:
@@ -115,3 +121,13 @@ positions were deliberately removed.
 Live configuration loading also rereads the current robustness reports. A
 missing, stale, changed, warning, or blocked report makes `paper_ready=false`,
 even if an older configuration file contains a copied passing review.
+
+## Exact returns and yearly alpha
+
+If early regime-change rebalancing is enabled, stock returns now use the
+observed entry Open and actual early-exit Close. The engine never estimates a
+short return by multiplying a 20-day return by a fraction of 20 days.
+
+Yearly alpha also compounds every strategy and benchmark period within the
+calendar year before subtracting benchmark performance. This captures gains
+and losses multiplicatively, as a real account experiences them.

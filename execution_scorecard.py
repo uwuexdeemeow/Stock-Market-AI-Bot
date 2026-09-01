@@ -413,29 +413,44 @@ def _diagnostic_breakdowns(rows: list[dict]) -> dict:
     }
 
 
-def _stage_comparison(log: pd.DataFrame) -> dict:
-    """Compare passive and repriced attempts when their audit columns exist."""
-    if log.empty or "execution_stage" not in log.columns:
+def _broker_child_stage(row: dict) -> str:
+    """Identify a broker fill from its immutable ``-a1``/``-a2`` child ID."""
+    client_order_id = str((row or {}).get("client_order_id", "")).strip().lower()
+    if client_order_id.endswith("-a1"):
+        return "stage1"
+    if client_order_id.endswith("-a2"):
+        return "stage2"
+    return ""
+
+
+def _stage_comparison(slippage_report: dict, *, now: datetime, lookback_days: int) -> dict:
+    """Compare Stage 1 and Stage 2 using only individual Alpaca child fills."""
+    # PLAIN ENGLISH: A paper-log row can combine a partial Stage-1 fill with a
+    # later Stage-2 fill.  Its average price therefore belongs to neither
+    # stage.  The Alpaca API report has one row per real broker child order, so
+    # require the child's -a1/-a2 ID and never infer a stage from a grouped row.
+    report_rows = _filter_report_rows(slippage_report, now=now, days=lookback_days)
+    child_fills = [
+        row for row in report_rows
+        if _row_group(row) == "rebalance" and _broker_child_stage(row)
+    ]
+    if not child_fills:
         return {}
     output: dict[str, dict] = {}
-    stage_series = _series_text(log, "execution_stage").str.lower()
-    for stage in sorted(set(stage_series) - {""}):
-        group = log[stage_series.eq(stage)]
-        filled = group[_filled_mask(group)]
-        slip = _slippage_from_log(filled)
-        latency = pd.to_numeric(group.get("fill_latency_seconds", pd.Series(dtype=float)), errors="coerce").dropna()
-        partial = int(_series_text(group, "stage1_status").str.lower().eq("partially_filled").sum())
-        cancelled = int(_series_text(group, "stage1_cancel_status").str.lower().eq("canceled").sum())
+    for stage in ("stage1", "stage2"):
+        group = [row for row in child_fills if _broker_child_stage(row) == stage]
+        slip = _metric_values(group, "slippage_bps")
+        latency = _metric_values(group, "fill_latency_seconds")
         output[stage] = {
             "orders": int(len(group)),
-            "filled_orders": int(len(filled)),
-            "fill_rate": _rate(len(filled), len(group)),
+            "filled_orders": int(len(group)),
+            "measured_fills": int(len(slip)),
+            "fill_rate": 1.0 if group else None,
             "avg_slippage_bps": round(float(np.mean(slip)), 3) if slip else None,
             "median_slippage_bps": round(float(np.median(slip)), 3) if slip else None,
             "material_bad_rate": _rate(sum(value > BAD_SLIPPAGE_BPS for value in slip), len(slip)),
-            "avg_fill_latency_seconds": round(float(latency.mean()), 2) if len(latency) else None,
-            "partial_fill_rate": _rate(partial, len(group)),
-            "cancellation_rate": _rate(cancelled, len(group)),
+            "avg_fill_latency_seconds": round(float(np.mean(latency)), 2) if latency else None,
+            "source": "alpaca_api_child_fills",
         }
     return output
 
@@ -696,7 +711,12 @@ def build_execution_scorecard(
         recommendations.append("review_failed_execution_checks:" + ",".join(failed))
     if not sample_ready:
         recommendations.append("collect_more_rebalance_fill_samples")
-    if not _stage_comparison(log):
+    stage_comparison = _stage_comparison(
+        slippage_report,
+        now=clock,
+        lookback_days=lookback_days,
+    )
+    if not stage_comparison:
         recommendations.append("collect_two_stage_execution_samples")
     if report_metrics["limit_vs_market_delta_bps"] is not None and report_metrics["limit_vs_market_delta_bps"] < 0:
         recommendations.append("limit_orders_are_beating_market_orders")
@@ -749,7 +769,7 @@ def build_execution_scorecard(
             "may_change_live_parameters": False,
             "requires_new_epoch_if_applied": True,
         },
-        "stage_comparison": _stage_comparison(log),
+        "stage_comparison": stage_comparison,
         "throttle": throttle,
         "checks": checks,
         "thresholds": {

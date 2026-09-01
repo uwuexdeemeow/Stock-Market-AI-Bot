@@ -24,6 +24,13 @@ It does this by:
 4. If the aggregate metrics pass approval thresholds, write the winning
    config to `core_satellite_live_configs.json` for live trading to use.
 
+Every candidate now carries `deployment_max_gross_exposure=1.00`. The engine
+first builds the raw core and sticky overlay exactly as the daily signal does,
+then scales the completed weights to the paper-account ceiling. Therefore OOS
+performance, turnover, stock-weight caps, and sticky-weight behavior are all
+measured on the actual unlevered paper portfolio, not the old 1.25x research
+portfolio.
+
 ## Why it exists
 
 Without walk-forward validation, it's easy to "discover" a strategy
@@ -116,6 +123,8 @@ worst-turnover cap, or evaluation failures.
   peeking at the outer fold.
 - **OOS (out-of-sample)** — performance on data the model never saw.
   The OOS metrics are your real expectations for live trading.
+- **Deployment gross ceiling** — the maximum total absolute target weight the
+  paper account may receive. `1.00` means no portfolio-level leverage.
 - **Approval gate** — a set of thresholds (min Sharpe, max drawdown,
   config frequency, etc.) that aggregate OOS results must clear before
   the winning config gets promoted to live.
@@ -133,6 +142,11 @@ worst-turnover cap, or evaluation failures.
   approval needs to be re-earned.
 
 ## Recent fixes
+
+- **Research/deployment parity** — nested candidates are still described by
+  their raw sleeve choices, but each simulated rebalance applies the same
+  1.00x final-weight scaling used by paper trading. Newly generated validation
+  artifacts must replace older 1.25x evidence before promotion.
 
 - **Stability penalty** (line ~1253) — reduced from 0.35 → 0.10.  The
   old weight crushed concentrated configs (top3) because their per-year

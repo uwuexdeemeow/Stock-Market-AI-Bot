@@ -411,12 +411,19 @@ def evaluate_epoch(epoch: dict) -> dict:
     bad_rate = float(bad_count / analyzed) if analyzed else None
 
     # Compare passive Stage 1 with marketable-capped Stage 2 only inside this
-    # fresh epoch. Both groups need real measured slippage before the design can
-    # be reviewed; old fills never leak into the promotion decision.
+    # fresh epoch. The client ID is broker evidence of which child filled. We
+    # intentionally ignore the paper log and even the derived execution_stage
+    # label because a logical row can blend prices from both attempts.
     stage_slippage: dict[str, list[float]] = {"stage1": [], "stage2": []}
     for row in slippage.get("orders", []) or []:
         filled_at = pd.to_datetime((row or {}).get("filled_at"), errors="coerce", utc=True)
-        stage = str((row or {}).get("execution_stage", "")).lower()
+        client_order_id = str((row or {}).get("client_order_id", "")).strip().lower()
+        if client_order_id.endswith("-a1"):
+            stage = "stage1"
+        elif client_order_id.endswith("-a2"):
+            stage = "stage2"
+        else:
+            stage = ""
         order_type = str((row or {}).get("order_type", "")).lower()
         value = pd.to_numeric((row or {}).get("slippage_bps"), errors="coerce")
         if pd.isna(filled_at) or filled_at < start or stage not in stage_slippage:

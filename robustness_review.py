@@ -22,6 +22,10 @@ SURVIVORSHIP_MIN_ADJUSTED_SCORE = 0.50
 SURVIVORSHIP_MAX_AUDIT_SELECTIONS = 0
 SURVIVORSHIP_MIN_RETURN_DELTA_PCT = -5000.0
 SURVIVORSHIP_MIN_DRAWDOWN_DELTA_PCT = -5.0
+SURVIVORSHIP_MIN_FAILED_NAME_COVERAGE_FOR_CAPITAL = 1.0
+SURVIVORSHIP_CAPITAL_MIN_ADJUSTED_SCORE = 0.85
+SURVIVORSHIP_CAPITAL_MIN_RETURN_DELTA_PCT = -5.0
+SURVIVORSHIP_CAPITAL_MIN_DRAWDOWN_DELTA_PCT = -2.5
 EXECUTION_STRESS_MIN_WORST_DRAWDOWN_PCT = -35.0
 
 
@@ -56,6 +60,15 @@ def evaluate_medium_risk_review(
     audit_picks = int(float(stressed.get("audit_rebalance_selections", 0) or 0)) if stressed else 0
     return_delta = float(delta.get("total_return_pct", 0.0) or 0.0) if delta else 0.0
     dd_delta = float(delta.get("max_drawdown_pct", 0.0) or 0.0) if delta else 0.0
+    known_failed = survivorship.get("known_audit_tickers", []) or []
+    available_failed = survivorship.get("available_audit_tickers", []) or []
+    failed_name_coverage = float(
+        survivorship.get(
+            "failed_name_coverage_rate",
+            len(available_failed) / max(len(known_failed), 1) if known_failed else 0.0,
+        ) or 0.0
+    )
+    point_in_time_complete = bool(survivorship.get("point_in_time_universe_complete", False))
     survivorship_pass = bool(
         survivorship
         and stressed
@@ -69,6 +82,17 @@ def evaluate_medium_risk_review(
         reasons.append("survivorship_review_missing")
     elif not survivorship_pass:
         reasons.append("survivorship_review_failed")
+    # PLAIN ENGLISH: The partial failed-name stress may still be useful for a
+    # paper experiment. It is never enough for capital approval unless every
+    # named failure and the full date-effective universe are present.
+    survivorship_capital_pass = bool(
+        survivorship_pass
+        and failed_name_coverage >= SURVIVORSHIP_MIN_FAILED_NAME_COVERAGE_FOR_CAPITAL
+        and point_in_time_complete
+        and surv_score >= SURVIVORSHIP_CAPITAL_MIN_ADJUSTED_SCORE
+        and return_delta >= SURVIVORSHIP_CAPITAL_MIN_RETURN_DELTA_PCT
+        and dd_delta >= SURVIVORSHIP_CAPITAL_MIN_DRAWDOWN_DELTA_PCT
+    )
 
     exec_rows = [
         row for row in execution.get("rows", [])
@@ -99,10 +123,26 @@ def evaluate_medium_risk_review(
         "reasons": reasons,
         "survivorship_review": {
             "pass": survivorship_pass,
+            "capital_approval_pass": survivorship_capital_pass,
             "survivorship_adjusted_score": round(surv_score, 4),
             "audit_rebalance_selections": audit_picks,
             "total_return_delta_pct": round(return_delta, 4),
             "max_drawdown_delta_pct": round(dd_delta, 4),
+            "failed_name_coverage_rate": round(failed_name_coverage, 4),
+            "minimum_failed_name_coverage_for_capital": SURVIVORSHIP_MIN_FAILED_NAME_COVERAGE_FOR_CAPITAL,
+            "point_in_time_universe_complete": point_in_time_complete,
+            "capital_blockers": [
+                reason
+                for reason, blocked in (
+                    ("failed_name_coverage_incomplete", failed_name_coverage < SURVIVORSHIP_MIN_FAILED_NAME_COVERAGE_FOR_CAPITAL),
+                    ("point_in_time_universe_incomplete", not point_in_time_complete),
+                    ("survivorship_adjusted_score_below_capital_floor", surv_score < SURVIVORSHIP_CAPITAL_MIN_ADJUSTED_SCORE),
+                    ("survivorship_return_delta_below_capital_floor", return_delta < SURVIVORSHIP_CAPITAL_MIN_RETURN_DELTA_PCT),
+                    ("survivorship_drawdown_delta_below_capital_floor", dd_delta < SURVIVORSHIP_CAPITAL_MIN_DRAWDOWN_DELTA_PCT),
+                    ("survivorship_stress_failed", not survivorship_pass),
+                )
+                if blocked
+            ],
         },
         "execution_stress_review": {
             "pass": execution_pass,

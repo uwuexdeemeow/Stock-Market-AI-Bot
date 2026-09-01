@@ -122,6 +122,10 @@ dates plus source URL, retrieval timestamp, license, and `access_cost=free`.
 Today's constituents are never treated as historical membership. Missing
 coverage stays a visible survivorship and promotion blocker.
 
+Capital survivorship evidence now requires 100% failed-name coverage plus a
+complete point-in-time universe. Strong results from a partial failed-name
+sample remain provisional and cannot clear capital eligibility.
+
 ## Dashboard Evidence Meanings
 
 The dashboard keeps four execution outcomes separate:

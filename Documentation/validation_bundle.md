@@ -66,3 +66,18 @@ be at most seven days old. All reports must match the selected config and
 dataset, and their current shared review must pass. Factor-decay `warning` and
 `block` both reject paper approval. Live signal generation rereads the same
 files and verifies their checksums still match the bundle.
+## Deployment-exposure identity
+
+The strategy fingerprint includes `deployment_max_gross_exposure`. This means
+a historical 1.25x research validation and a 1.00x paper-matched validation
+cannot receive the same configuration identity or be treated as equivalent
+evidence. Older configurations that lack the field are interpreted as having
+no separate deployment scaling limit.
+
+## Survivorship capital eligibility
+
+The deployment record exposes `capital_approval_eligible`. It remains false
+unless paper evidence passes, failed-name coverage is complete, and the dated
+point-in-time universe is complete. The existing safety rule still forces
+`real_capital_approved=false`; eligibility is evidence status, not permission
+to trade real money.

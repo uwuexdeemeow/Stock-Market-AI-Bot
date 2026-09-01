@@ -33,6 +33,15 @@ stress report.
 
 - Survivorship bias: backtests can look better if failed companies are missing.
 - Audit ticker: a failed or delisted ticker available for stress testing.
+- Failed-name coverage: available failed-name histories divided by all named
+  audit failures. Capital evidence requires 100% coverage.
+- Point-in-time universe: a dated constituent list showing which companies
+  were actually eligible on each historical date. Capital evidence cannot pass
+  while this table is incomplete.
+
+The JSON report records both completeness checks explicitly. A partial stress
+test remains useful provisional paper evidence, but it cannot clear the
+capital-approval gate regardless of its backtest return.
 - Stressed universe: normal watchlist plus available audit tickers.
 - Alpha: return above a benchmark such as QQQ or a blended benchmark.
 

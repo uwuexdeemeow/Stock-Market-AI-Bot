@@ -797,6 +797,48 @@ def clear_panel_day_cache() -> None:
     _PANEL_DAY_CACHE.clear()
 
 
+def _exact_stock_holding_returns(
+    *,
+    day_map: dict[pd.Timestamp, pd.DataFrame],
+    tickers: pd.Index,
+    entry_date: pd.Timestamp,
+    exit_date: pd.Timestamp,
+) -> pd.Series:
+    """Calculate each stock's real Open-to-Close return for one holding window."""
+    # PLAIN ENGLISH: Prices compound through their actual path. We therefore
+    # divide the observed exit price by the observed entry price instead of
+    # shrinking a longer return in proportion to elapsed days.
+    entry_day = day_map.get(pd.Timestamp(entry_date))
+    exit_day = day_map.get(pd.Timestamp(exit_date))
+    if entry_day is None or exit_day is None:
+        raise ValueError("Exact early-rebalance entry or exit date is missing from the factor panel")
+    entry_prices = pd.to_numeric(
+        entry_day.set_index("ticker")["Open"].reindex(tickers), errors="coerce"
+    )
+    exit_prices = pd.to_numeric(
+        exit_day.set_index("ticker")["Close"].reindex(tickers), errors="coerce"
+    )
+    invalid = entry_prices.isna() | exit_prices.isna() | entry_prices.le(0) | exit_prices.le(0)
+    if bool(invalid.any()):
+        missing = ",".join(str(ticker) for ticker in invalid.index[invalid])
+        raise ValueError(f"Exact early-rebalance prices missing for: {missing}")
+    return exit_prices / entry_prices - 1.0
+
+
+def _compounded_yearly_alpha(strategy_returns: pd.Series, benchmark_returns: pd.Series) -> pd.Series:
+    """Return yearly strategy minus benchmark returns after compounding each side."""
+    # PLAIN ENGLISH: Two +10% periods grow $1 to $1.21, not $1.20. Calculate
+    # each full-year growth rate first, then subtract the benchmark's growth.
+    aligned = pd.concat(
+        [strategy_returns.rename("strategy"), benchmark_returns.rename("benchmark")],
+        axis=1,
+    ).fillna(0.0)
+    years = pd.DatetimeIndex(aligned.index).year
+    strategy_year = (1.0 + aligned["strategy"]).groupby(years).prod() - 1.0
+    benchmark_year = (1.0 + aligned["benchmark"]).groupby(years).prod() - 1.0
+    return (strategy_year - benchmark_year) * 100.0
+
+
 def _cached_etf_prices(price_index: pd.DatetimeIndex, tickers: list[str]) -> pd.DataFrame:
     normalized_dates = tuple(pd.Timestamp(dt) for dt in price_index)
     key = (normalized_dates, tuple(tickers))
@@ -1727,6 +1769,20 @@ def run_core_satellite(
             # remains frozen unless a shadow experiment sets it explicitly.
             sticky_blend=float(config.get("sticky_blend", 0.65)),
         )
+
+        # PLAIN ENGLISH: Nested validation can ask this research engine to
+        # reproduce the broker portfolio exactly.  We deliberately scale only
+        # after sticky weights and single-name caps are built, matching
+        # write_paper_signal().  Scaling earlier would change which holdings
+        # survive the sticky-weight calculation and would validate a different
+        # portfolio again.
+        deployment_gross_limit = config.get("deployment_max_gross_exposure")
+        core_gross, overlay, raw_period_gross, deployment_scale = _scale_research_allocation_to_deployment(
+            core_gross=core_gross,
+            overlay=overlay,
+            max_gross=deployment_gross_limit,
+        )
+        overlay_gross = float(overlay.abs().sum())
         held = set(overlay.index.astype(str))
 
         aligned = pd.concat([prev_overlay.rename("prev"), overlay.rename("now")], axis=1).fillna(0.0)
@@ -1748,25 +1804,37 @@ def run_core_satellite(
             dt_idx = rebalance_dates.get_loc(dt)
         except KeyError:
             dt_idx = -1
-        if isinstance(dt_idx, int) and dt_idx >= 0 and dt_idx + 1 < len(rebalance_dates):
+        if isinstance(dt_idx, (int, np.integer)) and dt_idx >= 0 and dt_idx + 1 < len(rebalance_dates):
             next_rebal = pd.Timestamp(rebalance_dates[dt_idx + 1])
             exit_dt = next_rebal + pd.tseries.offsets.BDay(entry_delay_days)
         else:
             exit_dt = pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days + entry_delay_days)
-        # Compute actual days held for scaling factor returns
-        actual_bdays = max(1, len(pd.bdate_range(entry_dt, exit_dt)) - 1)
-        # PLAIN ENGLISH: factor_scale adjusts pre-computed forward returns
-        # (which assume full holding_days) to the actual shorter period.
-        # E.g. if expected 10 days but held only 3, multiply returns by 3/10.
-        factor_scale = actual_bdays / max(1, holding_days)
-
         factor_ret = 0.0
         max_sector_weight = 0.0
         effective_overlay_names = 0.0
         if not overlay.empty:
             selected_by_ticker = selected.set_index("ticker")
-            ticker_returns = selected_by_ticker.loc[overlay.index, return_col]
-            ticker_period_contrib = ticker_returns * overlay * factor_scale
+            ticker_returns = selected_by_ticker.loc[overlay.index, return_col].astype(float)
+            # PLAIN ENGLISH: When an early regime change shortens the trade,
+            # use the actual entry Open and exit Close. A 5-day return is not
+            # half of a 10-day return, so multiplying a long-horizon return by
+            # elapsed-days/holding-days would create fictional prices.
+            if config.get("early_rebalance_on_regime_change", False):
+                current_pos = int(dates.searchsorted(pd.Timestamp(dt)))
+                if isinstance(dt_idx, (int, np.integer)) and dt_idx >= 0 and dt_idx + 1 < len(rebalance_dates):
+                    next_rebal = pd.Timestamp(rebalance_dates[dt_idx + 1])
+                    next_pos = int(dates.searchsorted(next_rebal))
+                    entry_pos = current_pos + 1 + entry_delay_days
+                    exit_pos = next_pos + entry_delay_days
+                    if entry_pos >= len(dates) or exit_pos >= len(dates) or exit_pos < entry_pos:
+                        raise ValueError("Early-rebalance stock price window is outside the factor panel")
+                    ticker_returns = _exact_stock_holding_returns(
+                        day_map=day_map,
+                        tickers=overlay.index,
+                        entry_date=pd.Timestamp(dates[entry_pos]),
+                        exit_date=pd.Timestamp(dates[exit_pos]),
+                    )
+            ticker_period_contrib = ticker_returns * overlay
             factor_ret = float(ticker_period_contrib.sum())
             for ticker, value in ticker_period_contrib.items():
                 ticker_contrib[str(ticker)] = ticker_contrib.get(str(ticker), 0.0) + float(value)
@@ -1810,6 +1878,9 @@ def run_core_satellite(
             "core_weights_json": json.dumps({str(k): round(float(v), 6) for k, v in core_weights.items()}, sort_keys=True),
             "core_gross": core_gross,
             "overlay_gross": overlay_gross,
+            "raw_gross_exposure": raw_period_gross,
+            "deployment_gross_limit": deployment_gross_limit,
+            "deployment_weight_scale": deployment_scale,
             "concentration_overlay_target": concentration_overlay_target,
             "concentration_overlay_adjustment": concentration_overlay_adjustment,
             "concentration_qqq_spy_120d": concentration_gap,
@@ -1874,7 +1945,7 @@ def evaluate(panel: pd.DataFrame, config: dict) -> tuple[dict, pd.Series, pd.Dat
     holdout = _holdout_comparisons(equity, bench, start="2023-01-01", end="2026-12-31")
     strat_rets = equity.pct_change().fillna(0.0)
     blend_rets = bench["BLEND"].pct_change().reindex(equity.index).fillna(0.0)
-    yearly_alpha = (strat_rets - blend_rets).groupby(equity.index.year).sum() * 100.0
+    yearly_alpha = _compounded_yearly_alpha(strat_rets, blend_rets)
     metrics = {
         **config,
         **stats,
@@ -1963,6 +2034,29 @@ def _scale_paper_targets_to_gross(
         return target_spy, target_qqq, target_tqqq, overlay.copy(), raw_gross, 1.0, False
     scale = float(max_gross) / raw_gross
     return target_spy * scale, target_qqq * scale, target_tqqq * scale, overlay * scale, raw_gross, scale, True
+
+
+def _scale_research_allocation_to_deployment(
+    *,
+    core_gross: float,
+    overlay: pd.Series,
+    max_gross: float | None,
+) -> tuple[float, pd.Series, float, float]:
+    """Apply the paper gross ceiling to one completed research allocation."""
+    # PLAIN ENGLISH: This helper receives final sticky stock weights, just as
+    # the paper signal does.  When core plus stocks exceed the broker ceiling,
+    # every weight is multiplied by the same number.  Their proportions stay
+    # unchanged while gross exposure becomes exactly the deployed limit.
+    raw_gross = float(abs(core_gross) + overlay.abs().sum())
+    if max_gross is None:
+        return float(core_gross), overlay.copy(), raw_gross, 1.0
+    limit = float(max_gross)
+    if not np.isfinite(limit) or limit <= 0.0:
+        raise ValueError("deployment_max_gross_exposure must be a positive finite number")
+    if raw_gross <= limit + 1e-9 or raw_gross <= 0.0:
+        return float(core_gross), overlay.copy(), raw_gross, 1.0
+    scale = limit / raw_gross
+    return float(core_gross) * scale, overlay * scale, raw_gross, scale
 
 
 def _paper_signal_timestamp() -> str:

@@ -296,6 +296,7 @@ from core_satellite_alpha import (
     EXIT_RANK_FLOORS,
     MAX_GROSS_EXPOSURE,
     MAX_SINGLE_NAME_WEIGHT,
+    PAPER_MAX_GROSS_EXPOSURE,
     REGIME_PRESETS,
     SCORE_SOURCES,
     SHAPES,
@@ -472,6 +473,13 @@ def _ckpt_key_blob(strategy: str, min_train_years: int, configs: list, *, includ
         "max_inner_worst_turnover_pct": MAX_INNER_WORST_TURNOVER_PCT,
         "turnover_free_pct": DEFAULT_TURNOVER_FREE_PCT,
         "turnover_penalty_span_pct": DEFAULT_TURNOVER_PENALTY_SPAN_PCT,
+        # The selected-config signature describes tuning dimensions, while
+        # this separate field describes how every candidate is actually
+        # deployed. Changing 1.25x research to 1.00x paper simulation must
+        # invalidate all old fold checkpoints.
+        "deployment_max_gross_exposures": sorted({
+            config.get("deployment_max_gross_exposure") for config in configs
+        }, key=lambda value: str(value)),
         "inner_score_aggregation": inner_score_aggregation_from_env(),
         "family_consensus_bonus": family_consensus_bonus_from_env(),
     }
@@ -825,6 +833,12 @@ def iter_candidate_configs(
                 "core_gross": float(risk_on["core_gross"]),
                 "overlay_gross": float(risk_on["overlay_gross"]),
                 "max_gross_exposure": MAX_GROSS_EXPOSURE,
+                # PLAIN ENGLISH: Candidate construction still uses the raw
+                # research sleeves, but every simulated trade is scaled with
+                # the same 1.00x ceiling as the paper account.  This makes the
+                # measured return, turnover, weight caps, and sticky holdings
+                # describe the portfolio that is actually submitted.
+                "deployment_max_gross_exposure": PAPER_MAX_GROSS_EXPOSURE,
                 "max_single_name_weight": MAX_SINGLE_NAME_WEIGHT,
                 "holding_days": int(hold),
                 "risk_control_mode": str(risk_control_mode),

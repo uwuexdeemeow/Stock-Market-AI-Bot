@@ -78,6 +78,12 @@ The frozen August 26 epoch keeps its original thresholds and start time.
 
 The epoch stays frozen while it collects at least 30 trading days, 20 accepted orders, three rebalance events, and ten consecutive classified sessions. After at least 20 measured rebalance fills, the report requires evidence from both execution stages, checks that passive Stage 1 has no worse average slippage than capped Stage 2, and confirms total fill rate remains at least 95%.
 
+The two stage samples come only from Alpaca API child fills. A fill belongs to
+Stage 1 only when its broker `client_order_id` ends in `-a1`, and to Stage 2
+only when it ends in `-a2`. This prevents a logical paper-log row containing a
+partial Stage 1 fill plus a Stage 2 fill from lending its combined average
+price to either side.
+
 Even when every gate passes, the script only sets `manual_real_capital_review_eligible`. It never approves or enables real-money trading automatically; `real_capital_approved` remains false.
 
 ## Schema 2 Fill and Duplicate Math

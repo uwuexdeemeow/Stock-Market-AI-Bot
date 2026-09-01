@@ -23,6 +23,7 @@ from settings import LOG_DIR, SIGNAL_DIR, SURVIVORSHIP_AUDIT_TICKERS, WATCHLIST
 from safe_io import atomic_write_csv, atomic_write_json
 from survivorship_audit import available_audit_tickers, existing_audit_profiles
 from validation_bundle import add_validation_context
+from universe_membership import membership_status
 
 
 OUT_JSON = Path(LOG_DIR) / "core_satellite_survivorship_audit.json"
@@ -137,6 +138,7 @@ def main() -> None:
     profiles = existing_audit_profiles()
     audit_tickers = available_audit_tickers(profiles)
     known_audit_tickers = sorted(SURVIVORSHIP_AUDIT_TICKERS)
+    universe_status = membership_status()
 
     if not audit_tickers:
         raise SystemExit("No available survivorship audit tickers. Run survivorship_audit.py --build --report first.")
@@ -166,6 +168,16 @@ def main() -> None:
         "known_audit_tickers": known_audit_tickers,
         "available_audit_tickers": audit_tickers,
         "missing_audit_tickers": [t for t in known_audit_tickers if t not in audit_tickers],
+        # PLAIN ENGLISH: A good result on five failed companies cannot prove
+        # that the other twelve, or omitted historical constituents, were safe.
+        # Keep these completeness facts explicit so a future capital gate can
+        # never mistake this useful partial stress test for complete evidence.
+        "failed_name_coverage_count": len(audit_tickers),
+        "failed_name_required_count": len(known_audit_tickers),
+        "failed_name_coverage_rate": round(len(audit_tickers) / max(len(known_audit_tickers), 1), 4),
+        "failed_name_coverage_complete": set(audit_tickers) == set(known_audit_tickers),
+        "point_in_time_universe_complete": bool(universe_status.get("complete", False)),
+        "point_in_time_universe_status": universe_status,
         "survivorship_adjusted_score": round(float(survivorship_adjusted_score), 4),
         "primary_return_pct": base_return,
         "failed_name_stressed_return_pct": stressed_return,

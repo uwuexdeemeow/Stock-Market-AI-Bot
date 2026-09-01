@@ -172,6 +172,63 @@ def test_medium_risk_review_blocks_material_survivorship_failure():
     assert "survivorship_review_failed" in review["reasons"]
 
 
+def test_partial_survivorship_evidence_can_never_clear_capital_gate():
+    partial = _passing_survivorship()
+    partial.update({
+        "known_audit_tickers": [f"FAILED{i}" for i in range(17)],
+        "available_audit_tickers": [f"FAILED{i}" for i in range(5)],
+        "failed_name_coverage_rate": 5 / 17,
+        "point_in_time_universe_complete": False,
+    })
+    partial["rows"][1] = {
+        "scenario": "delta_stressed_minus_base",
+        "total_return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+    }
+
+    review = nwf.medium_risk_review_from_reports(
+        survivorship=partial,
+        execution=_passing_execution(),
+        factor_decay={"edge_health_status": "pass"},
+    )
+
+    survivorship = review["survivorship_review"]
+    assert survivorship["pass"] is True
+    assert survivorship["capital_approval_pass"] is False
+    assert survivorship["capital_blockers"] == [
+        "failed_name_coverage_incomplete",
+        "point_in_time_universe_incomplete",
+    ]
+
+
+def test_complete_survivorship_coverage_still_needs_strict_capital_performance():
+    weak = _passing_survivorship()
+    weak.update({
+        "survivorship_adjusted_score": 0.80,
+        "known_audit_tickers": ["A", "B"],
+        "available_audit_tickers": ["A", "B"],
+        "failed_name_coverage_rate": 1.0,
+        "point_in_time_universe_complete": True,
+    })
+    weak["rows"][1] = {
+        "scenario": "delta_stressed_minus_base",
+        "total_return_pct": -6.0,
+        "max_drawdown_pct": -3.0,
+    }
+
+    review = nwf.medium_risk_review_from_reports(
+        survivorship=weak,
+        execution=_passing_execution(),
+        factor_decay={"edge_health_status": "pass"},
+    )["survivorship_review"]
+
+    assert review["pass"] is True
+    assert review["capital_approval_pass"] is False
+    assert "survivorship_adjusted_score_below_capital_floor" in review["capital_blockers"]
+    assert "survivorship_return_delta_below_capital_floor" in review["capital_blockers"]
+    assert "survivorship_drawdown_delta_below_capital_floor" in review["capital_blockers"]
+
+
 def test_medium_risk_review_blocks_execution_drawdown_failure():
     bad_execution = _passing_execution()
     bad_execution["rows"][0]["max_drawdown_pct"] = -36.0

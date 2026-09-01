@@ -407,3 +407,60 @@ def test_scorecard_uses_metric_specific_denominators_and_sample_gate(tmp_path):
     assert payload["entry_timing"]["adverse_60m_observations"] == 0
     assert payload["sample_gate"]["ready"] is False
     assert payload["status"] == "collecting"
+
+
+def test_stage_comparison_uses_only_api_child_fills_not_blended_log_rows(tmp_path):
+    """A grouped paper row must never lend its combined price to either stage."""
+    log_path = tmp_path / "paper.csv"
+    report_path = tmp_path / "report.json"
+    pd.DataFrame([{
+        "submitted_at": "2026-06-04T14:00:00Z",
+        "order_id": "logical-order",
+        "client_order_id": "parent-a2",
+        "execution_stage": "stage2",
+        "ticker": "SPY",
+        "side": "buy",
+        "quantity": 10,
+        "filled_qty": 10,
+        "fill_status": "filled",
+        "price": 100.0,
+        "filled_avg_price": 150.0,
+    }]).to_csv(log_path, index=False)
+    report_path.write_text(json.dumps({"source": "alpaca_api", "orders": [
+        {
+            "client_order_id": "parent-a1",
+            "filled_at": "2026-06-04T14:00:00Z",
+            "order_type": "limit",
+            "slippage_bps": 1.0,
+        },
+        {
+            "client_order_id": "parent-a2",
+            "filled_at": "2026-06-04T14:01:00Z",
+            "order_type": "limit",
+            "slippage_bps": 3.0,
+        },
+        {
+            # A derived label without a broker child suffix is not evidence.
+            "client_order_id": "legacy-parent",
+            "execution_stage": "stage1",
+            "filled_at": "2026-06-04T14:02:00Z",
+            "order_type": "limit",
+            "slippage_bps": 999.0,
+        },
+    ]}), encoding="utf-8")
+
+    payload = esc.build_execution_scorecard(
+        paper_log_path=log_path,
+        slippage_report_path=report_path,
+        previous_scorecard_path=tmp_path / "missing.json",
+        now=datetime(2026, 6, 5, tzinfo=timezone.utc),
+        min_rebalance_fills=1,
+        min_rebalance_sessions=1,
+    )
+
+    comparison = payload["stage_comparison"]
+    assert comparison["stage1"]["measured_fills"] == 1
+    assert comparison["stage1"]["avg_slippage_bps"] == 1.0
+    assert comparison["stage2"]["measured_fills"] == 1
+    assert comparison["stage2"]["avg_slippage_bps"] == 3.0
+    assert comparison["stage1"]["source"] == "alpaca_api_child_fills"

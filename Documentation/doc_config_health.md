@@ -30,3 +30,7 @@ read a half-written config-health file.
 - Requirement: version rule a package must satisfy.
 - Environment variable: setting loaded from `.env` or the shell.
 - Pip check: Python's dependency-conflict checker.
+
+The local interpreter must include `alpaca-py==0.43.4`, matching CI. Install
+the project requirements with `python3 -m pip install -r requirements.txt` if
+the Alpaca check says `missing`.

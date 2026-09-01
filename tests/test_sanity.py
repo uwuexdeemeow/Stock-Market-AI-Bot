@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from labels import forward_return, vol_normalized_return, triple_barrier
 from risk_sizing import vol_target_size, fractional_kelly, position_size_with_stop
@@ -67,7 +68,14 @@ from core_satellite_nested_walkforward import (
     iter_candidate_configs,
     select_config_from_inner_folds,
 )
-from core_satellite_alpha import MAX_GROSS_EXPOSURE, REGIME_PRESETS
+from core_satellite_alpha import (
+    MAX_GROSS_EXPOSURE,
+    PAPER_MAX_GROSS_EXPOSURE,
+    REGIME_PRESETS,
+    _compounded_yearly_alpha,
+    _exact_stock_holding_returns,
+    _scale_research_allocation_to_deployment,
+)
 from portfolio_manager import PortfolioRiskManager, ProposedTrade
 from ranker_utils import compute_adaptive_factor_weights, load_adaptive_factor_weights
 from feature_quality_diagnostic import (
@@ -821,6 +829,50 @@ def test_nested_regime_variant_tunes_overlay_without_mutating_base():
     assert variant["risk_off"]["core_weights"]["TQQQ"] == 0.0
 
 
+def test_nested_deployment_scaling_matches_paper_portfolio_after_sticky_weights():
+    overlay = pd.Series({"AAPL": 0.40, "MSFT": 0.30})
+    core, deployed_overlay, raw_gross, scale = _scale_research_allocation_to_deployment(
+        core_gross=0.55,
+        overlay=overlay,
+        max_gross=PAPER_MAX_GROSS_EXPOSURE,
+    )
+
+    assert raw_gross == 1.25
+    assert scale == 0.8
+    assert core == pytest.approx(0.44)
+    assert deployed_overlay.to_dict() == pytest.approx({"AAPL": 0.32, "MSFT": 0.24})
+    assert round(core + float(deployed_overlay.abs().sum()), 10) == 1.0
+
+
+def test_early_rebalance_uses_actual_prices_instead_of_linear_return_scaling():
+    entry = pd.Timestamp("2026-01-05")
+    exit_ = pd.Timestamp("2026-01-09")
+    day_map = {
+        entry: pd.DataFrame({"ticker": ["AAPL", "MSFT"], "Open": [100.0, 200.0]}),
+        exit_: pd.DataFrame({"ticker": ["AAPL", "MSFT"], "Close": [121.0, 180.0]}),
+    }
+
+    returns = _exact_stock_holding_returns(
+        day_map=day_map,
+        tickers=pd.Index(["AAPL", "MSFT"]),
+        entry_date=entry,
+        exit_date=exit_,
+    )
+
+    assert returns.to_dict() == pytest.approx({"AAPL": 0.21, "MSFT": -0.10})
+
+
+def test_yearly_alpha_compounds_strategy_and_benchmark_before_subtracting():
+    dates = pd.to_datetime(["2025-01-02", "2025-06-02", "2026-01-02"])
+    strategy = pd.Series([0.10, 0.10, 0.05], index=dates)
+    benchmark = pd.Series([0.05, 0.05, 0.02], index=dates)
+
+    alpha = _compounded_yearly_alpha(strategy, benchmark)
+
+    assert alpha.loc[2025] == pytest.approx((1.21 - 1.1025) * 100.0)
+    assert alpha.loc[2026] == pytest.approx(3.0)
+
+
 def test_nested_fold_splits_keep_outer_year_unseen():
     rows = []
     for year in range(2020, 2025):
@@ -861,6 +913,7 @@ def test_nested_candidate_grid_includes_requested_tuning_dimensions():
     for config in configs:
         risk_on = config["regime_preset"]["risk_on"]
         assert risk_on["core_gross"] + risk_on["overlay_gross"] <= MAX_GROSS_EXPOSURE + 1e-9
+        assert config["deployment_max_gross_exposure"] == PAPER_MAX_GROSS_EXPOSURE
     assert set(STRATEGIES) == {"core-alpha"}
     alpha_default = iter_candidate_configs(strategy="core-alpha", high_vol_values=(0.30,), max_configs=8)
     tqqq_alias_default = iter_candidate_configs(strategy="tqqq", high_vol_values=(0.30,), max_configs=8)
@@ -1673,6 +1726,15 @@ def test_walkforward_checkpoint_key_changes_with_inner_aggregation(monkeypatch):
     median_key = nested_wf._ckpt_key("core-alpha", 3, configs, None, None)
 
     assert mean_key != median_key
+
+
+def test_walkforward_checkpoint_key_changes_with_deployment_gross_limit():
+    configs = iter_candidate_configs(max_configs=1)
+    paper_key = nested_wf._ckpt_key("core-alpha", 3, configs, None, None)
+    research_configs = [dict(configs[0], deployment_max_gross_exposure=1.25)]
+    research_key = nested_wf._ckpt_key("core-alpha", 3, research_configs, None, None)
+
+    assert paper_key != research_key
 
 
 def test_inner_selection_can_bonus_prior_config_family(monkeypatch):

@@ -30,7 +30,7 @@ It checks:
 - fill rate
 - skipped-order rate
 - whether enough measured fills and trading sessions exist for a verdict
-- Stage 1 versus Stage 2 fill, slippage, latency, partial-fill, and cancel rates
+- Stage 1 versus Stage 2 slippage and latency from individual broker fills
 
 The 15-minute and 60-minute adverse-movement rates remain visible as entry-timing
 advice. They do not fail execution because later market direction is different
@@ -118,6 +118,11 @@ the latest slippage report before judging execution quality.
 
 Stage 1 (`-a1`) and Stage 2 (`-a2`) are child attempts of one requested
 rebalance, so the scorecard groups them under their deterministic parent.
+
+Logical grouping is used only for the overall fill-rate denominator. The Stage
+1/Stage 2 price comparison never reads a grouped paper-log average. It uses
+only Alpaca API fill rows whose `client_order_id` ends in `-a1` or `-a2`.
+Legacy rows and rows that merely claim an `execution_stage` are excluded.
 Pending, canceled, expired, partial, and complete broker-accepted orders all
 belong in the denominator. `complete_fill_rate` counts only fully completed
 parents; `any_fill_rate` separately shows whether any quantity traded.
