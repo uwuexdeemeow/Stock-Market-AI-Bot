@@ -1,22 +1,23 @@
 {
   "schema_version": 1,
-  "epoch_id": "paper-v20260901T042621Z",
-  "started_at": "2026-09-01T04:26:21+00:00",
+  "epoch_id": "paper-v20260901T044209Z",
+  "started_at": "2026-09-01T04:42:09+00:00",
   "status": "collecting",
-  "archive_dir": "archive/paper_epochs/paper-v20260901T042621Z",
+  "archive_dir": "archive/paper_epochs/paper-v20260901T044209Z",
   "archived_files": [
-    "archive/paper_epochs/paper-v20260901T042621Z/alpaca_paper_log.csv",
-    "archive/paper_epochs/paper-v20260901T042621Z/alpaca_paper_equity.csv",
-    "archive/paper_epochs/paper-v20260901T042621Z/alpaca_slippage_reversal_report.json",
-    "archive/paper_epochs/paper-v20260901T042621Z/alpaca_execution_scorecard.json",
-    "archive/paper_epochs/paper-v20260901T042621Z/broker_truth.json",
-    "archive/paper_epochs/paper-v20260901T042621Z/alpaca_paper_health.json",
-    "archive/paper_epochs/paper-v20260901T042621Z/alpaca_submit_outcomes.csv"
+    "archive/paper_epochs/paper-v20260901T044209Z/alpaca_paper_log.csv",
+    "archive/paper_epochs/paper-v20260901T044209Z/alpaca_paper_equity.csv",
+    "archive/paper_epochs/paper-v20260901T044209Z/alpaca_slippage_reversal_report.json",
+    "archive/paper_epochs/paper-v20260901T044209Z/alpaca_execution_scorecard.json",
+    "archive/paper_epochs/paper-v20260901T044209Z/broker_truth.json",
+    "archive/paper_epochs/paper-v20260901T044209Z/alpaca_paper_health.json",
+    "archive/paper_epochs/paper-v20260901T044209Z/alpaca_submit_outcomes.csv"
   ],
   "requirements": {
     "minimum_trading_days": 30,
     "minimum_rebalance_events": 3,
     "minimum_accepted_orders": 20,
+    "minimum_stage_comparison_fills": 20,
     "minimum_consecutive_classified_sessions": 10,
     "maximum_duplicate_orders": 0,
     "maximum_unexplained_orders": 0,
