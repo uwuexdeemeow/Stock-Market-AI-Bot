@@ -137,7 +137,21 @@ def _scheduled_run_for_today(
         created_ny = created.astimezone(ZoneInfo("America/New_York"))
         observed_minutes = created_ny.hour * 60 + created_ny.minute
         same_day = created_ny.date() == clock.date()
-        intended_schedule = event == "schedule" and abs(observed_minutes - expected_minutes) <= 20
+        intended_schedule = False
+        if event == "schedule":
+            # GitHub cron delivery can be hours late. A real run still spends
+            # time checking data and safety gates, while the wrong daylight-
+            # saving duplicate exits in a few seconds with all work skipped.
+            # Prefer a same-day scheduled run lasting at least 30 seconds. Keep
+            # the old timing check only for sparse/test API rows with no end
+            # timestamp yet.
+            try:
+                updated = datetime.fromisoformat(str(run.get("updated_at", "")).replace("Z", "+00:00"))
+                meaningful_runtime = (updated - created).total_seconds() >= 30
+            except Exception:
+                meaningful_runtime = abs(observed_minutes - expected_minutes) <= 20
+            still_running = str(run.get("status", "")) not in {"", "completed"}
+            intended_schedule = meaningful_runtime or still_running
         # A person may run Daily Paper Trading in dry-run mode. The Actions
         # list API does not expose that input, so only accept a manual daily run
         # when this watchdog recorded that it requested the recovery itself.

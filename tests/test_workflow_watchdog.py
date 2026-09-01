@@ -159,3 +159,30 @@ def test_incident_key_stays_stable_when_reason_changes(tmp_path, monkeypatch):
     assert report["new_problems"] == []
     assert report["recovered_problems"] == []
     assert sent == []
+
+
+def test_delayed_real_schedule_beats_fast_daylight_saving_skip():
+    clock = datetime(2026, 8, 31, 22, tzinfo=timezone.utc).astimezone(
+        workflow_watchdog.ZoneInfo("America/New_York")
+    )
+    rows = [
+        {
+            **_run("2026-08-31T20:16:04Z", "success"),
+            "status": "completed",
+            "updated_at": "2026-08-31T20:16:11Z",
+        },
+        {
+            **_run("2026-08-31T19:33:35Z", "failure"),
+            "status": "completed",
+            "updated_at": "2026-08-31T19:39:03Z",
+        },
+    ]
+
+    selected = workflow_watchdog._scheduled_run_for_today(
+        rows,
+        clock=clock,
+        expected_start=workflow_watchdog.time(9, 35),
+    )
+
+    assert selected["conclusion"] == "failure"
+    assert selected["created_at"] == "2026-08-31T19:33:35Z"

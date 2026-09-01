@@ -31,6 +31,9 @@ cancelled run. A manually launched daily dry run does not count as a successful
 real paper session.
 The GitHub query reads twenty recent runs so daylight-saving duplicates and
 manual diagnostics cannot hide the intended scheduled run.
+Because GitHub may deliver cron events hours late, the watchdog treats a
+same-day scheduled run with at least 30 seconds of real work as the intended
+run. A fast daylight-saving gate-only success is ignored.
 
 ## Key terms
 
