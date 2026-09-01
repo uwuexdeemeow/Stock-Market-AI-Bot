@@ -29,6 +29,8 @@ Each workflow gets at most one watchdog dispatch per New York session. The
 read-only shadow workflow may use that one dispatch to retry a failed or
 cancelled run. A manually launched daily dry run does not count as a successful
 real paper session.
+The GitHub query reads twenty recent runs so daylight-saving duplicates and
+manual diagnostics cannot hide the intended scheduled run.
 
 ## Key terms
 

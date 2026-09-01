@@ -63,7 +63,10 @@ def _is_nyse_session(day: datetime) -> bool:
 
 def _github_runs(repository: str, workflow_file: str, token: str) -> list[dict]:
     """Read recent runs from GitHub's Actions API."""
-    url = f"https://api.github.com/repos/{repository}/actions/workflows/{workflow_file}/runs?per_page=5"
+    # Two daylight-saving cron entries, manual diagnostics, and recovery runs
+    # can easily create more than five rows in one day. Read enough history to
+    # keep the intended morning run visible instead of declaring it missing.
+    url = f"https://api.github.com/repos/{repository}/actions/workflows/{workflow_file}/runs?per_page=20"
     request = urllib.request.Request(
         url,
         headers={
