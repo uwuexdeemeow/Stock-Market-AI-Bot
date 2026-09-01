@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "frozen_at": "2026-08-31T21:25:31+00:00",
-  "epoch_id": "paper-v20260831T212531Z",
-  "epoch_started_at": "2026-08-31T21:25:31+00:00",
-  "git_commit_at_freeze": "12f9452c40d717e4d38c93eeb5fd14c14bc43d8c",
-  "logic_fingerprint": "6c5dc2831ee5c8667c7c65730e7afc2cc98403711a3149a91161541a01c875f8",
+  "frozen_at": "2026-09-01T01:36:44+00:00",
+  "epoch_id": "paper-v20260901T013644Z",
+  "epoch_started_at": "2026-09-01T01:36:44+00:00",
+  "git_commit_at_freeze": "ee5b202f935d757f71bab102a519816094fc80b8",
+  "logic_fingerprint": "bf29de8d0af0658a64533e5e534de957de0f1dea989d3a45f988a819443738b0",
   "files": {
     ".github/workflows/daily_paper_trading.yml": "722bde7ddd7eade74873084a592113e4ab571b9edf5f3349f9b1ece557daf112",
     ".github/workflows/factor_data_refresh.yml": "c6c0debb6a5f6e818bceede8e9c5cb2837c28239791d7606d2282de82850e950",
@@ -41,7 +41,7 @@
     "signal_freshness.py": "694c30037575591555bc34a6d38d9628c9c64d0c2838b36a709615d0d89bb3ea",
     "trade_rules.py": "e1c1d0f9d7bb0269205889254c467958cca3f12e651910a75d613453fb1d82db",
     "validation_bundle.py": "4eeb7d237af16195bc624bf534181a427471d43df222dc8d49217b8d26698c8e",
-    "workflow_watchdog.py": "1deaf31e08289ed198e0266c1e9d980624586fb80548b4aa7c17e6c58ef8188b",
+    "workflow_watchdog.py": "a1829150f32ffd524ece58a8f0043acb44e64babbb2bb1fb556a8387cd665f96",
     "signals/core_satellite_live_configs.json": "90893469b230971ef25fb0f3a02daac833f0067d31d5973a278d8ff4b6210888",
     "signals/core_satellite_validation_bundle.json": "32d2da1c89626c9380e7144c765305481e2b0b80aa99915be7e22e53ead459fd"
   },
