@@ -113,3 +113,13 @@ The daily pipeline runs this after:
 
 That order matters because the scorecard needs the latest fill statuses and
 the latest slippage report before judging execution quality.
+
+## Logical Order Accounting (Schema 3)
+
+Stage 1 (`-a1`) and Stage 2 (`-a2`) are child attempts of one requested
+rebalance, so the scorecard groups them under their deterministic parent.
+Pending, canceled, expired, partial, and complete broker-accepted orders all
+belong in the denominator. `complete_fill_rate` counts only fully completed
+parents; `any_fill_rate` separately shows whether any quantity traded.
+Protective stops are excluded. Missing identity fields make the scorecard
+decision-ineligible instead of silently improving its rates.

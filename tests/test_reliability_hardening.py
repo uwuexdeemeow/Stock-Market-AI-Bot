@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 
 import pandas as pd
 
@@ -64,12 +65,32 @@ def test_validation_bundle_detects_stale_report_fingerprint(tmp_path, monkeypatc
     report_paths = {}
     for name in ("survivorship", "execution_stress", "factor_decay"):
         path = tmp_path / f"{name}.json"
-        path.write_text(json.dumps({
+        payload = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "validation_context": {
                 "config_fingerprint": config_fingerprint,
                 "dataset_fingerprint": dataset_fingerprint,
-            }
-        }), encoding="utf-8")
+            },
+        }
+        if name == "survivorship":
+            payload.update({
+                "survivorship_adjusted_score": 0.8,
+                "rows": [
+                    {"scenario": "watchlist_plus_failed_audit_tickers", "paper_ready": True, "audit_rebalance_selections": 0},
+                    {"scenario": "delta_stressed_minus_base", "total_return_pct": 0.0, "max_drawdown_pct": 0.0},
+                ],
+            })
+        elif name == "execution_stress":
+            payload["rows"] = [{
+                "scenario": "base",
+                "paper_ready": True,
+                "alpha_vs_qqq_pct": 1.0,
+                "alpha_vs_blend_pct": 1.0,
+                "max_drawdown_pct": -10.0,
+            }]
+        else:
+            payload["edge_health_status"] = "pass"
+        path.write_text(json.dumps(payload), encoding="utf-8")
         report_paths[name] = path
     monkeypatch.setattr(validation_bundle, "membership_status", lambda: {"complete": False})
     result = {

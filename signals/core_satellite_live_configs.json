@@ -1,11 +1,22 @@
 {
-  "created_at": "2026-08-26T07:28:28+00:00",
-  "source_json": "signals\\core_satellite_nested_walkforward.json",
+  "created_at": "2026-09-01T08:11:55+00:00",
+  "source_json": "/Users/amos/Code/Stock Market AI Bot/signals/core_satellite_nested_walkforward.json",
+  "source_json_sha256": "00f47848dc8dc47c405c4a59b96000eb50974d0ab1b479ebd9beb402775266da",
+  "validation_bundle_path": "/Users/amos/Code/Stock Market AI Bot/signals/core_satellite_validation_bundle.json",
+  "validation_bundle_hash": "bbf4ae4a1e2e0427a7b8670a733765785585b013e25090246ebe008c013e9e01",
+  "deployment_status": "rejected",
+  "paper_approved": false,
+  "real_capital_approved": false,
   "method": "nested_walk_forward_yearly_outer_multi_inner_validation",
   "approvals": {
     "core-alpha": {
-      "approved": true,
-      "reasons": [],
+      "approved": false,
+      "reasons": [
+        "selector_alpha_correlation=-0.254<=0.0",
+        "overconfidence_gap=28.6pp>20pp",
+        "selector_sharpe_uplift=-0.036<0",
+        "medium_risk_review_failed:survivorship_review_failed"
+      ],
       "thresholds": {
         "min_folds": 3,
         "min_config_frequency": 0.2,
@@ -14,168 +25,50 @@
         "max_mean_oos_drawdown_pct": -25.0,
         "max_worst_oos_drawdown_pct": -35.0,
         "max_worst_oos_turnover_pct": 600.0,
-        "max_selection_bias_gap_sharpe": 1.5
+        "max_selection_bias_gap_sharpe": 1.5,
+        "min_selector_alpha_correlation": 0.0,
+        "max_overconfidence_gap_pct": 20.0,
+        "max_fallback_rate": 0.2,
+        "min_selector_sharpe_uplift": 0.0,
+        "min_selector_alpha_hit_uplift": 0.0
       },
       "warnings": [],
       "strategy": "core-alpha",
-      "approved_config_family": "score=regime_adaptive,shape=top3,weighting=sticky_score,risk=off,tqqq=0.0",
-      "approved_family_signature": "score=regime_adaptive,shape=top3,weighting=sticky_score,risk=off,tqqq=0.0",
-      "approved_family_fold_count": 7,
-      "approved_family_frequency": 0.5,
-      "approved_exact_config": "h=20,ov=0.5,ma=100,vol=percentile:0.3,score=regime_adaptive,shape=top3,weighting=sticky_score,tqqq=0.0,risk=off",
-      "approved_config_fold_count": 7,
-      "approved_config_frequency": 0.5,
+      "approved_config_family": "score=regime_adaptive,shape=top5,weighting=sticky_score,risk=off,tqqq=0.0",
+      "approved_family_signature": "score=regime_adaptive,shape=top5,weighting=sticky_score,risk=off,tqqq=0.0",
+      "approved_family_fold_count": 9,
+      "approved_family_frequency": 0.643,
+      "approved_exact_config": "h=20,ov=0.5,ma=100,vol=percentile:0.3,score=regime_adaptive,shape=top5,weighting=sticky_score,tqqq=0.0,risk=off",
+      "approved_config_fold_count": 4,
+      "approved_config_frequency": 0.286,
       "source": "nested_walkforward",
-      "created_at": "2026-08-26T07:28:28+00:00"
+      "created_at": "2026-09-01T08:11:15+00:00"
     }
   },
-  "approved_live_configs": {
-    "core-alpha": {
-      "strategy": "core-alpha",
-      "approved_config_family": "score=regime_adaptive,shape=top3,weighting=sticky_score,risk=off,tqqq=0.0",
-      "approved_family_signature": "score=regime_adaptive,shape=top3,weighting=sticky_score,risk=off,tqqq=0.0",
-      "approved_exact_config": "h=20,ov=0.5,ma=100,vol=percentile:0.3,score=regime_adaptive,shape=top3,weighting=sticky_score,tqqq=0.0,risk=off",
-      "config": {
-        "strategy": "core-alpha",
-        "core_preset": "nested_qqq_trend_switch_overlay70_core55_cashbuffer_h20_ov0.50_ma100_volpercentile0.30_tqqq0.00_riskoff",
-        "regime_mode": "qqq_trend_switch_overlay70_core55_cashbuffer",
-        "regime_preset": {
-          "ma_window": 100,
-          "high_vol": 0.3,
-          "risk_on": {
-            "core_weights": {
-              "SPY": 0.0,
-              "QQQ": 1.0,
-              "TQQQ": 0.0
-            },
-            "core_gross": 0.75,
-            "overlay_gross": 0.5
-          },
-          "neutral": {
-            "core_weights": {
-              "SPY": 0.25,
-              "QQQ": 0.75,
-              "TQQQ": 0.0
-            },
-            "core_gross": 0.5,
-            "overlay_gross": 0.5
-          },
-          "risk_off": {
-            "core_weights": {
-              "SPY": 0.6,
-              "QQQ": 0.4,
-              "TQQQ": 0.0
-            },
-            "core_gross": 0.55,
-            "overlay_gross": 0.25
-          },
-          "high_vol_mode": "percentile"
-        },
-        "regime_ma_window": 100,
-        "regime_high_vol": 0.3,
-        "high_vol_mode": "percentile",
-        "score_blend": false,
-        "early_rebalance_on_regime_change": false,
-        "core_weights": {
-          "SPY": 0.0,
-          "QQQ": 1.0,
-          "TQQQ": 0.0
-        },
-        "tqqq_preset": "tqqq_enhanced_cashbuffer",
-        "score_source": "regime_adaptive",
-        "shape": "top3",
-        "weighting": "sticky_score",
-        "exit_rank_floor": 0.8,
-        "adaptive_exit_mode": "fixed",
-        "max_per_sector": 2,
-        "earnings_blackout_days": 5,
-        "core_gross": 0.75,
-        "overlay_gross": 0.5,
-        "max_gross_exposure": 1.25,
-        "max_single_name_weight": 0.25,
-        "holding_days": 20,
-        "risk_control_mode": "off",
-        "drawdown_circuit_breaker": 0.0,
-        "vol_target": 0.0
-      },
-      "source_metrics": {
-        "fold_count": 14,
-        "best_config_frequency": 0.5,
-        "approved_family_fold_count": 7,
-        "approved_family_frequency": 0.5,
-        "approved_family_worst_oos_turnover_pct": 519.24,
-        "approved_family_mean_oos_max_drawdown_pct": -12.67,
-        "approved_family_mean_oos_sharpe": 1.372,
-        "mean_oos_sharpe": 1.544,
-        "mean_oos_cagr_pct": 30.3,
-        "mean_oos_alpha_vs_spy_pct": 16.04,
-        "mean_oos_alpha_vs_qqq_pct": 9.21,
-        "oos_positive_alpha_hit_rate": 0.786,
-        "cost_stress_approval_pass": true,
-        "required_cost_stresses": [
-          2.0,
-          3.0,
-          5.0
-        ],
-        "mean_oos_max_drawdown_pct": -10.7,
-        "worst_oos_max_drawdown_pct": -23.95,
-        "worst_oos_turnover_pct": 519.24,
-        "worst_oos_return_pct": -16.23,
-        "selection_bias_gap_sharpe": 0.208,
-        "approved_config_fold_count": 7,
-        "approved_config_frequency": 0.5,
-        "medium_risk_review_pass": true
-      },
-      "medium_risk_review": {
-        "pass": true,
-        "reasons": [],
-        "survivorship_review": {
-          "pass": true,
-          "survivorship_adjusted_score": 0.8658,
-          "audit_rebalance_selections": 31,
-          "total_return_delta_pct": -980.51,
-          "max_drawdown_delta_pct": -0.26
-        },
-        "execution_stress_review": {
-          "pass": true,
-          "failed_scenarios": 0,
-          "worst_stressed_drawdown_pct": -31.05
-        },
-        "factor_decay_review": {
-          "pass": true,
-          "edge_health_status": "advisory",
-          "reason": "rank IC is weak/negative but top-bucket edge and overlay alpha remain positive"
-        }
-      }
-    }
-  },
+  "approved_live_configs": {},
   "medium_risk_reviews": {
     "core-alpha": {
-      "pass": true,
-      "reasons": [],
+      "pass": false,
+      "reasons": [
+        "survivorship_review_failed"
+      ],
       "survivorship_review": {
-        "pass": true,
-        "survivorship_adjusted_score": 0.8658,
-        "audit_rebalance_selections": 31,
-        "total_return_delta_pct": -980.51,
-        "max_drawdown_delta_pct": -0.26
+        "pass": false,
+        "survivorship_adjusted_score": 0.8914,
+        "audit_rebalance_selections": 25,
+        "total_return_delta_pct": -1406.84,
+        "max_drawdown_delta_pct": -1.28
       },
       "execution_stress_review": {
         "pass": true,
         "failed_scenarios": 0,
-        "worst_stressed_drawdown_pct": -31.05
+        "worst_stressed_drawdown_pct": -29.93
       },
       "factor_decay_review": {
         "pass": true,
-        "edge_health_status": "advisory",
-        "reason": "rank IC is weak/negative but top-bucket edge and overlay alpha remain positive"
+        "edge_health_status": "pass",
+        "reason": "factor decay monitor has no real-capital blocking warning"
       }
     }
-  },
-  "validation_bundle_path": "signals\\core_satellite_validation_bundle.json",
-  "validation_bundle_hash": "bbe701bc84e37a4e3ce24d1c43803a53ba9bf9577d31422cb987629f4faee756",
-  "deployment_status": "paper_provisional",
-  "paper_approved": true,
-  "real_capital_approved": false,
-  "source_json_sha256": "b65be8a69142bea13a1fc954ebc083d351f61a4a3430bc8475596998e105d3af"
+  }
 }

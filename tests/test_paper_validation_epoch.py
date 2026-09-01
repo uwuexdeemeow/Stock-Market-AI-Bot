@@ -8,6 +8,29 @@ import pandas as pd
 import paper_validation_epoch as epoch_module
 
 
+def test_invalidated_epoch_can_never_become_review_eligible(tmp_path):
+    epoch_path = tmp_path / "epoch.json"
+    epoch_path.write_text(json.dumps({
+        "schema_version": 1,
+        "epoch_id": "paper-old",
+        "started_at": "2026-08-26T08:43:15+00:00",
+        "status": "collecting",
+        "real_capital_approved": False,
+    }), encoding="utf-8")
+
+    invalidated = epoch_module.invalidate_epoch(
+        reasons=["walkforward_boundary_math_changed", "fill_rate_definition_changed"],
+        epoch_path=epoch_path,
+        now=datetime(2026, 9, 1, tzinfo=timezone.utc),
+    )
+    result = epoch_module.evaluate_epoch(invalidated)
+
+    assert invalidated["schema_version"] == 2
+    assert result["status"] == "invalidated"
+    assert result["manual_real_capital_review_eligible"] is False
+    assert result["real_capital_approved"] is False
+
+
 def test_freeze_preserves_existing_epoch_start_and_detects_logic_change(tmp_path, monkeypatch):
     """Freezing must not restart August evidence, and later code edits must fail."""
     signal_dir = tmp_path / "signals"
@@ -169,7 +192,15 @@ def test_epoch_reviews_both_execution_stages_after_twenty_measured_fills(tmp_pat
         json.dumps({"decision_eligible": True}), encoding="utf-8"
     )
     pd.DataFrame([
-        {"submitted_at": f"2026-08-27T14:{index:02d}:00Z", "order_id": f"order-{index}", "fill_status": "filled"}
+        {
+            "submitted_at": f"2026-08-27T14:{index:02d}:00Z",
+            "order_id": f"order-{index}",
+            "ticker": f"T{index}",
+            "side": "buy",
+            "quantity": 1,
+            "filled_qty": 1,
+            "fill_status": "filled",
+        }
         for index in range(20)
     ]).to_csv(signal_dir / "alpaca_paper_log.csv", index=False)
     monkeypatch.setattr(epoch_module, "SIGNAL_DIR", str(signal_dir))

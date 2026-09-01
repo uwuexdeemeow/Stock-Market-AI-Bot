@@ -20,6 +20,7 @@ import pandas as pd
 from safe_io import atomic_write_json
 from run_evidence import enrich_payload
 from settings import LOG_DIR, SIGNAL_DIR
+from order_accounting import classify_logical_orders
 
 
 EPOCH_FILE = Path(SIGNAL_DIR) / "paper_validation_epoch.json"
@@ -50,6 +51,7 @@ PAPER_LOGIC_FILES = (
     "factor_data_health.py",
     "fill_monitor.py",
     "monitor_heartbeat.py",
+    "order_accounting.py",
     "logs/core_satellite_execution_stress.json",
     "logs/core_satellite_survivorship_audit.json",
     "logs/factor_decay_monitor.json",
@@ -59,6 +61,7 @@ PAPER_LOGIC_FILES = (
     "pipeline_shared.py",
     "portfolio_manager.py",
     "risk_sizing.py",
+    "robustness_review.py",
     "run_evidence.py",
     # Dependency changes can alter data, sentiment, and broker behavior even
     # when the Python source stays unchanged, so freeze them with the release.
@@ -97,7 +100,7 @@ def start_epoch(*, now: datetime | None = None) -> dict:
         shutil.copy2(source, destination)
         archived.append(str(destination))
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "epoch_id": epoch_id,
         "started_at": started.isoformat(timespec="seconds"),
         "status": "collecting",
@@ -122,6 +125,25 @@ def start_epoch(*, now: datetime | None = None) -> dict:
         "real_capital_approved": False,
     }
     atomic_write_json(payload, EPOCH_FILE)
+    return payload
+
+
+def invalidate_epoch(
+    *,
+    reasons: list[str],
+    epoch_path: Path = EPOCH_FILE,
+    now: datetime | None = None,
+) -> dict:
+    """Mark old evidence unusable without starting an unapproved new epoch."""
+    payload = json.loads(epoch_path.read_text(encoding="utf-8"))
+    payload.update({
+        "schema_version": 2,
+        "status": "invalidated",
+        "invalidated_at": (now or datetime.now(timezone.utc)).isoformat(timespec="seconds"),
+        "invalidation_reasons": sorted(set(str(reason) for reason in reasons if str(reason))),
+        "real_capital_approved": False,
+    })
+    atomic_write_json(payload, epoch_path)
     return payload
 
 
@@ -312,6 +334,18 @@ def _consecutive_session_count(values: pd.Series) -> int:
 
 def evaluate_epoch(epoch: dict) -> dict:
     """Measure progress against the fixed operational acceptance rules."""
+    if str(epoch.get("status", "")).lower() == "invalidated":
+        # PLAIN ENGLISH: changed rules make the old sample incomparable. Never
+        # let later file changes revive that experiment.
+        return {
+            "schema_version": 2,
+            "epoch_id": epoch.get("epoch_id"),
+            "evaluated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "status": "invalidated",
+            "invalidation_reasons": list(epoch.get("invalidation_reasons", [])),
+            "manual_real_capital_review_eligible": False,
+            "real_capital_approved": False,
+        }
     start = pd.to_datetime(epoch["started_at"], utc=True)
     journal = _read_csv(Path(SIGNAL_DIR) / "alpaca_submit_outcomes.csv")
     paper_log = _read_csv(Path(SIGNAL_DIR) / "alpaca_paper_log.csv")
@@ -342,13 +376,14 @@ def evaluate_epoch(epoch: dict) -> dict:
     executed = journal[journal["status"].astype(str) == "executed"] if not journal.empty and "status" in journal else journal.iloc[0:0]
     rebalances = int(executed["_time"].dt.date.nunique()) if "_time" in executed else 0
     trading_days = int(equity["_time"].dt.date.nunique()) if "_time" in equity else 0
-    order_ids = paper_log.get("client_order_id", paper_log.get("order_id", pd.Series(dtype=str))).dropna().astype(str)
-    order_ids = order_ids[~order_ids.str.startswith(("ERROR", "SKIPPED"))]
-    duplicates = int(order_ids.duplicated().sum())
-    statuses = paper_log.get("fill_status", pd.Series(dtype=str)).astype(str).str.lower()
-    accepted_log_rows = statuses.isin({"accepted", "new", "partially_filled", "filled"})
-    filled_log_rows = statuses.eq("filled")
-    fill_rate = float(filled_log_rows.sum() / accepted_log_rows.sum()) if int(accepted_log_rows.sum()) else None
+    # PLAIN ENGLISH: Stage 1 and Stage 2 are attempts at one requested trade.
+    # Count the parent once, include canceled/pending broker-accepted orders in
+    # the denominator, and require a complete fill for the promotion gate.
+    order_accounting = classify_logical_orders(paper_log)
+    accepted = int(order_accounting["accepted_logical_orders"])
+    duplicates = int(order_accounting["duplicate_logical_orders"])
+    fill_rate = order_accounting["complete_fill_rate"]
+    any_fill_rate = order_accounting["any_fill_rate"]
 
     # PLAIN ENGLISH: the scorecard decides whether enough observations exist,
     # while the epoch computes its own rates from post-start rebalance fills.
@@ -453,6 +488,10 @@ def evaluate_epoch(epoch: dict) -> dict:
         "accepted_orders": accepted >= int(requirements.get("minimum_accepted_orders", 20)),
         "classified_sessions": classified_sessions >= int(requirements.get("minimum_consecutive_classified_sessions", 10)),
         "duplicate_orders": duplicates <= int(requirements.get("maximum_duplicate_orders", 0)),
+        "classifiable_orders": (
+            int(order_accounting["unclassifiable_rows"]) == 0
+            and int(order_accounting["unclassifiable_logical_orders"]) == 0
+        ),
         "unexplained_orders": unexplained <= int(requirements.get("maximum_unexplained_orders", 0)),
         "target_weight_gap": alignment_status == "pass" and max_weight_gap is not None and max_weight_gap <= float(requirements.get("maximum_target_weight_gap", 0.02)),
         "gross_exposure_gap": alignment_status == "pass" and gross_exposure_gap is not None and gross_exposure_gap <= float(requirements.get("maximum_gross_exposure_gap", 0.05)),
@@ -467,6 +506,7 @@ def evaluate_epoch(epoch: dict) -> dict:
     checks["paper_version_lock"] = version_lock_valid
     operational_pass = all(checks.values())
     report = {
+        "schema_version": 2,
         "epoch_id": epoch.get("epoch_id"),
         "evaluated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "status": "operational_pass" if operational_pass else "collecting",
@@ -481,6 +521,18 @@ def evaluate_epoch(epoch: dict) -> dict:
         "alignment_status": alignment_status or "collecting",
         "open_critical_incidents": open_critical_incidents,
         "fill_rate": fill_rate,
+        "complete_fill_rate": fill_rate,
+        "any_fill_rate": any_fill_rate,
+        "accepted_logical_orders": int(order_accounting["accepted_logical_orders"]),
+        "fully_filled_logical_orders": int(order_accounting["fully_filled_logical_orders"]),
+        "any_filled_logical_orders": int(order_accounting["any_filled_logical_orders"]),
+        "partially_filled_logical_orders": int(order_accounting["partially_filled_logical_orders"]),
+        "open_logical_orders": int(order_accounting["open_logical_orders"]),
+        "canceled_unfilled_logical_orders": int(order_accounting["canceled_unfilled_logical_orders"]),
+        "duplicate_child_attempts": int(order_accounting["duplicate_child_attempts"]),
+        "child_attempts": int(order_accounting["child_attempts"]),
+        "unclassifiable_order_rows": int(order_accounting["unclassifiable_rows"]),
+        "unclassifiable_logical_orders": int(order_accounting["unclassifiable_logical_orders"]),
         "average_slippage_bps": avg_slippage,
         "bad_slippage_rate": bad_rate,
         "stage_comparison": stage_comparison,
@@ -511,7 +563,24 @@ def main() -> int:
         action="store_true",
         help="Freeze current paper logic without changing the active epoch start.",
     )
+    parser.add_argument(
+        "--invalidate-current",
+        action="store_true",
+        help="Mark the current epoch invalid after research or scoring logic changes.",
+    )
+    parser.add_argument(
+        "--reason",
+        action="append",
+        default=[],
+        help="Reason stored with --invalidate-current (may be repeated).",
+    )
     args = parser.parse_args()
+    if args.invalidate_current:
+        reasons = args.reason or ["paper_evidence_rules_changed"]
+        epoch = invalidate_epoch(reasons=reasons)
+        print(f"Invalidated paper validation epoch: {epoch['epoch_id']}")
+        print("Reasons: " + ", ".join(epoch["invalidation_reasons"]))
+        return 0
     if args.freeze_current:
         assert_clean_release_worktree()
         lock = freeze_current_paper_version()

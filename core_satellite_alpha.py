@@ -35,6 +35,7 @@ from feature_health import enrich_feature_specs
 from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
 from signal_freshness import latest_completed_us_trading_day, live_config_fingerprint
 from validation_bundle import (
+    current_robustness_evidence,
     strategy_config_fingerprint,
     validate_validation_bundle,
 )
@@ -1453,7 +1454,20 @@ def _exit_floor_for_regime(config: dict, regime: str) -> float:
     return base
 
 
-def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd.DataFrame, dict]:
+def run_core_satellite(
+    panel: pd.DataFrame,
+    config: dict,
+    *,
+    evaluation_start: pd.Timestamp | None = None,
+    evaluation_end: pd.Timestamp | None = None,
+) -> tuple[pd.Series, pd.DataFrame, dict]:
+    """Run the strategy, optionally as a flat-start evaluation window.
+
+    PLAIN ENGLISH: research folds may still use old rows to calculate moving
+    averages, but they must not inherit a position chosen before the fold.  The
+    optional boundaries therefore create a brand-new rebalance schedule inside
+    the window and keep only complete holding periods.
+    """
     holding_days = int(config.get("holding_days", HORIZON_DAYS))
     entry_delay_days = int(config.get("entry_delay_days", 0))
     if entry_delay_days > 0:
@@ -1463,7 +1477,44 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
     if return_col not in panel.columns:
         raise ValueError(f"Missing return column for core-satellite run: {return_col}")
     dates = pd.DatetimeIndex(sorted(panel["date"].unique()))
-    rebalance_dates = dates[::holding_days]
+    start_ts = pd.Timestamp(evaluation_start) if evaluation_start is not None else None
+    end_ts = pd.Timestamp(evaluation_end) if evaluation_end is not None else None
+    if start_ts is not None and end_ts is not None and start_ts > end_ts:
+        raise ValueError("evaluation_start must be on or before evaluation_end")
+
+    # PLAIN ENGLISH: keep the full panel above for feature history, while only
+    # scheduling new trades on dates that belong to this evaluation fold.
+    schedule_dates = dates
+    if start_ts is not None:
+        schedule_dates = schedule_dates[schedule_dates >= start_ts]
+    if end_ts is not None:
+        schedule_dates = schedule_dates[schedule_dates <= end_ts]
+    rebalance_dates = schedule_dates[::holding_days]
+
+    # Count the old schedule position that would have crossed into this fold.
+    # It is evidence of what was deliberately purged, never a scored trade.
+    full_schedule = dates[::holding_days]
+    purged_leading = 0
+    if start_ts is not None:
+        full_exits = pd.DatetimeIndex([
+            pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days + entry_delay_days)
+            for dt in full_schedule
+        ])
+        purged_leading = int(((full_schedule < start_ts) & (full_exits >= start_ts)).sum())
+
+    # A return whose exit lies after the fold would use future evidence.  Drop
+    # that rebalance before any portfolio state is created.
+    purged_trailing = 0
+    if end_ts is not None:
+        nominal_exits = pd.DatetimeIndex([
+            pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days + entry_delay_days)
+            for dt in rebalance_dates
+        ])
+        keep = nominal_exits <= end_ts
+        purged_trailing = int((~keep).sum())
+        rebalance_dates = rebalance_dates[keep]
+    if len(rebalance_dates) == 0:
+        raise ValueError("No complete holding periods inside evaluation boundaries")
     entry_dates = pd.DatetimeIndex([pd.Timestamp(dt) + pd.tseries.offsets.BDay(entry_delay_days) for dt in rebalance_dates])
     exit_dates = pd.DatetimeIndex([pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days + entry_delay_days) for dt in rebalance_dates])
     price_index = pd.DatetimeIndex(sorted(set(rebalance_dates) | set(entry_dates) | set(exit_dates)))
@@ -1488,7 +1539,7 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
     if config.get("early_rebalance_on_regime_change", False) and regime_indicators is not None:
         extra_dates = []
         prev_regime = None
-        for dt in dates:
+        for dt in schedule_dates:
             ts = pd.Timestamp(dt)
             if ts not in regime_indicators.index:
                 continue
@@ -1526,6 +1577,30 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
             ))
             etf_prices = _cached_etf_prices(price_index, etf_tickers)
             # Reload regime indicators with expanded date range
+            regime_indicators = _load_regime_indicators(rebalance_dates, exit_dates, config)
+
+    # Regime changes can add a late rebalance after the regular schedule was
+    # filtered.  Apply the same full-period rule again so that shortcut cannot
+    # cross the fold end.
+    if end_ts is not None:
+        final_nominal_exits = pd.DatetimeIndex([
+            pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days + entry_delay_days)
+            for dt in rebalance_dates
+        ])
+        final_keep = final_nominal_exits <= end_ts
+        purged_trailing += int((~final_keep).sum())
+        rebalance_dates = rebalance_dates[final_keep]
+        if len(rebalance_dates) == 0:
+            raise ValueError("No complete holding periods inside evaluation boundaries")
+        entry_dates = pd.DatetimeIndex([
+            pd.Timestamp(dt) + pd.tseries.offsets.BDay(entry_delay_days) for dt in rebalance_dates
+        ])
+        exit_dates = pd.DatetimeIndex([
+            pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days + entry_delay_days) for dt in rebalance_dates
+        ])
+        price_index = pd.DatetimeIndex(sorted(set(rebalance_dates) | set(entry_dates) | set(exit_dates)))
+        etf_prices = _cached_etf_prices(price_index, etf_tickers)
+        if regime_indicators is not None:
             regime_indicators = _load_regime_indicators(rebalance_dates, exit_dates, config)
     day_map = _panel_day_map(panel)
 
@@ -1772,6 +1847,11 @@ def run_core_satellite(panel: pd.DataFrame, config: dict) -> tuple[pd.Series, pd
         "top_ticker_overlay_contributor": top_ticker,
         "top_ticker_overlay_contribution_share": round(top_ticker_share, 3),
         "n_rebalances": int(len(trades)),
+        "boundary_mode": "flat_start_full_periods_only" if start_ts is not None or end_ts is not None else "full_history",
+        "evaluation_trade_start": str(pd.Timestamp(rebalance_dates[0]).date()) if len(rebalance_dates) else None,
+        "evaluation_trade_end": str(pd.Timestamp(trades["exit_date"].max()).date()) if not trades.empty else None,
+        "purged_leading_trade_count": purged_leading,
+        "purged_trailing_trade_count": purged_trailing,
         "concentration_overlay_active_rebalances": int(concentration_overlay_active_count),
         "avg_concentration_overlay_adjustment": round(
             float(concentration_overlay_adjustment_sum / max(len(trades), 1)),
@@ -2553,6 +2633,23 @@ def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
     deployment = bundle.get("deployment", {}) or {}
     if not bool(deployment.get("paper_approved", False)):
         bundle_issues.append("validation_bundle_not_paper_approved")
+
+    # PLAIN ENGLISH: the bundle records what passed when it was created.  Read
+    # today's files too, compare their checksums, and refuse to trust a copied
+    # approval when a report has since become stale or changed to warning.
+    current_robustness = current_robustness_evidence(
+        expected_config_fingerprint=str(bundle.get("config_fingerprint", "")),
+        expected_dataset_fingerprint=str((bundle.get("dataset", {}) or {}).get("dataset_fingerprint", "")),
+    )
+    bundled_reports = bundle.get("robustness_reports", {}) or {}
+    for name, current_record in (current_robustness.get("reports", {}) or {}).items():
+        if str(current_record.get("sha256", "")) != str((bundled_reports.get(name, {}) or {}).get("sha256", "")):
+            bundle_issues.append(f"robustness_report_changed:{name}")
+    if not bool(current_robustness.get("pass", False)):
+        bundle_issues.extend(
+            f"current_robustness_failed:{reason}"
+            for reason in current_robustness.get("reasons", []) or ["unknown"]
+        )
     if not bundle_ok or bundle_issues:
         return {
             "approved": False,
@@ -2570,7 +2667,9 @@ def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
         "approved_family_signature": approved.get("approved_family_signature"),
         "approved_exact_config": approved.get("approved_exact_config"),
         "source_metrics": approved.get("source_metrics", {}),
-        "medium_risk_review": approved.get("medium_risk_review", payload.get("medium_risk_reviews", {}).get(strategy, {})),
+        # This current review, not the embedded historical copy, controls the
+        # signal gate below.
+        "medium_risk_review": current_robustness.get("medium_risk_review", {}),
         "source_json": payload.get("source_json"),
         "created_at": payload.get("created_at"),
         "live_config_hash": config_hash,

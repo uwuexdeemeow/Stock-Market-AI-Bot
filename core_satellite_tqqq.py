@@ -313,6 +313,8 @@ def run_tqqq_backtest(
     concentration_overlay_threshold: float = 0.05,
     concentration_overlay_span: float = 0.05,
     quiet: bool = False,
+    evaluation_start: pd.Timestamp | None = None,
+    evaluation_end: pd.Timestamp | None = None,
 ) -> dict:
     """
     Run the TQQQ-enhanced core-satellite backtest.
@@ -382,7 +384,33 @@ def run_tqqq_backtest(
         return_col = "forward_return"
 
     dates = pd.DatetimeIndex(sorted(panel["date"].unique()))
-    rebalance_dates = list(dates[::holding_days])
+    start_ts = pd.Timestamp(evaluation_start) if evaluation_start is not None else None
+    end_ts = pd.Timestamp(evaluation_end) if evaluation_end is not None else None
+    if start_ts is not None and end_ts is not None and start_ts > end_ts:
+        raise ValueError("evaluation_start must be on or before evaluation_end")
+    schedule_dates = dates
+    if start_ts is not None:
+        schedule_dates = schedule_dates[schedule_dates >= start_ts]
+    if end_ts is not None:
+        schedule_dates = schedule_dates[schedule_dates <= end_ts]
+    rebalance_dates = list(schedule_dates[::holding_days])
+    full_schedule = dates[::holding_days]
+    purged_leading = 0
+    if start_ts is not None:
+        full_exits = pd.DatetimeIndex([
+            pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days) for dt in full_schedule
+        ])
+        purged_leading = int(((full_schedule < start_ts) & (full_exits >= start_ts)).sum())
+    purged_trailing = 0
+    if end_ts is not None:
+        nominal_exits = pd.DatetimeIndex([
+            pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days) for dt in rebalance_dates
+        ])
+        keep = nominal_exits <= end_ts
+        purged_trailing = int((~keep).sum())
+        rebalance_dates = [dt for dt, include in zip(rebalance_dates, keep) if bool(include)]
+    if not rebalance_dates:
+        raise ValueError("No complete holding periods inside evaluation boundaries")
     exit_dates = pd.DatetimeIndex([
         pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days)
         for dt in rebalance_dates
@@ -408,14 +436,26 @@ def run_tqqq_backtest(
     # prevents being stuck in the wrong positioning for days.
     if config.get("early_rebalance_on_regime_change", False) and regime_indicators is not None:
         sched = set(rebalance_dates)
-        for i, dt in enumerate(dates):
+        for i, dt in enumerate(schedule_dates):
             if dt in sched or i == 0:
                 continue
-            prev_regime, *_ = _resolve_allocation(pd.Timestamp(dates[i - 1]), config, regime_indicators)
+            prev_regime, *_ = _resolve_allocation(pd.Timestamp(schedule_dates[i - 1]), config, regime_indicators)
             curr_regime, *_ = _resolve_allocation(pd.Timestamp(dt), config, regime_indicators)
             if prev_regime != curr_regime:
                 sched.add(dt)
         rebalance_dates = sorted(sched)
+
+    # An inserted regime-change date near the boundary is still incomplete.
+    # Remove it just like a regular late rebalance.
+    if end_ts is not None:
+        final_keep = [
+            pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days) <= end_ts
+            for dt in rebalance_dates
+        ]
+        purged_trailing += sum(not include for include in final_keep)
+        rebalance_dates = [dt for dt, include in zip(rebalance_dates, final_keep) if include]
+        if not rebalance_dates:
+            raise ValueError("No complete holding periods inside evaluation boundaries")
 
     day_map = _panel_day_map(panel)
 
@@ -649,6 +689,11 @@ def run_tqqq_backtest(
         "turnover_pct": round(total_turnover * 100.0, 2),
         "estimated_cost_pct": round(total_cost * 100.0, 4),
         "n_rebalances": len(trades),
+        "boundary_mode": "flat_start_full_periods_only" if start_ts is not None or end_ts is not None else "full_history",
+        "evaluation_trade_start": str(pd.Timestamp(rebalance_dates[0]).date()) if rebalance_dates else None,
+        "evaluation_trade_end": str(pd.Timestamp(trades["exit_date"].max()).date()) if not trades.empty else None,
+        "purged_leading_trade_count": purged_leading,
+        "purged_trailing_trade_count": purged_trailing,
         "regime_counts": regime_counts,
         "concentration_overlay_active_rebalances": int(concentration_overlay_active_count),
         "avg_concentration_overlay_adjustment": round(

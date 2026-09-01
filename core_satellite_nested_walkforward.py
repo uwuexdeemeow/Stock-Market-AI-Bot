@@ -308,6 +308,7 @@ from settings import LOG_DIR, SIGNAL_DIR
 from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
 from safe_io import atomic_write_csv, atomic_write_text
 from validation_bundle import DEFAULT_BUNDLE_PATH, build_validation_bundle, write_validation_bundle
+from robustness_review import medium_risk_review_from_reports as _shared_medium_risk_review
 
 
 BASE_REGIME = "qqq_trend_switch_overlay70_core55_cashbuffer"
@@ -1089,6 +1090,8 @@ def evaluate_window(panel: pd.DataFrame, config: dict, start: pd.Timestamp, end:
                 concentration_overlay_threshold=float(config.get("concentration_overlay_threshold", 0.05)),
                 concentration_overlay_span=float(config.get("concentration_overlay_span", 0.05)),
                 quiet=True,
+                evaluation_start=start_ts,
+                evaluation_end=end_ts,
             )
         else:
             # ── Direct call to run_core_satellite instead of evaluate() ──
@@ -1097,14 +1100,18 @@ def evaluate_window(panel: pd.DataFrame, config: dict, start: pd.Timestamp, end:
             # the nested walkforward.  Calling run_core_satellite directly
             # skips all that work (~30% faster per call).
             from core_satellite_alpha import run_core_satellite
-            equity, trades, extra_metrics = run_core_satellite(eval_panel, config)
+            equity, trades, extra_metrics = run_core_satellite(
+                eval_panel,
+                config,
+                evaluation_start=start_ts,
+                evaluation_end=end_ts,
+            )
             metrics = extra_metrics
 
-        eq = equity.loc[equity.index <= end_ts]
-        anchor = eq.loc[eq.index < start_ts].tail(1)
-        window = eq.loc[(eq.index >= start_ts) & (eq.index <= end_ts)]
-        if not anchor.empty:
-            window = pd.concat([anchor, window])
+        # PLAIN ENGLISH: the engine now starts this fold with cash, so its first
+        # point is the honest zero-return anchor.  Never borrow an anchor from a
+        # position selected before the fold boundary.
+        window = equity.loc[(equity.index >= start_ts) & (equity.index <= end_ts)]
         window = window[~window.index.duplicated(keep="last")].sort_index()
         if len(window) < 3:
             raise ValueError(f"Too few equity points in window {start_ts.date()} to {end_ts.date()}: {len(window)}")
@@ -1142,6 +1149,11 @@ def evaluate_window(panel: pd.DataFrame, config: dict, start: pd.Timestamp, end:
             "window_end": str(pd.Timestamp(window.index[-1]).date()),
             "n_equity_points": int(len(window)),
             "full_sample_sharpe_to_window_end": metrics.get("sharpe"),
+            "boundary_mode": metrics.get("boundary_mode", "flat_start_full_periods_only"),
+            "evaluation_trade_start": metrics.get("evaluation_trade_start"),
+            "evaluation_trade_end": metrics.get("evaluation_trade_end"),
+            "purged_leading_trade_count": int(metrics.get("purged_leading_trade_count", 0) or 0),
+            "purged_trailing_trade_count": int(metrics.get("purged_trailing_trade_count", 0) or 0),
         }
     finally:
         # ── Aggressively null out every intermediate DataFrame ─────────
@@ -1557,78 +1569,13 @@ def medium_risk_review_from_reports(
     execution: dict | None = None,
     factor_decay: dict | None = None,
 ) -> dict:
-    survivorship = survivorship if survivorship is not None else _read_json(MEDIUM_RISK_SURVIVORSHIP_PATH)
-    execution = execution if execution is not None else _read_json(MEDIUM_RISK_EXECUTION_PATH)
-    factor_decay = factor_decay if factor_decay is not None else _read_json(MEDIUM_RISK_FACTOR_DECAY_PATH)
-    reasons: list[str] = []
-
-    rows = survivorship.get("rows", []) if isinstance(survivorship, dict) else []
-    by_scenario = {str(row.get("scenario")): row for row in rows if isinstance(row, dict)}
-    stressed = by_scenario.get("watchlist_plus_failed_audit_tickers", {})
-    delta = by_scenario.get("delta_stressed_minus_base", {})
-    surv_score = float(survivorship.get("survivorship_adjusted_score", 0.0) or 0.0) if survivorship else 0.0
-    audit_picks = int(float(stressed.get("audit_rebalance_selections", 0) or 0)) if stressed else 0
-    return_delta = float(delta.get("total_return_pct", 0.0) or 0.0) if delta else 0.0
-    dd_delta = float(delta.get("max_drawdown_pct", 0.0) or 0.0) if delta else 0.0
-    survivorship_pass = bool(
-        survivorship
-        and stressed
-        and bool(stressed.get("paper_ready", False))
-        and surv_score > SURVIVORSHIP_MIN_ADJUSTED_SCORE
-        and audit_picks <= SURVIVORSHIP_MAX_AUDIT_SELECTIONS
-        and return_delta >= SURVIVORSHIP_MIN_RETURN_DELTA_PCT
-        and dd_delta >= SURVIVORSHIP_MIN_DRAWDOWN_DELTA_PCT
+    # PLAIN ENGLISH: keep this public wrapper for older callers, but delegate
+    # every decision to the shared module used by publishing and live trading.
+    return _shared_medium_risk_review(
+        survivorship=survivorship,
+        execution=execution,
+        factor_decay=factor_decay,
     )
-    if not survivorship:
-        reasons.append("survivorship_review_missing")
-    elif not survivorship_pass:
-        reasons.append("survivorship_review_failed")
-
-    exec_rows = [
-        row for row in (execution.get("rows", []) if isinstance(execution, dict) else [])
-        if isinstance(row, dict) and not str(row.get("scenario", "")).startswith("delta_")
-    ]
-    exec_failed = [
-        row for row in exec_rows
-        if not bool(row.get("paper_ready", False))
-        or float(row.get("alpha_vs_qqq_pct", -999.0) or -999.0) <= 0.0
-        or float(row.get("alpha_vs_blend_pct", -999.0) or -999.0) <= 0.0
-    ]
-    worst_dd = min((float(row.get("max_drawdown_pct", 0.0) or 0.0) for row in exec_rows), default=0.0)
-    execution_pass = bool(exec_rows and not exec_failed and worst_dd >= EXECUTION_STRESS_MIN_WORST_DRAWDOWN_PCT)
-    if not execution:
-        reasons.append("execution_stress_review_missing")
-    elif not execution_pass:
-        reasons.append("execution_stress_review_failed")
-
-    edge_status = str((factor_decay or {}).get("edge_health_status", "missing"))
-    factor_pass = edge_status in {"pass", "advisory"}
-    if not factor_decay:
-        reasons.append("factor_decay_review_missing")
-    elif not factor_pass:
-        reasons.append(f"factor_decay_review_{edge_status}")
-
-    return {
-        "pass": not reasons,
-        "reasons": reasons,
-        "survivorship_review": {
-            "pass": survivorship_pass,
-            "survivorship_adjusted_score": round(surv_score, 4),
-            "audit_rebalance_selections": audit_picks,
-            "total_return_delta_pct": round(return_delta, 4),
-            "max_drawdown_delta_pct": round(dd_delta, 4),
-        },
-        "execution_stress_review": {
-            "pass": execution_pass,
-            "failed_scenarios": len(exec_failed),
-            "worst_stressed_drawdown_pct": round(worst_dd, 4),
-        },
-        "factor_decay_review": {
-            "pass": factor_pass,
-            "edge_health_status": edge_status,
-            "reason": (factor_decay or {}).get("reason"),
-        },
-    }
 
 
 def apply_medium_risk_review(summary: dict, review: dict | None = None) -> dict:
@@ -1783,7 +1730,6 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
     MAX_PLAUSIBLE_FOLD_SCORE = 5.0
 
     eval_cache: dict[str, dict] = {}
-    frozen_baseline_config = _load_frozen_factor_baseline_config()
     fold_scores: list[float] = []
     fold_metrics: list[dict] = []
     failed = 0
@@ -2463,6 +2409,11 @@ def run_nested_walkforward(
     if not splits:
         return {"valid": False, "reason": "no_valid_yearly_folds", "folds": []}
 
+    # PLAIN ENGLISH: load the deployed baseline once for the outer-fold audit.
+    # It was previously loaded inside candidate scoring, where the later outer
+    # comparison could not see it and a full run crashed after selection.
+    frozen_baseline_config = _load_frozen_factor_baseline_config()
+
     if fast:
         # ── Fast mode: collapse the grid to ~48 configs ──────────────────
         # Fast mode keeps the shape/weighting dimensions but pins holding
@@ -2780,6 +2731,11 @@ def run_nested_walkforward(
             "oos_estimated_cost_pct": outer_metrics.get("estimated_cost_pct", 0.0),
             "oos_alpha_vs_spy_pct": outer_metrics.get("alpha_vs_spy_pct"),
             "oos_alpha_vs_qqq_pct": outer_metrics.get("alpha_vs_qqq_pct"),
+            "boundary_mode": outer_metrics.get("boundary_mode"),
+            "evaluation_trade_start": outer_metrics.get("evaluation_trade_start"),
+            "evaluation_trade_end": outer_metrics.get("evaluation_trade_end"),
+            "purged_leading_trade_count": int(outer_metrics.get("purged_leading_trade_count", 0) or 0),
+            "purged_trailing_trade_count": int(outer_metrics.get("purged_trailing_trade_count", 0) or 0),
             "baseline_oos_sharpe": baseline_metrics.get("sharpe"),
             "baseline_oos_alpha_vs_qqq_pct": baseline_metrics.get("alpha_vs_qqq_pct"),
             "baseline_oos_turnover_pct": baseline_metrics.get("turnover_pct"),

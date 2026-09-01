@@ -79,3 +79,17 @@ The frozen August 26 epoch keeps its original thresholds and start time.
 The epoch stays frozen while it collects at least 30 trading days, 20 accepted orders, three rebalance events, and ten consecutive classified sessions. After at least 20 measured rebalance fills, the report requires evidence from both execution stages, checks that passive Stage 1 has no worse average slippage than capped Stage 2, and confirms total fill rate remains at least 95%.
 
 Even when every gate passes, the script only sets `manual_real_capital_review_eligible`. It never approves or enables real-money trading automatically; `real_capital_approved` remains false.
+
+## Schema 2 Fill and Duplicate Math
+
+The epoch now shares logical-order accounting with the execution scorecard.
+Its 95% gate uses `complete_fill_rate`: fully filled rebalance parents divided
+by every broker-accepted parent, including pending, canceled, expired, and
+partially filled orders. `any_fill_rate` is diagnostic only. A normal `a1` to
+`a2` reprice is one parent, while two broker IDs in the same attempt slot are a
+duplicate chain. Unclassifiable rows fail the epoch evidence check.
+
+When research or scoring behavior changes, use
+`python3 paper_validation_epoch.py --invalidate-current --reason <reason>`.
+This preserves the old record as invalidated and cannot start a replacement.
+A new epoch is created only after the fresh strategy bundle passes.

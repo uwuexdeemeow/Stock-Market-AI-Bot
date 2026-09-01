@@ -1,8 +1,8 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "epoch_id": "paper-v20260901T044209Z",
   "started_at": "2026-09-01T04:42:09+00:00",
-  "status": "collecting",
+  "status": "invalidated",
   "archive_dir": "archive/paper_epochs/paper-v20260901T044209Z",
   "archived_files": [
     "archive/paper_epochs/paper-v20260901T044209Z/alpaca_paper_log.csv",
@@ -29,5 +29,11 @@
     "bad_slippage_threshold_bps": 2.0,
     "maximum_bad_slippage_rate": 0.4
   },
-  "real_capital_approved": false
+  "real_capital_approved": false,
+  "invalidated_at": "2026-09-01T08:14:36+00:00",
+  "invalidation_reasons": [
+    "complete_fill_rate_definition_changed",
+    "robustness_gate_source_changed",
+    "walkforward_boundary_math_changed"
+  ]
 }

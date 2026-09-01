@@ -91,3 +91,7 @@ script only with `--dry-run` to inspect a possible configuration.
 
 To publish safely, run the nested walk-forward with `--publish-live-config`.
 That command creates the required validation bundle.
+
+The inspection path also evaluates the current shared robustness review. It
+stops instead of manufacturing an inherited passing block when factor decay,
+survivorship, or execution stress is missing or failing.

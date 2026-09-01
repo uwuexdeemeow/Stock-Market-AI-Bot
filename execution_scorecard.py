@@ -25,6 +25,7 @@ import pandas as pd
 from safe_io import atomic_write_json, configure_console_output
 from run_evidence import enrich_payload
 from settings import LOG_DIR, SIGNAL_DIR
+from order_accounting import classify_logical_orders
 
 
 configure_console_output()
@@ -593,6 +594,7 @@ def build_execution_scorecard(
     accepted = log[_accepted_mask(log)] if not log.empty else log
     filled = accepted[_filled_mask(accepted)] if not accepted.empty else accepted
     skipped = log[_skipped_mask(log)] if not log.empty else log
+    accounting = classify_logical_orders(log)
     report_metrics, protective_stop_metrics, entry_timing = _report_summary(
         slippage_report,
         log,
@@ -603,10 +605,12 @@ def build_execution_scorecard(
     report_rows = _filter_report_rows(slippage_report, now=clock, days=lookback_days)
     rebalance_report_rows = [row for row in report_rows if _row_group(row) == "rebalance"]
 
-    accepted_orders = int(len(accepted))
-    filled_orders = int(len(filled))
-    skipped_orders = int(len(skipped))
-    fill_rate = _rate(filled_orders, accepted_orders)
+    accepted_orders = int(accounting["accepted_logical_orders"])
+    filled_orders = int(accounting["fully_filled_logical_orders"])
+    any_filled_orders = int(accounting["any_filled_logical_orders"])
+    skipped_orders = int(accounting["skipped_rows"])
+    fill_rate = accounting["complete_fill_rate"]
+    any_fill_rate = accounting["any_fill_rate"]
     skipped_rate = _rate(skipped_orders, total_rows)
 
     checks = [
@@ -659,6 +663,12 @@ def build_execution_scorecard(
         for name, measured_count, _coverage in coverage_fields
         if int(measured_count or 0) < MIN_DECISION_ORDERS
     ]
+    if int(accounting["unclassifiable_rows"]) > 0:
+        decision_blockers.append(f"unclassifiable_order_rows_{int(accounting['unclassifiable_rows'])}")
+    if int(accounting["unclassifiable_logical_orders"]) > 0:
+        decision_blockers.append(
+            f"unclassifiable_logical_orders_{int(accounting['unclassifiable_logical_orders'])}"
+        )
     decision_blockers.extend(
         f"{name}_coverage_{float(coverage or 0.0):.4f}_below_{MIN_DECISION_COVERAGE:.4f}"
         for name, _measured_count, coverage in coverage_fields
@@ -692,7 +702,7 @@ def build_execution_scorecard(
         recommendations.append("limit_orders_are_beating_market_orders")
 
     payload = {
-        "schema_version": 2,
+        "schema_version": 3,
         "generated_at": clock.isoformat(timespec="seconds"),
         "measurement_cutoff_60m": (pd.Timestamp(clock) - pd.Timedelta(minutes=60)).isoformat(),
         "status": status,
@@ -704,8 +714,19 @@ def build_execution_scorecard(
             "paper_log_rows": total_rows,
             "accepted_orders": accepted_orders,
             "filled_orders": filled_orders,
+            "any_filled_orders": any_filled_orders,
             "skipped_orders": skipped_orders,
             "fill_rate": fill_rate,
+            "complete_fill_rate": fill_rate,
+            "any_fill_rate": any_fill_rate,
+            "partially_filled_orders": int(accounting["partially_filled_logical_orders"]),
+            "open_orders": int(accounting["open_logical_orders"]),
+            "canceled_unfilled_orders": int(accounting["canceled_unfilled_logical_orders"]),
+            "duplicate_logical_orders": int(accounting["duplicate_logical_orders"]),
+            "duplicate_child_attempts": int(accounting["duplicate_child_attempts"]),
+            "child_attempts": int(accounting["child_attempts"]),
+            "unclassifiable_order_rows": int(accounting["unclassifiable_rows"]),
+            "unclassifiable_logical_orders": int(accounting["unclassifiable_logical_orders"]),
             "skipped_rate": skipped_rate,
             **report_metrics,
             "slippage_delta_vs_prior_scorecard_bps": slippage_delta,

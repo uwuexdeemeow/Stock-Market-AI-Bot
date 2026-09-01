@@ -748,15 +748,15 @@ def publish(source: str, force: bool, dry_run: bool):
         "walkforward_analyzer": analyzer_metrics,
     }
 
-    # Reuse the existing medium_risk_review block — it's from cost stress
-    # gates that should still apply.  If absent, default to passing.
-    medium_review = {
-        "pass": True,
-        "reasons": [],
-        "survivorship_review": {"pass": True, "note": "inherited from prior approval"},
-        "execution_stress_review": {"pass": True, "note": "inherited from prior approval"},
-        "factor_decay_review": {"pass": True, "note": "inherited from prior approval"},
-    }
+    # PLAIN ENGLISH: manual publishing is not an escape hatch.  It must read
+    # the same current reports as automatic publishing and stop on a warning.
+    from robustness_review import medium_risk_review_from_reports
+
+    medium_review = medium_risk_review_from_reports()
+    if not bool(medium_review.get("pass", False)):
+        reasons = ", ".join(str(reason) for reason in medium_review.get("reasons", []))
+        raise SystemExit(f"Current robustness review blocks publishing: {reasons}")
+    source_metrics["medium_risk_review_pass"] = bool(medium_review.get("pass", False))
 
     live_payload = {
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),

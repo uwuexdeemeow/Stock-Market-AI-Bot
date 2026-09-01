@@ -174,6 +174,7 @@ def test_bad_slippage_rate_uses_material_threshold_when_order_rows_exist(tmp_pat
                 "order_id": f"order-{idx}",
                 "ticker": "QQQ",
                 "side": "buy",
+                "quantity": 1,
                 "fill_status": "filled",
                 "filled_qty": 1,
             }
@@ -230,6 +231,7 @@ def test_each_execution_metric_uses_its_own_measured_denominator(tmp_path, monke
                 "order_id": f"order-{idx}",
                 "ticker": "QQQ",
                 "side": "buy",
+                "quantity": 1,
                 "fill_status": "filled",
                 "filled_qty": 1,
             }
@@ -259,7 +261,7 @@ def test_each_execution_metric_uses_its_own_measured_denominator(tmp_path, monke
     )
 
     summary = payload["summary"]
-    assert payload["schema_version"] == 2
+    assert payload["schema_version"] == 3
     assert summary["eligible_orders"] == 25
     assert summary["slippage_measured_orders"] == 19
     assert summary["bad_slippage_count"] == 14

@@ -198,3 +198,11 @@ success overstates realized success by more than 20 percentage points, or the
 selector trails the frozen factor baseline. Turnover, rebalance count, and cost
 are reported separately. Publishing writes one tracked validation bundle and
 keeps real-capital approval false.
+
+## Fold Boundary Rule
+
+Every inner and outer evaluation now calls the core or TQQQ engine in
+`flat_start_full_periods_only` mode. A fold begins with cash; it never inherits
+the return from a trade selected before the fold. Trades whose exit would land
+after the fold are purged. Each fold records its effective trade start/end and
+leading/trailing purge counts so the rule can be audited directly.

@@ -22,3 +22,10 @@ signals; stale data is rejected unless `--ignore-stale` is intentionally used.
 - **Leveraged ETF:** a fund targeting a multiple of daily index moves.
 - **Grid:** a list of candidate settings tested consistently.
 - **Cost stress:** rerun with worse trading-cost assumptions.
+
+## Boundary-Safe Fold Mode
+
+The backtest accepts optional `evaluation_start` and `evaluation_end` inputs
+for nested research. It uses older data only as indicator history, starts the
+fold with cash, creates a fresh rebalance schedule, and drops any position that
+would exit after the fold. Boundary evidence is returned with the metrics.

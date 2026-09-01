@@ -57,3 +57,12 @@ paper provisional, but it cannot become real-capital approved.
 - **Validation bundle:** One file containing all evidence used to judge a strategy.
 - **Provisional:** Allowed for paper testing, but not approved for real money.
 - **Atomic write:** Writing a complete replacement file so a crash cannot leave half a file.
+
+## Schema 2 Robustness Review
+
+The bundle now stores both report identity and report health. Survivorship and
+execution-stress reports may be at most 60 days old; factor-decay evidence may
+be at most seven days old. All reports must match the selected config and
+dataset, and their current shared review must pass. Factor-decay `warning` and
+`block` both reject paper approval. Live signal generation rereads the same
+files and verifies their checksums still match the bundle.

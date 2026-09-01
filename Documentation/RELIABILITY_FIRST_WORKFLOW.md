@@ -143,3 +143,17 @@ The Shadow Paper Journal defaults remain `force=false` and
 an exact config-fingerprint match. After generating the paper-versus-shadow
 comparison, the workflow verifies those fields and requires the comparison
 artifact to be less than 15 minutes old before it can publish journal evidence.
+
+## September 2026 Evidence Reset
+
+The research path is now boundary-safe: old rows may warm indicators, but each
+walk-forward fold starts in cash and scores only complete in-fold positions.
+The validation bundle then combines that fold evidence with fresh, matching,
+passing survivorship, execution-stress, and factor-decay reports. Live signal
+generation repeats the current report check; a warning blocks paper orders.
+
+Execution validation counts logical rebalances rather than broker child
+attempts. The acceptance gate uses complete fills over all accepted parents,
+while partial-fill information remains visible separately. Because these rules
+change both research and scoring meaning, old epoch evidence must be archived;
+a new epoch starts only after regenerated research and robustness gates pass.

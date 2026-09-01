@@ -21,6 +21,11 @@ import pandas as pd
 
 from safe_io import atomic_write_csv, atomic_write_json, atomic_write_text
 from universe_membership import membership_status
+from robustness_review import (
+    DEFAULT_ROBUSTNESS_REPORT_PATHS,
+    evaluate_medium_risk_review,
+    read_report,
+)
 
 
 DEFAULT_BUNDLE_PATH = Path("signals/core_satellite_validation_bundle.json")
@@ -28,9 +33,15 @@ DEFAULT_LIVE_CONFIG_PATH = Path("signals/core_satellite_live_configs.json")
 DEFAULT_RESEARCH_MANIFEST_PATH = Path("signals/research_run_manifest.json")
 DEFAULT_CANONICAL_WALKFORWARD_PATH = Path("signals/core_satellite_nested_walkforward.json")
 DEFAULT_REPORT_PATHS = {
-    "survivorship": Path("logs/core_satellite_survivorship_audit.json"),
-    "execution_stress": Path("logs/core_satellite_execution_stress.json"),
-    "factor_decay": Path("logs/factor_decay_monitor.json"),
+    **DEFAULT_ROBUSTNESS_REPORT_PATHS,
+}
+
+# Factor decay describes a changing market edge, so it must be refreshed more
+# often than the expensive structural stress tests.
+REPORT_MAX_AGE_DAYS = {
+    "survivorship": 60,
+    "execution_stress": 60,
+    "factor_decay": 7,
 }
 
 # Only fields that change trading behavior belong in the strategy identity.
@@ -140,6 +151,7 @@ def report_validation_record(
     *,
     expected_config_fingerprint: str,
     expected_dataset_fingerprint: str,
+    now: datetime | None = None,
 ) -> dict:
     """Explain whether one robustness report belongs to this validation run."""
     record = {
@@ -165,9 +177,10 @@ def report_validation_record(
         observed_config = strategy_config_fingerprint(selected_config)
     observed_dataset = str(context.get("dataset_fingerprint", ""))
 
+    generated_at = payload.get("generated_at") or payload.get("generated_at_utc")
     record.update({
         "sha256": file_sha256(path),
-        "generated_at": payload.get("generated_at"),
+        "generated_at": generated_at,
         "observed_config_fingerprint": observed_config,
         "observed_dataset_fingerprint": observed_dataset,
     })
@@ -179,8 +192,81 @@ def report_validation_record(
         record["reasons"].append("dataset_fingerprint_missing")
     elif observed_dataset != expected_dataset_fingerprint:
         record["reasons"].append("dataset_fingerprint_mismatch")
+    # PLAIN ENGLISH: matching fingerprints say "same experiment", while this
+    # age check says the experiment is still current enough to trade from.
+    generated_ts = pd.to_datetime(generated_at, errors="coerce", utc=True)
+    if pd.isna(generated_ts):
+        record["reasons"].append("generated_at_missing_or_invalid")
+    else:
+        clock = pd.Timestamp(now or datetime.now(timezone.utc))
+        max_age_days = int(REPORT_MAX_AGE_DAYS.get(name, 60))
+        age_days = max(0.0, float((clock - generated_ts).total_seconds()) / 86_400.0)
+        record["age_days"] = round(age_days, 3)
+        record["max_age_days"] = max_age_days
+        if age_days > max_age_days:
+            record["reasons"].append("report_stale")
     record["match"] = not record["reasons"]
     return record
+
+
+def current_robustness_evidence(
+    *,
+    expected_config_fingerprint: str,
+    expected_dataset_fingerprint: str,
+    report_paths: dict[str, Path] | None = None,
+    require_reports: bool = True,
+    now: datetime | None = None,
+) -> dict:
+    """Load, identify, and health-check the reports that exist right now."""
+    paths = DEFAULT_REPORT_PATHS if report_paths is None else report_paths
+    if not paths and not require_reports:
+        return {
+            "pass": True,
+            "reasons": [],
+            "reports": {},
+            "medium_risk_review": {"pass": True, "reasons": [], "not_required": True},
+        }
+
+    records = {
+        name: report_validation_record(
+            name,
+            Path(path),
+            expected_config_fingerprint=expected_config_fingerprint,
+            expected_dataset_fingerprint=expected_dataset_fingerprint,
+            now=now,
+        )
+        for name, path in paths.items()
+    }
+    payloads = {name: read_report(Path(path)) for name, path in paths.items()}
+    review = evaluate_medium_risk_review(
+        survivorship=payloads.get("survivorship"),
+        execution=payloads.get("execution_stress"),
+        factor_decay=payloads.get("factor_decay"),
+    )
+    health_keys = {
+        "survivorship": "survivorship_review",
+        "execution_stress": "execution_stress_review",
+        "factor_decay": "factor_decay_review",
+    }
+    for name, record in records.items():
+        record["health"] = dict(review.get(health_keys.get(name, ""), {}) or {})
+
+    reasons = [
+        f"{name}:{reason}"
+        for name, record in records.items()
+        for reason in record.get("reasons", [])
+    ]
+    reasons.extend(str(reason) for reason in review.get("reasons", []))
+    if require_reports:
+        for required in DEFAULT_REPORT_PATHS:
+            if required not in records:
+                reasons.append(f"{required}:missing_report_record")
+    return {
+        "pass": not reasons and bool(review.get("pass", False)),
+        "reasons": sorted(set(reasons)),
+        "reports": records,
+        "medium_risk_review": review,
+    }
 
 
 def add_validation_context(
@@ -220,22 +306,17 @@ def build_validation_bundle(
     # An empty mapping is meaningful for an explicitly non-trading shadow.
     # Only ``None`` asks for the normal production report set.
     report_paths = DEFAULT_REPORT_PATHS if report_paths is None else report_paths
-    reports = {
-        name: report_validation_record(
-            name,
-            Path(path),
-            expected_config_fingerprint=config_fingerprint,
-            expected_dataset_fingerprint=dataset_fingerprint,
-        )
-        for name, path in report_paths.items()
-    }
+    robustness = current_robustness_evidence(
+        expected_config_fingerprint=config_fingerprint,
+        expected_dataset_fingerprint=dataset_fingerprint,
+        report_paths=report_paths,
+        require_reports=require_robustness_reports,
+    )
+    reports = robustness["reports"]
     # Normal paper trading must carry all matching robustness evidence. A
     # temporary shadow experiment can explicitly opt out because it never
     # submits orders and cannot authorize real capital.
-    report_matches = bool(
-        (reports and all(row.get("match") for row in reports.values()))
-        or (not require_robustness_reports and not reports)
-    )
+    report_matches = bool(robustness.get("pass", False))
     base_approval = dict(result.get("live_config_approval", {}) or {})
 
     provisional_reasons: list[str] = []
@@ -248,9 +329,7 @@ def build_validation_bundle(
     if not dataset_fingerprint:
         provisional_reasons.append("dataset_fingerprint_missing")
     if require_robustness_reports:
-        for name, row in reports.items():
-            for reason in row.get("reasons", []):
-                provisional_reasons.append(f"{name}:{reason}")
+        provisional_reasons.extend(robustness.get("reasons", []))
     universe = membership_status()
     if not universe.get("complete", False):
         provisional_reasons.append("point_in_time_universe_incomplete")
@@ -270,7 +349,7 @@ def build_validation_bundle(
     )
 
     bundle = {
-        "schema_version": 1,
+        "schema_version": 2,
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "strategy": result.get("strategy", "core-alpha"),
         "source_json": str(source_json),
@@ -295,6 +374,7 @@ def build_validation_bundle(
         },
         "analyzer": analyzer or result.get("walkforward_analyzer", {}),
         "robustness_reports": reports,
+        "robustness_review": robustness,
         "approval": base_approval,
         "deployment": {
             "status": "paper_provisional" if paper_approved else "rejected",
@@ -325,8 +405,15 @@ def validate_validation_bundle(bundle: dict) -> tuple[bool, list[str]]:
         issues.append("validation_bundle_hash_mismatch")
     if not bundle.get("config_fingerprint"):
         issues.append("config_fingerprint_missing")
+    if int(bundle.get("schema_version", 0) or 0) < 2:
+        issues.append("validation_bundle_schema_outdated")
     if not isinstance(bundle.get("deployment"), dict):
         issues.append("deployment_state_missing")
+    robustness = bundle.get("robustness_review")
+    if not isinstance(robustness, dict):
+        issues.append("robustness_review_missing")
+    elif bool((bundle.get("deployment", {}) or {}).get("paper_approved", False)) and not bool(robustness.get("pass", False)):
+        issues.append("paper_approval_without_robustness_pass")
     return not issues, issues
 
 

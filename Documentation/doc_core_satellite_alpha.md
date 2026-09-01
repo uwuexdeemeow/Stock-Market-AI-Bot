@@ -102,3 +102,16 @@ Paper signals verify the tracked validation bundle checksum and config
 fingerprint. An ignored scratch walk-forward cannot replace it. Simulated cost
 uses conservative Alpaca fill calibration after enough observations, otherwise
 the configured floor. The strategy remains `paper_provisional`.
+
+## Flat-Start Research Windows
+
+`run_core_satellite()` accepts optional `evaluation_start` and
+`evaluation_end` dates. The full input table remains available for moving
+averages and rankings, but the simulated account starts in cash at the first
+eligible date. Only positions that both enter and exit inside the window are
+counted. The returned metrics show the effective dates and how many crossing
+positions were deliberately removed.
+
+Live configuration loading also rereads the current robustness reports. A
+missing, stale, changed, warning, or blocked report makes `paper_ready=false`,
+even if an older configuration file contains a copied passing review.
