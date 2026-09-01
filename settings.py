@@ -465,13 +465,12 @@ FUNDAMENTAL_REPORT_LAG_DAYS = int(os.environ.get("FUNDAMENTAL_REPORT_LAG_DAYS", 
 H5_SENTIMENT_FEATURES_ENABLED = os.environ.get("H5_SENTIMENT_FEATURES_ENABLED", "0").strip().lower() in {"1", "true", "yes", "on"}
 # Which NLP model to use for scoring news headlines during research.py builds.
 # "finbert" = best accuracy (~89%) but needs torch+transformers (2 GB).
-# "finvader" = decent (~65%), lightweight, financial-aware VADER extension.
 # "vader" = fastest, no extra deps, ~56% accuracy on financial text.
 # Override via SENTIMENT_ENGINE_LEVEL env var on CI where torch isn't installed
-# to skip the slow fallback chain (finbert import fail → finvader → vader).
+# to skip the slow FinBERT import and use the maintained lightweight scorer.
 SENTIMENT_ENGINE_LEVEL = os.environ.get("SENTIMENT_ENGINE_LEVEL", "finbert")
-# Live predictions avoid FinBERT/PyTorch crashes and FinVADER's NLTK lexicon
-# download dependency. Research/backfills still use SENTIMENT_ENGINE_LEVEL above.
+# Live predictions avoid FinBERT/PyTorch overhead and the retired FinVADER/NLTK
+# dependency. Research/backfills still use SENTIMENT_ENGINE_LEVEL above.
 LIVE_SENTIMENT_ENGINE_LEVEL = os.environ.get("LIVE_SENTIMENT_ENGINE_LEVEL", "vader")
 
 # ─────────────────────────────────────────────────────────────────────────────

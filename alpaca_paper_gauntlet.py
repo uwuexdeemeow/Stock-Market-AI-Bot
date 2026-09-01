@@ -350,7 +350,7 @@ def _check_live_account() -> dict:
             "gross_exposure": round(total_invested / equity, 4) if equity > 0 else 0.0,
         }
     except ImportError:
-        return {"connected": False, "reason": "alpaca-trade-api not installed"}
+        return {"connected": False, "reason": "alpaca-py not installed"}
     except Exception as e:
         return {"connected": False, "reason": str(e)}
 

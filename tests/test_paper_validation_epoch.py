@@ -148,3 +148,39 @@ def test_epoch_requires_canonical_ticker_and_gross_alignment(tmp_path, monkeypat
     assert result["checks"]["gross_exposure_gap"] is False
     assert result["checks"]["critical_incidents"] is False
     assert result["gross_exposure_gap"] == 0.06
+
+
+def test_epoch_reviews_both_execution_stages_after_twenty_measured_fills(tmp_path, monkeypatch):
+    signal_dir = tmp_path / "signals"
+    signal_dir.mkdir()
+    rows = []
+    for index in range(20):
+        stage = "stage1" if index % 2 == 0 else "stage2"
+        rows.append({
+            "filled_at": f"2026-08-27T14:{index:02d}:00Z",
+            "order_type": "limit",
+            "execution_stage": stage,
+            "slippage_bps": 1.0 if stage == "stage1" else 3.0,
+        })
+    (signal_dir / "alpaca_slippage_reversal_report.json").write_text(
+        json.dumps({"orders": rows}), encoding="utf-8"
+    )
+    (signal_dir / "alpaca_execution_scorecard.json").write_text(
+        json.dumps({"decision_eligible": True}), encoding="utf-8"
+    )
+    pd.DataFrame([
+        {"submitted_at": f"2026-08-27T14:{index:02d}:00Z", "order_id": f"order-{index}", "fill_status": "filled"}
+        for index in range(20)
+    ]).to_csv(signal_dir / "alpaca_paper_log.csv", index=False)
+    monkeypatch.setattr(epoch_module, "SIGNAL_DIR", str(signal_dir))
+
+    result = epoch_module.evaluate_epoch({
+        "epoch_id": "paper-test",
+        "started_at": "2026-08-26T08:43:15+00:00",
+        "requirements": {"minimum_stage_comparison_fills": 20, "minimum_fill_rate": 0.95},
+    })
+
+    assert result["stage_comparison_review_ready"] is True
+    assert result["two_stage_design_improves_slippage"] is True
+    assert result["checks"]["two_stage_design"] is True
+    assert result["real_capital_approved"] is False

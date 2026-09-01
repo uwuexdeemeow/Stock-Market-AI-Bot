@@ -123,6 +123,12 @@ def _paper_version_fingerprint() -> str:
         return ""
 
 
+def paper_account_hash(account_id: object) -> str:
+    """Turn a broker account ID into a safe, irreversible audit marker."""
+    raw = str(account_id or "").strip()
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16] if raw else "unavailable"
+
+
 def _account_hash() -> str:
     """Return a short irreversible account marker, never the raw account ID."""
     raw = os.environ.get("ALPACA_ACCOUNT_ID", "").strip()
@@ -130,10 +136,13 @@ def _account_hash() -> str:
         status_path = SIGNALS / "alpaca_daily_status.json"
         try:
             status = json.loads(status_path.read_text(encoding="utf-8"))
+            safe_hash = str(status.get("paper_account_hash") or "").strip()
+            if len(safe_hash) == 16 and all(char in "0123456789abcdef" for char in safe_hash.lower()):
+                return safe_hash.lower()
             raw = str(status.get("account_id") or status.get("id") or "").strip()
         except Exception:
             raw = ""
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16] if raw else "unavailable"
+    return paper_account_hash(raw)
 
 
 def build_run_context(*, signal_as_of: str = "", now: datetime | None = None) -> dict[str, Any]:

@@ -44,3 +44,6 @@ run. A fast daylight-saving gate-only success is ignored.
 - **Fallback dispatch:** a guarded manual start when the normal cron is absent.
 - **Incident key:** a stable workflow identity used to avoid false recovery
   messages when only the failure explanation changes.
+# Timing evidence
+
+Every tracked workflow now records its schedule delivery delay, GitHub queue time, runtime, configured timeout, whether a timeout was detected, and whether a manual fallback was used. Missing timestamps stay blank instead of being treated as zero, so incomplete GitHub data cannot look healthy.

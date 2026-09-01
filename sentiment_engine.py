@@ -1,14 +1,13 @@
 """
 sentiment_engine.py — Drop-in Sentiment Scorer
 ================================================
-Replaces VADER in 02_research_v4.py with a better financial scorer.
+Provides interchangeable sentiment scorers for financial headlines.
 
 THREE LEVELS — use whichever fits your setup:
 
-  Level 1: FinVADER  (pip install finvader)
-    Same speed as VADER. Adds 7,300 financial terms + earnings vocabulary.
-    Accuracy on financial text: ~65% (vs VADER's ~56%).
-    Best for: quick upgrade, no GPU needed, runs fast.
+  Level 1: VADER  (included in project requirements)
+    Fast dictionary scorer with no vulnerable NLTK dependency chain.
+    Best for: reliable CPU-only live runs.
 
   Level 2: FinBERT   (pip install transformers torch)
     Deep learning model pre-trained on financial news and filings.
@@ -29,7 +28,7 @@ HOW TO SWAP IN:
 
   With:
     from sentiment_engine import SentimentEngine
-    engine = SentimentEngine(level="finbert")   # or "finvader" or "gpt4"
+    engine = SentimentEngine(level="finbert")   # or "vader" or "gpt4"
     score = engine.score(title)
 
   That's it. Everything else stays the same.
@@ -102,9 +101,9 @@ class SentimentEngine:
         # Returns list of floats — much faster than calling score() in a loop
     """
 
-    def __init__(self, level: str = "finvader"):
+    def __init__(self, level: str = "vader"):
         """
-        level: "finvader"  — fast, good (recommended default)
+        level: "vader"     — fast and dependency-light
                "finbert"   — slow, best accuracy (recommended if GPU available)
                "gpt4"      — best accuracy, costs money per call
                "vader"     — original VADER (fallback only)
@@ -117,7 +116,10 @@ class SentimentEngine:
     def _load_model(self):
         """Load the model for the specified level with graceful fallback."""
         if self.level == "finvader":
-            self._load_finvader()
+            # FinVADER pins an obsolete NLTK release. Keep old configuration
+            # files working, but safely replace that choice with VADER.
+            log.warning("FinVADER is retired in this project; using VADER.")
+            self._load_vader_fallback()
         elif self.level == "finbert":
             self._load_finbert()
         elif self.level == "gpt4":
@@ -127,36 +129,13 @@ class SentimentEngine:
 
     def _load_finvader(self):
         """
-        FinVADER: VADER extended with two financial lexicons.
-          SentiBignomics: 7,300 financial-domain terms with polarity scores
-          Henry's lexicon: 189 terms specific to earnings press releases
+        Compatibility path for retired FinVADER configuration values.
 
-        Install: pip install finvader
-        Speed: same as VADER (~0.001s per headline)
-        Accuracy: ~65% on financial text (vs VADER's ~56%)
+        PLAIN ENGLISH: FinVADER forces an old NLTK package with known security
+        issues. The bot now uses the maintained, dependency-light VADER package
+        instead of importing FinVADER at all.
         """
-        try:
-            from finvader import finvader
-            self._finvader_fn = finvader
-            # finvader imports cleanly even when NLTK's vader_lexicon is absent;
-            # in that case every scoring call fails and score() silently returns
-            # 0.0.  Self-test now so we can fall back to bundled vaderSentiment
-            # instead of producing all-zero sentiment for every ticker.
-            _ = float(self._finvader_fn(
-                "Company beats earnings and raises guidance",
-                use_sentibignomics=True,
-                use_henry=True,
-                indicator="compound",
-            ))
-            self.level        = "finvader"
-            self.model        = "finvader"
-            log.info("Sentiment engine: FinVADER loaded (fast, financial-aware)")
-        except ImportError:
-            log.warning("FinVADER not installed (pip install finvader). Falling back to VADER.")
-            self._load_vader_fallback()
-        except Exception as e:
-            log.warning(f"FinVADER unavailable ({e}). Falling back to VADER.")
-            self._load_vader_fallback()
+        self._load_vader_fallback()
 
     def _load_finbert(self):
         """
@@ -200,11 +179,11 @@ class SentimentEngine:
             log.info("Accuracy on financial text: ~89-91% (vs VADER ~56%)")
 
         except ImportError:
-            log.warning("transformers not installed (pip install transformers). Falling back to FinVADER.")
-            self._load_finvader()
+            log.warning("transformers not installed (pip install transformers). Falling back to VADER.")
+            self._load_vader_fallback()
         except Exception as e:
-            log.warning(f"FinBERT load failed: {e}. Falling back to FinVADER.")
-            self._load_finvader()
+            log.warning(f"FinBERT load failed: {e}. Falling back to VADER.")
+            self._load_vader_fallback()
 
     def _load_gpt4(self):
         """
@@ -259,9 +238,7 @@ class SentimentEngine:
             return 0.0
 
         try:
-            if self.level == "finvader":
-                return self._score_finvader(text)
-            elif self.level == "finbert":
+            if self.level == "finbert":
                 return self._score_finbert(text)
             elif self.level == "gpt4":
                 return self._score_gpt4(text)
@@ -346,24 +323,6 @@ class SentimentEngine:
                     "p_neg": float(p[1]),
                 })
         return results
-
-    def _score_finvader(self, text: str) -> float:
-        """
-        FinVADER scoring.
-        use_sentibignomics=True: activates the 7,300-term financial lexicon
-        use_henry=True: activates the earnings-specific 189-term lexicon
-        """
-        try:
-            return float(self._finvader_fn(
-                text,
-                use_sentibignomics=True,
-                use_henry=True,
-                indicator="compound"
-            ))
-        except Exception:
-            if hasattr(self, "_vader"):
-                return self._score_vader(text)
-            raise
 
     def _score_finbert(self, text: str) -> float:
         """FinBERT scoring for a single headline."""
@@ -475,7 +434,6 @@ Headline: {text}"""
     def get_info(self) -> dict:
         """Return info about the currently loaded model."""
         accuracy_map = {
-            "finvader": "~65% on financial text",
             "finbert" : "~89-91% on financial text",
             "gpt4"    : "~93%+ on financial text",
             "vader"   : "~56% on financial text (not recommended)",
@@ -488,7 +446,7 @@ Headline: {text}"""
 
 
 @lru_cache(maxsize=4)
-def get_sentiment_engine(level: str = "finvader") -> SentimentEngine:
+def get_sentiment_engine(level: str = "vader") -> SentimentEngine:
     """Return a cached sentiment engine so FinBERT is not reloaded per ticker."""
     return SentimentEngine(level=level)
 
@@ -1040,7 +998,7 @@ def build_sentiment_feature_dataframe(
     elif nz == 0:
         lg.warning(
             f"  [{ticker}] Headlines scored but news_sentiment is all zero — "
-            "check date alignment and FinBERT/finvader install."
+            "check date alignment and the configured sentiment model."
         )
 
     return result
@@ -1356,10 +1314,10 @@ if __name__ == "__main__":
         ("Nvidia crushes estimates, AI demand accelerates guidance raise",    "positive"),
     ]
 
-    # Try FinVADER first (fast, always available after pip install finvader)
-    print("\nTesting FinVADER (fast mode):")
+    # Try VADER first because it is the lightweight live-trading scorer.
+    print("\nTesting VADER (fast mode):")
     try:
-        engine_fv = SentimentEngine(level="finvader")
+        engine_fv = SentimentEngine(level="vader")
         info = engine_fv.get_info()
         print(f"  Model: {info['model']}  |  Expected accuracy: {info['accuracy']}\n")
 
@@ -1369,7 +1327,7 @@ if __name__ == "__main__":
             score = engine_fv.score(headline)
             print(f"  {score:>+7.3f}  {headline[:52]}...")
     except Exception as e:
-        print(f"  FinVADER test failed: {e}")
+        print(f"  VADER test failed: {e}")
 
     # Try FinBERT if available (slower, more accurate)
     print("\n\nTesting FinBERT (accurate mode — may take a moment to load):")
@@ -1390,7 +1348,7 @@ if __name__ == "__main__":
     # Fetch real-time news for AAPL
     print("\n\nFetching today's AAPL headlines (last 16 hours):")
     try:
-        engine = SentimentEngine(level="finvader")
+        engine = SentimentEngine(level="vader")
         result = score_todays_news("AAPL", engine)
         print(f"  Headlines found  : {result['headline_count']}")
         print(f"  Composite score  : {result['composite_score']:+.4f}")
@@ -1403,7 +1361,7 @@ if __name__ == "__main__":
 
     print("\n" + "="*60)
     print(" To use in your pipeline:")
-    print("   1. pip install finvader           (quick upgrade)")
+    print("   1. pip install vaderSentiment      (fast live scorer)")
     print("   2. pip install transformers torch  (best accuracy)")
     print("   3. from sentiment_engine import SentimentEngine")
     print("   4. engine = SentimentEngine(level='finbert')")

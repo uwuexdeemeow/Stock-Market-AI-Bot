@@ -13,7 +13,7 @@ Setup:
     3. Set environment variables:
          export ALPACA_API_KEY="your-key"
          export ALPACA_SECRET_KEY="your-secret"
-    4. pip install alpaca-trade-api
+    4. pip install alpaca-py
 
 Usage:
     python3 alpaca_paper_trading.py                  # show current state + plan
@@ -862,10 +862,10 @@ class AlpacaBroker(Broker):
     def __init__(self):
         # Import here so the rest of the script doesn't crash if alpaca isn't installed
         try:
-            from alpaca_trade_api import REST
+            from alpaca_sdk_adapter import AlpacaPyRESTCompat
         except ImportError:
             raise ImportError(
-                "alpaca-trade-api not installed. Run: pip install alpaca-trade-api"
+                "alpaca-py not installed. Run: pip install alpaca-py"
             )
 
         if not ALPACA_API_KEY or not ALPACA_SECRET_KEY:
@@ -883,7 +883,7 @@ class AlpacaBroker(Broker):
                 "Refusing non-paper Alpaca endpoint; real-capital trading is not approved"
             )
 
-        self._api = REST(
+        self._api = AlpacaPyRESTCompat(
             key_id=ALPACA_API_KEY,
             secret_key=ALPACA_SECRET_KEY,
             base_url=ALPACA_BASE_URL,
@@ -2783,8 +2783,13 @@ def snapshot_status(broker: AlpacaBroker) -> None:
         except Exception:
             continue
 
+    # Store only an irreversible marker. This lets evidence prove that every
+    # run used the same paper account without exposing the broker account ID.
+    from run_evidence import paper_account_hash
+
     status = {
         "broker": "alpaca",
+        "paper_account_hash": paper_account_hash(getattr(broker._account, "id", "")),
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "account_equity": round(float(equity), 2),
         "account_cash": round(float(cash), 2),
@@ -2844,7 +2849,7 @@ def _fetch_minute_bars_for_fill(
     the minute-by-minute price around the fill.
     """
     try:
-        from alpaca_trade_api.rest import TimeFrame
+        from alpaca_sdk_adapter import minute_timeframe
     except Exception:
         return pd.DataFrame()
 
@@ -2853,7 +2858,7 @@ def _fetch_minute_bars_for_fill(
     try:
         bars = broker._api.get_bars(
             str(ticker).upper(),
-            TimeFrame.Minute,
+            minute_timeframe(),
             start=start,
             end=end,
             adjustment="raw",

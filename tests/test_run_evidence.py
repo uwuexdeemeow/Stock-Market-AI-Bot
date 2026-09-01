@@ -13,6 +13,19 @@ def test_run_context_is_shared_and_never_exposes_account_id(monkeypatch):
     assert "RAW-SECRET-ACCOUNT" not in json.dumps(context)
 
 
+def test_saved_safe_account_hash_is_reused_without_raw_account_id(monkeypatch, tmp_path):
+    expected = run_evidence.paper_account_hash("paper-account-123")
+    signals = tmp_path / "signals"
+    signals.mkdir()
+    (signals / "alpaca_daily_status.json").write_text(
+        '{"paper_account_hash":"' + expected + '"}', encoding="utf-8"
+    )
+    monkeypatch.delenv("ALPACA_ACCOUNT_ID", raising=False)
+    monkeypatch.setattr(run_evidence, "SIGNALS", signals)
+
+    assert run_evidence._account_hash() == expected
+
+
 def test_manifest_rejects_mixed_run_evidence(tmp_path, monkeypatch):
     monkeypatch.setenv("STOCKBOT_RUN_ID", "run-current")
     first = tmp_path / "broker_truth.json"

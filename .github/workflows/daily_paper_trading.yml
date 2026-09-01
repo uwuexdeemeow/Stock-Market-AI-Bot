@@ -105,19 +105,19 @@ jobs:
       # ── 1. Check out the repo ──────────────────────────────────────
       - name: Checkout repository
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # ── 2. Set up Python ───────────────────────────────────────────
       - name: Set up Python 3.12
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       # ── 3. Cache pip packages (speeds up subsequent runs) ──────────
       - name: Cache pip packages
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-ci-${{ hashFiles('requirements-ci.txt') }}
@@ -136,7 +136,7 @@ jobs:
       #    job refreshes ETF files only; research.py runs in factor_data_refresh.yml.
       - name: Cache data directory
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: data/
           key: daily-factor-reader-${{ github.run_id }}
@@ -165,7 +165,7 @@ jobs:
       # Only NON-git-tracked state files belong in cache below.
       - name: Cache signals and logs state
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             signals/core_satellite_alpha_metrics.json
@@ -367,12 +367,12 @@ jobs:
           from dotenv import load_dotenv
           load_dotenv()
 
-          # -- Alpaca connectivity (uses alpaca-trade-api, same as the bot) --
+          # -- Alpaca connectivity (uses the same alpaca-py adapter as the bot) --
           try:
-              from alpaca_trade_api import REST
-              api = REST(
-                  os.environ['ALPACA_API_KEY'],
-                  os.environ['ALPACA_SECRET_KEY'],
+              from alpaca_sdk_adapter import AlpacaPyRESTCompat
+              api = AlpacaPyRESTCompat(
+                  key_id=os.environ['ALPACA_API_KEY'],
+                  secret_key=os.environ['ALPACA_SECRET_KEY'],
                   base_url='https://paper-api.alpaca.markets',
               )
               acct = api.get_account()
@@ -500,7 +500,7 @@ jobs:
       # ── 8. Upload logs as artifact (viewable in Actions tab) ───────
       - name: Upload run logs
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: daily-run-logs-${{ github.run_number }}
           path: |
@@ -705,7 +705,7 @@ jobs:
       #    Save any new parquet data so the next run starts with it.
       - name: Save data cache
         if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: data/
           key: daily-factor-reader-${{ github.run_id }}
@@ -716,7 +716,7 @@ jobs:
       # NOTE: Files now in git are excluded — they're owned by main, not cache.
       - name: Save state files cache
         if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             signals/core_satellite_alpha_metrics.json

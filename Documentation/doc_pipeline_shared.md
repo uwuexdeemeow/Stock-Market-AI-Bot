@@ -50,7 +50,7 @@ df = build_live_features_with_latest_news("AAPL")
 | Feature | What It Measures |
 |---|---|
 | `sent_finbert` | FinBERT news sentiment score |
-| `sent_vader` | FinVADER news sentiment |
+| `sent_vader` | Lightweight VADER news sentiment |
 | `social_bull_minus_bear` | Reddit/StockTwits net bullish sentiment |
 | `social_message_volume` | Unusual social media activity |
 

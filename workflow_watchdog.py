@@ -30,6 +30,14 @@ WORKFLOWS = {
     "shadow_paper": ("shadow_paper_journal.yml", time(9, 55), time(10, 5), time(16, 0), time(11, 30)),
     "execution_quality": ("post_market_execution_quality.yml", time(17, 15), time(17, 30), time(20, 0), time(19, 0)),
 }
+# Match each workflow's GitHub timeout so telemetry can distinguish a normal
+# cancellation from a run that reached its hard time budget.
+WORKFLOW_TIMEOUT_MINUTES = {
+    "factor_data": 90,
+    "daily_paper": 75,
+    "shadow_paper": 75,
+    "execution_quality": 30,
+}
 
 # Manual fallback inputs preserve normal safety rules. In particular, the
 # watchdog never passes the emergency override and never asks for a late trade.
@@ -168,6 +176,51 @@ def _scheduled_run_for_today(
     return {}
 
 
+def _parse_github_time(value: object) -> datetime | None:
+    """Parse one optional GitHub timestamp without breaking the watchdog."""
+    try:
+        return datetime.fromisoformat(str(value or "").replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def _run_timing(
+    run: dict,
+    *,
+    clock: datetime,
+    expected_start: time,
+    timeout_minutes: int,
+    recovery_dispatched: bool,
+) -> dict:
+    """Calculate delivery delay, queue delay, runtime, timeout, and fallback use."""
+    created = _parse_github_time(run.get("created_at"))
+    started = _parse_github_time(run.get("run_started_at"))
+    updated = _parse_github_time(run.get("updated_at"))
+    expected_ny = datetime.combine(clock.date(), expected_start, tzinfo=ZoneInfo("America/New_York"))
+    runtime_end = updated
+    if started and str(run.get("status", "")) != "completed":
+        runtime_end = clock.astimezone(timezone.utc)
+    runtime = (runtime_end - started).total_seconds() if started and runtime_end else None
+    conclusion = str(run.get("conclusion") or "").lower()
+    timed_out = bool(
+        conclusion == "timed_out"
+        or (runtime is not None and runtime >= max(1, int(timeout_minutes)) * 60)
+    )
+    return {
+        "created_at": created.isoformat(timespec="seconds") if created else None,
+        "run_started_at": started.isoformat(timespec="seconds") if started else None,
+        "updated_at": updated.isoformat(timespec="seconds") if updated else None,
+        "schedule_delay_seconds": round((created - expected_ny.astimezone(timezone.utc)).total_seconds(), 1) if created else None,
+        "queue_seconds": round((started - created).total_seconds(), 1) if created and started else None,
+        "runtime_seconds": round(runtime, 1) if runtime is not None else None,
+        "timeout_minutes": int(timeout_minutes),
+        "timeout_detected": timed_out,
+        # A selected manual dispatch is the fallback run. The second condition
+        # records a dispatch requested during this watchdog check immediately.
+        "fallback_used": bool(str(run.get("event", "")) == "workflow_dispatch" or recovery_dispatched),
+    }
+
+
 def _send_telegram(message: str) -> bool:
     """Send a plain watchdog message without loading the trading application."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
@@ -291,6 +344,13 @@ def check_workflows(*, now: datetime | None = None) -> dict:
             "recovery_attempts_today": int(recovery_attempts.get(attempt_key, attempts_today)),
             "retry_attempts_today": int(retry_attempts.get(attempt_key, retries_today)),
             "reason": reason,
+            "timing": _run_timing(
+                latest,
+                clock=clock,
+                expected_start=expected_start,
+                timeout_minutes=WORKFLOW_TIMEOUT_MINUTES.get(name, 60),
+                recovery_dispatched=recovery_dispatched,
+            ),
         }
         if not healthy:
             problems.append(f"{name}:{reason}")
@@ -312,7 +372,7 @@ def check_workflows(*, now: datetime | None = None) -> dict:
         _send_telegram("Paper workflow watchdog RECOVERED\n" + "\n".join(f"- {item}" for item in recovered))
 
     report = {
-        "schema_version": 1,
+        "schema_version": 2,
         "checked_at": clock.astimezone(timezone.utc).isoformat(timespec="seconds"),
         "new_york_time": clock.isoformat(timespec="seconds"),
         "nyse_session": session,

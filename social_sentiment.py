@@ -242,7 +242,7 @@ def score_social_texts(texts: list[str]) -> float:
         try:
             engine = SentimentEngine(level="finbert")
         except Exception:
-            engine = SentimentEngine(level="finvader")
+            engine = SentimentEngine(level="vader")
         scores = engine.score_batch(texts)
         return float(np.mean(scores)) if scores else 0.0
     except Exception as e:

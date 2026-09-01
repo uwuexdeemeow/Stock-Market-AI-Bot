@@ -74,3 +74,8 @@ rebalances, and 10 consecutive classified sessions. Their stricter defaults are
 a 95% fill rate, average rebalance slippage no worse than 5 bps, a materially
 bad slippage rate no higher than 40%, and no duplicate or unexplained orders.
 The frozen August 26 epoch keeps its original thresholds and start time.
+# Promotion and Stage 1/Stage 2 review
+
+The epoch stays frozen while it collects at least 30 trading days, 20 accepted orders, three rebalance events, and ten consecutive classified sessions. After at least 20 measured rebalance fills, the report requires evidence from both execution stages, checks that passive Stage 1 has no worse average slippage than capped Stage 2, and confirms total fill rate remains at least 95%.
+
+Even when every gate passes, the script only sets `manual_real_capital_review_eligible`. It never approves or enables real-money trading automatically; `real_capital_approved` remains false.

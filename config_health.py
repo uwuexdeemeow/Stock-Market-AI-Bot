@@ -19,7 +19,7 @@ LOGS = Path(LOG_DIR)
 REQUIRED_PACKAGES = {
     "yfinance": "==0.2.40",
     "websockets": ">=9,<11",
-    "alpaca-trade-api": "==3.2.0",
+    "alpaca-py": "==0.43.4",
 }
 
 

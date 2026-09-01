@@ -24,8 +24,8 @@ import pytest
 
 
 def _alpaca_package_or_skip() -> None:
-    if importlib.util.find_spec("alpaca_trade_api") is None:
-        pytest.skip("alpaca-trade-api not installed")
+    if importlib.util.find_spec("alpaca") is None:
+        pytest.skip("alpaca-py not installed")
 
 
 def test_halt_sentinel_uses_atomic_writer(monkeypatch, tmp_path):

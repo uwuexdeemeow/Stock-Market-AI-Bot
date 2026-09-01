@@ -80,17 +80,17 @@ jobs:
 
       - name: Checkout repository
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.12
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Cache pip packages
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-ci-${{ hashFiles('requirements-ci.txt') }}
@@ -105,7 +105,7 @@ jobs:
 
       - name: Restore data cache
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: data/
           key: factor-data-parquets-${{ github.run_id }}
@@ -118,7 +118,7 @@ jobs:
       # the full list.
       - name: Restore state cache
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             signals/core_satellite_alpha_metrics.json
@@ -200,7 +200,7 @@ jobs:
 
       - name: Upload refresh logs
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: factor-data-refresh-logs-${{ github.run_number }}
           path: |
@@ -221,7 +221,7 @@ jobs:
         # that freshly built data for the next run; the health report remains
         # the authority that decides whether it is safe to trade.
         if: ${{ always() && steps.refresh_factor_parquets.outcome == 'success' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: data/
           key: factor-data-parquets-${{ github.run_id }}
@@ -232,7 +232,7 @@ jobs:
         # report stays in the run artifact, while later runs keep using the
         # last known-good state rather than inheriting a broken one.
         if: ${{ always() && steps.validate_factor_data_health.outcome == 'success' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             signals/core_satellite_alpha_metrics.json

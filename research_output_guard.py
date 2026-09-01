@@ -55,7 +55,7 @@ PACKAGE_FINGERPRINTS = [
     "xgboost",
     "yfinance",
     "pyarrow",
-    "alpaca-trade-api",
+    "alpaca-py",
 ]
 
 # PLAIN ENGLISH: Only record non-secret environment settings. Anything that

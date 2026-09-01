@@ -37,6 +37,7 @@ PAPER_LOGIC_FILES = (
     ".github/workflows/shadow_paper_journal.yml",
     "alpaca_paper_trading.py",
     "alpaca_protection.py",
+    "alpaca_sdk_adapter.py",
     "broker_interface.py",
     "broker_truth.py",
     "core_satellite_alpha.py",
@@ -106,6 +107,7 @@ def start_epoch(*, now: datetime | None = None) -> dict:
             "minimum_trading_days": 30,
             "minimum_rebalance_events": 3,
             "minimum_accepted_orders": 20,
+            "minimum_stage_comparison_fills": 20,
             "minimum_consecutive_classified_sessions": 10,
             "maximum_duplicate_orders": 0,
             "maximum_unexplained_orders": 0,
@@ -373,6 +375,29 @@ def evaluate_epoch(epoch: dict) -> dict:
     analyzed = len(epoch_slippage_values)
     bad_rate = float(bad_count / analyzed) if analyzed else None
 
+    # Compare passive Stage 1 with marketable-capped Stage 2 only inside this
+    # fresh epoch. Both groups need real measured slippage before the design can
+    # be reviewed; old fills never leak into the promotion decision.
+    stage_slippage: dict[str, list[float]] = {"stage1": [], "stage2": []}
+    for row in slippage.get("orders", []) or []:
+        filled_at = pd.to_datetime((row or {}).get("filled_at"), errors="coerce", utc=True)
+        stage = str((row or {}).get("execution_stage", "")).lower()
+        order_type = str((row or {}).get("order_type", "")).lower()
+        value = pd.to_numeric((row or {}).get("slippage_bps"), errors="coerce")
+        if pd.isna(filled_at) or filled_at < start or stage not in stage_slippage:
+            continue
+        if order_type in {"trailing_stop", "stop", "stop_limit"} or pd.isna(value):
+            continue
+        stage_slippage[stage].append(float(value))
+    stage_comparison = {
+        stage: {
+            "measured_fills": len(values),
+            "average_slippage_bps": float(pd.Series(values).mean()) if values else None,
+            "median_slippage_bps": float(pd.Series(values).median()) if values else None,
+        }
+        for stage, values in stage_slippage.items()
+    }
+
     broker_truth = _read_json(Path(SIGNAL_DIR) / "broker_truth.json")
     truth_summary = broker_truth.get("summary", {}) or {}
     unexplained = int(truth_summary.get("fail_count", 0) or 0)
@@ -408,6 +433,20 @@ def evaluate_epoch(epoch: dict) -> dict:
         )
 
     requirements = epoch.get("requirements", {}) or {}
+    minimum_stage_fills = int(requirements.get("minimum_stage_comparison_fills", 20))
+    stage_review_ready = bool(
+        analyzed >= minimum_stage_fills
+        and stage_comparison["stage1"]["measured_fills"] > 0
+        and stage_comparison["stage2"]["measured_fills"] > 0
+    )
+    stage1_avg = stage_comparison["stage1"]["average_slippage_bps"]
+    stage2_avg = stage_comparison["stage2"]["average_slippage_bps"]
+    stage_design_improves_slippage = bool(
+        stage_review_ready
+        and stage1_avg is not None
+        and stage2_avg is not None
+        and float(stage1_avg) <= float(stage2_avg)
+    )
     checks = {
         "trading_days": trading_days >= int(requirements.get("minimum_trading_days", 30)),
         "rebalance_events": rebalances >= int(requirements.get("minimum_rebalance_events", 3)),
@@ -421,13 +460,16 @@ def evaluate_epoch(epoch: dict) -> dict:
         "fill_rate": fill_rate is not None and fill_rate >= float(requirements.get("minimum_fill_rate", 0.80)),
         "average_slippage": execution_decision_eligible and avg_slippage is not None and float(avg_slippage) <= float(requirements.get("maximum_average_slippage_bps", 10.0)),
         "bad_slippage_rate": execution_decision_eligible and bad_rate is not None and float(bad_rate) <= float(requirements.get("maximum_bad_slippage_rate", 0.60)),
+        "stage_comparison_ready": stage_review_ready,
+        "two_stage_design": stage_design_improves_slippage and fill_rate is not None and fill_rate >= float(requirements.get("minimum_fill_rate", 0.95)),
     }
     version_lock_valid, version_lock_issues = validate_paper_version_lock()
     checks["paper_version_lock"] = version_lock_valid
+    operational_pass = all(checks.values())
     report = {
         "epoch_id": epoch.get("epoch_id"),
         "evaluated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "status": "operational_pass" if all(checks.values()) else "collecting",
+        "status": "operational_pass" if operational_pass else "collecting",
         "trading_days": trading_days,
         "rebalance_events": rebalances,
         "accepted_orders": accepted,
@@ -441,11 +483,19 @@ def evaluate_epoch(epoch: dict) -> dict:
         "fill_rate": fill_rate,
         "average_slippage_bps": avg_slippage,
         "bad_slippage_rate": bad_rate,
+        "stage_comparison": stage_comparison,
+        "stage_comparison_measured_fills": analyzed,
+        "stage_comparison_minimum_fills": minimum_stage_fills,
+        "stage_comparison_review_ready": stage_review_ready,
+        "two_stage_design_improves_slippage": stage_design_improves_slippage,
         "execution_scorecard_decision_eligible": execution_decision_eligible,
         "execution_scorecard_schema_version": execution_scorecard.get("schema_version"),
         "paper_version_lock_valid": version_lock_valid,
         "paper_version_lock_issues": version_lock_issues,
         "checks": checks,
+        # Passing creates evidence for a human approval decision. It never
+        # enables live money automatically.
+        "manual_real_capital_review_eligible": operational_pass,
         "real_capital_approved": False,
     }
     signal_as_of = str(broker_truth.get("inputs", {}).get("signal", {}).get("as_of", "") or "")

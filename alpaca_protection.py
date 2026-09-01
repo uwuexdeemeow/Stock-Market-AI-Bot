@@ -96,7 +96,7 @@ def list_open_orders(broker: Any) -> list[Any]:
     """
     Return open Alpaca orders.
 
-    PLAIN ENGLISH: Different alpaca-trade-api versions accept slightly
+    PLAIN ENGLISH: Different Alpaca SDK versions accept slightly
     different keyword arguments, so this tries the richer call first and then
     falls back to the simpler one.
     """

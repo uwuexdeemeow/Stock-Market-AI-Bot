@@ -186,3 +186,29 @@ def test_delayed_real_schedule_beats_fast_daylight_saving_skip():
 
     assert selected["conclusion"] == "failure"
     assert selected["created_at"] == "2026-08-31T19:33:35Z"
+
+
+def test_workflow_timing_records_delay_queue_runtime_timeout_and_fallback():
+    clock = datetime(2026, 8, 31, 16, tzinfo=timezone.utc).astimezone(
+        workflow_watchdog.ZoneInfo("America/New_York")
+    )
+    timing = workflow_watchdog._run_timing(
+        {
+            "event": "workflow_dispatch",
+            "status": "completed",
+            "conclusion": "timed_out",
+            "created_at": "2026-08-31T13:40:00Z",
+            "run_started_at": "2026-08-31T13:42:00Z",
+            "updated_at": "2026-08-31T14:57:00Z",
+        },
+        clock=clock,
+        expected_start=workflow_watchdog.time(9, 35),
+        timeout_minutes=75,
+        recovery_dispatched=False,
+    )
+
+    assert timing["schedule_delay_seconds"] == 300.0
+    assert timing["queue_seconds"] == 120.0
+    assert timing["runtime_seconds"] == 4500.0
+    assert timing["timeout_detected"] is True
+    assert timing["fallback_used"] is True

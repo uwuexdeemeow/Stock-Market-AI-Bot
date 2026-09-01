@@ -282,3 +282,6 @@ Every `--submit` run first writes a fail-closed
 `no_action`, `blocked`, or `failed`. Counts show every planned order's final
 state. A CSV journal keeps one row per run, and deterministic Alpaca client
 order IDs stop a retry from creating a duplicate order.
+# Paper-account identity
+
+The status snapshot records a short one-way hash of the Alpaca paper account ID. This proves that validation evidence belongs to one consistent account without saving the private account ID itself.

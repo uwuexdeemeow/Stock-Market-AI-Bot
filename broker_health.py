@@ -61,7 +61,7 @@ def check_alpaca() -> dict:
         result["equity"] = round(equity, 2)
         result["latency_ms"] = round(latency, 1)
     except ImportError as exc:
-        result["error"] = f"alpaca-trade-api not installed: {exc}"
+        result["error"] = f"alpaca-py not installed: {exc}"
     except Exception as exc:
         result["error"] = str(exc)[:300]
     return result

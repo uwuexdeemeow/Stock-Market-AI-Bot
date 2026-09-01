@@ -4,15 +4,15 @@
 
 `sentiment_engine.py` reads financial news headlines and assigns a **sentiment score** — a number from -1.0 (very negative) to +1.0 (very positive). These scores become features the model uses.
 
-It offers three quality levels:
+It offers three supported quality levels:
 
 | Level | Tool | Accuracy | Speed | Cost |
 |---|---|---|---|---|
-| 1 | **FinVADER** | ~65% | Very fast | Free |
+| 1 | **VADER** | Lightweight baseline | Very fast | Free |
 | 2 | **FinBERT** | ~89–91% | Slow (GPU speeds it up) | Free |
 | 3 | **GPT-4** | Best | Slow | ~$0.002/1000 headlines |
 
-Default is FinBERT if available, FinVADER as fallback.
+Research defaults to FinBERT when available and falls back to VADER. Live trading uses VADER for predictable CPU and dependency behavior.
 
 ---
 
@@ -40,9 +40,9 @@ df_sentiment = score_todays_news("AAPL", lookback_days=7)
 |---|---|
 | **Sentiment score** | A number from -1 to +1 capturing the emotional tone of text. Negative = bad news. Positive = good news. |
 | **VADER** | A rule-based sentiment tool. Fast but struggles with financial language (e.g., "beats estimates" scores as neutral). |
-| **FinVADER** | VADER extended with 7,300 financial terms. Significantly better for earnings/market news. |
+| **VADER** | A fast dictionary scorer bundled through the maintained `vaderSentiment` package. |
 | **FinBERT** | A BERT model fine-tuned on financial news. Deep learning — understands context, not just individual words. |
-| **Compound score** | FinVADER's single summary score combining positive, negative, and neutral signals. |
+| **Compound score** | One summary score combining positive, negative, and neutral signals. |
 | **Rolling sentiment** | Average sentiment over the last 3, 7, 14 days. Smooths out noisy individual headlines. |
 | **Sentiment delta** | Change in average sentiment from last week to this week. A sudden drop can signal an upcoming correction. |
 
@@ -56,3 +56,6 @@ VADER was built for Twitter. It doesn't know that:
 - "near historic lows" (about unemployment) = positive for the economy
 
 FinBERT reads the whole sentence as context and gets these right.
+# Dependency safety
+
+FinVADER has been retired from the installed project because it requires an old NLTK release with known vulnerabilities. A legacy `finvader` setting is accepted for compatibility but is translated to the maintained `vaderSentiment` scorer. FinBERT remains available for research runs.

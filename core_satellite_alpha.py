@@ -277,7 +277,7 @@ def _fetch_live_sentiment(tickers: list[str], timeout_per_ticker: float = 5.0) -
         # If sentiment engine not available, return empty (no veto)
         return {}
 
-    engine = get_sentiment_engine("finvader")  # fast, no GPU needed
+    engine = get_sentiment_engine("vader")  # fast, maintained, no GPU needed
     results: dict[str, float] = {}
 
     for ticker in tickers:
