@@ -1,16 +1,16 @@
 {
   "schema_version": 2,
-  "epoch_id": "paper-v20260902T150312Z",
-  "started_at": "2026-09-02T15:03:12+00:00",
+  "epoch_id": "paper-v20260902T190639Z",
+  "started_at": "2026-09-02T19:06:39+00:00",
   "status": "collecting",
-  "archive_dir": "archive\\paper_epochs\\paper-v20260902T150312Z",
+  "archive_dir": "archive\\paper_epochs\\paper-v20260902T190639Z",
   "archived_files": [
-    "archive\\paper_epochs\\paper-v20260902T150312Z\\alpaca_paper_log.csv",
-    "archive\\paper_epochs\\paper-v20260902T150312Z\\alpaca_paper_equity.csv",
-    "archive\\paper_epochs\\paper-v20260902T150312Z\\alpaca_execution_scorecard.json",
-    "archive\\paper_epochs\\paper-v20260902T150312Z\\broker_truth.json",
-    "archive\\paper_epochs\\paper-v20260902T150312Z\\alpaca_paper_health.json",
-    "archive\\paper_epochs\\paper-v20260902T150312Z\\alpaca_submit_outcomes.csv"
+    "archive\\paper_epochs\\paper-v20260902T190639Z\\alpaca_paper_log.csv",
+    "archive\\paper_epochs\\paper-v20260902T190639Z\\alpaca_paper_equity.csv",
+    "archive\\paper_epochs\\paper-v20260902T190639Z\\alpaca_execution_scorecard.json",
+    "archive\\paper_epochs\\paper-v20260902T190639Z\\broker_truth.json",
+    "archive\\paper_epochs\\paper-v20260902T190639Z\\alpaca_paper_health.json",
+    "archive\\paper_epochs\\paper-v20260902T190639Z\\alpaca_submit_outcomes.csv"
   ],
   "requirements": {
     "minimum_trading_days": 30,
