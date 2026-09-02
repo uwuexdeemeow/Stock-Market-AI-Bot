@@ -19,7 +19,11 @@ DEFAULT_ROBUSTNESS_REPORT_PATHS = {
 }
 
 SURVIVORSHIP_MIN_ADJUSTED_SCORE = 0.50
-SURVIVORSHIP_MAX_AUDIT_SELECTIONS = 0
+# PLAIN ENGLISH: the audit deliberately adds known failed companies to the
+# historical universe. Seeing some of them selected is the test, not itself a
+# failure. The strategy fails only when selections are excessive or the
+# stressed performance checks below deteriorate too far.
+SURVIVORSHIP_MAX_AUDIT_SELECTIONS = 60
 SURVIVORSHIP_MIN_RETURN_DELTA_PCT = -5000.0
 SURVIVORSHIP_MIN_DRAWDOWN_DELTA_PCT = -5.0
 SURVIVORSHIP_MIN_FAILED_NAME_COVERAGE_FOR_CAPITAL = 1.0

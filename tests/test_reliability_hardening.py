@@ -56,6 +56,24 @@ def test_walkforward_rejects_negative_selector_correlation_and_hidden_fallbacks(
     assert any(reason.startswith("overconfidence_gap=") for reason in approval["reasons"])
 
 
+def test_fixed_frozen_baseline_skips_only_selector_specific_gates():
+    """A one-config incumbent run has no selector, but all other gates remain active."""
+    result = _passing_walkforward_result()
+    result.update({
+        "selection_mode": "fixed_frozen_baseline",
+        "inner_score_vs_oos_qqq_alpha_correlation": -0.9,
+        "overconfidence_gap_pct": 99.0,
+        "selector_sharpe_uplift_vs_baseline": -5.0,
+    })
+
+    assert walkforward.approval_status(result)["approved"] is True
+
+    result["worst_oos_max_drawdown_pct"] = -40.0
+    approval = walkforward.approval_status(result)
+    assert approval["approved"] is False
+    assert any(reason.startswith("worst_oos_drawdown=") for reason in approval["reasons"])
+
+
 def test_validation_bundle_detects_stale_report_fingerprint(tmp_path, monkeypatch):
     source = tmp_path / "walkforward.json"
     source.write_text("{}", encoding="utf-8")

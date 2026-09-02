@@ -177,8 +177,10 @@ jobs:
 
       # Restore the operational audit trail from the dedicated signal branch.
       # PLAIN ENGLISH: GitHub runners are new computers each day. These files
-      # let duplicate protection, fill checks, and the paper epoch continue
-      # from yesterday instead of starting over.
+      # let duplicate protection and fill checks continue from yesterday.
+      # The epoch definition itself is tracked on main and must not be restored
+      # from signals/latest, because that branch can still contain the prior
+      # epoch after a newly frozen epoch is pushed.
       - name: Restore latest paper state
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
@@ -191,7 +193,6 @@ jobs:
               signals/alpaca_submit_outcome.json \
               signals/alpaca_submit_outcomes.csv \
               signals/execution_cost_calibration.json \
-              signals/paper_validation_epoch.json \
               signals/paper_validation_epoch_status.json \
               signals/fill_monitor.json \
               signals/broker_health.json \

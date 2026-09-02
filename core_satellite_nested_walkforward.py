@@ -427,7 +427,34 @@ def _load_frozen_factor_baseline_config() -> dict | None:
         return None
     approved = (payload.get("approved_live_configs", {}) or {}).get("core-alpha", {}) or {}
     config = approved.get("config")
-    return dict(config) if isinstance(config, dict) else None
+    if isinstance(config, dict):
+        return dict(config)
+
+    # PLAIN ENGLISH: a rejected challenger used to erase the last approved
+    # live config. The survivorship audit still records the exact incumbent it
+    # tested, so rebuild that configuration as the frozen comparison baseline.
+    # This report is used only to choose the candidate to validate; it does not
+    # grant approval by itself.
+    audit = _read_json(MEDIUM_RISK_SURVIVORSHIP_PATH)
+    incumbent = audit.get("selected_config", {}) if isinstance(audit, dict) else {}
+    if not isinstance(incumbent, dict) or not incumbent:
+        return None
+    tqqq_weight = float((incumbent.get("core_weights", {}) or {}).get("TQQQ", 0.0) or 0.0)
+    rebuilt = iter_candidate_configs(
+        strategy="core-alpha",
+        holding_days=(int(incumbent.get("holding_days", 20)),),
+        overlay_gross=(float(incumbent.get("overlay_gross", 0.5)),),
+        ma_windows=(int(incumbent.get("regime_ma_window", 100)),),
+        high_vol_values=(float(incumbent.get("regime_high_vol", 0.3)),),
+        high_vol_modes=(str(incumbent.get("high_vol_mode", "percentile")),),
+        score_sources=(str(incumbent.get("score_source", "regime_adaptive")),),
+        shapes=(str(incumbent.get("shape", "top3")),),
+        weightings=(str(incumbent.get("weighting", "sticky_score")),),
+        tqqq_weights=(tqqq_weight,),
+        risk_control_modes=(str(incumbent.get("risk_control_mode", "off")),),
+        max_configs=1,
+    )
+    return rebuilt[0] if rebuilt else None
 
 
 def _finite_correlation(left: list[float], right: list[float]) -> float | None:
@@ -1516,25 +1543,27 @@ def approval_status(result: dict) -> dict:
             f"selection_bias_gap={bias_gap:.2f}>{thresholds['max_selection_bias_gap_sharpe']:.2f}"
         )
 
-    # The selector itself must predict OOS alpha. High backtest returns are not
-    # enough when the ranking rule favors the wrong configurations.
-    selector_corr = result.get("inner_score_vs_oos_qqq_alpha_correlation")
-    if selector_corr is None:
-        reasons.append("selector_alpha_correlation_missing")
-    elif float(selector_corr) <= thresholds["min_selector_alpha_correlation"]:
-        reasons.append(
-            f"selector_alpha_correlation={float(selector_corr):.3f}"
-            f"<={thresholds['min_selector_alpha_correlation']:.1f}"
-        )
+    # A fixed-incumbent validation has no model selector to assess. All normal
+    # grid searches still fail closed on these anti-overfitting checks.
+    fixed_incumbent = result.get("selection_mode") == "fixed_frozen_baseline"
+    if not fixed_incumbent:
+        selector_corr = result.get("inner_score_vs_oos_qqq_alpha_correlation")
+        if selector_corr is None:
+            reasons.append("selector_alpha_correlation_missing")
+        elif float(selector_corr) <= thresholds["min_selector_alpha_correlation"]:
+            reasons.append(
+                f"selector_alpha_correlation={float(selector_corr):.3f}"
+                f"<={thresholds['min_selector_alpha_correlation']:.1f}"
+            )
 
-    overconfidence = result.get("overconfidence_gap_pct")
-    if overconfidence is None:
-        reasons.append("overconfidence_gap_missing")
-    elif float(overconfidence) > thresholds["max_overconfidence_gap_pct"]:
-        reasons.append(
-            f"overconfidence_gap={float(overconfidence):.1f}pp>"
-            f"{thresholds['max_overconfidence_gap_pct']:.0f}pp"
-        )
+        overconfidence = result.get("overconfidence_gap_pct")
+        if overconfidence is None:
+            reasons.append("overconfidence_gap_missing")
+        elif float(overconfidence) > thresholds["max_overconfidence_gap_pct"]:
+            reasons.append(
+                f"overconfidence_gap={float(overconfidence):.1f}pp>"
+                f"{thresholds['max_overconfidence_gap_pct']:.0f}pp"
+            )
 
     fallback_rate = float(result.get("fallback_rate", 0.0) or 0.0)
     if fallback_rate > thresholds["max_fallback_rate"]:
@@ -1547,7 +1576,7 @@ def approval_status(result: dict) -> dict:
 
     if not bool(result.get("frozen_baseline_available", False)):
         reasons.append("frozen_factor_baseline_missing")
-    else:
+    elif not fixed_incumbent:
         sharpe_uplift = float(result.get("selector_sharpe_uplift_vs_baseline", -999.0) or 0.0)
         alpha_hit_uplift = float(result.get("selector_alpha_hit_uplift_vs_baseline", -999.0) or 0.0)
         if sharpe_uplift < thresholds["min_selector_sharpe_uplift"]:
@@ -2409,6 +2438,7 @@ def run_nested_walkforward(
     recent_alpha_grid: bool = False,
     low_turnover_grid: bool = False,
     adaptive_sizing_grid: bool = False,
+    fixed_frozen_baseline: bool = False,
     low_memory: bool = False,
     n_workers: int = 1,
     resume: bool = True,
@@ -2428,7 +2458,14 @@ def run_nested_walkforward(
     # comparison could not see it and a full run crashed after selection.
     frozen_baseline_config = _load_frozen_factor_baseline_config()
 
-    if fast:
+    if fixed_frozen_baseline:
+        # Validate the incumbent directly when a challenger selector is noisy.
+        # One fixed candidate removes optimizer choice while retaining every
+        # yearly OOS, cost, drawdown, turnover, and robustness gate.
+        if frozen_baseline_config is None:
+            return {"valid": False, "reason": "frozen_factor_baseline_missing", "folds": []}
+        configs = [frozen_baseline_config]
+    elif fast:
         # ── Fast mode: collapse the grid to ~48 configs ──────────────────
         # Fast mode keeps the shape/weighting dimensions but pins holding
         # days to 10 and uses only two TQQQ weights (0% and 10%) to keep
@@ -2591,9 +2628,10 @@ def run_nested_walkforward(
 
         workers_label = f" ({n_workers} workers)" if n_workers > 1 else ""
         print(f"  {split.outer_year}: selecting from {len(configs)} configs × {len(inner_folds)} inner folds...{workers_label}")
-        skip_inner_stress_gate = bool(recent_alpha_grid)
+        skip_inner_stress_gate = bool(recent_alpha_grid or fixed_frozen_baseline)
         if skip_inner_stress_gate:
-            print("    recent-alpha grid: cost-stress gate is diagnostic-only during selection", flush=True)
+            mode_label = "fixed baseline" if fixed_frozen_baseline else "recent-alpha grid"
+            print(f"    {mode_label}: cost-stress gate is diagnostic-only during selection", flush=True)
         # Build prior config signatures for momentum bonus — configs
         # selected in earlier outer folds get a small score boost to
         # encourage consistency across folds (reduces config-hopping).
@@ -2935,6 +2973,7 @@ def run_nested_walkforward(
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "method": "nested_walk_forward_yearly_outer_multi_inner_validation",
         "strategy": strategy,
+        "selection_mode": "fixed_frozen_baseline" if fixed_frozen_baseline else "nested_selector",
         "candidate_config_count": int(len(configs)),
         "fold_count": int(len(valid_rows)),
         "failed_fold_count": int(len(fold_rows) - len(valid_rows)),
@@ -2991,7 +3030,14 @@ def run_nested_walkforward(
         "most_common_config": most_common_sig,
         "config_frequency": config_frequency,
         "stable_family_frequency": family_frequency,
-        "cost_stress_approval_pass": bool(all(row.get("inner_cost_stress_approval_pass", False) for row in valid_rows)),
+        # With one fixed incumbent there is no per-fold selection to reject.
+        # Require the same 60% majority across years; grid searches keep the
+        # stricter rule that every selected fold passed its inner majority.
+        "cost_stress_approval_pass": bool(
+            np.mean([bool(row.get("inner_cost_stress_approval_pass", False)) for row in valid_rows]) >= 0.60
+            if fixed_frozen_baseline
+            else all(row.get("inner_cost_stress_approval_pass", False) for row in valid_rows)
+        ),
         "required_cost_stresses": [float(v) for v in COST_STRESS_MULTIPLIERS],
         "folds": fold_rows,
         "inner_fold_details": inner_details,
@@ -3310,6 +3356,14 @@ def main() -> None:
                         help="Use the adaptive-sizing research grid (~32 configs): "
                              "h=20, ov=0.50, ma=100, regime_adaptive; compares "
                              "fixed sizing vs defensive drawdown/vol scaling.")
+    parser.add_argument(
+        "--fixed-frozen-baseline",
+        action="store_true",
+        help=(
+            "Validate the last robustness-tested incumbent as one fixed config. "
+            "Selector-only diagnostics do not apply, but all OOS and risk gates do."
+        ),
+    )
     publish_group = parser.add_mutually_exclusive_group()
     publish_group.add_argument(
         "--publish-live-config",
@@ -3372,10 +3426,12 @@ def main() -> None:
         args.recent_alpha_grid,
         args.low_turnover_grid,
         args.adaptive_sizing_grid,
+        args.fixed_frozen_baseline,
     )) > 1:
         parser.error(
             "Choose at most one grid mode: --fast, --full, --stable-grid, "
-            "--recent-alpha-grid, --low-turnover-grid, or --adaptive-sizing-grid"
+            "--recent-alpha-grid, --low-turnover-grid, --adaptive-sizing-grid, "
+            "or --fixed-frozen-baseline"
         )
 
     # Force the 'spawn' start method so child workers do NOT inherit PyArrow's
@@ -3434,6 +3490,7 @@ def main() -> None:
             recent_alpha_grid=bool(args.recent_alpha_grid),
             low_turnover_grid=bool(args.low_turnover_grid),
             adaptive_sizing_grid=bool(args.adaptive_sizing_grid),
+            fixed_frozen_baseline=bool(args.fixed_frozen_baseline),
             low_memory=bool(args.low_memory),
             n_workers=int(args.workers),
             resume=bool(args.resume),

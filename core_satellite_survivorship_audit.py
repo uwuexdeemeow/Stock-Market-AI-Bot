@@ -44,6 +44,7 @@ CONFIG_KEYS = (
     "core_gross",
     "overlay_gross",
     "max_gross_exposure",
+    "deployment_max_gross_exposure",
     "max_single_name_weight",
     "cost_stress",
     "holding_days",

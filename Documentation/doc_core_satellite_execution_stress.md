@@ -1,5 +1,9 @@
 # core_satellite_execution_stress.py - Execution Stress Check
 
+The report identity includes the deployment gross-exposure ceiling. This
+prevents evidence produced for an unscaled research portfolio from being
+mistaken for evidence produced with the paper broker's exposure ceiling.
+
 ## What It Does
 
 `core_satellite_execution_stress.py` reruns the selected core-satellite config

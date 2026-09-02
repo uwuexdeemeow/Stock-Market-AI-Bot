@@ -1,5 +1,8 @@
 # core_satellite_survivorship_audit.py - Survivorship Stress Check
 
+The report identity includes the deployment gross-exposure ceiling so the
+validation bundle can prove the audit tested the exact paper configuration.
+
 ## What It Does
 
 `core_satellite_survivorship_audit.py` tests whether the selected core-satellite

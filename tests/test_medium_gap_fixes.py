@@ -47,9 +47,22 @@ def test_factor_decay_classifies_nonpositive_top_bucket_as_warning():
         "daily_ic_mean": 0.05,
         "top_bucket_excess_return_pct": 0.0,
         "overlay_alpha_sum_pct": 1.0,
+        "overlay_periods": 5,
     }
 
     assert factor_decay_monitor.edge_health_status(row) == "warning"
+
+
+def test_factor_decay_thin_nonpositive_top_bucket_is_advisory():
+    """Two independent cohorts are too few to stop a paper experiment."""
+    row = {
+        "daily_ic_mean": -0.05,
+        "top_bucket_excess_return_pct": -1.0,
+        "overlay_alpha_sum_pct": 2.0,
+        "overlay_periods": 2,
+    }
+
+    assert factor_decay_monitor.edge_health_status(row) == "advisory"
 
 
 def test_factor_decay_classifies_material_negative_overlay_alpha_as_block():
@@ -164,6 +177,36 @@ def test_medium_risk_review_blocks_material_survivorship_failure():
 
     review = nwf.medium_risk_review_from_reports(
         survivorship=bad_survivorship,
+        execution=_passing_execution(),
+        factor_decay={"edge_health_status": "pass"},
+    )
+
+    assert review["pass"] is False
+    assert "survivorship_review_failed" in review["reasons"]
+
+
+def test_paper_survivorship_review_allows_bounded_failed_name_selections():
+    """The stress test may select failed names without automatically failing paper use."""
+    stressed = _passing_survivorship()
+    stressed["rows"][0]["audit_rebalance_selections"] = 25
+
+    review = nwf.medium_risk_review_from_reports(
+        survivorship=stressed,
+        execution=_passing_execution(),
+        factor_decay={"edge_health_status": "pass"},
+    )
+
+    assert review["pass"] is True
+    assert review["survivorship_review"]["pass"] is True
+
+
+def test_paper_survivorship_review_blocks_excessive_failed_name_selections():
+    """More than the documented 60-selection allowance remains fail-closed."""
+    stressed = _passing_survivorship()
+    stressed["rows"][0]["audit_rebalance_selections"] = 61
+
+    review = nwf.medium_risk_review_from_reports(
+        survivorship=stressed,
         execution=_passing_execution(),
         factor_decay={"edge_health_status": "pass"},
     )

@@ -1,5 +1,10 @@
 # validation_bundle.py
 
+When `--run-robustness` is used, the bundle builder generates a research-only
+signal from the newly walk-forward-approved configuration before rerunning the
+execution, survivorship, and factor-decay reports. This breaks the safe
+bootstrap cycle without allowing the provisional bundle to reach the broker.
+
 ## What This Script Does
 
 This script creates one trusted validation record for the paper-trading

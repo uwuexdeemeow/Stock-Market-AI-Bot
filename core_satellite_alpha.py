@@ -2646,7 +2646,11 @@ def _portable_artifact_path(path_text: str, *, base_dir: Path | None = None) -> 
     return path
 
 
-def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
+def _load_approved_live_config(
+    strategy: str = "core-alpha",
+    *,
+    allow_provisional_bundle: bool = False,
+) -> dict:
     if not LIVE_CONFIG_PATH.exists():
         raise SystemExit(
             f"Missing approved live config file: {LIVE_CONFIG_PATH}. "
@@ -2698,6 +2702,26 @@ def _load_approved_live_config(strategy: str = "core-alpha") -> dict:
     config = approved.get("config") if isinstance(approved, dict) else None
     if not isinstance(config, dict):
         raise SystemExit(f"Approved live config for {strategy} is missing from {LIVE_CONFIG_PATH}.")
+
+    # PLAIN ENGLISH: robustness reports must sometimes be regenerated before a
+    # new evidence bundle can become approved. This research-only path exposes
+    # the walk-forward-approved config without pretending the old bundle is
+    # valid. The normal daily and broker paths never set this flag.
+    if allow_provisional_bundle:
+        return {
+            "config": config,
+            "approval": approval,
+            "approved_config_family": approved.get("approved_config_family"),
+            "approved_family_signature": approved.get("approved_family_signature"),
+            "approved_exact_config": approved.get("approved_exact_config"),
+            "source_metrics": approved.get("source_metrics", {}),
+            "medium_risk_review": (payload.get("medium_risk_reviews", {}) or {}).get(strategy, {}),
+            "source_json": payload.get("source_json"),
+            "created_at": payload.get("created_at"),
+            "live_config_hash": live_config_fingerprint(payload, strategy=strategy),
+            "deployment_status": "validation_refresh_only",
+            "real_capital_approved": False,
+        }
 
     # PLAIN ENGLISH: The live config is only an index card. The validation
     # bundle is the signed evidence behind it. Refuse to trade when the card
@@ -2892,8 +2916,12 @@ def _generate_signal_from_approved_config(
     signal_panel: pd.DataFrame,
     specs: list[dict],
     freshness: dict,
+    allow_provisional_bundle: bool = False,
 ) -> tuple[pd.DataFrame, dict, Path]:
-    live = _load_approved_live_config("core-alpha")
+    live = _load_approved_live_config(
+        "core-alpha",
+        allow_provisional_bundle=allow_provisional_bundle,
+    )
     if live.get("approved") == False:
         reasons = live.get("reasons", ["not approved"])
         _write_rejection_signal(reasons)
@@ -2929,6 +2957,11 @@ def _generate_signal_from_approved_config(
     selected_config["live_config_source_json"] = live.get("source_json")
 
     best_metrics, best_equity, best_trades = evaluate(panel, selected_config)
+    # Preserve every behavior-changing identity field so downstream stress
+    # reports fingerprint the exact configuration that was evaluated.
+    best_metrics["deployment_max_gross_exposure"] = selected_config.get(
+        "deployment_max_gross_exposure"
+    )
     best_metrics["selected_features"] = specs
     best_metrics["grid_rows"] = 0
     best_metrics["best_config_source"] = "nested_walkforward_approved_live_config"
@@ -2983,6 +3016,14 @@ def main() -> None:
                              "For normal validation, prefer core_satellite_nested_walkforward.py.")
     parser.add_argument("--no-walkforward", action="store_true",
                         help="Legacy no-op. Nested validation is skipped by default; use --walkforward to run it.")
+    parser.add_argument(
+        "--validation-refresh",
+        action="store_true",
+        help=(
+            "Research only: generate artifacts from a walk-forward-approved config "
+            "while its robustness bundle is being refreshed. Never submits orders."
+        ),
+    )
     parser.add_argument("--min-train-years", type=int, default=4,
                         help="Minimum training years before first test fold (default: 4)")
     args = parser.parse_args()
@@ -3066,6 +3107,7 @@ def main() -> None:
         signal_panel=signal_panel,
         specs=specs,
         freshness=freshness,
+        allow_provisional_bundle=bool(args.validation_refresh),
     )
     try:
         if _notify_earnings_blackout_if_needed(best_metrics):

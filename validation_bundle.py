@@ -495,14 +495,15 @@ def rebuild_from_walkforward(
         # sure those reports read metrics from the same approved live config.
         env = dict(os.environ)
         env["STOCKBOT_SCRIPT_TELEGRAM_ENABLED"] = "0"
-        for script in (
-            "core_satellite_alpha.py",
-            "core_satellite_execution_stress.py",
-            "core_satellite_survivorship_audit.py",
-            "factor_decay_monitor.py",
+        for command in (
+            ("core_satellite_alpha.py", "--validation-refresh"),
+            ("core_satellite_execution_stress.py",),
+            ("core_satellite_survivorship_audit.py",),
+            ("factor_decay_monitor.py",),
         ):
+            script = command[0]
             completed = subprocess.run(
-                [sys.executable, script],
+                [sys.executable, *command],
                 cwd=str(Path(__file__).resolve().parent),
                 env=env,
                 check=False,

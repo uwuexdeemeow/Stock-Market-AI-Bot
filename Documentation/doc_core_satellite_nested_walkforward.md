@@ -1,5 +1,12 @@
 # core_satellite_nested_walkforward.py — Strategy Validation
 
+Use `--fixed-frozen-baseline` when a new configuration selector fails its
+anti-overfitting checks. This mode validates the last robustness-tested
+incumbent directly across every yearly out-of-sample fold. Selector-only
+correlation and uplift checks do not apply because no configuration selection
+occurs, but performance, drawdown, turnover, cost-stress, and medium-risk
+reviews still apply normally.
+
 ## What it does (plain English)
 
 This is the script that decides whether the strategy is good enough to

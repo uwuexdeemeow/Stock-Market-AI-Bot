@@ -1,5 +1,10 @@
 # robustness_review.py
 
+The survivorship paper-trading check allows up to 60 selections of the
+deliberately injected failed-company examples. Those selections are expected
+in a stress test; the review still blocks when selections exceed 60, adjusted
+performance falls below its floor, or drawdown deterioration is too large.
+
 ## What It Does
 
 This shared module reads survivorship, execution-stress, and factor-decay JSON

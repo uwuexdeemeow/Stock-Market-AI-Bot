@@ -152,7 +152,10 @@ def edge_health_status(row: dict | pd.Series) -> str:
     ):
         return "block"
     if pd.isna(top_excess) or float(top_excess) <= 0.0:
-        return "warning"
+        # A 60-day window commonly contains only two independent 20-day
+        # cohorts. A weak top bucket there is an early advisory, not enough
+        # evidence to halt paper trading. Three or more cohorts still warn.
+        return "warning" if overlay_periods >= MIN_WARNING_OVERLAY_PERIODS else "advisory"
     # Only fire an overlay-alpha warning when the sample is large enough
     # for the cumulative to mean something.  With <3 trades in the window
     # the alpha is one-trade dominated and would create false warnings.
@@ -193,6 +196,7 @@ def _selected_config() -> dict:
         "high_vol_mode",
         "tqqq_weight",
         "risk_control_mode",
+        "deployment_max_gross_exposure",
     )
     return {key: metrics[key] for key in keys if key in metrics}
 

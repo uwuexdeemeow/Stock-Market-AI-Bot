@@ -1,22 +1,17 @@
 {
-  "created_at": "2026-09-01T08:11:55+00:00",
-  "source_json": "/Users/amos/Code/Stock Market AI Bot/signals/core_satellite_nested_walkforward.json",
-  "source_json_sha256": "00f47848dc8dc47c405c4a59b96000eb50974d0ab1b479ebd9beb402775266da",
-  "validation_bundle_path": "/Users/amos/Code/Stock Market AI Bot/signals/core_satellite_validation_bundle.json",
-  "validation_bundle_hash": "bbf4ae4a1e2e0427a7b8670a733765785585b013e25090246ebe008c013e9e01",
-  "deployment_status": "rejected",
-  "paper_approved": false,
+  "created_at": "2026-09-02T18:48:27+00:00",
+  "source_json": "signals\\core_satellite_nested_walkforward.json",
+  "source_json_sha256": "e916308de38fa113e0bb408a96a1252cbb4f8b359ef3a110d8cb30a533919f0b",
+  "validation_bundle_path": "signals\\core_satellite_validation_bundle.json",
+  "validation_bundle_hash": "e2a4402b673cb2b12b1116bdf9cf78f6d7d25082e972d99081f4a7534131ff17",
+  "deployment_status": "paper_provisional",
+  "paper_approved": true,
   "real_capital_approved": false,
   "method": "nested_walk_forward_yearly_outer_multi_inner_validation",
   "approvals": {
     "core-alpha": {
-      "approved": false,
-      "reasons": [
-        "selector_alpha_correlation=-0.254<=0.0",
-        "overconfidence_gap=28.6pp>20pp",
-        "selector_sharpe_uplift=-0.036<0",
-        "medium_risk_review_failed:survivorship_review_failed"
-      ],
+      "approved": true,
+      "reasons": [],
       "thresholds": {
         "min_folds": 3,
         "min_config_frequency": 0.2,
@@ -34,30 +29,169 @@
       },
       "warnings": [],
       "strategy": "core-alpha",
-      "approved_config_family": "score=regime_adaptive,shape=top5,weighting=sticky_score,risk=off,tqqq=0.0",
-      "approved_family_signature": "score=regime_adaptive,shape=top5,weighting=sticky_score,risk=off,tqqq=0.0",
-      "approved_family_fold_count": 9,
-      "approved_family_frequency": 0.643,
-      "approved_exact_config": "h=20,ov=0.5,ma=100,vol=percentile:0.3,score=regime_adaptive,shape=top5,weighting=sticky_score,tqqq=0.0,risk=off",
-      "approved_config_fold_count": 4,
-      "approved_config_frequency": 0.286,
+      "approved_config_family": "score=regime_adaptive,shape=top3,weighting=sticky_score,risk=off,tqqq=0.0",
+      "approved_family_signature": "score=regime_adaptive,shape=top3,weighting=sticky_score,risk=off,tqqq=0.0",
+      "approved_family_fold_count": 14,
+      "approved_family_frequency": 1.0,
+      "approved_exact_config": "h=20,ov=0.5,ma=100,vol=percentile:0.3,score=regime_adaptive,shape=top3,weighting=sticky_score,tqqq=0.0,risk=off",
+      "approved_config_fold_count": 14,
+      "approved_config_frequency": 1.0,
       "source": "nested_walkforward",
-      "created_at": "2026-09-01T08:11:15+00:00"
+      "created_at": "2026-09-02T18:48:26+00:00"
     }
   },
-  "approved_live_configs": {},
+  "approved_live_configs": {
+    "core-alpha": {
+      "strategy": "core-alpha",
+      "approved_config_family": "score=regime_adaptive,shape=top3,weighting=sticky_score,risk=off,tqqq=0.0",
+      "approved_family_signature": "score=regime_adaptive,shape=top3,weighting=sticky_score,risk=off,tqqq=0.0",
+      "approved_exact_config": "h=20,ov=0.5,ma=100,vol=percentile:0.3,score=regime_adaptive,shape=top3,weighting=sticky_score,tqqq=0.0,risk=off",
+      "config": {
+        "strategy": "core-alpha",
+        "core_preset": "nested_qqq_trend_switch_overlay70_core55_cashbuffer_h20_ov0.50_ma100_volpercentile0.30_tqqq0.00_riskoff",
+        "regime_mode": "qqq_trend_switch_overlay70_core55_cashbuffer",
+        "regime_preset": {
+          "ma_window": 100,
+          "high_vol": 0.3,
+          "risk_on": {
+            "core_weights": {
+              "SPY": 0.0,
+              "QQQ": 1.0,
+              "TQQQ": 0.0
+            },
+            "core_gross": 0.75,
+            "overlay_gross": 0.5
+          },
+          "neutral": {
+            "core_weights": {
+              "SPY": 0.25,
+              "QQQ": 0.75,
+              "TQQQ": 0.0
+            },
+            "core_gross": 0.5,
+            "overlay_gross": 0.5
+          },
+          "risk_off": {
+            "core_weights": {
+              "SPY": 0.6,
+              "QQQ": 0.4,
+              "TQQQ": 0.0
+            },
+            "core_gross": 0.55,
+            "overlay_gross": 0.25
+          },
+          "high_vol_mode": "percentile"
+        },
+        "regime_ma_window": 100,
+        "regime_high_vol": 0.3,
+        "high_vol_mode": "percentile",
+        "score_blend": false,
+        "early_rebalance_on_regime_change": false,
+        "core_weights": {
+          "SPY": 0.0,
+          "QQQ": 1.0,
+          "TQQQ": 0.0
+        },
+        "tqqq_preset": "tqqq_enhanced_cashbuffer",
+        "score_source": "regime_adaptive",
+        "shape": "top3",
+        "weighting": "sticky_score",
+        "exit_rank_floor": 0.8,
+        "adaptive_exit_mode": "fixed",
+        "max_per_sector": 2,
+        "earnings_blackout_days": 5,
+        "core_gross": 0.75,
+        "overlay_gross": 0.5,
+        "max_gross_exposure": 1.25,
+        "deployment_max_gross_exposure": 1.0,
+        "max_single_name_weight": 0.25,
+        "holding_days": 20,
+        "risk_control_mode": "off",
+        "drawdown_circuit_breaker": 0.0,
+        "vol_target": 0.0
+      },
+      "source_metrics": {
+        "fold_count": 14,
+        "best_config_frequency": 1.0,
+        "approved_family_fold_count": 14,
+        "approved_family_frequency": 1.0,
+        "approved_family_worst_oos_turnover_pct": 372.43,
+        "approved_family_mean_oos_max_drawdown_pct": -8.1,
+        "approved_family_mean_oos_sharpe": 1.558,
+        "mean_oos_sharpe": 1.558,
+        "mean_oos_cagr_pct": 30.07,
+        "mean_oos_alpha_vs_spy_pct": 13.96,
+        "mean_oos_alpha_vs_qqq_pct": 6.75,
+        "oos_positive_alpha_hit_rate": 0.929,
+        "cost_stress_approval_pass": true,
+        "required_cost_stresses": [
+          2.0,
+          3.0,
+          5.0
+        ],
+        "mean_oos_max_drawdown_pct": -8.1,
+        "worst_oos_max_drawdown_pct": -22.89,
+        "worst_oos_turnover_pct": 372.43,
+        "worst_oos_return_pct": -16.91,
+        "selection_bias_gap_sharpe": -0.005,
+        "approved_config_fold_count": 14,
+        "approved_config_frequency": 1.0,
+        "medium_risk_review_pass": true
+      },
+      "medium_risk_review": {
+        "pass": true,
+        "reasons": [],
+        "survivorship_review": {
+          "pass": true,
+          "capital_approval_pass": false,
+          "survivorship_adjusted_score": 0.8914,
+          "audit_rebalance_selections": 25,
+          "total_return_delta_pct": -1406.84,
+          "max_drawdown_delta_pct": -1.28,
+          "failed_name_coverage_rate": 0.2941,
+          "minimum_failed_name_coverage_for_capital": 1.0,
+          "point_in_time_universe_complete": false,
+          "capital_blockers": [
+            "failed_name_coverage_incomplete",
+            "point_in_time_universe_incomplete",
+            "survivorship_return_delta_below_capital_floor"
+          ]
+        },
+        "execution_stress_review": {
+          "pass": true,
+          "failed_scenarios": 0,
+          "worst_stressed_drawdown_pct": -29.93
+        },
+        "factor_decay_review": {
+          "pass": true,
+          "edge_health_status": "pass",
+          "reason": "factor decay monitor has no real-capital blocking warning"
+        }
+      },
+      "deployment_status": "rejected",
+      "validation_bundle_hash": "bbdedd6b136cd4bab4ad2d0018c0d45d7d8c8545658963b4654c6c577a9c170b",
+      "real_capital_approved": false
+    }
+  },
   "medium_risk_reviews": {
     "core-alpha": {
-      "pass": false,
-      "reasons": [
-        "survivorship_review_failed"
-      ],
+      "pass": true,
+      "reasons": [],
       "survivorship_review": {
-        "pass": false,
+        "pass": true,
+        "capital_approval_pass": false,
         "survivorship_adjusted_score": 0.8914,
         "audit_rebalance_selections": 25,
         "total_return_delta_pct": -1406.84,
-        "max_drawdown_delta_pct": -1.28
+        "max_drawdown_delta_pct": -1.28,
+        "failed_name_coverage_rate": 0.2941,
+        "minimum_failed_name_coverage_for_capital": 1.0,
+        "point_in_time_universe_complete": false,
+        "capital_blockers": [
+          "failed_name_coverage_incomplete",
+          "point_in_time_universe_incomplete",
+          "survivorship_return_delta_below_capital_floor"
+        ]
       },
       "execution_stress_review": {
         "pass": true,

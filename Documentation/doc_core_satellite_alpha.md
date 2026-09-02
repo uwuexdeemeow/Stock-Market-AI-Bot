@@ -1,5 +1,14 @@
 # core_satellite_alpha.py
 
+`--validation-refresh` is a research-only maintenance option used while
+rebuilding robustness evidence for an already walk-forward-approved config.
+It can generate local signal artifacts before the replacement evidence bundle
+is complete, but it never connects to the broker or submits orders. Normal
+daily runs never use this option.
+
+The generated metrics also retain the deployment gross-exposure ceiling so
+all downstream robustness reports identify the exact tested configuration.
+
 Generated signals include a metadata-only `run_id`. It links the target to
 orders and reports without changing a score, target weight, or trading rule.
 The exact latest feature rows used by that calculation are saved to

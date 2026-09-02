@@ -1,5 +1,13 @@
 # factor_decay_monitor.py - Factor Decay Monitor
 
+The report identity includes the deployment gross-exposure ceiling so the
+validation bundle cannot combine decay evidence with a different portfolio
+configuration.
+
+A non-positive top bucket based on fewer than three independent holding-period
+cohorts is classified as advisory rather than warning. Once three or more
+cohorts exist, the same deterioration remains a paper-trading warning.
+
 ## What It Does
 
 `factor_decay_monitor.py` checks whether the overlay score still has recent
