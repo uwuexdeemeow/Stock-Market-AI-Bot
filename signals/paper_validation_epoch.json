@@ -1,17 +1,16 @@
 {
   "schema_version": 2,
-  "epoch_id": "paper-v20260901T044209Z",
-  "started_at": "2026-09-01T04:42:09+00:00",
-  "status": "invalidated",
-  "archive_dir": "archive/paper_epochs/paper-v20260901T044209Z",
+  "epoch_id": "paper-v20260902T150312Z",
+  "started_at": "2026-09-02T15:03:12+00:00",
+  "status": "collecting",
+  "archive_dir": "archive\\paper_epochs\\paper-v20260902T150312Z",
   "archived_files": [
-    "archive/paper_epochs/paper-v20260901T044209Z/alpaca_paper_log.csv",
-    "archive/paper_epochs/paper-v20260901T044209Z/alpaca_paper_equity.csv",
-    "archive/paper_epochs/paper-v20260901T044209Z/alpaca_slippage_reversal_report.json",
-    "archive/paper_epochs/paper-v20260901T044209Z/alpaca_execution_scorecard.json",
-    "archive/paper_epochs/paper-v20260901T044209Z/broker_truth.json",
-    "archive/paper_epochs/paper-v20260901T044209Z/alpaca_paper_health.json",
-    "archive/paper_epochs/paper-v20260901T044209Z/alpaca_submit_outcomes.csv"
+    "archive\\paper_epochs\\paper-v20260902T150312Z\\alpaca_paper_log.csv",
+    "archive\\paper_epochs\\paper-v20260902T150312Z\\alpaca_paper_equity.csv",
+    "archive\\paper_epochs\\paper-v20260902T150312Z\\alpaca_execution_scorecard.json",
+    "archive\\paper_epochs\\paper-v20260902T150312Z\\broker_truth.json",
+    "archive\\paper_epochs\\paper-v20260902T150312Z\\alpaca_paper_health.json",
+    "archive\\paper_epochs\\paper-v20260902T150312Z\\alpaca_submit_outcomes.csv"
   ],
   "requirements": {
     "minimum_trading_days": 30,
@@ -29,11 +28,5 @@
     "bad_slippage_threshold_bps": 2.0,
     "maximum_bad_slippage_rate": 0.4
   },
-  "real_capital_approved": false,
-  "invalidated_at": "2026-09-01T08:14:36+00:00",
-  "invalidation_reasons": [
-    "complete_fill_rate_definition_changed",
-    "robustness_gate_source_changed",
-    "walkforward_boundary_math_changed"
-  ]
+  "real_capital_approved": false
 }
