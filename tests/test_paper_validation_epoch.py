@@ -8,6 +8,18 @@ import pandas as pd
 import paper_validation_epoch as epoch_module
 
 
+def test_version_lock_hash_ignores_cross_platform_line_endings(tmp_path):
+    """A Git checkout must keep the same lock checksum on Windows and Linux."""
+    windows_copy = tmp_path / "windows.py"
+    linux_copy = tmp_path / "linux.py"
+    # PLAIN ENGLISH: these scripts contain identical instructions even though
+    # their operating systems store each line ending with different bytes.
+    windows_copy.write_bytes(b"SAFE = True\r\nVALUE = 1\r\n")
+    linux_copy.write_bytes(b"SAFE = True\nVALUE = 1\n")
+
+    assert epoch_module._sha256_file(windows_copy) == epoch_module._sha256_file(linux_copy)
+
+
 def test_invalidated_epoch_can_never_become_review_eligible(tmp_path):
     epoch_path = tmp_path / "epoch.json"
     epoch_path.write_text(json.dumps({

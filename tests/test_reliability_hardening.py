@@ -14,6 +14,18 @@ import factor_decay_monitor
 import validation_bundle
 
 
+def test_validation_file_hash_ignores_cross_platform_line_endings(tmp_path):
+    """The same text must keep one evidence checksum on Windows and Linux."""
+    windows_copy = tmp_path / "windows.json"
+    linux_copy = tmp_path / "linux.json"
+    # PLAIN ENGLISH: both files say the same thing; only their line-break bytes
+    # differ, as they can after Git moves a file between Windows and Linux.
+    windows_copy.write_bytes(b'{\r\n  "approved": true\r\n}\r\n')
+    linux_copy.write_bytes(b'{\n  "approved": true\n}\n')
+
+    assert validation_bundle.file_sha256(windows_copy) == validation_bundle.file_sha256(linux_copy)
+
+
 def _passing_walkforward_result() -> dict:
     """Return the smallest result that clears every reliability approval gate."""
     return {

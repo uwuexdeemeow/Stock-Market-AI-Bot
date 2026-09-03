@@ -72,12 +72,12 @@ def sha256_value(value: Any) -> str:
 
 
 def file_sha256(path: Path) -> str:
-    """Hash a file without loading the whole file into memory."""
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    """Hash text content identically after Windows or Linux checks it out."""
+    # PLAIN ENGLISH: Git may store the same line break as two bytes on Windows
+    # and one byte on Linux. Normalizing it stops an unchanged report from
+    # looking tampered with merely because GitHub Actions runs on Linux.
+    normalized_bytes = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(normalized_bytes).hexdigest()
 
 
 def strategy_config_identity(config: dict | None) -> dict:

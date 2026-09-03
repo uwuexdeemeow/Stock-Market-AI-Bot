@@ -148,12 +148,12 @@ def invalidate_epoch(
 
 
 def _sha256_file(path: Path) -> str:
-    """Return one file checksum so later edits are detectable."""
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
+    """Return one cross-platform checksum so real edits remain detectable."""
+    # PLAIN ENGLISH: Windows and Linux encode ordinary line endings differently.
+    # Treat those encodings as equal while keeping every meaningful code or data
+    # change protected by the version lock.
+    normalized_bytes = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(normalized_bytes).hexdigest()
 
 
 def _current_git_commit(project_root: Path) -> str:

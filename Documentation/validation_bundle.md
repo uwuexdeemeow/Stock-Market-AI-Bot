@@ -29,6 +29,11 @@ fingerprint, and all three robustness reports exist and have matching strategy
 and dataset fingerprints. A signed bundle with missing or mismatched robustness
 evidence cannot authorize new paper orders.
 
+Text-file checksums normalize Windows and Linux line endings before hashing.
+This means GitHub Actions sees the same checksum as a Windows development
+computer when the content is unchanged, while a real report edit still fails
+the integrity check.
+
 The temporary shadow journal is the only exception. It creates a separate
 paper-only bundle without production robustness reports because that path only
 records hypothetical results and cannot submit orders or approve real money.

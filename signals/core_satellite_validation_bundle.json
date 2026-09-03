@@ -1,10 +1,10 @@
 {
   "schema_version": 2,
-  "created_at": "2026-09-02T19:05:06+00:00",
+  "created_at": "2026-09-03T14:01:41+00:00",
   "strategy": "core-alpha",
   "source_json": "signals\\core_satellite_nested_walkforward.json",
-  "source_json_sha256": "e916308de38fa113e0bb408a96a1252cbb4f8b359ef3a110d8cb30a533919f0b",
-  "git_commit": "6cdfbb25e6f18d8f5e491c94b55ad8e3a0dbdd38",
+  "source_json_sha256": "e85435034180025ba05a64afe3498afcd9939114f63d8ed18098a124998e83e1",
+  "git_commit": "517d093b36f986030463889a7e6d4ec53769fdff",
   "config": {
     "strategy": "core-alpha",
     "core_preset": "nested_qqq_trend_switch_overlay70_core55_cashbuffer_h20_ov0.50_ma100_volpercentile0.30_tqqq0.00_riskoff",
@@ -86,7 +86,7 @@
   "dataset": {
     "manifest_path": "signals\\research_run_manifest.json",
     "manifest_exists": true,
-    "manifest_sha256": "71925835647fdbac6482273247eedc16a7cc9794d9296ec660167f20e2c866da",
+    "manifest_sha256": "6fb4ce229ee0c5e91d450a1e4908a1eaa4825c047e61d8a43190d410a5ec8970",
     "dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
     "file_count": 159,
     "fingerprinted_count": 159,
@@ -177,7 +177,7 @@
       "XOM"
     ],
     "coverage_start": "2010-01-01",
-    "coverage_end": "2026-09-02",
+    "coverage_end": "2026-09-03",
     "active_members_at_coverage_start": 0,
     "minimum_active_members": 400,
     "inactive_members": 0,
@@ -1489,11 +1489,11 @@
       "exists": true,
       "match": true,
       "reasons": [],
-      "sha256": "8390048185522d30262e9db46bf67a23733ae8feb9121991093f8ec16c01311f",
+      "sha256": "291d39de18d7d4ca62a4282cb9cc1092f9baa431f0838ff5fe51dad1686d3bfc",
       "generated_at": "2026-09-03T03:02:49.625186",
       "observed_config_fingerprint": "a9f616b5f6185fcf",
       "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-      "age_days": 0.0,
+      "age_days": 0.458,
       "max_age_days": 60,
       "health": {
         "pass": true,
@@ -1519,11 +1519,11 @@
       "exists": true,
       "match": true,
       "reasons": [],
-      "sha256": "dbd9c27a1338f2c8bb4f0cb1e99d17e138e8d2a63025eea810f62f41bf3da942",
+      "sha256": "723795def0d666eb9aafbc88d600766da77c91ab1987fe4c49ee6c6bf5bd10d6",
       "generated_at": "2026-09-03T03:01:29.559776",
       "observed_config_fingerprint": "a9f616b5f6185fcf",
       "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-      "age_days": 0.0,
+      "age_days": 0.458,
       "max_age_days": 60,
       "health": {
         "pass": true,
@@ -1537,11 +1537,11 @@
       "exists": true,
       "match": true,
       "reasons": [],
-      "sha256": "2f156856ca01ab1479911954aacd764c6bae319b413e16d0b4b12937f660789d",
+      "sha256": "89c2e6849743514dad4b7fb79ac007b7e655ec0d8631b7e2da781f027eea0e46",
       "generated_at": "2026-09-03T03:05:03.953579",
       "observed_config_fingerprint": "a9f616b5f6185fcf",
       "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-      "age_days": 0.0,
+      "age_days": 0.456,
       "max_age_days": 7,
       "health": {
         "pass": true,
@@ -1560,11 +1560,11 @@
         "exists": true,
         "match": true,
         "reasons": [],
-        "sha256": "8390048185522d30262e9db46bf67a23733ae8feb9121991093f8ec16c01311f",
+        "sha256": "291d39de18d7d4ca62a4282cb9cc1092f9baa431f0838ff5fe51dad1686d3bfc",
         "generated_at": "2026-09-03T03:02:49.625186",
         "observed_config_fingerprint": "a9f616b5f6185fcf",
         "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-        "age_days": 0.0,
+        "age_days": 0.458,
         "max_age_days": 60,
         "health": {
           "pass": true,
@@ -1590,11 +1590,11 @@
         "exists": true,
         "match": true,
         "reasons": [],
-        "sha256": "dbd9c27a1338f2c8bb4f0cb1e99d17e138e8d2a63025eea810f62f41bf3da942",
+        "sha256": "723795def0d666eb9aafbc88d600766da77c91ab1987fe4c49ee6c6bf5bd10d6",
         "generated_at": "2026-09-03T03:01:29.559776",
         "observed_config_fingerprint": "a9f616b5f6185fcf",
         "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-        "age_days": 0.0,
+        "age_days": 0.458,
         "max_age_days": 60,
         "health": {
           "pass": true,
@@ -1608,11 +1608,11 @@
         "exists": true,
         "match": true,
         "reasons": [],
-        "sha256": "2f156856ca01ab1479911954aacd764c6bae319b413e16d0b4b12937f660789d",
+        "sha256": "89c2e6849743514dad4b7fb79ac007b7e655ec0d8631b7e2da781f027eea0e46",
         "generated_at": "2026-09-03T03:05:03.953579",
         "observed_config_fingerprint": "a9f616b5f6185fcf",
         "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-        "age_days": 0.0,
+        "age_days": 0.456,
         "max_age_days": 7,
         "health": {
           "pass": true,
@@ -1694,5 +1694,5 @@
       "survivorship_capital_evidence_incomplete"
     ]
   },
-  "validation_bundle_hash": "e2a4402b673cb2b12b1116bdf9cf78f6d7d25082e972d99081f4a7534131ff17"
+  "validation_bundle_hash": "16dc3335d99c4f7c61701038abb8ec2c5dfc4b1c6db5fe04e7613efeb6b615b5"
 }

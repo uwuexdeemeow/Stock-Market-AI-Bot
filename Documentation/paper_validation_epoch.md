@@ -58,6 +58,11 @@ because their guarded fallback can start a missed paper-trading workflow.
 The shadow workflow and paper-vs-shadow comparator are locked because they
 decide whether validation evidence is complete or still collecting.
 
+The lock normalizes Windows and Linux line endings before calculating each
+text-file checksum. Git can represent the same line break differently on the
+two systems; this normalization prevents a false lock failure without ignoring
+real code, configuration, or evidence changes.
+
 ## Key Terms
 
 - **Epoch:** A dated evaluation period for one bot version.
