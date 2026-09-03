@@ -171,9 +171,12 @@ jobs:
             signals/core_satellite_alpha_metrics.json
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
-          key: state-files-${{ github.run_id }}
+          # v2 caches contain only non-git runtime files. The old state-files
+          # archives also contained tracked robustness reports and silently
+          # overwrote the approved checksums after checkout.
+          key: runtime-state-v2-${{ github.run_id }}
           restore-keys: |
-            state-files-
+            runtime-state-v2-
 
       # Restore the operational audit trail from the dedicated signal branch.
       # PLAIN ENGLISH: GitHub runners are new computers each day. These files
@@ -723,10 +726,7 @@ jobs:
             signals/core_satellite_alpha_metrics.json
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
-            logs/factor_decay_monitor.json
-            logs/core_satellite_execution_stress.json
-            logs/core_satellite_survivorship_audit.json
-          key: state-files-${{ github.run_id }}
+          key: runtime-state-v2-${{ github.run_id }}
 
       # ── 11. One consolidated Telegram summary ──────────────────────
       #    Python scripts suppress their own Telegram messages in Actions
