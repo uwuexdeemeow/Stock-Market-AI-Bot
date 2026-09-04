@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-04T19:30:12+00:00",
+  "status": "ok",
+  "mode": "fractional_shadow_only",
+  "capital": {
+    "initial_equity": 400.0,
+    "current_equity": 403.410041,
+    "cash": 1.99,
+    "invested_value": 401.420041
+  },
+  "signal": {
+    "signal_key": "5197bd05fbea29010561",
+    "predicted_at": "2026-09-05T01:01+08:00",
+    "valuation_date": "2026-09-03",
+    "live_config_hash": "efc9620f12f77952",
+    "repeated_signal": false
+  },
+  "execution": {
+    "orders_simulated": 0,
+    "broker_orders_submitted": false,
+    "minimum_order_notional": 1.0,
+    "quantity_precision_decimals": 9,
+    "order_type": "market",
+    "time_in_force": "day",
+    "slippage_bps": 10.0,
+    "slippage_cost_today": 0.0,
+    "regulatory_fees_today": 0.0,
+    "regulatory_fees_raw_today": 0.0,
+    "commission_today": 0.0,
+    "fee_model": {
+      "sec_sell_fee_bps": 0.206,
+      "taf_sell_fee_per_share": 0.000195,
+      "cat_fee_per_share": 3e-06,
+      "daily_rounding": "ceil_to_cent"
+    }
+  },
+  "allocation": {
+    "target_weights": {
+      "FCX": 0.029245,
+      "INTC": 0.170755,
+      "MU": 0.2,
+      "QQQ": 0.6
+    },
+    "actual_weights": {
+      "FCX": 0.0218843375,
+      "INTC": 0.1775353532,
+      "MU": 0.2026692803,
+      "QQQ": 0.5929780829
+    },
+    "target_weight_gaps": {
+      "FCX": -0.0073606625,
+      "INTC": 0.0067803532,
+      "MU": 0.0026692803,
+      "QQQ": -0.0070219171
+    },
+    "max_absolute_target_weight_gap": 0.0073606625,
+    "cash_weight": 0.0049329462,
+    "positions": {
+      "QQQ": {
+        "quantity": 0.333319379,
+        "avg_cost": 717.1464226685
+      },
+      "MU": {
+        "quantity": 0.08532899,
+        "avg_cost": 933.7928453369
+      },
+      "INTC": {
+        "quantity": 0.781275724,
+        "avg_cost": 89.5594712219
+      },
+      "FCX": {
+        "quantity": 0.121669815,
+        "avg_cost": 76.5264469452
+      }
+    }
+  },
+  "data": {
+    "price_dates": {
+      "FCX": "2026-09-03",
+      "INTC": "2026-09-03",
+      "MU": "2026-09-03",
+      "QQQ": "2026-09-03"
+    },
+    "no_lookahead": true
+  },
+  "safety": {
+    "shadow_only": true,
+    "real_capital_approved": false,
+    "broker_credentials_required": false,
+    "broker_fractionability_verified": false
+  },
+  "promotion_blockers": [
+    "shadow_evidence_epoch_incomplete",
+    "broker_fractionability_not_live_verified",
+    "fractional_protective_stop_path_not_implemented",
+    "real_capital_not_approved"
+  ],
+  "sources": {
+    "active_signal": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/core_satellite_alpha_signal.csv",
+    "state": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/fractional_shadow_state.json",
+    "orders": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/fractional_shadow_orders.csv",
+    "equity": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/fractional_shadow_equity.csv"
+  }
+}

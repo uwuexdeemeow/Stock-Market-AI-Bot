@@ -1,0 +1,5 @@
+order_id,simulated_at,valuation_date,signal_key,mode,ticker,side,order_type,time_in_force,quantity,notional,reference_price,simulated_fill_price,slippage_bps,slippage_cost,regulatory_fee_raw,commission,target_weight,drift_before,broker_order_submitted
+frac-shadow-2a60afcb2e-qqq-buy,2026-08-31T23:45:09+00:00,2026-08-28,2a60afcb2ee8b3e4a117,fractional_shadow_only,QQQ,buy,market,day,0.333319379,239.0388,716.429993,717.146423,10.0,0.2388,1e-06,0.0,0.6,0.6,False
+frac-shadow-2a60afcb2e-mu-buy,2026-08-31T23:45:09+00:00,2026-08-28,2a60afcb2ee8b3e4a117,fractional_shadow_only,MU,buy,market,day,0.08532899,79.6796,932.859985,933.792845,10.0,0.0796,2.6e-07,0.0,0.2,0.2,False
+frac-shadow-2a60afcb2e-intc-buy,2026-08-31T23:45:09+00:00,2026-08-28,2a60afcb2ee8b3e4a117,fractional_shadow_only,INTC,buy,market,day,0.781275724,69.970641,89.470001,89.559471,10.0,0.06990074,2.34e-06,0.0,0.17563,0.17563,False
+frac-shadow-2a60afcb2e-fcx-buy,2026-08-31T23:45:09+00:00,2026-08-28,2a60afcb2ee8b3e4a117,fractional_shadow_only,FCX,buy,market,day,0.121669815,9.310959,76.449997,76.526447,10.0,0.00930166,3.7e-07,0.0,0.02437,0.02437,False
