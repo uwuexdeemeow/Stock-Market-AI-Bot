@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "frozen_at": "2026-09-04T09:37:11+00:00",
+  "frozen_at": "2026-09-04T09:45:51+00:00",
   "epoch_id": "paper-v20260903T140244Z",
   "epoch_started_at": "2026-09-03T14:02:44+00:00",
-  "git_commit_at_freeze": "a8fe5fa35eea19684e216b1076c039762de1943b",
+  "git_commit_at_freeze": "c092dfe0accaf6b176ed26704ee53ebee07eafe0",
   "logic_fingerprint": "72577d790e380c81d0a0589c09a483c85a7b5cf5ae4fdcee900c7d0273522c2f",
   "files": {
     ".github/workflows/daily_paper_trading.yml": "a4fefdd7e96f2763192e2ff0486993e195a65da5d63cd947c0331766504c17e9",
