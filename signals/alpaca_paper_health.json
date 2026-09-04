@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-04T21:16:03+00:00",
+  "generated_at": "2026-09-04T23:04:33+00:00",
   "strategy": "core_satellite_alpha",
   "paper_ready": false,
   "gates_all_pass": false,
@@ -33,7 +33,7 @@
   "filled_orders": 0,
   "fill_rate": 0.0,
   "cancel_rate": 0.0,
-  "account_equity": 110364.94,
+  "account_equity": 110303.14,
   "account_alignment": {
     "status": "collecting",
     "passed": false,
@@ -53,7 +53,7 @@
   "gauntlet_reason": "trading_days 1 < 20 minimum; no submitted paper orders found; signal not fresh: signal file not found",
   "slippage": {
     "source": "alpaca_slippage_reversal_report.json",
-    "report_generated_at": "2026-09-04T21:16:00+00:00",
+    "report_generated_at": "2026-09-04T23:04:29+00:00",
     "latest_fill_at": "2026-09-03T14:10:35+00:00",
     "filled_orders_with_slippage": 14,
     "avg_slippage_bps": -0.64,
@@ -300,37 +300,37 @@
   },
   "concentration": {
     "ticker_weights": {
-      "FCX": 0.01982,
-      "INTC": 0.177946,
-      "MU": 0.211588,
-      "QQQ": 0.585553
+      "FCX": 0.019781,
+      "INTC": 0.177934,
+      "MU": 0.211373,
+      "QQQ": 0.585816
     },
     "core_ticker_weights": {
-      "QQQ": 0.585553
+      "QQQ": 0.585816
     },
     "overlay_ticker_weights": {
-      "FCX": 0.01982,
-      "INTC": 0.177946,
-      "MU": 0.211588
+      "FCX": 0.019781,
+      "INTC": 0.177934,
+      "MU": 0.211373
     },
     "sector_weights": {
-      "OTHER": 0.585553,
-      "XLB": 0.01982,
-      "XLK": 0.389534
+      "OTHER": 0.585816,
+      "XLB": 0.019781,
+      "XLK": 0.389307
     },
     "overlay_sector_weights": {
-      "XLB": 0.01982,
-      "XLK": 0.389534
+      "XLB": 0.019781,
+      "XLK": 0.389307
     },
-    "max_ticker_weight": 0.585553,
+    "max_ticker_weight": 0.585816,
     "max_ticker": "QQQ",
-    "max_core_ticker_weight": 0.585553,
+    "max_core_ticker_weight": 0.585816,
     "max_core_ticker": "QQQ",
-    "max_overlay_ticker_weight": 0.211588,
+    "max_overlay_ticker_weight": 0.211373,
     "max_overlay_ticker": "MU",
-    "max_sector_weight": 0.585553,
+    "max_sector_weight": 0.585816,
     "max_sector": "OTHER",
-    "max_overlay_sector_weight": 0.389534,
+    "max_overlay_sector_weight": 0.389307,
     "max_overlay_sector": "XLK",
     "ticker_concentration_warning": false,
     "core_ticker_concentration_warning": false,
@@ -505,8 +505,8 @@
       }
     },
     "evidence_run_ids": {
-      "broker_truth": "paper-20260904T211601Z-b5b2e99a",
-      "execution_scorecard": "paper-20260904T211602Z-d0014eaf",
+      "broker_truth": "paper-20260904T230430Z-a335db07",
+      "execution_scorecard": "paper-20260904T230431Z-1a44338f",
       "validation_epoch": "",
       "monitor_heartbeat": ""
     },
@@ -524,14 +524,14 @@
     "Run live broker reconciliation and confirm account equity and positions are available."
   ],
   "run_context": {
-    "run_id": "paper-20260904T211604Z-cadc963f",
-    "generated_at": "2026-09-04T21:16:04+00:00",
+    "run_id": "paper-20260904T230434Z-fb089ee2",
+    "generated_at": "2026-09-04T23:04:34+00:00",
     "signal_as_of": "",
     "git_commit": "91fd2056cd95ec36504e13dae777a937b2cd680d",
     "configuration_fingerprint": "883fe6d211e504e9bc4bd7832f09ec5ea5575692a861fd11e2b32c08a374e40e",
     "paper_version_fingerprint": "043d8ed08eebdaca08ace66d03169cf3626e94f2c36cc410f3f20fe642118305",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "paper-20260904T211604Z-cadc963f",
+  "run_id": "paper-20260904T230434Z-fb089ee2",
   "broker": "alpaca"
 }

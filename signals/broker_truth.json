@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-04T21:16:01+00:00",
+  "generated_at": "2026-09-04T23:04:30+00:00",
   "status": "warning",
   "score": 70.0,
   "summary": {
@@ -8,7 +8,7 @@
     "fail_count": 0,
     "warning_count": 6,
     "pass_count": 1,
-    "account_equity": 110365.84,
+    "account_equity": 110303.14,
     "account_cash": 562.14,
     "live_open_orders_available": true,
     "live_open_orders_count": 4,
@@ -22,7 +22,7 @@
     "target_weight_count": 0,
     "target_weights": {},
     "target_gross_exposure": 0,
-    "broker_gross_exposure": 0.994907,
+    "broker_gross_exposure": 0.994904,
     "maximum_target_weight_gap": null,
     "alignment": {
       "status": "collecting",
@@ -70,25 +70,25 @@
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_daily_status.json",
       "exists": true,
       "error": "",
-      "modified_at": "2026-09-04T21:16:00+00:00",
-      "generated_at": "2026-09-04T21:16:01+00:00",
-      "equity": 110365.84,
+      "modified_at": "2026-09-04T23:04:29+00:00",
+      "generated_at": "2026-09-04T23:04:30+00:00",
+      "equity": 110303.14,
       "cash": 562.14,
       "position_count": 4,
       "available": true,
       "attempted": true,
       "source": "alpaca_api",
-      "file_generated_at": "2026-09-04T21:16:00"
+      "file_generated_at": "2026-09-04T23:04:29"
     },
     "live_positions": {
       "available": true,
       "attempted": true,
       "source": "alpaca_api",
       "error": "",
-      "equity": 110365.84,
+      "equity": 110303.14,
       "cash": 562.14,
       "position_count": 4,
-      "generated_at": "2026-09-04T21:16:01+00:00"
+      "generated_at": "2026-09-04T23:04:30+00:00"
     },
     "open_orders": {
       "available": true,
@@ -119,8 +119,8 @@
       "ticker": "FCX",
       "target_weight": 0.0,
       "broker_qty": 30.0,
-      "broker_value": 2187.4,
-      "broker_weight": 0.01982,
+      "broker_value": 2181.9,
+      "broker_weight": 0.019781,
       "planned_side": "",
       "planned_quantity": 0.0,
       "planned_buy_qty": 0.0,
@@ -151,8 +151,8 @@
       "ticker": "INTC",
       "target_weight": 0.0,
       "broker_qty": 205.0,
-      "broker_value": 19639.0,
-      "broker_weight": 0.177945,
+      "broker_value": 19626.7,
+      "broker_weight": 0.177934,
       "planned_side": "",
       "planned_quantity": 0.0,
       "planned_buy_qty": 0.0,
@@ -183,8 +183,8 @@
       "ticker": "MU",
       "target_weight": 0.0,
       "broker_qty": 23.0,
-      "broker_value": 23351.9,
-      "broker_weight": 0.211586,
+      "broker_value": 23315.1,
+      "broker_weight": 0.211373,
       "planned_side": "",
       "planned_quantity": 0.0,
       "planned_buy_qty": 0.0,
@@ -215,8 +215,8 @@
       "ticker": "QQQ",
       "target_weight": 0.0,
       "broker_qty": 90.0,
-      "broker_value": 64625.4,
-      "broker_weight": 0.585556,
+      "broker_value": 64617.3,
+      "broker_weight": 0.585816,
       "planned_side": "",
       "planned_quantity": 0.0,
       "planned_buy_qty": 0.0,
@@ -245,13 +245,13 @@
     }
   ],
   "run_context": {
-    "run_id": "paper-20260904T211601Z-b5b2e99a",
-    "generated_at": "2026-09-04T21:16:01+00:00",
+    "run_id": "paper-20260904T230430Z-a335db07",
+    "generated_at": "2026-09-04T23:04:30+00:00",
     "signal_as_of": "",
     "git_commit": "91fd2056cd95ec36504e13dae777a937b2cd680d",
     "configuration_fingerprint": "883fe6d211e504e9bc4bd7832f09ec5ea5575692a861fd11e2b32c08a374e40e",
     "paper_version_fingerprint": "043d8ed08eebdaca08ace66d03169cf3626e94f2c36cc410f3f20fe642118305",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "paper-20260904T211601Z-b5b2e99a"
+  "run_id": "paper-20260904T230430Z-a335db07"
 }

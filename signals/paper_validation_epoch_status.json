@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "epoch_id": "paper-v20260903T140244Z",
-  "evaluated_at": "2026-09-04T21:16:05+00:00",
+  "evaluated_at": "2026-09-04T23:04:35+00:00",
   "status": "collecting",
   "trading_days": 1,
   "rebalance_events": 0,
@@ -9,7 +9,7 @@
   "classified_sessions": 0,
   "duplicate_orders": 0,
   "unexplained_orders": 0,
-  "maximum_target_weight_gap": 0.585556,
+  "maximum_target_weight_gap": 0.585816,
   "gross_exposure_gap": null,
   "alignment_status": "collecting",
   "open_critical_incidents": 0,
@@ -69,13 +69,13 @@
   "manual_real_capital_review_eligible": false,
   "real_capital_approved": false,
   "run_context": {
-    "run_id": "paper-20260904T211605Z-0803fa6d",
-    "generated_at": "2026-09-04T21:16:05+00:00",
+    "run_id": "paper-20260904T230435Z-38586983",
+    "generated_at": "2026-09-04T23:04:35+00:00",
     "signal_as_of": "",
     "git_commit": "91fd2056cd95ec36504e13dae777a937b2cd680d",
     "configuration_fingerprint": "883fe6d211e504e9bc4bd7832f09ec5ea5575692a861fd11e2b32c08a374e40e",
     "paper_version_fingerprint": "043d8ed08eebdaca08ace66d03169cf3626e94f2c36cc410f3f20fe642118305",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "paper-20260904T211605Z-0803fa6d"
+  "run_id": "paper-20260904T230435Z-38586983"
 }
