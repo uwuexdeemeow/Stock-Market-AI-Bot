@@ -8,6 +8,14 @@ import pandas as pd
 import paper_validation_epoch as epoch_module
 
 
+def test_shadow_evidence_scripts_are_part_of_paper_version_lock():
+    """A changed shadow calculation must require a deliberate refreeze."""
+    # PLAIN ENGLISH: the journal and small-account simulator help judge this
+    # epoch, so their code must not change silently midway through collection.
+    assert "shadow_paper_journal.py" in epoch_module.PAPER_LOGIC_FILES
+    assert "fractional_shadow_paper.py" in epoch_module.PAPER_LOGIC_FILES
+
+
 def test_version_lock_hash_ignores_cross_platform_line_endings(tmp_path):
     """A Git checkout must keep the same lock checksum on Windows and Linux."""
     windows_copy = tmp_path / "windows.py"

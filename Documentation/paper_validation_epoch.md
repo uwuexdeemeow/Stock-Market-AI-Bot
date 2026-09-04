@@ -55,8 +55,9 @@ Python files themselves did not change.
 
 The independent watchdog workflow and `workflow_watchdog.py` are locked too,
 because their guarded fallback can start a missed paper-trading workflow.
-The shadow workflow and paper-vs-shadow comparator are locked because they
-decide whether validation evidence is complete or still collecting.
+The shadow workflow, journal generator, fractional simulator, and
+paper-vs-shadow comparator are locked because they decide whether validation
+evidence is complete or still collecting.
 
 The lock normalizes Windows and Linux line endings before calculating each
 text-file checksum. Git can represent the same line break differently on the
