@@ -47,6 +47,10 @@ Expected output:
 - That temporary bundle does not reuse the production robustness reports.
   This is safe only because the shadow script records hypothetical results and
   has no order-submission path.
+- Signal generation explicitly uses the research-only provisional-bundle path
+  after the temporary bundle's checksum and config fingerprint pass. The real
+  paper and broker paths do not enable this option and still require all
+  production robustness reports.
 - If the journal file exists but is empty, the script starts a fresh journal
   instead of crashing.
 

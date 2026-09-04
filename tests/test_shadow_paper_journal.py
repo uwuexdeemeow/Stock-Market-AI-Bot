@@ -36,6 +36,55 @@ def test_shadow_validation_bundle_matches_shadow_config(tmp_path):
     assert bundle["config_fingerprint"] == strategy_config_fingerprint(config)
 
 
+def test_shadow_signal_uses_nontrading_provisional_bundle_path(tmp_path, monkeypatch):
+    """Shadow can use its temporary evidence without weakening broker trading."""
+    signal_dir = tmp_path / "signals"
+    signal_dir.mkdir()
+    live_path = signal_dir / "core_satellite_live_configs.json"
+    live_path.write_text(json.dumps({"approvals": {"core-alpha": {"thresholds": {}}}}))
+    shadow_live_path = signal_dir / "shadow_core_satellite_live_configs.json"
+    captured = {}
+
+    monkeypatch.setattr(spj, "SIGNAL_DIR", str(signal_dir))
+    monkeypatch.setattr(spj, "SHADOW_LIVE_CONFIG_PATH", shadow_live_path)
+    monkeypatch.setattr(spj.csa, "LIVE_CONFIG_PATH", live_path)
+    monkeypatch.setattr(spj, "write_shadow_validation_bundle", lambda *args, **kwargs: {
+        "config_fingerprint": "shadow-fingerprint",
+        "validation_bundle_hash": "shadow-bundle",
+        "deployment": {"status": "paper_provisional", "paper_approved": True},
+    })
+    monkeypatch.setattr(spj, "validate_validation_bundle", lambda bundle: (True, []))
+    monkeypatch.setattr(spj, "strategy_config_fingerprint", lambda config: "shadow-fingerprint")
+    monkeypatch.setattr(spj.csa, "validate_sector_map_coverage", lambda: None)
+    monkeypatch.setattr(spj.csa, "_load_feature_quality_filter", lambda strict: [])
+    monkeypatch.setattr(spj.csa, "load_feature_specs", lambda: [])
+    monkeypatch.setattr(spj.csa, "_apply_live_feature_quality_filter", lambda specs, quality: specs)
+    monkeypatch.setattr(spj.csa, "load_prediction_scores", lambda: {})
+    monkeypatch.setattr(spj.csa, "load_factor_panel", lambda specs, **kwargs: pd.DataFrame())
+    monkeypatch.setattr(spj.csa, "attach_scores", lambda panel, specs, scores: panel)
+    monkeypatch.setattr(spj.csa, "_ensure_robust_score_columns", lambda panel: panel)
+    monkeypatch.setattr(spj.csa, "_validate_live_feature_inputs", lambda specs, panel: None)
+    monkeypatch.setattr(spj.csa, "check_factor_freshness", lambda panel, ignore_stale: {"blocked": False})
+    monkeypatch.setattr(spj, "update_shadow_equity", lambda *args, **kwargs: None)
+
+    def fake_generate(**kwargs):
+        # PLAIN ENGLISH: record the safety mode the journal requested, then
+        # provide one harmless pretend signal so the orchestration can finish.
+        captured.update(kwargs)
+        signal_path = signal_dir / "core_satellite_alpha_signal.csv"
+        pd.DataFrame([{"paper_ready": True}]).to_csv(signal_path, index=False)
+        return pd.DataFrame(), {}, signal_path
+
+    monkeypatch.setattr(spj.csa, "_generate_signal_from_approved_config", fake_generate)
+
+    spj.run_shadow_journal(
+        journal_path=signal_dir / "shadow_paper_journal.csv",
+        equity_path=signal_dir / "shadow_paper_equity.csv",
+    )
+
+    assert captured["allow_provisional_bundle"] is True
+
+
 def test_append_shadow_journal_replaces_same_day_same_config(tmp_path):
     journal = tmp_path / "shadow_paper_journal.csv"
     row = {

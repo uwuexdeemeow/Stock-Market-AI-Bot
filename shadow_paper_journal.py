@@ -635,6 +635,11 @@ def run_shadow_journal(
             signal_panel=signal_panel,
             specs=specs,
             freshness=freshness,
+            # PLAIN ENGLISH: the temporary shadow bundle proves its own config
+            # identity above, but deliberately has no production robustness
+            # reports because this script cannot submit orders. Use the
+            # existing research-only path so the normal broker gate stays strict.
+            allow_provisional_bundle=True,
         )
         signal = _first_signal_row(signal_path)
         journal_row = _journal_row(signal, metrics, validation_context)
