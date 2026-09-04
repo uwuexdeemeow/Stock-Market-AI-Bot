@@ -97,7 +97,9 @@ jobs:
           restore-keys: |
             factor-data-parquets-
 
-      - name: Cache shadow journal state
+      # Factor Refresh owns these generated runtime inputs. Shadow may read the
+      # newest healthy copy, but it must not mix them into its journal cache.
+      - name: Restore factor runtime state
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v6
         with:
@@ -105,6 +107,18 @@ jobs:
             signals/core_satellite_alpha_metrics.json
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
+          key: shadow-runtime-reader-${{ github.run_id }}
+          restore-keys: |
+            runtime-state-v2-
+
+      # PLAIN ENGLISH: this cache contains only the shadow account's own
+      # journal. Approved validation reports stay exactly as checked out from
+      # main, so an old cache cannot replace them and falsely block trading.
+      - name: Cache shadow journal state
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        uses: actions/cache@v6
+        with:
+          path: |
             signals/shadow_paper_journal.csv
             signals/shadow_paper_equity.csv
             signals/fractional_shadow_state.json
@@ -113,13 +127,9 @@ jobs:
             signals/fractional_shadow_report.json
             signals/fractional_shadow_compare.csv
             signals/fractional_shadow_compare.json
-            logs/factor_decay_monitor.json
-            logs/core_satellite_execution_stress.json
-            logs/core_satellite_survivorship_audit.json
-          key: shadow-state-files-${{ github.run_id }}
+          key: shadow-journal-v2-${{ github.run_id }}
           restore-keys: |
-            shadow-state-files-
-            state-files-
+            shadow-journal-v2-
 
       - name: Restore prior shadow files from signals/latest
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
@@ -445,9 +455,6 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: |
-            signals/core_satellite_alpha_metrics.json
-            signals/factor_data_health.json
-            signals/factor_decay_monitor.csv
             signals/shadow_paper_journal.csv
             signals/shadow_paper_equity.csv
             signals/paper_shadow_compare.csv
@@ -458,10 +465,7 @@ jobs:
             signals/fractional_shadow_report.json
             signals/fractional_shadow_compare.csv
             signals/fractional_shadow_compare.json
-            logs/factor_decay_monitor.json
-            logs/core_satellite_execution_stress.json
-            logs/core_satellite_survivorship_audit.json
-          key: shadow-state-files-${{ github.run_id }}
+          key: shadow-journal-v2-${{ github.run_id }}
 
       - name: Publish detailed failure annotation
         if: ${{ failure() }}

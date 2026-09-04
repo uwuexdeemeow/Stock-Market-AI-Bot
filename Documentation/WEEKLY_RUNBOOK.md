@@ -69,6 +69,10 @@ If you just want one command, find your goal here:
 
 The 9:55 AM workflow also runs the independent $400 fractional ledger. It
 submits no broker orders and leaves the $100,000 Alpaca paper account unchanged.
+Its private cache stores only shadow journals and account state. Current factor
+inputs come from the Factor Data Refresh runtime cache, while approved
+validation reports always come from the reviewed `main` branch. This prevents
+an old shadow cache from replacing safety evidence.
 
 ---
 

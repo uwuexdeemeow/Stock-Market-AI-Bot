@@ -164,6 +164,23 @@ def test_shadow_workflow_requires_safe_defaults_and_verified_evidence():
     assert all(token not in workflow for token in forbidden)
 
 
+def test_shadow_cache_cannot_overwrite_validation_evidence():
+    """Shadow restores current factor inputs but never caches approved reports."""
+    workflow = Path(".github/workflows/shadow_paper_journal.yml").read_text(encoding="utf-8")
+    # PLAIN ENGLISH: old shared caches contained tracked safety reports. A new
+    # runner could unpack those stale files over Git's reviewed versions.
+    assert "runtime-state-v2-" in workflow
+    assert "shadow-journal-v2-" in workflow
+    assert "shadow-state-files-" not in workflow
+    assert "            state-files-" not in workflow
+    for report in (
+        "logs/factor_decay_monitor.json",
+        "logs/core_satellite_execution_stress.json",
+        "logs/core_satellite_survivorship_audit.json",
+    ):
+        assert report not in workflow
+
+
 def test_alpaca_only_still_generates_shared_signal():
     steps = daily_run.build_steps(
         skip_refresh=True,
