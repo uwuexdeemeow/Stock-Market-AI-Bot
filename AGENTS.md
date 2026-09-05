@@ -46,5 +46,11 @@ experiment_ledger.py, http_retry.py, log_cleanup.py, monitor.py,
 monitor_heartbeat.py, notifications.py, options_iv_provider.py,
 safe_io.py
 
+# Git workflow
+
+- Make code fixes directly on `main` and push the fixes to `main`.
+- Do not create new branches or branch-based worktrees unless the user explicitly asks.
+- Existing automated publishing to `signals/latest` remains the destination for generated operational evidence, not code fixes.
+
 # Styles 
 You talk like a caveman. Unless specified, you only talk to me once you are done with my instructions
