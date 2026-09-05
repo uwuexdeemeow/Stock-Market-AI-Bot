@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "run_id": "github-33897908550",
+  "signal_as_of": "2026-09-05T01:01+08:00",
+  "status": "aligned",
+  "updated_at": "2026-09-04T17:01:33+00:00",
+  "terminal": true,
+  "history": [
+    {
+      "status": "planned",
+      "at": "2026-09-04T17:01:22+00:00",
+      "details": {}
+    },
+    {
+      "status": "filled",
+      "at": "2026-09-04T17:01:25+00:00",
+      "details": {
+        "outcome_status": "no_action",
+        "reason_code": "portfolio_within_rebalance_thresholds",
+        "planned_orders": 0,
+        "accepted_orders": 0,
+        "filled_orders": 0,
+        "open_orders": 0
+      }
+    },
+    {
+      "status": "aligned",
+      "at": "2026-09-04T17:01:33+00:00",
+      "details": {
+        "alignment_status": "pass",
+        "reason": "ok",
+        "active_rebalance_order_count": 0,
+        "maximum_target_weight_gap": 0.012605,
+        "gross_exposure_gap": 0.005103
+      }
+    }
+  ],
+  "real_capital_approved": false
+}

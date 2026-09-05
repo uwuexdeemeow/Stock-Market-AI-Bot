@@ -1,0 +1,9 @@
+schema_version,run_id,generated_at,status,reason_code,market_open,planned_orders,submitted_orders,accepted_orders,filled_orders,open_orders,skipped_orders,rejected_orders,failed_orders,account_alignment,errors,order_statuses
+1,20260826T193934.328603Z,2026-08-26T19:39:45+00:00,executed,orders_accepted,,6,6,6,6,0,0,0,0,"{""fail_count"": 0, ""score"": 70.0, ""status"": ""warning"", ""warning_count"": 6}",[],"{""3544df2b-d47d-4fba-93a4-c2b80a6bf670"": ""filled"", ""8a9206b6-5f92-4776-8824-1259cd6807c3"": ""filled"", ""a9ca6630-f8e6-449e-a62c-d996005d609c"": ""filled"", ""d588e7ba-9e90-4ffd-a336-f4a07cd3ce73"": ""filled"", ""ebccd4bb-d2f2-420d-aeb3-2fc986ba83cf"": ""filled"", ""ed4b917b-67f4-4b82-a3c4-916654472479"": ""filled""}"
+1,20260827T230530.427463Z,2026-08-27T23:05:31+00:00,no_action,portfolio_within_rebalance_thresholds,0.0,0,0,0,0,0,0,0,0,{},[],
+1,20260828T161005.383580Z,2026-08-28T16:10:07+00:00,no_action,portfolio_within_rebalance_thresholds,1.0,0,0,0,0,0,0,0,0,{},[],
+1,github-33431227408,2026-08-31T19:38:34+00:00,blocked,paper_version_lock_failed,,0,0,0,0,0,0,0,0,{},"[""paper_epoch_id_changed, paper_epoch_start_changed""]",
+1,github-33764832587,2026-09-03T14:10:38+00:00,executed,orders_accepted,,2,2,2,2,0,0,0,0,"{""fail_count"": 0, ""score"": 90.0, ""status"": ""warning"", ""warning_count"": 2}",[],"{""c2022762-c2ed-48e0-9886-c898de2c51c8"": ""filled"", ""f0506fa0-9e10-4e66-9b91-63a5c46eca4a"": ""filled""}"
+1,github-33782569450,2026-09-03T17:09:44+00:00,no_action,portfolio_within_rebalance_thresholds,1.0,0,0,0,0,0,0,0,0,{},[],
+1,github-33878879713,2026-09-04T13:39:04+00:00,no_action,portfolio_within_rebalance_thresholds,1.0,0,0,0,0,0,0,0,0,{},[],
+1,github-33897908550,2026-09-04T17:01:25+00:00,no_action,portfolio_within_rebalance_thresholds,1.0,0,0,0,0,0,0,0,0,{},[],

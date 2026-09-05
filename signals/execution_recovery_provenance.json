@@ -1,0 +1,66 @@
+{
+  "purpose": "Recover original operational records lost during branch publication; no orders sent",
+  "sources": [
+    {
+      "run_id": "github-33764832587",
+      "original_manifest_sha256": "0e3407b074e73a8c2f80e2ee25acad4d8375abeefd0d87d1f86865adc6b810d2"
+    },
+    {
+      "run_id": "github-33782569450",
+      "original_manifest_sha256": "41a2824855ca396caccef771ff54ef68d9c7fe3ebeb95642b12d8c8944e0fa9b"
+    },
+    {
+      "run_id": "github-33878879713",
+      "original_manifest_sha256": "93c761079835c920a79cc6709cc3a42279b479111f878c602824b75178796561"
+    },
+    {
+      "run_id": "github-33897908550",
+      "original_manifest_sha256": "3bc771dd481ab92801f446300cc5d84ad4b9eb4b07690ffaa99cdee38d94f08d"
+    }
+  ],
+  "files": {
+    "alpaca_paper_log.csv": {
+      "rows": 8,
+      "identity": "order_id",
+      "sha256": "819982606117f58a5738d182cc56db29c3d12e72eae7f5cad7b5a98edfc362cf"
+    },
+    "alpaca_submit_outcomes.csv": {
+      "rows": 8,
+      "identity": "run_id",
+      "sha256": "cff3eeec75d8469d424a21cb4f76839d9378d33b98446a2baa2361faef426479"
+    },
+    "alpaca_paper_equity.csv": {
+      "rows": 9,
+      "identity": "date",
+      "sha256": "0ae58115989ea27c04f47fa028607e813b984e895b6e142bca13fd807798e642"
+    },
+    "core_satellite_alpha_signal.csv": {
+      "source_run": "github-33897908550",
+      "sha256": "3df5b79dbcb0d777f1f8fe17e1ab073a43cc048a7ecb19197ef5a16e72c10a09"
+    },
+    "core_satellite_alpha_orders.csv": {
+      "source_run": "github-33897908550",
+      "sha256": "7caba6295972d2d7dcf5467e0127e1fbfb73eced6159ed4b3a0118d0f420831e"
+    },
+    "core_satellite_alpha_input_snapshot.csv": {
+      "source_run": "github-33897908550",
+      "sha256": "8bf8505882c8fdf05ccb048b237c6f20db90c975c847b667446ab00366e69042"
+    },
+    "core_satellite_alpha_metrics.json": {
+      "source_run": "github-33897908550",
+      "sha256": "2108738d24acacdcda178e246d9f908e85924cc767465b6ce77db852a2dd6101"
+    },
+    "alpaca_submit_outcome.json": {
+      "source_run": "github-33897908550",
+      "sha256": "fcdbfbecdb10291417a9e1253a5380af79cd2eca441290139827f6c73b715e4e"
+    },
+    "workflow_heartbeat_daily.json": {
+      "source_run": "github-33897908550",
+      "sha256": "285e027d6a30f3a773bbbdef898ea2b64893d364cc157430c421fadd7c58f0bf"
+    },
+    "rebalance_state.json": {
+      "source_run": "github-33897908550",
+      "sha256": "dd9e5f4c92a109aacfc2de1bf0bba5bc7922cae83964577a1670ae1030e1bdf7"
+    }
+  }
+}

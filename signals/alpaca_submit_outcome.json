@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "run_id": "github-33897908550",
+  "generated_at": "2026-09-04T17:01:25+00:00",
+  "status": "no_action",
+  "reason_code": "portfolio_within_rebalance_thresholds",
+  "market_open": true,
+  "planned_orders": 0,
+  "submitted_orders": 0,
+  "accepted_orders": 0,
+  "filled_orders": 0,
+  "open_orders": 0,
+  "skipped_orders": 0,
+  "rejected_orders": 0,
+  "failed_orders": 0,
+  "account_alignment": {},
+  "errors": []
+}
