@@ -22,17 +22,17 @@
     "alpaca_paper_log.csv": {
       "rows": 8,
       "identity": "order_id",
-      "sha256": "819982606117f58a5738d182cc56db29c3d12e72eae7f5cad7b5a98edfc362cf"
+      "sha256": "4d78586c3be72d6ec53cd08edbd723c002da0d2da68e429b22950257b3e2335e"
     },
     "alpaca_submit_outcomes.csv": {
       "rows": 8,
       "identity": "run_id",
-      "sha256": "cff3eeec75d8469d424a21cb4f76839d9378d33b98446a2baa2361faef426479"
+      "sha256": "f2711b33ddd02c5f50cc3af38d9f4afc7945b81db3bf9afab5a9405321c43dba"
     },
     "alpaca_paper_equity.csv": {
       "rows": 9,
       "identity": "date",
-      "sha256": "0ae58115989ea27c04f47fa028607e813b984e895b6e142bca13fd807798e642"
+      "sha256": "fb677bd063856959356a4aef8a7044be788128925d46d986b65f15b085be36da"
     },
     "core_satellite_alpha_signal.csv": {
       "source_run": "github-33897908550",
@@ -48,7 +48,7 @@
     },
     "core_satellite_alpha_metrics.json": {
       "source_run": "github-33897908550",
-      "sha256": "2108738d24acacdcda178e246d9f908e85924cc767465b6ce77db852a2dd6101"
+      "sha256": "fdc98bc574257477f14e0e40965fc436967c97ecce530db1fc1a62b56c45e8bf"
     },
     "alpaca_submit_outcome.json": {
       "source_run": "github-33897908550",
@@ -56,11 +56,12 @@
     },
     "workflow_heartbeat_daily.json": {
       "source_run": "github-33897908550",
-      "sha256": "285e027d6a30f3a773bbbdef898ea2b64893d364cc157430c421fadd7c58f0bf"
+      "sha256": "508a86e9f6c77024e877b84d157e8e09870f1ea97afb2813104e5daf9965256a"
     },
     "rebalance_state.json": {
       "source_run": "github-33897908550",
       "sha256": "dd9e5f4c92a109aacfc2de1bf0bba5bc7922cae83964577a1670ae1030e1bdf7"
     }
-  }
+  },
+  "checksum_encoding": "Exact Git blob bytes (repository-normalized line endings)"
 }
