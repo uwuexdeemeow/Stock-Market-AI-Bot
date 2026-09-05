@@ -1,59 +1,165 @@
 {
-  "generated_at": "2026-09-04T23:04:33+00:00",
+  "generated_at": "2026-09-05T09:46:05+00:00",
   "strategy": "core_satellite_alpha",
-  "paper_ready": false,
-  "gates_all_pass": false,
-  "medium_risk_review_pass": false,
-  "strategy_ready": false,
-  "readiness_block_reasons": [
-    "paper_ready=false",
-    "gates_all_pass=false",
-    "medium_risk_review_pass=false"
-  ],
-  "readiness_source": "alpaca_daily_status.json",
-  "freshness_ok": false,
-  "freshness_issues": [
-    "missing_signal_file"
-  ],
-  "freshness_source": "alpaca_daily_status.json",
-  "paper_equity_days": 1,
-  "paper_equity_rows": 1,
-  "paper_trades": 0,
-  "submitted_orders": 0,
+  "paper_ready": true,
+  "gates_all_pass": true,
+  "medium_risk_review_pass": true,
+  "strategy_ready": true,
+  "readiness_block_reasons": [],
+  "readiness_source": "core_satellite_alpha_signal.csv",
+  "freshness_ok": true,
+  "freshness_issues": [],
+  "freshness_source": "core_satellite_alpha_signal.csv",
+  "paper_equity_days": 10,
+  "paper_equity_rows": 10,
+  "paper_trades": 8,
+  "submitted_orders": 8,
   "skipped_orders": 0,
   "submission_failed_orders": 0,
-  "fill_status_counts": {},
-  "current_signal_fill_status_counts": {},
+  "fill_status_counts": {
+    "filled": 8
+  },
+  "current_signal_fill_status_counts": {
+    "filled": 8
+  },
   "current_signal_open_orders": 0,
-  "current_order_lifecycle": [],
+  "current_order_lifecycle": [
+    {
+      "ticker": "SPY",
+      "action": "SELL",
+      "broker_order_id": "a9ca6630-f8e6-449e-a62c-d996005d609c",
+      "fill_status": "filled",
+      "broker_order_status": "filled",
+      "requested_qty": 46.0,
+      "filled_qty": 46.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-08-26T19:39:40.091988+00:00",
+      "broker_updated_time": ""
+    },
+    {
+      "ticker": "COP",
+      "action": "SELL",
+      "broker_order_id": "ebccd4bb-d2f2-420d-aeb3-2fc986ba83cf",
+      "fill_status": "filled",
+      "broker_order_status": "filled",
+      "requested_qty": 131.0,
+      "filled_qty": 131.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-08-26T19:39:40.091988+00:00",
+      "broker_updated_time": ""
+    },
+    {
+      "ticker": "QQQ",
+      "action": "BUY",
+      "broker_order_id": "8a9206b6-5f92-4776-8824-1259cd6807c3",
+      "fill_status": "filled",
+      "broker_order_status": "filled",
+      "requested_qty": 90.0,
+      "filled_qty": 90.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-08-26T19:39:40.091988+00:00",
+      "broker_updated_time": ""
+    },
+    {
+      "ticker": "MU",
+      "action": "BUY",
+      "broker_order_id": "3544df2b-d47d-4fba-93a4-c2b80a6bf670",
+      "fill_status": "filled",
+      "broker_order_status": "filled",
+      "requested_qty": 23.0,
+      "filled_qty": 23.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-08-26T19:39:40.091988+00:00",
+      "broker_updated_time": ""
+    },
+    {
+      "ticker": "INTC",
+      "action": "BUY",
+      "broker_order_id": "ed4b917b-67f4-4b82-a3c4-916654472479",
+      "fill_status": "filled",
+      "broker_order_status": "filled",
+      "requested_qty": 208.0,
+      "filled_qty": 208.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-08-26T19:39:40.091988+00:00",
+      "broker_updated_time": ""
+    },
+    {
+      "ticker": "FCX",
+      "action": "BUY",
+      "broker_order_id": "d588e7ba-9e90-4ffd-a336-f4a07cd3ce73",
+      "fill_status": "filled",
+      "broker_order_status": "filled",
+      "requested_qty": 30.0,
+      "filled_qty": 30.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-08-26T19:39:40.091988+00:00",
+      "broker_updated_time": ""
+    },
+    {
+      "ticker": "INTC",
+      "action": "BUY",
+      "broker_order_id": "f0506fa0-9e10-4e66-9b91-63a5c46eca4a",
+      "fill_status": "filled",
+      "broker_order_status": "filled",
+      "requested_qty": 205.0,
+      "filled_qty": 205.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-09-03T14:10:34.575072+00:00",
+      "broker_updated_time": ""
+    },
+    {
+      "ticker": "FCX",
+      "action": "BUY",
+      "broker_order_id": "c2022762-c2ed-48e0-9886-c898de2c51c8",
+      "fill_status": "filled",
+      "broker_order_status": "filled",
+      "requested_qty": 30.0,
+      "filled_qty": 30.0,
+      "unfilled_qty": 0.0,
+      "submitted_at": "2026-09-03T14:10:34.575072+00:00",
+      "broker_updated_time": ""
+    }
+  ],
   "stale_open_order_alerts": [],
   "drift_breakdown": [],
   "current_signal_paper_trades": 0,
   "fill_stats_scope": null,
-  "filled_orders": 0,
-  "fill_rate": 0.0,
+  "filled_orders": 8,
+  "fill_rate": 1.0,
   "cancel_rate": 0.0,
-  "account_equity": 110303.14,
+  "account_equity": 110471.01,
   "account_alignment": {
-    "status": "collecting",
-    "passed": false,
-    "reason": "broker_truth_target_comparison_unavailable",
-    "comparable_tickers": 0,
-    "max_weight_gap": null,
-    "current_gross_exposure": null,
-    "target_gross_exposure": null,
-    "gross_exposure_gap": null
+    "status": "pass",
+    "passed": true,
+    "reason": "ok",
+    "comparable_tickers": 6,
+    "max_weight_gap": 0.014268,
+    "current_gross_exposure": 0.994911,
+    "target_gross_exposure": 1.0,
+    "gross_exposure_gap": 0.005089,
+    "active_rebalance_order_count": 0,
+    "waited_seconds": 0.0,
+    "source": "broker_truth_canonical",
+    "recovery_plan_path": "",
+    "recovery_plan_rows": 0,
+    "recovery_review_required": false,
+    "recovery_orders_submitted": false,
+    "incident_ledger_path": "",
+    "alignment_incidents_total": 0,
+    "alignment_incidents_open": 0,
+    "current_alignment_incident_id": ""
   },
-  "account_alignment_status": "collecting",
-  "current_gross_exposure": null,
-  "target_gross_exposure": null,
-  "max_drift_abs": null,
+  "account_alignment_status": "pass",
+  "current_gross_exposure": 0.994911,
+  "target_gross_exposure": 1.0,
+  "max_drift_abs": 0.014268,
   "gauntlet_status": "failed",
   "approved_for_real_capital": false,
-  "gauntlet_reason": "trading_days 1 < 20 minimum; no submitted paper orders found; signal not fresh: signal file not found",
+  "gauntlet_reason": "trading_days 10 < 20 minimum",
   "slippage": {
     "source": "alpaca_slippage_reversal_report.json",
-    "report_generated_at": "2026-09-04T23:04:29+00:00",
+    "report_generated_at": "2026-09-05T09:45:58+00:00",
     "latest_fill_at": "2026-09-03T14:10:35+00:00",
     "filled_orders_with_slippage": 14,
     "avg_slippage_bps": -0.64,
@@ -288,49 +394,49 @@
   },
   "slippage_warning": false,
   "equity_risk": {
-    "paper_return_pct": null,
-    "paper_drawdown_pct": null,
+    "paper_return_pct": 3.314,
+    "paper_drawdown_pct": 0.0,
     "paper_drawdown_warning": false
   },
   "equity_sanity": {
     "ok": true,
     "warnings": [],
-    "max_abs_daily_move_pct": null,
+    "max_abs_daily_move_pct": 2.632,
     "threshold_pct": 25.0
   },
   "concentration": {
     "ticker_weights": {
-      "FCX": 0.019781,
-      "INTC": 0.177934,
-      "MU": 0.211373,
-      "QQQ": 0.585816
+      "FCX": 0.019751,
+      "INTC": 0.177775,
+      "MU": 0.211653,
+      "QQQ": 0.585732
     },
     "core_ticker_weights": {
-      "QQQ": 0.585816
+      "QQQ": 0.585732
     },
     "overlay_ticker_weights": {
-      "FCX": 0.019781,
-      "INTC": 0.177934,
-      "MU": 0.211373
+      "FCX": 0.019751,
+      "INTC": 0.177775,
+      "MU": 0.211653
     },
     "sector_weights": {
-      "OTHER": 0.585816,
-      "XLB": 0.019781,
-      "XLK": 0.389307
+      "OTHER": 0.585732,
+      "XLB": 0.019751,
+      "XLK": 0.389429
     },
     "overlay_sector_weights": {
-      "XLB": 0.019781,
-      "XLK": 0.389307
+      "XLB": 0.019751,
+      "XLK": 0.389429
     },
-    "max_ticker_weight": 0.585816,
+    "max_ticker_weight": 0.585732,
     "max_ticker": "QQQ",
-    "max_core_ticker_weight": 0.585816,
+    "max_core_ticker_weight": 0.585732,
     "max_core_ticker": "QQQ",
-    "max_overlay_ticker_weight": 0.211373,
+    "max_overlay_ticker_weight": 0.211653,
     "max_overlay_ticker": "MU",
-    "max_sector_weight": 0.585816,
+    "max_sector_weight": 0.585732,
     "max_sector": "OTHER",
-    "max_overlay_sector_weight": 0.389307,
+    "max_overlay_sector_weight": 0.389429,
     "max_overlay_sector": "XLK",
     "ticker_concentration_warning": false,
     "core_ticker_concentration_warning": false,
@@ -340,7 +446,7 @@
   },
   "open_position_attribution": {
     "data_available": false,
-    "reason": "need_current_positions_and_filled_trades"
+    "reason": "no_filled_buy_orders"
   },
   "factor_data": {
     "latest_data_date": "2026-09-03",
@@ -349,20 +455,29 @@
     "missing_or_unreadable_sample": []
   },
   "backtest_vs_live_drift": {
-    "data_available": false,
-    "reason": "too_few_live_days (1 < 10)",
+    "data_available": true,
+    "reason": "ok",
     "warnings": [],
     "backtest_mean_oos_sharpe": 1.558,
     "backtest_mean_oos_cagr_pct": 30.07,
     "backtest_worst_oos_drawdown_pct": -22.89,
-    "backtest_mean_oos_drawdown_pct": -8.1
+    "backtest_mean_oos_drawdown_pct": -8.1,
+    "live_equity_days": 10,
+    "live_total_return_pct": 3.314,
+    "live_annualised_cagr_pct": 127.403,
+    "live_annualised_sharpe": 4.776,
+    "live_max_drawdown_pct": -1.938,
+    "drawdown_ratio_vs_worst_oos": 0.085,
+    "sharpe_fraction_of_backtest": 3.066,
+    "cagr_gap_pct": -97.333,
+    "drift_detected": false
   },
   "readiness_flags": {
-    "strategy_ready": false,
-    "signal_fresh": false,
-    "broker_synced": false,
-    "account_alignment_status": "collecting",
-    "account_aligned": false,
+    "strategy_ready": true,
+    "signal_fresh": true,
+    "broker_synced": true,
+    "account_alignment_status": "pass",
+    "account_aligned": true,
     "slippage_ok": true,
     "drawdown_ok": true,
     "concentration_ok": true,
@@ -370,20 +485,20 @@
     "backtest_drift_ok": true
   },
   "go_live_scorecard": {
-    "passed": 5,
+    "passed": 10,
     "total": 11,
     "ready": false,
     "criteria": [
       {
         "name": "strategy_ready",
-        "passed": false,
-        "actual": false,
+        "passed": true,
+        "actual": true,
         "target": true
       },
       {
         "name": "signal_fresh",
-        "passed": false,
-        "actual": false,
+        "passed": true,
+        "actual": true,
         "target": true
       },
       {
@@ -394,29 +509,29 @@
       },
       {
         "name": "broker_synced",
-        "passed": false,
-        "actual": false,
+        "passed": true,
+        "actual": true,
         "target": true
       },
       {
         "name": "paper_equity_days",
         "passed": false,
-        "actual": 1,
+        "actual": 10,
         "target": 20
       },
       {
         "name": "fill_rate",
-        "passed": false,
-        "actual": 0.0,
+        "passed": true,
+        "actual": 1.0,
         "target": 0.95
       },
       {
         "name": "max_drift_abs",
-        "status": "collecting",
-        "passed": false,
-        "actual": null,
+        "status": "pass",
+        "passed": true,
+        "actual": 0.014268,
         "target": 0.02,
-        "reason": "broker_truth_target_comparison_unavailable"
+        "reason": "ok"
       },
       {
         "name": "avg_slippage_bps",
@@ -446,11 +561,9 @@
   },
   "readiness": {
     "status": "fail",
-    "reason": "strategy_submission_gates_not_ready",
+    "reason": "paper_version_lock_invalid",
     "blockers": [
-      "strategy_submission_gates_not_ready",
-      "signal_or_factor_data_not_fresh",
-      "alpaca_alignment_evidence_unavailable:broker_truth_target_comparison_unavailable"
+      "paper_version_lock_invalid"
     ],
     "collecting_reasons": [
       "execution_evidence_collecting",
@@ -459,21 +572,30 @@
     ],
     "warnings": [],
     "recommended_actions": [
-      "Review the signal gate reasons; do not override submission gates.",
-      "Refresh and validate market data before the next trading run.",
-      "Run live broker reconciliation and confirm account equity and positions are available."
+      "Freeze the final committed safety release, then start a clean validation epoch."
     ],
-    "signal_as_of": "",
+    "signal_as_of": "2026-09-04T17:01:00+00:00",
     "components": {
       "alignment": {
-        "status": "collecting",
-        "passed": false,
-        "reason": "broker_truth_target_comparison_unavailable",
-        "comparable_tickers": 0,
-        "max_weight_gap": null,
-        "current_gross_exposure": null,
-        "target_gross_exposure": null,
-        "gross_exposure_gap": null
+        "status": "pass",
+        "passed": true,
+        "reason": "ok",
+        "comparable_tickers": 6,
+        "max_weight_gap": 0.014268,
+        "current_gross_exposure": 0.994911,
+        "target_gross_exposure": 1.0,
+        "gross_exposure_gap": 0.005089,
+        "active_rebalance_order_count": 0,
+        "waited_seconds": 0.0,
+        "source": "broker_truth_canonical",
+        "recovery_plan_path": "",
+        "recovery_plan_rows": 0,
+        "recovery_review_required": false,
+        "recovery_orders_submitted": false,
+        "incident_ledger_path": "",
+        "alignment_incidents_total": 0,
+        "alignment_incidents_open": 0,
+        "current_alignment_incident_id": ""
       },
       "execution": {
         "status": "collecting",
@@ -489,10 +611,27 @@
         "decision_eligible": false
       },
       "validation_epoch": {
-        "status": "missing",
-        "checks": {},
-        "trading_days": null,
-        "paper_version_lock_valid": null
+        "status": "collecting",
+        "checks": {
+          "trading_days": false,
+          "rebalance_events": false,
+          "accepted_orders": false,
+          "classified_sessions": false,
+          "duplicate_orders": true,
+          "classifiable_orders": true,
+          "unexplained_orders": true,
+          "target_weight_gap": true,
+          "gross_exposure_gap": true,
+          "critical_incidents": true,
+          "fill_rate": true,
+          "average_slippage": false,
+          "bad_slippage_rate": false,
+          "stage_comparison_ready": false,
+          "two_stage_design": false,
+          "paper_version_lock": false
+        },
+        "trading_days": 3,
+        "paper_version_lock_valid": false
       },
       "workflow_continuity": {
         "status": "collecting",
@@ -505,33 +644,29 @@
       }
     },
     "evidence_run_ids": {
-      "broker_truth": "paper-20260904T230430Z-a335db07",
-      "execution_scorecard": "paper-20260904T230431Z-1a44338f",
-      "validation_epoch": "",
+      "broker_truth": "post-market-33958808537-1",
+      "execution_scorecard": "post-market-33958808537-1",
+      "validation_epoch": "post-market-33958808537-1",
       "monitor_heartbeat": ""
     },
     "real_capital_approved": false
   },
   "status": "fail",
   "blockers": [
-    "strategy_submission_gates_not_ready",
-    "signal_or_factor_data_not_fresh",
-    "alpaca_alignment_evidence_unavailable:broker_truth_target_comparison_unavailable"
+    "paper_version_lock_invalid"
   ],
   "recommended_actions": [
-    "Review the signal gate reasons; do not override submission gates.",
-    "Refresh and validate market data before the next trading run.",
-    "Run live broker reconciliation and confirm account equity and positions are available."
+    "Freeze the final committed safety release, then start a clean validation epoch."
   ],
   "run_context": {
-    "run_id": "paper-20260904T230434Z-fb089ee2",
-    "generated_at": "2026-09-04T23:04:34+00:00",
-    "signal_as_of": "",
-    "git_commit": "91fd2056cd95ec36504e13dae777a937b2cd680d",
+    "run_id": "post-market-33958808537-1",
+    "generated_at": "2026-09-05T09:46:05+00:00",
+    "signal_as_of": "2026-09-04T17:01:00+00:00",
+    "git_commit": "502324200bd4e453522279749f32dd28590c2220",
     "configuration_fingerprint": "883fe6d211e504e9bc4bd7832f09ec5ea5575692a861fd11e2b32c08a374e40e",
     "paper_version_fingerprint": "043d8ed08eebdaca08ace66d03169cf3626e94f2c36cc410f3f20fe642118305",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "paper-20260904T230434Z-fb089ee2",
+  "run_id": "post-market-33958808537-1",
   "broker": "alpaca"
 }

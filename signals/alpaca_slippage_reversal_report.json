@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-09-04T23:04:29+00:00",
-  "measurement_cutoff_60m": "2026-09-04T22:04:29+00:00",
+  "generated_at": "2026-09-05T09:45:58+00:00",
+  "measurement_cutoff_60m": "2026-09-05T08:45:58+00:00",
   "source": "alpaca_api",
   "api_order_limit": 100,
   "lookback_orders": 100,
