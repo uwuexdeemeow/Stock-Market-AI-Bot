@@ -442,10 +442,15 @@ def _stage_comparison(slippage_report: dict, *, now: datetime, lookback_days: in
         slip = _metric_values(group, "slippage_bps")
         latency = _metric_values(group, "fill_latency_seconds")
         output[stage] = {
-            "orders": int(len(group)),
-            "filled_orders": int(len(group)),
+            # The API price report contains only children with some fill.
+            # It omits canceled zero-fill attempts, so it cannot establish
+            # an acceptance denominator or a complete-fill rate by stage.
+            "orders": None,
+            "filled_orders": None,
+            "any_filled_orders": int(len(group)),
             "measured_fills": int(len(slip)),
-            "fill_rate": 1.0 if group else None,
+            "fill_rate": None,
+            "fill_rate_reason": "price_report_excludes_unfilled_attempts",
             "avg_slippage_bps": round(float(np.mean(slip)), 3) if slip else None,
             "median_slippage_bps": round(float(np.median(slip)), 3) if slip else None,
             "material_bad_rate": _rate(sum(value > BAD_SLIPPAGE_BPS for value in slip), len(slip)),
@@ -619,6 +624,16 @@ def build_execution_scorecard(
     throttle = _throttle_summary(log)
     report_rows = _filter_report_rows(slippage_report, now=clock, days=lookback_days)
     rebalance_report_rows = [row for row in report_rows if _row_group(row) == "rebalance"]
+    # Match broker children to the original journal, including canceled first
+    # attempts whose IDs are retained beside the final parent row.
+    journal_ids = set()
+    for column in ("order_id", "stage1_order_id", "stage2_order_id"):
+        if column in log:
+            journal_ids.update(str(value).strip() for value in log[column].dropna())
+    unmatched_fill_ids = sorted({
+        str(row["order_id"]) for row in rebalance_report_rows
+        if row.get("order_id") and str(row["order_id"]) not in journal_ids
+    })
 
     accepted_orders = int(accounting["accepted_logical_orders"])
     filled_orders = int(accounting["fully_filled_logical_orders"])
@@ -667,6 +682,7 @@ def build_execution_scorecard(
         and sessions >= int(min_rebalance_sessions)
         and fill_rate is not None
         and skipped_rate is not None
+        and not unmatched_fill_ids
     )
     coverage_fields = (
         ("slippage", report_metrics.get("slippage_measured_orders"), report_metrics.get("slippage_coverage_rate")),
@@ -678,6 +694,16 @@ def build_execution_scorecard(
         for name, measured_count, _coverage in coverage_fields
         if int(measured_count or 0) < MIN_DECISION_ORDERS
     ]
+    # Price measurements alone cannot prove that intended orders completed.
+    # Missing journal denominators stay unknown even with many broker fills.
+    if fill_rate is None:
+        decision_blockers.append("fill_rate_unknown")
+    if unmatched_fill_ids:
+        decision_blockers.append(f"broker_fills_missing_from_journal_{len(unmatched_fill_ids)}")
+    if skipped_rate is None:
+        decision_blockers.append("skipped_rate_unknown")
+    if sessions < int(min_rebalance_sessions):
+        decision_blockers.append(f"rebalance_sessions_{sessions}_below_{min_rebalance_sessions}")
     if int(accounting["unclassifiable_rows"]) > 0:
         decision_blockers.append(f"unclassifiable_order_rows_{int(accounting['unclassifiable_rows'])}")
     if int(accounting["unclassifiable_logical_orders"]) > 0:
@@ -695,6 +721,9 @@ def build_execution_scorecard(
         or (report_metrics.get("bad_slippage_rate") is not None and report_metrics["bad_slippage_rate"] > WARN_BAD_SLIPPAGE_RATE)
     )
     status, score = _overall_status(checks, sample_ready=sample_ready, warning=warning)
+    if fill_rate is None or skipped_rate is None or unmatched_fill_ids:
+        # Do not display a perfect overall score for a missing order journal.
+        score = None
 
     prior_summary = previous.get("summary", {}) if isinstance(previous, dict) else {}
     prior_avg = _to_float(prior_summary.get("avg_slippage_bps"))
@@ -732,6 +761,8 @@ def build_execution_scorecard(
         "lookback_days": int(lookback_days),
         "summary": {
             "paper_log_rows": total_rows,
+            "unmatched_broker_fill_count": len(unmatched_fill_ids),
+            "unmatched_broker_fill_ids": unmatched_fill_ids,
             "accepted_orders": accepted_orders,
             "filled_orders": filled_orders,
             "any_filled_orders": any_filled_orders,

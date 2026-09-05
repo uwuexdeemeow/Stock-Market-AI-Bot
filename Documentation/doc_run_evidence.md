@@ -27,3 +27,12 @@ when required files are missing, unreadable, or belong to different runs.
 - **Input snapshot:** the exact latest feature rows used to calculate a target.
 - **Rebalance lifecycle:** planned, submitted, partially filled, filled,
   rejected/timed out, and finally aligned.
+
+## Required operational records
+Run `python run_evidence.py --check --json` within the same STOCKBOT_RUN_ID as
+the daily pipeline. Exit zero means the evidence bundle is complete; nonzero
+lists missing, unreadable or mixed-run files. Signal, intended order plan,
+paper journal and submission-outcome history must exist and be readable,
+in addition to the four same-run reports. A header-only order CSV can mean no
+orders; an absent file is not evidence of no orders. Submission outcomes are
+multi-run history, so an older last row is valid on a no-action day.

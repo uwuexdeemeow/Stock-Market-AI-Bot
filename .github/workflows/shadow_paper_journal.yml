@@ -422,8 +422,11 @@ jobs:
             fi
           done
           if [ -f "$tmp_shadow_dir/shadow_paper_journal.csv" ] || [ -f "$tmp_shadow_dir/shadow_paper_equity.csv" ]; then
-            git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest || true
-            git checkout -B signals/latest origin/signals/latest 2>/dev/null || git checkout -B signals/latest
+            # Save generated files before switching. A failed checkout must
+            # stop publication, never fall back to main and erase paper logs.
+            git stash push --include-untracked --message "shadow generated evidence"
+            git fetch --quiet origin +signals/latest:refs/remotes/origin/signals/latest
+            git checkout -B signals/latest origin/signals/latest
             mkdir -p signals
             for f in \
                 shadow_paper_journal.csv \
@@ -443,7 +446,7 @@ jobs:
               fi
             done
             git commit -m "signals: $(date -u +%Y-%m-%d) shadow paper journal #${{ github.run_number }}" || echo "No shadow journal changes to commit"
-            git push origin signals/latest --force
+            git push origin signals/latest
           else
             echo "No shadow files produced."
           fi

@@ -175,6 +175,9 @@ def test_daily_workflow_preserves_fractional_state_on_signals_branch():
         "fractional_shadow_report.json",
         "fractional_shadow_compare.json",
     ):
-        # Each file appears in the artifact, preservation, restoration, and add
-        # lists. Requiring several appearances catches accidental state loss.
-        assert workflow.count(filename) >= 4
+        # The publisher now retains the whole remote branch, rather than
+        # maintaining repeated copy lists. Its actual behavior is exercised
+        # by test_evidence_publication against a disposable remote.
+        assert filename in workflow
+    assert "git checkout -B signals/latest origin/signals/latest" in workflow
+    assert "git push origin signals/latest --force" not in workflow

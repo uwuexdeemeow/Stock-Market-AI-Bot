@@ -142,7 +142,11 @@ def classify_logical_orders(frame: pd.DataFrame) -> dict:
             duplicate_logical_orders += 1
 
         requested_values = [
-            _number(row, "requested_quantity", "quantity", "qty")
+            # The journal's quantity is the actual order after cash clamping;
+            # requested_quantity may describe the larger, pre-clamp wish.
+            (_number(row, "requested_quantity", "quantity", "qty")
+             if CHILD_SUFFIX.search(_text(row, "client_order_id"))
+             else _number(row, "quantity", "requested_quantity", "qty"))
             for _, row in group.iterrows()
         ]
         requested = max((value for value in requested_values if value is not None), default=None)
@@ -154,13 +158,26 @@ def classify_logical_orders(frame: pd.DataFrame) -> dict:
         # separate child rows need summing. Taking the maximum protects the
         # normal journal shape from being counted twice.
         separate_children = bool(set(attempt_ids) & {"a1", "a2"}) and len(group) > 1
-        filled_qty = sum(filled_values) if separate_children else max(filled_values, default=0.0)
+        if separate_children and not any(_text(row, "stage1_order_id", "stage2_order_id") for _, row in group.iterrows()):
+            # Broker snapshots repeat cumulative fills. Count each child ID
+            # once, taking its largest observed filled quantity.
+            child_fills: dict[str, float] = {}
+            for (_, row), value in zip(group.iterrows(), filled_values):
+                child_id = _text(row, "order_id", "broker_order_id")
+                child_fills[child_id] = max(child_fills.get(child_id, 0.0), value)
+            filled_qty = sum(child_fills.values())
+        else:
+            filled_qty = max(filled_values, default=0.0)
         status_values = {
             _text(row, "fill_status", "status").lower() for _, row in group.iterrows()
         }
         fully_filled = bool(
             (requested is not None and requested > 0 and filled_qty >= requested - 1e-9)
-            or ("filled" in status_values and requested is not None)
+            # Legacy logs sometimes have no fill quantity. A child saying
+            # filled must never override a known shortfall in the parent.
+            or ("filled" in status_values and requested is not None
+                and not separate_children
+                and all(_number(row, "filled_qty", "broker_dealt_qty") is None for _, row in group.iterrows()))
         )
         any_filled = bool(filled_qty > 0 or status_values & {"filled", "partial", "partially_filled"})
         partial = any_filled and not fully_filled

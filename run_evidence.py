@@ -44,6 +44,7 @@ OPTIONAL_EVIDENCE_FILES = (
     SIGNALS / "alpaca_paper_log.csv",
     SIGNALS / "alpaca_paper_equity.csv",
     SIGNALS / "alpaca_submit_outcome.json",
+    SIGNALS / "alpaca_submit_outcomes.csv",
     SIGNALS / "alignment_incident_ledger.csv",
     SIGNALS / "operational_incident_ledger.csv",
     SIGNALS / "rebalance_state.json",
@@ -51,6 +52,7 @@ OPTIONAL_EVIDENCE_FILES = (
 MULTI_RUN_HISTORY_FILES = {
     "alpaca_paper_log.csv",
     "alpaca_paper_equity.csv",
+    "alpaca_submit_outcomes.csv",
     "alignment_incident_ledger.csv",
     "operational_incident_ledger.csv",
 }
@@ -222,6 +224,12 @@ def build_evidence_manifest(
     output_path: Path = MANIFEST_FILE,
     now: datetime | None = None,
     write: bool = True,
+    operational_files: tuple[Path, ...] = (
+        SIGNALS / "core_satellite_alpha_signal.csv",
+        SIGNALS / "core_satellite_alpha_orders.csv",
+        SIGNALS / "alpaca_paper_log.csv",
+        SIGNALS / "alpaca_submit_outcomes.csv",
+    ),
 ) -> dict[str, Any]:
     """Validate a complete same-run evidence bundle and optionally publish it."""
     clock = now or datetime.now(timezone.utc)
@@ -229,7 +237,8 @@ def build_evidence_manifest(
     files: dict[str, dict[str, Any]] = {}
     problems: list[str] = []
     required_set = {Path(path).name for path in required_files}
-    all_files = tuple(required_files) + tuple(
+    required_set.update(path.name for path in operational_files)
+    all_files = tuple(required_files) + tuple(operational_files) + tuple(
         path for path in OPTIONAL_EVIDENCE_FILES if path.name not in required_set
     )
     for path in all_files:
@@ -263,9 +272,18 @@ def build_evidence_manifest(
             problems.append(f"unreadable:{path.name}")
         elif observed_run and observed_run != run_id and path.name not in MULTI_RUN_HISTORY_FILES:
             problems.append(f"mixed_run:{path.name}:{observed_run or 'missing'}")
-        elif path.name in required_set and not observed_run:
+        elif path in required_files and not observed_run:
             problems.append(f"mixed_run:{path.name}:missing")
         files[path.name] = entry
+    for path in operational_files:
+        # A header-only order plan/journal can honestly mean no orders. A
+        # missing or unreadable file cannot mean the same thing.
+        if path.is_file():
+            try:
+                frame = pd.read_csv(path)
+                files[path.name]["readable"] = bool(len(frame.columns))
+            except Exception:
+                problems.append(f"unreadable:{path.name}")
     manifest = {
         "schema_version": 1,
         "generated_at": clock.isoformat(timespec="seconds"),

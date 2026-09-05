@@ -270,7 +270,8 @@ def test_each_execution_metric_uses_its_own_measured_denominator(tmp_path, monke
     assert summary["adverse_15m_rate"] == 0.5556
     assert summary["adverse_60m_measured_orders"] == 14
     assert summary["adverse_60m_rate"] == 0.6429
-    assert payload["decision_eligible"] is True
+    assert payload["decision_eligible"] is False
+    assert any("rebalance_sessions" in reason for reason in payload["decision_blockers"])
 
 
 def test_fresh_unmeasured_fills_make_scorecard_ineligible(tmp_path, monkeypatch):

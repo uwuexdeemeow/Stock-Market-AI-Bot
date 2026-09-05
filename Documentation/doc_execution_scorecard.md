@@ -128,3 +128,14 @@ belong in the denominator. `complete_fill_rate` counts only fully completed
 parents; `any_fill_rate` separately shows whether any quantity traded.
 Protective stops are excluded. Missing identity fields make the scorecard
 decision-ineligible instead of silently improving its rates.
+
+## Execution evidence repair (September 2026)
+Run `python execution_scorecard.py` to read the paper journal and broker price
+report and write `signals/alpaca_execution_scorecard.json`. It places no orders.
+An absent journal means unknown fill/skip rates, a null overall score, and no
+decision eligibility. Price-only child reports cannot establish stage fill
+rates because canceled zero-fill attempts are absent. Stage slippage still
+uses individual broker fills, never a blended parent price.
+
+A denominator is the total population used in a rate. A child attempt is one
+broker order within an intended parent trade. A basis point is 0.01 percent.

@@ -20,3 +20,13 @@ library helper; it does not submit orders or write files.
 - **Child attempt:** Stage 1 (`-a1`) or Stage 2 (`-a2`) sent to the broker.
 - **Complete fill rate:** fully filled logical orders divided by all accepted logical orders.
 - **Duplicate chain:** more than one broker order occupying the same attempt slot.
+
+## Partial fills and cash limits
+This module is imported by the scorecard and validation tools; it does not
+submit orders and has no standalone command. Run
+`python -m pytest tests/test_execution_continuity.py -q` for a saved-data check.
+The journal's final quantity, after cash clamping, is the completion target.
+For separate children, requested_quantity must describe the whole parent.
+Repeated snapshots of a child contribute only their largest cumulative fill.
+A child marked filled cannot override a known shortfall in the whole order.
+The output separates fully filled and partially filled logical orders.

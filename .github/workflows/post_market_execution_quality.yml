@@ -63,7 +63,7 @@ jobs:
       - name: Restore operational evidence
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
-          git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest || true
+          git fetch --quiet origin +signals/latest:refs/remotes/origin/signals/latest
           for f in \
             signals/core_satellite_alpha_signal.csv \
             signals/core_satellite_alpha_orders.csv \
@@ -72,13 +72,13 @@ jobs:
             signals/alpaca_paper_log.csv \
             signals/alpaca_daily_status.json \
             signals/alpaca_submit_outcomes.csv \
-            signals/paper_validation_epoch.json \
             signals/alpaca_execution_scorecard.json; do
             mkdir -p "$(dirname "$f")"
             if git show "origin/signals/latest:$f" > "$f.restore" 2>/dev/null; then
               mv "$f.restore" "$f"
             else
-              rm -f "$f.restore"
+              # A stale checkout copy must not masquerade as restored evidence.
+              rm -f "$f.restore" "$f"
             fi
           done
 
@@ -92,13 +92,15 @@ jobs:
           STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
           EXECUTION_SCORECARD_MIN_DECISION_ORDERS: "20"
           EXECUTION_SCORECARD_MIN_DECISION_COVERAGE: "0.80"
+          STOCKBOT_RUN_ID: post-market-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           python3 alpaca_paper_trading.py --status
           python3 broker_truth.py
           python3 execution_scorecard.py
           python3 execution_cost_calibration.py
-          python3 paper_health.py
           python3 paper_validation_epoch.py --status
+          # Health must read the epoch result from this reporting run.
+          python3 paper_health.py
 
       - name: Write workflow heartbeat
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
@@ -169,7 +171,7 @@ jobs:
           # the runner's temporary changes lets Git switch branches without
           # discarding the evidence that will be copied back below.
           git stash push --include-untracked --message "post-market generated evidence" || true
-          git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest
+          git fetch --quiet origin +signals/latest:refs/remotes/origin/signals/latest
           git checkout -B signals/latest origin/signals/latest
           cp -R "$generated_dir/signals/." signals/
           git add -f signals/

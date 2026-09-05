@@ -161,3 +161,28 @@ attempts. The acceptance gate uses complete fills over all accepted parents,
 while partial-fill information remains visible separately. Because these rules
 change both research and scoring meaning, old epoch evidence must be archived;
 a new epoch starts only after regenerated research and robustness gates pass.
+
+## Preserving execution history
+Daily, shadow and post-market publishers now build on the existing
+signals/latest branch and push without force. Generated files are copied out
+before switching branches; a checkout/fetch failure stops publication. Shadow
+publication must never fall back to main, where operational files are absent.
+Daily publication updates only its owned outputs and retains other jobs' files.
+Post-market reports share one run ID and evaluate the epoch before health.
+The epoch definition remains owned by main, so a restore cannot revive an old
+epoch definition. A missing restored input removes stale checkout copies.
+
+For a beginner: inspect the daily manifest first, then broker alignment and
+logical-order fill counts, then price quality. An inexpensive fill cannot prove
+that all intended orders were submitted. After collecting at least 20 measured
+fills across three sessions, review costs with complete acceptance records.
+
+To verify these changes locally, run `python -m pytest
+tests/test_execution_continuity.py tests/test_evidence_publication.py -q` on one
+line. The first replays saved September 3 fills; the second runs the actual
+publication shell blocks against disposable Git repositories. Neither trades.
+
+Deployment changes protected workflow/reporting files. Commit and review the
+repair, then deliberately refresh the paper version lock before enabling the
+new release. Preserve the original epoch's evidence and record the reporting
+change; do not interpret a refreeze as new trading observations.

@@ -187,7 +187,7 @@ jobs:
       - name: Restore latest paper state
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
-          git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest || true
+          git fetch --quiet origin +signals/latest:refs/remotes/origin/signals/latest
           for f in \
               signals/alpaca_paper_equity.csv \
               signals/alpaca_paper_log.csv \
@@ -584,49 +584,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Preserve shadow tracking files already on signals/latest.  The
-          # daily workflow owns live Alpaca files, while the shadow workflow
-          # owns these comparison files; both share the same branch.
-          tmp_shadow_dir="$(mktemp -d)"
-          git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest || true
-          for f in \
-              signals/shadow_paper_journal.csv \
-              signals/shadow_paper_equity.csv \
-              signals/paper_shadow_compare.csv \
-              signals/paper_shadow_compare.json \
-              signals/fractional_shadow_state.json \
-              signals/fractional_shadow_orders.csv \
-              signals/fractional_shadow_equity.csv \
-              signals/fractional_shadow_report.json \
-              signals/fractional_shadow_compare.csv \
-              signals/fractional_shadow_compare.json \
-              signals/workflow_heartbeat_shadow.json ; do
-            if git show "origin/signals/latest:${f}" > "$tmp_shadow_dir/$(basename "$f")" 2>/dev/null; then
-              echo "  preserving $f from signals/latest"
-            else
-              rm -f "$tmp_shadow_dir/$(basename "$f")"
-            fi
-          done
-
-          git checkout -B signals/latest
-
-          mkdir -p signals
-          for f in \
-              shadow_paper_journal.csv \
-              shadow_paper_equity.csv \
-              paper_shadow_compare.csv \
-              paper_shadow_compare.json \
-              fractional_shadow_state.json \
-              fractional_shadow_orders.csv \
-              fractional_shadow_equity.csv \
-              fractional_shadow_report.json \
-              fractional_shadow_compare.csv \
-              fractional_shadow_compare.json \
-              workflow_heartbeat_shadow.json ; do
-            if [ -f "$tmp_shadow_dir/$f" ]; then
-              cp "$tmp_shadow_dir/$f" "signals/$f"
-            fi
-          done
+          # Copy generated evidence outside the checkout before switching.
+          # Build on the existing shared branch so prior runs and files owned
+          # by the shadow/post-market jobs remain available for recovery.
+          generated_dir="$(mktemp -d)"
+          cp -R signals "$generated_dir/signals"
+          cp -R logs "$generated_dir/logs"
+          git stash push --include-untracked --message "daily generated evidence"
+          git fetch --quiet origin +signals/latest:refs/remotes/origin/signals/latest
+          git checkout -B signals/latest origin/signals/latest
 
           # Add each expected file ONLY if it actually exists (dry-run, partial
           # failure, or a not-yet-implemented step may leave some missing).
@@ -663,19 +629,10 @@ jobs:
               signals/regime_history.json \
               signals/regime_changes_log.csv \
               signals/monitor_heartbeat.json \
-              signals/workflow_heartbeat_daily.json \
-              signals/workflow_heartbeat_shadow.json \
-              signals/shadow_paper_journal.csv \
-              signals/shadow_paper_equity.csv \
-              signals/paper_shadow_compare.csv \
-              signals/paper_shadow_compare.json \
-              signals/fractional_shadow_state.json \
-              signals/fractional_shadow_orders.csv \
-              signals/fractional_shadow_equity.csv \
-              signals/fractional_shadow_report.json \
-              signals/fractional_shadow_compare.csv \
-              signals/fractional_shadow_compare.json ; do
-            if [ -f "$f" ]; then
+              signals/workflow_heartbeat_daily.json ; do
+            if [ -f "$generated_dir/$f" ]; then
+              mkdir -p "$(dirname "$f")"
+              cp "$generated_dir/$f" "$f"
               git add -f "$f"
               added=$((added + 1))
             else
@@ -683,14 +640,20 @@ jobs:
             fi
           done
           # daily_run_*.json logs use a glob — only add what's there
-          for f in logs/daily_run_*.json logs/alpaca_execution_scorecard_*.json logs/broker_truth_*.json; do
-            if [ -f "$f" ]; then
+          for source in "$generated_dir"/logs/daily_run_*.json "$generated_dir"/logs/alpaca_execution_scorecard_*.json "$generated_dir"/logs/broker_truth_*.json; do
+            f="${source#"$generated_dir/"}"
+            if [ -f "$generated_dir/$f" ]; then
+              mkdir -p "$(dirname "$f")"
+              cp "$generated_dir/$f" "$f"
               git add -f "$f"
               added=$((added + 1))
             fi
           done
-          for f in logs/factor_decay_monitor.json logs/core_satellite_execution_stress.json logs/core_satellite_survivorship_audit.json logs/alpaca_paper_health_*.json; do
-            if [ -f "$f" ]; then
+          for source in "$generated_dir"/logs/factor_decay_monitor.json "$generated_dir"/logs/core_satellite_execution_stress.json "$generated_dir"/logs/core_satellite_survivorship_audit.json "$generated_dir"/logs/alpaca_paper_health_*.json; do
+            f="${source#"$generated_dir/"}"
+            if [ -f "$generated_dir/$f" ]; then
+              mkdir -p "$(dirname "$f")"
+              cp "$generated_dir/$f" "$f"
               git add -f "$f"
               added=$((added + 1))
             fi
@@ -701,7 +664,7 @@ jobs:
             exit 0
           fi
           git commit -m "signals: $(date -u +%Y-%m-%d) daily run #${{ github.run_number }}" || echo "No signal changes to commit"
-          git push origin signals/latest --force
+          git push origin signals/latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
