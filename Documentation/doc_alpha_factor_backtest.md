@@ -31,3 +31,11 @@ Common output files are written under `signals/`. Exact filenames can vary depen
 - Overlay: The satellite stock-picking sleeve that sits on top of the core ETF exposure.
 - Gate: A risk check that can block live capital even when the script still produces research output.
 - Feature-health summary: Metadata explaining whether the current feature set is diverse enough for live use.
+
+## September 2026 submission and historical-data repair
+
+The factor-panel loader sorts each ticker's observations before shifting prices and rejects duplicate dates. For each forward-return column it also creates `<return-column>_entry_date`, `_end_date`, `_entry_price`, and `_exit_price`. These refer to exactly the same ticker rows used to calculate the return, including delayed entries. For example, `forward_return_20d_end_date` is the actual twentieth later observed date, which can differ from twenty ordinary weekdays.
+
+Core/satellite callers use `load_factor_panel(specs, require_forward_returns=False)` so future-price availability cannot remove a stock before selection. The loader's default remains unchanged for other consumers. A forward return is a later price gain or loss; a label endpoint is the date when that outcome becomes known. Missing values remain missing until the consuming backtest validates its selected holdings.
+
+Run `python -m pytest tests/test_submission_history_guards.py -q` to check the loader on synthetic parquet inputs. Expected output: passing date and missing-data tests, without market downloads.

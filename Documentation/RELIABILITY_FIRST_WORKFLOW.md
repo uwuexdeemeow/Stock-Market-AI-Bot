@@ -186,3 +186,19 @@ Deployment changes protected workflow/reporting files. Commit and review the
 repair, then deliberately refresh the paper version lock before enabling the
 new release. Preserve the original epoch's evidence and record the reporting
 change; do not interpret a refreeze as new trading observations.
+
+## Using the corrected data and submission guards
+
+The beginner workflow remains scan → research → train → predict → backtest → paper trade. Research supplies dated price observations; training and prediction build candidate scores; backtests check historical outcomes; the approved paper path converts validated signals into broker orders.
+
+The September 2026 repair changes how evidence is checked at those handoffs:
+
+1. Keep all decision-date candidates, including stocks whose future prices are missing. Rank first; validate the selected holdings' outcomes second. A missing required price stops the backtest with a ticker/date error. Restore and investigate the source data before retrying.
+2. Count NYSE trading sessions, including exchange holidays correctly. Each forward label carries its actual entry and end timestamps. Exclude an unfinished evaluation period as a whole; never discard an individual candidate because its future is unavailable.
+3. Confirm trend and volatility changes with a full consecutive-observation window. An isolated opposite observation leaves the previous confirmed state unchanged.
+4. Align cached ETF observations separately for each request and use only prices already known by that date. Missing data must not become a made-up flat price or a future price copied backward.
+5. Immediately before every rebalance submission stage, check the actual bid/ask and broker timestamp. Skip unsafe first attempts; retain partial fills and record why an unsafe replacement was blocked.
+
+These choices protect the distinction between information known when choosing a trade and outcomes observed later. They do not complete the separate holdings/cash ledger repair or establish corrected profitability. Preserve earlier reports as superseded evidence; regenerate historical evaluations and live signals under the corrected code before relying on them. Code fixes go to `main`; generated operational evidence continues through the existing `signals/latest` publisher.
+
+Offline verification: `python -m pytest tests/test_submission_history_guards.py tests/test_brokers.py tests/test_audit_three_fixes.py -q`, followed by `python -m pytest -q`. Fake brokers and synthetic prices exercise the repaired rules without submitting paper orders.

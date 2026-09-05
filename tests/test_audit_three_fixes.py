@@ -55,7 +55,7 @@ def test_core_fold_starts_flat_and_purges_boundary_crossing_trades(monkeypatch):
         evaluation_end=pd.Timestamp("2026-01-31"),
     )
 
-    assert equity.index[0] == pd.Timestamp("2026-01-01")
+    assert equity.index[0] == pd.Timestamp("2026-01-02")  # New Year is a market holiday.
     assert float(equity.iloc[0]) == alpha.INITIAL_CAPITAL
     assert (pd.to_datetime(trades["date"]) >= pd.Timestamp("2026-01-01")).all()
     assert (pd.to_datetime(trades["exit_date"]) <= pd.Timestamp("2026-01-31")).all()

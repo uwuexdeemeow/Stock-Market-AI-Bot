@@ -227,3 +227,9 @@ Every inner and outer evaluation now calls the core or TQQQ engine in
 the return from a trade selected before the fold. Trades whose exit would land
 after the fold are purged. Each fold records its effective trade start/end and
 leading/trailing purge counts so the rule can be audited directly.
+
+## September 2026 submission and historical-data repair
+
+This evaluator now loads the complete core/satellite candidate panel with `require_forward_returns=False`. Stocks with missing future returns stay eligible for ranking; the shared core/satellite engine validates the selected holdings after selection and stops with a ticker/date error if a required outcome cannot be measured. It excludes incomplete evaluation periods as whole periods. This prevents future data availability from choosing today's holdings.
+
+Use the run command and inputs described above as before. Expected output is the usual evaluation report, or a clear missing-price error to resolve before reporting performance. A candidate is a stock considered for selection; a forward return is its later gain or loss. Historical reports made before this repair must be regenerated before comparison with corrected results. Run `python -m pytest tests/test_submission_history_guards.py -q` for offline regressions.

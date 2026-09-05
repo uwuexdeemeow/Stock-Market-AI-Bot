@@ -77,7 +77,7 @@ def _with_alpha_watchlist(tickers: Iterable[str], fn):
 def _build_panel(tickers: list[str]) -> pd.DataFrame:
     def _load() -> pd.DataFrame:
         specs = alpha.load_feature_specs()
-        panel = alpha.attach_scores(alpha.load_factor_panel(specs), specs, alpha.load_prediction_scores())
+        panel = alpha.attach_scores(alpha.load_factor_panel(specs, require_forward_returns=False), specs, alpha.load_prediction_scores())
         return core._ensure_robust_score_columns(panel)
 
     return _with_alpha_watchlist(tickers, _load)

@@ -140,3 +140,17 @@ short return by multiplying a 20-day return by a fraction of 20 days.
 Yearly alpha also compounds every strategy and benchmark period within the
 calendar year before subtracting benchmark performance. This captures gains
 and losses multiplicatively, as a real account experiences them.
+
+## September 2026 submission and historical-data repair
+
+Trend and high-volatility flags now change only after a full window of consecutive agreeing observations. The first observation initializes the state; mixed or incomplete windows keep it unchanged. `regime_confirm_days=1` uses each raw observation directly. Regime calculations use NYSE sessions, so holidays do not count as confirmation days.
+
+Backtests retain candidates even when their future returns are missing. Selection uses decision-date information, then a selected holding with unavailable or invalid required prices/returns stops the run with its ticker and date. Do not replace that stock, assume zero return, or remove its row to make the run pass; restore and investigate the price history first.
+
+Holding schedules, delayed ETF entries, terminal exits, and fold boundaries use NYSE sessions. Forward-label endpoints come from actual ticker observations, including missing ticker sessions. Whole periods whose outcomes extend beyond the evaluation cutoff are excluded. Without an explicit cutoff, the last panel date is used. Missing scheduled decision data stops the run. Early exits use actual stock Open and Close prices and keep their planned exit when the next trade is excluded by a fold boundary.
+
+Trade output adds `label_end_date`, the latest outcome date for the evaluated period; `exit_date` retains the ETF/early-exit date. Stock next-session-open and ETF signal-close entry conventions remain unchanged. This is not the separate daily holdings/cash accounting repair.
+
+ETF prices use the shared source cache and return independent copies. Run `python -m pytest tests/test_submission_history_guards.py tests/test_audit_three_fixes.py -q` for offline examples and expected passing checks. A regime is a market condition; a fold is a dated evaluation window; purging means excluding a whole trade period whose outcome is outside that window.
+
+Historical performance and live signals produced with the old confirmation or date rules must be regenerated and validated before they are treated as current evidence. This repair does not itself publish replacement operational evidence.

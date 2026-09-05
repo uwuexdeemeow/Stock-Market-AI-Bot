@@ -19,6 +19,7 @@ import io
 import json
 import os
 import sys
+import time
 from dataclasses import dataclass
 
 import numpy as np
@@ -191,9 +192,8 @@ MAX_POSITION_SIZE_PCT = 0.30
 HIGH_SIGNAL_BOOST = 1.0
 MIN_BUCKET_N_HIGH = 30
 MIN_BUCKET_N_MEDIUM = 15
-_ETF_PRICE_FRAME_CACHE: dict[tuple[tuple[str, ...], str, str], pd.DataFrame] = {}
+_ETF_PRICE_FRAME_CACHE: dict[tuple, dict[str, pd.Series]] = {}
 _ETF_VOTE_CACHE: dict[int, tuple[pd.Series, dict[pd.Timestamp, dict]]] = {}
-_ETF_DOWNLOAD_FAILED_SYMBOLS: set[str] = set()
 
 _active_factor_weights, _active_factor_weight_meta = load_adaptive_factor_weights(
     ADAPTIVE_WEIGHTS_FILE,
@@ -3678,69 +3678,69 @@ def _build_daily_vote_fraction(raw_predictions: dict[str, pd.DataFrame]) -> tupl
 
 
 def _load_etf_price_frame(index: pd.DatetimeIndex, symbols: tuple[str, ...] | list[str]) -> pd.DataFrame:
+    """Cache source prices, then independently align and normalize each request."""
+    index = pd.DatetimeIndex(index)
     if index.empty:
-        return pd.DataFrame()
+        return pd.DataFrame(index=index)
     clean_symbols = tuple(sorted({str(sym).upper() for sym in symbols}))
-    cache_key = (clean_symbols, str(index.min().date()), str(index.max().date()))
-    if cache_key in _ETF_PRICE_FRAME_CACHE:
-        return _ETF_PRICE_FRAME_CACHE[cache_key].copy()
-    frame = pd.DataFrame(index=index)
-    missing: list[str] = []
+    # File versions invalidate cached prices after a local data refresh.
+    versions = []
     for symbol in clean_symbols:
-        local_path = os.path.join(DATA_DIR, f"{symbol}.parquet")
-        if os.path.exists(local_path):
-            try:
-                bench_df = pd.read_parquet(local_path)
-                bench_df.index = pd.DatetimeIndex(bench_df.index)
-                close = bench_df["Close"].reindex(index).ffill().bfill()
-                if not close.empty and float(close.iloc[0]) != 0.0:
-                    frame[symbol] = close / close.iloc[0]
-                    continue
-            except Exception:
-                pass
-        if symbol in _ETF_DOWNLOAD_FAILED_SYMBOLS:
-            frame[symbol] = 1.0
-        else:
-            missing.append(symbol)
-
-    if missing:
-        start = index.min().strftime("%Y-%m-%d")
-        end = (index.max() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-        try:
-            raw = _download_yfinance(
-                missing,
-                start=start,
-                end=end,
-                progress=False,
-                auto_adjust=True,
-                group_by="ticker",
-                threads=False,
-                timeout=20,
-            )
-        except Exception:
-            raw = pd.DataFrame()
-        for symbol in missing:
-            close = pd.Series(index=index, data=np.nan, dtype=float)
-            try:
+        path = os.path.join(DATA_DIR, f"{symbol}.parquet")
+        stat = os.stat(path) if os.path.exists(path) else None
+        versions.append((symbol, stat.st_mtime_ns if stat else None, stat.st_size if stat else None))
+    # Preserve the existing cache lifetime for prices downloaded in long runs.
+    ttl = max(1, int(os.environ.get("ETF_PRICE_CACHE_TTL_SEC", "1800")))
+    cache_key = (clean_symbols, str(index.min().date()), str(index.max().date()), tuple(versions), int(time.time() // ttl))
+    source = _ETF_PRICE_FRAME_CACHE.get(cache_key)
+    if source is None:
+        series = {}
+        for symbol in clean_symbols:
+            path = os.path.join(DATA_DIR, f"{symbol}.parquet")
+            close = None
+            if os.path.exists(path):
+                local = pd.read_parquet(path)
+                if "Close" in local:
+                    close = local["Close"]
+            if close is None:
+                # Include earlier sessions so a holiday can use the prior close.
+                raw = _download_yfinance(
+                    [symbol], start=(index.min() - pd.Timedelta(days=10)).strftime("%Y-%m-%d"),
+                    end=(index.max() + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
+                    progress=False, auto_adjust=True, group_by="ticker", threads=False, timeout=20,
+                )
                 if isinstance(raw.columns, pd.MultiIndex):
                     if symbol in raw.columns.get_level_values(0):
                         close = raw[(symbol, "Close")]
                     elif "Close" in raw.columns.get_level_values(0):
                         close = raw["Close"][symbol]
-                elif "Close" in raw.columns:
+                elif "Close" in raw:
                     close = raw["Close"]
-            except Exception:
-                close = pd.Series(index=index, data=np.nan, dtype=float)
-            close = close.reindex(index).ffill().bfill()
-            first_close = float(close.iloc[0]) if not close.empty and pd.notna(close.iloc[0]) else 0.0
-            if close.empty or close.isna().all() or not np.isfinite(first_close) or first_close == 0.0:
-                _ETF_DOWNLOAD_FAILED_SYMBOLS.add(symbol)
-                frame[symbol] = 1.0
-            else:
-                frame[symbol] = close / first_close
-    frame = frame.ffill().bfill()
-    _ETF_PRICE_FRAME_CACHE[cache_key] = frame.copy()
-    return frame
+            if close is None or close.empty:
+                raise ValueError(f"ETF price data unavailable for {symbol}; retry after restoring data")
+            close = pd.to_numeric(close, errors="coerce").copy()
+            close.index = pd.DatetimeIndex(close.index).tz_localize(None)
+            close = close.loc[~close.index.duplicated(keep="last")].sort_index()
+            # An invalid observed bar must remain visible instead of being filled.
+            series[symbol] = close.loc[close.index <= index.max()]
+        source = series
+
+    frame = pd.DataFrame(index=index)
+    for symbol in clean_symbols:
+        # Reindex the full source, so interior observations are not discarded.
+        close = source[symbol].reindex(index, method="ffill")
+        invalid = ~np.isfinite(close) | close.le(0)
+        if invalid.any():
+            bad_date = close.index[invalid][0]
+            raise ValueError(f"ETF price unavailable or invalid for {symbol} at {bad_date}; no future-price filling allowed")
+        # Anchor to the earliest requested date even when request order is reversed.
+        base = float(close.loc[index.min()].iloc[0]) if isinstance(close.loc[index.min()], pd.Series) else float(close.loc[index.min()])
+        frame[symbol] = close / base
+    # Failed downloads/alignment never enter the cache and can be retried.
+    if len(_ETF_PRICE_FRAME_CACHE) >= 32 and cache_key not in _ETF_PRICE_FRAME_CACHE:
+        _ETF_PRICE_FRAME_CACHE.pop(next(iter(_ETF_PRICE_FRAME_CACHE)))
+    _ETF_PRICE_FRAME_CACHE[cache_key] = {symbol: close.copy() for symbol, close in source.items()}
+    return frame.copy()
 
 
 def _portfolio_stats_from_equity(equity: pd.Series) -> dict:

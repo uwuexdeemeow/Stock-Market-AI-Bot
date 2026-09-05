@@ -1050,6 +1050,10 @@ class _SubmitBroker:
         self.orders = []
         self._api = SimpleNamespace(get_order=self.get_order)
 
+    def get_quote_snapshot(self, ticker):
+        return {"bid_price": 99.99, "ask_price": 100.01,
+                "quote_timestamp": datetime.now(timezone.utc).isoformat()}
+
     def place_order(self, order):
         if order.ticker in self.fail_tickers:
             raise RuntimeError(f"{order.ticker} rejected")
@@ -1084,12 +1088,13 @@ class _TwoStageBroker:
 
     def get_quote_snapshot(self, ticker):
         self.quote_calls += 1
-        spread = 0.001 if self.quote_calls == 1 else self.second_spread
+        spread = 0.002 if self.quote_calls == 1 else self.second_spread
         return {
-            "bid_price": 99.9,
-            "ask_price": 100.1,
+            "bid_price": 100.0 * (1 - spread / 2),
+            "ask_price": 100.0 * (1 + spread / 2),
             "quote_mid_price": 100.0,
             "spread_pct": spread,
+            "quote_timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     def place_order(self, order):
@@ -1298,7 +1303,7 @@ def test_apply_spread_guard_logs_wide_spread_skip(monkeypatch):
         lambda title, message, **kwargs: alerts.append((title, message, kwargs)) or True,
     )
     broker = _QuoteBroker({
-        "MU": {"bid_price": 100.0, "ask_price": 103.0, "quote_mid_price": 101.5, "spread_pct": 0.02956},
+        "MU": {"bid_price": 100.0, "ask_price": 103.0, "quote_mid_price": 101.5, "spread_pct": 0.02956, "quote_timestamp": datetime.now(timezone.utc).isoformat()},
     })
     order = _planned_order("MU", "buy")
 

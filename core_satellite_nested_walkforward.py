@@ -3445,7 +3445,7 @@ def main() -> None:
         pass  # Already set — fine, ignore
 
     specs = load_feature_specs(max_specs=int(args.max_specs))
-    panel = load_factor_panel(specs)
+    panel = load_factor_panel(specs, require_forward_returns=False)
     panel = attach_scores(panel, specs, load_prediction_scores())
     panel = _ensure_robust_score_columns(panel)
     panel["_date"] = pd.to_datetime(panel["date"], errors="coerce")

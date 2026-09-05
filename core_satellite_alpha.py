@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -740,13 +741,6 @@ _PANEL_DAY_CACHE: _collections.OrderedDict[
     int,
     tuple[_weakref.ReferenceType[pd.DataFrame], dict[pd.Timestamp, pd.DataFrame]],
 ] = _collections.OrderedDict()
-# (key) -> (cached_dataframe, inserted_at_unix_timestamp).  TTL guards
-# against a long-running process (notebook, dashboard, GitHub Actions
-# step that loops) seeing stale ETF prices after new parquet writes —
-# audit #13.  Default 30 min; env-overridable.
-import os as _os, time as _time
-_ETF_PRICE_CACHE_TTL_SEC = int(_os.environ.get("ETF_PRICE_CACHE_TTL_SEC", "1800"))
-_ETF_PRICE_CACHE: dict[tuple[tuple[pd.Timestamp, ...], tuple[str, ...]], tuple[pd.DataFrame, float]] = {}
 
 
 def _regime_preset_with_overlay_gross(regime_preset: dict, overlay_gross: float) -> dict:
@@ -818,10 +812,10 @@ def _exact_stock_holding_returns(
     exit_prices = pd.to_numeric(
         exit_day.set_index("ticker")["Close"].reindex(tickers), errors="coerce"
     )
-    invalid = entry_prices.isna() | exit_prices.isna() | entry_prices.le(0) | exit_prices.le(0)
+    invalid = entry_prices.isna() | exit_prices.isna() | entry_prices.le(0) | exit_prices.le(0) | ~np.isfinite(entry_prices) | ~np.isfinite(exit_prices)
     if bool(invalid.any()):
         missing = ",".join(str(ticker) for ticker in invalid.index[invalid])
-        raise ValueError(f"Exact early-rebalance prices missing for: {missing}")
+        raise ValueError(f"Exact early-rebalance prices missing for: {missing}; entry={entry_date}, exit={exit_date}")
     return exit_prices / entry_prices - 1.0
 
 
@@ -840,32 +834,9 @@ def _compounded_yearly_alpha(strategy_returns: pd.Series, benchmark_returns: pd.
 
 
 def _cached_etf_prices(price_index: pd.DatetimeIndex, tickers: list[str]) -> pd.DataFrame:
-    normalized_dates = tuple(pd.Timestamp(dt) for dt in price_index)
-    key = (normalized_dates, tuple(tickers))
-    cached = _ETF_PRICE_CACHE.get(key)
-    if cached is not None:
-        prices, inserted_at = cached
-        # TTL check — entries older than ETF_PRICE_CACHE_TTL_SEC are
-        # discarded.  Prevents a long-running process (notebook, web
-        # dashboard, looping CI step) from returning yesterday's prices
-        # after new parquet bars are written.
-        if (_time.time() - inserted_at) < _ETF_PRICE_CACHE_TTL_SEC:
-            return prices
-        # else: fall through and re-fetch
-    prices = _load_etf_price_frame(pd.DatetimeIndex(normalized_dates), tickers)
-    if len(prices) > 1:
-        synthetic = [
-            ticker
-            for ticker in tickers
-            if ticker in prices.columns
-            and float(pd.to_numeric(prices[ticker], errors="coerce").diff().abs().fillna(0.0).sum()) == 0.0
-        ]
-        if synthetic:
-            raise RuntimeError(
-                f"ETF price data unavailable for {synthetic}; refusing to run core alpha with synthetic flat prices."
-            )
-    _ETF_PRICE_CACHE[key] = (prices, _time.time())
-    return prices
+    """Use the shared source cache, including its refresh and alignment checks."""
+    # A second cache here would hide refreshed parquet files from the shared one.
+    return _load_etf_price_frame(pd.DatetimeIndex(price_index), tickers).copy()
 
 
 def _low_vol_rank(panel: pd.DataFrame) -> pd.Series:
@@ -930,6 +901,49 @@ def _ensure_robust_score_columns(panel: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _confirm_regime_flag(raw: pd.Series, days: int) -> pd.Series:
+    """Hold the first state until a full window unanimously supports a change."""
+    if raw.empty or days <= 1:
+        return raw.astype(bool).copy()
+    values = raw.astype(float)
+    all_off = values.rolling(days, min_periods=days).max().eq(0)
+    all_on = values.rolling(days, min_periods=days).min().eq(1)
+    previous = bool(raw.iloc[0])
+    confirmed = []
+    for off, on in zip(all_off, all_on):
+        # Mixed or incomplete windows keep yesterday's confirmed state.
+        if off:
+            previous = False
+        elif on:
+            previous = True
+        confirmed.append(previous)
+    return pd.Series(confirmed, index=raw.index, name=raw.name, dtype=bool)
+
+
+@lru_cache(maxsize=32)
+def _nyse_calendar(start_year: int, end_year: int):
+    """Reuse exchange calendars across the many configurations in a grid search."""
+    import exchange_calendars as xcals
+    return xcals.get_calendar("XNYS", start=f"{start_year}-01-01", end=f"{end_year}-12-31")
+
+
+def _nyse_sessions(start, end) -> pd.DatetimeIndex:
+    """Use exchange trading days; ordinary weekdays include market holidays."""
+    calendar = _nyse_calendar(pd.Timestamp(start).year - 1, pd.Timestamp(end).year + 1)
+    return calendar.sessions_in_range(pd.Timestamp(start), pd.Timestamp(end)).tz_localize(None)
+
+
+@lru_cache(maxsize=8192)
+def _session_offset(date, count: int) -> pd.Timestamp:
+    """Move a trading date by actual NYSE sessions, never weekday arithmetic."""
+    date = pd.Timestamp(date).normalize()
+    sessions = _nyse_sessions(date - pd.Timedelta(days=abs(count) * 3 + 30), date + pd.Timedelta(days=abs(count) * 3 + 30))
+    position = sessions.get_indexer([date])[0]
+    if position < 0:
+        raise ValueError(f"Not a NYSE trading session: {date.date()}")
+    return pd.Timestamp(sessions[position + count])
+
+
 def _load_regime_indicators(rebalance_dates: pd.DatetimeIndex, exit_dates: pd.DatetimeIndex, config: dict) -> pd.DataFrame:
     """
     Compute trend and volatility indicators used for regime detection.
@@ -946,9 +960,9 @@ def _load_regime_indicators(rebalance_dates: pd.DatetimeIndex, exit_dates: pd.Da
         This adapts to changing market conditions — what's "high" in a calm
         year is different from "high" in a volatile year.
     """
-    start = pd.Timestamp(rebalance_dates.min()) - pd.tseries.offsets.BDay(260)
+    start = _session_offset(rebalance_dates.min(), -260)
     end = pd.Timestamp(exit_dates.max())
-    timeline = pd.date_range(start, end, freq="B")
+    timeline = _nyse_sessions(start, end)
     prices = _cached_etf_prices(pd.DatetimeIndex(timeline), ["SPY", "QQQ"])
     ma_window = int(config.get("regime_ma_window", 100))
     high_vol_threshold = float(config.get("regime_high_vol", 0.30))
@@ -1008,46 +1022,10 @@ def _load_regime_indicators(rebalance_dates: pd.DatetimeIndex, exit_dates: pd.Da
     # 1 day then bounces back, the trend still shows "ok."  Only after
     # 3 consecutive days below does it flip to "not ok."
     confirm_days = int(config.get("regime_confirm_days", REGIME_CONFIRM_DAYS))
-    if confirm_days > 1:
-        for col in ("spy_trend_ok", "qqq_trend_ok"):
-            raw = out[col].astype(float)
-            # Rolling minimum over confirm_days: only True if ALL recent
-            # days agree.  For False→True transitions, use rolling max
-            # (only flip back to True if ALL recent days are True).
-            # This creates hysteresis: slow to flip in either direction.
-            confirmed_off = raw.rolling(confirm_days, min_periods=1).min()  # all 0 → flip off
-            confirmed_on = raw.rolling(confirm_days, min_periods=1).max()   # all 1 → flip on
-            # Start with previous confirmed state, update only when
-            # confirmed_off or confirmed_on gives a unanimous signal.
-            prev = raw.iloc[0] if len(raw) > 0 else True
-            confirmed = []
-            for off_val, on_val in zip(confirmed_off, confirmed_on):
-                if off_val == 0.0:
-                    # N consecutive days below MA → confirmed downtrend
-                    prev = False
-                elif on_val == 1.0:
-                    # N consecutive days above MA → confirmed uptrend
-                    prev = True
-                # else: mixed signals → hold previous state (no flip)
-                confirmed.append(prev)
-            out[col] = confirmed
+    for col in ("spy_trend_ok", "qqq_trend_ok", "high_vol"):
+        out[col] = _confirm_regime_flag(out[col], confirm_days)
+    return out.ffill()
 
-        # Also smooth the high_vol flag — require N consecutive high-vol
-        # days before declaring vol regime shift
-        raw_vol = out["high_vol"].astype(float)
-        confirmed_high = raw_vol.rolling(confirm_days, min_periods=1).min()
-        confirmed_low = (1.0 - raw_vol).rolling(confirm_days, min_periods=1).min()
-        prev_vol = bool(raw_vol.iloc[0]) if len(raw_vol) > 0 else False
-        confirmed_vol = []
-        for hi, lo in zip(confirmed_high, confirmed_low):
-            if hi == 1.0:
-                prev_vol = True
-            elif lo == 1.0:
-                prev_vol = False
-            confirmed_vol.append(prev_vol)
-        out["high_vol"] = confirmed_vol
-
-    return out.ffill().bfill()
 
 
 def _apply_concentration_overlay_target(
@@ -1286,8 +1264,8 @@ def _select_sticky_holdings(
     earnings_blackout_days: int = 0,
     diagnostics: dict | None = None,
 ) -> pd.DataFrame:
-    required_cols = [score_col] if return_col is None else [score_col, return_col]
-    ranked = day.dropna(subset=required_cols).copy()
+    # Future outcomes never decide which stocks can be selected today.
+    ranked = day.dropna(subset=[score_col]).copy()
     if ranked.empty:
         return ranked
     ranked["_rank_score"] = ranked[score_col].rank(pct=True)
@@ -1519,131 +1497,72 @@ def run_core_satellite(
     if return_col not in panel.columns:
         raise ValueError(f"Missing return column for core-satellite run: {return_col}")
     dates = pd.DatetimeIndex(sorted(panel["date"].unique()))
+    if dates.empty:
+        raise ValueError("No factor panel dates")
     start_ts = pd.Timestamp(evaluation_start) if evaluation_start is not None else None
-    end_ts = pd.Timestamp(evaluation_end) if evaluation_end is not None else None
-    if start_ts is not None and end_ts is not None and start_ts > end_ts:
+    end_ts = pd.Timestamp(evaluation_end) if evaluation_end is not None else dates.max()
+    if start_ts is not None and start_ts > end_ts:
         raise ValueError("evaluation_start must be on or before evaluation_end")
-
-    # PLAIN ENGLISH: keep the full panel above for feature history, while only
-    # scheduling new trades on dates that belong to this evaluation fold.
-    schedule_dates = dates
+    # Holidays cannot create trades or count toward a holding period.
+    sessions = _nyse_sessions(dates.min(), dates.max())
+    schedule_dates = sessions
     if start_ts is not None:
         schedule_dates = schedule_dates[schedule_dates >= start_ts]
-    if end_ts is not None:
-        schedule_dates = schedule_dates[schedule_dates <= end_ts]
+    schedule_dates = schedule_dates[schedule_dates <= end_ts]
     rebalance_dates = schedule_dates[::holding_days]
-
-    # Count the old schedule position that would have crossed into this fold.
-    # It is evidence of what was deliberately purged, never a scored trade.
-    full_schedule = dates[::holding_days]
-    purged_leading = 0
-    if start_ts is not None:
-        full_exits = pd.DatetimeIndex([
-            pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days + entry_delay_days)
-            for dt in full_schedule
-        ])
-        purged_leading = int(((full_schedule < start_ts) & (full_exits >= start_ts)).sum())
-
-    # A return whose exit lies after the fold would use future evidence.  Drop
-    # that rebalance before any portfolio state is created.
-    purged_trailing = 0
-    if end_ts is not None:
-        nominal_exits = pd.DatetimeIndex([
-            pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days + entry_delay_days)
-            for dt in rebalance_dates
-        ])
-        keep = nominal_exits <= end_ts
-        purged_trailing = int((~keep).sum())
-        rebalance_dates = rebalance_dates[keep]
-    if len(rebalance_dates) == 0:
+    if rebalance_dates.empty:
         raise ValueError("No complete holding periods inside evaluation boundaries")
-    entry_dates = pd.DatetimeIndex([pd.Timestamp(dt) + pd.tseries.offsets.BDay(entry_delay_days) for dt in rebalance_dates])
-    exit_dates = pd.DatetimeIndex([pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days + entry_delay_days) for dt in rebalance_dates])
+
+    # Label timestamps come from each ticker's observed rows, which may skip days.
+    end_column = f"{return_col}_end_date"
+    label_ends = panel.groupby("date")[end_column].max() if end_column in panel else pd.Series(dtype="datetime64[ns]")
+    def full_period_end(date):
+        calendar_end = _session_offset(date, holding_days + entry_delay_days)
+        actual_end = label_ends.get(date, pd.NaT)
+        return max(calendar_end, pd.Timestamp(actual_end)) if pd.notna(actual_end) else calendar_end
+
+    full_schedule = sessions[::holding_days]
+    purged_leading = sum(date < start_ts <= full_period_end(date) for date in full_schedule) if start_ts is not None else 0
+    regime_indicators = None
+    if str(config.get("regime_mode", "static")) in REGIME_PRESETS:
+        # Indicators need only information through the evaluation cutoff.
+        regime_indicators = _load_regime_indicators(rebalance_dates, pd.DatetimeIndex([schedule_dates.max()]), config)
+    early = bool(config.get("early_rebalance_on_regime_change", False))
+    if early and regime_indicators is not None:
+        extra_dates = []
+        previous = None
+        for date in schedule_dates:
+            regime = _resolve_allocation(date, config, regime_indicators)[0]
+            if previous is not None and regime != previous:
+                extra_dates.append(date)
+            previous = regime
+        rebalance_dates = pd.DatetimeIndex(sorted(set(rebalance_dates) | set(extra_dates)))
+
+    # Store exits BEFORE purging, so dropping the last trade cannot extend the
+    # preceding trade across the fold boundary. Early exits use exact prices.
+    core_exits = {}
+    period_ends = {}
+    exact_exit_dates = set()
+    for position, date in enumerate(rebalance_dates):
+        if early and position + 1 < len(rebalance_dates):
+            exit_date = _session_offset(rebalance_dates[position + 1], entry_delay_days)
+            period_end = exit_date
+            exact_exit_dates.add(date)
+        else:
+            exit_date = _session_offset(date, holding_days + entry_delay_days)
+            period_end = full_period_end(date)
+        core_exits[date] = exit_date
+        period_ends[date] = period_end
+    keep = [period_ends[date] <= end_ts for date in rebalance_dates]
+    purged_trailing = int(len(keep) - sum(keep))
+    rebalance_dates = rebalance_dates[keep]
+    if rebalance_dates.empty:
+        raise ValueError("No complete holding periods inside evaluation boundaries")
+    entry_dates = pd.DatetimeIndex([_session_offset(date, entry_delay_days) for date in rebalance_dates])
+    exit_dates = pd.DatetimeIndex([core_exits[date] for date in rebalance_dates])
     price_index = pd.DatetimeIndex(sorted(set(rebalance_dates) | set(entry_dates) | set(exit_dates)))
     etf_tickers = _core_tickers_for_config(config)
     etf_prices = _cached_etf_prices(price_index, etf_tickers)
-    regime_indicators = None
-    if str(config.get("regime_mode", "static")) in REGIME_PRESETS:
-        regime_indicators = _load_regime_indicators(rebalance_dates, exit_dates, config)
-
-    # --- EARLY REGIME-CHANGE REBALANCE ---
-    # PLAIN ENGLISH: Normally we only rebalance every N days (e.g. every 10
-    # trading days).  But if the regime changes in the middle of a holding
-    # period (e.g. risk_on → risk_off on day 3), we're stuck with the wrong
-    # positioning for 7 more days.
-    #
-    # When early_rebalance_on_regime_change is True, we check every trading
-    # day for regime changes and insert extra rebalance dates when the regime
-    # flips.  This means the portfolio adapts faster to market shifts.
-    #
-    # Risk: More rebalances = more turnover = more cost.  The grid search
-    # will test both settings and pick whichever gives better net returns.
-    if config.get("early_rebalance_on_regime_change", False) and regime_indicators is not None:
-        extra_dates = []
-        prev_regime = None
-        for dt in schedule_dates:
-            ts = pd.Timestamp(dt)
-            if ts not in regime_indicators.index:
-                continue
-            row = regime_indicators.loc[ts]
-            if "vix_inverted" in row.index and bool(row.get("vix_inverted", False)):
-                cur_regime = "risk_off"
-            elif bool(row["qqq_trend_ok"]) and bool(row["spy_trend_ok"]) and not bool(row["high_vol"]):
-                cur_regime = "risk_on"
-            elif bool(row["spy_trend_ok"]) and not bool(row["high_vol"]):
-                cur_regime = "neutral"
-            else:
-                cur_regime = "risk_off"
-
-            if prev_regime is not None and cur_regime != prev_regime:
-                # Regime changed — add this date as a rebalance point
-                if ts not in rebalance_dates:
-                    extra_dates.append(ts)
-            prev_regime = cur_regime
-
-        if extra_dates:
-            # Merge extra dates into rebalance schedule and re-sort
-            combined = sorted(set(rebalance_dates) | set(extra_dates))
-            rebalance_dates = pd.DatetimeIndex(combined)
-            # Recompute entry/exit for all dates
-            entry_dates = pd.DatetimeIndex([
-                pd.Timestamp(dt) + pd.tseries.offsets.BDay(entry_delay_days)
-                for dt in rebalance_dates
-            ])
-            exit_dates = pd.DatetimeIndex([
-                pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days + entry_delay_days)
-                for dt in rebalance_dates
-            ])
-            price_index = pd.DatetimeIndex(sorted(
-                set(rebalance_dates) | set(entry_dates) | set(exit_dates)
-            ))
-            etf_prices = _cached_etf_prices(price_index, etf_tickers)
-            # Reload regime indicators with expanded date range
-            regime_indicators = _load_regime_indicators(rebalance_dates, exit_dates, config)
-
-    # Regime changes can add a late rebalance after the regular schedule was
-    # filtered.  Apply the same full-period rule again so that shortcut cannot
-    # cross the fold end.
-    if end_ts is not None:
-        final_nominal_exits = pd.DatetimeIndex([
-            pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days + entry_delay_days)
-            for dt in rebalance_dates
-        ])
-        final_keep = final_nominal_exits <= end_ts
-        purged_trailing += int((~final_keep).sum())
-        rebalance_dates = rebalance_dates[final_keep]
-        if len(rebalance_dates) == 0:
-            raise ValueError("No complete holding periods inside evaluation boundaries")
-        entry_dates = pd.DatetimeIndex([
-            pd.Timestamp(dt) + pd.tseries.offsets.BDay(entry_delay_days) for dt in rebalance_dates
-        ])
-        exit_dates = pd.DatetimeIndex([
-            pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days + entry_delay_days) for dt in rebalance_dates
-        ])
-        price_index = pd.DatetimeIndex(sorted(set(rebalance_dates) | set(entry_dates) | set(exit_dates)))
-        etf_prices = _cached_etf_prices(price_index, etf_tickers)
-        if regime_indicators is not None:
-            regime_indicators = _load_regime_indicators(rebalance_dates, exit_dates, config)
     day_map = _panel_day_map(panel)
 
     equity = INITIAL_CAPITAL
@@ -1676,6 +1595,8 @@ def run_core_satellite(
     recent_returns: list[float] = []  # rolling window of strategy returns
 
     for dt in rebalance_dates:
+        if pd.Timestamp(dt) not in day_map:
+            raise ValueError(f"Factor panel missing scheduled decision date: {dt}")
         day = day_map[pd.Timestamp(dt)]
 
         regime, core_weights, core_gross, overlay_gross = _resolve_allocation(pd.Timestamp(dt), config, regime_indicators)
@@ -1799,16 +1720,8 @@ def run_core_satellite(
         # change).  We use the actual next rebalance date as exit, not the full
         # holding_days.  This prevents double-counting returns across overlapping
         # periods.
-        entry_dt = pd.Timestamp(dt) + pd.tseries.offsets.BDay(entry_delay_days)
-        try:
-            dt_idx = rebalance_dates.get_loc(dt)
-        except KeyError:
-            dt_idx = -1
-        if isinstance(dt_idx, (int, np.integer)) and dt_idx >= 0 and dt_idx + 1 < len(rebalance_dates):
-            next_rebal = pd.Timestamp(rebalance_dates[dt_idx + 1])
-            exit_dt = next_rebal + pd.tseries.offsets.BDay(entry_delay_days)
-        else:
-            exit_dt = pd.Timestamp(dt) + pd.tseries.offsets.BDay(holding_days + entry_delay_days)
+        entry_dt = _session_offset(dt, entry_delay_days)
+        exit_dt = core_exits[dt]
         factor_ret = 0.0
         max_sector_weight = 0.0
         effective_overlay_names = 0.0
@@ -1819,21 +1732,31 @@ def run_core_satellite(
             # use the actual entry Open and exit Close. A 5-day return is not
             # half of a 10-day return, so multiplying a long-horizon return by
             # elapsed-days/holding-days would create fictional prices.
-            if config.get("early_rebalance_on_regime_change", False):
-                current_pos = int(dates.searchsorted(pd.Timestamp(dt)))
-                if isinstance(dt_idx, (int, np.integer)) and dt_idx >= 0 and dt_idx + 1 < len(rebalance_dates):
-                    next_rebal = pd.Timestamp(rebalance_dates[dt_idx + 1])
-                    next_pos = int(dates.searchsorted(next_rebal))
-                    entry_pos = current_pos + 1 + entry_delay_days
-                    exit_pos = next_pos + entry_delay_days
-                    if entry_pos >= len(dates) or exit_pos >= len(dates) or exit_pos < entry_pos:
-                        raise ValueError("Early-rebalance stock price window is outside the factor panel")
-                    ticker_returns = _exact_stock_holding_returns(
-                        day_map=day_map,
-                        tickers=overlay.index,
-                        entry_date=pd.Timestamp(dates[entry_pos]),
-                        exit_date=pd.Timestamp(dates[exit_pos]),
-                    )
+            if dt in exact_exit_dates:
+                ticker_returns = _exact_stock_holding_returns(
+                    day_map=day_map, tickers=overlay.index,
+                    entry_date=_session_offset(dt, 1 + entry_delay_days), exit_date=exit_dt,
+                )
+            else:
+                # Validate only after selection: missing future data cannot
+                # quietly substitute a different stock or become zero return.
+                for suffix in ("entry_date", "end_date"):
+                    column = f"{return_col}_{suffix}"
+                    if column in selected_by_ticker:
+                        timestamps = pd.to_datetime(selected_by_ticker.loc[overlay.index, column], errors="coerce")
+                        bad = timestamps.isna() | timestamps.le(dt) | timestamps.gt(end_ts)
+                        if bad.any():
+                            raise ValueError(f"Invalid {column} for {list(timestamps.index[bad])} on {dt}")
+                for suffix in ("entry_price", "exit_price"):
+                    column = f"{return_col}_{suffix}"
+                    if column in selected_by_ticker:
+                        prices = pd.to_numeric(selected_by_ticker.loc[overlay.index, column], errors="coerce")
+                        bad = ~np.isfinite(prices) | prices.le(0)
+                        if bad.any():
+                            raise ValueError(f"Invalid {column} for {list(prices.index[bad])} on {dt}")
+            invalid_returns = ~np.isfinite(ticker_returns) | ticker_returns.lt(-1.0)
+            if invalid_returns.any():
+                raise ValueError(f"Missing or invalid {return_col} for {list(ticker_returns.index[invalid_returns])} on {dt}")
             ticker_period_contrib = ticker_returns * overlay
             factor_ret = float(ticker_period_contrib.sum())
             for ticker, value in ticker_period_contrib.items():
@@ -1859,10 +1782,11 @@ def run_core_satellite(
         if equity > peak_equity:
             peak_equity = equity
 
-        rows.append({"date": exit_dt, "equity": equity, "strategy_ret": strategy_ret})
+        rows.append({"date": period_ends[dt], "equity": equity, "strategy_ret": strategy_ret})
         trade_rows.append({
             "date": pd.Timestamp(dt),
             "exit_date": exit_dt,
+            "label_end_date": period_ends[dt],
             "regime": regime,
             "circuit_breaker_active": circuit_breaker_active,
             "score_col": score_col,
@@ -1918,9 +1842,9 @@ def run_core_satellite(
         "top_ticker_overlay_contributor": top_ticker,
         "top_ticker_overlay_contribution_share": round(top_ticker_share, 3),
         "n_rebalances": int(len(trades)),
-        "boundary_mode": "flat_start_full_periods_only" if start_ts is not None or end_ts is not None else "full_history",
+        "boundary_mode": "flat_start_full_periods_only" if evaluation_start is not None or evaluation_end is not None else "full_history",
         "evaluation_trade_start": str(pd.Timestamp(rebalance_dates[0]).date()) if len(rebalance_dates) else None,
-        "evaluation_trade_end": str(pd.Timestamp(trades["exit_date"].max()).date()) if not trades.empty else None,
+        "evaluation_trade_end": str(pd.Timestamp(trades["label_end_date"].max()).date()) if not trades.empty else None,
         "purged_leading_trade_count": purged_leading,
         "purged_trailing_trade_count": purged_trailing,
         "concentration_overlay_active_rebalances": int(concentration_overlay_active_count),
@@ -3043,10 +2967,9 @@ def main() -> None:
     specs = _apply_live_feature_quality_filter(specs, quality_filter)
     ml_scores = load_prediction_scores()
 
-    # Backtest/training panel: requires forward returns, so its newest usable row
-    # naturally lags the raw data by the forward-return horizon. Keep this panel
-    # for grid/backtest/walk-forward evaluation only.
-    panel = _ensure_robust_score_columns(attach_scores(load_factor_panel(specs), specs, ml_scores))
+    # Keep every candidate even if its future price is unknown. The backtest
+    # removes unfinished periods as a whole, then validates selected holdings.
+    panel = _ensure_robust_score_columns(attach_scores(load_factor_panel(specs, require_forward_returns=False), specs, ml_scores))
     print(f"  Backtest panel: {len(panel)} rows, {panel['ticker'].nunique()} tickers, "
           f"{panel['date'].nunique()} dates, latest={pd.Timestamp(panel['date'].max()).date()}")
 

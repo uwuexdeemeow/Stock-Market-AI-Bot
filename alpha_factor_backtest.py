@@ -171,6 +171,10 @@ def load_factor_panel(specs: list[dict], *, require_forward_returns: bool = True
             continue
         df = pd.read_parquet(path)
         df.index = pd.to_datetime(df.index, errors="coerce")
+        # Sort before shifting: a label must refer to later observations.
+        df = df.loc[df.index.notna()].sort_index()
+        if df.index.has_duplicates:
+            raise ValueError(f"Duplicate price dates for {ticker}")
         keep = [c for c in requested if c in df.columns]
         required = ["Open", "Close"]
         if not all(c in df.columns for c in required) or not keep:
@@ -189,6 +193,15 @@ def load_factor_panel(specs: list[dict], *, require_forward_returns: bool = True
             delayed_entry = df["Open"].shift(-2)
             delayed_exit = df["Close"].shift(-(hold_days + 1))
             sub[f"forward_return_delay1_{hold_days}d"] = delayed_exit / delayed_entry - 1.0
+        # Keep timestamps beside labels so fold checks use the exact same rows.
+        observed_dates = pd.Series(df.index, index=df.index)
+        for days in set((HORIZON_DAYS, 10, 20)):
+            for delay in (0, 1):
+                label = ("forward_return" if days == HORIZON_DAYS else f"forward_return_{days}d") if delay == 0 else f"forward_return_delay1_{days}d"
+                sub[f"{label}_entry_date"] = observed_dates.shift(-(1 + delay))
+                sub[f"{label}_end_date"] = observed_dates.shift(-(days + delay))
+                sub[f"{label}_entry_price"] = df["Open"].shift(-(1 + delay))
+                sub[f"{label}_exit_price"] = df["Close"].shift(-(days + delay))
         frames.append(sub.reset_index(drop=True))
     if not frames:
         raise SystemExit("No factor panel data found. Run research.py to build data/*.parquet first.")

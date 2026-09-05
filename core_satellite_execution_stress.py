@@ -115,7 +115,7 @@ def main() -> None:
     Path(SIGNAL_DIR).mkdir(parents=True, exist_ok=True)
     Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
     specs = load_feature_specs()
-    panel = core._ensure_robust_score_columns(attach_scores(load_factor_panel(specs), specs, load_prediction_scores()))
+    panel = core._ensure_robust_score_columns(attach_scores(load_factor_panel(specs, require_forward_returns=False), specs, load_prediction_scores()))
     base_config = _selected_config()
     scenarios = [
         ("base_selected", {}),

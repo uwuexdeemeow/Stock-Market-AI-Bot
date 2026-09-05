@@ -59,3 +59,11 @@ research.py → data/<TICKER>.parquet
 ```
 
 The backtest is the **gate**. If net Sharpe < 1.0 or alpha vs SPY is not statistically significant, do not proceed to live trading.
+
+## September 2026 submission and historical-data repair
+
+The shared ETF loader caches underlying price observations, not a frame already restricted to one caller's requested dates. Each request aligns independently, preserving its date order and duplicates, and normalizes from the earliest requested date. An earlier observed close may serve a later requested date; future prices are never copied backward. A missing or invalid required price raises a symbol/date error instead of inventing a flat return.
+
+Local file timestamps and sizes invalidate changed inputs; `ETF_PRICE_CACHE_TTL_SEC` (default 1800 seconds) limits downloaded-source cache reuse. The cache holds at most 32 source entries and returns independent results. Failed downloads are not permanently remembered, so restoring data and retrying can succeed.
+
+Run `python -m pytest tests/test_submission_history_guards.py -q` to verify sparse/dense requests, ordering, earlier-price alignment, refreshes, and failed-download retries with synthetic data. A cache is a saved copy used to avoid repeated loading; causal alignment means using only observations available by the requested date.

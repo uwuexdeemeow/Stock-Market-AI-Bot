@@ -314,6 +314,7 @@ PRICE_RETRY_BASE_DELAY = float(os.environ.get("ALPACA_PRICE_RETRY_DELAY", "1.0")
 # The stricter live caps are 0.10% for ETFs and 0.50% for stocks.
 MAX_SPREAD_PCT_ETF = float(os.environ.get("MAX_SPREAD_PCT_ETF", "0.001"))  # 0.10% for ETFs
 MAX_SPREAD_PCT_OVERLAY = float(os.environ.get("MAX_SPREAD_PCT_OVERLAY", "0.005"))  # 0.50% for stocks
+# Legacy setting retained for configuration compatibility; submission always requires a safe quote.
 REQUIRE_QUOTE_FOR_SUBMIT = os.environ.get("ALPACA_REQUIRE_QUOTE_FOR_SUBMIT", "1").strip().lower() in {
     "true", "1", "yes", "y", "on"
 }
@@ -336,7 +337,7 @@ DEFAULT_ORDER_TYPE = os.environ.get("ALPACA_ORDER_TYPE", "limit").strip().lower(
 # Quote anchoring is now the default because the slippage report showed last-
 # trade anchored fills were still bleeding versus limit orders.  PLAIN ENGLISH:
 # a live bid/ask quote is a fresher anchor than the last trade print; if the
-# quote is missing, submission still falls back to the planned last-price limit.
+# quote is missing or unsafe, submission is skipped.
 LIMIT_REFERENCE = os.environ.get("ALPACA_LIMIT_REFERENCE", "quote").strip().lower()
 ALLOW_MARKET_ORDER_OVERRIDE = os.environ.get("ALPACA_ALLOW_MARKET_ORDER_OVERRIDE", "0").strip().lower() in {
     "true", "1", "yes", "y", "on"
@@ -680,13 +681,34 @@ def _quote_age_seconds(quote: dict, *, now: datetime | None = None) -> float | N
     if stamp is None:
         return None
     clock = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    return max(0.0, (clock - stamp.astimezone(timezone.utc)).total_seconds())
+    return (clock - stamp.astimezone(timezone.utc)).total_seconds()
 
 
 def _quote_is_fresh(quote: dict, *, now: datetime | None = None) -> bool:
-    """Reject a timestamped quote that is older than the configured cap."""
+    """Require a timestamp that is neither in the future nor too old."""
     age = _quote_age_seconds(quote, now=now)
-    return age is None or age <= max(0.0, EXECUTION_QUOTE_MAX_AGE_SECONDS)
+    return age is not None and 0.0 <= age <= max(0.0, EXECUTION_QUOTE_MAX_AGE_SECONDS)
+
+
+def _submission_quote(quote: dict, ticker: str) -> tuple[dict, str]:
+    """Check the actual prices we will trade against, not a supplied spread."""
+    checked = dict(quote)
+    bid = _float_or_none(quote.get("bid_price"))
+    ask = _float_or_none(quote.get("ask_price"))
+    if bid is None or ask is None:
+        return checked, "quote_unavailable"
+    if not math.isfinite(bid) or not math.isfinite(ask) or bid <= 0 or ask <= 0 or ask < bid:
+        return checked, "quote_invalid"
+    # A spread is the gap between buyer and seller, divided by their midpoint.
+    midpoint = bid / 2.0 + ask / 2.0
+    spread = (ask - bid) / midpoint
+    checked.update(bid_price=bid, ask_price=ask, quote_mid_price=midpoint, spread_pct=spread)
+    if not _quote_is_fresh(checked):
+        return checked, "quote_stale"
+    threshold = MAX_SPREAD_PCT_ETF if ticker.upper() in ETF_TICKERS else MAX_SPREAD_PCT_OVERLAY
+    if spread > threshold:
+        return checked, f"spread_guard:{spread*100:.2f}%>{threshold*100:.1f}%"
+    return checked, ""
 
 
 def _two_stage_price_policy(order_row: dict) -> tuple[float, float, str]:
@@ -1610,6 +1632,8 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
             "stage1_cancel_status": order.get("stage1_cancel_status", ""),
             "stage2_order_id": order.get("stage2_order_id", ""),
             "stage2_quote_time": order.get("stage2_quote_time", ""),
+            "stage2_block_reason": order.get("stage2_block_reason", ""),
+            "stage2_broker_quote_timestamp": order.get("stage2_broker_quote_timestamp", ""),
             "stage2_bid_price": order.get("stage2_bid_price", ""),
             "stage2_ask_price": order.get("stage2_ask_price", ""),
             "stage2_spread_pct": order.get("stage2_spread_pct", ""),
@@ -1939,16 +1963,23 @@ def _submit_two_stage_limit(broker: AlpacaBroker, order_row: dict) -> str:
     requested_qty = int(order_row["quantity"])
     started = datetime.now(timezone.utc)
     stage1_wait, stage2_offset, price_policy = _two_stage_price_policy(order_row)
-    quote = broker.get_quote_snapshot(ticker)
+    quote, blocked_reason = _submission_quote(broker.get_quote_snapshot(ticker), ticker)
+    # Even blocked attempts retain the exact quote that caused the rejection.
+    order_row.update({
+        "bid_price": quote.get("bid_price"), "ask_price": quote.get("ask_price"),
+        "quote_mid_price": quote.get("quote_mid_price"), "spread_pct": quote.get("spread_pct"),
+        "quote_time": datetime.now(timezone.utc).isoformat(),
+        "broker_quote_timestamp": quote.get("quote_timestamp"),
+        "quote_age_seconds": _quote_age_seconds(quote),
+    })
+    if blocked_reason:
+        order_row["execution_stage"] = "stage1_blocked"
+        return _skip_order(order_row, blocked_reason)
     bid = _float_or_none(quote.get("bid_price"))
     ask = _float_or_none(quote.get("ask_price"))
     spread = _float_or_none(quote.get("spread_pct"))
     midpoint = _float_or_none(quote.get("quote_mid_price"))
-    quote_age = _quote_age_seconds(quote, now=started)
-    if bid is None or ask is None:
-        raise RuntimeError("two_stage_quote_unavailable")
-    if not _quote_is_fresh(quote, now=started):
-        raise RuntimeError(f"two_stage_quote_stale:{quote_age:.1f}s")
+    quote_age = _quote_age_seconds(quote)
 
     parent_id = bot_client_order_id(order_row)
     stage1_limit = passive_midpoint_limit_price(bid, ask, side)
@@ -2031,26 +2062,26 @@ def _submit_two_stage_limit(broker: AlpacaBroker, order_row: dict) -> str:
         order_row["fill_status"] = "filled"
         return stage1_oid
 
-    second_quote = broker.get_quote_snapshot(ticker)
+    second_quote, blocked_reason = _submission_quote(broker.get_quote_snapshot(ticker), ticker)
     second_bid = _float_or_none(second_quote.get("bid_price"))
     second_ask = _float_or_none(second_quote.get("ask_price"))
     second_spread = _float_or_none(second_quote.get("spread_pct"))
-    spread_limit = MAX_SPREAD_PCT_ETF if ticker in ETF_TICKERS else MAX_SPREAD_PCT_OVERLAY
     second_quote_age = _quote_age_seconds(second_quote)
-    if (
-        second_bid is None
-        or second_ask is None
-        or second_spread is None
-        or second_spread > spread_limit
-        or not _quote_is_fresh(second_quote)
-    ):
+    order_row.update({
+        "stage2_quote_time": datetime.now(timezone.utc).isoformat(),
+        "stage2_broker_quote_timestamp": second_quote.get("quote_timestamp"),
+        "stage2_bid_price": second_bid, "stage2_ask_price": second_ask,
+        "stage2_spread_pct": second_spread, "stage2_quote_age_seconds": second_quote_age,
+    })
+    if blocked_reason:
+        order_row["stage2_block_reason"] = blocked_reason
         order_row["execution_stage"] = "stage2_blocked"
         order_row["fill_status"] = "partially_filled" if stage1_filled_qty else "canceled"
         order_row["filled_qty"] = stage1_filled_qty
         order_row["filled_avg_price"] = stage1_fill_price or ""
         _send_submit_guard_alert(
             "Two-stage reprice blocked",
-            f"{ticker} replacement blocked because its refreshed quote was missing or too wide.",
+            f"{ticker} replacement blocked: {blocked_reason}.",
         )
         return stage1_oid
 
@@ -2116,6 +2147,14 @@ def _submit_one_rebalance_order(
             and hasattr(broker, "cancel_order")
         ):
             return _submit_two_stage_limit(broker, order_row)
+        # Each queued order needs a new quote; an earlier planning check can expire.
+        quote, reason = _submission_quote(broker.get_quote_snapshot(str(order_row["ticker"])), str(order_row["ticker"]))
+        order_row.update(quote)
+        order_row.update(broker_quote_timestamp=quote.get("quote_timestamp"),
+                         quote_age_seconds=_quote_age_seconds(quote),
+                         quote_time=datetime.now(timezone.utc).isoformat())
+        if reason:
+            return _skip_order(order_row, reason)
         order = build_submission_order(
             order_row,
             use_market_order=use_market_order,
@@ -2256,8 +2295,8 @@ def _apply_spread_guard(
     Remove orders that have unsafe or unverifiable bid-ask spreads.
 
     PLAIN ENGLISH: Before an order is sent, we ask Alpaca for the current bid
-    and ask.  If the spread is too wide, or if quotes are unavailable and the
-    fail-closed setting is on, the order is logged as skipped instead of simply
+    and ask. If the spread is too wide or a fresh valid quote is unavailable,
+    the order is logged as skipped instead of simply
     disappearing from the run.
     """
     remaining: list[dict] = []
@@ -2266,7 +2305,7 @@ def _apply_spread_guard(
 
     for order_row in orders:
         ticker = str(order_row.get("ticker", "")).upper()
-        quote = broker.get_quote_snapshot(ticker)
+        quote, reason = _submission_quote(broker.get_quote_snapshot(ticker), ticker)
         order_row.update({
             "bid_price": quote.get("bid_price"),
             "ask_price": quote.get("ask_price"),
@@ -2275,17 +2314,6 @@ def _apply_spread_guard(
             "broker_quote_timestamp": quote.get("quote_timestamp"),
             "quote_age_seconds": _quote_age_seconds(quote),
         })
-
-        threshold = MAX_SPREAD_PCT_ETF if ticker in ETF_TICKERS else MAX_SPREAD_PCT_OVERLAY
-        spread = _float_or_none(quote.get("spread_pct"))
-        reason = ""
-        if spread is None and REQUIRE_QUOTE_FOR_SUBMIT:
-            reason = "quote_unavailable"
-        elif not _quote_is_fresh(quote):
-            age = _quote_age_seconds(quote)
-            reason = f"quote_stale:{age:.1f}s" if age is not None else "quote_stale"
-        elif spread is not None and spread > threshold:
-            reason = f"spread_guard:{spread*100:.2f}%>{threshold*100:.1f}%"
 
         if reason:
             skipped_orders.append(order_row)
@@ -2490,7 +2518,8 @@ def submit_rebalance_orders(
         attempted_orders.append(order_row)
         order_ids.append(oid)
         sell_ids.append(oid)
-        sell_failed = sell_failed or str(oid).startswith("ERROR")
+        # A submission-time guard can skip a sell. That has not freed any cash.
+        sell_failed = sell_failed or str(oid).startswith(("ERROR", "SKIPPED"))
 
     skip_buy_reason = ""
     if buy_orders:

@@ -267,7 +267,7 @@ def main() -> None:
     Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
     config = _selected_config()
     specs = load_feature_specs()
-    panel = core._ensure_robust_score_columns(attach_scores(load_factor_panel(specs), specs, load_prediction_scores()))
+    panel = core._ensure_robust_score_columns(attach_scores(load_factor_panel(specs, require_forward_returns=False), specs, load_prediction_scores()))
 
     evaluated: list[tuple[dict, pd.Series, pd.DataFrame]] = []
     for rule_name in THROTTLE_RULES:

@@ -285,3 +285,11 @@ order IDs stop a retry from creating a duplicate order.
 # Paper-account identity
 
 The status snapshot records a short one-way hash of the Alpaca paper account ID. This proves that validation evidence belongs to one consistent account without saving the private account ID itself.
+
+## September 2026 submission and historical-data repair
+
+Every rebalance submission now checks the exact bid and ask it will use, including the passive first stage, the replacement stage, and single-stage orders. Both prices must be finite and positive; the ask must not be below the bid. The broker timestamp must be present, no later than now, and within `EXECUTION_QUOTE_MAX_AGE_SECONDS`. Spread is calculated as `(ask - bid) / midpoint`, rather than trusted from a supplied field. Existing ETF and stock spread limits apply to buys and sells, including market-order overrides.
+
+An unsafe first attempt is logged as skipped. An unsafe replacement preserves the first order's fills and cancellation result, and records `stage2_block_reason`, the broker timestamp, and the rejected quote. `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT=0` no longer bypasses quote validation. A spread is the gap between the buyer's bid and seller's ask; a midpoint is their average.
+
+Verify offline with `python -m pytest tests/test_brokers.py tests/test_submission_history_guards.py -q`. These tests use fake brokers. Expected output is passing tests; no broker orders are sent.
