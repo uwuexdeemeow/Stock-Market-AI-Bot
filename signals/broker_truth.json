@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-05T09:46:00+00:00",
+  "generated_at": "2026-09-05T16:25:41+00:00",
   "status": "warning",
   "score": 95.0,
   "summary": {
@@ -13,7 +13,7 @@
     "live_open_orders_available": true,
     "live_open_orders_count": 4,
     "latest_log_date": "2026-09-03",
-    "signal_age_hours": 16.75,
+    "signal_age_hours": 23.41,
     "signal_freshness_status": "fresh",
     "order_plan_age_hours": 0.0,
     "order_plan_freshness_status": "fresh",
@@ -52,11 +52,11 @@
       "exists": true,
       "rows": 1,
       "error": "",
-      "modified_at": "2026-09-05T09:45:56+00:00",
+      "modified_at": "2026-09-05T16:25:37+00:00",
       "as_of": "2026-09-05T01:01+08:00",
       "target_count": 6,
       "freshness_status": "fresh",
-      "age_hours": 16.75,
+      "age_hours": 23.41,
       "timestamp_used": "as_of",
       "timestamp_utc": "2026-09-04T17:01:00+00:00"
     },
@@ -65,18 +65,18 @@
       "exists": true,
       "rows": 0,
       "error": "",
-      "modified_at": "2026-09-05T09:45:56+00:00",
+      "modified_at": "2026-09-05T16:25:37+00:00",
       "freshness_status": "fresh",
       "age_hours": 0.0,
       "timestamp_used": "modified_at",
-      "timestamp_utc": "2026-09-05T09:45:56+00:00"
+      "timestamp_utc": "2026-09-05T16:25:37+00:00"
     },
     "paper_log": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_paper_log.csv",
       "exists": true,
       "rows": 8,
       "error": "",
-      "modified_at": "2026-09-05T09:45:56+00:00",
+      "modified_at": "2026-09-05T16:25:37+00:00",
       "latest_submitted_date": "2026-09-03",
       "stale_vs_broker_status": true
     },
@@ -84,15 +84,15 @@
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_daily_status.json",
       "exists": true,
       "error": "",
-      "modified_at": "2026-09-05T09:45:58+00:00",
-      "generated_at": "2026-09-05T09:46:01+00:00",
+      "modified_at": "2026-09-05T16:25:40+00:00",
+      "generated_at": "2026-09-05T16:25:41+00:00",
       "equity": 110471.01,
       "cash": 562.14,
       "position_count": 4,
       "available": true,
       "attempted": true,
       "source": "alpaca_api",
-      "file_generated_at": "2026-09-05T09:45:58"
+      "file_generated_at": "2026-09-05T16:25:40"
     },
     "live_positions": {
       "available": true,
@@ -102,7 +102,7 @@
       "equity": 110471.01,
       "cash": 562.14,
       "position_count": 4,
-      "generated_at": "2026-09-05T09:46:01+00:00"
+      "generated_at": "2026-09-05T16:25:41+00:00"
     },
     "open_orders": {
       "available": true,
@@ -315,13 +315,13 @@
     }
   ],
   "run_context": {
-    "run_id": "post-market-33958808537-1",
-    "generated_at": "2026-09-05T09:46:00+00:00",
+    "run_id": "post-market-33977753824-1",
+    "generated_at": "2026-09-05T16:25:41+00:00",
     "signal_as_of": "2026-09-05T01:01+08:00",
-    "git_commit": "502324200bd4e453522279749f32dd28590c2220",
+    "git_commit": "3a75517f0ec6709191629044c39ff63775249f1e",
     "configuration_fingerprint": "883fe6d211e504e9bc4bd7832f09ec5ea5575692a861fd11e2b32c08a374e40e",
-    "paper_version_fingerprint": "043d8ed08eebdaca08ace66d03169cf3626e94f2c36cc410f3f20fe642118305",
+    "paper_version_fingerprint": "ca61f538f1a47339fafd207312d1df2f2ada76c40f6c1765914a42942519c3f8",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-33958808537-1"
+  "run_id": "post-market-33977753824-1"
 }

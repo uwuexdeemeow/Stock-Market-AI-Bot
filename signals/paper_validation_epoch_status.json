@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "epoch_id": "paper-v20260903T140244Z",
-  "evaluated_at": "2026-09-05T09:46:03+00:00",
+  "evaluated_at": "2026-09-05T16:25:43+00:00",
   "status": "collecting",
   "trading_days": 3,
   "rebalance_events": 1,
@@ -46,16 +46,8 @@
   "two_stage_design_improves_slippage": false,
   "execution_scorecard_decision_eligible": false,
   "execution_scorecard_schema_version": 3,
-  "paper_version_lock_valid": false,
-  "paper_version_lock_issues": [
-    "locked_file_changed:.github/workflows/daily_paper_trading.yml",
-    "locked_file_changed:.github/workflows/post_market_execution_quality.yml",
-    "locked_file_changed:.github/workflows/shadow_paper_journal.yml",
-    "locked_file_changed:execution_scorecard.py",
-    "locked_file_changed:order_accounting.py",
-    "locked_file_changed:run_evidence.py",
-    "paper_logic_fingerprint_mismatch"
-  ],
+  "paper_version_lock_valid": true,
+  "paper_version_lock_issues": [],
   "checks": {
     "trading_days": false,
     "rebalance_events": false,
@@ -72,18 +64,18 @@
     "bad_slippage_rate": false,
     "stage_comparison_ready": false,
     "two_stage_design": false,
-    "paper_version_lock": false
+    "paper_version_lock": true
   },
   "manual_real_capital_review_eligible": false,
   "real_capital_approved": false,
   "run_context": {
-    "run_id": "post-market-33958808537-1",
-    "generated_at": "2026-09-05T09:46:03+00:00",
+    "run_id": "post-market-33977753824-1",
+    "generated_at": "2026-09-05T16:25:43+00:00",
     "signal_as_of": "2026-09-05T01:01+08:00",
-    "git_commit": "502324200bd4e453522279749f32dd28590c2220",
+    "git_commit": "3a75517f0ec6709191629044c39ff63775249f1e",
     "configuration_fingerprint": "883fe6d211e504e9bc4bd7832f09ec5ea5575692a861fd11e2b32c08a374e40e",
-    "paper_version_fingerprint": "043d8ed08eebdaca08ace66d03169cf3626e94f2c36cc410f3f20fe642118305",
+    "paper_version_fingerprint": "ca61f538f1a47339fafd207312d1df2f2ada76c40f6c1765914a42942519c3f8",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-33958808537-1"
+  "run_id": "post-market-33977753824-1"
 }
