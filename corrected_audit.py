@@ -171,7 +171,9 @@ def main(argv=None):
                                marks=pd.read_csv(args.marks) if args.marks else None)
         args.output.mkdir(parents=True, exist_ok=True)
         history = json.loads(args.history_evidence.read_text(encoding="utf-8")) if args.history_evidence else {}
-        atomic_write_json({**result.metrics, "gaps": result.data_quality, "source_history_complete": history.get("history_complete") is True}, args.output / "replay_reconciliation.json")
+        atomic_write_json({**result.metrics, "gaps": result.data_quality, "source_history_complete": history.get("history_complete") is True,
+                           "source_opening_balances_verified": opening.get("verified") is True and bool(opening.get("source")),
+                           "source_closing_balances_verified": closing.get("verified") is True and bool(closing.get("source"))}, args.output / "replay_reconciliation.json")
         atomic_write_csv(result.events, args.output / "replay_events.csv")
         atomic_write_csv(result.equity, args.output / "replay_daily_equity.csv")
         return
@@ -314,7 +316,7 @@ def main(argv=None):
     if args.freeze:
         replay_path = args.output / "replay_reconciliation.json"
         replay = json.loads(replay_path.read_text(encoding="utf-8")) if replay_path.exists() else {}
-        if replay.get("reconciled") is not True or replay.get("ledger_version") != LEDGER_VERSION or replay.get("source_history_complete") is not True:
+        if not replay_certified(replay):
             raise SystemExit("Freeze blocked: recorded-event accounting must reconcile first")
         artifact = fit_features(panel, spec["features"], cutoff=args.end, label=spec["label"])
         selected = outputs[-1]["configuration"]
@@ -326,6 +328,12 @@ def main(argv=None):
         atomic_write_json({"frozen_at": datetime.now(timezone.utc).isoformat(), "strategy_fingerprint": strategy_identity(selected, artifact, policy),
                            "required_sessions": 252, "automatic_cutover": False, "configuration": selected,
                            "artifact": asdict(artifact), "cost_parameters": cost_parameters, "specification": spec}, freeze_path)
+
+
+def replay_certified(report):
+    """Matching arithmetic alone cannot verify inferred historical balances."""
+    return report.get("ledger_version") == LEDGER_VERSION and all(report.get(key) is True for key in
+        ("reconciled", "source_history_complete", "source_opening_balances_verified", "source_closing_balances_verified"))
 
 
 if __name__ == "__main__":

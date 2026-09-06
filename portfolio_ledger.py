@@ -41,8 +41,8 @@ def daily_metrics(equity: pd.Series) -> dict:
 
 class Account:
     """All money/share changes go through one event recorder."""
-    def __init__(self, cash: float, holdings: dict | None = None, version: str = LEDGER_VERSION):
-        if not math.isfinite(cash) or cash < 0:
+    def __init__(self, cash: float, holdings: dict | None = None, version: str = LEDGER_VERSION, *, allow_margin=False):
+        if not math.isfinite(cash) or (cash < 0 and not allow_margin):
             raise ValueError("Opening cash is required and cannot be negative")
         self.cash = float(cash)
         self.shares = dict(holdings or {})
@@ -53,6 +53,7 @@ class Account:
         self.pending = {}
         self.receivables = {}
         self.version = version
+        self.allow_margin = allow_margin
 
     def record(self, timestamp, kind, source, **fields):
         self.events.append({"timestamp": pd.Timestamp(timestamp), "kind": kind, "source": source,
@@ -67,7 +68,7 @@ class Account:
             raise ValueError(f"Invalid fill {event_id}")
         next_shares = self.shares.get(ticker, 0.) + quantity
         next_cash = self.cash - quantity * price - fee
-        if next_shares < -1e-8 or next_cash < -.005:
+        if next_shares < -1e-8 or (next_cash < -.005 and not self.allow_margin):
             raise ValueError(f"Fill violates long-only cash/share conservation: {event_id}")
         self.cash = next_cash
         self.shares[ticker] = max(0., next_shares)
@@ -306,7 +307,9 @@ def replay_events(events: pd.DataFrame, *, opening_cash: float | None, opening_h
         return LedgerResult(pd.DataFrame(), pd.DataFrame(), pd.DataFrame(),
                             {"reconciled": False, "ledger_version": LEDGER_VERSION, "known_share_changes": known_changes,
                              "known_changes_are_closing_balances": False}, gaps)
-    account = Account(opening_cash, opening_holdings)
+    # Replay records what the broker actually did, including historical margin;
+    # it must not apply today's cash-only simulation policy retroactively.
+    account = Account(opening_cash, opening_holdings, allow_margin=True)
     if "timestamp" not in events:
         raise ValueError("Recorded events need timestamps")
     if pd.to_datetime(events.timestamp, utc=True, errors="coerce").isna().any():
@@ -329,6 +332,16 @@ def replay_events(events: pd.DataFrame, *, opening_cash: float | None, opening_h
                          event_id=event["event_id"], source="recorded_fill", order_id=event.get("order_id", ""), decision_id=event.get("decision_id", ""))
         elif kind in {"split", "dividend", "symbol_change", "cash_liquidation"}:
             account.action(event["timestamp"], event)
+        elif kind == "cash_adjustment":
+            # Brokers can bill fees separately from fills. Apply the documented
+            # debit once instead of allocating it again into every fill price.
+            key, amount = str(event["event_id"]), float(event["amount"])
+            if key in account.seen or not math.isfinite(amount):
+                raise ValueError(f"Duplicate or invalid cash event: {key}")
+            account.seen.add(key)
+            account.cash += amount
+            account.record(event["timestamp"], kind, event.get("source", "recorded_cash_activity"), event_id=key,
+                           amount=amount, cash=account.cash)
         elif kind in {"submitted", "canceled", "rejected", "expired"}:
             account.pending[event["order_id"]] = float(event["quantity"]) if kind == "submitted" else 0.
             account.record(event["timestamp"], kind, "broker", order_id=event["order_id"])
@@ -350,6 +363,8 @@ def replay_events(events: pd.DataFrame, *, opening_cash: float | None, opening_h
     metrics = {"reconciled": not gaps, "cash": account.cash, "holdings": account.shares,
                "pending_orders": account.pending, "ledger_version": LEDGER_VERSION, "execution_mode": "recorded_fills",
                "performance_window": "provided_valuation_marks_only" if len(marked) >= 2 else "unavailable"}
+    metrics["minimum_recorded_cash"] = min([opening_cash] + [event["cash"] for event in account.events if "cash" in event])
+    metrics["historical_margin_observed"] = metrics["minimum_recorded_cash"] < -.005
     if len(marked) >= 2:
         metrics.update(daily_metrics(marked.set_index("date").equity))
         metrics.update(performance_start=str(marked.date.iloc[0]), performance_end=str(marked.date.iloc[-1]))

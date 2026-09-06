@@ -85,6 +85,10 @@ is fabricated. The recovered September 3 fixture contains known share changes
 but insufficient inputs for a one-cent cash reconciliation.
 The history report must explicitly have `history_complete: true`; absence or
 incompleteness blocks freeze even if the supplied subset balances reconcile.
+Opening and closing balance inputs also need `verified: true` and an attributed
+`source` to certify freeze. An opening inferred from equity history is not an
+independent cash/position statement. Matching arithmetic with that hypothesis
+cannot start the prospective clock.
 
 ## Freeze and 252 new sessions
 

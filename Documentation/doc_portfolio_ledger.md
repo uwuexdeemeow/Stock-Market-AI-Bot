@@ -49,3 +49,13 @@ closing balance or a successful reconciliation.
 
 The schema is `daily-ledger-v1`. Earlier period-return backtests must be
 regenerated; they cannot stand in for corrected ledger validation.
+
+## Recovered account activity support
+
+Replay accepts cash_adjustment events with a unique event_id, timestamp and
+signed amount. This handles separately billed broker fees without charging
+them inside fills as well. Duplicate cash events are rejected. Actual historic
+margin balances are preserved in recorded replay and reported through
+minimum_recorded_cash and historical_margin_observed. Simulation stays
+cash-only. This distinction permits replay of actual records without imposing
+today's policy on earlier transactions.

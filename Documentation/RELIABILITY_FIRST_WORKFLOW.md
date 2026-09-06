@@ -56,6 +56,16 @@ remain separate. No result automatically cuts over paper or approves real money.
 
 ## Canonical daily evidence
 
+The next evidence-recovery stage is available through
+`python audit_evidence_recovery.py --paper --sources --price-probes SPY QQQ`.
+It retrieves actual activities and candidate historical sources without trading.
+Private responses stay under ignored data/audit_recovery. Separate broker fees
+are cash events; recorded margin balances remain visible. A numerical replay
+match with an inferred opening is not freeze certification. Independently
+verified opening and closing cash/position snapshots are required. The script
+saves a current snapshot for future intervals without changing the strategy or
+starting the 252-session clock. See doc_audit_evidence_recovery.md.
+
 All daily paper outputs share one run ID. Broker truth, execution quality,
 validation progress, monitor continuity, and incidents are consolidated into
 `signals/alpaca_paper_health.json`. Only a complete same-run bundle receives a
