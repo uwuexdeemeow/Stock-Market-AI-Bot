@@ -233,3 +233,10 @@ leading/trailing purge counts so the rule can be audited directly.
 This evaluator now loads the complete core/satellite candidate panel with `require_forward_returns=False`. Stocks with missing future returns stay eligible for ranking; the shared core/satellite engine validates the selected holdings after selection and stops with a ticker/date error if a required outcome cannot be measured. It excludes incomplete evaluation periods as whole periods. This prevents future data availability from choosing today's holdings.
 
 Use the run command and inputs described above as before. Expected output is the usual evaluation report, or a clear missing-price error to resolve before reporting performance. A candidate is a stock considered for selection; a forward return is its later gain or loss. Historical reports made before this repair must be regenerated before comparison with corrected results. Run `python -m pytest tests/test_submission_history_guards.py -q` for offline regressions.
+
+
+## Remaining audit repair, September 2026
+
+Use python core_satellite_nested_walkforward.py --corrected-shadow-spec corrected_shadow_spec.json to enter the corrected runner before loading a global feature shortlist. Inner training fits feature selection, direction and health weights; actual label endpoints purge unfinished training outcomes. Each outer fold receives a frozen artifact and starts its ledger in cash. See doc_corrected_audit.md for raw-source requirements, immutable trial outputs and separate selected-configuration stress checks. Corrected and legacy accounting identities are distinct; old checkpoints cannot certify corrected results. The legacy default remains for the current paper workflow and carries no corrected-accounting claim.
+
+Historical results affected by these changes must be regenerated. Original audit evidence is preserved; no corrected historical claim is made when source checks are blocked.

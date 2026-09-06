@@ -491,6 +491,7 @@ def _ckpt_key_blob(strategy: str, min_train_years: int, configs: list, *, includ
     sigs = sorted(config_signature(c) for c in configs)
     payload = {
         "strategy": strategy,
+        "accounting_modes": sorted({c.get("accounting_mode", "legacy_period_returns") for c in configs}),
         "min_train_years": min_train_years,
         "configs": sigs,
         # Selection-filter knobs: changing any of these invalidates the
@@ -3418,7 +3419,12 @@ def main() -> None:
             f"copy-on-write.  Set to 1 to disable parallelism."
         ),
     )
+    parser.add_argument("--corrected-shadow-spec", help="Run versioned fold-local daily-ledger research from a JSON specification")
     args = parser.parse_args()
+    if args.corrected_shadow_spec:
+        from corrected_audit import main as corrected_main
+        corrected_main(["--spec", args.corrected_shadow_spec])
+        return
     if sum(bool(flag) for flag in (
         args.fast,
         args.full,

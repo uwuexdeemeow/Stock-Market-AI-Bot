@@ -61,3 +61,10 @@ The fingerprint also records selection shape, weighting, overlay size,
 volatility mode, and risk mode even when a field does not alter the IC formula.
 Schema version 2 records `higher_is_better` score direction, exact cohort count,
 decile returns, and the non-overlapping sampling method.
+
+
+## Remaining audit repair, September 2026
+
+The old overlay_alpha_sum_pct field is retired. Historical overlay totals are explicitly legacy_overlay_raw_return_sum_pct and are not benchmark-relative alpha. Only current versioned paired-ledger evidence with at least 20 mature non-overlapping cohorts and positive lower 95% confidence bounds for excess return and rank IC can support pass. Otherwise edge health remains advisory and real-capital evidence remains blocked; advisory is not an automatic paper-strategy cutover or halt. JSON, CSV, notification text and status consumers share the migrated fields. Legacy return sums remain diagnostic only. The corrected source is signals/corrected_audit/edge_monitor.json. Do not run this monitor merely to test it: its normal CLI can send configured status notifications. Test offline with python -m pytest tests/test_medium_gap_fixes.py tests/test_corrected_audit.py -q.
+
+Historical results affected by these changes must be regenerated. Original audit evidence is preserved; no corrected historical claim is made when source checks are blocked.

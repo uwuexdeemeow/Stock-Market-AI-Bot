@@ -1488,6 +1488,14 @@ def run_core_satellite(
     optional boundaries therefore create a brand-new rebalance schedule inside
     the window and keep only complete holding periods.
     """
+    if config.get("accounting_mode") == "daily-ledger-v1":
+        # Explicit shadow adapter: existing paper callers retain their current path.
+        from corrected_audit import evaluate_corrected
+        inputs = panel.attrs.get("ledger_inputs")
+        if not isinstance(inputs, dict):
+            raise ValueError("Corrected ledger requires verified raw prices, actions and membership inputs")
+        result = evaluate_corrected(panel, config, start=evaluation_start, end=evaluation_end, **inputs)
+        return result.equity["equity"], result.events, result.metrics
     holding_days = int(config.get("holding_days", HORIZON_DAYS))
     entry_delay_days = int(config.get("entry_delay_days", 0))
     if entry_delay_days > 0:

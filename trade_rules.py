@@ -95,14 +95,22 @@ def resolve_rule_exit(hist: pd.DataFrame, row: pd.Series | dict, rule: TradeRule
     hist = hist.copy()
     hist.index = pd.DatetimeIndex(hist.index)
     if hist.empty:
-        exit_date = pd.Timestamp(row.get("exit_date", row.get("entry_date")))
-        return exit_date, float(row.get("exit_future_close", row.get("open_next", 0.0))), 0, "missing_history"
+        raise ValueError("Price history required for rule exits")
+    hist = hist.sort_index()
+    if hist.index.has_duplicates:
+        raise ValueError("Duplicate price dates in rule exit history")
 
     entry_date = pd.Timestamp(row.get("entry_date"))
     signal = str(row.get("signal", "LONG")).upper()
     entry_price = float(row.get("open_next", row.get("entry_price", 0.0)) or 0.0)
-    entry_pos = _nearest_loc(hist.index, entry_date)
-    exit_pos = min(entry_pos + int(rule.exit_horizon_days), len(hist) - 1)
+    if not np.isfinite(entry_price) or entry_price <= 0 or signal not in {"LONG", "SHORT"}:
+        raise ValueError(f"Invalid entry price/direction at {entry_date}")
+    if entry_date not in hist.index:
+        raise ValueError(f"Missing exact entry session: {entry_date}")
+    entry_pos = int(hist.index.get_loc(entry_date))
+    exit_pos = entry_pos + int(rule.exit_horizon_days)
+    if exit_pos >= len(hist):
+        raise ValueError("Incomplete rule-exit horizon")
     future = hist.iloc[entry_pos: exit_pos + 1]
     if future.empty:
         px = float(hist["Close"].iloc[min(entry_pos, len(hist) - 1)])
@@ -112,24 +120,32 @@ def resolve_rule_exit(hist: pd.DataFrame, row: pd.Series | dict, rule: TradeRule
     take_px = None
     if entry_price > 0:
         if signal == "LONG":
-            stop_px = entry_price * (1.0 - max(rule.stop_loss_pct, 0.0))
-            take_px = entry_price * (1.0 + max(rule.take_profit_pct, 0.0))
+            stop_px = entry_price * (1.0 - rule.stop_loss_pct) if rule.stop_loss_pct > 0 else None
+            take_px = entry_price * (1.0 + rule.take_profit_pct) if rule.take_profit_pct > 0 else None
         else:
-            stop_px = entry_price * (1.0 + max(rule.stop_loss_pct, 0.0))
-            take_px = entry_price * (1.0 - max(rule.take_profit_pct, 0.0))
+            stop_px = entry_price * (1.0 + rule.stop_loss_pct) if rule.stop_loss_pct > 0 else None
+            take_px = entry_price * (1.0 - rule.take_profit_pct) if rule.take_profit_pct > 0 else None
 
-    for dt, bar in future.iloc[1:].iterrows():
-        high = float(bar.get("High", bar.get("Close", np.nan)))
-        low = float(bar.get("Low", bar.get("Close", np.nan)))
-        close = float(bar.get("Close", entry_price))
+    # Entry is at the open, so the entry day's high/low can trigger an exit.
+    for dt, bar in future.iterrows():
+        open_price = float(bar.get("Open", np.nan))
+        high = float(bar.get("High", np.nan))
+        low = float(bar.get("Low", np.nan))
+        close = float(bar.get("Close", np.nan))
+        if not all(np.isfinite(x) and x > 0 for x in (open_price, high, low, close)):
+            raise ValueError(f"Invalid OHLC on {dt}")
+        # The open happens first on both possible daily paths. A profit gap
+        # already reaches its limit before any later low/high can hit a stop.
+        if take_px is not None and ((signal == "LONG" and open_price >= take_px) or (signal == "SHORT" and open_price <= take_px)):
+            return pd.Timestamp(dt), float(take_px), int((pd.Timestamp(dt) - entry_date).days), "take_profit"
         if signal == "LONG":
             if stop_px is not None and low <= stop_px:
-                return pd.Timestamp(dt), float(stop_px), int((pd.Timestamp(dt) - entry_date).days), "stop_loss"
+                return pd.Timestamp(dt), float(min(open_price, stop_px) if signal == "LONG" else max(open_price, stop_px)), int((pd.Timestamp(dt) - entry_date).days), "stop_loss"
             if take_px is not None and high >= take_px:
                 return pd.Timestamp(dt), float(take_px), int((pd.Timestamp(dt) - entry_date).days), "take_profit"
         else:
             if stop_px is not None and high >= stop_px:
-                return pd.Timestamp(dt), float(stop_px), int((pd.Timestamp(dt) - entry_date).days), "stop_loss"
+                return pd.Timestamp(dt), float(min(open_price, stop_px) if signal == "LONG" else max(open_price, stop_px)), int((pd.Timestamp(dt) - entry_date).days), "stop_loss"
             if take_px is not None and low <= take_px:
                 return pd.Timestamp(dt), float(take_px), int((pd.Timestamp(dt) - entry_date).days), "take_profit"
         if pd.Timestamp(dt) == future.index[-1]:

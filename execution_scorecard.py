@@ -715,6 +715,11 @@ def build_execution_scorecard(
         for name, _measured_count, coverage in coverage_fields
         if coverage is None or float(coverage) < MIN_DECISION_COVERAGE
     )
+    # Incomplete retrieval cannot certify complete reconciliation or execution quality.
+    if slippage_report.get("history_complete") is False:
+        decision_blockers.append("broker_history_incomplete")
+    if slippage_report.get("measurement_sample_complete") is False:
+        decision_blockers.append("execution_measurements_truncated")
     decision_eligible = not decision_blockers
     warning = bool(
         (report_metrics.get("avg_slippage_bps") is not None and report_metrics["avg_slippage_bps"] > WARN_AVG_SLIPPAGE_BPS)

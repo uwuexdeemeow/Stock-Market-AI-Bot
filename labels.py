@@ -46,7 +46,7 @@ def make_spy_forward_return(
     idx = df.index if index is None else index
     bench_col = f"spy_ret{horizon}d"
     if bench_col not in df.columns:
-        return pd.Series(0.0, index=idx)
+        raise ValueError(f"Required benchmark column missing: {bench_col}")
     return df[bench_col].shift(-horizon).reindex(idx)
 
 
@@ -76,12 +76,12 @@ def make_direction_target(
     """
     if isinstance(df, pd.Series):
         close = df
-        if spy_fwd is None:
-            spy_fwd = pd.Series(0.0, index=close.index)
+        if spy_fwd is None and prediction_target in {"excess_return", "vol_adjusted"}:
+            raise ValueError("Benchmark forward returns required for excess-return labels")
         hvol = pd.Series(0.20, index=close.index)
     else:
         close = df["Close"]
-        if spy_fwd is None:
+        if spy_fwd is None and prediction_target in {"excess_return", "vol_adjusted"}:
             spy_fwd = make_spy_forward_return(df, horizon=horizon)
         hvol = df["hvol_20d"] if "hvol_20d" in df.columns else pd.Series(0.20, index=close.index)
 

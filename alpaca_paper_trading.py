@@ -1050,11 +1050,11 @@ class AlpacaBroker(Broker):
     def recent_fills(self, since_iso: str) -> list[Fill]:
         """Get recently filled orders."""
         try:
-            orders = self._api.list_orders(
-                status="filled",
-                after=since_iso,
-                limit=100,
-            )
+            from broker_history import collect_order_history
+            history = collect_order_history(self._api, after="1970-01-01T00:00:00Z")
+            if not history.complete:
+                raise RuntimeError("Incomplete fill history: " + ";".join(history.errors))
+            orders = [order for order in history.orders if float(getattr(order, "filled_qty", 0) or 0) > 0 and pd.to_datetime(getattr(order, "filled_at", None), utc=True) >= pd.Timestamp(since_iso)]
             return [
                 Fill(
                     order_id=str(o.id),
@@ -1066,8 +1066,8 @@ class AlpacaBroker(Broker):
                 )
                 for o in orders
             ]
-        except Exception:
-            return []
+        except Exception as exc:
+            raise RuntimeError(f"Cannot certify recent fill history: {exc}") from exc
 
     def is_market_open(self) -> bool:
         """Check if US market is currently open."""
@@ -1477,7 +1477,9 @@ def generate_orders(
         target_value = target_w * equity
         # Round to nearest share to minimize drift from target weight.
         # int() truncates toward zero and systematically under-allocates.
-        target_qty = round(target_value / px)
+        # Shared pure sizing rule keeps offline accounting and paper rounding identical.
+        from paper_policy import whole_share_target
+        target_qty = whole_share_target(target_value, 1.0, px)
 
         # The experimental cap is applied only to a proposed overlay BUY.  It
         # is off by default and cannot increase the approved signal quantity.
@@ -1495,7 +1497,8 @@ def generate_orders(
 
         # Skip if drift is below threshold (unless forced)
         threshold = ETF_DRIFT_THRESHOLD if ticker in ETF_TICKERS else OVERLAY_DRIFT_THRESHOLD
-        if drift < threshold and not force:
+        from paper_policy import drift_requires_trade
+        if not drift_requires_trade(drift, threshold, force=force):
             continue
 
         # How many shares to trade
@@ -1616,6 +1619,11 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
             "bid_price": order.get("bid_price", ""),
             "ask_price": order.get("ask_price", ""),
             "quote_mid_price": order.get("quote_mid_price", ""),
+            "arrival_mid": order.get("arrival_mid", ""),
+            "arrival_quote_timestamp": order.get("arrival_quote_timestamp", ""),
+            "arrival_feed": order.get("arrival_feed", ""),
+            "arrival_spread_bps": order.get("arrival_spread_bps", ""),
+            "original_requested_quantity": order.get("original_requested_quantity", ""),
             "spread_pct": order.get("spread_pct", ""),
             "parent_order_id": order.get("parent_order_id", ""),
             "execution_stage": order.get("execution_stage", ""),
@@ -2306,6 +2314,12 @@ def _apply_spread_guard(
     for order_row in orders:
         ticker = str(order_row.get("ticker", "")).upper()
         quote, reason = _submission_quote(broker.get_quote_snapshot(ticker), ticker)
+        order_row.setdefault("arrival_mid", quote.get("quote_mid_price"))
+        order_row.setdefault("arrival_quote_timestamp", quote.get("quote_timestamp"))
+        order_row.setdefault("arrival_feed", quote.get("feed", "unknown"))
+        arrival_spread = _float_or_none(quote.get("spread_pct"))
+        order_row.setdefault("arrival_spread_bps", arrival_spread * 10000 if arrival_spread is not None else None)
+        order_row.setdefault("original_requested_quantity", order_row.get("quantity"))
         order_row.update({
             "bid_price": quote.get("bid_price"),
             "ask_price": quote.get("ask_price"),
@@ -2399,15 +2413,16 @@ def _buy_cash_buffer_amount(broker: AlpacaBroker) -> float:
     down to almost zero cash.
     """
     dollar_buffer = max(0.0, BUY_CASH_BUFFER_DOLLARS)
-    pct_buffer = 0.0
+    buffer_equity = 0.0
     if BUY_CASH_BUFFER_PCT > 0:
         try:
             equity = _float_or_none(broker.get_equity())
             if equity is not None and equity > 0:
-                pct_buffer = equity * BUY_CASH_BUFFER_PCT
+                buffer_equity = equity
         except Exception as exc:
             print(f"  ⚠ Could not compute percent cash buffer: {exc}")
-    return max(dollar_buffer, pct_buffer)
+    from paper_policy import cash_reserve
+    return cash_reserve(buffer_equity, BUY_CASH_BUFFER_PCT, dollar_buffer)
 
 
 def _fit_buy_orders_to_available_cash(
@@ -2499,6 +2514,9 @@ def submit_rebalance_orders(
     """
     attempted_orders: list[dict] = []
     order_ids: list[str] = []
+    for order_row in orders:
+        # Capture requested shares before any cash clamp or replacement sizing.
+        order_row.setdefault("original_requested_quantity", order_row.get("quantity"))
     sell_orders = [o for o in orders if str(o.get("side", "")).lower() == "sell"]
     buy_orders = [o for o in orders if str(o.get("side", "")).lower() == "buy"]
     cash_skipped_buy_orders: list[tuple[dict, str]] = []
@@ -3109,16 +3127,10 @@ def build_slippage_reversal_report(
     report_rows: list[dict] = []
     errors: list[str] = []
 
-    try:
-        raw_orders = broker._api.list_orders(
-            status="all",
-            limit=api_order_limit,
-            direction="desc",
-            nested=False,
-        )
-    except Exception as exc:
-        raw_orders = []
-        errors.append(f"list_orders_failed: {exc}")
+    from broker_history import collect_order_history
+    history = collect_order_history(broker._api, after="1970-01-01T00:00:00Z", until=report_clock, page_size=api_order_limit)
+    raw_orders = history.orders
+    errors.extend(history.errors)
 
     filled_orders = []
     for raw in raw_orders:
@@ -3129,6 +3141,8 @@ def build_slippage_reversal_report(
         # A canceled Stage-1 order can still contain a real partial fill. Keep
         # every broker order with positive filled quantity so that price
         # improvement is not lost from execution evidence.
+        if qty is not None and qty > 0 and (filled_at is None or fill_price is None or fill_price <= 0):
+            errors.append(f"fill_measurement_missing:{_obj_value(raw, 'id', '')}")
         if filled_at is None or fill_price is None or fill_price <= 0 or qty is None or qty <= 0:
             continue
         filled_orders.append((filled_at, raw, fill_price, qty))
@@ -3136,8 +3150,17 @@ def build_slippage_reversal_report(
     cutoff = datetime.now(timezone.utc) - timedelta(days=max(0, int(lookback_days)))
     filled_orders = [item for item in filled_orders if lookback_days <= 0 or item[0] >= cutoff]
     filled_orders.sort(key=lambda item: item[0], reverse=True)
-    filled_orders = filled_orders[:lookback_orders]
+    # Keep the old argument for callers, but measure the whole requested interval.
+    measurement_sample_complete = not any(error.startswith("fill_measurement_missing:") for error in errors)
 
+    # Join original arrival evidence to both child attempts without reconstructing old quotes.
+    arrival_by_order = {}
+    if PAPER_LOG_FILE.exists():
+        journal = pd.read_csv(PAPER_LOG_FILE).to_dict("records")
+        for saved in journal:
+            for key in ("order_id", "stage1_order_id", "stage2_order_id"):
+                if pd.notna(saved.get(key)):
+                    arrival_by_order[str(saved[key])] = saved
     for filled_at, raw, fill_price, qty in filled_orders:
         ticker = str(_obj_value(raw, "symbol", "")).upper()
         side = str(_obj_value(raw, "side", "")).lower()
@@ -3156,8 +3179,8 @@ def build_slippage_reversal_report(
             "side": side,
             "order_type": order_type,
             "client_order_id": str(_obj_value(raw, "client_order_id", "") or ""),
-            "filled_qty": int(qty) if qty is not None and np.isfinite(qty) else None,
-            "fill_price": round(fill_price, 4),
+            "filled_qty": float(qty) if qty is not None and np.isfinite(qty) else None,
+            "fill_price": fill_price,
             "fill_minute_vwap": round(vwap, 4) if vwap is not None else None,
             "slippage_bps": None,
             "adverse_5m_bps": None,
@@ -3167,6 +3190,19 @@ def build_slippage_reversal_report(
             "worst_adverse_60m_bps": None,
             "best_favorable_60m_bps": None,
         }
+        saved = arrival_by_order.get(row["order_id"], {})
+        arrival = _float_or_none(saved.get("arrival_mid"))
+        row["arrival_mid"] = arrival
+        row["arrival_quote_timestamp"] = saved.get("arrival_quote_timestamp")
+        row["arrival_feed"] = saved.get("arrival_feed")
+        row["arrival_shortfall_bps"] = _signed_slippage_bps(side, fill_price, arrival)
+        row["original_requested_quantity"] = saved.get("original_requested_quantity")
+        spread = _float_or_none(saved.get("arrival_spread_bps"))
+        row["arrival_spread_bps"] = spread
+        row["spread_bucket"] = "unknown" if spread is None else "0-10bps" if spread <= 10 else "10-35bps" if spread <= 35 else "over35bps"
+        row["liquidity_bucket"] = saved.get("liquidity_bucket", "unknown")
+        row["size_bucket"] = "under1k" if qty * fill_price < 1000 else "1k-10k" if qty * fill_price < 10000 else "over10k"
+        row["session"] = filled_at.astimezone(ZoneInfo("America/New_York")).date().isoformat()
         client_order_id = str(row["client_order_id"])
         if client_order_id.endswith("-a1") or client_order_id.endswith("-a2"):
             row["parent_client_order_id"] = client_order_id[:-3]
@@ -3174,6 +3210,9 @@ def build_slippage_reversal_report(
         else:
             row["parent_client_order_id"] = client_order_id
             row["execution_stage"] = "legacy"
+        row["parent_order_id"] = row["parent_client_order_id"] or row["order_id"]
+        if order_type in {"trailing_stop", "stop", "stop_limit"}:
+            row["execution_stage"] = "protective_stop"
         slip = _signed_slippage_bps(side, fill_price, vwap)
         row["slippage_bps"] = round(slip, 2) if slip is not None else None
 
@@ -3248,8 +3287,26 @@ def build_slippage_reversal_report(
             })
         by_symbol.sort(key=lambda row: float(row.get("execution_risk_score") or 0), reverse=True)
 
+    from broker_history import implementation_shortfall, parent_execution_summary
+    # Include zero-fill and canceled attempts in parent accounting. Arrival
+    # prices and requested size come only from the recorded decision journal.
+    parent_rows = []
+    for raw in raw_orders:
+        submitted = _parse_broker_datetime(_obj_value(raw, "submitted_at", _obj_value(raw, "created_at")))
+        filled = _parse_broker_datetime(_obj_value(raw, "filled_at"))
+        if lookback_days > 0 and not any(stamp is not None and stamp >= cutoff for stamp in (submitted, filled)):
+            continue
+        child = str(_obj_value(raw, "id", ""))
+        client = str(_obj_value(raw, "client_order_id", "") or child)
+        parent = client[:-3] if client.endswith(("-a1", "-a2")) else client
+        saved = arrival_by_order.get(child, {})
+        parent_rows.append({"order_id": child, "parent_order_id": parent,
+                            "side": str(_obj_value(raw, "side", "")), "status": str(_obj_value(raw, "status", "")),
+                            "filled_qty": _float_or_none(_obj_value(raw, "filled_qty")),
+                            "original_requested_quantity": saved.get("original_requested_quantity"),
+                            "arrival_mid": saved.get("arrival_mid")})
     report = {
-        "schema_version": 2,
+        "schema_version": 3,
         "generated_at": report_clock.isoformat(timespec="seconds"),
         "measurement_cutoff_60m": (report_clock - timedelta(minutes=60)).isoformat(timespec="seconds"),
         "source": "alpaca_api",
@@ -3261,6 +3318,10 @@ def build_slippage_reversal_report(
         "by_symbol": by_symbol,
         "orders": report_rows,
         "errors": errors,
+        "history_complete": history.complete,
+        "measurement_sample_complete": measurement_sample_complete,
+        "arrival_implementation_shortfall": implementation_shortfall(pd.DataFrame(report_rows)),
+        "parent_execution": parent_execution_summary(pd.DataFrame(parent_rows)),
     }
     atomic_write_json(report, SLIPPAGE_REPORT_FILE)
     print(f"    ✓ Execution-quality report: {len(report_rows)} fills → {SLIPPAGE_REPORT_FILE.name}")

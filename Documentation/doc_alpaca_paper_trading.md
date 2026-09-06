@@ -293,3 +293,10 @@ Every rebalance submission now checks the exact bid and ask it will use, includi
 An unsafe first attempt is logged as skipped. An unsafe replacement preserves the first order's fills and cancellation result, and records `stage2_block_reason`, the broker timestamp, and the rejected quote. `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT=0` no longer bypasses quote validation. A spread is the gap between the buyer's bid and seller's ask; a midpoint is their average.
 
 Verify offline with `python -m pytest tests/test_brokers.py tests/test_submission_history_guards.py -q`. These tests use fake brokers. Expected output is passing tests; no broker orders are sent.
+
+
+## Remaining audit repair, September 2026
+
+Submission evidence now preserves the original requested quantity before cash clamping, the decision-time midpoint/spread, timestamp and feed, and both child attempts. The exact submitted quote still passes the earlier finite/fresh/non-crossed spread guard. The read-only execution report pages through broker history, reports missing or stalled retrieval, measures every fill in its requested time interval, and separates parent totals, replacements, cancellations, protective stops and unfilled quantity. Arrival shortfall is separate from fill-minute VWAP slippage; missing historical arrivals and opportunity prices remain unavailable. The legacy lookback_orders argument no longer truncates measurements. Whole-share sizing and drift checks call shared paper_policy functions without changing approved values. Existing recent_fills is a legacy order-summary interface, not a fee-verified individual-fill accounting source. Use corrected_audit.py for cash reconciliation. Offline verification: python -m pytest tests/test_brokers.py tests/test_corrected_audit.py -q. No test broker orders are needed.
+
+Historical results affected by these changes must be regenerated. Original audit evidence is preserved; no corrected historical claim is made when source checks are blocked.

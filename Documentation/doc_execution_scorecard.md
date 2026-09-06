@@ -139,3 +139,10 @@ uses individual broker fills, never a blended parent price.
 
 A denominator is the total population used in a rate. A child attempt is one
 broker order within an intended parent trade. A basis point is 0.01 percent.
+
+
+## Remaining audit repair, September 2026
+
+Reports that explicitly mark broker history incomplete or measurement coverage truncated cannot become decision eligible. Pagination and measurement evidence are supplied by the updated paper report; parent/child snapshots must not be counted as separate independent investment decisions. Existing operational safety checks remain independent of the corrected statistical edge review. Use python -m pytest tests/test_execution_scorecard.py -q for the existing scorecard regressions.
+
+Historical results affected by these changes must be regenerated. Original audit evidence is preserved; no corrected historical claim is made when source checks are blocked.

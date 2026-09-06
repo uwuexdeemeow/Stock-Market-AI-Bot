@@ -125,6 +125,7 @@ def calibrated_turnover_cost_pct(path: Path = DEFAULT_OUTPUT) -> float:
     """Return the one-way turnover cost fraction used by the backtest."""
     if os.environ.get("BACKTEST_USE_LIVE_COST_CALIBRATION", "1").strip().lower() not in {"1", "true", "yes"}:
         return float(SLIPPAGE_BASE_PCT)
+
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
         if payload.get("status") != "ready":
@@ -133,6 +134,27 @@ def calibrated_turnover_cost_pct(path: Path = DEFAULT_OUTPUT) -> float:
         return max(float(SLIPPAGE_BASE_PCT), bps / 10_000.0)
     except Exception:
         return float(SLIPPAGE_BASE_PCT)
+
+
+def causal_cost_parameters(report: dict, cutoff) -> dict:
+    """Estimate residual slippage only from fully attributed pre-cutoff fills."""
+    cutoff = pd.to_datetime(cutoff, utc=True)
+    values = []
+    for row in report.get("orders", []):
+        timestamp = pd.to_datetime(row.get("filled_at"), utc=True, errors="coerce")
+        if pd.isna(timestamp) or timestamp > cutoff:
+            continue
+        parts = pd.to_numeric(pd.Series([row.get(key) for key in
+                 ("arrival_shortfall_bps", "half_spread_bps", "modeled_impact_bps")]), errors="coerce").to_numpy(dtype=float)
+        if not all(np.isfinite(x) for x in parts):
+            continue
+        # Spread and impact are already charged by the fill model. Charging
+        # their measured cost again as slippage would count them twice.
+        values.append(max(0., float(parts[0] - parts[1] - parts[2])))
+    enough = len(values) >= MIN_SAMPLE_COUNT
+    residual = max(float(SLIPPAGE_BASE_PCT), float(np.quantile(values, .75)) / 10000) if enough else float(SLIPPAGE_BASE_PCT)
+    return {"base_slippage_pct": residual, "cutoff": cutoff.isoformat(), "samples": len(values),
+            "source": "precutoff_residual_calibration" if enough else "frozen_settings_fallback"}
 
 
 def main() -> int:

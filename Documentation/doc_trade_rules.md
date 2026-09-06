@@ -30,3 +30,10 @@ half-written rule file or CSV report.
 - Stop loss: exit if price moves too far against the trade.
 - Take profit: exit if price reaches the profit target.
 - Trade rule report: table summarizing optimized or approved rule candidates.
+
+
+## Remaining audit repair, September 2026
+
+Rule exits now require the exact entry row and a complete horizon, check entry-day OHLC, and fill adverse opening stop gaps at the adverse open. Missing OHLC no longer becomes a close-only approximation. When intraday stop/profit order is unknowable, the stop is chosen conservatively; a known opening profit gap reaches its limit first. Zero stop/profit settings disable those triggers. Incomplete histories raise an error rather than shortening the holding period or inventing an exit. Run python -m pytest tests/test_corrected_audit.py -q for examples. Corrected daily trailing-stop accounting lives in portfolio_ledger.py.
+
+Historical results affected by these changes must be regenerated. Original audit evidence is preserved; no corrected historical claim is made when source checks are blocked.

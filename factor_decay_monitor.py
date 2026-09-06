@@ -104,12 +104,12 @@ def _maybe_notify(new_status: str, prev_status: str, payload: dict) -> None:
     for row in payload.get("rows", []):
         lookback = row.get("lookback_days")
         ic = row.get("daily_ic_mean")
-        alpha = row.get("overlay_alpha_sum_pct")
+        alpha = row.get("legacy_overlay_raw_return_sum_pct")
         if lookback is None:
             continue
         try:
             body_lines.append(
-                f"{int(lookback)}d: IC={float(ic):+.3f}, overlay_α={float(alpha):+.2f}%"
+                f"{int(lookback)}d: IC={float(ic):+.3f}, legacy raw overlay={float(alpha):+.2f}%"
             )
         except (TypeError, ValueError):
             continue
@@ -124,50 +124,15 @@ def _maybe_notify(new_status: str, prev_status: str, payload: dict) -> None:
 
 
 def edge_health_status(row: dict | pd.Series) -> str:
-    """Classify live factor edge health without overreacting to full-rank IC alone.
-
-    PLAIN ENGLISH: We have multiple recency lookbacks (60d, 120d, ...).
-    Each one returns one of {pass, advisory, warning, block}.  The
-    aggregate is the worst.  "block" must require enough evidence —
-    otherwise a single bad trade in a thin 60-day window (~2 trades at
-    20-day holding) is enough to halt live trading on noise.  The
-    minimum-period gate below prevents that.
-    """
-    rank_ic = pd.to_numeric(pd.Series([row.get("daily_ic_mean")]), errors="coerce").iloc[0]
-    top_excess = pd.to_numeric(pd.Series([row.get("top_bucket_excess_return_pct")]), errors="coerce").iloc[0]
-    overlay_alpha = pd.to_numeric(pd.Series([row.get("overlay_alpha_sum_pct")]), errors="coerce").iloc[0]
-    try:
-        overlay_periods = int(float(row.get("overlay_periods", 0) or 0))
-    except (TypeError, ValueError):
-        overlay_periods = 0
-    # Two-stage block check:
-    #   1. Sample size must clear MIN_BLOCK_OVERLAY_PERIODS — otherwise the
-    #      cumulative overlay alpha is too sample-dependent to act on.
-    #   2. Magnitude must be more negative than OVERLAY_ALPHA_BLOCK_THRESHOLD_PCT
-    #      so a tiny negative drift doesn't trip a paper-only restriction.
-    if (
-        pd.notna(overlay_alpha)
-        and overlay_periods >= MIN_BLOCK_OVERLAY_PERIODS
-        and float(overlay_alpha) < OVERLAY_ALPHA_BLOCK_THRESHOLD_PCT
-    ):
-        return "block"
-    if pd.isna(top_excess) or float(top_excess) <= 0.0:
-        # A 60-day window commonly contains only two independent 20-day
-        # cohorts. A weak top bucket there is an early advisory, not enough
-        # evidence to halt paper trading. Three or more cohorts still warn.
-        return "warning" if overlay_periods >= MIN_WARNING_OVERLAY_PERIODS else "advisory"
-    # Only fire an overlay-alpha warning when the sample is large enough
-    # for the cumulative to mean something.  With <3 trades in the window
-    # the alpha is one-trade dominated and would create false warnings.
-    if (
-        pd.notna(overlay_alpha)
-        and overlay_periods >= MIN_WARNING_OVERLAY_PERIODS
-        and float(overlay_alpha) <= MIN_WEAK_OVERLAY_ALPHA_PCT
-    ):
-        return "warning"
-    if pd.notna(rank_ic) and float(rank_ic) < 0.0:
+    """A raw positive return cannot establish an investment edge."""
+    from portfolio_ledger import LEDGER_VERSION
+    if row.get("ledger_version") != LEDGER_VERSION or int(row.get("matured_independent_cohorts", 0) or 0) < 20:
         return "advisory"
-    return "pass"
+    excess = row.get("excess_return_ci95_pct")
+    rank = row.get("rank_ic_ci95")
+    if not isinstance(excess, (list, tuple)) or not isinstance(rank, (list, tuple)):
+        return "advisory"
+    return "pass" if len(excess) == 2 and len(rank) == 2 and excess[0] > 0 and rank[0] > 0 else "advisory"
 
 
 def aggregate_edge_health_status(rows: list[dict]) -> str:
@@ -338,7 +303,7 @@ def _overlay_summary(trades: pd.DataFrame, lookback_days: int, as_of: pd.Timesta
             "overlay_periods": 0,
             "overlay_return_sum_pct": np.nan,
             "overlay_hit_rate": np.nan,
-            "overlay_alpha_sum_pct": np.nan,
+            "legacy_overlay_raw_return_sum_pct": np.nan,
         }
     frame = trades.copy()
     frame["exit_date"] = pd.to_datetime(frame.get("exit_date"), errors="coerce")
@@ -353,7 +318,7 @@ def _overlay_summary(trades: pd.DataFrame, lookback_days: int, as_of: pd.Timesta
             "overlay_periods": 0,
             "overlay_return_sum_pct": np.nan,
             "overlay_hit_rate": np.nan,
-            "overlay_alpha_sum_pct": np.nan,
+            "legacy_overlay_raw_return_sum_pct": np.nan,
         }
     overlay = recent["factor_overlay_return"]
     return {
@@ -361,7 +326,7 @@ def _overlay_summary(trades: pd.DataFrame, lookback_days: int, as_of: pd.Timesta
         "overlay_periods": int(len(recent)),
         "overlay_return_sum_pct": round(float(overlay.sum() * 100.0), 4),
         "overlay_hit_rate": round(float((overlay > 0).mean()), 4),
-        "overlay_alpha_sum_pct": round(float(overlay.sum() * 100.0), 4),
+        "legacy_overlay_raw_return_sum_pct": round(float(overlay.sum() * 100.0), 4),
     }
 
 
@@ -392,6 +357,16 @@ def main() -> None:
     holding_days = int(config.get("holding_days", core.HORIZON_DAYS))
     scored = _non_overlapping_rebalance_panel(scored_all, holding_days)
     as_of = pd.Timestamp(scored["date"].max())
+    corrected = {}
+    corrected_path = Path(SIGNAL_DIR) / "corrected_audit" / "edge_monitor.json"
+    if corrected_path.exists():
+        from signal_freshness import latest_completed_us_trading_day
+        candidate = json.loads(corrected_path.read_text(encoding="utf-8"))
+        if str(candidate.get("as_of", "")) == str(latest_completed_us_trading_day().date()):
+            # Matured legacy labels lag today's date. Do not let that lag hide
+            # current corrected shadow measurements from the monitor.
+            corrected = candidate
+            as_of = pd.Timestamp(candidate["as_of"])
     trades = pd.read_csv(TRADES_PATH) if TRADES_PATH.exists() else pd.DataFrame()
 
     rows = []
@@ -401,9 +376,11 @@ def main() -> None:
             **{k: v for k, v in _overlay_summary(trades, lookback, as_of).items() if k != "lookback_days"},
             **{k: v for k, v in _top_contributor(trades, lookback, as_of).items() if k != "lookback_days"},
         }
+        # Only versioned paired-ledger evidence may support a healthy conclusion.
+        row.update(corrected)
         row["as_of"] = str(as_of.date())
         row["rank_ic_warning"] = bool(pd.notna(row["daily_ic_mean"]) and float(row["daily_ic_mean"]) < 0)
-        row["overlay_alpha_warning"] = bool(pd.notna(row["overlay_alpha_sum_pct"]) and float(row["overlay_alpha_sum_pct"]) < 0)
+        row["legacy_overlay_raw_return_warning"] = bool(pd.notna(row["legacy_overlay_raw_return_sum_pct"]) and float(row["legacy_overlay_raw_return_sum_pct"]) < 0)
         row["edge_health_status"] = edge_health_status(row)
         row["warning"] = bool(row["edge_health_status"] in {"warning", "block"})
         rows.append(row)
@@ -415,9 +392,10 @@ def main() -> None:
     out = pd.DataFrame(rows)
     atomic_write_csv(out, OUT_CSV, index=False)
     edge_status = aggregate_edge_health_status(rows)
-    real_capital_block = edge_status == "block"
+    real_capital_block = edge_status != "pass" or bool(corrected.get("shadow_only", False))
     payload = {
-        "schema_version": 2,
+        "schema_version": 3,
+        "legacy_returns_are_alpha": False,
         "generated_at": datetime.now().isoformat(),
         "purpose": "factor_decay_monitor",
         "as_of": str(as_of.date()),
@@ -431,15 +409,8 @@ def main() -> None:
         "warning": bool(edge_status == "warning"),
         "advisory": bool(edge_status == "advisory"),
         "real_capital_block": real_capital_block,
-        "reason": (
-            "recent overlay alpha is negative"
-            if real_capital_block
-            else "top-bucket edge is weak/non-positive"
-            if edge_status == "warning"
-            else "rank IC is weak/negative but top-bucket edge and overlay alpha remain positive"
-            if edge_status == "advisory"
-            else "factor decay monitor has no real-capital blocking warning"
-        ),
+        "reason": "shadow evidence requires a separate strategy decision" if edge_status == "pass" and real_capital_block else "corrected paired-ledger evidence is missing, sparse, or inconclusive" if real_capital_block else "corrected lower confidence bounds are positive",
+
     }
     atomic_write_json(add_validation_context(payload, config=config), OUT_JSON)
 

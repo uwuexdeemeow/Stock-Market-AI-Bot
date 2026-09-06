@@ -1,0 +1,158 @@
+{
+  "description": "Unapproved corrected shadow candidate: fold-local raw features with the existing paper allocation defaults. Verified historical context required; no active cutover.",
+  "schema_version": "corrected-shadow-spec-v1",
+  "features": [
+    "causal_momentum_20",
+    "causal_momentum_60",
+    "causal_volatility_20",
+    "causal_dollar_volume_20"
+  ],
+  "label": "forward_return_20d",
+  "horizon": 20,
+  "dated_context": "data/point_in_time_context.parquet",
+  "policy": {
+    "etf_drift": 0.03,
+    "stock_drift": 0.01,
+    "minimum_trade": 25.0,
+    "maximum_gross": 1.0,
+    "cash_buffer_pct": 0.005,
+    "cash_buffer_min": 0.0,
+    "trailing_stop": 0.08,
+    "drawdown_halt": 0.12,
+    "halt_recovery_ratio": 0.5,
+    "etfs": [
+      "SPY",
+      "QQQ",
+      "TQQQ",
+      "BIL",
+      "IEF",
+      "GLD"
+    ]
+  },
+  "configurations": [
+    {
+      "strategy": "core-alpha",
+      "core_preset": "nested_qqq_trend_switch_overlay70_core55_cashbuffer_h20_ov0.50_ma100_volpercentile0.30_tqqq0.00_riskoff",
+      "regime_mode": "qqq_trend_switch_overlay70_core55_cashbuffer",
+      "regime_preset": {
+        "ma_window": 100,
+        "high_vol": 0.3,
+        "risk_on": {
+          "core_weights": {
+            "SPY": 0.0,
+            "QQQ": 1.0,
+            "TQQQ": 0.0
+          },
+          "core_gross": 0.75,
+          "overlay_gross": 0.5
+        },
+        "neutral": {
+          "core_weights": {
+            "SPY": 0.25,
+            "QQQ": 0.75,
+            "TQQQ": 0.0
+          },
+          "core_gross": 0.5,
+          "overlay_gross": 0.5
+        },
+        "risk_off": {
+          "core_weights": {
+            "SPY": 0.6,
+            "QQQ": 0.4,
+            "TQQQ": 0.0
+          },
+          "core_gross": 0.55,
+          "overlay_gross": 0.25
+        },
+        "high_vol_mode": "percentile"
+      },
+      "regime_ma_window": 100,
+      "regime_high_vol": 0.3,
+      "high_vol_mode": "percentile",
+      "score_blend": false,
+      "early_rebalance_on_regime_change": false,
+      "core_weights": {
+        "SPY": 0.0,
+        "QQQ": 1.0,
+        "TQQQ": 0.0
+      },
+      "tqqq_preset": "tqqq_enhanced_cashbuffer",
+      "score_source": "regime_adaptive",
+      "shape": "top3",
+      "weighting": "sticky_score",
+      "exit_rank_floor": 0.8,
+      "adaptive_exit_mode": "fixed",
+      "max_per_sector": 2,
+      "earnings_blackout_days": 5,
+      "core_gross": 0.75,
+      "overlay_gross": 0.5,
+      "max_gross_exposure": 1.25,
+      "deployment_max_gross_exposure": 1.0,
+      "max_single_name_weight": 0.25,
+      "holding_days": 20,
+      "risk_control_mode": "off",
+      "drawdown_circuit_breaker": 0.0,
+      "vol_target": 0.0,
+      "accounting_mode": "daily-ledger-v1",
+      "cost_stress": 1.0
+    }
+  ],
+  "stress_multipliers": [
+    2.0,
+    3.0,
+    5.0
+  ],
+  "folds": [
+    {
+      "train_end": "2022-12-31",
+      "start": "2023-01-01",
+      "end": "2023-12-31",
+      "inner": [
+        {
+          "train_end": "2020-12-31",
+          "start": "2021-01-01",
+          "end": "2021-12-31"
+        },
+        {
+          "train_end": "2021-12-31",
+          "start": "2022-01-01",
+          "end": "2022-12-31"
+        }
+      ]
+    },
+    {
+      "train_end": "2023-12-31",
+      "start": "2024-01-01",
+      "end": "2024-12-31",
+      "inner": [
+        {
+          "train_end": "2021-12-31",
+          "start": "2022-01-01",
+          "end": "2022-12-31"
+        },
+        {
+          "train_end": "2022-12-31",
+          "start": "2023-01-01",
+          "end": "2023-12-31"
+        }
+      ]
+    },
+    {
+      "train_end": "2024-12-31",
+      "start": "2025-01-01",
+      "end": "2025-12-31",
+      "inner": [
+        {
+          "train_end": "2022-12-31",
+          "start": "2023-01-01",
+          "end": "2023-12-31"
+        },
+        {
+          "train_end": "2023-12-31",
+          "start": "2024-01-01",
+          "end": "2024-12-31"
+        }
+      ]
+    }
+  ]
+}

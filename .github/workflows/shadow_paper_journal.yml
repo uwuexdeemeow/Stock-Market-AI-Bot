@@ -119,6 +119,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: |
+            signals/corrected_audit_data_quality.json
             signals/shadow_paper_journal.csv
             signals/shadow_paper_equity.csv
             signals/fractional_shadow_state.json
@@ -379,12 +380,20 @@ jobs:
           Path("signals/workflow_heartbeat_shadow.json").write_text(json.dumps(payload, indent=2))
           PY
 
+      - name: Record corrected accounting data gaps
+        if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        run: |
+          # This reads local inputs only and cannot submit broker orders.
+          python corrected_audit.py --audit-only
+          cp signals/corrected_audit/data_quality.json signals/corrected_audit_data_quality.json
+
       - name: Upload shadow journal artifact
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: shadow-paper-journal-${{ github.run_number }}
           path: |
+            signals/corrected_audit_data_quality.json
             signals/shadow_paper_journal.csv
             signals/shadow_paper_equity.csv
             signals/paper_shadow_compare.csv
@@ -406,6 +415,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           tmp_shadow_dir="$(mktemp -d)"
           for f in \
+              signals/corrected_audit_data_quality.json \
               signals/shadow_paper_journal.csv \
               signals/shadow_paper_equity.csv \
               signals/paper_shadow_compare.csv \
@@ -429,6 +439,7 @@ jobs:
             git checkout -B signals/latest origin/signals/latest
             mkdir -p signals
             for f in \
+                corrected_audit_data_quality.json \
                 shadow_paper_journal.csv \
                 shadow_paper_equity.csv \
                 paper_shadow_compare.csv \
@@ -458,6 +469,7 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: |
+            signals/corrected_audit_data_quality.json
             signals/shadow_paper_journal.csv
             signals/shadow_paper_equity.csv
             signals/paper_shadow_compare.csv

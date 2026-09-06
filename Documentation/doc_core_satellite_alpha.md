@@ -154,3 +154,10 @@ Trade output adds `label_end_date`, the latest outcome date for the evaluated pe
 ETF prices use the shared source cache and return independent copies. Run `python -m pytest tests/test_submission_history_guards.py tests/test_audit_three_fixes.py -q` for offline examples and expected passing checks. A regime is a market condition; a fold is a dated evaluation window; purging means excluding a whole trade period whose outcome is outside that window.
 
 Historical performance and live signals produced with the old confirmation or date rules must be regenerated and validated before they are treated as current evidence. This repair does not itself publish replacement operational evidence.
+
+
+## Remaining audit repair, September 2026
+
+The explicit accounting_mode=daily-ledger-v1 adapter runs corrected daily cash/share accounting and preserves the existing equity/events/metrics return tuple. Programmatic callers must provide panel.attrs['ledger_inputs'] with verified bars, actions, provenance and membership_path; use corrected_audit.py for the complete offline workflow and fold-local scores. The existing active paper path is not switched by this adapter. Daily simulation uses prior-session decisions and next-open fills for stocks and ETFs; costs include initial ETF trades, drift, stops and evaluation terminal sales. Old period-return results are superseded diagnostics and need regeneration. Verification: python -m pytest tests/test_corrected_audit.py -q.
+
+Historical results affected by these changes must be regenerated. Original audit evidence is preserved; no corrected historical claim is made when source checks are blocked.

@@ -1,5 +1,59 @@
 # Reliability-First Project Workflow
 
+## Corrected audit track: shadow first
+
+The earlier historical accounting and audit results are preserved as superseded
+diagnostic evidence. They are not corrected validation and must be regenerated.
+The active paper strategy is not switched by the September 2026 code repairs.
+Code fixes go directly to `main`; generated operational evidence stays with the
+existing `signals/latest` publisher.
+
+For a beginner, the full chain remains scan → research → train → predict →
+backtest → paper trade. The scan defines candidate sources; research gathers
+dated observations; training learns only from completed past outcomes; prediction
+ranks today's eligible names; the corrected backtest records actual shares and
+cash through every market session; paper trading supplies separate recorded-fill
+evidence. Historical performance never authorizes a strategy switch by itself.
+
+Start the corrected track with `python corrected_audit.py --audit-only`. Read
+`signals/corrected_audit/data_quality.json` and obtain the specific missing free
+membership, raw-price and corporate-action sources. Do not fill gaps with today's
+watchlist, adjusted execution prices or synthetic returns. The existing shadow
+journal workflow also writes and publishes the flat
+`signals/corrected_audit_data_quality.json` report without starting a freeze.
+
+Next use `python corrected_audit.py --spec corrected_shadow_spec.json`. See
+`doc_corrected_audit.md` for input contracts. The example keeps approved paper
+allocation/sizing defaults while fitting a small raw feature family inside each
+training fold; it is an unapproved shadow candidate. Each fold starts in cash,
+uses prior-session decisions and next-open fills, marks daily equity, and charges
+all ETF/stock fills once. Inner folds choose settings; outer folds receive frozen
+training artifacts. Separate stress runs apply 2×, 3× and 5× costs to the selected
+configuration, including ETF purchases and final liquidation. Immutable trials
+record the amount of historical experimentation; retrospective confidence
+intervals are not adjusted evidence of prospective discovery.
+
+Replay actual individual paper fills with verified opening/closing balances and
+fees through the same account recorder. Reconciliation must match shares and
+cash within one cent. Missing fees or balances block certification. Recovered
+order summaries can confirm known share changes but cannot supply unknown fees,
+arrival prices or a fabricated terminal sale. Daily simulation and recorded-fill
+replay are different execution measurements and are labeled separately.
+
+Only after complete corrected data/evaluation and recorded-fill reconciliation
+can `--freeze` create a protocol. `--observe` measures completed sessions after
+freeze without sending orders. Require 252 new NYSE sessions before final
+prospective review. Changed strategy code, protocol, training inputs or earlier
+observations require a new cohort; no peak reset or historical reuse can shorten
+the period. Twenty mature non-overlapping 20-session cohorts may take longer
+than 252 sessions. Missing or inconclusive evidence stays inconclusive.
+
+Net compounded return, benchmark-relative excess return, and regression alpha
+are separate measurements. Legacy raw overlay sums no longer count as alpha.
+Statistical health requires positive lower confidence bounds for both excess
+return and rank IC with enough independent cohorts; operational safety gates
+remain separate. No result automatically cuts over paper or approves real money.
+
 ## Canonical daily evidence
 
 All daily paper outputs share one run ID. Broker truth, execution quality,
