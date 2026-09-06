@@ -1,0 +1,55 @@
+{
+  "schema_version": "evidence-recovery-v1",
+  "evidence_as_of": "2026-09-06",
+  "paper": {
+    "individual_fills": 200,
+    "fee_activities": 44,
+    "reconstructed_cash_and_shares_match": true,
+    "opening_balance_independently_verified": false,
+    "historical_margin_observed": true,
+    "current_balance_snapshot_saved_for_future_replay": true
+  },
+  "membership": {
+    "candidate_historical_names_since_2012": 812,
+    "candidate_source_cutoff": "2026-06-30",
+    "candidate_source": "https://github.com/fja05680/sp500",
+    "verified": false,
+    "comparison_source": "https://github.com/hanshof/sp500_constituents",
+    "conflicting_comparison_dates": ["2022-06-21", "2023-05-14"]
+  },
+  "prices": {
+    "benchmark_symbols": ["SPY", "QQQ"],
+    "benchmark_first_observation": "2016-01-04",
+    "benchmark_last_observation": "2026-09-04",
+    "failed_or_reorganized_company_histories_probed": 17,
+    "required_start": "2012-01-01",
+    "verified_full_coverage": false
+  },
+  "corporate_actions": {
+    "benchmark_cash_dividends_recovered": 84,
+    "first_ex_date": "2016-03-18",
+    "last_ex_date": "2026-06-22",
+    "full_required_coverage_verified": false
+  },
+  "volatility": {
+    "VIX_rows": 9266,
+    "VIX3M_rows": 4267,
+    "source": "https://www.cboe.com/tradable_products/vix/vix_historical_data",
+    "decision_publication_times_verified": false
+  },
+  "remaining_gaps": [
+    "Independent cash-and-position opening evidence before May 8, 2026",
+    "Historical membership corroboration and updates after June 30, 2026",
+    "Verified raw prices for 2012-2015 and complete historical constituent coverage",
+    "Security identities, delisting proceeds and corporate actions for reused/reorganized tickers",
+    "Full split/dividend/payment-date coverage for removed and surviving members",
+    "Dated earnings, sector and decision-time publication evidence"
+  ],
+  "historical_validation": "blocked",
+  "cost_stress_validation": "blocked",
+  "prospective_freeze": "not_started",
+  "required_new_sessions": 252,
+  "observed_prospective_sessions": 0,
+  "active_paper_cutover": false,
+  "broker_orders_submitted": false
+}
