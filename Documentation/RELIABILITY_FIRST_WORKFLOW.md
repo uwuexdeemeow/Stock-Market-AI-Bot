@@ -291,3 +291,6 @@ A daily run on a closed NYSE date is a successful no-action run. Its dedicated
 artifact contains only the current skip log and heartbeat; it does not replace
 `signals/latest` or refresh old trading reports. The complete trading-manifest
 requirement still applies to actual trading runs and unexpected failures.
+
+Both Linux and Windows CI install the YAML test dependency through yamllint,
+so workflow publication/holiday-summary regressions run on both platforms.
