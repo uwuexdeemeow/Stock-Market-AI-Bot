@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-07T13:34:01.502587+00:00",
-  "audit_code_commit": "03a60e16e3cadeeb29f0c22ced0e44e36c89f653",
+  "generated_at": "2026-09-07T14:00:47.707649+00:00",
+  "audit_code_commit": "338249bbc440c823f8e0a1b61cfb09cf733a74c6",
   "audit_worktree_dirty": false,
   "status": "blocked",
   "sources": [
@@ -24,19 +24,12 @@
         "required_evidence_missing:paper_validation_epoch_status.json",
         "snapshot_timestamp_missing"
       ],
-      "measured_fills": 6,
-      "sessions": 1,
+      "measured_fills": null,
+      "sessions": null,
       "decision_eligible": false,
       "file_hashes": {
         "core_satellite_live_configs.json": "614683ee1996fc2b41d818a7dfa52eb9499cdee365d1f89cb0af478b26a060b4",
-        "core_satellite_validation_bundle.json": "7b936b76d7a0cf2bf6c407eb4221b8fe255e61874f5f8071b13209d01b368333",
-        "broker_truth.json": "b6e681da50f32fd3add30a8d7535a10c011d55ad55266d3382996cf31ec3b464",
-        "alpaca_execution_scorecard.json": "824741f1cd75cd2be6ff3e9ce13b229f9d40ebd5e973842f2a159486ca4caa8d",
-        "paper_validation_epoch_status.json": "a2b673deda28a7f496d4e765c5d755746e753a67313c4adeaed809304e53d633",
-        "alpaca_paper_health.json": "511f54d5f04ce1934f19df23a779d2d255c1e5ff1ce6c3dbd7acb2df87d4875a",
-        "alpaca_paper_log.csv": "7cbe6e5ae3b596bec57ef899c88fc708b421d834ba6bbea1688f80beea1cdf20",
-        "alpaca_submit_outcomes.csv": "73e6625997acf5a7c81a03fd0c434f703491e6e2e9a16c88126125712f5beae7",
-        "core_satellite_alpha_signal.csv": "171884a04c5aa95031c97beaab5f5ac240425bf0222e311282cf81ca2a7e1702"
+        "core_satellite_validation_bundle.json": "7b936b76d7a0cf2bf6c407eb4221b8fe255e61874f5f8071b13209d01b368333"
       },
       "approval": {
         "status": "blocked",
@@ -62,10 +55,10 @@
     },
     {
       "source": "signals/latest",
-      "source_commit": "28f2e193b422ade1d4d6e881e3b8a641501de05a",
+      "source_commit": "c0cc2718fb3ded007ef31a6e4a45d1c62264df74",
       "run_commit": null,
       "generated_at": "2026-09-04T17:01:43+00:00",
-      "age_hours": 68.538446185,
+      "age_hours": 68.98461627944445,
       "complete": false,
       "issues": [
         "complete_run_manifest_missing",
@@ -116,26 +109,28 @@
       }
     },
     {
-      "source": "workflow_artifact:33897908550:9946624459:success",
-      "source_commit": "91fd2056cd95ec36504e13dae777a937b2cd680d",
-      "run_commit": "91fd2056cd95ec36504e13dae777a937b2cd680d",
-      "generated_at": "2026-09-04T17:01:43+00:00",
-      "age_hours": 68.5384465986111,
-      "complete": true,
-      "issues": [],
-      "measured_fills": 9,
-      "sessions": 2,
+      "source": "workflow_artifact:34129476205:10021497648:success",
+      "source_commit": "b660ad2ffef24ddcd48e4d5b5e4ea858f26df16f",
+      "run_commit": null,
+      "generated_at": "2026-09-07T13:49:47+00:00",
+      "age_hours": 0.18350565805555555,
+      "complete": false,
+      "issues": [
+        "complete_run_manifest_missing",
+        "evidence_run_mismatch:alpaca_execution_scorecard.json",
+        "evidence_run_mismatch:alpaca_paper_health.json",
+        "evidence_run_mismatch:broker_truth.json",
+        "evidence_run_mismatch:paper_validation_epoch_status.json",
+        "required_evidence_missing:alpaca_execution_scorecard.json",
+        "required_evidence_missing:alpaca_paper_health.json",
+        "required_evidence_missing:broker_truth.json",
+        "required_evidence_missing:paper_validation_epoch_status.json"
+      ],
+      "measured_fills": null,
+      "sessions": null,
       "decision_eligible": false,
       "file_hashes": {
-        "core_satellite_alpha_signal.csv": "3df5b79dbcb0d777f1f8fe17e1ab073a43cc048a7ecb19197ef5a16e72c10a09",
-        "alpaca_paper_log.csv": "732c6a03f9b4740315520d95a230e0c82ec2c83a420e5f42bbc6e42b3a35e762",
-        "alpaca_paper_health.json": "74f2b7934d69ada48c7a532a0cdec2752c674380ea7fc4d281c28099621f0e88",
-        "alpaca_execution_scorecard.json": "8e5327fe543ade41ae3c500e501bde72aa6b9c6621d9d17f740ea36e7f7acb91",
-        "alpaca_submit_outcomes.csv": "4dcf8110d83816e13e1340ab5f2c20f59a23d77cc87b883c5e23500134a1b896",
-        "paper_validation_epoch_status.json": "dea98d29d1ba762716cd7b038ad0c73c97cda1da9bf04f43273593de1a3cd4ad",
-        "broker_truth.json": "994d8ce421d7a52899765bdb755c234c2f6c09502f2c5d496cf7ca2cc321d743",
-        "paper_run_manifest.json": "7147e0d13b917cfe181e702167e3cd6d73925d37ba4880a379f638fd1ae0ffca",
-        "workflow_heartbeat_daily.json": "508a86e9f6c77024e877b84d157e8e09870f1ea97afb2813104e5daf9965256a"
+        "workflow_heartbeat_daily.json": "f98fdd3f17cf385e29067bf41299de33d0c4d2b15a2780adb06c504d3b8da4e9"
       },
       "approval": {
         "status": "blocked",
@@ -169,7 +164,7 @@
       "source_commit": "91fd2056cd95ec36504e13dae777a937b2cd680d",
       "run_commit": "91fd2056cd95ec36504e13dae777a937b2cd680d",
       "generated_at": "2026-09-04T17:01:43+00:00",
-      "age_hours": 68.53844672999999,
+      "age_hours": 68.98461679305555,
       "complete": true,
       "issues": [],
       "measured_fills": 9,
@@ -350,10 +345,43 @@
     "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
   },
   "replay": {
-    "certified": false,
+    "certified": true,
     "reconciled": true,
-    "source_sha256": "b98aa52dd75c04613ade2fe23b0be2400720b8852e9593ecb592624fdc060adb",
-    "arrival_quotes": "unavailable_unless_recorded_with_order"
+    "source_sha256": "79a1ce3f11a302b2ebbdef57a00890cbed92f4092ac1d01c3359ab08293d4e6d",
+    "arrival_quotes": "unavailable_unless_recorded_with_order",
+    "interval_evidence": {
+      "schema_version": 1,
+      "generated_at": "2026-09-07T14:01:19.934936+00:00",
+      "source_commit": "338249bbc440c823f8e0a1b61cfb09cf733a74c6",
+      "status": "reconciled_no_activity",
+      "interval_start": "2026-09-07T04:57:22.027397+00:00",
+      "interval_end": "2026-09-07T13:59:54.035671+00:00",
+      "source": "Alpaca paper API account, positions, activities, orders",
+      "opening_matches_archived_account_and_positions": true,
+      "opening_and_closing_independently_observed": true,
+      "activity_stream_complete": true,
+      "order_history_complete": true,
+      "fill_count": 0,
+      "fee_count": 0,
+      "cash_difference_usd": 0.0,
+      "cash_tolerance_usd": 0.01,
+      "shares_match": true,
+      "gaps": [],
+      "evidence_scope": "Balance continuity over a same-day US market holiday interval. No executions or trading performance were measured.",
+      "historical_reconciliation_certified": false,
+      "strategy_approved": false,
+      "freeze_started": false,
+      "orders_submitted_by_this_task": 0,
+      "next_action": "Retain the verified opening snapshot, then reconcile again after a normal trading session and broker fee postings. Historical opening balances and research input gaps remain unresolved.",
+      "private_source_sha256": {
+        "opening_balances.json": "3b057d9042eb64e66fa690572da27611e20ae29bd9a21192c2504d206044b7f2",
+        "closing_balances.json": "a7dd38fa04ea0a25ab4fae7f365ca8832789b8e8bad294a8c0a7b23d1fc9131c",
+        "activities.json": "42c6ef7882394db2e5d7089365163e0abf59295b0fea0845c32c5fa80526f718",
+        "orders.json": "96a80d91c0e7dc92c51c3238ffa2d5a51a040bd81b061e46cd8f0662268f06f5",
+        "events.csv": "bc3db42e4e484a317c2a30ca49786255460d6aeab2156a199aa7aa8d1bc66e69",
+        "replay_reconciliation.json": "79a1ce3f11a302b2ebbdef57a00890cbed92f4092ac1d01c3359ab08293d4e6d"
+      }
+    }
   },
   "shadow_candidate": {
     "identity": "7b600092837318707f33c6cb5ba196f81e809e51245de48c611c7f9c9f3d2606",
@@ -361,10 +389,6 @@
     "deployed_strategy_equivalent": false
   },
   "blockers": [
-    {
-      "reason": "completed_run_has_no_artifact:33902026497",
-      "next_action": "Restore read-only access and retrieve the latest completed run."
-    },
     {
       "reason": "complete_run_manifest_missing",
       "source": "local_snapshot",
@@ -491,53 +515,98 @@
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
+      "reason": "complete_run_manifest_missing",
+      "source": "workflow_artifact:34129476205:10021497648:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "evidence_run_mismatch:alpaca_execution_scorecard.json",
+      "source": "workflow_artifact:34129476205:10021497648:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "evidence_run_mismatch:alpaca_paper_health.json",
+      "source": "workflow_artifact:34129476205:10021497648:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "evidence_run_mismatch:broker_truth.json",
+      "source": "workflow_artifact:34129476205:10021497648:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "evidence_run_mismatch:paper_validation_epoch_status.json",
+      "source": "workflow_artifact:34129476205:10021497648:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "required_evidence_missing:alpaca_execution_scorecard.json",
+      "source": "workflow_artifact:34129476205:10021497648:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "required_evidence_missing:alpaca_paper_health.json",
+      "source": "workflow_artifact:34129476205:10021497648:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "required_evidence_missing:broker_truth.json",
+      "source": "workflow_artifact:34129476205:10021497648:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "required_evidence_missing:paper_validation_epoch_status.json",
+      "source": "workflow_artifact:34129476205:10021497648:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
       "reason": "config_fingerprint_missing",
-      "source": "workflow_artifact:33897908550:9946624459:success",
+      "source": "workflow_artifact:34129476205:10021497648:success",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "configuration_fingerprint_mismatch",
-      "source": "workflow_artifact:33897908550:9946624459:success",
+      "source": "workflow_artifact:34129476205:10021497648:success",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "deployed_configuration_missing",
-      "source": "workflow_artifact:33897908550:9946624459:success",
+      "source": "workflow_artifact:34129476205:10021497648:success",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "deployment_state_missing",
-      "source": "workflow_artifact:33897908550:9946624459:success",
+      "source": "workflow_artifact:34129476205:10021497648:success",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "paper_approval_not_unanimous",
-      "source": "workflow_artifact:33897908550:9946624459:success",
+      "source": "workflow_artifact:34129476205:10021497648:success",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "robustness_review_missing",
-      "source": "workflow_artifact:33897908550:9946624459:success",
+      "source": "workflow_artifact:34129476205:10021497648:success",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "strategy_bundle_reference_mismatch",
-      "source": "workflow_artifact:33897908550:9946624459:success",
+      "source": "workflow_artifact:34129476205:10021497648:success",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "top_bundle_reference_mismatch",
-      "source": "workflow_artifact:33897908550:9946624459:success",
+      "source": "workflow_artifact:34129476205:10021497648:success",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "validation_bundle_hash_missing",
-      "source": "workflow_artifact:33897908550:9946624459:success",
+      "source": "workflow_artifact:34129476205:10021497648:success",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "validation_bundle_schema_outdated",
-      "source": "workflow_artifact:33897908550:9946624459:success",
+      "source": "workflow_artifact:34129476205:10021497648:success",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
@@ -712,13 +781,19 @@
       "next_action": "Review current runtime evidence and version lock; preserve existing freeze."
     },
     {
-      "reason": "paper_logic_fingerprint_mismatch",
+      "reason": "locked_file_changed",
       "source": "local_runtime",
       "next_action": "Review current runtime evidence and version lock; preserve existing freeze."
     },
     {
-      "reason": "recorded_replay_not_certified",
-      "next_action": "Recover complete activities, fees and independently verified interval balances; replay to one-cent cash tolerance."
+      "reason": "locked_file_changed",
+      "source": "local_runtime",
+      "next_action": "Review current runtime evidence and version lock; preserve existing freeze."
+    },
+    {
+      "reason": "paper_logic_fingerprint_mismatch",
+      "source": "local_runtime",
+      "next_action": "Review current runtime evidence and version lock; preserve existing freeze."
     }
   ],
   "real_capital_approved": false,
