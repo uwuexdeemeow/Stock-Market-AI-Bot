@@ -1,427 +1,184 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-09-07T19:53:18.240776+00:00",
-  "audit_code_commit": "0c4efcca461bb6d5b057a13d037ab3eab3650338",
-  "audit_worktree_dirty": false,
-  "status": "blocked",
-  "sources": [
+  "generated_at": "2026-09-07T19:54:52.800117+00:00",
+  "source_commit": "0c4efcca461bb6d5b057a13d037ab3eab3650338",
+  "status": "code_fixes_delivered_external_evidence_blocked",
+  "all_gaps_closed": false,
+  "fixed_code_findings": [
+    "Raw parquet content and required-session validation instead of hash/file-existence alone",
+    "Malformed and overlapping membership dates rejected, including ticker-alias overlap at import",
+    "Independent membership coverage bound to the exact source CSV",
+    "Source timestamps, URLs, free access, raw feed and symbol mapping validated",
+    "Raw security identity evidence required to prevent recycled ticker histories passing silently",
+    "Unsupported corporate actions, invalid values and impossible dividend dates rejected",
+    "Complete candidate context required before generated sector defaults can hide missing history",
+    "Market data follows all pagination tokens and rejects duplicate/repeated pages",
+    "Received market-data pages preserved privately even when later recovery fails",
+    "Dividend records with missing payment dates remain explicitly unverified",
+    "No-activity replay scope and fill/fee counts included in evidence reports",
+    "Deprecated SDK model-field access corrected"
+  ],
+  "data_gap_count": 28,
+  "remaining_data_gaps": [
     {
-      "source": "local_snapshot",
-      "source_commit": null,
-      "run_commit": null,
-      "generated_at": null,
-      "age_hours": null,
-      "complete": false,
-      "issues": [
-        "complete_run_manifest_missing",
-        "evidence_run_mismatch:alpaca_execution_scorecard.json",
-        "evidence_run_mismatch:alpaca_paper_health.json",
-        "evidence_run_mismatch:broker_truth.json",
-        "evidence_run_mismatch:paper_validation_epoch_status.json",
-        "required_evidence_missing:alpaca_execution_scorecard.json",
-        "required_evidence_missing:alpaca_paper_health.json",
-        "required_evidence_missing:broker_truth.json",
-        "required_evidence_missing:paper_validation_epoch_status.json",
-        "snapshot_timestamp_missing"
-      ],
-      "measured_fills": null,
-      "sessions": null,
-      "decision_eligible": false,
-      "file_hashes": {
-        "core_satellite_live_configs.json": "614683ee1996fc2b41d818a7dfa52eb9499cdee365d1f89cb0af478b26a060b4",
-        "core_satellite_validation_bundle.json": "7b936b76d7a0cf2bf6c407eb4221b8fe255e61874f5f8071b13209d01b368333"
-      },
-      "approval": {
-        "status": "blocked",
-        "issues": [
-          "deployment_status_conflict",
-          "paper_approval_not_unanimous",
-          "strategy_bundle_reference_mismatch"
-        ],
-        "config_fingerprint": "a9f616b5f6185fcf",
-        "bundle_hash": "16dc3335d99c4f7c61701038abb8ec2c5dfc4b1c6db5fe04e7613efeb6b615b5",
-        "score_source": "regime_adaptive",
-        "score_columns": {
-          "risk_on": "factor_risk_on_score",
-          "neutral": "factor_walkforward_score",
-          "risk_off": "factor_defensive_score"
-        },
-        "scoring_implementation": "core_satellite_alpha._score_col_for_regime",
-        "xgboost_attribution_verified": false,
-        "research_max_gross": 1.25,
-        "deployment_max_gross": 1.0,
-        "real_capital_approved": false
-      }
+      "reason": "membership_table_missing",
+      "status": "blocked_external_evidence",
+      "next_action": "Resolve 876 candidate disagreements and duplicate snapshots with dated primary evidence and stable security identities. Cover all dates through the audit end and import with independent hash-bound coverage."
     },
     {
-      "source": "signals/latest",
-      "source_commit": "027d088917a59272038e261d275349f8c4717fa9",
-      "run_commit": null,
-      "generated_at": "2026-09-04T17:01:43+00:00",
-      "age_hours": 74.85972586722221,
-      "complete": false,
-      "issues": [
-        "complete_run_manifest_missing",
-        "evidence_run_mismatch:alpaca_execution_scorecard.json",
-        "evidence_run_mismatch:alpaca_paper_health.json",
-        "evidence_run_mismatch:broker_truth.json",
-        "evidence_run_mismatch:paper_validation_epoch_status.json",
-        "required_evidence_missing:alpaca_execution_scorecard.json",
-        "required_evidence_missing:alpaca_paper_health.json",
-        "required_evidence_missing:broker_truth.json",
-        "required_evidence_missing:paper_validation_epoch_status.json"
-      ],
-      "measured_fills": 9,
-      "sessions": 2,
-      "decision_eligible": false,
-      "file_hashes": {
-        "core_satellite_live_configs.json": "614683ee1996fc2b41d818a7dfa52eb9499cdee365d1f89cb0af478b26a060b4",
-        "core_satellite_validation_bundle.json": "7b936b76d7a0cf2bf6c407eb4221b8fe255e61874f5f8071b13209d01b368333",
-        "broker_truth.json": "dea6576ebb96e825a8c583e9cf026faf3dcfc264f0ccb9c052bbf0c14dcd7881",
-        "alpaca_execution_scorecard.json": "73dde7582ea5ddebc7c67e835f1509f858a80d751883d9f999fd0c78620ef194",
-        "paper_validation_epoch_status.json": "b35f8a2a18a3121172bf2a4d364f8f8a60b0f82b9185fe7e70edffc9d058109f",
-        "alpaca_paper_health.json": "042bd7b87136718af47f19df3f3eb216b84f0e0c145dde822dc249539e427a18",
-        "workflow_heartbeat_daily.json": "508a86e9f6c77024e877b84d157e8e09870f1ea97afb2813104e5daf9965256a",
-        "alpaca_paper_log.csv": "4d78586c3be72d6ec53cd08edbd723c002da0d2da68e429b22950257b3e2335e",
-        "alpaca_submit_outcomes.csv": "f2711b33ddd02c5f50cc3af38d9f4afc7945b81db3bf9afab5a9405321c43dba",
-        "core_satellite_alpha_signal.csv": "3df5b79dbcb0d777f1f8fe17e1ab073a43cc048a7ecb19197ef5a16e72c10a09"
-      },
-      "approval": {
-        "status": "blocked",
-        "issues": [
-          "deployment_status_conflict",
-          "paper_approval_not_unanimous",
-          "strategy_bundle_reference_mismatch"
-        ],
-        "config_fingerprint": "a9f616b5f6185fcf",
-        "bundle_hash": "16dc3335d99c4f7c61701038abb8ec2c5dfc4b1c6db5fe04e7613efeb6b615b5",
-        "score_source": "regime_adaptive",
-        "score_columns": {
-          "risk_on": "factor_risk_on_score",
-          "neutral": "factor_walkforward_score",
-          "risk_off": "factor_defensive_score"
-        },
-        "scoring_implementation": "core_satellite_alpha._score_col_for_regime",
-        "xgboost_attribution_verified": false,
-        "research_max_gross": 1.25,
-        "deployment_max_gross": 1.0,
-        "real_capital_approved": false
-      }
+      "reason": "required_ticker_membership_missing",
+      "status": "blocked_external_evidence",
+      "next_action": "Resolve 876 candidate disagreements and duplicate snapshots with dated primary evidence and stable security identities. Cover all dates through the audit end and import with independent hash-bound coverage."
     },
     {
-      "source": "workflow_artifact:34151152462:10029412561:success",
-      "source_commit": "338249bbc440c823f8e0a1b61cfb09cf733a74c6",
-      "run_commit": null,
-      "generated_at": "2026-09-07T18:20:29+00:00",
-      "age_hours": 1.5469484555555555,
-      "complete": false,
-      "issues": [
-        "complete_run_manifest_missing",
-        "evidence_run_mismatch:alpaca_execution_scorecard.json",
-        "evidence_run_mismatch:alpaca_paper_health.json",
-        "evidence_run_mismatch:broker_truth.json",
-        "evidence_run_mismatch:paper_validation_epoch_status.json",
-        "required_evidence_missing:alpaca_execution_scorecard.json",
-        "required_evidence_missing:alpaca_paper_health.json",
-        "required_evidence_missing:broker_truth.json",
-        "required_evidence_missing:paper_validation_epoch_status.json"
-      ],
-      "measured_fills": null,
-      "sessions": null,
-      "decision_eligible": false,
-      "file_hashes": {
-        "workflow_heartbeat_daily.json": "2f7015b2de31db7c66b6a10045e21856120d40b25e4ad3825b222954336a09b4"
-      },
-      "approval": {
-        "status": "blocked",
-        "issues": [
-          "config_fingerprint_missing",
-          "configuration_fingerprint_mismatch",
-          "deployed_configuration_missing",
-          "deployment_state_missing",
-          "paper_approval_not_unanimous",
-          "robustness_review_missing",
-          "strategy_bundle_reference_mismatch",
-          "top_bundle_reference_mismatch",
-          "validation_bundle_hash_missing",
-          "validation_bundle_schema_outdated"
-        ],
-        "config_fingerprint": "392939a5e1b42f9d",
-        "bundle_hash": null,
-        "score_source": null,
-        "score_columns": {
-          "configured": null
-        },
-        "scoring_implementation": "core_satellite_alpha._score_col_for_regime",
-        "xgboost_attribution_verified": false,
-        "research_max_gross": null,
-        "deployment_max_gross": null,
-        "real_capital_approved": false
-      }
+      "reason": "membership_provenance_columns_missing",
+      "status": "blocked_external_evidence",
+      "next_action": "Resolve 876 candidate disagreements and duplicate snapshots with dated primary evidence and stable security identities. Cover all dates through the audit end and import with independent hash-bound coverage."
     },
     {
-      "source": "imported_workflow_artifact:33897908550:9946624459:success",
-      "source_commit": "91fd2056cd95ec36504e13dae777a937b2cd680d",
-      "run_commit": "91fd2056cd95ec36504e13dae777a937b2cd680d",
-      "generated_at": "2026-09-04T17:01:43+00:00",
-      "age_hours": 74.85972624777777,
-      "complete": true,
-      "issues": [],
-      "measured_fills": 9,
-      "sessions": 2,
-      "decision_eligible": false,
-      "file_hashes": {
-        "core_satellite_alpha_signal.csv": "3df5b79dbcb0d777f1f8fe17e1ab073a43cc048a7ecb19197ef5a16e72c10a09",
-        "alpaca_paper_log.csv": "732c6a03f9b4740315520d95a230e0c82ec2c83a420e5f42bbc6e42b3a35e762",
-        "alpaca_paper_health.json": "74f2b7934d69ada48c7a532a0cdec2752c674380ea7fc4d281c28099621f0e88",
-        "alpaca_execution_scorecard.json": "8e5327fe543ade41ae3c500e501bde72aa6b9c6621d9d17f740ea36e7f7acb91",
-        "alpaca_submit_outcomes.csv": "4dcf8110d83816e13e1340ab5f2c20f59a23d77cc87b883c5e23500134a1b896",
-        "paper_validation_epoch_status.json": "dea98d29d1ba762716cd7b038ad0c73c97cda1da9bf04f43273593de1a3cd4ad",
-        "broker_truth.json": "994d8ce421d7a52899765bdb755c234c2f6c09502f2c5d496cf7ca2cc321d743",
-        "paper_run_manifest.json": "7147e0d13b917cfe181e702167e3cd6d73925d37ba4880a379f638fd1ae0ffca",
-        "workflow_heartbeat_daily.json": "508a86e9f6c77024e877b84d157e8e09870f1ea97afb2813104e5daf9965256a"
-      },
-      "approval": {
-        "status": "blocked",
-        "issues": [
-          "config_fingerprint_missing",
-          "configuration_fingerprint_mismatch",
-          "deployed_configuration_missing",
-          "deployment_state_missing",
-          "paper_approval_not_unanimous",
-          "robustness_review_missing",
-          "strategy_bundle_reference_mismatch",
-          "top_bundle_reference_mismatch",
-          "validation_bundle_hash_missing",
-          "validation_bundle_schema_outdated"
-        ],
-        "config_fingerprint": "392939a5e1b42f9d",
-        "bundle_hash": null,
-        "score_source": null,
-        "score_columns": {
-          "configured": null
-        },
-        "scoring_implementation": "core_satellite_alpha._score_col_for_regime",
-        "xgboost_attribution_verified": false,
-        "research_max_gross": null,
-        "deployment_max_gross": null,
-        "real_capital_approved": false
-      }
+      "reason": "historical_universe_too_small",
+      "status": "blocked_external_evidence",
+      "next_action": "Resolve 876 candidate disagreements and duplicate snapshots with dated primary evidence and stable security identities. Cover all dates through the audit end and import with independent hash-bound coverage."
+    },
+    {
+      "reason": "inactive_membership_coverage_too_small",
+      "status": "blocked_external_evidence",
+      "next_action": "Resolve 876 candidate disagreements and duplicate snapshots with dated primary evidence and stable security identities. Cover all dates through the audit end and import with independent hash-bound coverage."
+    },
+    {
+      "reason": "historical_price_coverage_incomplete",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover all required 2012-onward sessions for every verified historical member and benchmarks, then record source URL, retrieval time, license, feed, symbol mapping and hashes. Current ETF probes start in 2016."
+    },
+    {
+      "reason": "historical_membership_missing",
+      "status": "blocked_external_evidence",
+      "next_action": "Resolve 876 candidate disagreements and duplicate snapshots with dated primary evidence and stable security identities. Cover all dates through the audit end and import with independent hash-bound coverage."
+    },
+    {
+      "reason": "membership_coverage_unverified",
+      "status": "blocked_external_evidence",
+      "next_action": "Resolve 876 candidate disagreements and duplicate snapshots with dated primary evidence and stable security identities. Cover all dates through the audit end and import with independent hash-bound coverage."
+    },
+    {
+      "reason": "raw_price_file_missing",
+      "ticker": "QQQ",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover all required 2012-onward sessions for every verified historical member and benchmarks, then record source URL, retrieval time, license, feed, symbol mapping and hashes. Current ETF probes start in 2016."
+    },
+    {
+      "reason": "source_url_missing",
+      "ticker": "QQQ",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover all required 2012-onward sessions for every verified historical member and benchmarks, then record source URL, retrieval time, license, feed, symbol mapping and hashes. Current ETF probes start in 2016."
+    },
+    {
+      "reason": "retrieved_at_missing",
+      "ticker": "QQQ",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover all required 2012-onward sessions for every verified historical member and benchmarks, then record source URL, retrieval time, license, feed, symbol mapping and hashes. Current ETF probes start in 2016."
+    },
+    {
+      "reason": "license_missing",
+      "ticker": "QQQ",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover all required 2012-onward sessions for every verified historical member and benchmarks, then record source URL, retrieval time, license, feed, symbol mapping and hashes. Current ETF probes start in 2016."
+    },
+    {
+      "reason": "free_raw_source_unverified",
+      "ticker": "QQQ",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover all required 2012-onward sessions for every verified historical member and benchmarks, then record source URL, retrieval time, license, feed, symbol mapping and hashes. Current ETF probes start in 2016."
+    },
+    {
+      "reason": "raw_price_provenance_invalid",
+      "ticker": "QQQ",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover all required 2012-onward sessions for every verified historical member and benchmarks, then record source URL, retrieval time, license, feed, symbol mapping and hashes. Current ETF probes start in 2016."
+    },
+    {
+      "reason": "raw_price_feed_or_symbol_mapping_missing",
+      "ticker": "QQQ",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover all required 2012-onward sessions for every verified historical member and benchmarks, then record source URL, retrieval time, license, feed, symbol mapping and hashes. Current ETF probes start in 2016."
+    },
+    {
+      "reason": "raw_price_security_identity_unverified",
+      "ticker": "QQQ",
+      "status": "blocked_external_evidence",
+      "next_action": "Bind the exact raw file to the correct historical security identifier; reject combined histories from reused tickers, including SHLD and BBBY."
+    },
+    {
+      "reason": "corporate_action_coverage_missing",
+      "ticker": "QQQ",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover issuer-confirmed payment/ex-dates, splits, renames, mergers and delisting outcomes for every historical security; certify coverage only after corroboration. Thirty retrieved ETF dividends still lack payment dates."
+    },
+    {
+      "reason": "raw_price_file_missing",
+      "ticker": "SPY",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover all required 2012-onward sessions for every verified historical member and benchmarks, then record source URL, retrieval time, license, feed, symbol mapping and hashes. Current ETF probes start in 2016."
+    },
+    {
+      "reason": "source_url_missing",
+      "ticker": "SPY",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover all required 2012-onward sessions for every verified historical member and benchmarks, then record source URL, retrieval time, license, feed, symbol mapping and hashes. Current ETF probes start in 2016."
+    },
+    {
+      "reason": "retrieved_at_missing",
+      "ticker": "SPY",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover all required 2012-onward sessions for every verified historical member and benchmarks, then record source URL, retrieval time, license, feed, symbol mapping and hashes. Current ETF probes start in 2016."
+    },
+    {
+      "reason": "license_missing",
+      "ticker": "SPY",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover all required 2012-onward sessions for every verified historical member and benchmarks, then record source URL, retrieval time, license, feed, symbol mapping and hashes. Current ETF probes start in 2016."
+    },
+    {
+      "reason": "free_raw_source_unverified",
+      "ticker": "SPY",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover all required 2012-onward sessions for every verified historical member and benchmarks, then record source URL, retrieval time, license, feed, symbol mapping and hashes. Current ETF probes start in 2016."
+    },
+    {
+      "reason": "raw_price_provenance_invalid",
+      "ticker": "SPY",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover all required 2012-onward sessions for every verified historical member and benchmarks, then record source URL, retrieval time, license, feed, symbol mapping and hashes. Current ETF probes start in 2016."
+    },
+    {
+      "reason": "raw_price_feed_or_symbol_mapping_missing",
+      "ticker": "SPY",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover all required 2012-onward sessions for every verified historical member and benchmarks, then record source URL, retrieval time, license, feed, symbol mapping and hashes. Current ETF probes start in 2016."
+    },
+    {
+      "reason": "raw_price_security_identity_unverified",
+      "ticker": "SPY",
+      "status": "blocked_external_evidence",
+      "next_action": "Bind the exact raw file to the correct historical security identifier; reject combined histories from reused tickers, including SHLD and BBBY."
+    },
+    {
+      "reason": "corporate_action_coverage_missing",
+      "ticker": "SPY",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover issuer-confirmed payment/ex-dates, splits, renames, mergers and delisting outcomes for every historical security; certify coverage only after corroboration. Thirty retrieved ETF dividends still lack payment dates."
+    },
+    {
+      "reason": "corporate_action_file_unverified",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover issuer-confirmed payment/ex-dates, splits, renames, mergers and delisting outcomes for every historical security; certify coverage only after corroboration. Thirty retrieved ETF dividends still lack payment dates."
+    },
+    {
+      "reason": "dated_context_missing_or_unverified",
+      "status": "blocked_external_evidence",
+      "next_action": "Recover historically published sector and future earnings schedule facts with publication/revision timestamps for every required candidate date."
     }
   ],
-  "recovery": {
-    "source_sha256": "8a7019487c4c72f2e6f9f7d4964131714d0a10d9828f4ae642ea1a3406a594ac",
-    "generated_at": "2026-09-07T19:42:47.901786+00:00",
-    "activity_counts": {
-      "FILL": null,
-      "FEE": null
-    },
-    "source_candidates": [
-      {
-        "source": "fja05680/sp500",
-        "sha256": "36326709d46d6cd25834de5df457b16f5f96fad3a06b9beac28f7b88aa0b0d54",
-        "source_cutoff": "2026-08-18",
-        "verified": false
-      },
-      {
-        "source": "hanshof/sp500_constituents",
-        "sha256": "02f37a12c11f82218fce422ecf7d95fae1074bd96e664c262a5ea42c120d5fe9",
-        "source_cutoff": "2025-08-23",
-        "verified": false
-      }
-    ],
-    "price_probes": [
-      {
-        "ticker": "SPY",
-        "rows": 2684,
-        "first": "2016-01-04T05:00:00Z",
-        "last": "2026-09-04T04:00:00Z",
-        "pagination_remaining": false,
-        "verified_full_coverage": false
-      },
-      {
-        "ticker": "QQQ",
-        "rows": 2684,
-        "first": "2016-01-04T05:00:00Z",
-        "last": "2026-09-04T04:00:00Z",
-        "pagination_remaining": false,
-        "verified_full_coverage": false
-      },
-      {
-        "ticker": "SIVB",
-        "rows": 1808,
-        "first": "2016-01-04T05:00:00Z",
-        "last": "2023-03-09T05:00:00Z",
-        "pagination_remaining": false,
-        "verified_full_coverage": false
-      },
-      {
-        "ticker": "FRC",
-        "rows": 1843,
-        "first": "2016-01-04T05:00:00Z",
-        "last": "2023-04-28T04:00:00Z",
-        "pagination_remaining": false,
-        "verified_full_coverage": false
-      },
-      {
-        "ticker": "BBBY",
-        "rows": 2086,
-        "first": "2016-01-04T05:00:00Z",
-        "last": "2026-08-14T04:00:00Z",
-        "pagination_remaining": false,
-        "verified_full_coverage": false
-      },
-      {
-        "ticker": "SHLD",
-        "rows": 2684,
-        "first": "2016-01-04T05:00:00Z",
-        "last": "2026-09-04T04:00:00Z",
-        "pagination_remaining": false,
-        "verified_full_coverage": false
-      }
-    ]
-  },
-  "imported_artifact": {
-    "run_id": 33897908550,
-    "artifact_id": 9946624459,
-    "head_sha": "91fd2056cd95ec36504e13dae777a937b2cd680d",
-    "source_url": "https://api.github.com/repos/uwuexdeemeow/Stock-Market-AI-Bot/actions/artifacts/9946624459",
-    "updated_at": "2026-09-04T17:01:59Z",
-    "latest_completed_run_id": 33902026497,
-    "latest_completed_run_has_artifacts": false
-  },
-  "runtime": {
-    "source": "local_snapshot",
-    "passed": true,
-    "version_lock_passed": false
-  },
-  "data": {
-    "complete": false,
-    "gaps": [
-      {
-        "reason": "membership_table_missing"
-      },
-      {
-        "reason": "required_ticker_membership_missing"
-      },
-      {
-        "reason": "membership_provenance_columns_missing"
-      },
-      {
-        "reason": "historical_universe_too_small"
-      },
-      {
-        "reason": "inactive_membership_coverage_too_small"
-      },
-      {
-        "reason": "historical_price_coverage_incomplete"
-      },
-      {
-        "reason": "historical_membership_missing"
-      },
-      {
-        "reason": "membership_coverage_unverified"
-      },
-      {
-        "reason": "raw_price_file_missing",
-        "ticker": "QQQ"
-      },
-      {
-        "reason": "source_url_missing",
-        "ticker": "QQQ"
-      },
-      {
-        "reason": "retrieved_at_missing",
-        "ticker": "QQQ"
-      },
-      {
-        "reason": "license_missing",
-        "ticker": "QQQ"
-      },
-      {
-        "reason": "free_raw_source_unverified",
-        "ticker": "QQQ"
-      },
-      {
-        "reason": "raw_price_provenance_invalid",
-        "ticker": "QQQ"
-      },
-      {
-        "reason": "raw_price_feed_or_symbol_mapping_missing",
-        "ticker": "QQQ"
-      },
-      {
-        "reason": "raw_price_security_identity_unverified",
-        "ticker": "QQQ"
-      },
-      {
-        "reason": "corporate_action_coverage_missing",
-        "ticker": "QQQ"
-      },
-      {
-        "reason": "raw_price_file_missing",
-        "ticker": "SPY"
-      },
-      {
-        "reason": "source_url_missing",
-        "ticker": "SPY"
-      },
-      {
-        "reason": "retrieved_at_missing",
-        "ticker": "SPY"
-      },
-      {
-        "reason": "license_missing",
-        "ticker": "SPY"
-      },
-      {
-        "reason": "free_raw_source_unverified",
-        "ticker": "SPY"
-      },
-      {
-        "reason": "raw_price_provenance_invalid",
-        "ticker": "SPY"
-      },
-      {
-        "reason": "raw_price_feed_or_symbol_mapping_missing",
-        "ticker": "SPY"
-      },
-      {
-        "reason": "raw_price_security_identity_unverified",
-        "ticker": "SPY"
-      },
-      {
-        "reason": "corporate_action_coverage_missing",
-        "ticker": "SPY"
-      },
-      {
-        "reason": "corporate_action_file_unverified"
-      },
-      {
-        "reason": "dated_context_missing_or_unverified"
-      }
-    ],
-    "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
-  },
-  "replay": {
-    "certified": true,
-    "reconciled": true,
-    "evidence_scope": "balance_continuity_only_no_activity",
-    "activity_counts": {
-      "FILL": 0,
-      "FEE": 0
-    },
-    "interval_start": "2026-09-07T04:57:22.027397+00:00",
-    "interval_end": "2026-09-07T19:52:11.682391+00:00",
-    "source_sha256": "735f4181e6f398bdcfdb6a0c901a87938ec06e94053b6698eac6f6a503f7fdda",
-    "arrival_quotes": "unavailable_unless_recorded_with_order"
-  },
-  "shadow_candidate": {
-    "identity": "7b600092837318707f33c6cb5ba196f81e809e51245de48c611c7f9c9f3d2606",
-    "scoring": "fold_local_raw_feature_ranks",
-    "deployed_strategy_equivalent": false
-  },
-  "blockers": [
+  "operational_blockers": [
     {
       "reason": "completed_run_has_no_artifact:34153115990",
       "next_action": "Restore read-only access and retrieve the latest completed run."
@@ -872,7 +629,216 @@
       "next_action": "Review current runtime evidence and version lock; preserve existing freeze."
     }
   ],
-  "real_capital_approved": false,
+  "fresh_recovery": {
+    "generated_at": "2026-09-07T19:42:47.901786+00:00",
+    "membership_sources": [
+      {
+        "source": "fja05680/sp500",
+        "source_url": "https://raw.githubusercontent.com/fja05680/sp500/master/S%26P%20500%20Historical%20Components%20%26%20Changes%20(Updated).csv",
+        "sha256": "36326709d46d6cd25834de5df457b16f5f96fad3a06b9beac28f7b88aa0b0d54",
+        "source_cutoff": "2026-08-18",
+        "historical_tickers_since_2012": 815,
+        "verified": false,
+        "reason": "community reconstruction requires corroboration; no extension beyond source cutoff"
+      },
+      {
+        "source": "hanshof/sp500_constituents",
+        "source_url": "https://raw.githubusercontent.com/hanshof/sp500_constituents/main/sp_500_historical_components.csv",
+        "sha256": "02f37a12c11f82218fce422ecf7d95fae1074bd96e664c262a5ea42c120d5fe9",
+        "source_cutoff": "2025-08-23",
+        "historical_tickers_since_2012": null,
+        "verified": false,
+        "reason": "Empty or duplicate constituent snapshots: ['2022-06-21', '2023-05-14']"
+      }
+    ],
+    "price_probes": [
+      {
+        "ticker": "SPY",
+        "rows": 2684,
+        "first": "2016-01-04T05:00:00Z",
+        "last": "2026-09-04T04:00:00Z",
+        "pagination_remaining": false,
+        "source_url": "https://data.alpaca.markets/v2/stocks/SPY/bars",
+        "parameters": {
+          "start": "2012-01-01T00:00:00Z",
+          "end": "2026-09-07T00:00:00Z",
+          "timeframe": "1Day",
+          "adjustment": "raw",
+          "feed": "sip",
+          "asof": "-",
+          "limit": 10000
+        },
+        "retrieved_at": "2026-09-07T19:42:54.918946+00:00",
+        "sha256": "550e8f3784d990146a8eef0eb20a7b983e250dabfba8f1408f6b2965039b9599",
+        "verified_full_coverage": false
+      },
+      {
+        "ticker": "QQQ",
+        "rows": 2684,
+        "first": "2016-01-04T05:00:00Z",
+        "last": "2026-09-04T04:00:00Z",
+        "pagination_remaining": false,
+        "source_url": "https://data.alpaca.markets/v2/stocks/QQQ/bars",
+        "parameters": {
+          "start": "2012-01-01T00:00:00Z",
+          "end": "2026-09-07T00:00:00Z",
+          "timeframe": "1Day",
+          "adjustment": "raw",
+          "feed": "sip",
+          "asof": "-",
+          "limit": 10000
+        },
+        "retrieved_at": "2026-09-07T19:42:56.498084+00:00",
+        "sha256": "9a75ab440e11edef926650eb09b808a59af23187cd158db090dd0b33a7694c98",
+        "verified_full_coverage": false
+      },
+      {
+        "ticker": "SIVB",
+        "rows": 1808,
+        "first": "2016-01-04T05:00:00Z",
+        "last": "2023-03-09T05:00:00Z",
+        "pagination_remaining": false,
+        "source_url": "https://data.alpaca.markets/v2/stocks/SIVB/bars",
+        "parameters": {
+          "start": "2012-01-01T00:00:00Z",
+          "end": "2026-09-07T00:00:00Z",
+          "timeframe": "1Day",
+          "adjustment": "raw",
+          "feed": "sip",
+          "asof": "-",
+          "limit": 10000
+        },
+        "retrieved_at": "2026-09-07T19:42:57.772815+00:00",
+        "sha256": "c528085581665cd6ec03cfbd163ba03e20adb4e83ddd9ca6e55e239fa98d23f9",
+        "verified_full_coverage": false
+      },
+      {
+        "ticker": "FRC",
+        "rows": 1843,
+        "first": "2016-01-04T05:00:00Z",
+        "last": "2023-04-28T04:00:00Z",
+        "pagination_remaining": false,
+        "source_url": "https://data.alpaca.markets/v2/stocks/FRC/bars",
+        "parameters": {
+          "start": "2012-01-01T00:00:00Z",
+          "end": "2026-09-07T00:00:00Z",
+          "timeframe": "1Day",
+          "adjustment": "raw",
+          "feed": "sip",
+          "asof": "-",
+          "limit": 10000
+        },
+        "retrieved_at": "2026-09-07T19:42:59.108121+00:00",
+        "sha256": "b91c6e809d8eb8728221f0a385724806165e12e7f6084b36536dc32e918ceb8f",
+        "verified_full_coverage": false
+      },
+      {
+        "ticker": "BBBY",
+        "rows": 2086,
+        "first": "2016-01-04T05:00:00Z",
+        "last": "2026-08-14T04:00:00Z",
+        "pagination_remaining": false,
+        "source_url": "https://data.alpaca.markets/v2/stocks/BBBY/bars",
+        "parameters": {
+          "start": "2012-01-01T00:00:00Z",
+          "end": "2026-09-07T00:00:00Z",
+          "timeframe": "1Day",
+          "adjustment": "raw",
+          "feed": "sip",
+          "asof": "-",
+          "limit": 10000
+        },
+        "retrieved_at": "2026-09-07T19:43:00.386253+00:00",
+        "sha256": "d322c734e7451e6862a374184541bf7010ba9e2c4653e17b4393179dfb21a552",
+        "verified_full_coverage": false
+      },
+      {
+        "ticker": "SHLD",
+        "rows": 2684,
+        "first": "2016-01-04T05:00:00Z",
+        "last": "2026-09-04T04:00:00Z",
+        "pagination_remaining": false,
+        "source_url": "https://data.alpaca.markets/v2/stocks/SHLD/bars",
+        "parameters": {
+          "start": "2012-01-01T00:00:00Z",
+          "end": "2026-09-07T00:00:00Z",
+          "timeframe": "1Day",
+          "adjustment": "raw",
+          "feed": "sip",
+          "asof": "-",
+          "limit": 10000
+        },
+        "retrieved_at": "2026-09-07T19:43:01.739009+00:00",
+        "sha256": "52921dcd3c40782fdaf2b8be11de15a66ccd7d7e48c303fd40488f6ef48d29c0",
+        "verified_full_coverage": false
+      }
+    ],
+    "corporate_actions": {
+      "source_url": "https://data.alpaca.markets/v1/corporate-actions",
+      "parameters": {
+        "symbols": "SPY,QQQ",
+        "start": "2012-01-01",
+        "end": "2026-09-07",
+        "limit": 1000,
+        "sort": "asc"
+      },
+      "retrieved_at": "2026-09-07T19:42:53.390457+00:00",
+      "sha256": "1be8cfe4cc624d0ecb43ea6c04a867bb96ca31b61e0fa4e1443e3e7331b233d4",
+      "rows": 84,
+      "activity_counts": {
+        "cash_dividends": 84
+      },
+      "missing_dividend_payment_dates": 30,
+      "earliest_ex_date": "2016-03-18",
+      "pagination_complete": true,
+      "verified_full_coverage": false,
+      "next_action": "Corroborate per-symbol coverage, missing payment dates and event semantics with issuer evidence."
+    }
+  },
+  "membership_comparison": {
+    "common_unambiguous_dates": 889,
+    "disagreement_dates": 876,
+    "candidate_historical_symbols": 815,
+    "candidate_cutoff": "2026-08-18"
+  },
+  "replay": {
+    "certified": true,
+    "reconciled": true,
+    "evidence_scope": "balance_continuity_only_no_activity",
+    "activity_counts": {
+      "FILL": 0,
+      "FEE": 0
+    },
+    "interval_start": "2026-09-07T04:57:22.027397+00:00",
+    "interval_end": "2026-09-07T19:52:11.682391+00:00",
+    "source_sha256": "735f4181e6f398bdcfdb6a0c901a87938ec06e94053b6698eac6f6a503f7fdda",
+    "arrival_quotes": "unavailable_unless_recorded_with_order"
+  },
+  "validation": {
+    "full_local_suite": {
+      "passed": 684,
+      "skipped": 37
+    },
+    "subsequent_affected_suite": {
+      "passed": 188
+    },
+    "final_recovery_suite": {
+      "passed": 11
+    },
+    "ci_url": "https://github.com/uwuexdeemeow/Stock-Market-AI-Bot/actions/runs/34157271981",
+    "ci_status": "success",
+    "ci_jobs": {
+      "windows-paper-safety": "success",
+      "dependency-audit": "success",
+      "linux-full-suite": "success",
+      "secret-scan": "success"
+    }
+  },
+  "identity_sources": [
+    "https://www.globalxetfs.com/articles/introducing-shld-the-case-for-defense-tech",
+    "https://investors.beyond.com/news-events/press-releases/news-details/2025/Beyond-Inc--Changes-Name-to-Bed-Bath--Beyond-Inc--and-Reclaims-Ticker-Symbol-BBBY/default.aspx"
+  ],
+  "no_orders_submitted": true,
   "freeze_started": false,
-  "historical_interpretation": "superseded_results_require_corrected_rebuild"
+  "version_lock_reset": false
 }
