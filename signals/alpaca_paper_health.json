@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-05T16:25:44+00:00",
+  "generated_at": "2026-09-07T21:16:15+00:00",
   "strategy": "core_satellite_alpha",
   "paper_ready": true,
   "gates_all_pass": true,
@@ -7,11 +7,13 @@
   "strategy_ready": true,
   "readiness_block_reasons": [],
   "readiness_source": "core_satellite_alpha_signal.csv",
-  "freshness_ok": true,
-  "freshness_issues": [],
+  "freshness_ok": false,
+  "freshness_issues": [
+    "signal_age_76.3h_gt_24.0h"
+  ],
   "freshness_source": "core_satellite_alpha_signal.csv",
-  "paper_equity_days": 10,
-  "paper_equity_rows": 10,
+  "paper_equity_days": 11,
+  "paper_equity_rows": 11,
   "paper_trades": 8,
   "submitted_orders": 8,
   "skipped_orders": 0,
@@ -156,10 +158,10 @@
   "max_drift_abs": 0.014268,
   "gauntlet_status": "failed",
   "approved_for_real_capital": false,
-  "gauntlet_reason": "trading_days 10 < 20 minimum",
+  "gauntlet_reason": "trading_days 11 < 20 minimum; signal not fresh: signal is 76h old (max 48.0h)",
   "slippage": {
     "source": "alpaca_slippage_reversal_report.json",
-    "report_generated_at": "2026-09-05T16:25:40+00:00",
+    "report_generated_at": "2026-09-07T21:16:10+00:00",
     "latest_fill_at": "2026-09-03T14:10:35+00:00",
     "filled_orders_with_slippage": 14,
     "avg_slippage_bps": -0.64,
@@ -449,8 +451,8 @@
     "reason": "no_filled_buy_orders"
   },
   "factor_data": {
-    "latest_data_date": "2026-09-03",
-    "age_trading_days": 1,
+    "latest_data_date": "2026-09-04",
+    "age_trading_days": 0,
     "missing_or_unreadable_count": 0,
     "missing_or_unreadable_sample": []
   },
@@ -462,19 +464,19 @@
     "backtest_mean_oos_cagr_pct": 30.07,
     "backtest_worst_oos_drawdown_pct": -22.89,
     "backtest_mean_oos_drawdown_pct": -8.1,
-    "live_equity_days": 10,
+    "live_equity_days": 11,
     "live_total_return_pct": 3.314,
-    "live_annualised_cagr_pct": 127.403,
-    "live_annualised_sharpe": 4.776,
+    "live_annualised_cagr_pct": 111.037,
+    "live_annualised_sharpe": 4.536,
     "live_max_drawdown_pct": -1.938,
     "drawdown_ratio_vs_worst_oos": 0.085,
-    "sharpe_fraction_of_backtest": 3.066,
-    "cagr_gap_pct": -97.333,
+    "sharpe_fraction_of_backtest": 2.912,
+    "cagr_gap_pct": -80.967,
     "drift_detected": false
   },
   "readiness_flags": {
     "strategy_ready": true,
-    "signal_fresh": true,
+    "signal_fresh": false,
     "broker_synced": true,
     "account_alignment_status": "pass",
     "account_aligned": true,
@@ -485,7 +487,7 @@
     "backtest_drift_ok": true
   },
   "go_live_scorecard": {
-    "passed": 10,
+    "passed": 9,
     "total": 11,
     "ready": false,
     "criteria": [
@@ -497,8 +499,8 @@
       },
       {
         "name": "signal_fresh",
-        "passed": true,
-        "actual": true,
+        "passed": false,
+        "actual": false,
         "target": true
       },
       {
@@ -516,7 +518,7 @@
       {
         "name": "paper_equity_days",
         "passed": false,
-        "actual": 10,
+        "actual": 11,
         "target": 20
       },
       {
@@ -560,16 +562,22 @@
     ]
   },
   "readiness": {
-    "status": "collecting",
-    "reason": "execution_evidence_collecting",
-    "blockers": [],
+    "status": "fail",
+    "reason": "signal_or_factor_data_not_fresh",
+    "blockers": [
+      "signal_or_factor_data_not_fresh",
+      "paper_version_lock_invalid"
+    ],
     "collecting_reasons": [
       "execution_evidence_collecting",
       "formal_validation_epoch_collecting",
       "workflow_continuity_not_yet_measured"
     ],
     "warnings": [],
-    "recommended_actions": [],
+    "recommended_actions": [
+      "Refresh and validate market data before the next trading run.",
+      "Freeze the final committed safety release, then start a clean validation epoch."
+    ],
     "signal_as_of": "2026-09-04T17:01:00+00:00",
     "components": {
       "alignment": {
@@ -624,10 +632,10 @@
           "bad_slippage_rate": false,
           "stage_comparison_ready": false,
           "two_stage_design": false,
-          "paper_version_lock": true
+          "paper_version_lock": false
         },
-        "trading_days": 3,
-        "paper_version_lock_valid": true
+        "trading_days": 4,
+        "paper_version_lock_valid": false
       },
       "workflow_continuity": {
         "status": "collecting",
@@ -640,25 +648,31 @@
       }
     },
     "evidence_run_ids": {
-      "broker_truth": "post-market-33977753824-1",
-      "execution_scorecard": "post-market-33977753824-1",
-      "validation_epoch": "post-market-33977753824-1",
+      "broker_truth": "post-market-34162445283-1",
+      "execution_scorecard": "post-market-34162445283-1",
+      "validation_epoch": "post-market-34162445283-1",
       "monitor_heartbeat": ""
     },
     "real_capital_approved": false
   },
-  "status": "collecting",
-  "blockers": [],
-  "recommended_actions": [],
+  "status": "fail",
+  "blockers": [
+    "signal_or_factor_data_not_fresh",
+    "paper_version_lock_invalid"
+  ],
+  "recommended_actions": [
+    "Refresh and validate market data before the next trading run.",
+    "Freeze the final committed safety release, then start a clean validation epoch."
+  ],
   "run_context": {
-    "run_id": "post-market-33977753824-1",
-    "generated_at": "2026-09-05T16:25:44+00:00",
+    "run_id": "post-market-34162445283-1",
+    "generated_at": "2026-09-07T21:16:16+00:00",
     "signal_as_of": "2026-09-04T17:01:00+00:00",
-    "git_commit": "3a75517f0ec6709191629044c39ff63775249f1e",
-    "configuration_fingerprint": "883fe6d211e504e9bc4bd7832f09ec5ea5575692a861fd11e2b32c08a374e40e",
+    "git_commit": "0c4efcca461bb6d5b057a13d037ab3eab3650338",
+    "configuration_fingerprint": "8235ea9231cff80f74cff63dee34597f261d32f08cf75733f13d03472e0ef838",
     "paper_version_fingerprint": "ca61f538f1a47339fafd207312d1df2f2ada76c40f6c1765914a42942519c3f8",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-33977753824-1",
+  "run_id": "post-market-34162445283-1",
   "broker": "alpaca"
 }

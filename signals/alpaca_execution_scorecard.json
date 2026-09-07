@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
-  "generated_at": "2026-09-05T16:25:42+00:00",
-  "measurement_cutoff_60m": "2026-09-05T15:25:42.040238+00:00",
+  "generated_at": "2026-09-07T21:16:12+00:00",
+  "measurement_cutoff_60m": "2026-09-07T20:16:12.584712+00:00",
   "status": "collecting",
   "score": 100.0,
   "decision_eligible": false,
@@ -374,13 +374,13 @@
     "previous_scorecard": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json"
   },
   "run_context": {
-    "run_id": "post-market-33977753824-1",
-    "generated_at": "2026-09-05T16:25:42+00:00",
+    "run_id": "post-market-34162445283-1",
+    "generated_at": "2026-09-07T21:16:12+00:00",
     "signal_as_of": "",
-    "git_commit": "3a75517f0ec6709191629044c39ff63775249f1e",
-    "configuration_fingerprint": "883fe6d211e504e9bc4bd7832f09ec5ea5575692a861fd11e2b32c08a374e40e",
+    "git_commit": "0c4efcca461bb6d5b057a13d037ab3eab3650338",
+    "configuration_fingerprint": "8235ea9231cff80f74cff63dee34597f261d32f08cf75733f13d03472e0ef838",
     "paper_version_fingerprint": "ca61f538f1a47339fafd207312d1df2f2ada76c40f6c1765914a42942519c3f8",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-33977753824-1"
+  "run_id": "post-market-34162445283-1"
 }
