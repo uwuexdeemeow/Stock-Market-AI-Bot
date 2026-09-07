@@ -1,0 +1,93 @@
+{
+  "generated_at": "2026-09-07T13:34:42.260682+00:00",
+  "code_commit": "03a60e16e3cadeeb29f0c22ced0e44e36c89f653",
+  "evidence_parent": "28f2e193b422ade1d4d6e881e3b8a641501de05a",
+  "status": "blocked",
+  "data_blockers": [
+    {
+      "reason": "membership_table_missing"
+    },
+    {
+      "reason": "required_ticker_membership_missing"
+    },
+    {
+      "reason": "membership_provenance_columns_missing"
+    },
+    {
+      "reason": "historical_universe_too_small"
+    },
+    {
+      "reason": "inactive_membership_coverage_too_small"
+    },
+    {
+      "reason": "historical_price_coverage_incomplete"
+    },
+    {
+      "reason": "historical_membership_missing"
+    },
+    {
+      "reason": "raw_price_file_missing",
+      "ticker": "QQQ"
+    },
+    {
+      "reason": "source_url_missing",
+      "ticker": "QQQ"
+    },
+    {
+      "reason": "retrieved_at_missing",
+      "ticker": "QQQ"
+    },
+    {
+      "reason": "license_missing",
+      "ticker": "QQQ"
+    },
+    {
+      "reason": "free_raw_source_unverified",
+      "ticker": "QQQ"
+    },
+    {
+      "reason": "corporate_action_coverage_missing",
+      "ticker": "QQQ"
+    },
+    {
+      "reason": "raw_price_file_missing",
+      "ticker": "SPY"
+    },
+    {
+      "reason": "source_url_missing",
+      "ticker": "SPY"
+    },
+    {
+      "reason": "retrieved_at_missing",
+      "ticker": "SPY"
+    },
+    {
+      "reason": "license_missing",
+      "ticker": "SPY"
+    },
+    {
+      "reason": "free_raw_source_unverified",
+      "ticker": "SPY"
+    },
+    {
+      "reason": "corporate_action_coverage_missing",
+      "ticker": "SPY"
+    },
+    {
+      "reason": "corporate_action_file_unverified"
+    },
+    {
+      "reason": "dated_context_missing_or_unverified"
+    }
+  ],
+  "files": {
+    "signals/strategy_evidence_report.json": "1ff9655d5838c68f56640063a00ecc481c14e03701dd5b36f164e78d94d0a2ff",
+    "signals/strategy_evidence_report.md": "95b9e0249c79ec30e5fb439d92c922b5c270a1b1e3e801914d919502ff77652d",
+    "signals/edge_ablation_comparison.json": "868b73fcbddfa1055d7715b23e405d08d61142c7f2170abe9c3c2539c52a7253",
+    "signals/edge_ablation_comparison.csv": "9c573a56b71ce5b5446fa0a5d2670ebecc63943d26dbe0821973a58f1ed9f1f7",
+    "signals/edge_ablation_comparison.md": "db0a23625a135ffe42794b8c03701c9a91aafc28bb78b1c324795d38735176c8"
+  },
+  "paper_strategy_changed": false,
+  "freeze_started": false,
+  "real_capital_approved": false
+}

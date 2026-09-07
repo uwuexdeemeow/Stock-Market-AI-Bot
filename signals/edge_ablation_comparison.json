@@ -1,0 +1,143 @@
+{
+  "status": "blocked",
+  "output": "signals/corrected_audit/ablations/20260907T133303340679Z/comparison.json",
+  "data": {
+    "complete": false,
+    "gaps": [
+      {
+        "reason": "membership_table_missing"
+      },
+      {
+        "reason": "required_ticker_membership_missing"
+      },
+      {
+        "reason": "membership_provenance_columns_missing"
+      },
+      {
+        "reason": "historical_universe_too_small"
+      },
+      {
+        "reason": "inactive_membership_coverage_too_small"
+      },
+      {
+        "reason": "historical_price_coverage_incomplete"
+      },
+      {
+        "reason": "historical_membership_missing"
+      },
+      {
+        "reason": "raw_price_file_missing",
+        "ticker": "QQQ"
+      },
+      {
+        "reason": "source_url_missing",
+        "ticker": "QQQ"
+      },
+      {
+        "reason": "retrieved_at_missing",
+        "ticker": "QQQ"
+      },
+      {
+        "reason": "license_missing",
+        "ticker": "QQQ"
+      },
+      {
+        "reason": "free_raw_source_unverified",
+        "ticker": "QQQ"
+      },
+      {
+        "reason": "corporate_action_coverage_missing",
+        "ticker": "QQQ"
+      },
+      {
+        "reason": "raw_price_file_missing",
+        "ticker": "SPY"
+      },
+      {
+        "reason": "source_url_missing",
+        "ticker": "SPY"
+      },
+      {
+        "reason": "retrieved_at_missing",
+        "ticker": "SPY"
+      },
+      {
+        "reason": "license_missing",
+        "ticker": "SPY"
+      },
+      {
+        "reason": "free_raw_source_unverified",
+        "ticker": "SPY"
+      },
+      {
+        "reason": "corporate_action_coverage_missing",
+        "ticker": "SPY"
+      },
+      {
+        "reason": "corporate_action_file_unverified"
+      },
+      {
+        "reason": "dated_context_missing_or_unverified"
+      }
+    ],
+    "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+  },
+  "candidate_identity": "617c8a66ba4d237c6f5e15a384a81344dfad7879a43db49c1a6736b78dc4fdb9",
+  "code": {
+    "portfolio_ledger.py": "1eedff5a7266d070d39aeadccea9f6d3bcdc127935774a4da1504a419f3628c1",
+    "paper_policy.py": "232da3c7c7e4317aa46dfcd107434de65371fd05d48c8a39148ea3944f5ca7e6",
+    "causal_research.py": "0697dd0da986afeef746b5c0ea71ca7225249236e1034c59bec3f3e1fbfef45a",
+    "corrected_audit.py": "1664b3c87dcb8ca657664b39f4f6153c5c446c6ca88447e6302612ad7941f7a9",
+    "corrected_data.py": "f012a4592cdb80d232568679d69165f85637af69e1d1357e87f54f49d22bfbdb",
+    "execution_model.py": "adf037a0f94aef5dbaba27996c763989cccf9caa9e7f16100c37d9820aceea7d",
+    "execution_cost_calibration.py": "19591cd30d128d266fec01ba1b9c24dd2af807c3df36645c9256d0df90ad322f",
+    "settings.py": "a7f924ed4d3ef2ac4e75c0f61f6b9ff4921abd2e073877cd8414a9a6ed549060",
+    "edge_evidence.py": "3c2cd6fa18d9147c6e047dde8040364cd350e45339e0d130dee56d03af208c7a",
+    "core_satellite_alpha.py": "68353127e1aa1e929c3e49fe5ec19b248cfd90d9304f1fff5f5662c2b7037faf",
+    "edge_ablation.py": "5b5775a041e7ecdfcc827a2afe79be57c9c43d6e3a2f48551e798cfc06aa0846",
+    "experiment_ledger.py": "abde0ff9afe84e2cf5c33571f176d7df9a4d071953cd6aa328cb04ef548e8461"
+  },
+  "deployed_strategy_equivalent": false,
+  "automatic_cutover": false,
+  "historical_interpretation": "retrospective_diagnostic",
+  "fold_accounting": "Each fold starts in cash and liquidates; combined returns reinvest across folds.",
+  "results": {
+    "full": {
+      "status": "blocked",
+      "reason": "verified_inputs_required"
+    },
+    "momentum_only": {
+      "status": "blocked",
+      "reason": "verified_inputs_required"
+    },
+    "without_momentum": {
+      "status": "blocked",
+      "reason": "verified_inputs_required"
+    },
+    "without_volatility": {
+      "status": "blocked",
+      "reason": "verified_inputs_required"
+    },
+    "without_dollar_volume": {
+      "status": "blocked",
+      "reason": "verified_inputs_required"
+    },
+    "neutral_allocation": {
+      "status": "blocked",
+      "reason": "verified_inputs_required"
+    },
+    "without_stock_overlay": {
+      "status": "blocked",
+      "reason": "verified_inputs_required"
+    }
+  },
+  "attempted_variants": [
+    "full",
+    "momentum_only",
+    "without_momentum",
+    "without_volatility",
+    "without_dollar_volume",
+    "neutral_allocation",
+    "without_stock_overlay"
+  ]
+}

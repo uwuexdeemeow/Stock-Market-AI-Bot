@@ -1,0 +1,8 @@
+variant,status,total_return_pct,sharpe,max_drawdown_pct,excess_vs_SPY_pct,excess_vs_QQQ_pct,sum_fold_turnover_pct,component_verdict
+full,blocked,,,,,,,inconclusive
+momentum_only,blocked,,,,,,,inconclusive
+without_momentum,blocked,,,,,,,inconclusive
+without_volatility,blocked,,,,,,,inconclusive
+without_dollar_volume,blocked,,,,,,,inconclusive
+neutral_allocation,blocked,,,,,,,inconclusive
+without_stock_overlay,blocked,,,,,,,inconclusive
