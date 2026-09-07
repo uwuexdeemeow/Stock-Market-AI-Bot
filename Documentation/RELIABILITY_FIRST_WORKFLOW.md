@@ -266,3 +266,23 @@ The September 2026 repair changes how evidence is checked at those handoffs:
 These choices protect the distinction between information known when choosing a trade and outcomes observed later. They do not complete the separate holdings/cash ledger repair or establish corrected profitability. Preserve earlier reports as superseded evidence; regenerate historical evaluations and live signals under the corrected code before relying on them. Code fixes go to `main`; generated operational evidence continues through the existing `signals/latest` publisher.
 
 Offline verification: `python -m pytest tests/test_submission_history_guards.py tests/test_brokers.py tests/test_audit_three_fixes.py -q`, followed by `python -m pytest -q`. Fake brokers and synthetic prices exercise the repaired rules without submitting paper orders.
+
+## Audit first, research next
+
+1. Fetch current operational evidence, then run `python3 corrected_audit.py --evidence-report`.
+   Read the JSON/Markdown source identities and blocker actions. Local evidence,
+   published evidence and workflow artifacts are separate snapshots.
+2. Recover independent interval balances and complete activity/order history using
+   the recovery tool. Supply verified historical constituents, raw prices, actions
+   and dated context; do not substitute current constituents or invented fees.
+3. Rerun corrected evaluation at the actual deployment ceiling. Keep deployed
+   factor scoring separate from the unapproved raw-feature shadow candidate.
+4. Run `python3 corrected_audit.py --ablations --spec corrected_shadow_spec.json`.
+   Review the seven fixed comparisons and uncertainty before proposing indicators.
+5. Continue to use existing freeze/observe gates. Neither new command starts an
+   epoch, changes paper settings, sends orders or approves capital.
+
+Each script has a separate beginner guide: `doc_evidence_audit.md`,
+`doc_edge_ablation.md`, `doc_corrected_audit.md` and `doc_audit_evidence_recovery.md`.
+The design favors explicit missing-evidence reports over misleading performance
+claims. Code goes to main; sanitized operational reports go to signals/latest.

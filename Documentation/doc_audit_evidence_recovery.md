@@ -47,3 +47,26 @@ Sources: [Alpaca account activities](https://docs.alpaca.markets/us/docs/account
 [comparison candidate](https://github.com/hanshof/sp500_constituents).
 Complete data checks, certified replay and corrected historical/stress runs
 must precede a prospective freeze.
+
+## Independently documented balance interval
+
+```bash
+python3 audit_evidence_recovery.py --paper --opening-balances inputs/opening.json
+```
+
+Optionally pass `--closing-balances inputs/closing.json`; otherwise an unchanged
+current paper API snapshot closes the interval. Both JSON objects must contain
+`cash`, `holdings`, `verified: true`, an attributed `source`, and an exact UTC
+`observed_at` timestamp. Set verified only when actual independent records support
+it. Never derive opening cash by subtracting trades from closing cash.
+
+The runner retrieves the complete activity stream and pages all broker orders.
+Activities after opening and through closing are replayed once. Date-only cash
+entries overlapping the interval, unknown activity types, changing account
+snapshots and incomplete order pagination block certification. Separate fee
+activities are charged once. Missing arrival quotes are not reconstructed.
+
+Private `events.csv`, balances, `orders.json`, `broker_history_report.json` and
+`replay_reconciliation.json` stay in the ignored timestamped recovery folder.
+A certified replay still cannot freeze or approve a strategy by itself. Pass its
+summary to the unified evidence report using `--reconciliation-report`.

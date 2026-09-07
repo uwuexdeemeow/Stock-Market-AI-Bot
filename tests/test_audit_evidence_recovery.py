@@ -66,3 +66,48 @@ def test_inferred_opening_balances_cannot_certify_freeze():
     assert not replay_certified(report)
     report["source_opening_balances_verified"] = True
     assert replay_certified(report)
+
+
+def test_verified_interval_partial_fills_fees_and_independent_balances(tmp_path, monkeypatch):
+    import json
+    import audit_evidence_recovery as recovery
+    opening = tmp_path / 'opening.json'
+    opening.write_text(json.dumps({'cash': 1000., 'holdings': {}, 'verified': True,
+                                  'source': 'independent statement', 'observed_at': '2024-02-01T00:00:00Z'}))
+    closing = tmp_path / 'closing.json'
+    closing.write_text(json.dumps({'cash': 698.97, 'holdings': {'SPY': 3.}, 'verified': True,
+                                  'source': 'independent statement', 'observed_at': '2024-02-03T00:00:00Z'}))
+    rows = [{'activity_type': 'FILL', 'id': 'a', 'order_id': 'one', 'transaction_time': '2024-02-02T14:35:00Z',
+             'symbol': 'SPY', 'side': 'buy', 'qty': '2', 'price': '100'},
+            {'activity_type': 'FILL', 'id': 'b', 'order_id': 'one', 'transaction_time': '2024-02-02T14:36:00Z',
+             'symbol': 'SPY', 'side': 'buy', 'qty': '1', 'price': '101'},
+            {'activity_type': 'FEE', 'id': 'fee', 'created_at': '2024-02-02T21:00:00Z', 'net_amount': '-0.03'}]
+    def get(url, **kwargs):
+        if url.endswith('/activities'):
+            return rows
+        if url.endswith('/positions'):
+            return [{'symbol': 'SPY', 'qty': '3'}]
+        if url.endswith('/orders'):
+            return [{'id': 'one', 'submitted_at': '2024-02-02T14:34:00Z'}]
+        return {'cash': '698.97'}
+    monkeypatch.setattr(recovery, 'read_json', get)
+    report = recovery.recover_verified_interval(tmp_path, {}, opening, closing)
+    assert report['certified_for_freeze']
+    assert report['cash'] == pytest.approx(698.97)
+    assert not report['arrival_quotes_available']
+    # The very same arithmetic is not enough if the source order query fails.
+    def incomplete(url, **kwargs):
+        if url.endswith('/orders'):
+            raise RuntimeError('interrupted')
+        return get(url, **kwargs)
+    monkeypatch.setattr(recovery, 'read_json', incomplete)
+    assert not recovery.recover_verified_interval(tmp_path, {}, opening, closing)['certified_for_freeze']
+
+
+def test_inferred_balance_input_is_rejected_before_network(tmp_path, monkeypatch):
+    import audit_evidence_recovery as recovery
+    opening = tmp_path / 'opening.json'
+    opening.write_text('{"cash":1000,"holdings":{},"verified":false}')
+    monkeypatch.setattr(recovery, 'read_json', lambda *a, **k: pytest.fail('should not fetch'))
+    with pytest.raises(ValueError, match='Independent'):
+        recovery.recover_verified_interval(tmp_path, {}, opening)

@@ -113,3 +113,20 @@ Neither command switches the paper strategy or approves real money.
 Historical results from the old accounting are superseded diagnostics and need
 regeneration. Keep original audits untouched. Code belongs on main; operational
 reports belong under the existing signals/latest evidence publisher.
+
+## Unified evidence and fixed comparisons
+
+`python3 corrected_audit.py --evidence-report` writes sanitized JSON and Markdown
+without changing strategy state. Optional `--reconciliation-report PATH` reads a
+private interval summary. See `doc_evidence_audit.md` for source and freshness rules.
+
+`python3 corrected_audit.py --ablations --spec corrected_shadow_spec.json` runs
+seven fixed comparisons, or records their explicit data blockers. See
+`doc_edge_ablation.md` for inputs, outputs and interpretation. Both modes reject
+combinations with freeze, observe, membership import, replay and audit-only.
+Verified input preprocessing is shared between normal evaluation and ablations.
+The corrected target adapter honors the explicit deployment ceiling in (0, 1].
+
+Corrected target selection also requires a dated nonmissing sector for every
+candidate when sector limits are enabled; an absent classification cannot fall
+back to an undated OTHER bucket.

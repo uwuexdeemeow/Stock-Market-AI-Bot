@@ -47,6 +47,10 @@ def build_daily_targets(scored, config, membership_path, *, bars):
         if date not in day_map or date not in prices.index:
             raise ValueError(f"Missing prior-session candidates/prices: {date}")
         day = day_map[date]
+        # Sector limits require historical sector facts; missing classifications
+        # cannot quietly turn every stock into today's OTHER bucket.
+        if int(config.get("max_per_sector", 2)) > 0 and ("sector" not in day or day.sector.isna().any()):
+            raise ValueError(f"Dated sector classifications required at {date}")
         blackout = int(config.get("earnings_blackout_days", 0))
         if blackout and ("days_to_next_earnings" not in day or day.days_to_next_earnings.isna().any()):
             raise ValueError(f"Dated earnings calendar required at {date}")
@@ -66,8 +70,15 @@ def build_daily_targets(scored, config, membership_path, *, bars):
         result.update({ticker: float(weight) for ticker, weight in overlay.items()})
         # Match the approved paper gross ceiling after sticky weights and caps.
         gross = sum(result.values())
-        if gross > 1:
-            result = {ticker: weight / gross for ticker, weight in result.items()}
+        ceiling = float(config.get("deployment_max_gross_exposure", 1.))
+        if not np.isfinite(ceiling) or ceiling <= 0 or ceiling > 1:
+            raise ValueError("Corrected long-only deployment ceiling must be in (0, 1]")
+        if gross > ceiling:
+            result = {ticker: weight * ceiling / gross for ticker, weight in result.items()}
+        # Removing stocks leaves their already-scaled allocation in cash. It
+        # must not increase ETF exposure and quietly change two components.
+        if config.get("audit_remove_stock_overlay", False):
+            result = {ticker: weight for ticker, weight in result.items() if ticker in core_weights}
         result = {ticker: weight for ticker, weight in result.items() if weight > 0}
         return result
     return target
@@ -140,6 +151,34 @@ def prospective_status(frozen: dict, *, now, current_fingerprint, observed_sessi
             "final_review_is_profitability_proof": False}
 
 
+def load_corrected_inputs(args, spec):
+    """Share verified raw preprocessing across baseline and ablation runs."""
+    bars, provenance = load_raw_panel(args.data_dir, args.membership, start=args.start, end=args.end)
+    actions = pd.read_csv(args.data_dir / "raw" / "actions.csv")
+    # Feature input includes every historical member, with as-of source metadata.
+    generated_panel, bars = build_raw_features(bars, actions, horizon=int(spec.get("horizon", 20)))
+    if spec.get("feature_panel"):
+        panel_path = Path(spec["feature_panel"])
+        panel = pd.read_parquet(panel_path)
+        if spec.get("feature_provenance_verified") is not True:
+            raise SystemExit("Feature publication/cutoff provenance is required")
+        from corrected_data import validate_dated_inputs
+        validate_dated_inputs(panel)
+    else:
+        panel = generated_panel
+    # VIX and sector facts are dated source observations, never today's state
+    # copied into history. Optional inputs join on exact date/ticker keys.
+    if spec.get("dated_context"):
+        context = pd.read_parquet(spec["dated_context"])
+        from corrected_data import validate_dated_inputs
+        validate_dated_inputs(context)
+        panel = panel.merge(context, on=["date", "ticker"], how="left", validate="one_to_one", suffixes=("", "_context"))
+        if "sector_context" in panel:
+            panel["sector"] = panel.pop("sector_context")
+    panel = eligible_candidates(panel, args.membership)
+    return panel, bars, actions, provenance
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", type=Path, default=Path("data"))
@@ -148,6 +187,8 @@ def main(argv=None):
     parser.add_argument("--start", default="2012-01-01")
     parser.add_argument("--end", default=datetime.now(timezone.utc).date().isoformat())
     parser.add_argument("--audit-only", action="store_true")
+    parser.add_argument("--evidence-report", action="store_true", help="Read evidence and write sanitized JSON/Markdown only")
+    parser.add_argument("--ablations", action="store_true", help="Run seven fixed offline shadow comparisons")
     parser.add_argument("--spec", type=Path, help="Frozen JSON with features, configurations, folds and label")
     parser.add_argument("--freeze", action="store_true", help="Freeze only a fully validated corrected specification")
     parser.add_argument("--observe", action="store_true", help="Record a completed-session shadow observation under an existing freeze")
@@ -156,8 +197,28 @@ def main(argv=None):
     parser.add_argument("--closing-balances", type=Path)
     parser.add_argument("--marks", type=Path, help="Daily timestamp,ticker,price CSV for recorded replay")
     parser.add_argument("--history-evidence", type=Path, help="Broker retrieval report with history_complete for replay certification")
+    parser.add_argument("--workflow-artifact", type=Path, help="Previously downloaded GitHub ZIP, paired with metadata")
+    parser.add_argument("--artifact-metadata", type=Path, help="Attributed artifact/run IDs, digest and source commit")
+    parser.add_argument("--recovery-report", type=Path, help="Private source recovery summary to sanitize")
+    parser.add_argument("--reconciliation-report", type=Path, help="Private certified replay summary for evidence-report mode")
     parser.add_argument("--import-membership", type=Path, help="Import an attributed free-source membership CSV")
     args = parser.parse_args(argv)
+    if bool(args.workflow_artifact) != bool(args.artifact_metadata):
+        parser.error("Workflow artifact and metadata must be supplied together")
+    if (args.workflow_artifact or args.recovery_report or args.reconciliation_report) and not args.evidence_report:
+        parser.error("External evidence inputs require --evidence-report")
+    if args.evidence_report or args.ablations:
+        if args.freeze or args.observe or args.import_membership or args.replay_events or args.audit_only or (args.evidence_report and args.ablations):
+            parser.error("Evidence/ablation mode cannot be combined with other action modes")
+        if args.evidence_report:
+            from evidence_audit import write_evidence_report
+            report = write_evidence_report(args)
+            print(json.dumps({"status": report["status"], "blockers": len(report["blockers"])}))
+        else:
+            from edge_ablation import run_ablations
+            report = run_ablations(args)
+            print(json.dumps({"status": report["status"], "report": report["output"]}))
+        return
     if args.import_membership:
         from corrected_data import import_membership
         print(json.dumps(import_membership(args.import_membership, args.membership)))
@@ -194,29 +255,7 @@ def main(argv=None):
         raise SystemExit("At least one outer fold and configuration required")
     if any(float(config.get("cost_stress", 1.)) != 1. for config in spec["configurations"]):
         raise SystemExit("Select configurations at baseline costs; run stresses separately on the selected configuration")
-    bars, provenance = load_raw_panel(args.data_dir, args.membership, start=args.start, end=args.end)
-    actions = pd.read_csv(args.data_dir / "raw" / "actions.csv")
-    # Feature input includes every historical member, with as-of source metadata.
-    generated_panel, bars = build_raw_features(bars, actions, horizon=int(spec.get("horizon", 20)))
-    if spec.get("feature_panel"):
-        panel_path = Path(spec["feature_panel"])
-        panel = pd.read_parquet(panel_path)
-        if spec.get("feature_provenance_verified") is not True:
-            raise SystemExit("Feature publication/cutoff provenance is required")
-        from corrected_data import validate_dated_inputs
-        validate_dated_inputs(panel)
-    else:
-        panel = generated_panel
-    # VIX and sector facts are dated source observations, never today's state
-    # copied into history. Optional inputs join on exact date/ticker keys.
-    if spec.get("dated_context"):
-        context = pd.read_parquet(spec["dated_context"])
-        from corrected_data import validate_dated_inputs
-        validate_dated_inputs(context)
-        panel = panel.merge(context, on=["date", "ticker"], how="left", validate="one_to_one", suffixes=("", "_context"))
-        if "sector_context" in panel:
-            panel["sector"] = panel.pop("sector_context")
-    panel = eligible_candidates(panel, args.membership)
+    panel, bars, actions, provenance = load_corrected_inputs(args, spec)
     policy = PaperPolicy(**spec.get("policy", {}))
     if args.observe:
         frozen = json.loads((args.output / "prospective_freeze.json").read_text(encoding="utf-8"))

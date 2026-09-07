@@ -57,8 +57,15 @@ def append_experiment(
     metrics: dict[str, Any],
     artifacts: dict[str, str] | None = None,
     notes: str | None = None,
+    output_dir: str | None = None,
 ) -> dict[str, Any]:
-    os.makedirs(LOG_DIR, exist_ok=True)
+    # Offline audits may keep their ledger beside an immutable run instead of
+    # appending into the production research history. Existing callers keep
+    # the original paths when no directory is supplied.
+    directory = output_dir or LOG_DIR
+    json_path = os.path.join(directory, "experiment_ledger.jsonl") if output_dir else LEDGER_JSONL
+    csv_path = os.path.join(directory, "experiment_ledger.csv") if output_dir else LEDGER_CSV
+    os.makedirs(directory, exist_ok=True)
     row = {
         "run_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "name": name,
@@ -68,7 +75,7 @@ def append_experiment(
         "artifacts": _json_safe(artifacts or {}),
         "notes": notes or "",
     }
-    with open(LEDGER_JSONL, "a", encoding="utf-8") as f:
+    with open(json_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(row, sort_keys=True) + "\n")
 
     flat = {
@@ -83,7 +90,7 @@ def append_experiment(
                 value = json.dumps(value, sort_keys=True)
             flat[f"{prefix}_{key}"] = value
 
-    old = pd.read_csv(LEDGER_CSV) if os.path.exists(LEDGER_CSV) else pd.DataFrame()
+    old = pd.read_csv(csv_path) if os.path.exists(csv_path) else pd.DataFrame()
     out = pd.concat([old, pd.DataFrame([flat])], ignore_index=True, sort=False)
-    out.to_csv(LEDGER_CSV, index=False)
+    out.to_csv(csv_path, index=False)
     return row

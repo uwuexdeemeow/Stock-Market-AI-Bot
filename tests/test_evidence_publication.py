@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 import re
 import shutil
+import shlex
+import sys
 import subprocess
 
 import pytest
@@ -12,6 +14,7 @@ yaml = pytest.importorskip("yaml")
 @pytest.mark.parametrize("filename,step_name,output", [
     ("daily_paper_trading.yml", "Commit signals to repo", "alpaca_paper_log.csv"),
     ("shadow_paper_journal.yml", "Commit shadow journal to repo", "shadow_paper_journal.csv"),
+    ("shadow_paper_journal.yml", "Commit shadow journal to repo", "strategy_evidence_report.json"),
     ("post_market_execution_quality.yml", "Publish refreshed evidence", "alpaca_execution_scorecard.json"),
 ])
 def test_publisher_preserves_remote_history_and_other_jobs(tmp_path, filename, step_name, output):
@@ -25,8 +28,9 @@ def test_publisher_preserves_remote_history_and_other_jobs(tmp_path, filename, s
     root.mkdir()
     remote = tmp_path / "remote.git"
 
+    # Compare Git stdout only: macOS allocator diagnostics on stderr are not file content.
     def git(*args):
-        return subprocess.check_output(["git", *args], cwd=root, text=True, stderr=subprocess.STDOUT).strip()
+        return subprocess.check_output(["git", *args], cwd=root, text=True, stderr=subprocess.PIPE).strip()
 
     git("init", "--bare", str(remote))
     git("init", "-b", "main")
@@ -54,7 +58,7 @@ def test_publisher_preserves_remote_history_and_other_jobs(tmp_path, filename, s
     (root / "logs" / "daily_run_20260905.json").write_text("{}")
     workflow = yaml.safe_load((Path(".github/workflows") / filename).read_text())
     step = next(step for job in workflow["jobs"].values() for step in job["steps"] if step["name"] == step_name)
-    shell = re.sub(r"\$\{\{.*?\}\}", "123", step["run"]).replace("python3 -", "python -")
+    shell = re.sub(r"\$\{\{.*?\}\}", "123", step["run"]).replace("python3 -", shlex.quote(sys.executable) + " -")
     result = subprocess.run([bash, "-e", "-o", "pipefail", "-c", shell], cwd=root, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
     assert git("show", "origin/signals/latest:signals/fractional_shadow_state.json") == "preserve me"

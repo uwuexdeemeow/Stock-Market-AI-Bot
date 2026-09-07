@@ -131,6 +131,83 @@ def recover_paper(folder, headers):
     return summary
 
 
+def recover_verified_interval(folder, headers, opening_path, closing_path=None):
+    """Replay independently documented balances over their exact time interval.
+
+    A current API balance can close an interval, but cannot certify an inferred
+    historical opening. Raw account data stays in the private recovery folder.
+    """
+    from broker_history import collect_order_history
+    from corrected_audit import replay_certified
+    base = "https://paper-api.alpaca.markets"
+    opening = json.loads(Path(opening_path).read_text(encoding="utf-8"))
+    if opening.get("verified") is not True or not opening.get("source") or not opening.get("observed_at"):
+        raise ValueError("Independent attributed opening balance and timestamp required")
+    start = pd.to_datetime(opening["observed_at"], utc=True, errors="raise")
+    before = read_json(base + "/v2/account", headers=headers)
+    positions_before = read_json(base + "/v2/positions", headers=headers)
+    rows = activity_pages(lambda token, size: read_json(base + "/v2/account/activities", headers=headers,
+        params={"direction": "asc", "page_size": size, **({"page_token": token} if token else {})}))
+    positions_after = read_json(base + "/v2/positions", headers=headers)
+    after = read_json(base + "/v2/account", headers=headers)
+    holdings = lambda values: {r["symbol"]: float(r["qty"]) for r in values}
+    if before["cash"] != after["cash"] or holdings(positions_before) != holdings(positions_after):
+        raise ValueError("Account changed during interval retrieval")
+    observed = datetime.now(timezone.utc).isoformat()
+    current = {"cash": float(after["cash"]), "holdings": holdings(positions_after), "verified": True,
+               "source": base + "/v2/account and /v2/positions", "observed_at": observed}
+    closing = json.loads(Path(closing_path).read_text(encoding="utf-8")) if closing_path else current
+    if closing.get("verified") is not True or not closing.get("source") or not closing.get("observed_at"):
+        raise ValueError("Independent attributed closing balance and timestamp required")
+    end = pd.to_datetime(closing["observed_at"], utc=True, errors="raise")
+    if not start < end <= pd.Timestamp(observed):
+        raise ValueError("Balance interval must be ordered and end no later than retrieval")
+    # Save original evidence before interpretation; an unsupported cash action
+    # must remain visible rather than being dropped to obtain a reconciliation.
+    for name, value in (("activities", rows), ("opening_balances", opening), ("closing_balances", closing), ("current_balance_snapshot", current)):
+        atomic_write_json(value, folder / (name + ".json"))
+    # Date-only cash entries cannot be placed accurately inside an intraday
+    # boundary. Require a timestamp instead of guessing a convenient ordering.
+    selected = []
+    for row in rows:
+        stamp = row.get("transaction_time") or row.get("created_at")
+        if not stamp:
+            day = pd.Timestamp(row["date"], tz="UTC")
+            if day <= end and day + pd.Timedelta(days=1) > start:
+                raise ValueError("Activity timestamp missing inside balance interval")
+            continue
+        if start < pd.to_datetime(stamp, utc=True) <= end:
+            selected.append(row)
+    events = activity_events(selected)
+    if events.empty:
+        events = pd.DataFrame(columns=["kind", "event_id", "timestamp"])
+    class ReadOnlyOrders:
+        def list_orders(self, **params):
+            return read_json(base + "/v2/orders", headers=headers, params=params)
+    # Include older parent orders: a fill inside this interval may belong to
+    # an order submitted before the opening snapshot.
+    history_start = pd.to_datetime(before.get("created_at", start), utc=True)
+    order_history = collect_order_history(ReadOnlyOrders(), after=history_start, until=end)
+    known_orders = {str(row.get("id", "")) for row in order_history.orders}
+    fill_orders = {str(row["order_id"]) for row in selected if row.get("activity_type") == "FILL"}
+    if not fill_orders.issubset(known_orders):
+        order_history.complete = False
+        order_history.errors.append("fill_parent_order_missing")
+    atomic_write_json(order_history.orders, folder / "orders.json")
+    result = replay_events(events, opening_cash=opening.get("cash"), opening_holdings=opening.get("holdings"),
+                           expected_cash=closing.get("cash"), expected_holdings=closing.get("holdings"))
+    summary = {**result.metrics, "source_history_complete": order_history.complete,
+               "source_opening_balances_verified": True, "source_closing_balances_verified": True,
+               "gaps": result.data_quality + [{"reason": e.split(":")[0]} for e in order_history.errors],
+               "interval_start": start.isoformat(), "interval_end": end.isoformat(),
+               "activity_stream_complete": True, "arrival_quotes_available": False}
+    summary["certified_for_freeze"] = replay_certified(summary)
+    atomic_write_json(summary, folder / "replay_reconciliation.json")
+    atomic_write_json({"history_complete": order_history.complete, "after": start.isoformat(), "until": end.isoformat()}, folder / "broker_history_report.json")
+    atomic_write_csv(events, folder / "events.csv")
+    return summary
+
+
 def recover_sources(folder):
     """Save original files and licenses; compare candidates before any promotion."""
     report = []
@@ -166,8 +243,14 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--paper", action="store_true")
     parser.add_argument("--sources", action="store_true")
+    parser.add_argument("--opening-balances", type=Path, help="Verified opening cash/positions with observed_at and source")
+    parser.add_argument("--closing-balances", type=Path, help="Optional verified closing snapshot; otherwise use current paper API")
     parser.add_argument("--price-probes", nargs="*", default=[])
     args = parser.parse_args(argv)
+    if (args.opening_balances or args.closing_balances) and not args.paper:
+        parser.error("Balance inputs require --paper")
+    if args.closing_balances and not args.opening_balances:
+        parser.error("Closing balances require independently verified opening balances")
     clock = datetime.now(timezone.utc)
     folder = Path("data/audit_recovery") / clock.strftime("%Y%m%dT%H%M%S%fZ")
     folder.mkdir(parents=True)
@@ -175,7 +258,7 @@ def main(argv=None):
     headers = {"APCA-API-KEY-ID": os.getenv("ALPACA_API_KEY") or cfg.get("ALPACA_API_KEY"),
                "APCA-API-SECRET-KEY": os.getenv("ALPACA_SECRET_KEY") or cfg.get("ALPACA_SECRET_KEY")}
     report = {"generated_at": clock.isoformat(), "private_evidence_directory": str(folder), "read_only": True, "freeze_started": False}
-    for enabled, key, work in [(args.paper, "paper", lambda: recover_paper(folder, headers)),
+    for enabled, key, work in [(args.paper, "paper", lambda: recover_verified_interval(folder, headers, args.opening_balances, args.closing_balances) if args.opening_balances else recover_paper(folder, headers)),
                                 (args.sources, "membership_sources", lambda: recover_sources(folder))]:
         if enabled:
             try:

@@ -16,3 +16,8 @@ mirror. JSONL is the source of truth; CSV is convenient for a spreadsheet.
 - **Append-only:** add new records without rewriting old evidence.
 - **Artifact:** an output file produced by an experiment.
 - **Git commit:** the exact code version used for the run.
+
+Offline callers may pass `output_dir` to `append_experiment` to keep an immutable
+run's `experiment_ledger.jsonl` and CSV beside its artifacts. Omitting it preserves
+the existing production log paths. The ablation runner records all seven outcomes,
+including blocked attempts, using this interface.
