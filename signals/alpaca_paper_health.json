@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-07T21:16:15+00:00",
+  "generated_at": "2026-09-07T23:31:23+00:00",
   "strategy": "core_satellite_alpha",
   "paper_ready": true,
   "gates_all_pass": true,
@@ -9,7 +9,7 @@
   "readiness_source": "core_satellite_alpha_signal.csv",
   "freshness_ok": false,
   "freshness_issues": [
-    "signal_age_76.3h_gt_24.0h"
+    "signal_age_78.5h_gt_24.0h"
   ],
   "freshness_source": "core_satellite_alpha_signal.csv",
   "paper_equity_days": 11,
@@ -158,10 +158,10 @@
   "max_drift_abs": 0.014268,
   "gauntlet_status": "failed",
   "approved_for_real_capital": false,
-  "gauntlet_reason": "trading_days 11 < 20 minimum; signal not fresh: signal is 76h old (max 48.0h)",
+  "gauntlet_reason": "trading_days 11 < 20 minimum; signal not fresh: signal is 79h old (max 48.0h)",
   "slippage": {
     "source": "alpaca_slippage_reversal_report.json",
-    "report_generated_at": "2026-09-07T21:16:10+00:00",
+    "report_generated_at": "2026-09-07T23:31:16+00:00",
     "latest_fill_at": "2026-09-03T14:10:35+00:00",
     "filled_orders_with_slippage": 14,
     "avg_slippage_bps": -0.64,
@@ -648,9 +648,9 @@
       }
     },
     "evidence_run_ids": {
-      "broker_truth": "post-market-34162445283-1",
-      "execution_scorecard": "post-market-34162445283-1",
-      "validation_epoch": "post-market-34162445283-1",
+      "broker_truth": "post-market-34170248160-1",
+      "execution_scorecard": "post-market-34170248160-1",
+      "validation_epoch": "post-market-34170248160-1",
       "monitor_heartbeat": ""
     },
     "real_capital_approved": false
@@ -665,14 +665,14 @@
     "Freeze the final committed safety release, then start a clean validation epoch."
   ],
   "run_context": {
-    "run_id": "post-market-34162445283-1",
-    "generated_at": "2026-09-07T21:16:16+00:00",
+    "run_id": "post-market-34170248160-1",
+    "generated_at": "2026-09-07T23:31:23+00:00",
     "signal_as_of": "2026-09-04T17:01:00+00:00",
     "git_commit": "0c4efcca461bb6d5b057a13d037ab3eab3650338",
     "configuration_fingerprint": "8235ea9231cff80f74cff63dee34597f261d32f08cf75733f13d03472e0ef838",
     "paper_version_fingerprint": "ca61f538f1a47339fafd207312d1df2f2ada76c40f6c1765914a42942519c3f8",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-34162445283-1",
+  "run_id": "post-market-34170248160-1",
   "broker": "alpaca"
 }

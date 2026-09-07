@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "epoch_id": "paper-v20260903T140244Z",
-  "evaluated_at": "2026-09-07T21:16:14+00:00",
+  "evaluated_at": "2026-09-07T23:31:21+00:00",
   "status": "collecting",
   "trading_days": 4,
   "rebalance_events": 1,
@@ -79,13 +79,13 @@
   "manual_real_capital_review_eligible": false,
   "real_capital_approved": false,
   "run_context": {
-    "run_id": "post-market-34162445283-1",
-    "generated_at": "2026-09-07T21:16:14+00:00",
+    "run_id": "post-market-34170248160-1",
+    "generated_at": "2026-09-07T23:31:21+00:00",
     "signal_as_of": "2026-09-05T01:01+08:00",
     "git_commit": "0c4efcca461bb6d5b057a13d037ab3eab3650338",
     "configuration_fingerprint": "8235ea9231cff80f74cff63dee34597f261d32f08cf75733f13d03472e0ef838",
     "paper_version_fingerprint": "ca61f538f1a47339fafd207312d1df2f2ada76c40f6c1765914a42942519c3f8",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-34162445283-1"
+  "run_id": "post-market-34170248160-1"
 }
