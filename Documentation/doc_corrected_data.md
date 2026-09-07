@@ -40,3 +40,37 @@ Free verification leads include issuer investor-relations action notices,
 and [SEC filing APIs](https://www.sec.gov/search-filings/edgar-application-programming-interfaces).
 These are source leads, not a claim that a complete freely verified historical
 dataset has been recovered. Failed or delisted names still need evidence.
+
+## Historical source hardening (September 2026)
+
+A file hash proves which bytes were inspected, not that the file covers every
+required trading day. The gate now opens each raw parquet and checks finite
+OHLC prices, price ordering, nonnegative volume, unique ordered session dates,
+and every required NYSE session. Missing sessions include their count and first
+and last dates. Zero volume is allowed as an observation; it is not fabricated
+liquidity. Execution rules still control whether a trade can occur.
+
+The raw manifest also needs a `membership` object with `verified: true`, the
+membership CSV's `sha256`, coverage `start`/`end`, and `source_url`, `retrieved_at`,
+`license`, and `access_cost: "free"`. These fields describe independently checked
+evidence, not a way to promote a community reconstruction by changing a flag.
+Each raw symbol additionally records `feed` and `symbol_mapping`. Action coverage
+has the same source attribution fields. Invalid manifests produce blocked
+reports. Directly loaded membership intervals are checked for overlap too.
+
+Actions must use a ledger-supported type, finite nonnegative values (positive
+split ratios), actual dates, and nonblank identities/sources. Dividend `date`
+means payment date and cannot precede `ex_date`. Missing payment dates cannot be
+replaced with processing dates. Unsupported actions block dependent evaluation.
+
+`validate_context_coverage` checks the actual candidate dates, including training
+history. A generated `OTHER` sector placeholder is not historical sector evidence;
+sector caps, earnings blackout and dynamic regimes require their dated fields.
+No complete free historical source is claimed by these checks.
+
+Raw metadata also requires `identity`: a provenance object with `verified: true`,
+`security_id` (a stable security identifier) and the raw file's `sha256`, plus URL,
+retrieval time, license and free access. This binds identity verification to the
+exact prices. `asof=-` alone is insufficient: reused tickers can still combine
+unrelated securities. Such files must be reconstructed against the correct
+security history before an identity attestation is written.

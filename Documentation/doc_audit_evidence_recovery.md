@@ -70,3 +70,27 @@ Private `events.csv`, balances, `orders.json`, `broker_history_report.json` and
 `replay_reconciliation.json` stay in the ignored timestamped recovery folder.
 A certified replay still cannot freeze or approve a strategy by itself. Pass its
 summary to the unified evidence report using `--reconciliation-report`.
+
+### Complete market-data pagination and action probes
+
+```sh
+python audit_evidence_recovery.py --price-probes SPY QQQ SIVB --action-probes SPY QQQ
+```
+
+These read-only requests use existing credentials and store original candidate
+records under a new private `data/audit_recovery/` directory. A **page token** is
+a provider's pointer to the next batch. The script follows tokens even on short
+pages and rejects repeated tokens and duplicate identities. Raw price requests
+record `feed=sip`, `adjustment=raw`, and `asof=-` to avoid silently renaming old
+symbols using today's identity. Reports preserve request parameters, retrieval
+times and hashes. They do not create an approved raw manifest.
+
+Action probes retain the provider's original event type and all available fields.
+They report missing dividend payment dates separately; no processing date is
+substituted. Complete pagination means all returned pages were collected, not
+that the provider covers every historical event. The report remains unverified
+until issuer evidence establishes coverage and ledger-compatible semantics.
+
+Paper interval reports now distinguish a no-activity balance check from an
+interval containing recorded activity, with explicit fill/fee counts. Neither
+scope by itself establishes profitability or starts a prospective freeze.

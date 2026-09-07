@@ -294,3 +294,24 @@ requirement still applies to actual trading runs and unexpected failures.
 
 Both Linux and Windows CI install the YAML test dependency through yamllint,
 so workflow publication/holiday-summary regressions run on both platforms.
+
+## Historical evidence recovery and error handling
+
+Before corrected research, run `python corrected_audit.py --audit-only`. Resolve
+membership identity and dated coverage first, then enumerate the entire stock
+universe and recover raw session prices and corporate actions. Price-file hashes
+alone do not prove coverage; the gate checks contents and session dates. A
+community list needs corroboration and hash-bound coverage evidence before use.
+
+Read-only recovery supports `--price-probes` and `--action-probes`, follows every
+market-data page and keeps candidates private. Payment dates, delisting outcomes
+and dated sector/earnings context must remain unknown when sources do not supply
+them. Never fill these with today's facts or shorten the agreed evidence period.
+
+The evidence report preserves precise missing-session counts and replay scope.
+A zero-fill holiday interval proves only balance continuity. Source hardening
+may increase the reported blocker count by exposing previously hidden problems;
+that does not indicate new trading losses. No recovery action changes paper
+settings, places orders, starts a freeze, or relaxes the 252-session/20-cohort
+requirement. Free external evidence that remains unavailable is an explicit
+blocker, not an unfinished code exception to conceal.

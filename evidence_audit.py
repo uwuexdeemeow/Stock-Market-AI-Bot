@@ -187,7 +187,7 @@ def collect_snapshots(root):
 
 def input_report(data_dir, membership, spec, *, start, end):
     """Collect source failures even when malformed files stop normal evaluation."""
-    from corrected_data import validate_sources, validate_dated_inputs
+    from corrected_data import validate_sources, validate_dated_inputs, validate_context_coverage
     import pandas as pd
     try:
         result = validate_sources(data_dir, membership, start=start, end=end)
@@ -217,7 +217,8 @@ def input_report(data_dir, membership, spec, *, start, end):
             from core_satellite_alpha import _nyse_sessions, _session_offset
             bars, _ = load_raw_panel(data_dir, membership, start=start, end=end)
             numeric = bars[['Open', 'High', 'Low', 'Close', 'Volume']].to_numpy(dtype=float)
-            if (bars.duplicated(['date', 'ticker']).any() or not np.isfinite(numeric).all() or (numeric <= 0).any()):
+            if (bars.duplicated(['date', 'ticker']).any() or not np.isfinite(numeric).all()
+                    or (numeric[:, :4] <= 0).any() or (numeric[:, 4] < 0).any()):
                 raise ValueError('invalid raw bars')
             if ((bars.High < bars[['Open', 'Close', 'Low']].max(axis=1)).any() or
                     (bars.Low > bars[['Open', 'Close', 'High']].min(axis=1)).any()):
@@ -229,6 +230,7 @@ def input_report(data_dir, membership, spec, *, start, end):
             for window in windows:
                 decisions.update(_nyse_sessions(_session_offset(window['start'], -1), _session_offset(window['end'], -1)))
             candidates = eligible_candidates(bars[['date', 'ticker']], membership)
+            validate_context_coverage(context, candidates, spec.get('configurations', []))
             expected = candidates.loc[pd.to_datetime(candidates.date).isin(decisions)]
             needs_context = any(c.get('earnings_blackout_days', 0) or c.get('max_per_sector', 2) or c.get('regime_mode', 'static') != 'static'
                                 for c in spec.get('configurations', []))
@@ -241,7 +243,9 @@ def input_report(data_dir, membership, spec, *, start, end):
         except (OSError, ValueError, KeyError, TypeError):
             gaps.append({'reason': 'raw_price_or_decision_context_coverage_invalid'})
     # Publish reason codes and ticker coverage only, never arbitrary source text.
-    safe_gaps = [{'reason': str(g.get('reason', 'unknown_source_gap')), **({'ticker': g['ticker']} if 'ticker' in g else {})} for g in gaps]
+    safe_gaps = [{'reason': str(g.get('reason', 'unknown_source_gap')),
+                  **{key: g[key] for key in ('ticker', 'count', 'first', 'last') if key in g}}
+                 for g in gaps]
     return {'complete': bool(result.get('complete')) and not gaps, 'gaps': safe_gaps,
             'next_action': 'Supply attributed historical membership, raw bars, actions and dated context; rerun source checks.'}
 
@@ -312,6 +316,9 @@ def write_evidence_report(args):
               'imported_artifact': {k: imported.get(k) for k in ('run_id', 'artifact_id', 'head_sha', 'source_url', 'updated_at', 'latest_completed_run_id', 'latest_completed_run_has_artifacts')} if imported else None,
               'runtime': {'source': 'local_snapshot', 'passed': runtime_ok, 'version_lock_passed': lock_ok},
               'data': data, 'replay': {'certified': certified, 'reconciled': replay.get('reconciled') is True,
+                                     'evidence_scope': replay.get('evidence_scope', 'unspecified_in_source'),
+                                     'activity_counts': {k: replay.get('activity_counts', {}).get(k) for k in ('FILL', 'FEE')},
+                                     'interval_start': replay.get('interval_start'), 'interval_end': replay.get('interval_end'),
                                      'source_sha256': hashlib.sha256(replay_path.read_bytes()).hexdigest() if replay_path.exists() else None,
                                      'arrival_quotes': 'unavailable_unless_recorded_with_order'},
               'shadow_candidate': {'identity': hashlib.sha256(spec_path.read_bytes()).hexdigest(),
@@ -325,7 +332,9 @@ def write_evidence_report(args):
              '| Source | Complete | Measured fills | Sessions |', '| --- | --- | --- | --- |']
     for source in sources:
         lines.append(f"| {source['source']} | {source['complete']} | {source['measured_fills']} | {source['sessions']} |")
-    lines += ['', '## Blockers and next actions', '']
+    lines += ['', 'Replay evidence scope: ' + report['replay']['evidence_scope'] + '.',
+              'Replay certification concerns interval accounting only; it does not approve the strategy or prove trading performance.',
+              '', '## Blockers and next actions', '']
     lines += [f"- {b['reason'].replace('_', ' ')} ({b.get('source', 'data/replay')}): {b['next_action']}" for b in blockers]
     atomic_write_text(args.output / 'evidence_report.md', '\n'.join(lines) + '\n')
     return report

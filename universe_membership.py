@@ -42,6 +42,15 @@ def load_membership(path: Path = DEFAULT_MEMBERSHIP_PATH) -> pd.DataFrame:
     if missing:
         raise ValueError("membership table missing columns: " + ", ".join(sorted(missing)))
     frame = frame.copy()
+    # A typo in an end date must not become an unlimited membership interval.
+    # Blank end dates are allowed; malformed nonblank dates are not.
+    for column in ("effective_from", "effective_to"):
+        supplied = frame[column].notna() & frame[column].astype(str).str.strip().ne("")
+        parsed = pd.to_datetime(frame[column], errors="coerce")
+        if (supplied & parsed.isna()).any():
+            raise ValueError("Invalid membership date: " + column)
+    if frame.ticker.isna().any() or frame.ticker.astype(str).str.strip().eq("").any():
+        raise ValueError("Missing membership ticker")
     frame["ticker"] = frame["ticker"].map(_canonical_ticker)
     frame["effective_from"] = pd.to_datetime(frame["effective_from"], errors="coerce")
     frame["effective_to"] = pd.to_datetime(frame["effective_to"], errors="coerce")

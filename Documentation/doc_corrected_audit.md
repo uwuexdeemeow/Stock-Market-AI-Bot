@@ -130,3 +130,12 @@ The corrected target adapter honors the explicit deployment ceiling in (0, 1].
 Corrected target selection also requires a dated nonmissing sector for every
 candidate when sector limits are enabled; an absent classification cannot fall
 back to an undated OTHER bucket.
+
+### Stricter source contract
+
+The September 2026 source gate requires a hash-bound `membership` coverage object
+in the raw manifest, explicit raw `feed` and `symbol_mapping`, and full provenance
+on action coverage. See `doc_corrected_data.md` for the fields. Evaluation checks
+actual dated context coverage before generated defaults can hide missing data.
+Use `--audit-only` or `--evidence-report` to inspect blockers; do not change the
+2012 start date or approval flags to bypass unavailable history.

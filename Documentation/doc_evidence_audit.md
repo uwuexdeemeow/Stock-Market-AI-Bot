@@ -70,3 +70,13 @@ coverage only. Raw account responses remain private.
 When provenance passes, the source audit also checks finite positive raw OHLCV,
 unique ticker/date rows, valid high/low ordering and dated context coverage on
 all inner/outer decision dates. Gaps remain explicit before expensive trials.
+
+### Detailed source failures and replay scope
+
+Missing raw sessions now retain `count`, `first` and `last` in the sanitized data
+report. Empty, malformed or partial files cannot pass through file-existence
+checks. Source context validation matches the corrected input loader, including
+training history. A replay report carries interval timestamps, fill/fee counts
+and `evidence_scope`; `balance_continuity_only_no_activity` is explicitly not
+trading-performance evidence. Older reports without a scope are labeled
+`unspecified_in_source`, never silently interpreted as successful trading.

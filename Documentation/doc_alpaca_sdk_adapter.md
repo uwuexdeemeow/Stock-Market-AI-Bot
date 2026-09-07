@@ -20,3 +20,7 @@ The adapter is created automatically. It requires `ALPACA_API_KEY` and `ALPACA_S
 - **Adapter:** A small translator between an old interface and a new interface.
 - **Request object:** A typed container describing an order or market-data query.
 - **Paper account:** A simulated brokerage account that uses no real capital.
+
+Model detection reads `model_fields` from the object's class, as required by
+current Pydantic, avoiding deprecated instance access. This changes neither
+broker requests nor order execution.

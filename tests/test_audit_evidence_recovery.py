@@ -111,3 +111,24 @@ def test_inferred_balance_input_is_rejected_before_network(tmp_path, monkeypatch
     monkeypatch.setattr(recovery, 'read_json', lambda *a, **k: pytest.fail('should not fetch'))
     with pytest.raises(ValueError, match='Independent'):
         recovery.recover_verified_interval(tmp_path, {}, opening)
+
+
+def test_market_pages_follow_short_pages_and_reject_token_loop():
+    from audit_evidence_recovery import market_pages
+    pages = {None: {'bars': [{'t': 'one'}], 'next_page_token': 'a'},
+             'a': {'bars': [{'t': 'two'}], 'next_page_token': None}}
+    assert len(market_pages(lambda token: pages[token], 'bars')) == 2
+    with pytest.raises(ValueError, match='Duplicate'):
+        market_pages(lambda _: pages[None], 'bars')
+    with pytest.raises(ValueError, match='Repeated'):
+        market_pages(lambda _: {'bars': [], 'next_page_token': 'a'}, 'bars')
+
+
+def test_action_recovery_keeps_missing_payment_date_unverified(tmp_path, monkeypatch):
+    import audit_evidence_recovery as recovery
+    monkeypatch.setattr(recovery, 'read_json', lambda *a, **k: {
+        'corporate_actions': {'cash_dividends': [{'id': 'a', 'symbol': 'SPY', 'ex_date': '2024-02-02'}]},
+        'next_page_token': None})
+    result = recovery.recover_actions(tmp_path, {}, ['SPY'], '2024-02-05')
+    assert result['pagination_complete'] and result['missing_dividend_payment_dates'] == 1
+    assert not result['verified_full_coverage']

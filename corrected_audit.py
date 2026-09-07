@@ -168,6 +168,7 @@ def load_corrected_inputs(args, spec):
         panel = generated_panel
     # VIX and sector facts are dated source observations, never today's state
     # copied into history. Optional inputs join on exact date/ticker keys.
+    context = None
     if spec.get("dated_context"):
         context = pd.read_parquet(spec["dated_context"])
         from corrected_data import validate_dated_inputs
@@ -176,6 +177,10 @@ def load_corrected_inputs(args, spec):
         if "sector_context" in panel:
             panel["sector"] = panel.pop("sector_context")
     panel = eligible_candidates(panel, args.membership)
+    # Check the actual candidate rows, including training history, before the
+    # generated OTHER placeholder could hide missing historical classifications.
+    from corrected_data import validate_context_coverage
+    validate_context_coverage(context, panel, spec.get("configurations", []))
     return panel, bars, actions, provenance
 
 

@@ -92,6 +92,66 @@ def read_json(url, *, headers=None, params=None):
     return response.json()
 
 
+def market_pages(get_page, field, *, maximum_pages=1000):
+    """Keep following market-data tokens, including a short page with a token."""
+    rows, tokens, identities = [], set(), set()
+    token = None
+    for _ in range(maximum_pages):
+        page = get_page(token)
+        batch = page.get(field)
+        # Corporate actions are grouped by type; retain that type on every row.
+        if field == "corporate_actions" and isinstance(batch, dict):
+            batch = [{**row, "source_action_type": kind} for kind, values in batch.items() for row in values]
+        if batch is None and field == "bars":
+            batch = []
+        if not isinstance(batch, list):
+            raise ValueError("Malformed market-data page")
+        for row in batch:
+            identity = row.get("id") if field == "corporate_actions" else row.get("t")
+            if not identity or identity in identities:
+                raise ValueError("Duplicate or missing market-data identity")
+            identities.add(identity)
+            rows.append(row)
+        token = page.get("next_page_token")
+        if not token:
+            return rows
+        if token in tokens:
+            raise ValueError("Repeated market-data pagination token")
+        tokens.add(token)
+    raise ValueError("Market-data pagination limit reached")
+
+
+def saved_market_page(folder, name, url, headers, params, token):
+    """Preserve each received page even if a later page fails validation."""
+    page = read_json(url, headers=headers,
+                     params={**params, **({"page_token": token} if token else {})})
+    # A token hash gives each private page a stable filename without exposing
+    # request headers or relying on provider token characters as a file path.
+    suffix = hashlib.sha256(str(token).encode()).hexdigest()[:16]
+    atomic_write_json(page, folder / f"{name}_page_{suffix}.json")
+    return page
+
+
+def recover_actions(folder, headers, symbols, end):
+    """Recover original action records without inventing missing payment dates."""
+    url = "https://data.alpaca.markets/v1/corporate-actions"
+    params = {"symbols": ",".join(symbols), "start": "2012-01-01", "end": end,
+              "limit": 1000, "sort": "asc"}
+    rows = market_pages(lambda token: saved_market_page(folder, "actions", url, headers, params, token), "corporate_actions")
+    path = folder / "corporate_actions.json"
+    atomic_write_json(rows, path)
+    # API success proves retrieval, not historical completeness. Payment dates
+    # and unsupported event types remain explicit gaps for the ledger importer.
+    dividends = [r for r in rows if r["source_action_type"] == "cash_dividends"]
+    return {"source_url": url, "parameters": params, "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "rows": len(rows),
+            "activity_counts": dict(Counter(r["source_action_type"] for r in rows)),
+            "missing_dividend_payment_dates": sum(not r.get("payable_date") for r in dividends),
+            "earliest_ex_date": min((r["ex_date"] for r in dividends if r.get("ex_date")), default=None),
+            "pagination_complete": True, "verified_full_coverage": False,
+            "next_action": "Corroborate per-symbol coverage, missing payment dates and event semantics with issuer evidence."}
+
+
 def recover_paper(folder, headers):
     """Reconcile recovered arithmetic, while distinguishing inferred opening cash."""
     base = "https://paper-api.alpaca.markets"
@@ -201,6 +261,8 @@ def recover_verified_interval(folder, headers, opening_path, closing_path=None):
                "gaps": result.data_quality + [{"reason": e.split(":")[0]} for e in order_history.errors],
                "interval_start": start.isoformat(), "interval_end": end.isoformat(),
                "activity_stream_complete": True, "arrival_quotes_available": False}
+    summary["activity_counts"] = {kind: sum(row.get("activity_type") == kind for row in selected) for kind in ("FILL", "FEE")}
+    summary["evidence_scope"] = "recorded_activity_interval" if selected else "balance_continuity_only_no_activity"
     summary["certified_for_freeze"] = replay_certified(summary)
     atomic_write_json(summary, folder / "replay_reconciliation.json")
     atomic_write_json({"history_complete": order_history.complete, "after": start.isoformat(), "until": end.isoformat()}, folder / "broker_history_report.json")
@@ -246,6 +308,7 @@ def main(argv=None):
     parser.add_argument("--opening-balances", type=Path, help="Verified opening cash/positions with observed_at and source")
     parser.add_argument("--closing-balances", type=Path, help="Optional verified closing snapshot; otherwise use current paper API")
     parser.add_argument("--price-probes", nargs="*", default=[])
+    parser.add_argument("--action-probes", nargs="*", default=[], help="Read-only paginated corporate-action candidates")
     args = parser.parse_args(argv)
     if (args.opening_balances or args.closing_balances) and not args.paper:
         parser.error("Balance inputs require --paper")
@@ -259,7 +322,8 @@ def main(argv=None):
                "APCA-API-SECRET-KEY": os.getenv("ALPACA_SECRET_KEY") or cfg.get("ALPACA_SECRET_KEY")}
     report = {"generated_at": clock.isoformat(), "private_evidence_directory": str(folder), "read_only": True, "freeze_started": False}
     for enabled, key, work in [(args.paper, "paper", lambda: recover_verified_interval(folder, headers, args.opening_balances, args.closing_balances) if args.opening_balances else recover_paper(folder, headers)),
-                                (args.sources, "membership_sources", lambda: recover_sources(folder))]:
+                                (args.sources, "membership_sources", lambda: recover_sources(folder)),
+                                (args.action_probes, "corporate_actions", lambda: recover_actions(folder, headers, args.action_probes, clock.date().isoformat()))]:
         if enabled:
             try:
                 report[key] = work()
@@ -269,15 +333,18 @@ def main(argv=None):
     report["price_probes"] = []
     for ticker in args.price_probes:
         params = {"start": "2012-01-01T00:00:00Z", "end": clock.date().isoformat() + "T00:00:00Z",
-                  "timeframe": "1Day", "adjustment": "raw", "feed": "sip", "limit": 10000}
+                  "timeframe": "1Day", "adjustment": "raw", "feed": "sip", "asof": "-", "limit": 10000}
         try:
-            value = read_json(f"https://data.alpaca.markets/v2/stocks/{ticker}/bars", headers=headers, params=params)
+            url = f"https://data.alpaca.markets/v2/stocks/{ticker}/bars"
+            bars = market_pages(lambda token: saved_market_page(folder, ticker, url, headers, params, token), "bars")
+            value = {"bars": bars, "next_page_token": None, "symbol": ticker}
             atomic_write_json(value, folder / (ticker + "_raw_bars.json"))
-            bars = value.get("bars") or []
             report["price_probes"].append({"ticker": ticker, "rows": len(bars), "first": bars[0]["t"] if bars else None,
                                            "last": bars[-1]["t"] if bars else None, "pagination_remaining": bool(value.get("next_page_token")),
+                                           "source_url": url, "parameters": params, "retrieved_at": datetime.now(timezone.utc).isoformat(),
+                                           "sha256": hashlib.sha256((folder / (ticker + "_raw_bars.json")).read_bytes()).hexdigest(),
                                            "verified_full_coverage": False})
-        except requests.RequestException as exc:
+        except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
             report["price_probes"].append({"ticker": ticker, "error": type(exc).__name__, "verified_full_coverage": False})
     atomic_write_json(report, folder / "recovery_report.json")
     # The summary stays local too: account balances are never auto-published.

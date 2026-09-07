@@ -24,7 +24,9 @@ class _CompatObject:
 
 def _wrapped(value: Any) -> Any:
     """Wrap one Alpaca model while leaving plain values unchanged."""
-    return _CompatObject(value) if hasattr(value, "model_fields") else value
+    # Pydantic describes fields on the model class. Reading them from an
+    # individual account/order object is deprecated in the current SDK.
+    return _CompatObject(value) if hasattr(type(value), "model_fields") else value
 
 
 class AlpacaPyRESTCompat:
