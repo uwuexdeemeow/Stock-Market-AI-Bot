@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 import daily_run
+import pytest
 
 
 def _names(steps):
@@ -483,3 +484,61 @@ def test_sync_latest_github_signals_fetches_branch_and_copies_files(tmp_path, mo
     assert not (tmp_path / "logs/daily_run_20260515.json").exists()
     assert (tmp_path / "logs/daily_run_20260520.json").exists()
     assert any(call[0] == "fetch" for call in calls)
+
+
+@pytest.mark.parametrize('day,reason', [('2026-09-07', 'us_market_holiday'), ('2026-09-06', 'weekend')])
+def test_closed_market_records_skip_without_running_steps(tmp_path, monkeypatch, day, reason):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    import json
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            value = datetime.fromisoformat(day + 'T09:35:00').replace(tzinfo=ZoneInfo('America/New_York'))
+            return value.astimezone(tz) if tz else value.replace(tzinfo=None)
+    output = tmp_path / 'github_output'
+    monkeypatch.setattr(daily_run, 'datetime', Clock)
+    monkeypatch.setattr(daily_run, 'LOGS', tmp_path / 'logs')
+    monkeypatch.setenv('GITHUB_OUTPUT', str(output))
+    monkeypatch.setenv('STOCKBOT_RUN_ID', 'holiday-fixture')
+    monkeypatch.setattr(sys, 'argv', ['daily_run.py', '--alpaca'])
+    monkeypatch.setattr(daily_run, 'build_steps', lambda **kwargs: pytest.fail('No steps allowed on a closed market'))
+    with pytest.raises(SystemExit) as caught:
+        daily_run.main()
+    assert caught.value.code == 0
+    assert 'market_closed=true' in output.read_text()
+    report = json.loads(next((tmp_path / 'logs').glob('daily_run_*.json')).read_text())
+    assert report['reason'] == reason
+    assert report['run_id'] == 'holiday-fixture'
+    assert report['steps_total'] == 0
+    assert report['status'] == 'skipped'
+    assert not list(tmp_path.rglob('paper_run_manifest.json'))
+
+
+def test_workflow_skips_publication_only_for_explicit_closed_market():
+    import yaml
+    workflow = yaml.safe_load(Path('.github/workflows/daily_paper_trading.yml').read_text())
+    steps = {s.get('name'): s for s in workflow['jobs']['paper-trade']['steps']}
+    for name in ('Commit signals to repo', 'Upload run logs', 'Save data cache', 'Save state files cache'):
+        assert "steps.run_daily_paper.outputs.market_closed != 'true'" in steps[name]['if']
+    assert 'Evidence manifest is incomplete' in steps['Commit signals to repo']['run']
+    assert "steps.run_daily_paper.outputs.market_closed == 'true'" in steps['Upload closed-market metadata']['if']
+    assert 'signals/alpaca_paper_log.csv' not in steps['Upload closed-market metadata']['with']['path']
+
+
+def test_closed_market_summary_never_labels_old_account_data_as_current(tmp_path):
+    import os
+    import subprocess
+    import yaml
+    workflow = yaml.safe_load(Path('.github/workflows/daily_paper_trading.yml').read_text())
+    step = next(s for s in workflow['jobs']['paper-trade']['steps'] if s.get('name') == 'Send consolidated Telegram summary')
+    code = step['run'].split("python3 - <<'PY' > /tmp/telegram_summary.txt\n", 1)[1].split('\nPY', 1)[0]
+    (tmp_path / 'signals').mkdir()
+    (tmp_path / 'signals/alpaca_paper_equity.csv').write_text('equity\n123456789\n')
+    result = subprocess.run([sys.executable, '-c', code], cwd=tmp_path, capture_output=True, text=True,
+                            env={**os.environ, 'MARKET_CLOSED': 'true', 'JOB_STATUS': 'success'})
+    assert result.returncode == 0, result.stderr
+    assert 'MARKET CLOSED' in result.stdout
+    assert 'no orders submitted by this run' in result.stdout
+    assert '123456789' not in result.stdout
+    assert 'Daily log: missing' not in result.stdout

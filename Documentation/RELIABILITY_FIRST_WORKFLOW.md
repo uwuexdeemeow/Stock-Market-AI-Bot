@@ -286,3 +286,8 @@ Each script has a separate beginner guide: `doc_evidence_audit.md`,
 `doc_edge_ablation.md`, `doc_corrected_audit.md` and `doc_audit_evidence_recovery.md`.
 The design favors explicit missing-evidence reports over misleading performance
 claims. Code goes to main; sanitized operational reports go to signals/latest.
+
+A daily run on a closed NYSE date is a successful no-action run. Its dedicated
+artifact contains only the current skip log and heartbeat; it does not replace
+`signals/latest` or refresh old trading reports. The complete trading-manifest
+requirement still applies to actual trading runs and unexpected failures.

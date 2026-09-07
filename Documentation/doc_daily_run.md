@@ -181,3 +181,17 @@ reconciliation, broker truth, health reports, cost calibration, the gauntlet,
 and paper-epoch status still run. Telegram therefore reports the real account
 condition. `no_action` is healthy when the market is closed, the portfolio is
 aligned, or a deliberate safety rule correctly prevents trading.
+
+## Successful holiday/weekend skips
+
+Calendar checks use the New York date. A closed market writes a small dated run
+log with `status: skipped`, `market_closed: true` and zero executed steps. In
+GitHub Actions the runner also emits `market_closed=true` and the log path through
+`GITHUB_OUTPUT`. It does not create a successful trading manifest.
+
+The daily workflow then uploads only the new closed-market log and heartbeat,
+skips trading-evidence publication/cache saves, and reports MARKET CLOSED. It
+never republishes prior broker/account reports as today's results. Missing skip
+outputs or genuine trading failures still face the original complete-manifest
+publication check. `--force`, `--dry-run` and health-only behavior stay explicit;
+normal manual reruns keep the holiday guard enabled.

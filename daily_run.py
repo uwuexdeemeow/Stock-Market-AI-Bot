@@ -40,6 +40,7 @@ import sys
 from uuid import uuid4
 from dataclasses import dataclass
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 import pandas as pd
@@ -943,6 +944,23 @@ def _is_us_market_holiday(dt: datetime) -> bool:
         return d.weekday() >= 5
 
 
+def _record_closed_market_skip(today: datetime, reason: str) -> None:
+    """Tell Actions that a successful calendar skip produced no trading bundle.
+
+    The small run log is new evidence of a no-action decision. It never replaces
+    a trading manifest or marks yesterday's broker reports as today's results.
+    """
+    path = LOGS / f"daily_run_{today.strftime('%Y%m%d')}.json"
+    atomic_write_json({"timestamp": today.isoformat(), "run_id": current_run_id(),
+                       "mode": "daily_run", "status": "skipped", "reason": reason,
+                       "market_closed": True, "steps_total": 0, "steps_ok": 0,
+                       "steps_failed": 0, "total_elapsed_seconds": 0, "results": []}, path)
+    output = os.environ.get("GITHUB_OUTPUT")
+    if output:
+        with open(output, "a", encoding="utf-8") as handle:
+            handle.write(f"market_closed=true\nclosed_market_log={path.as_posix()}\n")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Run all paper trading steps in one command"
@@ -966,6 +984,11 @@ def main():
     parser.add_argument("--timeout", type=int, default=300,
                         help="Max seconds per step (default: 300)")
     args = parser.parse_args()
+    # Default is fail-closed: only an explicit successful calendar skip may
+    # bypass publication. Missing outputs on a crashed run do not bypass it.
+    if os.environ.get("GITHUB_OUTPUT"):
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+            handle.write("market_closed=false\n")
 
     # One environment value is inherited by every child process. GitHub's run
     # ID is stable when available; local runs receive a timestamp plus nonce.
@@ -1003,12 +1026,13 @@ def main():
     # the stock market is closed.  We check if today is a weekday and not
     # a US market holiday.  Use --force to override (e.g. for testing).
     if not args.dry_run and not args.force and not args.health_only:
-        today = datetime.now()
+        today = datetime.now(ZoneInfo("America/New_York"))
         # Saturday = 5, Sunday = 6
         if today.weekday() >= 5:
             print(f"{'═'*60}")
             print(f"  DAILY PAPER TRADING RUN")
             print(f"  {today.strftime('%Y-%m-%d %H:%M:%S')}")
+            _record_closed_market_skip(today, "weekend")
             print(f"  ⏭ Skipping — today is {today.strftime('%A')} (market closed)")
             print(f"  Use --force to run anyway")
             print(f"{'═'*60}\n")
@@ -1022,6 +1046,7 @@ def main():
             print(f"{'═'*60}")
             print(f"  DAILY PAPER TRADING RUN")
             print(f"  {today.strftime('%Y-%m-%d %H:%M:%S')}")
+            _record_closed_market_skip(today, "us_market_holiday")
             print(f"  ⏭ Skipping — today is a US market holiday")
             print(f"  Use --force to run anyway")
             print(f"{'═'*60}\n")

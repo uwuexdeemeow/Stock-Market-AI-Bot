@@ -476,6 +476,7 @@ jobs:
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         env:
           WORKFLOW_STATUS: ${{ job.status }}
+          MARKET_CLOSED: ${{ steps.run_daily_paper.outputs.market_closed }}
           SCHEDULE_CRON: ${{ github.event.schedule }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -496,14 +497,25 @@ jobs:
               "run_url": os.environ.get("RUN_URL"),
               "branch": os.environ.get("GITHUB_REF_NAME"),
               "status": os.environ.get("WORKFLOW_STATUS"),
+              "market_closed": os.environ.get("MARKET_CLOSED") == "true",
               "completed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
           }
           Path("signals/workflow_heartbeat_daily.json").write_text(json.dumps(payload, indent=2))
           PY
 
       # ── 8. Upload logs as artifact (viewable in Actions tab) ───────
+      - name: Upload closed-market metadata
+        if: ${{ steps.run_daily_paper.outputs.market_closed == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: closed-market-${{ github.run_number }}
+          path: |
+            ${{ steps.run_daily_paper.outputs.closed_market_log }}
+            signals/workflow_heartbeat_daily.json
+          retention-days: 60
+
       - name: Upload run logs
-        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ steps.run_daily_paper.outputs.market_closed != 'true' && always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/upload-artifact@v7
         with:
           name: daily-run-logs-${{ github.run_number }}
@@ -566,7 +578,7 @@ jobs:
       #
       #    Skipped on dry-run since no signal files are generated.
       - name: Commit signals to repo
-        if: ${{ always() && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ steps.run_daily_paper.outputs.market_closed != 'true' && always() && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         run: |
           # Never replace signals/latest with a mixed or partial daily bundle.
           # Failed-but-complete evidence is publishable for diagnosis; missing
@@ -671,7 +683,7 @@ jobs:
       # ── 10. Upload updated data cache ──────────────────────────────
       #    Save any new parquet data so the next run starts with it.
       - name: Save data cache
-        if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ steps.run_daily_paper.outputs.market_closed != 'true' && success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v6
         with:
           path: data/
@@ -682,7 +694,7 @@ jobs:
       #    must persist for the next run to see paper_ready=True.
       # NOTE: Files now in git are excluded — they're owned by main, not cache.
       - name: Save state files cache
-        if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ steps.run_daily_paper.outputs.market_closed != 'true' && success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v6
         with:
           path: |
@@ -704,6 +716,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RUN_NUMBER: ${{ github.run_number }}
           DRY_RUN_INPUT: ${{ github.event.inputs.dry_run }}
+          MARKET_CLOSED: ${{ steps.run_daily_paper.outputs.market_closed }}
         run: |
           if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
             echo "Telegram secrets not set — skipping notification"
@@ -733,6 +746,12 @@ jobs:
               f"Run #{os.environ.get('RUN_NUMBER', '?')}: {os.environ.get('RUN_URL', '')}",
               f"Time: {now_str}",
           ]
+          if os.environ.get("MARKET_CLOSED") == "true":
+              lines[0] = "Daily Paper Trading MARKET CLOSED" if status == "success" else lines[0]
+              lines.append("NYSE closed: trading skipped; no orders submitted by this run.")
+              print("\n".join(lines))
+              raise SystemExit(0)
+
           if os.environ.get("DRY_RUN_INPUT") == "true":
               lines.append("Mode: dry-run")
 
