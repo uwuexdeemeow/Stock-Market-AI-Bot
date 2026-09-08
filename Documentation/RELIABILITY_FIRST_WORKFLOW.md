@@ -315,3 +315,14 @@ that does not indicate new trading losses. No recovery action changes paper
 settings, places orders, starts a freeze, or relaxes the 252-session/20-cohort
 requirement. Free external evidence that remains unavailable is an explicit
 blocker, not an unfinished code exception to conceal.
+
+### Review membership boundaries before importing history
+
+Use `membership_reconciliation.py` with saved candidate snapshots and
+`research_evidence/membership_primary_facts.json`. It produces a per-interval
+review dataset and a priority list of disputed symbols. Primary announcements
+can support individual entry/exit boundaries while the baseline, intervening
+changes and security identity remain unresolved. CIK observations and issuer
+names are not blanket raw-price identity attestations. Never import the review
+queue as approved production membership. Keep merger completion, trading
+availability and index deletion as separate dated events when they differ.
