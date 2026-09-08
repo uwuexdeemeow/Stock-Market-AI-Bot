@@ -123,10 +123,12 @@ def write_register(report, output, baseline_path, previous_path=None):
     atomic_write_json(register, Path(output) / 'gap_register.json')
     lines = ['# Evidence gap register', '',
              'An absent finding is not automatically fixed. Original findings remain recorded.', '',
-             '| ID | Finding | Security | Status | Seen now | Next action |',
-             '| --- | --- | --- | --- | --- | --- |']
+             '| ID | Finding | Security | Status | Seen now | Next action | Closure evidence |',
+             '| --- | --- | --- | --- | --- | --- | --- |']
     for row in register['findings']:
-        lines.append(f"| {row['id']} | {row['finding']['reason']} | {row['affected_security'] or ''} | {row['status']} | {row['observed_in_current_audit']} | {row['next_action']} |")
+        proof = '; '.join('[named passing tests](code_verification.json): ' + ', '.join(item.get('tests', []))
+                          for item in row['closure_evidence']) or 'Required; not yet verified'
+        lines.append(f"| {row['id']} | {row['finding']['reason']} | {row['affected_security'] or ''} | {row['status']} | {row['observed_in_current_audit']} | {row['next_action']} | {proof} |")
     atomic_write_text(Path(output) / 'gap_register.md', '\n'.join(lines) + '\n')
     return register
 

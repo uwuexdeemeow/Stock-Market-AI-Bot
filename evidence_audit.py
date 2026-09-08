@@ -418,6 +418,10 @@ def write_evidence_report(args):
     recovery = payload({'recovery': recovery_path.read_bytes()} if recovery_path and recovery_path.exists() else {}, 'recovery')
     recovered = {'source_sha256': hashlib.sha256(recovery_path.read_bytes()).hexdigest() if recovery_path and recovery_path.exists() else None,
                  'generated_at': recovery.get('generated_at'),
+                 # Publish coverage counts, never the underlying account records.
+                 'corporate_actions': {k: recovery.get('corporate_actions', {}).get(k) for k in
+                     ('rows', 'missing_dividend_payment_dates', 'independently_supported_payment_dates',
+                      'remaining_missing_payment_dates', 'earliest_ex_date', 'pagination_complete', 'verified_full_coverage')},
                  'activity_counts': {k: recovery.get('paper', {}).get('activity_counts', {}).get(k) for k in ('FILL', 'FEE')},
                  'source_candidates': [{k: row.get(k) for k in ('source', 'sha256', 'source_cutoff', 'verified')} for row in (recovery.get('membership_sources', []) if isinstance(recovery.get('membership_sources'), list) else []) if isinstance(row, dict)],
                  'price_probes': [{k: row.get(k) for k in ('ticker', 'rows', 'first', 'last', 'pagination_remaining', 'verified_full_coverage')} for row in recovery.get('price_probes', [])]}

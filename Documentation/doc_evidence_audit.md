@@ -84,3 +84,7 @@ trading-performance evidence. Older reports without a scope are labeled
 ## Evidence closure update
 
 Artifact discovery follows bounded pages and stops after the newest usable daily artifact. Run-bound skip receipts distinguish deliberate skips; older evidence is labeled fallback. Execution-observation manifests remain separate from daily signal manifests. Version-lock differences and offline review summaries retain their own identities. Run python corrected_audit.py --evidence-report --reviews-dir signals --gap-register signals/gap_register.json. The prior register is optional; unresolved historical findings survive regeneration.
+
+The recovery section includes dividend-date coverage counts. An issuer payment
+date may be known while matching it to a provider record remains blocked by a
+missing security identifier; these are separate evidence requirements.

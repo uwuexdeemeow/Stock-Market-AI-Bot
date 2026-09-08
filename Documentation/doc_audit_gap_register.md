@@ -13,3 +13,7 @@ checkout requires re-verification; prior closure evidence remains attached.
 Changing a next-action sentence or an observation count does not change a gap ID.
 Normal-session evidence can be awaiting_new_observations; unavailable external
 inputs remain blocked. Original source failures are not closed by code tests.
+
+The Markdown table links each verified repair to `code_verification.json`,
+which must accompany the published register. It names the exact passing tests
+and preserves earlier closure evidence when a later code revision is verified.
