@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-08T06:18:58.870009+00:00",
+  "generated_at": "2026-09-08T06:31:32.122049+00:00",
   "status": "blocked_partial_primary_evidence",
   "complete": false,
   "candidate_sha256": "36326709d46d6cd25834de5df457b16f5f96fad3a06b9beac28f7b88aa0b0d54",
@@ -29192,10 +29192,199 @@
     "Neither agreement nor two verified boundaries proves all intervening membership or correct security prices.",
     "Some original documents are readable through the web reader but not directly downloadable; missing byte archives are explicit."
   ],
-  "source_commit": "88317b4c6573f502ab11191d94c8da8bac8d8f17",
-  "validation": {
-    "affected_tests_passed": 33,
-    "ci_url": "https://github.com/uwuexdeemeow/Stock-Market-AI-Bot/actions/runs/34194171893",
-    "ci_jobs_passed": 4
+  "security_transitions": {
+    "schema_version": 1,
+    "status": "blocked_partial_event_evidence",
+    "complete": false,
+    "facts_sha256": "a0c8383244127e3d6d4b2670529d21ba8ebb598baeba929f8b9ac998ce4ed70f",
+    "sources": [
+      {
+        "id": "fox_basis",
+        "url": "https://thewaltdisneycompany.com/app/uploads/2019/04/Form_8937_and_Attachment_Spin.pdf",
+        "http_status": 200,
+        "sha256": "051d140c6a4950e0e59420b6a29291b6b09c8883e404c6d30a99e36abf2a21ab",
+        "retrieved_at": "2026-09-08T06:25:22.218261+00:00",
+        "archive_status": "saved"
+      },
+      {
+        "id": "fox_index",
+        "url": "https://press.spglobal.com/2019-03-14-Fox-Set-to-Join-S-P-500-Adobe-to-Join-S-P-100",
+        "http_status": 200,
+        "sha256": "31dc1f65043b37c521ed50099a3ae41b33c2f2a89a7f1c6f597e2aa39f22aaae",
+        "retrieved_at": "2026-09-08T06:25:22.555530+00:00",
+        "archive_status": "saved"
+      },
+      {
+        "id": "fox_merger",
+        "url": "https://thewaltdisneycompany.com/press-releases/disney-21st-century-fox-acquisition-closing-date/",
+        "http_status": 200,
+        "sha256": "62453c5af0247463231de14f3e3e29646dce384b9f9df63d2f0060216899c4f1",
+        "retrieved_at": "2026-09-08T06:25:23.131854+00:00",
+        "archive_status": "saved"
+      },
+      {
+        "id": "ir_basis",
+        "url": "https://s2.q4cdn.com/950394465/files/doc_downloads/industrial_filings/Form_8937_Attachment_Trane_Technologies_plc_2_March_2020_updated_as_of_March_2nd.pdf",
+        "http_status": 200,
+        "sha256": "fbedcd404af5b07e73f86965a50c3e0613578471bf98a2c06cc8da4280bbcb8f",
+        "retrieved_at": "2026-09-08T06:25:24.568224+00:00",
+        "archive_status": "saved"
+      },
+      {
+        "id": "ir_index",
+        "url": "https://www.prnewswire.com/news-releases/gardner-denver-holdings-set-to-join-sp-500-cimarex-energy-to-join-sp-midcap-400-301013089.html",
+        "http_status": 200,
+        "sha256": "4359a8f6b9809507781de90759939168167191347e26afb218a3241ff2ef71af",
+        "retrieved_at": "2026-09-08T06:25:30.160513+00:00",
+        "archive_status": "saved"
+      }
+    ],
+    "transitions": [
+      {
+        "id": "fox_2019",
+        "reviewed": true,
+        "source_ids": [
+          "fox_basis",
+          "fox_index",
+          "fox_merger"
+        ],
+        "legal_date": "2019-03-19",
+        "first_trading_session": "2019-03-19",
+        "identity": "FOXA and FOX move from Twenty-First Century Fox Class A/B to new Fox Corporation Class A/B. Original residual shares trade as TFCFA/TFCF on March 19. Earlier News Corporation history remains unverified.",
+        "entitlements": "Per original share, the March 19 distribution produces 1/3 new Fox share of the same class and 0.736817 residual Twenty-First Century Fox share. Fractional new Fox shares settle in cash. On March 20 each residual share has a merger election of $51.572626 cash OR 0.4517 Disney share, subject to proration and adjustment. Do not credit both alternatives.",
+        "membership": "New Fox classes enter before the March 19 open; old Twenty-First Century Fox leaves before the March 20 open. Both issuers overlap in the index on March 19.",
+        "checks": [
+          {
+            "kind": "identity_break",
+            "ticker": "FOXA",
+            "date": "2019-03-19",
+            "result": "unseparated_issuer_history",
+            "security_identity_verified": false,
+            "candidate_intervals": [
+              {
+                "from": "2004-12-20",
+                "to": "2026-08-18"
+              }
+            ]
+          },
+          {
+            "kind": "identity_break",
+            "ticker": "FOX",
+            "date": "2019-03-19",
+            "result": "unseparated_issuer_history",
+            "security_identity_verified": false,
+            "candidate_intervals": [
+              {
+                "from": "2015-09-21",
+                "to": "2026-08-18"
+              }
+            ]
+          },
+          {
+            "kind": "expected_member",
+            "ticker": "TFCFA",
+            "date": "2019-03-19",
+            "result": "candidate_disagrees",
+            "security_identity_verified": false,
+            "candidate_intervals": []
+          },
+          {
+            "kind": "expected_member",
+            "ticker": "TFCF",
+            "date": "2019-03-19",
+            "result": "candidate_disagrees",
+            "security_identity_verified": false,
+            "candidate_intervals": []
+          }
+        ],
+        "blockers": [
+          "Verify class-specific raw prices and identifier mappings on both sides of the event, including earlier issuer history.",
+          "Obtain actual merger election/proration and fractional cash settlement, or an independently verified historical simulation convention.",
+          "Verify complete historical membership before and after these event boundaries."
+        ],
+        "executable": false,
+        "full_history_verified": false
+      },
+      {
+        "id": "ir_2020",
+        "reviewed": true,
+        "source_ids": [
+          "ir_basis",
+          "ir_index"
+        ],
+        "legal_date": "2020-02-29",
+        "first_trading_session": "2020-03-02",
+        "identity": "Old Ingersoll-Rand plc continues as Trane Technologies (TT). Gardner Denver becomes the distinct new Ingersoll Rand (IR). A continuous IR price or membership series cannot identify both issuers. Earlier IR incorporations remain unverified.",
+        "entitlements": "An entitled old Ingersoll-Rand shareholder retains the renamed Trane holding and receives 0.8824 new Ingersoll Rand shares per old share through the intermediate spin company merger. Do not replace the retained TT holding or also credit the intermediate spin share. Record date is February 24; distribution/merger is February 29. Fractional cash settlement remains unverified.",
+        "membership": "TT continues old issuer membership with March 2 trading. The February 27 S&P announcement adds the new IR before the March 3 open, replacing XEC. Trading start and announced index entry are different dates; later amendments have not been comprehensively excluded.",
+        "checks": [
+          {
+            "kind": "identity_break",
+            "ticker": "IR",
+            "date": "2020-03-02",
+            "result": "unseparated_issuer_history",
+            "security_identity_verified": false,
+            "candidate_intervals": [
+              {
+                "from": "2010-11-17",
+                "to": "2026-08-18"
+              }
+            ]
+          },
+          {
+            "kind": "expected_member",
+            "ticker": "TT",
+            "date": "2020-03-02",
+            "result": "candidate_disagrees",
+            "security_identity_verified": false,
+            "candidate_intervals": []
+          },
+          {
+            "kind": "expected_member",
+            "ticker": "IR",
+            "date": "2020-03-03",
+            "result": "ticker_presence_matches_only",
+            "security_identity_verified": false,
+            "candidate_intervals": [
+              {
+                "from": "2010-11-17",
+                "to": "2026-08-18"
+              }
+            ]
+          },
+          {
+            "kind": "expected_member",
+            "ticker": "XEC",
+            "date": "2020-03-02",
+            "result": "ticker_presence_matches_only",
+            "security_identity_verified": false,
+            "candidate_intervals": [
+              {
+                "from": "2014-06-20",
+                "to": "2020-03-02"
+              }
+            ]
+          },
+          {
+            "kind": "expected_absent",
+            "ticker": "XEC",
+            "date": "2020-03-03",
+            "result": "ticker_presence_matches_only",
+            "security_identity_verified": false,
+            "candidate_intervals": []
+          }
+        ],
+        "blockers": [
+          "Verify old IR-to-TT and Gardner Denver-to-new-IR raw price/security mappings independently.",
+          "Obtain fractional cash and account entitlements; record date alone does not resolve trades with distribution rights.",
+          "Check for amendments to the announced March 3 index date before promoting a membership correction.",
+          "Verify complete earlier and later issuer and membership histories."
+        ],
+        "executable": false,
+        "full_history_verified": false
+      }
+    ],
+    "production_inputs_changed": false,
+    "scope": "Retrospective event review; source hashes identify archived documents, not complete history certification."
   }
 }

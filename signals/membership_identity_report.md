@@ -55,6 +55,44 @@ A confirmed boundary does not verify an entire interval or a raw price history.
 - source cutoff before audit end
 - full security identity and share class history
 
-No production membership, price manifest, strategy settings, orders or freeze were changed.
+## Security transitions
 
-Verification: affected tests passed; all four [remote CI jobs](https://github.com/uwuexdeemeow/Stock-Market-AI-Bot/actions/runs/34194171893) passed.
+### fox_2019
+
+FOXA and FOX move from Twenty-First Century Fox Class A/B to new Fox Corporation Class A/B. Original residual shares trade as TFCFA/TFCF on March 19. Earlier News Corporation history remains unverified.
+
+Per original share, the March 19 distribution produces 1/3 new Fox share of the same class and 0.736817 residual Twenty-First Century Fox share. Fractional new Fox shares settle in cash. On March 20 each residual share has a merger election of $51.572626 cash OR 0.4517 Disney share, subject to proration and adjustment. Do not credit both alternatives.
+
+New Fox classes enter before the March 19 open; old Twenty-First Century Fox leaves before the March 20 open. Both issuers overlap in the index on March 19.
+
+- FOXA 2019-03-19 (identity_break): unseparated_issuer_history.
+- FOX 2019-03-19 (identity_break): unseparated_issuer_history.
+- TFCFA 2019-03-19 (expected_member): candidate_disagrees.
+- TFCF 2019-03-19 (expected_member): candidate_disagrees.
+- Remaining: Verify class-specific raw prices and identifier mappings on both sides of the event, including earlier issuer history.
+- Remaining: Obtain actual merger election/proration and fractional cash settlement, or an independently verified historical simulation convention.
+- Remaining: Verify complete historical membership before and after these event boundaries.
+- [Primary source](https://thewaltdisneycompany.com/app/uploads/2019/04/Form_8937_and_Attachment_Spin.pdf)
+- [Primary source](https://press.spglobal.com/2019-03-14-Fox-Set-to-Join-S-P-500-Adobe-to-Join-S-P-100)
+- [Primary source](https://thewaltdisneycompany.com/press-releases/disney-21st-century-fox-acquisition-closing-date/)
+### ir_2020
+
+Old Ingersoll-Rand plc continues as Trane Technologies (TT). Gardner Denver becomes the distinct new Ingersoll Rand (IR). A continuous IR price or membership series cannot identify both issuers. Earlier IR incorporations remain unverified.
+
+An entitled old Ingersoll-Rand shareholder retains the renamed Trane holding and receives 0.8824 new Ingersoll Rand shares per old share through the intermediate spin company merger. Do not replace the retained TT holding or also credit the intermediate spin share. Record date is February 24; distribution/merger is February 29. Fractional cash settlement remains unverified.
+
+TT continues old issuer membership with March 2 trading. The February 27 S&P announcement adds the new IR before the March 3 open, replacing XEC. Trading start and announced index entry are different dates; later amendments have not been comprehensively excluded.
+
+- IR 2020-03-02 (identity_break): unseparated_issuer_history.
+- TT 2020-03-02 (expected_member): candidate_disagrees.
+- IR 2020-03-03 (expected_member): ticker_presence_matches_only.
+- XEC 2020-03-02 (expected_member): ticker_presence_matches_only.
+- XEC 2020-03-03 (expected_absent): ticker_presence_matches_only.
+- Remaining: Verify old IR-to-TT and Gardner Denver-to-new-IR raw price/security mappings independently.
+- Remaining: Obtain fractional cash and account entitlements; record date alone does not resolve trades with distribution rights.
+- Remaining: Check for amendments to the announced March 3 index date before promoting a membership correction.
+- Remaining: Verify complete earlier and later issuer and membership histories.
+- [Primary source](https://s2.q4cdn.com/950394465/files/doc_downloads/industrial_filings/Form_8937_Attachment_Trane_Technologies_plc_2_March_2020_updated_as_of_March_2nd.pdf)
+- [Primary source](https://www.prnewswire.com/news-releases/gardner-denver-holdings-set-to-join-sp-500-cimarex-energy-to-join-sp-midcap-400-301013089.html)
+
+No production membership, price manifest, strategy settings, orders or freeze were changed.

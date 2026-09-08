@@ -1,0 +1,11 @@
+{
+  "source_commit": "8e5a70014d8aa61174804d2046f8e7e9d195f1ef",
+  "generated_at": "2026-09-08T06:32:04.173340+00:00",
+  "evidence_type": "offline_local_review_of_archived_primary_sources",
+  "complete": false,
+  "status": "blocked_partial_event_evidence",
+  "broker_records_included": false,
+  "local_affected_tests": "28 passed",
+  "ci_run_url": "https://github.com/uwuexdeemeow/Stock-Market-AI-Bot/actions/runs/34195028253",
+  "ci_status_at_publication": "pending"
+}
