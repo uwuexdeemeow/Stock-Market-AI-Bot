@@ -1,0 +1,234 @@
+{
+  "complete": false,
+  "membership": {
+    "complete": false,
+    "path": "data/universe_membership.csv",
+    "rows": 0,
+    "source_count": 0,
+    "required_provenance_columns": [
+      "access_cost",
+      "license",
+      "retrieved_at",
+      "source_url"
+    ],
+    "missing_provenance_columns": [
+      "access_cost",
+      "license",
+      "retrieved_at",
+      "source_url"
+    ],
+    "provenance_valid_rows": 0,
+    "required_tickers": 62,
+    "missing_required_tickers": [
+      "AAPL",
+      "ABBV",
+      "AEP",
+      "AMAT",
+      "AMD",
+      "AMT",
+      "AMZN",
+      "APD",
+      "AVGO",
+      "BAC",
+      "BKNG",
+      "C",
+      "CAT",
+      "CCI",
+      "CHTR",
+      "CMCSA",
+      "COP",
+      "COST",
+      "CVX",
+      "DE",
+      "DIS",
+      "DUK",
+      "EOG",
+      "EQIX",
+      "EXC",
+      "FCX",
+      "GE",
+      "GOOGL",
+      "GS",
+      "HD",
+      "HON",
+      "HSY",
+      "IFF",
+      "INTC",
+      "JNJ",
+      "JPM",
+      "KO",
+      "LIN",
+      "LLY",
+      "LYV",
+      "MA",
+      "META",
+      "MRK",
+      "MSFT",
+      "MU",
+      "NEE",
+      "NEM",
+      "NFLX",
+      "NVDA",
+      "PEP",
+      "PG",
+      "PLD",
+      "PSA",
+      "RTX",
+      "SHW",
+      "SLB",
+      "SO",
+      "TSLA",
+      "UNH",
+      "V",
+      "WMT",
+      "XOM"
+    ],
+    "coverage_start": "2012-01-01",
+    "coverage_end": "2026-09-08",
+    "active_members_at_coverage_start": 0,
+    "minimum_active_members": 400,
+    "inactive_members": 0,
+    "minimum_inactive_members": 17,
+    "historical_tickers": 0,
+    "historical_tickers_with_data": 0,
+    "historical_price_coverage": 0.0,
+    "minimum_price_coverage": 0.95,
+    "missing_historical_price_tickers": [],
+    "reasons": [
+      "membership_table_missing",
+      "required_ticker_membership_missing",
+      "membership_provenance_columns_missing",
+      "historical_universe_too_small",
+      "inactive_membership_coverage_too_small",
+      "historical_price_coverage_incomplete"
+    ]
+  },
+  "gaps": [
+    {
+      "reason": "membership_table_missing",
+      "path": "data/universe_membership.csv"
+    },
+    {
+      "reason": "required_ticker_membership_missing",
+      "path": "data/universe_membership.csv"
+    },
+    {
+      "reason": "membership_provenance_columns_missing",
+      "path": "data/universe_membership.csv"
+    },
+    {
+      "reason": "historical_universe_too_small",
+      "path": "data/universe_membership.csv"
+    },
+    {
+      "reason": "inactive_membership_coverage_too_small",
+      "path": "data/universe_membership.csv"
+    },
+    {
+      "reason": "historical_price_coverage_incomplete",
+      "path": "data/universe_membership.csv"
+    },
+    {
+      "reason": "historical_membership_missing",
+      "path": "data/universe_membership.csv"
+    },
+    {
+      "reason": "membership_coverage_unverified"
+    },
+    {
+      "reason": "raw_price_file_missing",
+      "ticker": "QQQ",
+      "path": "data/raw/QQQ.parquet"
+    },
+    {
+      "reason": "source_url_missing",
+      "ticker": "QQQ"
+    },
+    {
+      "reason": "retrieved_at_missing",
+      "ticker": "QQQ"
+    },
+    {
+      "reason": "license_missing",
+      "ticker": "QQQ"
+    },
+    {
+      "reason": "free_raw_source_unverified",
+      "ticker": "QQQ"
+    },
+    {
+      "reason": "raw_price_provenance_invalid",
+      "ticker": "QQQ"
+    },
+    {
+      "reason": "raw_price_feed_or_symbol_mapping_missing",
+      "ticker": "QQQ"
+    },
+    {
+      "reason": "raw_price_security_identity_unverified",
+      "ticker": "QQQ"
+    },
+    {
+      "reason": "corporate_action_coverage_missing",
+      "ticker": "QQQ",
+      "start": "2012-01-01",
+      "end": "2026-09-08"
+    },
+    {
+      "reason": "raw_price_file_missing",
+      "ticker": "SPY",
+      "path": "data/raw/SPY.parquet"
+    },
+    {
+      "reason": "source_url_missing",
+      "ticker": "SPY"
+    },
+    {
+      "reason": "retrieved_at_missing",
+      "ticker": "SPY"
+    },
+    {
+      "reason": "license_missing",
+      "ticker": "SPY"
+    },
+    {
+      "reason": "free_raw_source_unverified",
+      "ticker": "SPY"
+    },
+    {
+      "reason": "raw_price_provenance_invalid",
+      "ticker": "SPY"
+    },
+    {
+      "reason": "raw_price_feed_or_symbol_mapping_missing",
+      "ticker": "SPY"
+    },
+    {
+      "reason": "raw_price_security_identity_unverified",
+      "ticker": "SPY"
+    },
+    {
+      "reason": "corporate_action_coverage_missing",
+      "ticker": "SPY",
+      "start": "2012-01-01",
+      "end": "2026-09-08"
+    },
+    {
+      "reason": "corporate_action_file_unverified",
+      "path": "data/raw/actions.csv"
+    }
+  ],
+  "tickers": [
+    "QQQ",
+    "SPY"
+  ],
+  "price_fingerprints": {},
+  "adjustment_mode": "raw_ohlcv",
+  "actions_verified": false,
+  "ledger_version": "daily-ledger-v1",
+  "causal_version": "fold-local-v1",
+  "generated_at": "2026-09-08T17:30:01.527541+00:00",
+  "active_paper_unchanged": true,
+  "shadow_only": true,
+  "historical_claim": "blocked"
+}
