@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-08T21:16:23+00:00",
+  "run_id": "post-market-34279528060-1",
+  "status": "complete",
+  "problems": [],
+  "files": {
+    "broker_truth.json": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/broker_truth.json",
+      "relative_path": "signals/broker_truth.json",
+      "required": true,
+      "exists": true,
+      "readable": true,
+      "run_id": "post-market-34279528060-1",
+      "sha256": "27e93a6d7fc7487197366362aa556ce4a695c3b74adf5ec2f6f935840be2f5b3"
+    },
+    "alpaca_execution_scorecard.json": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json",
+      "relative_path": "signals/alpaca_execution_scorecard.json",
+      "required": true,
+      "exists": true,
+      "readable": true,
+      "run_id": "post-market-34279528060-1",
+      "sha256": "acc9cc3aa34ccf41c0071c7f7069cc694b7c260137d7b2353fd594d37dbbe12d"
+    },
+    "paper_validation_epoch_status.json": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/paper_validation_epoch_status.json",
+      "relative_path": "signals/paper_validation_epoch_status.json",
+      "required": true,
+      "exists": true,
+      "readable": true,
+      "run_id": "post-market-34279528060-1",
+      "sha256": "c870dae7edfbafdfb1d2ca518d4a4c460d59ec627da13064b74dde729e07200d"
+    },
+    "alpaca_paper_health.json": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_paper_health.json",
+      "relative_path": "signals/alpaca_paper_health.json",
+      "required": true,
+      "exists": true,
+      "readable": true,
+      "run_id": "post-market-34279528060-1",
+      "sha256": "edcc2f3965fd90f88bb976f737d9a8c071f14af3b47a746e63b6fe9774883c0a"
+    }
+  },
+  "run_context": {
+    "run_id": "post-market-34279528060-1",
+    "generated_at": "2026-09-08T21:16:23+00:00",
+    "signal_as_of": "",
+    "git_commit": "70610bd68ce717017a8f5653b45bb2b32a69fc03",
+    "configuration_fingerprint": "ccfecc2caacb4bcf35dbc5f8a753e5ba23e7811adc8c45c9b7d61450f5064bdc",
+    "paper_version_fingerprint": "ca61f538f1a47339fafd207312d1df2f2ada76c40f6c1765914a42942519c3f8",
+    "paper_account_hash": "53467e021997593c"
+  },
+  "real_capital_approved": false,
+  "profile": "execution_observation_only"
+}
