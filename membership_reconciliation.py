@@ -134,12 +134,77 @@ def reconcile(candidate_path, comparison_path, facts_path, *, start, end):
     return pd.DataFrame(review), report
 
 
+def review_transitions(queue, facts_path, *, start, end):
+    """Compare local event facts with intervals; never certify an entire history."""
+    facts = json.loads(Path(facts_path).read_text())
+    if facts.get('scope') != 'review_only_not_executable_corporate_actions':
+        raise ValueError('Transition facts must be review only')
+    sources = facts.get('sources', [])
+    source_ids = {source.get('id') for source in sources}
+    if (not sources or None in source_ids or len(source_ids) != len(sources)
+            or any(not source.get('url', '').startswith('https://')
+                   or len(source.get('sha256', '')) != 64
+                   or any(char not in '0123456789abcdef' for char in source.get('sha256', ''))
+                   for source in sources)):
+        raise ValueError('Invalid transition source identities')
+    events, seen = [], set()
+    lower, upper = pd.Timestamp(start), pd.Timestamp(end)
+    if pd.isna(lower) or pd.isna(upper) or lower > upper:
+        raise ValueError('Invalid transition review dates')
+    for original in facts.get('transitions', []):
+        # Validate even out-of-window facts so changing the date range cannot
+        # conceal a broken source reference or an unreviewed claim.
+        event = dict(original)
+        if (not event.get('id') or event['id'] in seen or event.get('reviewed') is not True
+                or not event.get('source_ids') or not set(event['source_ids']) <= source_ids
+                or any(not event.get(key) for key in ('identity', 'entitlements', 'membership', 'blockers', 'checks'))):
+            raise ValueError('Invalid or unreviewed transition')
+        seen.add(event['id'])
+        legal, trading = pd.Timestamp(event['legal_date']), pd.Timestamp(event['first_trading_session'])
+        if pd.isna(legal) or pd.isna(trading) or legal > trading:
+            raise ValueError('Invalid transition dates')
+        checks = []
+        for claim in event['checks']:
+            date = pd.Timestamp(claim['date'])
+            if (pd.isna(date) or not claim.get('ticker')
+                    or claim.get('kind') not in {'identity_break', 'expected_member', 'expected_absent'}):
+                raise ValueError('Invalid transition check')
+            if not lower <= date <= upper:
+                continue
+            rows = queue.loc[(queue.ticker == claim['ticker']) &
+                             (pd.to_datetime(queue.effective_from) <= date) &
+                             (pd.to_datetime(queue.effective_to) >= date)]
+            covered = (not queue.empty and pd.to_datetime(queue.effective_from).min() <= date
+                       <= pd.to_datetime(queue.effective_to).max())
+            if not covered:
+                result = 'candidate_coverage_unavailable'
+            elif claim['kind'] == 'identity_break':
+                crossing = rows.loc[pd.to_datetime(rows.effective_from) < date]
+                result = 'unseparated_issuer_history' if not crossing.empty else 'full_identity_history_still_unverified'
+            else:
+                expected = claim['kind'] == 'expected_member'
+                result = 'ticker_presence_matches_only' if bool(len(rows)) == expected else 'candidate_disagrees'
+            # An exact ticker-presence match cannot prove that these shares
+            # belong to the right issuer; keep both statements visible.
+            checks.append({**claim, 'result': result, 'security_identity_verified': False,
+                           'candidate_intervals': [
+                               {'from': str(row.effective_from)[:10], 'to': str(row.effective_to)[:10]}
+                               for row in rows.itertuples()]})
+        if checks:
+            events.append({**event, 'checks': checks, 'executable': False, 'full_history_verified': False})
+    return {'schema_version': 1, 'status': 'blocked_partial_event_evidence', 'complete': False,
+            'facts_sha256': digest(facts_path), 'sources': sources, 'transitions': events,
+            'production_inputs_changed': False,
+            'scope': 'Retrospective event review; source hashes identify archived documents, not complete history certification.'}
+
+
 def main(argv=None):
     """Write a review queue and evidence report without touching production data."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--candidate', type=Path, required=True)
     parser.add_argument('--comparison', type=Path, required=True)
     parser.add_argument('--facts', type=Path, default=Path('research_evidence/membership_primary_facts.json'))
+    parser.add_argument('--transitions', type=Path, default=Path('research_evidence/security_transition_facts.json'))
     parser.add_argument('--output', type=Path, default=Path('signals/corrected_audit/membership_review'))
     parser.add_argument('--start', default='2012-01-01')
     parser.add_argument('--end', default=datetime.now(timezone.utc).date().isoformat())
@@ -147,10 +212,15 @@ def main(argv=None):
     if pd.Timestamp(args.start) > pd.Timestamp(args.end):
         parser.error('Start must precede end')
     queue, report = reconcile(args.candidate, args.comparison, args.facts, start=args.start, end=args.end)
+    # Event reviews describe supported corrections without rewriting the input
+    # universe or inventing the cash actually paid to an account.
+    transitions = review_transitions(queue, args.transitions, start=args.start, end=args.end)
+    report['security_transitions'] = transitions
     args.output.mkdir(parents=True, exist_ok=True)
     atomic_write_csv(queue, args.output / 'membership_review_queue.csv')
     atomic_write_json(report, args.output / 'membership_identity_report.json')
     atomic_write_json(report['primary_boundary_checks'], args.output / 'primary_membership_events.json')
+    atomic_write_json(transitions, args.output / 'security_transition_report.json')
     lines = ['# Historical membership and identity review', '',
              '**Partial primary evidence; full dataset remains blocked.**', '',
              f"Candidate: {report['candidate_symbols']} symbols, {report['candidate_intervals']} intervals; cutoff {report['candidate_cutoff']}.",
@@ -163,6 +233,13 @@ def main(argv=None):
     for row in report['identity_observations']:
         lines.append(f"- {row['ticker']}: {row['finding']} [Source]({row['source_url']}).")
     lines += ['', '## Remaining evidence', ''] + ['- ' + item.replace('_', ' ') for item in report['blockers']]
+    lines += ['', '## Security transitions', '']
+    for event in transitions['transitions']:
+        lines += [f"### {event['id']}", '', event['identity'], '', event['entitlements'], '', event['membership'], '']
+        for check in event['checks']:
+            lines.append(f"- {check['ticker']} {check['date']} ({check['kind']}): {check['result']}.")
+        lines += ['- Remaining: ' + item for item in event['blockers']]
+        lines += ['- [Primary source](' + source['url'] + ')' for source in transitions['sources'] if source['id'] in event['source_ids']]
     lines += ['', 'No production membership, price manifest, strategy settings, orders or freeze were changed.']
     atomic_write_text(args.output / 'membership_identity_report.md', '\n'.join(lines) + '\n')
     print(json.dumps({k: report[k] for k in ('status', 'candidate_symbols', 'candidate_intervals', 'disagreement_dates', 'verified_full_intervals')}))

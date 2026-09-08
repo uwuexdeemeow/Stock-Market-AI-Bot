@@ -61,3 +61,66 @@ def test_curated_primary_facts_have_unique_reviewed_claims():
     facts = json.loads(Path('research_evidence/membership_primary_facts.json').read_text())
     assert len(reviewed_events(facts)) == 26
     assert all(e['scope'] == 'membership_boundary_only' for e in facts['membership_events'])
+
+
+def transition_queue():
+    """These intervals deliberately reproduce continuous ticker reuse."""
+    return pd.DataFrame([
+        {'ticker': ticker, 'effective_from': begin, 'effective_to': '2026-08-18'}
+        for ticker, begin in [('FOXA', '2004-12-20'), ('FOX', '2015-09-21'),
+                              ('IR', '2010-11-17'), ('TT', '2020-03-03')]])
+
+
+def test_transition_review_separates_issuer_and_membership_dates():
+    from membership_reconciliation import review_transitions
+    report = review_transitions(transition_queue(), 'research_evidence/security_transition_facts.json',
+                                start='2012-01-01', end='2026-09-08')
+    fox, ir = report['transitions']
+    assert all(c['result'] == 'unseparated_issuer_history' for c in fox['checks'][:2])
+    assert all(c['result'] == 'candidate_disagrees' for c in fox['checks'][2:])
+    checks = {(c['ticker'], c['date']): c for c in ir['checks']}
+    assert checks['TT', '2020-03-02']['result'] == 'candidate_disagrees'
+    assert checks['IR', '2020-03-03']['result'] == 'ticker_presence_matches_only'
+    assert not checks['IR', '2020-03-03']['security_identity_verified']
+    assert not report['complete'] and not report['production_inputs_changed']
+    assert all(not e['executable'] and not e['full_history_verified'] for e in report['transitions'])
+
+
+def test_transition_review_does_not_infer_events_outside_window():
+    from membership_reconciliation import review_transitions
+    report = review_transitions(transition_queue(), 'research_evidence/security_transition_facts.json',
+                                start='2021-01-01', end='2026-09-08')
+    assert not report['transitions']
+    assert not report['complete']
+
+
+@pytest.mark.parametrize('damage', ['review', 'source', 'duplicate', 'date', 'kind'])
+def test_invalid_transition_evidence_rejected(tmp_path, damage):
+    from pathlib import Path
+    from membership_reconciliation import review_transitions
+    facts = json.loads(Path('research_evidence/security_transition_facts.json').read_text())
+    event = facts['transitions'][0]
+    if damage == 'review':
+        event['reviewed'] = False
+    elif damage == 'source':
+        event['source_ids'] = ['missing']
+    elif damage == 'duplicate':
+        facts['transitions'].append(dict(event))
+    elif damage == 'date':
+        event['legal_date'] = '2020-01-01'
+    else:
+        event['checks'][0]['kind'] = 'approve'
+    path = tmp_path / 'facts.json'
+    path.write_text(json.dumps(facts))
+    with pytest.raises(ValueError):
+        review_transitions(transition_queue(), path, start='2021-01-01', end='2026-09-08')
+
+
+def test_absence_outside_candidate_coverage_is_not_a_match():
+    from membership_reconciliation import review_transitions
+    queue = transition_queue()
+    queue['effective_to'] = '2018-01-01'
+    report = review_transitions(queue, 'research_evidence/security_transition_facts.json',
+                                start='2012-01-01', end='2026-09-08')
+    assert all(c['result'] == 'candidate_coverage_unavailable'
+               for e in report['transitions'] for c in e['checks'])

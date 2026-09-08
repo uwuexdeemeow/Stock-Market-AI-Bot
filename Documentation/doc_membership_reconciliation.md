@@ -47,3 +47,26 @@ American mismatch remains unresolved because the merger/trading cessation and
 announced index deletion dates differ; this is not permission to alter raw prices
 or to rewrite the source's membership history. Review evidence can be extended,
 but full coverage certification remains with the existing corrected-data gates.
+
+## Corporate transitions
+
+The default `--transitions research_evidence/security_transition_facts.json`
+adds a separate event review to the main report and writes
+`security_transition_report.json`. The source collection includes URLs and hashes
+of saved primary documents. This validates references and checks candidate ticker
+presence on the reviewed dates; it does not authenticate downloaded documents or
+certify full security history. Missing or malformed facts fail visibly.
+
+A **spin-off** distributes a separate company's shares. An **entitlement** is what
+a holder receives. A **merger election** chooses among consideration alternatives;
+proration can change the final allocation. A legal completion date, first trading
+session, and index membership date may differ. These descriptions are research
+facts, not executable ledger entries or tax instructions.
+
+The Fox review preserves both share classes, residual old-company shares, and
+the March 19, 2019 index overlap. The IR review preserves the retained TT holding
+and distributed new IR shares, with March 2 trading distinct from the announced
+March 3 index addition. Earlier histories, raw price mappings, fractional cash,
+and actual merger settlements remain blocked. Ticker presence alone cannot
+confirm which issuer a historical row represents. These files must not be fed
+into the execution ledger as an approved corporate-action manifest.

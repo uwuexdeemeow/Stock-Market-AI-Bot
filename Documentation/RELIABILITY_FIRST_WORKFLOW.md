@@ -326,3 +326,15 @@ changes and security identity remain unresolved. CIK observations and issuer
 names are not blanket raw-price identity attestations. Never import the review
 queue as approved production membership. Keep merger completion, trading
 availability and index deletion as separate dated events when they differ.
+
+### Review complex security changes before correcting history
+
+The membership review now reads `research_evidence/security_transition_facts.json`
+and publishes a separate security-transition JSON report plus readable findings
+in its Markdown companion. Start with the supported event boundaries, distinguish
+issuer/share class from ticker, and separate legal, trading, and index dates.
+For Fox, retain the residual old shares and the one-session index overlap. For
+IR, retain TT and the new IR distribution as distinct holdings. Confirm raw-price
+identifiers and settlement evidence before implementing any ledger corrections.
+A matching ticker or reviewed announcement is still not full historical approval;
+no freeze, orders, or prospective observations follow from this offline review.
