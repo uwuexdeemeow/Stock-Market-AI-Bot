@@ -1110,13 +1110,20 @@ def _resolve_allocation(dt: pd.Timestamp, config: dict, regime_indicators: pd.Da
 
 def _core_tickers_for_config(config: dict) -> list[str]:
     tickers = {"SPY", "QQQ"}
+    # A zero weight means this fund is never held. Its placeholder name must
+    # not require prices from before the fund existed (for example TQQQ).
+    # Nonzero weights still require real prices; missing history stays blocked.
+    def held_symbols(weights):
+        return {str(symbol).upper() for symbol, weight in weights.items()
+                if float(weight) != 0.0}
+
     if isinstance(config.get("core_weights"), dict):
-        tickers.update(str(k).upper() for k in config["core_weights"])
+        tickers.update(held_symbols(config["core_weights"]))
     regime_preset = config.get("regime_preset")
     if isinstance(regime_preset, dict):
         for regime in ("risk_on", "neutral", "risk_off"):
             weights = regime_preset.get(regime, {}).get("core_weights", {})
-            tickers.update(str(k).upper() for k in weights)
+            tickers.update(held_symbols(weights))
     return sorted(t for t in tickers if t)
 
 

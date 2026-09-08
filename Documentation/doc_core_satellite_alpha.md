@@ -161,3 +161,8 @@ Historical performance and live signals produced with the old confirmation or da
 The explicit accounting_mode=daily-ledger-v1 adapter runs corrected daily cash/share accounting and preserves the existing equity/events/metrics return tuple. Programmatic callers must provide panel.attrs['ledger_inputs'] with verified bars, actions, provenance and membership_path; use corrected_audit.py for the complete offline workflow and fold-local scores. The existing active paper path is not switched by this adapter. Daily simulation uses prior-session decisions and next-open fills for stocks and ETFs; costs include initial ETF trades, drift, stops and evaluation terminal sales. Old period-return results are superseded diagnostics and need regeneration. Verification: python -m pytest tests/test_corrected_audit.py -q.
 
 Historical results affected by these changes must be regenerated. Original audit evidence is preserved; no corrected historical claim is made when source checks are blocked.
+
+The September 2026 daily-run repair excludes zero-weight ETF placeholders from
+price requirements. A configuration that holds no TQQQ in any regime does not
+need pre-inception TQQQ prices. Any nonzero allocation retains strict coverage
+checks. Research dates, allocations and missing-price safeguards are unchanged.
