@@ -743,70 +743,38 @@ def _position_concentration(status: dict) -> dict:
 
 
 def _open_position_attribution(status: dict, trades: pd.DataFrame) -> dict:
-    positions: dict[str, float] = {}
-    for ticker, raw_qty in dict(status.get("positions", {}) or {}).items():
-        qty = _finite_float(raw_qty)
-        if qty is not None and qty > 0:
-            positions[str(ticker).upper()] = qty
-    position_values: dict[str, float] = {}
-    for ticker, raw_value in dict(status.get("position_values", {}) or {}).items():
-        value = _finite_float(raw_value)
-        if value is not None:
-            position_values[str(ticker).upper()] = value
-    if not positions or trades.empty:
-        return {
-            "data_available": False,
-            "reason": "need_current_positions_and_filled_trades",
-        }
-    filled_buys = trades[
-        trades.get("fill_status", pd.Series("", index=trades.index)).astype(str).str.lower().eq("filled")
-        & trades.get("action", pd.Series("", index=trades.index)).astype(str).str.upper().eq("BUY")
-    ].copy()
-    if filled_buys.empty:
-        return {"data_available": False, "reason": "no_filled_buy_orders"}
-    attribution: dict[str, dict] = {}
-    core_pnl = 0.0
-    overlay_pnl = 0.0
-    skipped_unpriced: list[str] = []
-    for ticker, qty in positions.items():
-        if qty <= 0 or ticker not in position_values:
-            continue
-        position_value = float(position_values.get(ticker, 0.0) or 0.0)
-        if position_value <= 0:
-            skipped_unpriced.append(ticker)
-            continue
-        rows = filled_buys[filled_buys["ticker"].astype(str).str.upper().eq(ticker)]
-        if rows.empty:
-            continue
-        avg_fill = pd.to_numeric(rows["broker_dealt_avg_price"], errors="coerce").dropna()
-        if avg_fill.empty:
-            continue
-        fill_price = float(avg_fill.iloc[-1])
-        current_price = float(position_value / qty) if qty else 0.0
-        if current_price <= 0:
-            skipped_unpriced.append(ticker)
-            continue
-        pnl = (current_price - fill_price) * qty
-        sleeve = "core" if ticker in {"SPY", "QQQ"} else "overlay"
-        if sleeve == "core":
-            core_pnl += pnl
-        else:
-            overlay_pnl += pnl
-        attribution[ticker] = {
-            "sleeve": sleeve,
-            "shares": round(qty, 6),
-            "fill_price": round(fill_price, 4),
-            "current_price": round(current_price, 4),
-            "open_pnl": round(float(pnl), 2),
-        }
-    return {
-        "data_available": bool(attribution),
-        "core_open_pnl": round(float(core_pnl), 2),
-        "overlay_open_pnl": round(float(overlay_pnl), 2),
-        "total_open_position_pnl": round(float(core_pnl + overlay_pnl), 2),
-        "by_ticker": attribution,
-        "skipped_unpriced_tickers": sorted(set(skipped_unpriced)),
-    }
+    """Use the broker's remaining position basis, never the last journal buy.
+
+    Broker average entry prices account for partial purchases and later sales.
+    This is a snapshot of unrealized profit, not certified historical returns.
+    """
+    positions = status.get("positions", {}) or {}
+    details = status.get("position_details", []) or []
+    if status.get("broker") != "alpaca" or not status.get("generated_at") or not details:
+        return {"data_available": False, "reason": "broker_remaining_cost_basis_required"}
+    attribution, seen = {}, set()
+    for row in details:
+        ticker = str(row.get("ticker", "")).upper()
+        qty = _finite_float(row.get("quantity"))
+        basis = _finite_float(row.get("avg_price"))
+        value = _finite_float(row.get("market_value"))
+        expected = _finite_float(positions.get(ticker))
+        if (not ticker or ticker in seen or qty is None or qty <= 0 or basis is None
+                or basis <= 0 or value is None or value <= 0 or expected is None
+                or abs(qty - expected) > 1e-8):
+            return {"data_available": False, "reason": "broker_position_basis_inconsistent"}
+        seen.add(ticker)
+        attribution[ticker] = {"sleeve": "core" if ticker in {"SPY", "QQQ"} else "overlay",
+                              "shares": qty, "fill_price": basis, "remaining_average_entry_price": basis,
+                              "current_price": value / qty, "open_pnl": round(value - qty * basis, 2)}
+    if set(positions) != seen:
+        return {"data_available": False, "reason": "broker_position_basis_incomplete"}
+    core = sum(r["open_pnl"] for r in attribution.values() if r["sleeve"] == "core")
+    overlay = sum(r["open_pnl"] for r in attribution.values() if r["sleeve"] == "overlay")
+    return {"data_available": True, "source": "alpaca_position_snapshot_remaining_basis",
+            "as_of": status["generated_at"], "historical_accounting_certified": False,
+            "core_open_pnl": round(core, 2), "overlay_open_pnl": round(overlay, 2),
+            "total_open_position_pnl": round(core + overlay, 2), "by_ticker": attribution}
 
 
 def _factor_data_status(*, now: datetime | None = None) -> dict:
@@ -1321,6 +1289,23 @@ def build_health() -> dict:
     health["status"] = health["readiness"]["status"]
     health["blockers"] = health["readiness"]["blockers"]
     health["recommended_actions"] = health["readiness"]["recommended_actions"]
+    # Legacy signal gates stay visible as a separate dimension. A green signal
+    # alone cannot imply fresh, validated, execution-ready operational evidence.
+    execution = _read_json(EXECUTION_SCORECARD)
+    epoch = _read_json(VALIDATION_EPOCH_STATUS)
+    health["readiness_dimensions"] = {
+        "signal_strategy_gates": bool(gate_status.get("strategy_ready")),
+        "signal_freshness": health["freshness_ok"],
+        "version_lock": epoch.get("paper_version_lock_valid") is True,
+        "execution_evidence": execution.get("decision_eligible") is True,
+        "capital_eligibility": epoch.get("manual_real_capital_review_eligible") is True,
+    }
+    health["signal_gate_snapshot"] = {key: health[key] for key in
+                                     ("paper_ready", "gates_all_pass", "strategy_ready")}
+    health["overall_ready"] = (all(health["readiness_dimensions"].values())
+                               and health["readiness"].get("status") == "pass")
+    health["freshness_context"] = "Calendar age gates remain enforced during weekends and holidays."
+
     return enrich_payload(health, signal_as_of=signal_as_of)
 
 

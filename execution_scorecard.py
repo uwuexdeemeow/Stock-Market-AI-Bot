@@ -434,7 +434,8 @@ def _stage_comparison(slippage_report: dict, *, now: datetime, lookback_days: in
         row for row in report_rows
         if _row_group(row) == "rebalance" and _broker_child_stage(row)
     ]
-    if not child_fills:
+    attempts = slippage_report.get("stage_attempt_counts", {})
+    if not child_fills and not attempts.get("complete"):
         return {}
     output: dict[str, dict] = {}
     for stage in ("stage1", "stage2"):
@@ -457,6 +458,16 @@ def _stage_comparison(slippage_report: dict, *, now: datetime, lookback_days: in
             "avg_fill_latency_seconds": round(float(np.mean(latency)), 2) if latency else None,
             "source": "alpaca_api_child_fills",
         }
+    if attempts.get("complete") is True:
+        for stage, values in output.items():
+            counts = attempts.get("stages", {}).get(stage, {})
+            if counts:
+                values.update({key: counts.get(key) for key in
+                               ("orders", "filled_orders", "any_filled_orders", "fill_rate", "any_fill_rate")})
+                values["fill_rate_reason"] = "complete_submission_population"
+                values["denominator_population"] = attempts.get("population")
+                values["denominator_start"] = attempts.get("start")
+                values["denominator_end"] = attempts.get("end")
     return output
 
 

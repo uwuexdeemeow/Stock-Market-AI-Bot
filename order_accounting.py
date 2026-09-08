@@ -7,6 +7,7 @@ This module gives the scorecard and validation epoch the same honest counts.
 from __future__ import annotations
 
 import re
+import math
 
 import pandas as pd
 
@@ -220,3 +221,46 @@ def classify_logical_orders(frame: pd.DataFrame) -> dict:
         "complete_fill_rate": round(full_count / accepted_count, 4) if accepted_count else None,
         "any_fill_rate": round(any_count / accepted_count, 4) if accepted_count else None,
     }
+
+
+def stage_attempt_counts(rows, *, start, end, history_complete):
+    """Count all submitted child attempts, including canceled zero-fill orders.
+
+    The population is submission-time based. Price statistics have their own
+    fill-time population and must not supply this denominator.
+    """
+    output = {stage: {'orders': 0, 'filled_orders': 0, 'any_filled_orders': 0}
+              for stage in ('stage1', 'stage2')}
+    if not history_complete:
+        return {'complete': False, 'reason': 'broker_history_incomplete'}
+    seen = set()
+    lower, upper = pd.Timestamp(start), pd.Timestamp(end)
+    for row in rows:
+        client = str(row.get('client_order_id', ''))
+        if not client.endswith(('-a1', '-a2')) or str(row.get('type', '')) in PROTECTIVE_ORDER_TYPES:
+            continue
+        stamp = pd.to_datetime(row.get('submitted_at') or row.get('created_at'), utc=True, errors='coerce')
+        if pd.isna(stamp):
+            return {'complete': False, 'reason': 'child_submission_timestamp_missing'}
+        if not lower <= stamp <= upper:
+            continue
+        identity = row.get('id')
+        if not identity or identity in seen:
+            return {'complete': False, 'reason': 'duplicate_or_missing_child_identity'}
+        seen.add(identity)
+        qty = pd.to_numeric(row.get('qty'), errors='coerce')
+        filled = pd.to_numeric(row.get('filled_qty'), errors='coerce')
+        if not math.isfinite(qty) or not math.isfinite(filled) or qty <= 0 or filled < 0 or filled > qty + 1e-8:
+            return {'complete': False, 'reason': 'child_quantity_unclassifiable'}
+        if str(row.get('status', '')).lower() in NON_ACCEPTED_STATUSES:
+            continue
+        stage = 'stage1' if client.endswith('-a1') else 'stage2'
+        output[stage]['orders'] += 1
+        output[stage]['any_filled_orders'] += int(filled > 0)
+        output[stage]['filled_orders'] += int(filled >= qty - 1e-8)
+    for values in output.values():
+        count = values['orders']
+        values['fill_rate'] = values['filled_orders'] / count if count else None
+        values['any_fill_rate'] = values['any_filled_orders'] / count if count else None
+    return {'complete': True, 'population': 'submitted_child_attempts',
+            'start': lower.isoformat(), 'end': upper.isoformat(), 'stages': output}

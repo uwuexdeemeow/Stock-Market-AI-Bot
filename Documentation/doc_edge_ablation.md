@@ -49,3 +49,7 @@ Every variant outcome also uses the shared `append_experiment` interface with a
 run-local output directory. Outer-fold and combined cost-stress comparisons are
 saved separately; the stress results never choose the configuration. Per-fold
 full-minus-variant comparisons remain inconclusive when history is too short.
+
+## Evidence closure update
+
+Every attempt now includes source commit, dirty-checkout status, schema version and generation time. This distinguishes regenerated blocked attempts from older candidate/code identities. Run python corrected_audit.py --ablations; all seven variants remain blocked when verified inputs are absent.

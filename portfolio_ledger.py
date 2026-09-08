@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import math
+import json
 from typing import Callable
 
 import numpy as np
@@ -93,6 +94,35 @@ class Account:
         key = str(event["event_id"])
         if key in self.seen:
             raise ValueError(f"Duplicate corporate action: {key}")
+        if event['kind'] == 'security_settlement':
+            # Use actual settled cash and share movements. Public merger ratios
+            # alone cannot determine an account's election or fractional cash.
+            changes = event.get('share_deltas')
+            if isinstance(changes, str):
+                # CSV replay stores the mapping as one JSON cell.
+                changes = json.loads(changes)
+            cash = event.get('cash_delta')
+            if (event.get('settlement_verified') is not True or not event.get('source')
+                    or len(str(event.get('source_sha256', ''))) != 64
+                    or not isinstance(changes, dict) or not changes
+                    or cash is None or not math.isfinite(float(cash))):
+                raise ValueError('Verified settlement cash, shares and source required')
+            updated = dict(self.shares)
+            for symbol, delta in changes.items():
+                if not symbol or not math.isfinite(float(delta)):
+                    raise ValueError('Invalid settlement share movement')
+                updated[symbol] = updated.get(symbol, 0.) + float(delta)
+                if updated[symbol] < -1e-8:
+                    raise ValueError('Settlement consumes unavailable shares')
+                updated[symbol] = max(0., updated[symbol])
+            next_cash = self.cash + float(cash)
+            if next_cash < -.005 and not self.allow_margin:
+                raise ValueError('Settlement consumes unavailable cash')
+            self.shares, self.cash = updated, next_cash
+            self.seen.add(key)
+            self.record(timestamp, 'security_settlement', event['source'], event_id=key,
+                        share_deltas=changes, cash_delta=float(cash), cash=self.cash)
+            return
         ticker = event["ticker"]
         amount = float(event["value"])
         if not math.isfinite(amount) or amount < 0 or (event["kind"] == "split" and amount == 0):
@@ -330,7 +360,7 @@ def replay_events(events: pd.DataFrame, *, opening_cash: float | None, opening_h
                 continue
             account.fill(event["timestamp"], event["ticker"], event["quantity"], event["price"], event["fee"],
                          event_id=event["event_id"], source="recorded_fill", order_id=event.get("order_id", ""), decision_id=event.get("decision_id", ""))
-        elif kind in {"split", "dividend", "symbol_change", "cash_liquidation"}:
+        elif kind in {"split", "dividend", "symbol_change", "cash_liquidation", "security_settlement"}:
             account.action(event["timestamp"], event)
         elif kind == "cash_adjustment":
             # Brokers can bill fees separately from fills. Apply the documented

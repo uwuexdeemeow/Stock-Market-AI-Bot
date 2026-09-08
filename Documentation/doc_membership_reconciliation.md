@@ -70,3 +70,7 @@ March 3 index addition. Earlier histories, raw price mappings, fractional cash,
 and actual merger settlements remain blocked. Ticker presence alone cannot
 confirm which issuer a historical row represents. These files must not be fed
 into the execution ledger as an approved corporate-action manifest.
+
+## Evidence closure update
+
+Reports now include generating code commit, dirty-checkout status and generation time. RAI issuer evidence separates trading cessation from index removal. SIVB evidence identifies common-equity cancellation in November 2024 without backdating a zero value to the March 2023 halt. These event facts do not verify intervening prices or full membership.

@@ -95,13 +95,15 @@ def run_ablations(args):
     """Save blocked attempts too; never borrow stale historical result caches."""
     from corrected_audit import load_corrected_inputs, evaluate_corrected, code_fingerprints
     from evidence_audit import input_report
+    from audit_gap_register import code_identity
     spec_path = args.spec or Path(__file__).with_name('corrected_shadow_spec.json')
     spec = json.loads(spec_path.read_text())
     choices = variants(spec)
     run = args.output / 'ablations' / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
     run.mkdir(parents=True, exist_ok=False)
     data = input_report(args.data_dir, args.membership, spec, start=args.start, end=args.end)
-    report = {'status': 'blocked', 'output': str(run / 'comparison.json'), 'data': data,
+    report = {'schema_version': 2, **code_identity(), 'generated_at': datetime.now(timezone.utc).isoformat(),
+              'status': 'blocked', 'output': str(run / 'comparison.json'), 'data': data,
               'candidate_identity': fingerprint(spec), 'code': {**code_fingerprints(),
                   **{n: hashlib.sha256(Path(__file__).with_name(n).read_bytes()).hexdigest() for n in ('edge_ablation.py', 'experiment_ledger.py')}},
               'deployed_strategy_equivalent': False, 'automatic_cutover': False,
@@ -228,6 +230,7 @@ def run_ablations(args):
             for index, fold in enumerate(report['results'][name]['folds']):
                 fold['full_minus_variant'] = paired_interval(fold_returns['full'][index], fold_returns[name][index])
     report['status'] = 'complete' if all(r['status'] == 'complete' for r in report['results'].values()) else 'blocked'
+    report['complete'] = report['status'] == 'complete'
     from experiment_ledger import append_experiment
     for name, result in report['results'].items():
         append_experiment('corrected_ablation_' + name, choices[name],

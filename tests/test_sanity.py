@@ -2145,9 +2145,9 @@ def test_open_position_attribution_skips_zero_priced_positions():
             {"ticker": "MU", "action": "BUY", "fill_status": "filled", "broker_dealt_avg_price": 100.0},
         ]),
     )
-    assert "QQQ" in attribution["skipped_unpriced_tickers"]
-    assert "QQQ" not in attribution["by_ticker"]
-    assert attribution["by_ticker"]["MU"]["open_pnl"] == 50.0
+    # An incomplete journal cannot establish remaining cost basis.
+    assert attribution["data_available"] is False
+    assert attribution["reason"] == "broker_remaining_cost_basis_required"
 
 
 def test_open_position_attribution_skips_malformed_position_values():
@@ -2162,9 +2162,9 @@ def test_open_position_attribution_skips_malformed_position_values():
         ]),
     )
 
-    assert attribution["data_available"] is True
-    assert "QQQ" not in attribution["by_ticker"]
-    assert attribution["by_ticker"]["MU"]["open_pnl"] == 50.0
+    # Do not publish a partial total as complete account attribution.
+    assert attribution["data_available"] is False
+    assert attribution["reason"] == "broker_remaining_cost_basis_required"
 
 
 def test_current_order_lifecycle_summarizes_open_quantity():

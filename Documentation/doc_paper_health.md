@@ -161,3 +161,7 @@ the comparison is meaningless noise.
 - Slippage average under 10 bps
 - Current order lifecycle shows requested, filled, and unfilled quantities
   from the Alpaca paper log instead of blank or zero placeholder values.
+
+## Evidence closure update
+
+Open-position profit uses the attributed Alpaca position snapshot remaining average entry price, preserving partial holdings and the broker basis after sales. An incomplete journal cannot establish this basis. Missing, duplicate or inconsistent position details make attribution unavailable. This snapshot is not certified historical accounting. Readiness dimensions separately report signal gates, freshness, version lock, execution evidence and capital eligibility; overall_ready requires every dimension and canonical readiness. Existing signal-gate fields remain labeled in signal_gate_snapshot. Calendar-age thresholds remain enforced on holidays.

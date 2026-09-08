@@ -139,3 +139,16 @@ on action coverage. See `doc_corrected_data.md` for the fields. Evaluation check
 actual dated context coverage before generated defaults can hide missing data.
 Use `--audit-only` or `--evidence-report` to inspect blockers; do not change the
 2012 start date or approval flags to bypass unavailable history.
+
+## Evidence closure update
+
+Evidence mode accepts --reviews-dir DIR for membership_identity_report.json, security_transition_report.json and edge_ablation_comparison.json, and --gap-register FILE for a prior register. These options require --evidence-report and cannot start a freeze, import data or submit orders. Missing review identities remain explicit gaps. JSON schema 2 retains existing fields and adds independently attributed sections and lock differences.
+
+The prospective status now requires both 252 observed sessions and at least
+20 matured non-overlapping cohorts before reporting ready for final review.
+The count comes from the existing non-overlapping IC calculation. Neither a
+ready status nor a passing historical experiment authorizes capital or cutover.
+
+`--verification-report PATH` optionally supplies current-code fingerprints and
+named passing JUnit cases to substantiate code fixes in the gap register. An
+invalid proof creates a blocker while the audit report still gets delivered.

@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import os
+from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
@@ -52,10 +53,13 @@ def activity_events(rows):
                            "timestamp": row["transaction_time"], "ticker": row["symbol"],
                            "quantity": float(row["qty"]) * (1 if row["side"] == "buy" else -1),
                            "price": float(row["price"]), "fee": 0., "fee_source": "separate_complete_cash_activity_stream"})
-        elif kind == "FEE":
+        elif kind in {"FEE", "CSD", "CSW", "DIV", "CGD", "DIVCGL", "DIVCGS", "DIVFEE",
+                      "DIVFT", "DIVNRA", "DIVROC", "DIVTW", "DIVTXEX", "INT", "INTNRA", "INTTW", "ACATC", "JNLC"}:
+            # These documented activity types move cash only. Stock transfers,
+            # mergers and reorganizations require separately verified share legs.
             output.append({"kind": "cash_adjustment", "event_id": row["id"],
                            "timestamp": row.get("created_at") or row["date"] + "T23:59:59Z",
-                           "amount": float(row["net_amount"]), "source": "alpaca_fee_activity"})
+                           "amount": float(row["net_amount"]), "source": "alpaca_" + kind.lower() + "_activity"})
         else:
             raise ValueError(f"Unmapped activity requires review: {kind}")
     return pd.DataFrame(output)
@@ -90,6 +94,14 @@ def read_json(url, *, headers=None, params=None):
     response = requests.get(url, headers=headers, params=params, timeout=45)
     response.raise_for_status()
     return response.json()
+
+
+def saved_broker_page(folder, name, url, headers, params):
+    """Archive each received broker page before later parsing can fail."""
+    page = read_json(url, headers=headers, params=params)
+    suffix = hashlib.sha256(json.dumps(params, sort_keys=True).encode()).hexdigest()[:16]
+    atomic_write_json(page, folder / f'{name}_page_{suffix}.json')
+    return page
 
 
 def market_pages(get_page, field, *, maximum_pages=1000):
@@ -140,6 +152,9 @@ def recover_actions(folder, headers, symbols, end):
     rows = market_pages(lambda token: saved_market_page(folder, "actions", url, headers, params, token), "corporate_actions")
     path = folder / "corporate_actions.json"
     atomic_write_json(rows, path)
+    facts_path = Path(__file__).with_name('research_evidence') / 'dividend_payment_facts.json'
+    date_review = reconcile_action_dates(rows, json.loads(facts_path.read_text()).get('facts', []))
+    atomic_write_json(date_review, folder / 'dividend_payment_review.json')
     # API success proves retrieval, not historical completeness. Payment dates
     # and unsupported event types remain explicit gaps for the ledger importer.
     dividends = [r for r in rows if r["source_action_type"] == "cash_dividends"]
@@ -147,23 +162,60 @@ def recover_actions(folder, headers, symbols, end):
             "sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "rows": len(rows),
             "activity_counts": dict(Counter(r["source_action_type"] for r in rows)),
             "missing_dividend_payment_dates": sum(not r.get("payable_date") for r in dividends),
+            "independently_supported_payment_dates": date_review['supported_missing_dates'],
+            "remaining_missing_payment_dates": date_review['remaining_missing_dates'],
             "earliest_ex_date": min((r["ex_date"] for r in dividends if r.get("ex_date")), default=None),
             "pagination_complete": True, "verified_full_coverage": False,
             "next_action": "Corroborate per-symbol coverage, missing payment dates and event semantics with issuer evidence."}
+
+
+def reconcile_action_dates(rows, facts):
+    """Match issuer dates by security, ex-date and exact amount, preserving raw rows."""
+    lookup = {}
+    for fact in facts:
+        key = (fact.get('symbol'), fact.get('cusip'), fact.get('ex_date'))
+        payable = pd.to_datetime(fact.get('payable_date'), errors='coerce', utc=True)
+        ex_date = pd.to_datetime(fact.get('ex_date'), errors='coerce', utc=True)
+        if (key in lookup or fact.get('reviewed') is not True or not all(key)
+                or not str(fact.get('source_url', '')).startswith('https://')
+                or len(fact.get('source_sha256', '')) != 64
+                or pd.isna(payable) or pd.isna(ex_date) or payable < ex_date):
+            raise ValueError('Invalid dividend primary evidence')
+        lookup[key] = fact
+    results = []
+    for row in rows:
+        if row.get('source_action_type') != 'cash_dividends' or row.get('payable_date'):
+            continue
+        fact = lookup.get((row.get('symbol'), row.get('cusip'), row.get('ex_date')))
+        matched = fact is not None and Decimal(str(row['rate'])) == Decimal(str(fact['rate']))
+        results.append({'ticker': row['symbol'], 'ex_date': row['ex_date'],
+                        'status': 'payment_date_supported' if matched else 'payment_date_unverified',
+                        'payable_date': fact['payable_date'] if matched else None,
+                        'source_url': fact['source_url'] if matched else None,
+                        'source_sha256': fact['source_sha256'] if matched else None})
+    supported = sum(row['status'] == 'payment_date_supported' for row in results)
+    return {'schema_version': 1, 'generated_at': datetime.now(timezone.utc).isoformat(),
+            'status': 'partial_primary_evidence', 'complete': False,
+            'supported_missing_dates': supported, 'remaining_missing_dates': len(results) - supported,
+            'raw_source_modified': False, 'full_action_coverage_verified': False, 'results': results}
 
 
 def recover_paper(folder, headers):
     """Reconcile recovered arithmetic, while distinguishing inferred opening cash."""
     base = "https://paper-api.alpaca.markets"
     before = read_json(base + "/v2/account", headers=headers)
-    rows = activity_pages(lambda token, size: read_json(base + "/v2/account/activities", headers=headers,
-                          params={"direction": "desc", "page_size": size, **({"page_token": token} if token else {})}))
+    rows = activity_pages(lambda token, size: saved_broker_page(folder, 'activities', base + "/v2/account/activities", headers,
+                          {"direction": "desc", "page_size": size, **({"page_token": token} if token else {})}))
     positions = read_json(base + "/v2/positions", headers=headers)
     after = read_json(base + "/v2/account", headers=headers)
     # An account changing while fetched cannot provide one coherent snapshot.
     if before["cash"] != after["cash"] or before["equity"] != after["equity"]:
         raise ValueError("Account changed during retrieval; retry after activity settles")
+    for name, value in (("account", after), ("positions", positions), ("activities", rows)):
+        atomic_write_json(value, folder / (name + '.json'))
     events = activity_events(rows)
+    if events.empty:
+        raise ValueError('No historical activities; independent opening statement required')
     first = pd.to_datetime(events.timestamp, utc=True).min()
     history = read_json(base + "/v2/account/portfolio/history", headers=headers,
                         params={"date_start": before["created_at"][:10], "date_end": str(first.date()), "timeframe": "1D"})
@@ -206,8 +258,8 @@ def recover_verified_interval(folder, headers, opening_path, closing_path=None):
     start = pd.to_datetime(opening["observed_at"], utc=True, errors="raise")
     before = read_json(base + "/v2/account", headers=headers)
     positions_before = read_json(base + "/v2/positions", headers=headers)
-    rows = activity_pages(lambda token, size: read_json(base + "/v2/account/activities", headers=headers,
-        params={"direction": "asc", "page_size": size, **({"page_token": token} if token else {})}))
+    rows = activity_pages(lambda token, size: saved_broker_page(folder, 'activities', base + "/v2/account/activities", headers,
+        {"direction": "asc", "page_size": size, **({"page_token": token} if token else {})}))
     positions_after = read_json(base + "/v2/positions", headers=headers)
     after = read_json(base + "/v2/account", headers=headers)
     holdings = lambda values: {r["symbol"]: float(r["qty"]) for r in values}
@@ -243,7 +295,7 @@ def recover_verified_interval(folder, headers, opening_path, closing_path=None):
         events = pd.DataFrame(columns=["kind", "event_id", "timestamp"])
     class ReadOnlyOrders:
         def list_orders(self, **params):
-            return read_json(base + "/v2/orders", headers=headers, params=params)
+            return saved_broker_page(folder, 'orders', base + "/v2/orders", headers, params)
     # Include older parent orders: a fill inside this interval may belong to
     # an order submitted before the opening snapshot.
     history_start = pd.to_datetime(before.get("created_at", start), utc=True)

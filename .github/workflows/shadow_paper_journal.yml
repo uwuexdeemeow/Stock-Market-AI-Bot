@@ -123,6 +123,8 @@ jobs:
             signals/corrected_audit_data_quality.json
             signals/strategy_evidence_report.json
             signals/strategy_evidence_report.md
+            signals/gap_register.json
+            signals/gap_register.md
             signals/shadow_paper_journal.csv
             signals/shadow_paper_equity.csv
             signals/fractional_shadow_state.json
@@ -396,9 +398,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # A blocked audit is a useful report, not permission to trade.
-          python corrected_audit.py --evidence-report
+          python corrected_audit.py --evidence-report --reviews-dir signals --gap-register signals/gap_register.json
           cp signals/corrected_audit/evidence_report.json signals/strategy_evidence_report.json
           cp signals/corrected_audit/evidence_report.md signals/strategy_evidence_report.md
+          cp signals/corrected_audit/gap_register.json signals/gap_register.json
+          cp signals/corrected_audit/gap_register.md signals/gap_register.md
 
       - name: Upload shadow journal artifact
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
@@ -409,6 +413,8 @@ jobs:
             signals/corrected_audit_data_quality.json
             signals/strategy_evidence_report.json
             signals/strategy_evidence_report.md
+            signals/gap_register.json
+            signals/gap_register.md
             signals/shadow_paper_journal.csv
             signals/shadow_paper_equity.csv
             signals/paper_shadow_compare.csv
@@ -433,6 +439,8 @@ jobs:
               signals/corrected_audit_data_quality.json \
               signals/strategy_evidence_report.json \
               signals/strategy_evidence_report.md \
+              signals/gap_register.json \
+              signals/gap_register.md \
               signals/shadow_paper_journal.csv \
               signals/shadow_paper_equity.csv \
               signals/paper_shadow_compare.csv \
@@ -459,6 +467,8 @@ jobs:
                 corrected_audit_data_quality.json \
                 strategy_evidence_report.json \
                 strategy_evidence_report.md \
+                gap_register.json \
+                gap_register.md \
                 shadow_paper_journal.csv \
                 shadow_paper_equity.csv \
                 paper_shadow_compare.csv \
@@ -491,6 +501,8 @@ jobs:
             signals/corrected_audit_data_quality.json
             signals/strategy_evidence_report.json
             signals/strategy_evidence_report.md
+            signals/gap_register.json
+            signals/gap_register.md
             signals/shadow_paper_journal.csv
             signals/shadow_paper_equity.csv
             signals/paper_shadow_compare.csv

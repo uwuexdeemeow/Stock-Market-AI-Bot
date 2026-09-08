@@ -611,6 +611,23 @@
       "source_url": "https://www.sec.gov/Archives/edgar/data/1275283/000119312517235158/d397089d8k.htm",
       "scope": "merger_vs_index_date_conflict",
       "security_history_verified": false
+    },
+    {
+      "ticker": "RAI",
+      "finding": "Issuer FAQ confirms trading ceased July 24, 2017 and merger completed before the July 25 open. The separately announced index deletion was July 26. Candidate end July 24 describes trading cessation, not the announced membership end. Entitlement is $29.44 cash plus ADSs representing 0.5260 BAT ordinary share per RAI share, with fractional net proceeds dependent on settlement. Full membership/settlement correction remains pending.",
+      "source_url": "https://www.bat.com/content/dam/batcom/global/main-nav/investors-and-reporting/shareholder-information/acquisition-of-reynolds-american-inc-/REYNOLDS%20AMERICAN%20INC.%20ACQUISITION%20INVESTOR%20FAQ.pdf",
+      "source_sha256": "f2a76bff4140b5de0f53c9762262cd73bf4198954da20ae4a8c4fdb7b4d2ba91",
+      "reviewed": true,
+      "scope": "event_timing_and_entitlement_only"
+    },
+    {
+      "ticker": "SIVB",
+      "finding": "SEC Form 8-K reports November 7, 2024 plan effectiveness: pre-existing common equity was canceled with no distribution to common holders. This supports a terminal common-equity event, not a March 2023 zero-price assumption or complete intervening OTC history. Preferred interests had a different treatment.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/719739/000119312524254186/d904756d8k.htm",
+      "source_sha256": null,
+      "reviewed": true,
+      "archive_status": "web_reader_reviewed_direct_download_403",
+      "scope": "common_equity_terminal_event_only"
     }
   ]
 }

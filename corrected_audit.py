@@ -136,7 +136,7 @@ def paired_benchmark(result, bars, actions, provenance, *, start, end, policy):
     return result_benchmark
 
 
-def prospective_status(frozen: dict, *, now, current_fingerprint, observed_sessions) -> dict:
+def prospective_status(frozen: dict, *, now, current_fingerprint, observed_sessions, matured_cohorts=0) -> dict:
     """Count observed sessions, not elapsed days; a changed strategy needs a new freeze."""
     from core_satellite_alpha import _nyse_sessions
     freeze_time = pd.Timestamp(frozen["frozen_at"])
@@ -146,8 +146,11 @@ def prospective_status(frozen: dict, *, now, current_fingerprint, observed_sessi
     observed = pd.DatetimeIndex(pd.to_datetime(observed_sessions)).normalize().unique()
     completed = len(sessions.intersection(observed))
     changed = frozen.get("strategy_fingerprint") != current_fingerprint
-    return {"status": "restart_required" if changed else "ready_for_final_review" if completed >= 252 else "collecting",
+    # Session count alone cannot establish enough independent matured outcomes.
+    ready = completed >= 252 and matured_cohorts >= 20
+    return {"status": "restart_required" if changed else "ready_for_final_review" if ready else "collecting",
             "observed_sessions": completed, "required_sessions": 252, "automatic_cutover": False,
+            "matured_independent_cohorts": matured_cohorts, "required_independent_cohorts": 20,
             "final_review_is_profitability_proof": False}
 
 
@@ -193,6 +196,9 @@ def main(argv=None):
     parser.add_argument("--end", default=datetime.now(timezone.utc).date().isoformat())
     parser.add_argument("--audit-only", action="store_true")
     parser.add_argument("--evidence-report", action="store_true", help="Read evidence and write sanitized JSON/Markdown only")
+    parser.add_argument("--reviews-dir", type=Path, help="Offline membership, transition and ablation report directory")
+    parser.add_argument("--gap-register", type=Path, help="Prior gap register; retain unresolved historical findings")
+    parser.add_argument("--verification-report", type=Path, help="Code fingerprints and passing named test evidence for closure")
     parser.add_argument("--ablations", action="store_true", help="Run seven fixed offline shadow comparisons")
     parser.add_argument("--spec", type=Path, help="Frozen JSON with features, configurations, folds and label")
     parser.add_argument("--freeze", action="store_true", help="Freeze only a fully validated corrected specification")
@@ -208,6 +214,8 @@ def main(argv=None):
     parser.add_argument("--reconciliation-report", type=Path, help="Private certified replay summary for evidence-report mode")
     parser.add_argument("--import-membership", type=Path, help="Import an attributed free-source membership CSV")
     args = parser.parse_args(argv)
+    if (args.reviews_dir or args.gap_register or args.verification_report) and not args.evidence_report:
+        parser.error("Review/register inputs require --evidence-report")
     if bool(args.workflow_artifact) != bool(args.artifact_metadata):
         parser.error("Workflow artifact and metadata must be supplied together")
     if (args.workflow_artifact or args.recovery_report or args.reconciliation_report) and not args.evidence_report:
@@ -295,11 +303,12 @@ def main(argv=None):
         atomic_write_csv(result.equity.reset_index(), args.output / "prospective_daily_equity.csv")
         atomic_write_csv(result.events, args.output / "prospective_events.csv")
         atomic_write_json({"through": str(available), "identity": observation_identity(bars, panel, actions, available)}, observation_path)
-        status = prospective_status(frozen, now=datetime.now(timezone.utc), current_fingerprint=current_id, observed_sessions=sessions)
-        atomic_write_json(status, args.output / "prospective_status.json")
         benchmark = paired_benchmark(result, bars, actions, provenance, start=sessions[0], end=sessions[-1], policy=policy)
         ics = non_overlapping_ic(scored.loc[pd.to_datetime(scored.date) >= sessions[0]], label=artifact.label, as_of=available)
         edge = edge_summary(result.equity.equity.pct_change().dropna(), benchmark.equity.equity.pct_change().dropna(), ics)
+        status = prospective_status(frozen, now=datetime.now(timezone.utc), current_fingerprint=current_id,
+                                    observed_sessions=sessions, matured_cohorts=len(ics))
+        atomic_write_json(status, args.output / "prospective_status.json")
         atomic_write_json({**edge, "ledger_version": LEDGER_VERSION, "as_of": str(available.date()),
                            "strategy_fingerprint": current_id, "shadow_only": True}, args.output / "edge_monitor.json")
         return
@@ -370,7 +379,8 @@ def main(argv=None):
         if freeze_path.exists():
             raise SystemExit("Existing freeze preserved; use a new output directory for a restarted cohort")
         atomic_write_json({"frozen_at": datetime.now(timezone.utc).isoformat(), "strategy_fingerprint": strategy_identity(selected, artifact, policy),
-                           "required_sessions": 252, "automatic_cutover": False, "configuration": selected,
+                           "required_sessions": 252, "required_independent_cohorts": 20,
+                           "automatic_cutover": False, "configuration": selected,
                            "artifact": asdict(artifact), "cost_parameters": cost_parameters, "specification": spec}, freeze_path)
 
 

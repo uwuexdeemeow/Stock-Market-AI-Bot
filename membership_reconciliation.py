@@ -16,6 +16,7 @@ import pandas as pd
 
 from audit_evidence_recovery import candidate_intervals
 from safe_io import atomic_write_csv, atomic_write_json, atomic_write_text
+from audit_gap_register import code_identity
 
 
 def digest(path):
@@ -116,7 +117,7 @@ def reconcile(candidate_path, comparison_path, facts_path, *, start, end):
         checks.append({**event, 'candidate_boundary_matches': covered and before_member != expected_after and after_member == expected_after,
                        'candidate_before': before_member, 'candidate_after': after_member,
                        'scope': 'single_boundary_only'})
-    report = {'schema_version': 1, 'generated_at': datetime.now(timezone.utc).isoformat(),
+    report = {'schema_version': 2, **code_identity(), 'generated_at': datetime.now(timezone.utc).isoformat(),
               'status': 'blocked_partial_primary_evidence', 'complete': False,
               'candidate_sha256': digest(candidate_path), 'comparison_sha256': digest(comparison_path),
               'facts_sha256': digest(facts_path), 'start': start, 'end': end,
@@ -192,7 +193,8 @@ def review_transitions(queue, facts_path, *, start, end):
                                for row in rows.itertuples()]})
         if checks:
             events.append({**event, 'checks': checks, 'executable': False, 'full_history_verified': False})
-    return {'schema_version': 1, 'status': 'blocked_partial_event_evidence', 'complete': False,
+    return {'schema_version': 2, **code_identity(), 'generated_at': datetime.now(timezone.utc).isoformat(),
+            'status': 'blocked_partial_event_evidence', 'complete': False,
             'facts_sha256': digest(facts_path), 'sources': sources, 'transitions': events,
             'production_inputs_changed': False,
             'scope': 'Retrospective event review; source hashes identify archived documents, not complete history certification.'}

@@ -338,3 +338,19 @@ IR, retain TT and the new IR distribution as distinct holdings. Confirm raw-pric
 identifiers and settlement evidence before implementing any ledger corrections.
 A matching ticker or reviewed announcement is still not full historical approval;
 no freeze, orders, or prospective observations follow from this offline review.
+
+### Track closure without erasing missing evidence
+
+Run recovery first, then membership/transition reviews and the fixed ablation
+attempt, and finally the unified evidence report. Use the same explicit saved
+review directory while preserving every report's own commit, date and hashes.
+The shadow workflow publishes the persistent gap register alongside blocked
+reports. The post-market workflow builds a separate execution-observation
+manifest; it never borrows a daily run ID. Intentional daily skips produce an
+attributed receipt. The frozen version remains unchanged until a separate,
+explicitly authorized validation restart. New observations cannot backfill the
+252-session or 20-independent-cohort requirement.
+
+Primary payment-date matches are narrower than complete corporate-action
+coverage. Raw provider records stay private and immutable; individually reviewed
+corrections remain separately attributed until all dependent source gates pass.

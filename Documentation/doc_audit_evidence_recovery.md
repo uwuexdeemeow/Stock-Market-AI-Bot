@@ -94,3 +94,13 @@ until issuer evidence establishes coverage and ledger-compatible semantics.
 Paper interval reports now distinguish a no-activity balance check from an
 interval containing recorded activity, with explicit fill/fee counts. Neither
 scope by itself establishes profitability or starts a prospective freeze.
+
+## Evidence closure update
+
+Broker activity and order pages are saved privately before interpretation. Failed pagination or unsupported events cannot erase received evidence. Run python audit_evidence_recovery.py --paper --opening-balances PATH --action-probes SPY QQQ for read-only recovery. The reviewed dividend_payment_facts.json collection can match missing payment dates by symbol, CUSIP, ex-date and exact amount. dividend_payment_review.json records supported dates separately; original API rows remain unchanged and full action coverage remains unverified. A CUSIP identifies a security; it is distinct from the trading symbol.
+
+Documented cash-only activity types (deposits, withdrawals, dividends, interest,
+cash journals and cash transfers) map to their signed broker net amounts. Stock
+transfers and reorganizations remain blocked until their share movements are
+verified. Date-only cash records cannot certify an intraday interval boundary.
+Type definitions: https://docs.alpaca.markets/us/docs/account-activities.

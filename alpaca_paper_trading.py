@@ -2816,7 +2816,8 @@ def snapshot_status(broker: AlpacaBroker) -> None:
     for p in raw_positions:
         try:
             ticker = str(p.symbol).upper()
-            qty = int(float(p.qty))
+            # Preserve fractional holdings; truncation corrupts cash/share comparisons.
+            qty = float(p.qty)
             mv = float(p.market_value)
             positions[ticker] = qty
             position_values[ticker] = round(mv, 2)
@@ -3195,6 +3196,13 @@ def build_slippage_reversal_report(
         row["arrival_mid"] = arrival
         row["arrival_quote_timestamp"] = saved.get("arrival_quote_timestamp")
         row["arrival_feed"] = saved.get("arrival_feed")
+        submitted_at = _parse_broker_datetime(_obj_value(raw, "submitted_at"))
+        row["fill_latency_seconds"] = ((filled_at - submitted_at).total_seconds()
+                                       if submitted_at is not None and filled_at >= submitted_at else None)
+        quote_at = _parse_broker_datetime(saved.get("arrival_quote_timestamp"))
+        row["quote_age_seconds"] = ((submitted_at - quote_at).total_seconds()
+                                    if submitted_at is not None and quote_at is not None and submitted_at >= quote_at else None)
+
         row["arrival_shortfall_bps"] = _signed_slippage_bps(side, fill_price, arrival)
         row["original_requested_quantity"] = saved.get("original_requested_quantity")
         spread = _float_or_none(saved.get("arrival_spread_bps"))
@@ -3305,7 +3313,13 @@ def build_slippage_reversal_report(
                             "filled_qty": _float_or_none(_obj_value(raw, "filled_qty")),
                             "original_requested_quantity": saved.get("original_requested_quantity"),
                             "arrival_mid": saved.get("arrival_mid")})
+    from order_accounting import stage_attempt_counts
+    attempts = [{key: _obj_value(raw, key) for key in
+                 ("id", "client_order_id", "type", "submitted_at", "created_at", "qty", "filled_qty", "status")}
+                for raw in raw_orders]
     report = {
+        "stage_attempt_counts": stage_attempt_counts(attempts, start=cutoff, end=report_clock,
+                                                      history_complete=history.complete),
         "schema_version": 3,
         "generated_at": report_clock.isoformat(timespec="seconds"),
         "measurement_cutoff_60m": (report_clock - timedelta(minutes=60)).isoformat(timespec="seconds"),

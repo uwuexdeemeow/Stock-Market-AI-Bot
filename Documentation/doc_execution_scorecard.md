@@ -146,3 +146,7 @@ broker order within an intended parent trade. A basis point is 0.01 percent.
 Reports that explicitly mark broker history incomplete or measurement coverage truncated cannot become decision eligible. Pagination and measurement evidence are supplied by the updated paper report; parent/child snapshots must not be counted as separate independent investment decisions. Existing operational safety checks remain independent of the corrected statistical edge review. Use python -m pytest tests/test_execution_scorecard.py -q for the existing scorecard regressions.
 
 Historical results affected by these changes must be regenerated. Original audit evidence is preserved; no corrected historical claim is made when source checks are blocked.
+
+## Evidence closure update
+
+Stage fill-rate denominators come only from complete broker submission populations, including unfilled attempts. Price statistics retain their separate fill-time population. Missing history keeps stage rates unavailable. Run python execution_scorecard.py to rebuild the scorecard from saved evidence; this does not tune order parameters.

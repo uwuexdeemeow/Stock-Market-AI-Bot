@@ -36,3 +36,11 @@ paper journal and submission-outcome history must exist and be readable,
 in addition to the four same-run reports. A header-only order CSV can mean no
 orders; an absent file is not evidence of no orders. Submission outcomes are
 multi-run history, so an older last row is valid on a no-action day.
+
+## Evidence closure update
+
+python run_evidence.py --profile execution verifies only the four same-run read-only reports and writes execution_run_manifest.json. It does not claim a new signal or order plan. Default daily mode keeps its existing stronger operational requirements. --check validates without writing. An incomplete manifest exits nonzero and can still be retained as diagnostic evidence.
+
+Post-market publishing puts an incomplete manifest under a run-specific
+`signals/diagnostics/` folder and preserves the previous operational reports.
+This exposes the failure without labeling a partial snapshot complete.

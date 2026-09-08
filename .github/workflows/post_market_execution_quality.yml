@@ -102,6 +102,12 @@ jobs:
           # Health must read the epoch result from this reporting run.
           python3 paper_health.py
 
+      - name: Verify read-only run manifest
+        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        env:
+          STOCKBOT_RUN_ID: post-market-${{ github.run_id }}-${{ github.run_attempt }}
+        run: python3 run_evidence.py --profile execution
+
       - name: Write workflow heartbeat
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         env:
@@ -141,6 +147,7 @@ jobs:
             signals/broker_truth.json
             signals/alpaca_paper_health.json
             signals/paper_validation_epoch_status.json
+            signals/execution_run_manifest.json
             signals/workflow_heartbeat_execution.json
 
       - name: Publish refreshed evidence
@@ -148,6 +155,18 @@ jobs:
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         run: |
           generated_dir="$(mktemp -d)"
+          # An incomplete run gets its own diagnostic folder and cannot replace
+          # the last operational snapshot. Preserve its manifest for inspection.
+          publication_status=$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          try:
+              value = json.loads(Path("signals/execution_run_manifest.json").read_text())
+              print("complete" if value.get("status") == "complete" else "incomplete")
+          except (OSError, ValueError):
+              print("incomplete")
+          PY
+          )
           for f in \
             signals/alpaca_paper_equity.csv \
             signals/alpaca_daily_status.json \
@@ -158,6 +177,7 @@ jobs:
             signals/broker_truth.json \
             signals/alpaca_paper_health.json \
             signals/paper_validation_epoch_status.json \
+            signals/execution_run_manifest.json \
             signals/workflow_heartbeat_execution.json; do
             if [ -f "$f" ]; then
               mkdir -p "$generated_dir/$(dirname "$f")"
@@ -173,7 +193,17 @@ jobs:
           git stash push --include-untracked --message "post-market generated evidence" || true
           git fetch --quiet origin +signals/latest:refs/remotes/origin/signals/latest
           git checkout -B signals/latest origin/signals/latest
-          cp -R "$generated_dir/signals/." signals/
+          if [ "$publication_status" = "complete" ]; then
+            cp -R "$generated_dir/signals/." signals/
+          else
+            diagnostic_dir="signals/diagnostics/post-market-${{ github.run_id }}"
+            mkdir -p "$diagnostic_dir"
+            if [ -f "$generated_dir/signals/execution_run_manifest.json" ]; then
+              cp "$generated_dir/signals/execution_run_manifest.json" "$diagnostic_dir/"
+            else
+              echo '{"status":"incomplete","reason":"execution_manifest_missing"}' > "$diagnostic_dir/publication.json"
+            fi
+          fi
           git add -f signals/
           git commit -m "signals: post-market execution run #${{ github.run_number }}" || exit 0
           git push origin signals/latest

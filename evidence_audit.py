@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import re
 import subprocess
 import zipfile
 from datetime import datetime, timezone
@@ -19,6 +20,8 @@ NAMES = ('paper_run_manifest.json', 'core_satellite_live_configs.json',
          'alpaca_execution_scorecard.json', 'paper_validation_epoch_status.json',
          'alpaca_paper_health.json', 'workflow_heartbeat_daily.json',
          'alpaca_paper_log.csv', 'alpaca_submit_outcomes.csv', 'core_satellite_alpha_signal.csv')
+NAMES += ('core_satellite_alpha_orders.csv', 'core_satellite_alpha_input_snapshot.csv',
+          'workflow_skip.json', 'workflow_heartbeat_execution.json', 'execution_run_manifest.json')
 REQUIRED = ('broker_truth.json', 'alpaca_execution_scorecard.json',
             'paper_validation_epoch_status.json', 'alpaca_paper_health.json')
 
@@ -44,10 +47,20 @@ def snapshot_summary(files, *, source, commit=None, now=None):
     """Recheck manifest bytes and run identities instead of trusting its status."""
     now = now or datetime.now(timezone.utc)
     manifest = payload(files, 'paper_run_manifest.json')
+    execution_manifest = payload(files, 'execution_run_manifest.json')
+    if execution_manifest.get('profile') == 'execution_observation_only' and execution_manifest.get('run_id'):
+        # A post-market refresh is a distinct observation bundle. Select it
+        # only when every required report belongs to that exact run.
+        if all((payload(files, name).get('run_id') or payload(files, name).get('run_context', {}).get('run_id'))
+               == execution_manifest['run_id'] for name in REQUIRED):
+            manifest = execution_manifest
     issues = []
     if manifest.get('status') != 'complete' or not manifest.get('run_id'):
         issues.append('complete_run_manifest_missing')
     records = manifest.get('files', {})
+    if not isinstance(records, dict) or any(not isinstance(r, dict) for r in records.values()):
+        issues.append('manifest_records_malformed')
+        records = {}
     for name in sorted(set(REQUIRED) | {n for n, r in records.items() if r.get('required')}):
         data = files.get(name)
         record = records.get(name, {})
@@ -72,12 +85,27 @@ def snapshot_summary(files, *, source, commit=None, now=None):
         issues.append('snapshot_timestamp_missing')
     scorecard = payload(files, 'alpaca_execution_scorecard.json')
     summary = scorecard.get('summary', {})
+    health = payload(files, 'alpaca_paper_health.json')
+    epoch = payload(files, 'paper_validation_epoch_status.json')
+    operational_issues = []
+    if health.get('freshness_ok') is False:
+        operational_issues.append('signal_freshness_failed')
+    if scorecard.get('decision_eligible') is False:
+        operational_issues.append('execution_observations_insufficient_or_failed')
+    if epoch.get('paper_version_lock_valid') is False:
+        operational_issues.append('reported_paper_version_lock_invalid')
+    for check in ('trading_days', 'rebalance_events', 'accepted_orders', 'classified_sessions',
+                  'average_slippage', 'bad_slippage_rate', 'stage_comparison_ready', 'two_stage_design'):
+        if epoch.get('checks', {}).get(check) is False:
+            operational_issues.append('epoch_check_failed:' + check)
     return {'source': source, 'source_commit': commit,
+            'profile': manifest.get('profile', 'daily'),
             'run_commit': manifest.get('run_context', {}).get('git_commit'),
             'generated_at': timestamp, 'age_hours': age, 'complete': not issues,
             'issues': sorted(set(issues)), 'measured_fills': summary.get('measured_slippage_count'),
             'sessions': summary.get('trading_sessions'),
             'decision_eligible': scorecard.get('decision_eligible') is True,
+            'operational_issues': operational_issues,
             'file_hashes': {n: hashlib.sha256(v).hexdigest() for n, v in files.items()}}
 
 
@@ -141,13 +169,39 @@ def imported_artifact(path, metadata_path):
             meta['head_sha'], archive_files(raw))
 
 
-def collect_snapshots(root):
+def iter_api_pages(root, endpoint, field, *, maximum_pages=100):
+    """Walk every page with a bound and reject repeated IDs rather than truncate."""
+    seen = set()
+    for page in range(1, maximum_pages + 1):
+        separator = '&' if '?' in endpoint else '?'
+        body = json.loads(command(root, 'gh', 'api', f'{endpoint}{separator}per_page=100&page={page}'))
+        batch = body[field]
+        if not isinstance(batch, list):
+            raise ValueError('invalid_api_page')
+        for row in batch:
+            identity = row.get('id')
+            if identity is None or identity in seen:
+                raise ValueError('repeated_api_identity')
+            seen.add(identity)
+        yield from batch
+        if len(batch) < 100:
+            return
+    raise ValueError('api_pagination_limit')
+
+
+def api_pages(root, endpoint, field, *, maximum_pages=100):
+    """Materialize bounded artifact pages; run discovery can stop lazily."""
+    return list(iter_api_pages(root, endpoint, field, maximum_pages=maximum_pages))
+
+
+def collect_snapshots(root, observations=None):
     """Read Git and completed workflow artifacts independently, without checkout."""
     root = Path(root)
     snapshots = []
     local = {n: (root / 'signals' / n).read_bytes() for n in NAMES if (root / 'signals' / n).is_file()}
     snapshots.append(('local_snapshot', None, local))
     errors = []
+    observations = observations if observations is not None else []
     try:
         commit = command(root, 'git', 'rev-parse', 'origin/signals/latest').decode().strip()
         files = {}
@@ -161,28 +215,83 @@ def collect_snapshots(root):
         errors.append('signals_branch_unavailable')
     try:
         # gh resolves the current repository; authentication failures are explicit.
-        runs = json.loads(command(root, 'gh', 'api', 'repos/{owner}/{repo}/actions/runs?status=completed&per_page=50'))
-        candidates = [r for r in runs['workflow_runs'] if r.get('path') == '.github/workflows/daily_paper_trading.yml'][:3]
-        if not candidates:
-            raise ValueError('completed_daily_run_missing')
-        for selected in candidates:
-            artifacts = json.loads(command(root, 'gh', 'api', f"repos/{{owner}}/{{repo}}/actions/runs/{selected['id']}/artifacts"))
-            usable = [a for a in artifacts['artifacts'] if not a.get('expired')]
+        runs = iter_api_pages(root, 'repos/{owner}/{repo}/actions/workflows/daily_paper_trading.yml/runs?status=completed', 'workflow_runs')
+        latest_id = None
+        for selected in runs:
+            latest_id = latest_id or selected['id']
+            artifacts = api_pages(root, f"repos/{{owner}}/{{repo}}/actions/runs/{selected['id']}/artifacts", 'artifacts')
+            usable = [a for a in artifacts if not a.get('expired')]
             if not usable:
                 # Scheduled guard runs can finish without producing evidence.
                 # Keep that fact while looking for a clearly labeled older run.
                 errors.append(f"completed_run_has_no_artifact:{selected['id']}")
                 continue
+            found = False
             for artifact in usable:
                 raw = command(root, 'gh', 'api', f"repos/{{owner}}/{{repo}}/actions/artifacts/{artifact['id']}/zip")
                 if artifact.get('digest') != 'sha256:' + hashlib.sha256(raw).hexdigest():
                     raise ValueError('artifact_digest_unverified')
                 files = archive_files(raw)
+                skip = payload(files, 'workflow_skip.json')
+                if (skip.get('run_id') == str(selected['id']) and skip.get('reason') in
+                        {'market_closed', 'schedule_guard'} and selected.get('conclusion') == 'success'):
+                    # Explicit run-bound skip evidence is not a failed trading run.
+                    observations.append({'run_id': selected['id'], 'status': 'intentional_skip',
+                                         'reason': skip['reason'], 'source_commit': selected['head_sha']})
+                    continue
+                if not any(name in files for name in REQUIRED):
+                    continue
                 snapshots.append((f"workflow_artifact:{selected['id']}:{artifact['id']}:{selected['conclusion']}", selected['head_sha'], files))
-            break
+                found = True
+            if found:
+                observations.append({'run_id': selected['id'], 'status': 'artifact_selected',
+                                     'older_fallback': selected['id'] != latest_id,
+                                     'source_commit': selected['head_sha']})
+                break
+        if latest_id is None:
+            errors.append('completed_daily_runs_unavailable')
     except (ValueError, KeyError, OSError, subprocess.TimeoutExpired, zipfile.BadZipFile):
         errors.append('workflow_artifacts_unavailable_or_incomplete')
     return snapshots, errors
+
+
+def review_sections(folder):
+    """Read explicitly selected offline reports without copying their raw data."""
+    sections = {}
+    for name in ('membership_identity_report', 'security_transition_report', 'edge_ablation_comparison'):
+        path = Path(folder) / (name + '.json')
+        body = payload({'review': path.read_bytes()} if path.exists() else {}, 'review')
+        section = {'source_file': name + '.json', 'source_sha256': hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None,
+                   'source_commit': body.get('audit_code_commit') or body.get('source_commit'),
+                   'generated_at': body.get('generated_at'), 'complete': body.get('complete') is True,
+                   'status': body.get('status', 'missing'), 'issues': [], 'findings': []}
+        # Only fixed public summaries cross the publication boundary. Orders,
+        # balances, account IDs and arbitrary nested source responses stay out.
+        for key in ('candidate_cutoff', 'candidate_symbols', 'candidate_intervals',
+                    'verified_full_intervals', 'disagreement_dates', 'disagreement_symbols',
+                    'candidate_identity', 'facts_sha256', 'deployed_strategy_equivalent'):
+            if key in body:
+                section[key] = body[key]
+        if not body:
+            section['issues'].append('review_report_missing')
+        if not section['source_commit'] or not section['generated_at']:
+            section['issues'].append('review_source_identity_incomplete')
+        if section['status'] != 'complete' or not section['complete']:
+            section['issues'].append('review_not_fully_verified')
+        for ticker, count in body.get('priority_symbols', []):
+            if re.fullmatch(r'[A-Z0-9.-]{1,12}', str(ticker)):
+                section['findings'].append({'reason': 'historical_membership_source_disagreement',
+                                            'ticker': ticker, 'count': int(count)})
+        for event in body.get('transitions', []):
+            for check in event.get('checks', []):
+                if check.get('result') in {'unseparated_issuer_history', 'candidate_disagrees', 'candidate_coverage_unavailable'}:
+                    section['findings'].append({'reason': check['result'], 'ticker': check['ticker'],
+                                                'date': check['date']})
+        for variant, result in body.get('results', {}).items():
+            if result.get('status') != 'complete':
+                section['findings'].append({'reason': 'ablation_verified_result_unavailable', 'variant': variant})
+        sections[name] = section
+    return sections
 
 
 def input_report(data_dir, membership, spec, *, start, end):
@@ -256,7 +365,8 @@ def write_evidence_report(args):
     from paper_validation_epoch import validate_paper_version_lock
     import core_satellite_alpha as core
     root = Path(__file__).resolve().parent
-    snapshots, unavailable = collect_snapshots(root)
+    observations = []
+    snapshots, unavailable = collect_snapshots(root, observations)
     imported = None
     if getattr(args, 'workflow_artifact', None):
         try:
@@ -272,7 +382,7 @@ def write_evidence_report(args):
         summary = snapshot_summary(files, source=name, commit=commit)
         approval = approval_summary(payload(files, 'core_satellite_live_configs.json'), payload(files, 'core_satellite_validation_bundle.json'))
         sources.append({**summary, 'approval': approval})
-        for issue in summary['issues'] + approval['issues']:
+        for issue in summary['issues'] + approval['issues'] + summary['operational_issues']:
             blockers.append({'reason': issue, 'source': name,
                              'next_action': 'Recover matching evidence and rerun existing validation; do not edit approval flags.'})
     data = input_report(args.data_dir, args.membership, spec, start=args.start, end=args.end)
@@ -289,12 +399,21 @@ def write_evidence_report(args):
     for issue in runtime_issues + lock_issues:
         # Production messages may contain paths; publish only the reason category.
         blockers.append({'reason': str(issue).split(':')[0], 'source': 'local_runtime',
+                         **({'file': str(issue).split(':', 1)[1]} if str(issue).startswith(('locked_file_changed:', 'locked_file_missing:')) else {}),
                          'next_action': 'Review current runtime evidence and version lock; preserve existing freeze.'})
     replay_path = getattr(args, 'reconciliation_report', None) or args.output / 'replay_reconciliation.json'
     replay = payload({'replay': replay_path.read_bytes()} if replay_path.exists() else {}, 'replay')
     certified = replay_certified(replay)
     if not certified:
         blockers.append({'reason': 'recorded_replay_not_certified', 'next_action': 'Recover complete activities, fees and independently verified interval balances; replay to one-cent cash tolerance.'})
+    if replay.get('evidence_scope') != 'recorded_activity_interval':
+        blockers.append({'reason': 'normal_session_activity_reconciliation_awaiting_observations',
+                         'next_action': 'Reconcile a normal-session interval after broker activity and fee postings; never submit orders to manufacture samples.'})
+    if replay.get('historical_reconciliation_certified') is not True:
+        blockers.append({'reason': 'full_historical_broker_accounting_uncertified',
+                         'next_action': 'Obtain independently sourced historical opening balances and all subsequent activity; interval arithmetic is insufficient.'})
+    blockers.append({'reason': 'corrected_prospective_validation_requires_explicit_freeze_and_new_observations',
+                     'next_action': 'After verified inputs, successful evaluation and certified reconciliation, obtain explicit freeze before 252 new sessions and 20 independent matured cohorts.'})
     recovery_path = getattr(args, 'recovery_report', None)
     recovery = payload({'recovery': recovery_path.read_bytes()} if recovery_path and recovery_path.exists() else {}, 'recovery')
     recovered = {'source_sha256': hashlib.sha256(recovery_path.read_bytes()).hexdigest() if recovery_path and recovery_path.exists() else None,
@@ -309,7 +428,21 @@ def write_evidence_report(args):
         audit_dirty = bool(command(root, 'git', 'status', '--porcelain', '--untracked-files=no').strip())
     except (ValueError, OSError, subprocess.TimeoutExpired):
         audit_commit, audit_dirty = None, None
-    report = {'schema_version': 1, 'generated_at': datetime.now(timezone.utc).isoformat(),
+    from audit_gap_register import lock_changes, write_register, verified_fixes
+    reviews = review_sections(getattr(args, 'reviews_dir', None) or args.output / 'membership_review')
+    for name, section in reviews.items():
+        blockers.extend({'reason': issue, 'source': name,
+                         'next_action': 'Regenerate the attributed review and resolve its verified-input dependencies.'}
+                        for issue in section['issues'])
+        blockers.extend({**issue, 'source': name,
+                         'next_action': 'Resolve the named security/date or verified-input dependency; retain original observations.'}
+                        for issue in section['findings'])
+    try:
+        lock_detail = lock_changes(root)
+    except (ValueError, OSError, KeyError, TypeError):
+        lock_detail = {'status': 'unavailable', 'lock_modified': False}
+    report = {'schema_version': 2, 'generated_at': datetime.now(timezone.utc).isoformat(),
+              'audit_start': args.start, 'audit_end': args.end,
               'audit_code_commit': audit_commit, 'audit_worktree_dirty': audit_dirty,
               'status': 'blocked' if blockers else 'evidence_consistent', 'sources': sources,
               'recovery': recovered,
@@ -325,7 +458,21 @@ def write_evidence_report(args):
                                    'scoring': 'fold_local_raw_feature_ranks', 'deployed_strategy_equivalent': False},
               'blockers': blockers, 'real_capital_approved': False, 'freeze_started': False,
               'historical_interpretation': 'superseded_results_require_corrected_rebuild'}
+    report['workflow_observations'] = observations
+    report['review_sections'] = reviews
+    report['version_lock_changes'] = lock_detail
+    try:
+        report['verified_fixes'] = verified_fixes(getattr(args, 'verification_report', None), root, audit_commit)
+    except (ValueError, OSError, KeyError, TypeError):
+        report['verified_fixes'] = []
+        report['blockers'].append({'reason': 'code_closure_evidence_invalid', 'source': 'verification_report',
+                                   'next_action': 'Regenerate named test evidence bound to this exact code revision.'})
+        report['status'] = 'blocked'
     args.output.mkdir(parents=True, exist_ok=True)
+    register = write_register(report, args.output, root / 'research_evidence/original_gap_baseline.json',
+                              getattr(args, 'gap_register', None))
+    report['gap_register'] = {'findings': len(register['findings']), 'original_findings': register['baseline_count'],
+                              'path': 'gap_register.json', 'automatic_closure': False}
     atomic_write_json(report, args.output / 'evidence_report.json')
     lines = ['# Strategy evidence audit', '', 'Status: **' + report['status'] + '**', '',
              'Historical claims require corrected rebuilding. Shadow candidate is separate from deployed factor scoring.', '',
@@ -336,5 +483,11 @@ def write_evidence_report(args):
               'Replay certification concerns interval accounting only; it does not approve the strategy or prove trading performance.',
               '', '## Blockers and next actions', '']
     lines += [f"- {b['reason'].replace('_', ' ')} ({b.get('source', 'data/replay')}): {b['next_action']}" for b in blockers]
+    lines += ['', '## Exact version-lock differences', '']
+    lines += ['- ' + row['file'] + ': ' + str(row['expected_sha256']) + ' → ' + str(row['observed_sha256'])
+              for row in lock_detail.get('changes', [])]
+    lines += ['', '## Independently generated reviews', '']
+    lines += [f"- {name}: {section['status']}; generated {section['generated_at']}; source commit {section['source_commit']}."
+              for name, section in reviews.items()]
     atomic_write_text(args.output / 'evidence_report.md', '\n'.join(lines) + '\n')
     return report

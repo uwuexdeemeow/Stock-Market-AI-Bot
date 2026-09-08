@@ -59,3 +59,16 @@ margin balances are preserved in recorded replay and reported through
 minimum_recorded_cash and historical_margin_observed. Simulation stays
 cash-only. This distinction permits replay of actual records without imposing
 today's policy on earlier transactions.
+
+## Recorded security settlements
+
+Recorded replay accepts `security_settlement` events with an explicit event ID,
+timestamp, `settlement_verified: true`, source, source SHA-256, `cash_delta`, and
+`share_deltas` mapping security symbols to signed quantities. These describe actual
+account settlement evidence, not public merger alternatives. All changes validate
+before any balance is changed, and the same event cannot apply twice. Retained
+parent and distributed child holdings can coexist. Missing settlement evidence
+remains blocked; public ratios alone cannot supply account cash or proration.
+This event type is for recorded replay. Historical daily research still rejects
+unsupported composite actions until verified historical execution, pricing and
+feature-continuity treatment is available. No account settlement is invented.

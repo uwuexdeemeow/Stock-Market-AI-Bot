@@ -503,6 +503,31 @@ jobs:
           Path("signals/workflow_heartbeat_daily.json").write_text(json.dumps(payload, indent=2))
           PY
 
+      - name: Record intentional skip
+        if: ${{ always() && (steps.ny_schedule_gate.outputs.should_run == 'false' || steps.run_daily_paper.outputs.market_closed == 'true') }}
+        env:
+          SKIP_REASON: ${{ steps.ny_schedule_gate.outputs.should_run == 'false' && 'schedule_guard' || 'market_closed' }}
+        run: |
+          # Runner Python is available even when the schedule skips checkout.
+          python3 - <<'PY_SKIP'
+          import json, os
+          from pathlib import Path
+          Path("skip-evidence").mkdir(exist_ok=True)
+          Path("skip-evidence/workflow_skip.json").write_text(json.dumps({
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "source_commit": os.environ["GITHUB_SHA"],
+              "reason": os.environ["SKIP_REASON"], "orders_submitted": False
+          }))
+          PY_SKIP
+
+      - name: Upload skip evidence
+        if: ${{ always() && (steps.ny_schedule_gate.outputs.should_run == 'false' || steps.run_daily_paper.outputs.market_closed == 'true') }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: intentional-skip-${{ github.run_id }}
+          path: skip-evidence/workflow_skip.json
+          retention-days: 30
+
       # ── 8. Upload logs as artifact (viewable in Actions tab) ───────
       - name: Upload closed-market metadata
         if: ${{ steps.run_daily_paper.outputs.market_closed == 'true' }}

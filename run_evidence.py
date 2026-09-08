@@ -224,6 +224,7 @@ def build_evidence_manifest(
     output_path: Path = MANIFEST_FILE,
     now: datetime | None = None,
     write: bool = True,
+    optional_files: tuple[Path, ...] = OPTIONAL_EVIDENCE_FILES,
     operational_files: tuple[Path, ...] = (
         SIGNALS / "core_satellite_alpha_signal.csv",
         SIGNALS / "core_satellite_alpha_orders.csv",
@@ -239,7 +240,7 @@ def build_evidence_manifest(
     required_set = {Path(path).name for path in required_files}
     required_set.update(path.name for path in operational_files)
     all_files = tuple(required_files) + tuple(operational_files) + tuple(
-        path for path in OPTIONAL_EVIDENCE_FILES if path.name not in required_set
+        path for path in optional_files if path.name not in required_set
     )
     for path in all_files:
         payload = read_json(path)
@@ -304,8 +305,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="Validate evidence without writing the manifest.")
     parser.add_argument("--json", action="store_true", help="Print the complete manifest JSON.")
+    parser.add_argument("--profile", choices=("daily", "execution"), default="daily",
+                        help="Execution profile verifies read-only reports, not a new signal or order plan.")
     args = parser.parse_args()
-    payload = build_evidence_manifest(write=not args.check)
+    if args.profile == "execution":
+        payload = build_evidence_manifest(write=False, operational_files=(), optional_files=())
+        payload['profile'] = 'execution_observation_only'
+        if not args.check:
+            atomic_write_json(payload, SIGNALS / 'execution_run_manifest.json')
+    else:
+        payload = build_evidence_manifest(write=not args.check)
     if args.json:
         print(json.dumps(payload, indent=2))
     else:

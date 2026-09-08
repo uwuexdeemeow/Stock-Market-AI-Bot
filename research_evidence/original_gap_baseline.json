@@ -1,0 +1,455 @@
+{
+  "source_commit": "0c4efcca461bb6d5b057a13d037ab3eab3650338",
+  "generated_at": "2026-09-07T19:53:18.240776+00:00",
+  "findings": [
+    {
+      "reason": "completed_run_has_no_artifact:34153115990",
+      "next_action": "Restore read-only access and retrieve the latest completed run."
+    },
+    {
+      "reason": "complete_run_manifest_missing",
+      "source": "local_snapshot",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "evidence_run_mismatch:alpaca_execution_scorecard.json",
+      "source": "local_snapshot",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "evidence_run_mismatch:alpaca_paper_health.json",
+      "source": "local_snapshot",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "evidence_run_mismatch:broker_truth.json",
+      "source": "local_snapshot",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "evidence_run_mismatch:paper_validation_epoch_status.json",
+      "source": "local_snapshot",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "required_evidence_missing:alpaca_execution_scorecard.json",
+      "source": "local_snapshot",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "required_evidence_missing:alpaca_paper_health.json",
+      "source": "local_snapshot",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "required_evidence_missing:broker_truth.json",
+      "source": "local_snapshot",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "required_evidence_missing:paper_validation_epoch_status.json",
+      "source": "local_snapshot",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "snapshot_timestamp_missing",
+      "source": "local_snapshot",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "deployment_status_conflict",
+      "source": "local_snapshot",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "paper_approval_not_unanimous",
+      "source": "local_snapshot",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "strategy_bundle_reference_mismatch",
+      "source": "local_snapshot",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "complete_run_manifest_missing",
+      "source": "signals/latest",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "evidence_run_mismatch:alpaca_execution_scorecard.json",
+      "source": "signals/latest",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "evidence_run_mismatch:alpaca_paper_health.json",
+      "source": "signals/latest",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "evidence_run_mismatch:broker_truth.json",
+      "source": "signals/latest",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "evidence_run_mismatch:paper_validation_epoch_status.json",
+      "source": "signals/latest",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "required_evidence_missing:alpaca_execution_scorecard.json",
+      "source": "signals/latest",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "required_evidence_missing:alpaca_paper_health.json",
+      "source": "signals/latest",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "required_evidence_missing:broker_truth.json",
+      "source": "signals/latest",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "required_evidence_missing:paper_validation_epoch_status.json",
+      "source": "signals/latest",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "deployment_status_conflict",
+      "source": "signals/latest",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "paper_approval_not_unanimous",
+      "source": "signals/latest",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "strategy_bundle_reference_mismatch",
+      "source": "signals/latest",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "complete_run_manifest_missing",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "evidence_run_mismatch:alpaca_execution_scorecard.json",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "evidence_run_mismatch:alpaca_paper_health.json",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "evidence_run_mismatch:broker_truth.json",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "evidence_run_mismatch:paper_validation_epoch_status.json",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "required_evidence_missing:alpaca_execution_scorecard.json",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "required_evidence_missing:alpaca_paper_health.json",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "required_evidence_missing:broker_truth.json",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "required_evidence_missing:paper_validation_epoch_status.json",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "config_fingerprint_missing",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "configuration_fingerprint_mismatch",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "deployed_configuration_missing",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "deployment_state_missing",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "paper_approval_not_unanimous",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "robustness_review_missing",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "strategy_bundle_reference_mismatch",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "top_bundle_reference_mismatch",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "validation_bundle_hash_missing",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "validation_bundle_schema_outdated",
+      "source": "workflow_artifact:34151152462:10029412561:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "config_fingerprint_missing",
+      "source": "imported_workflow_artifact:33897908550:9946624459:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "configuration_fingerprint_mismatch",
+      "source": "imported_workflow_artifact:33897908550:9946624459:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "deployed_configuration_missing",
+      "source": "imported_workflow_artifact:33897908550:9946624459:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "deployment_state_missing",
+      "source": "imported_workflow_artifact:33897908550:9946624459:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "paper_approval_not_unanimous",
+      "source": "imported_workflow_artifact:33897908550:9946624459:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "robustness_review_missing",
+      "source": "imported_workflow_artifact:33897908550:9946624459:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "strategy_bundle_reference_mismatch",
+      "source": "imported_workflow_artifact:33897908550:9946624459:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "top_bundle_reference_mismatch",
+      "source": "imported_workflow_artifact:33897908550:9946624459:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "validation_bundle_hash_missing",
+      "source": "imported_workflow_artifact:33897908550:9946624459:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "validation_bundle_schema_outdated",
+      "source": "imported_workflow_artifact:33897908550:9946624459:success",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+    },
+    {
+      "reason": "membership_table_missing",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "required_ticker_membership_missing",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "membership_provenance_columns_missing",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "historical_universe_too_small",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "inactive_membership_coverage_too_small",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "historical_price_coverage_incomplete",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "historical_membership_missing",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "membership_coverage_unverified",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "raw_price_file_missing",
+      "ticker": "QQQ",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "source_url_missing",
+      "ticker": "QQQ",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "retrieved_at_missing",
+      "ticker": "QQQ",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "license_missing",
+      "ticker": "QQQ",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "free_raw_source_unverified",
+      "ticker": "QQQ",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "raw_price_provenance_invalid",
+      "ticker": "QQQ",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "raw_price_feed_or_symbol_mapping_missing",
+      "ticker": "QQQ",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "raw_price_security_identity_unverified",
+      "ticker": "QQQ",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "corporate_action_coverage_missing",
+      "ticker": "QQQ",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "raw_price_file_missing",
+      "ticker": "SPY",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "source_url_missing",
+      "ticker": "SPY",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "retrieved_at_missing",
+      "ticker": "SPY",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "license_missing",
+      "ticker": "SPY",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "free_raw_source_unverified",
+      "ticker": "SPY",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "raw_price_provenance_invalid",
+      "ticker": "SPY",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "raw_price_feed_or_symbol_mapping_missing",
+      "ticker": "SPY",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "raw_price_security_identity_unverified",
+      "ticker": "SPY",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "corporate_action_coverage_missing",
+      "ticker": "SPY",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "corporate_action_file_unverified",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "dated_context_missing_or_unverified",
+      "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
+    },
+    {
+      "reason": "locked_file_changed",
+      "source": "local_runtime",
+      "next_action": "Review current runtime evidence and version lock; preserve existing freeze."
+    },
+    {
+      "reason": "locked_file_changed",
+      "source": "local_runtime",
+      "next_action": "Review current runtime evidence and version lock; preserve existing freeze."
+    },
+    {
+      "reason": "locked_file_changed",
+      "source": "local_runtime",
+      "next_action": "Review current runtime evidence and version lock; preserve existing freeze."
+    },
+    {
+      "reason": "locked_file_changed",
+      "source": "local_runtime",
+      "next_action": "Review current runtime evidence and version lock; preserve existing freeze."
+    },
+    {
+      "reason": "locked_file_changed",
+      "source": "local_runtime",
+      "next_action": "Review current runtime evidence and version lock; preserve existing freeze."
+    },
+    {
+      "reason": "locked_file_changed",
+      "source": "local_runtime",
+      "next_action": "Review current runtime evidence and version lock; preserve existing freeze."
+    },
+    {
+      "reason": "locked_file_changed",
+      "source": "local_runtime",
+      "next_action": "Review current runtime evidence and version lock; preserve existing freeze."
+    },
+    {
+      "reason": "locked_file_changed",
+      "source": "local_runtime",
+      "next_action": "Review current runtime evidence and version lock; preserve existing freeze."
+    },
+    {
+      "reason": "paper_logic_fingerprint_mismatch",
+      "source": "local_runtime",
+      "next_action": "Review current runtime evidence and version lock; preserve existing freeze."
+    }
+  ]
+}

@@ -80,3 +80,7 @@ training history. A replay report carries interval timestamps, fill/fee counts
 and `evidence_scope`; `balance_continuity_only_no_activity` is explicitly not
 trading-performance evidence. Older reports without a scope are labeled
 `unspecified_in_source`, never silently interpreted as successful trading.
+
+## Evidence closure update
+
+Artifact discovery follows bounded pages and stops after the newest usable daily artifact. Run-bound skip receipts distinguish deliberate skips; older evidence is labeled fallback. Execution-observation manifests remain separate from daily signal manifests. Version-lock differences and offline review summaries retain their own identities. Run python corrected_audit.py --evidence-report --reviews-dir signals --gap-register signals/gap_register.json. The prior register is optional; unresolved historical findings survive regeneration.
