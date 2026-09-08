@@ -227,7 +227,7 @@
   "actions_verified": false,
   "ledger_version": "daily-ledger-v1",
   "causal_version": "fold-local-v1",
-  "generated_at": "2026-09-08T17:30:01.527541+00:00",
+  "generated_at": "2026-09-08T17:44:15.189927+00:00",
   "active_paper_unchanged": true,
   "shadow_only": true,
   "historical_claim": "blocked"

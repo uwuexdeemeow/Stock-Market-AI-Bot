@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-09-08T17:30:12.713822+00:00",
+  "generated_at": "2026-09-08T17:44:21.514143+00:00",
   "audit_start": "2012-01-01",
   "audit_end": "2026-09-08",
   "audit_code_commit": "70610bd68ce717017a8f5653b45bb2b32a69fc03",
@@ -36,7 +36,7 @@
         "core_satellite_validation_bundle.json": "7b936b76d7a0cf2bf6c407eb4221b8fe255e61874f5f8071b13209d01b368333",
         "alpaca_paper_log.csv": "732c6a03f9b4740315520d95a230e0c82ec2c83a420e5f42bbc6e42b3a35e762",
         "core_satellite_alpha_signal.csv": "3df5b79dbcb0d777f1f8fe17e1ab073a43cc048a7ecb19197ef5a16e72c10a09",
-        "core_satellite_alpha_input_snapshot.csv": "2577f91d97da2f1b6ecf5558013c18fd5d11633f280547051d647de80c237f28"
+        "core_satellite_alpha_input_snapshot.csv": "541cbe30f31e580d523b95f48277afc22ef733ad17e08f66de2585d6884aff09"
       },
       "approval": {
         "status": "blocked",
@@ -62,11 +62,11 @@
     },
     {
       "source": "signals/latest",
-      "source_commit": "47621f2e5d5a5cb9f419307189db757729d45f69",
+      "source_commit": "924fef7ee729875cdc4ccc28e193601f0f82a998",
       "profile": "daily",
       "run_commit": null,
       "generated_at": "2026-09-04T17:01:43+00:00",
-      "age_hours": 96.47484843999999,
+      "age_hours": 96.71057308527779,
       "complete": false,
       "issues": [
         "complete_run_manifest_missing",
@@ -139,7 +139,7 @@
       "profile": "daily",
       "run_commit": "70610bd68ce717017a8f5653b45bb2b32a69fc03",
       "generated_at": "2026-09-08T17:25:10+00:00",
-      "age_hours": 0.08401550777777778,
+      "age_hours": 0.31974032194444446,
       "complete": false,
       "issues": [
         "complete_run_manifest_missing",

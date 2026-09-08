@@ -1,12 +1,12 @@
 {
   "workflow": "Shadow Paper Journal",
   "workflow_file": "shadow_paper_journal.yml",
-  "event": "workflow_dispatch",
-  "schedule": null,
-  "run_id": "34257045645",
-  "run_number": "194",
-  "run_url": "https://github.com/uwuexdeemeow/Stock-Market-AI-Bot/actions/runs/34257045645",
+  "event": "schedule",
+  "schedule": "55 13 * * 1-5",
+  "run_id": "34258385856",
+  "run_number": "195",
+  "run_url": "https://github.com/uwuexdeemeow/Stock-Market-AI-Bot/actions/runs/34258385856",
   "branch": "main",
   "status": "success",
-  "completed_at": "2026-09-08T17:30:00+00:00"
+  "completed_at": "2026-09-08T17:44:13+00:00"
 }
