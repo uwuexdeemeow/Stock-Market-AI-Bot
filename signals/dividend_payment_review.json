@@ -1,0 +1,252 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-08T16:59:35.634172+00:00",
+  "status": "partial_primary_evidence",
+  "complete": false,
+  "supported_missing_dates": 0,
+  "remaining_missing_dates": 30,
+  "raw_source_modified": false,
+  "full_action_coverage_verified": false,
+  "results": [
+    {
+      "ticker": "QQQ",
+      "ex_date": "2016-03-18",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "QQQ",
+      "ex_date": "2016-06-17",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "QQQ",
+      "ex_date": "2016-09-16",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "QQQ",
+      "ex_date": "2016-12-16",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "QQQ",
+      "ex_date": "2017-03-17",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "QQQ",
+      "ex_date": "2017-06-16",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "QQQ",
+      "ex_date": "2017-09-18",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "QQQ",
+      "ex_date": "2017-12-18",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "QQQ",
+      "ex_date": "2018-03-19",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "QQQ",
+      "ex_date": "2018-06-18",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "QQQ",
+      "ex_date": "2018-09-24",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "QQQ",
+      "ex_date": "2018-12-24",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "QQQ",
+      "ex_date": "2019-03-18",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "QQQ",
+      "ex_date": "2019-06-24",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "QQQ",
+      "ex_date": "2019-09-23",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "QQQ",
+      "ex_date": "2019-12-23",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "SPY",
+      "ex_date": "2016-06-17",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "SPY",
+      "ex_date": "2016-09-16",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "SPY",
+      "ex_date": "2016-12-16",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "SPY",
+      "ex_date": "2017-03-17",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "SPY",
+      "ex_date": "2017-06-16",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "SPY",
+      "ex_date": "2017-09-15",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "SPY",
+      "ex_date": "2017-12-15",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "SPY",
+      "ex_date": "2018-03-16",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "SPY",
+      "ex_date": "2018-09-21",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "SPY",
+      "ex_date": "2018-12-21",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "SPY",
+      "ex_date": "2019-03-15",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "SPY",
+      "ex_date": "2019-06-21",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "SPY",
+      "ex_date": "2019-09-20",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    },
+    {
+      "ticker": "SPY",
+      "ex_date": "2019-12-20",
+      "status": "payment_date_unverified",
+      "payable_date": null,
+      "source_url": null,
+      "source_sha256": null
+    }
+  ]
+}

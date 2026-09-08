@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "status": "blocked_by_preserved_controls",
+  "fixed_defect": "Zero-weight TQQQ placeholder incorrectly required pre-inception prices",
+  "fix_commit": "a0a25ce0729d4b651c19049308166bf9882d07c0",
+  "original_run": "https://github.com/uwuexdeemeow/Stock-Market-AI-Bot/actions/runs/34232862123",
+  "rerun": "https://github.com/uwuexdeemeow/Stock-Market-AI-Bot/actions/runs/34253969987",
+  "signal_generation": "success",
+  "submission": "blocked_by_version_lock",
+  "workflow_conclusion": "failure",
+  "alignment": "outside_existing_2_percent_threshold",
+  "orders_accepted": 0,
+  "lock_replaced": false,
+  "next_action": "Complete verified input, evaluation and reconciliation prerequisites before proposing a replacement lock; explicit freeze remains separate."
+}

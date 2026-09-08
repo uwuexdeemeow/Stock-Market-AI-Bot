@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "source_commit": "70610bd68ce717017a8f5653b45bb2b32a69fc03",
+  "status": "blocked_diagnostic_report",
+  "operational_bundle": false,
+  "files": {
+    "strategy_evidence_report.json": "dd4549bcd34b50d4c403c6bb1d1bcdee49545174a7858941816d823b76ac2b64",
+    "strategy_evidence_report.md": "b4d8c11f2a11b65eff9cbdd8c238d1d62797a39f8eb7cedae71365c07af760f7",
+    "gap_register.json": "6646d635939878f949bb6685739d182d10f964ed02b9194cd606581bb8b9675e",
+    "gap_register.md": "92c7def9160d95742595aa9488dbcab0d537552997063b98339d6df0dc939683",
+    "code_verification.json": "ff8a9ba247ca2f58bbf39fac82da7161b5c62763eed3c4935e5e46df07f2a616",
+    "source_availability_review.json": "9de4d733055c1cbd0b3478209ebbe56ce134e84da9254549baddc8874dbf860a",
+    "daily_run_repair.json": "78777648c1c9ab4e3774bb151c165e1edd097822cd367caf9b76e0a7b8aa0275",
+    "closure_summary.md": "e726b09272884ac8495979e6c373bc5806ea7b09d8d801ad9b0ddab96275688d",
+    "edge_ablation_comparison.json": "b8dce439b9bb3aad9b238537487896f1725047b62ac1c59cde95661ddc46b085",
+    "primary_membership_events.json": "72e852f2530ea210b6fadf62420c4d2c58fe97395043b2b503fc8c880dc997b9",
+    "membership_identity_report.json": "0caed0be12cfa4bc766caba8bcc7f3d0be6b31ff9c48ae1406758a9645534a7f",
+    "security_transition_report.json": "f13482b3287d82b6104cf9be6344e0bbc75296d3ce0d61784cadc79d0d52fe60",
+    "dividend_payment_facts.json": "df8afac5b7c7edfe113ba647523464c2af08f8808e792890ec0f4ff7c46b6cac",
+    "dividend_payment_review.json": "72919ec59095b31c18e53ea6b74d3d01458554abeefec2535e6eb2830342c564"
+  }
+}
