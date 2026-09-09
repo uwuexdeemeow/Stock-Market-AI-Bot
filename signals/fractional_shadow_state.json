@@ -4,18 +4,18 @@
   "real_capital_approved": false,
   "broker_orders_submitted": false,
   "initial_equity": 400.0,
-  "cash": 1.9900000199,
+  "cash": 2.0786332412,
   "positions": {
     "QQQ": {
-      "quantity": 0.333319379,
-      "avg_cost": 717.1464226685
+      "quantity": 0.343981714,
+      "avg_cost": 717.2063061037
     },
     "MU": {
       "quantity": 0.08532899,
       "avg_cost": 933.7928453369
     },
     "INTC": {
-      "quantity": 0.781275724,
+      "quantity": 0.706867178,
       "avg_cost": 89.5594712219
     },
     "FCX": {
@@ -23,16 +23,16 @@
       "avg_cost": 76.5264469452
     }
   },
-  "last_signal_key": "5197bd05fbea29010561",
-  "last_valuation_date": "2026-09-03",
-  "cumulative_slippage_cost": 0.3976023976,
-  "cumulative_regulatory_fees": 0.01,
+  "last_signal_key": "1320b07913129413e150",
+  "last_valuation_date": "2026-09-08",
+  "cumulative_slippage_cost": 0.4130352533,
+  "cumulative_regulatory_fees": 0.02,
   "created_at": "2026-08-31T23:45:09+00:00",
-  "last_run_at": "2026-09-08T17:44:12+00:00",
+  "last_run_at": "2026-09-09T17:29:09+00:00",
   "last_price_dates": {
-    "FCX": "2026-09-03",
-    "INTC": "2026-09-03",
-    "MU": "2026-09-03",
-    "QQQ": "2026-09-03"
+    "FCX": "2026-09-08",
+    "INTC": "2026-09-08",
+    "MU": "2026-09-08",
+    "QQQ": "2026-09-08"
   }
 }

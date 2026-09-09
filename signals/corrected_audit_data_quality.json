@@ -84,7 +84,7 @@
       "XOM"
     ],
     "coverage_start": "2012-01-01",
-    "coverage_end": "2026-09-08",
+    "coverage_end": "2026-09-09",
     "active_members_at_coverage_start": 0,
     "minimum_active_members": 400,
     "inactive_members": 0,
@@ -172,7 +172,7 @@
       "reason": "corporate_action_coverage_missing",
       "ticker": "QQQ",
       "start": "2012-01-01",
-      "end": "2026-09-08"
+      "end": "2026-09-09"
     },
     {
       "reason": "raw_price_file_missing",
@@ -211,7 +211,7 @@
       "reason": "corporate_action_coverage_missing",
       "ticker": "SPY",
       "start": "2012-01-01",
-      "end": "2026-09-08"
+      "end": "2026-09-09"
     },
     {
       "reason": "corporate_action_file_unverified",
@@ -227,7 +227,7 @@
   "actions_verified": false,
   "ledger_version": "daily-ledger-v1",
   "causal_version": "fold-local-v1",
-  "generated_at": "2026-09-08T17:44:15.189927+00:00",
+  "generated_at": "2026-09-09T17:29:12.353503+00:00",
   "active_paper_unchanged": true,
   "shadow_only": true,
   "historical_claim": "blocked"
