@@ -1,22 +1,22 @@
 {
-  "timestamp": "2026-09-09T14:42:04.854581",
-  "run_id": "github-34360292648",
+  "timestamp": "2026-09-09T15:26:36.394584",
+  "run_id": "github-34370140204",
   "mode": "daily_run",
   "steps_total": 20,
   "steps_ok": 16,
   "steps_no_action": 0,
   "steps_failed": 4,
-  "total_elapsed_seconds": 224.3,
+  "total_elapsed_seconds": 236.6,
   "results": [
     {
       "name": "refresh_etf_data",
       "status": "ok",
-      "elapsed": 10.9
+      "elapsed": 8.4
     },
     {
       "name": "fill_monitor",
       "status": "ok",
-      "elapsed": 0.4
+      "elapsed": 0.6
     },
     {
       "name": "broker_health",
@@ -26,28 +26,28 @@
     {
       "name": "factor_data_health",
       "status": "ok",
-      "elapsed": 1.6
+      "elapsed": 1.8
     },
     {
       "name": "drift_monitor",
       "status": "ok",
-      "elapsed": 0.4
+      "elapsed": 0.5
     },
     {
       "name": "core_satellite_signal",
       "status": "ok",
-      "elapsed": 191.1
+      "elapsed": 208.9
     },
     {
       "name": "alpaca_submit",
       "status": "failed",
       "exit_code": 2,
-      "elapsed": 2.9,
+      "elapsed": 2.3,
       "stderr_tail": "",
       "execution_outcome": {
         "schema_version": 1,
-        "run_id": "github-34360292648",
-        "generated_at": "2026-09-09T14:45:33+00:00",
+        "run_id": "github-34370140204",
+        "generated_at": "2026-09-09T15:30:19+00:00",
         "status": "blocked",
         "reason_code": "outside_execution_window",
         "market_open": true,
@@ -66,30 +66,30 @@
     {
       "name": "alpaca_reconcile",
       "status": "ok",
-      "elapsed": 4.7,
+      "elapsed": 2.0,
       "upstream_blocked_by": "alpaca_submit"
     },
     {
       "name": "alpaca_execution_guard",
       "status": "ok",
-      "elapsed": 1.8,
+      "elapsed": 1.2,
       "upstream_blocked_by": "alpaca_submit"
     },
     {
       "name": "broker_truth",
       "status": "failed",
       "exit_code": 1,
-      "elapsed": 1.2,
+      "elapsed": 1.1,
       "stderr_tail": "",
       "alignment": {
         "status": "fail",
         "passed": false,
-        "reason": "max_weight_gap_0.027834_above_0.020000",
+        "reason": "max_weight_gap_0.026754_above_0.020000",
         "comparable_tickers": 6,
-        "maximum_target_weight_gap": 0.027834,
-        "current_gross_exposure": 0.995023,
-        "target_gross_exposure": 1.000001,
-        "gross_exposure_gap": 0.004978,
+        "maximum_target_weight_gap": 0.026754,
+        "current_gross_exposure": 0.994992,
+        "target_gross_exposure": 0.999999,
+        "gross_exposure_gap": 0.005007,
         "weight_tolerance": 0.02,
         "gross_exposure_tolerance": 0.05,
         "active_rebalance_order_count": 0,
@@ -106,25 +106,25 @@
     {
       "name": "alpaca_execution_scorecard",
       "status": "ok",
-      "elapsed": 0.6,
+      "elapsed": 0.7,
       "upstream_blocked_by": "alpaca_submit"
     },
     {
       "name": "execution_cost_calibration",
       "status": "ok",
-      "elapsed": 0.5,
+      "elapsed": 0.6,
       "upstream_blocked_by": "alpaca_submit"
     },
     {
       "name": "alpaca_gauntlet",
       "status": "ok",
-      "elapsed": 1.2,
+      "elapsed": 1.0,
       "upstream_blocked_by": "alpaca_submit"
     },
     {
       "name": "paper_validation_epoch",
       "status": "ok",
-      "elapsed": 0.8,
+      "elapsed": 1.0,
       "upstream_blocked_by": "alpaca_submit"
     },
     {
@@ -136,7 +136,7 @@
     {
       "name": "monitor_heartbeat",
       "status": "ok",
-      "elapsed": 0.4,
+      "elapsed": 0.6,
       "upstream_blocked_by": "alpaca_submit"
     },
     {
@@ -150,7 +150,7 @@
     {
       "name": "paper_evidence_manifest",
       "status": "ok",
-      "elapsed": 0.5,
+      "elapsed": 0.6,
       "upstream_blocked_by": "alpaca_submit"
     },
     {

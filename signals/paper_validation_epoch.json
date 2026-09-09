@@ -1,9 +1,9 @@
 {
   "schema_version": 2,
-  "epoch_id": "paper-v20260909T081448Z",
-  "started_at": "2026-09-09T08:14:48+00:00",
+  "epoch_id": "paper-v20260909T152459Z",
+  "started_at": "2026-09-09T15:24:59+00:00",
   "status": "collecting",
-  "archive_dir": "archive/paper_epochs/paper-v20260909T081448Z",
+  "archive_dir": "archive/paper_epochs/paper-v20260909T152459Z",
   "archived_files": [],
   "requirements": {
     "minimum_trading_days": 30,
@@ -22,7 +22,8 @@
     "maximum_bad_slippage_rate": 0.4
   },
   "real_capital_approved": false,
-  "supersedes_epoch_id": "paper-v20260903T140244Z",
+  "supersedes_epoch_id": "paper-v20260909T081448Z",
   "release_scope": "operational_provisional_paper_only",
-  "corrected_prospective_freeze_started": false
+  "corrected_prospective_freeze_started": false,
+  "release_reason": "Reviewed repair of false cache staleness and read-only health reporting"
 }

@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
-  "generated_at": "2026-09-09T14:45:43+00:00",
-  "measurement_cutoff_60m": "2026-09-09T13:45:43.272081+00:00",
+  "generated_at": "2026-09-09T15:30:26+00:00",
+  "measurement_cutoff_60m": "2026-09-09T14:30:26.773698+00:00",
   "status": "collecting",
   "score": 100.0,
   "decision_eligible": false,
@@ -293,8 +293,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 0.5,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-08-10T14:45:34.904154+00:00",
-      "denominator_end": "2026-09-09T14:45:34.770266+00:00"
+      "denominator_start": "2026-08-10T15:30:21.240643+00:00",
+      "denominator_end": "2026-09-09T15:30:21.194058+00:00"
     },
     "stage2": {
       "orders": 2,
@@ -310,8 +310,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 1.0,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-08-10T14:45:34.904154+00:00",
-      "denominator_end": "2026-09-09T14:45:34.770266+00:00"
+      "denominator_start": "2026-08-10T15:30:21.240643+00:00",
+      "denominator_end": "2026-09-09T15:30:21.194058+00:00"
     }
   },
   "throttle": {
@@ -382,13 +382,13 @@
     "previous_scorecard": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json"
   },
   "run_context": {
-    "run_id": "github-34360292648",
-    "generated_at": "2026-09-09T14:45:43+00:00",
+    "run_id": "github-34370140204",
+    "generated_at": "2026-09-09T15:30:26+00:00",
     "signal_as_of": "",
-    "git_commit": "9720582ec1fafd25b84b856f8e0a8f1ac4a669b0",
+    "git_commit": "4e13c065367be4751caab3dbfefdc93aa168f9ca",
     "configuration_fingerprint": "81ce534046da7b28fde31b5e32b505b91df29fda52ad32e3dacbfe025a221a53",
-    "paper_version_fingerprint": "f632f3a6f8c77b26dca217150f20bbafbcff84ab35d43e9be11d3278e320fb8d",
+    "paper_version_fingerprint": "8d1761a63c2efcb2ea3d6151a977d67b55af1ed2672aa4b5549bde75794b12eb",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "github-34360292648"
+  "run_id": "github-34370140204"
 }

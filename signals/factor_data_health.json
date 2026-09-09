@@ -1,5 +1,5 @@
 {
-  "computed_at": "2026-09-09T14:42:18.671242",
+  "computed_at": "2026-09-09T15:26:48.107650",
   "as_of_date": "2026-09-08",
   "warn_trading_days": 1,
   "block_trading_days": 2,
@@ -39,7 +39,7 @@
     "ready": true,
     "reason": "ok",
     "feature_count": 42,
-    "mtime": "2026-09-09T14:40:58.297567",
+    "mtime": "2026-09-09T15:25:31.848677",
     "stale_vs_factor_data": false
   },
   "feature_health": {
@@ -51,7 +51,7 @@
     "reason": "ok",
     "feature_health_gate_pass": true,
     "feature_health_gate_reasons": [],
-    "mtime": "2026-09-09T14:40:58.297567",
+    "mtime": "2026-09-09T15:25:31.848677",
     "stale_vs_feature_quality": false,
     "stale_vs_factor_data": false,
     "active_cluster_count": 8,
