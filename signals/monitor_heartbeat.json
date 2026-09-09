@@ -1,0 +1,77 @@
+{
+  "checked_at": "2026-09-09T08:19:55+00:00",
+  "max_age_hours": 36,
+  "all_ok": false,
+  "stale_monitors": [],
+  "missing_monitors": [
+    "regime_monitor"
+  ],
+  "monitors": {
+    "paper_health": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_paper_health.json",
+      "exists": true,
+      "age_hours": 0.0,
+      "status": "fresh"
+    },
+    "execution_scorecard": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json",
+      "exists": true,
+      "age_hours": 0.0,
+      "status": "fresh"
+    },
+    "broker_truth": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/broker_truth.json",
+      "exists": true,
+      "age_hours": 0.0,
+      "status": "fresh"
+    },
+    "fill_monitor": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/fill_monitor.json",
+      "exists": true,
+      "age_hours": 0.1,
+      "status": "fresh"
+    },
+    "regime_monitor": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/regime_history.json",
+      "exists": false,
+      "age_hours": null,
+      "status": "missing"
+    },
+    "broker_health": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/broker_health.json",
+      "exists": true,
+      "age_hours": 0.1,
+      "status": "fresh"
+    },
+    "execution_guard": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/guard_intraday_state.json",
+      "exists": true,
+      "age_hours": 0.0,
+      "status": "fresh"
+    },
+    "daily_run": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/logs/daily_run_20260909.json",
+      "exists": true,
+      "age_hours": 0.1,
+      "status": "fresh"
+    }
+  },
+  "operational_incidents": {
+    "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/operational_incident_ledger.csv",
+    "open_count": 1,
+    "new_incident_ids": [
+      "7406058fc13145b7"
+    ],
+    "resolved_incident_ids": []
+  },
+  "run_context": {
+    "run_id": "github-34328087734",
+    "generated_at": "2026-09-09T08:19:55+00:00",
+    "signal_as_of": "",
+    "git_commit": "9720582ec1fafd25b84b856f8e0a8f1ac4a669b0",
+    "configuration_fingerprint": "81ce534046da7b28fde31b5e32b505b91df29fda52ad32e3dacbfe025a221a53",
+    "paper_version_fingerprint": "f632f3a6f8c77b26dca217150f20bbafbcff84ab35d43e9be11d3278e320fb8d",
+    "paper_account_hash": "53467e021997593c"
+  },
+  "run_id": "github-34328087734"
+}

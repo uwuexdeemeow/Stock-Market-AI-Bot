@@ -1,0 +1,62 @@
+{
+  "generated_at": "2026-09-09T08:16:18+00:00",
+  "ok": true,
+  "refresh": true,
+  "force": true,
+  "results": [
+    {
+      "symbol": "SPY",
+      "ok": true,
+      "issues": [],
+      "rows": 6885,
+      "latest_date": "2026-09-08",
+      "age_business_days": 0,
+      "refreshed": true
+    },
+    {
+      "symbol": "QQQ",
+      "ok": true,
+      "issues": [],
+      "rows": 6885,
+      "latest_date": "2026-09-08",
+      "age_business_days": 0,
+      "refreshed": true
+    },
+    {
+      "symbol": "TQQQ",
+      "ok": true,
+      "issues": [],
+      "rows": 4168,
+      "latest_date": "2026-09-08",
+      "age_business_days": 0,
+      "refreshed": true
+    },
+    {
+      "symbol": "BIL",
+      "ok": true,
+      "issues": [],
+      "rows": 4850,
+      "latest_date": "2026-09-08",
+      "age_business_days": 0,
+      "refreshed": true
+    },
+    {
+      "symbol": "IEF",
+      "ok": true,
+      "issues": [],
+      "rows": 6066,
+      "latest_date": "2026-09-08",
+      "age_business_days": 0,
+      "refreshed": true
+    },
+    {
+      "symbol": "GLD",
+      "ok": true,
+      "issues": [],
+      "rows": 5484,
+      "latest_date": "2026-09-08",
+      "age_business_days": 0,
+      "refreshed": true
+    }
+  ]
+}
