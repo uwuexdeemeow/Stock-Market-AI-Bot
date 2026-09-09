@@ -1,5 +1,5 @@
 {
-  "computed_at": "2026-09-09T14:36:44.706981",
+  "computed_at": "2026-09-09T14:42:18.671242",
   "as_of_date": "2026-09-08",
   "warn_trading_days": 1,
   "block_trading_days": 2,
@@ -39,7 +39,7 @@
     "ready": true,
     "reason": "ok",
     "feature_count": 42,
-    "mtime": "2026-09-09T14:36:25.172194",
+    "mtime": "2026-09-09T14:40:58.297567",
     "stale_vs_factor_data": false
   },
   "feature_health": {
@@ -51,19 +51,17 @@
     "reason": "ok",
     "feature_health_gate_pass": true,
     "feature_health_gate_reasons": [],
-    "mtime": "2026-09-09T14:36:27.162234",
+    "mtime": "2026-09-09T14:40:58.297567",
     "stale_vs_feature_quality": false,
     "stale_vs_factor_data": false,
-    "active_cluster_count": 9,
-    "max_cluster_weight": 0.125,
-    "feature_count": 42
+    "active_cluster_count": 8,
+    "max_cluster_weight": 0.142857,
+    "feature_count": 36
   },
   "adaptive_weights": {
-    "adaptive_weight_status": "adaptive",
-    "adaptive_weight_reason": "loaded",
-    "adaptive_weights_file": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/adaptive_factor_weights.json",
-    "adaptive_weight_age_days": 0.024,
-    "adaptive_weight_computed_at": "2026-09-09T14:01:45"
+    "adaptive_weight_status": "fallback",
+    "adaptive_weight_reason": "stale_weights:9.1d",
+    "adaptive_weights_file": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/adaptive_factor_weights.json"
   },
   "signal_ready": true,
   "trade_ready": true,

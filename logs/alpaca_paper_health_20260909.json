@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-09T14:40:41+00:00",
+  "generated_at": "2026-09-09T14:45:47+00:00",
   "strategy": "core_satellite_alpha",
   "paper_ready": true,
   "gates_all_pass": true,
@@ -128,16 +128,16 @@
   "filled_orders": 8,
   "fill_rate": 1.0,
   "cancel_rate": 0.0,
-  "account_equity": 112948.5,
+  "account_equity": 112950.28,
   "account_alignment": {
     "status": "fail",
     "passed": false,
-    "reason": "max_weight_gap_0.027994_above_0.020000",
+    "reason": "max_weight_gap_0.027834_above_0.020000",
     "comparable_tickers": 6,
-    "max_weight_gap": 0.027994,
-    "current_gross_exposure": 0.995026,
-    "target_gross_exposure": 0.999999,
-    "gross_exposure_gap": 0.004973,
+    "max_weight_gap": 0.027834,
+    "current_gross_exposure": 0.995023,
+    "target_gross_exposure": 1.000001,
+    "gross_exposure_gap": 0.004978,
     "active_rebalance_order_count": 0,
     "waited_seconds": 0.0,
     "source": "broker_truth_canonical",
@@ -146,20 +146,20 @@
     "recovery_review_required": true,
     "recovery_orders_submitted": false,
     "incident_ledger_path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alignment_incident_ledger.csv",
-    "alignment_incidents_total": 2,
-    "alignment_incidents_open": 2,
-    "current_alignment_incident_id": "26e940463b689dee"
+    "alignment_incidents_total": 3,
+    "alignment_incidents_open": 3,
+    "current_alignment_incident_id": "9018659b8916fddb"
   },
   "account_alignment_status": "fail",
-  "current_gross_exposure": 0.995026,
-  "target_gross_exposure": 0.999999,
-  "max_drift_abs": 0.027994,
+  "current_gross_exposure": 0.995023,
+  "target_gross_exposure": 1.000001,
+  "max_drift_abs": 0.027834,
   "gauntlet_status": "failed",
   "approved_for_real_capital": false,
   "gauntlet_reason": "trading_days 13 < 20 minimum",
   "slippage": {
     "source": "alpaca_slippage_reversal_report.json",
-    "report_generated_at": "2026-09-09T14:40:28+00:00",
+    "report_generated_at": "2026-09-09T14:45:34+00:00",
     "latest_fill_at": "2026-09-03T14:10:35+00:00",
     "filled_orders_with_slippage": 11,
     "avg_slippage_bps": -2.3,
@@ -394,7 +394,7 @@
   },
   "slippage_warning": false,
   "equity_risk": {
-    "paper_return_pct": 5.627,
+    "paper_return_pct": 5.623,
     "paper_drawdown_pct": 0.0,
     "paper_drawdown_warning": false
   },
@@ -406,37 +406,37 @@
   },
   "concentration": {
     "ticker_weights": {
-      "FCX": 0.020373,
-      "INTC": 0.191626,
-      "MU": 0.210896,
-      "QQQ": 0.572127
+      "FCX": 0.020279,
+      "INTC": 0.191796,
+      "MU": 0.210862,
+      "QQQ": 0.572086
     },
     "core_ticker_weights": {
-      "QQQ": 0.572127
+      "QQQ": 0.572086
     },
     "overlay_ticker_weights": {
-      "FCX": 0.020373,
-      "INTC": 0.191626,
-      "MU": 0.210896
+      "FCX": 0.020279,
+      "INTC": 0.191796,
+      "MU": 0.210862
     },
     "sector_weights": {
-      "OTHER": 0.572127,
-      "XLB": 0.020373,
-      "XLK": 0.402522
+      "OTHER": 0.572086,
+      "XLB": 0.020279,
+      "XLK": 0.402658
     },
     "overlay_sector_weights": {
-      "XLB": 0.020373,
-      "XLK": 0.402522
+      "XLB": 0.020279,
+      "XLK": 0.402658
     },
-    "max_ticker_weight": 0.572127,
+    "max_ticker_weight": 0.572086,
     "max_ticker": "QQQ",
-    "max_core_ticker_weight": 0.572127,
+    "max_core_ticker_weight": 0.572086,
     "max_core_ticker": "QQQ",
-    "max_overlay_ticker_weight": 0.210896,
+    "max_overlay_ticker_weight": 0.210862,
     "max_overlay_ticker": "MU",
-    "max_sector_weight": 0.572127,
+    "max_sector_weight": 0.572086,
     "max_sector": "OTHER",
-    "max_overlay_sector_weight": 0.402522,
+    "max_overlay_sector_weight": 0.402658,
     "max_overlay_sector": "XLK",
     "ticker_concentration_warning": false,
     "core_ticker_concentration_warning": false,
@@ -447,43 +447,43 @@
   "open_position_attribution": {
     "data_available": true,
     "source": "alpaca_position_snapshot_remaining_basis",
-    "as_of": "2026-09-09T14:40:28",
+    "as_of": "2026-09-09T14:45:34",
     "historical_accounting_certified": false,
-    "core_open_pnl": 539.11,
-    "overlay_open_pnl": 5825.58,
-    "total_open_position_pnl": 6364.69,
+    "core_open_pnl": 535.51,
+    "overlay_open_pnl": 5830.96,
+    "total_open_position_pnl": 6366.47,
     "by_ticker": {
       "FCX": {
         "sleeve": "overlay",
         "shares": 30.0,
         "fill_price": 71.78,
         "remaining_average_entry_price": 71.78,
-        "current_price": 76.705,
-        "open_pnl": 147.75
+        "current_price": 76.35,
+        "open_pnl": 137.1
       },
       "INTC": {
         "sleeve": "overlay",
         "shares": 205.0,
         "fill_price": 88.785268,
         "remaining_average_entry_price": 88.785268,
-        "current_price": 105.58000000000001,
-        "open_pnl": 3442.92
+        "current_price": 105.6750243902439,
+        "open_pnl": 3462.4
       },
       "MU": {
         "sleeve": "overlay",
         "shares": 23.0,
         "fill_price": 938.5,
         "remaining_average_entry_price": 938.5,
-        "current_price": 1035.67,
-        "open_pnl": 2234.91
+        "current_price": 1035.52,
+        "open_pnl": 2231.46
       },
       "QQQ": {
         "sleeve": "core",
         "shares": 90.0,
         "fill_price": 712.019889,
         "remaining_average_entry_price": 712.019889,
-        "current_price": 718.01,
-        "open_pnl": 539.11
+        "current_price": 717.97,
+        "open_pnl": 535.51
       }
     }
   },
@@ -502,13 +502,13 @@
     "backtest_worst_oos_drawdown_pct": -22.89,
     "backtest_mean_oos_drawdown_pct": -8.1,
     "live_equity_days": 13,
-    "live_total_return_pct": 5.627,
-    "live_annualised_cagr_pct": 188.991,
-    "live_annualised_sharpe": 6.675,
+    "live_total_return_pct": 5.623,
+    "live_annualised_cagr_pct": 188.764,
+    "live_annualised_sharpe": 6.671,
     "live_max_drawdown_pct": -1.938,
     "drawdown_ratio_vs_worst_oos": 0.085,
-    "sharpe_fraction_of_backtest": 4.285,
-    "cagr_gap_pct": -158.921,
+    "sharpe_fraction_of_backtest": 4.282,
+    "cagr_gap_pct": -158.694,
     "drift_detected": false
   },
   "readiness_flags": {
@@ -568,9 +568,9 @@
         "name": "max_drift_abs",
         "status": "fail",
         "passed": false,
-        "actual": 0.027994,
+        "actual": 0.027834,
         "target": 0.02,
-        "reason": "max_weight_gap_0.027994_above_0.020000"
+        "reason": "max_weight_gap_0.027834_above_0.020000"
       },
       {
         "name": "avg_slippage_bps",
@@ -600,10 +600,10 @@
   },
   "readiness": {
     "status": "fail",
-    "reason": "alpaca_alignment_failed:max_weight_gap_0.027994_above_0.020000",
+    "reason": "alpaca_alignment_failed:max_weight_gap_0.027834_above_0.020000",
     "blockers": [
-      "alpaca_alignment_failed:max_weight_gap_0.027994_above_0.020000",
-      "open_critical_incidents:2",
+      "alpaca_alignment_failed:max_weight_gap_0.027834_above_0.020000",
+      "open_critical_incidents:3",
       "open_operational_incidents:1",
       "workflow_or_monitor_continuity_failed"
     ],
@@ -618,17 +618,17 @@
       "Resolve the critical operational incident before accepting the epoch.",
       "Inspect stale or missing workflow heartbeat outputs."
     ],
-    "signal_as_of": "2026-09-09T14:40:00+00:00",
+    "signal_as_of": "2026-09-09T14:45:00+00:00",
     "components": {
       "alignment": {
         "status": "fail",
         "passed": false,
-        "reason": "max_weight_gap_0.027994_above_0.020000",
+        "reason": "max_weight_gap_0.027834_above_0.020000",
         "comparable_tickers": 6,
-        "max_weight_gap": 0.027994,
-        "current_gross_exposure": 0.995026,
-        "target_gross_exposure": 0.999999,
-        "gross_exposure_gap": 0.004973,
+        "max_weight_gap": 0.027834,
+        "current_gross_exposure": 0.995023,
+        "target_gross_exposure": 1.000001,
+        "gross_exposure_gap": 0.004978,
         "active_rebalance_order_count": 0,
         "waited_seconds": 0.0,
         "source": "broker_truth_canonical",
@@ -637,9 +637,9 @@
         "recovery_review_required": true,
         "recovery_orders_submitted": false,
         "incident_ledger_path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alignment_incident_ledger.csv",
-        "alignment_incidents_total": 2,
-        "alignment_incidents_open": 2,
-        "current_alignment_incident_id": "26e940463b689dee"
+        "alignment_incidents_total": 3,
+        "alignment_incidents_open": 3,
+        "current_alignment_incident_id": "9018659b8916fddb"
       },
       "execution": {
         "status": "collecting",
@@ -685,22 +685,22 @@
         ]
       },
       "incidents": {
-        "open_alignment": 2,
+        "open_alignment": 3,
         "open_operational_critical": 1
       }
     },
     "evidence_run_ids": {
-      "broker_truth": "github-34358005186",
-      "execution_scorecard": "github-34358005186",
-      "validation_epoch": "github-34358005186",
-      "monitor_heartbeat": "github-34358005186"
+      "broker_truth": "github-34360292648",
+      "execution_scorecard": "github-34360292648",
+      "validation_epoch": "github-34360292648",
+      "monitor_heartbeat": "github-34360292648"
     },
     "real_capital_approved": false
   },
   "status": "fail",
   "blockers": [
-    "alpaca_alignment_failed:max_weight_gap_0.027994_above_0.020000",
-    "open_critical_incidents:2",
+    "alpaca_alignment_failed:max_weight_gap_0.027834_above_0.020000",
+    "open_critical_incidents:3",
     "open_operational_incidents:1",
     "workflow_or_monitor_continuity_failed"
   ],
@@ -725,14 +725,14 @@
   "overall_ready": false,
   "freshness_context": "Calendar age gates remain enforced during weekends and holidays.",
   "run_context": {
-    "run_id": "github-34358005186",
-    "generated_at": "2026-09-09T14:40:42+00:00",
-    "signal_as_of": "2026-09-09T14:40:00+00:00",
+    "run_id": "github-34360292648",
+    "generated_at": "2026-09-09T14:45:48+00:00",
+    "signal_as_of": "2026-09-09T14:45:00+00:00",
     "git_commit": "9720582ec1fafd25b84b856f8e0a8f1ac4a669b0",
     "configuration_fingerprint": "81ce534046da7b28fde31b5e32b505b91df29fda52ad32e3dacbfe025a221a53",
     "paper_version_fingerprint": "f632f3a6f8c77b26dca217150f20bbafbcff84ab35d43e9be11d3278e320fb8d",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "github-34358005186",
+  "run_id": "github-34360292648",
   "broker": "alpaca"
 }
