@@ -9,6 +9,7 @@ incomplete.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Iterable
@@ -198,7 +199,19 @@ def _feature_health_status(
     status["mtime"] = pd.Timestamp.fromtimestamp(profile_path.stat().st_mtime).isoformat()
     profile_mtime = profile_path.stat().st_mtime
 
-    if quality_path.exists() and quality_path.stat().st_mtime > profile_mtime:
+    fingerprints = payload.get("source_fingerprints")
+    bound_sources = isinstance(fingerprints, dict) and "feature_quality_report.json" in fingerprints and "feature_research_summary.csv" in fingerprints
+    if fingerprints is not None and not bound_sources:
+        status["reason"] = "profile_source_identity_incomplete"
+        return status
+    if bound_sources:
+        for name in ("feature_quality_report.json", "feature_research_summary.csv"):
+            source = signal_dir / name
+            actual = hashlib.sha256(source.read_bytes()).hexdigest() if source.exists() else None
+            if fingerprints[name] != actual:
+                status["reason"] = "profile_source_fingerprint_mismatch"
+                return status
+    if not bound_sources and quality_path.exists() and quality_path.stat().st_mtime > profile_mtime:
         status["stale_vs_feature_quality"] = True
         status["reason"] = "profile_older_than_feature_quality"
         return status
@@ -208,7 +221,9 @@ def _feature_health_status(
         for path in factor_paths
         if path.exists() and path.stat().st_mtime > profile_mtime
     ]
-    if newer_factor_files:
+    # Bound profiles depend on the checked quality/research reports, not on
+    # filesystem times. The independent factor/quality gates still must pass.
+    if newer_factor_files and not bound_sources:
         status["stale_vs_factor_data"] = True
         status["reason"] = "profile_older_than_factor_data"
         status["newer_factor_files"] = newer_factor_files[:10]

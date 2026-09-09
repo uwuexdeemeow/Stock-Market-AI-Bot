@@ -48,3 +48,9 @@ Expected output:
 All 62 required live tickers need readable adjusted-data manifests through the
 latest completed market session. More than two trading days old blocks signals.
 Missing columns, corrupt sidecars, and manifest/file mismatches also fail.
+
+Feature-health profiles now bind their exact quality and research-report inputs
+with SHA-256 checksums. Checkout file times cannot invalidate matching bound
+reports; changed source bytes still fail. Legacy profiles keep the older
+conservative checks until regenerated. Price freshness, quality grades and
+cluster thresholds remain separate required gates.

@@ -146,3 +146,22 @@ def test_feature_health_outputs_use_atomic_writers(monkeypatch, tmp_path):
         ("json", "feature_health_profile.json", "feature_health_profile"),
         ("csv", "feature_health_profile.csv", 3),
     ]
+
+
+def test_profile_rejects_source_changed_during_calculation(monkeypatch, tmp_path):
+    """A concurrent refresh must not attach new hashes to old calculations."""
+    import pytest
+
+    source = tmp_path / "feature_quality_report.json"
+    source.write_text('{}')
+    original = feature_health_module._load_quality_report
+
+    def changing_loader(path):
+        loaded = original(path)
+        path.write_text('{"correlation_clusters": []}')
+        return loaded
+
+    monkeypatch.setattr(feature_health_module, "_load_quality_report", changing_loader)
+    with pytest.raises(ValueError, match="source changed"):
+        build_feature_health_profile(["ret_5d"], output_dir=tmp_path)
+    assert not (tmp_path / "feature_health_profile.json").exists()

@@ -9,6 +9,7 @@ benchmark-relative variants.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -141,6 +142,11 @@ def build_feature_health_profile(
     quality_path = Path(quality_report_path) if quality_report_path is not None else signal_dir / "feature_quality_report.json"
     research_path = Path(research_summary_path) if research_summary_path is not None else signal_dir / "feature_research_summary.csv"
 
+    # Remember input identities before reading; refuse a report if a refresh
+    # changes either input while this calculation is running.
+    source_paths = {"feature_quality_report.json": quality_path, "feature_research_summary.csv": research_path}
+    source_fingerprints = {name: hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+                           for name, path in source_paths.items()}
     quality = _load_quality_report(quality_path)
     research = _load_research_summary(research_path)
 
@@ -279,8 +285,15 @@ def build_feature_health_profile(
             f"max_cluster_weight {max_cluster_weight:.3f} > {MAX_CLUSTER_WEIGHT:.2f}"
         )
 
+    if any((hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None) != source_fingerprints[name]
+           for name, path in source_paths.items()):
+        raise ValueError("Feature-health source changed during calculation; retry with stable inputs")
+
     profile = {
         "purpose": "feature_health_profile",
+        # File-copy times change on CI checkout. Exact input hashes identify
+        # the reports used here without mistaking checkout order for staleness.
+        "source_fingerprints": source_fingerprints,
         "correlation_cluster_threshold": CORRELATION_CLUSTER_THRESHOLD,
         "decay_quarantine_ratio": DECAY_QUARANTINE_RATIO,
         "decay_watch_ratio": DECAY_WATCH_RATIO,

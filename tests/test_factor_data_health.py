@@ -305,3 +305,24 @@ def test_factor_data_health_blocks_failed_feature_health_gate(tmp_path, monkeypa
     assert manifest["feature_health"]["ready"] is False
     assert manifest["feature_health"]["reason"] == "feature_health_gate_failed"
     assert manifest["trade_ready"] is False
+
+
+def test_bound_profile_survives_checkout_mtime_but_rejects_changed_source(tmp_path):
+    import hashlib
+    from factor_data_health import _feature_health_status
+    _write_feature_quality(tmp_path / 'feature_quality_report.json')
+    _write_feature_health(tmp_path, mtime=1_700_000_000)
+    profile_path = tmp_path / 'feature_health_profile.json'
+    profile = json.loads(profile_path.read_text())
+    profile['source_fingerprints'] = {
+        'feature_quality_report.json': hashlib.sha256((tmp_path / 'feature_quality_report.json').read_bytes()).hexdigest(),
+        'feature_research_summary.csv': None,
+    }
+    profile_path.write_text(json.dumps(profile))
+    os.utime(profile_path, (1_700_000_000, 1_700_000_000))
+    assert _feature_health_status(signal_dir=tmp_path, factor_paths=[])['ready']
+    # Changing source bytes is stale even if its filesystem clock is older.
+    (tmp_path / 'feature_quality_report.json').write_text('{"features":[]}')
+    os.utime(tmp_path / 'feature_quality_report.json', (1_600_000_000, 1_600_000_000))
+    result = _feature_health_status(signal_dir=tmp_path, factor_paths=[])
+    assert not result['ready'] and result['reason'] == 'profile_source_fingerprint_mismatch'

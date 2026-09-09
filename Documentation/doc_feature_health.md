@@ -69,3 +69,8 @@ The direct command now prints:
 - Active cluster: A cluster that still contributes to the score after quarantine checks.
 - Quarantine: A feature is excluded because recent evidence says it has weakened too much.
 - Gate: A pass/fail safety check before allowing the overlay to trade with real capital.
+
+The generated profile includes `source_fingerprints` for the exact quality JSON
+and optional research-summary CSV used. These identify contents, not file-copy
+times. Run `python3 feature_health.py --max-specs 48` to regenerate this derived
+profile; the command does not download prices or submit orders.

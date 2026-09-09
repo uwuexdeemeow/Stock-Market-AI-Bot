@@ -105,3 +105,7 @@ When research or scoring behavior changes, use
 `python3 paper_validation_epoch.py --invalidate-current --reason <reason>`.
 This preserves the old record as invalidated and cannot start a replacement.
 A new epoch is created only after the fresh strategy bundle passes.
+
+The operational lock also covers `feature_health.py`, whose profile determines
+which features may contribute. The September 2026 cache-recovery repair requires
+a reviewed operational release; it does not start corrected prospective research.

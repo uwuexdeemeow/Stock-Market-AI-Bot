@@ -49,6 +49,7 @@ PAPER_LOGIC_FILES = (
     "execution_model.py",
     "execution_scorecard.py",
     "factor_data_health.py",
+    "feature_health.py",
     "fill_monitor.py",
     "fractional_shadow_paper.py",
     "monitor_heartbeat.py",

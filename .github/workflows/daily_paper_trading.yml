@@ -417,6 +417,17 @@ jobs:
         run: |
           if python3 factor_data_health.py --strict --no-write; then
             echo "Restored factor cache is trade-ready."
+          elif python3 - <<'PY'
+          from factor_data_health import build_factor_data_health
+          report = build_factor_data_health()
+          # Repair only derived health metadata when prices and quality already
+          # pass. A fresh cache must not trigger an hour-long research download.
+          raise SystemExit(0 if report['factor_data_fresh'] and report['feature_quality']['ready'] else 1)
+          PY
+          then
+            echo "Factor data and quality pass; refreshing only the derived feature-health profile."
+            python3 feature_health.py --max-specs 48
+            python3 factor_data_health.py --strict
           else
             echo "Restored factor cache is missing or stale; rebuilding factor data and feature quality."
 

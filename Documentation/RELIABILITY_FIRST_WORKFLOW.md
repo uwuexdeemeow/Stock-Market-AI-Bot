@@ -359,3 +359,10 @@ Approval repair follows the evidence chain: rebuild from matching source
 results, publish the bundle's actual decision consistently at both live-index
 levels, and recheck runtime identity. A rejection remains a rejection. Daily
 loading and the audit use the same validator; neither changes the frozen lock.
+
+Daily cache recovery first distinguishes stale price/quality inputs from a stale
+feature-health profile. If prices and quality already pass, it rebuilds only the
+small derived profile and rechecks the strict gate. This prevents a checkout-time
+metadata discrepancy from triggering an hour-long price refresh and missing the
+09:35–10:30 New York submission window. Genuine input failures retain the full
+recovery path; execution-window and portfolio-alignment thresholds are unchanged.
