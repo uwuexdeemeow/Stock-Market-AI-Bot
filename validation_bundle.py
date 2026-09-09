@@ -626,7 +626,9 @@ def main() -> int:
     live_path, bundle_path = migrate_existing_live_config(args.live_config, args.output)
     print(f"Updated paper config: {live_path}")
     print(f"Wrote validation bundle: {bundle_path}")
-    print("Deployment status: paper_provisional; real capital remains blocked")
+    # Report the decision actually written, including a rejected migration.
+    decision = json.loads(bundle_path.read_text(encoding="utf-8"))["deployment"]["status"]
+    print(f"Deployment status: {decision}; real capital remains blocked")
     return 0
 
 
