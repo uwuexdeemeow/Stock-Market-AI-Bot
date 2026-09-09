@@ -1,25 +1,25 @@
 {
   "schema_version": 1,
-  "run_id": "github-34328087734",
-  "signal_as_of": "2026-09-09T16:19+08:00",
+  "run_id": "github-34358005186",
+  "signal_as_of": "2026-09-09T22:40+08:00",
   "status": "rejected",
-  "updated_at": "2026-09-09T08:19:49+00:00",
+  "updated_at": "2026-09-09T14:40:33+00:00",
   "terminal": true,
   "history": [
     {
       "status": "planned",
-      "at": "2026-09-09T08:19:43+00:00",
+      "at": "2026-09-09T14:40:23+00:00",
       "details": {}
     },
     {
       "status": "rejected",
-      "at": "2026-09-09T08:19:49+00:00",
+      "at": "2026-09-09T14:40:33+00:00",
       "details": {
         "alignment_status": "fail",
-        "reason": "max_weight_gap_0.022609_above_0.020000",
+        "reason": "max_weight_gap_0.027994_above_0.020000",
         "active_rebalance_order_count": 0,
-        "maximum_target_weight_gap": 0.022609,
-        "gross_exposure_gap": 0.005011
+        "maximum_target_weight_gap": 0.027994,
+        "gross_exposure_gap": 0.004973
       }
     }
   ],
