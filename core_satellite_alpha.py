@@ -36,6 +36,7 @@ from feature_health import enrich_feature_specs
 from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
 from signal_freshness import latest_completed_us_trading_day, live_config_fingerprint
 from validation_bundle import (
+    validate_live_approval_identity,
     current_robustness_evidence,
     strategy_config_fingerprint,
     validate_validation_bundle,
@@ -2683,6 +2684,7 @@ def _load_approved_live_config(
             "approval": approval,
         }
     bundle_ok, bundle_issues = validate_validation_bundle(bundle)
+    bundle_issues.extend(validate_live_approval_identity(payload, bundle, strategy))
     if expected_bundle_hash != str(bundle.get("validation_bundle_hash", "")):
         bundle_issues.append("live_config_bundle_hash_mismatch")
     if strategy_config_fingerprint(config) != str(bundle.get("config_fingerprint", "")):

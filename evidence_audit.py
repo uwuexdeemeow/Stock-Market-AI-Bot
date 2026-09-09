@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from safe_io import atomic_write_json, atomic_write_text
-from validation_bundle import validate_validation_bundle, strategy_config_fingerprint
+from validation_bundle import validate_live_approval_identity, strategy_config_fingerprint
 
 # Only these files may be read from an operational archive. Their raw contents
 # remain in memory: account balances and order identifiers are never published.
@@ -113,24 +113,9 @@ def approval_summary(live, bundle):
     """A derived audit verdict cannot rewrite or override a deployment decision."""
     entry = live.get('approved_live_configs', {}).get('core-alpha', {})
     config = entry.get('config', {})
-    _, issues = validate_validation_bundle(bundle)
-    issues = list(issues)
-    if not config:
-        issues.append('deployed_configuration_missing')
+    issues = validate_live_approval_identity(live, bundle)
     identity = strategy_config_fingerprint(config)
-    if identity != bundle.get('config_fingerprint'):
-        issues.append('configuration_fingerprint_mismatch')
     expected = bundle.get('validation_bundle_hash')
-    for label, record in [('top', live), ('strategy', entry)]:
-        if not expected or record.get('validation_bundle_hash') != expected:
-            issues.append(label + '_bundle_reference_mismatch')
-    statuses = [live.get('deployment_status'), entry.get('deployment_status'), bundle.get('deployment', {}).get('status')]
-    if len(set(statuses)) > 1:
-        issues.append('deployment_status_conflict')
-    if 'rejected' in statuses or not all((live.get('paper_approved') is True,
-            bundle.get('deployment', {}).get('paper_approved') is True,
-            live.get('approvals', {}).get('core-alpha', {}).get('approved') is True)):
-        issues.append('paper_approval_not_unanimous')
     source = config.get('score_source')
     routes = ({'risk_on': 'factor_risk_on_score', 'neutral': 'factor_walkforward_score',
                'risk_off': 'factor_defensive_score'} if source == 'regime_adaptive' else {'configured': source})

@@ -88,3 +88,7 @@ Artifact discovery follows bounded pages and stops after the newest usable daily
 The recovery section includes dividend-date coverage counts. An issuer payment
 date may be known while matching it to a provider record remains blocked by a
 missing security identifier; these are separate evidence requirements.
+
+Approval identity checks are shared with the daily loader through
+`validation_bundle.validate_live_approval_identity`, avoiding different answers
+from audit and execution for the same conflicting records.

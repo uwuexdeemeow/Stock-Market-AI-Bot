@@ -364,3 +364,29 @@ def test_write_paper_signal_marks_regime_refresh_failure_not_tradeable(tmp_path,
     assert "regime source down" in str(row["live_regime_refresh_error"])
     assert "regime_refresh_failed" in str(row["reason"])
     assert float(row["gross_exposure"]) == 0.0
+
+
+def test_daily_loader_uses_same_conflict_gate_as_audit(tmp_path, monkeypatch):
+    from tests.test_evidence_audit import identity_fixture
+    from evidence_audit import approval_summary
+    live, bundle = identity_fixture()
+    bundle_path = tmp_path / 'bundle.json'
+    bundle_path.write_text(json.dumps(bundle))
+    live['validation_bundle_path'] = str(bundle_path)
+    live_path = tmp_path / 'live.json'
+    monkeypatch.setattr(csa, 'LIVE_CONFIG_PATH', live_path)
+    monkeypatch.setattr(csa, 'current_robustness_evidence', lambda **kw: {'pass': True, 'reports': {}})
+    live_path.write_text(json.dumps(live))
+    assert csa._load_approved_live_config().get('approved') is not False
+    # A rejection at either level remains blocked even with a valid bundle.
+    live['approved_live_configs']['core-alpha']['deployment_status'] = 'rejected'
+    live_path.write_text(json.dumps(live))
+    result = csa._load_approved_live_config()
+    assert result['approved'] is False
+    assert set(approval_summary(live, bundle)['issues']) <= set(result['reasons'])
+    live['approved_live_configs']['core-alpha']['deployment_status'] = 'paper_provisional'
+    live['approved_live_configs']['core-alpha']['validation_bundle_hash'] = 'different'
+    live_path.write_text(json.dumps(live))
+    assert 'strategy_bundle_reference_mismatch' in csa._load_approved_live_config()['reasons']
+    # Refresh mode only exposes research inputs; it is never deployment approval.
+    assert csa._load_approved_live_config(allow_provisional_bundle=True)['deployment_status'] == 'validation_refresh_only'

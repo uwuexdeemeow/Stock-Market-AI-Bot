@@ -431,6 +431,34 @@ def validate_validation_bundle(bundle: dict) -> tuple[bool, list[str]]:
     return not issues, issues
 
 
+def validate_live_approval_identity(live: dict, bundle: dict, strategy="core-alpha") -> list[str]:
+    """Require the index, selected strategy and evidence to describe one approval."""
+    # An approval copied at one level cannot overrule a rejection elsewhere.
+    # Daily execution and the audit both use this same comparison.
+    _, issues = validate_validation_bundle(bundle)
+    entry = (live.get("approved_live_configs", {}) or {}).get(strategy, {}) or {}
+    config = entry.get("config", {}) or {}
+    if not config:
+        issues.append("deployed_configuration_missing")
+    if strategy_config_fingerprint(config) != bundle.get("config_fingerprint"):
+        issues.append("configuration_fingerprint_mismatch")
+    expected = bundle.get("validation_bundle_hash")
+    for label, record in (("top", live), ("strategy", entry)):
+        if not expected or record.get("validation_bundle_hash") != expected:
+            issues.append(label + "_bundle_reference_mismatch")
+    deployment = bundle.get("deployment", {}) or {}
+    statuses = [live.get("deployment_status"), entry.get("deployment_status"), deployment.get("status")]
+    if len(set(statuses)) > 1 or not all(statuses):
+        issues.append("deployment_status_conflict")
+    if "rejected" in statuses or not all((live.get("paper_approved") is True,
+            deployment.get("paper_approved") is True,
+            (live.get("approvals", {}) or {}).get(strategy, {}).get("approved") is True)):
+        issues.append("paper_approval_not_unanimous")
+    if entry.get("paper_approved") is False:
+        issues.append("paper_approval_not_unanimous")
+    return sorted(set(issues))
+
+
 def write_validation_bundle(bundle: dict, path: Path = DEFAULT_BUNDLE_PATH) -> Path:
     """Atomically write a completed validation bundle."""
     atomic_write_json(bundle, path)
@@ -525,6 +553,12 @@ def rebuild_from_walkforward(
         # This repair is evidence plumbing, never permission to use real money.
         "real_capital_approved": False,
     })
+    # The rebuilt bundle has already been matched to this exact configuration.
+    # Copy its decision to both index levels so an old nested rejection or hash
+    # cannot conflict with the new decision. Rejected bundles stay rejected.
+    live["approved_live_configs"]["core-alpha"].update({
+        key: live[key] for key in ("validation_bundle_hash", "deployment_status", "paper_approved")
+    })
     atomic_write_json(live, live_config_path)
     return live_config_path, bundle_path
 
@@ -553,9 +587,11 @@ def migrate_existing_live_config(
     write_validation_bundle(bundle, bundle_path)
     live["validation_bundle_path"] = str(bundle_path)
     live["validation_bundle_hash"] = bundle["validation_bundle_hash"]
-    live["deployment_status"] = "paper_provisional"
+    live["deployment_status"] = bundle["deployment"]["status"]
     live["paper_approved"] = bool(bundle["deployment"]["paper_approved"])
     live["real_capital_approved"] = False
+    approved.update({key: live[key] for key in
+                     ("validation_bundle_hash", "deployment_status", "paper_approved")})
     atomic_write_json(live, live_config_path)
     return live_config_path, bundle_path
 

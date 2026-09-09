@@ -354,3 +354,8 @@ explicitly authorized validation restart. New observations cannot backfill the
 Primary payment-date matches are narrower than complete corporate-action
 coverage. Raw provider records stay private and immutable; individually reviewed
 corrections remain separately attributed until all dependent source gates pass.
+
+Approval repair follows the evidence chain: rebuild from matching source
+results, publish the bundle's actual decision consistently at both live-index
+levels, and recheck runtime identity. A rejection remains a rejection. Daily
+loading and the audit use the same validator; neither changes the frozen lock.

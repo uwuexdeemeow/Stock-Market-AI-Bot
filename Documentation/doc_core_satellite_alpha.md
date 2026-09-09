@@ -166,3 +166,8 @@ The September 2026 daily-run repair excludes zero-weight ETF placeholders from
 price requirements. A configuration that holds no TQQQ in any regime does not
 need pre-inception TQQQ prices. Any nonzero allocation retains strict coverage
 checks. Research dates, allocations and missing-price safeguards are unchanged.
+
+The live loader uses the same approval-identity checks as the evidence audit.
+A nested rejection or mismatched nested bundle hash blocks daily signals even
+if top-level flags say approved. Research-only validation refresh remains
+separately labeled and does not grant trading permission.

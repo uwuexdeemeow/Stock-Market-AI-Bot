@@ -191,6 +191,10 @@ def test_validation_bundle_rebuild_restores_only_matching_approved_folds(tmp_pat
     assert live["source_json"] == str(canonical)
     assert live["validation_bundle_hash"] == bundle["validation_bundle_hash"]
     assert live["real_capital_approved"] is False
+    selected = live["approved_live_configs"]["core-alpha"]
+    assert selected["validation_bundle_hash"] == live["validation_bundle_hash"]
+    assert selected["deployment_status"] == bundle["deployment"]["status"]
+    assert selected["paper_approved"] == bundle["deployment"]["paper_approved"]
 
 
 def test_validation_bundle_rebuild_refuses_different_live_config(tmp_path):
