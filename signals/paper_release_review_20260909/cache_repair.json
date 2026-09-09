@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "failed_run_id": 34358005186,
+  "subsequent_failed_run_id": 34360292648,
+  "cause": "A fresh 62-security factor cache passed price and quality checks, but checkout modification times marked the derived health profile stale. Full research then consumed the execution window.",
+  "evidence": {
+    "factor_max_age_sessions": 0,
+    "missing_tickers": 0,
+    "stale_tickers": 0,
+    "feature_quality": "ok",
+    "feature_health": "profile_older_than_feature_quality",
+    "research_started_at": "2026-09-09T13:36:19Z",
+    "research_finished_at": "2026-09-09T14:36:29Z",
+    "submission_refused_at": "2026-09-09T14:40:26Z"
+  },
+  "repair": "Bind health profiles to quality/research hashes; refresh only the derived profile when independent input gates pass.",
+  "execution_window_unchanged": "09:35-10:30 America/New_York",
+  "alignment_threshold_unchanged": 0.02,
+  "corrected_prospective_freeze_started": false,
+  "real_capital_approved": false,
+  "offline_regression": {
+    "passed": 713,
+    "skipped": 45,
+    "note": "Broker credentials disabled; online integration tests excluded from offline proof."
+  },
+  "real_local_profile_check": {
+    "exit_code": 0,
+    "elapsed_seconds": 0.93,
+    "read_only": false,
+    "note": "Discovered loader side effect; generated files restored and CLI repaired before release."
+  },
+  "code_commit": "e46f153df838e84e5bfb3c2e8ef00263cf15b6c9",
+  "changed_locked_files": [
+    {
+      "file": ".github/workflows/daily_paper_trading.yml",
+      "before": "4b903ac819ff04ddfaa670f46a300e06b5908dd420240a15122f1d9604e5b87b",
+      "after": "5ae5eca43478883a11fb45eb78f008a3bf8113ef58cd5bec07d726e81d0d2546"
+    },
+    {
+      "file": "factor_data_health.py",
+      "before": "40b9cf42fea8128ca8e0e0ab5bec35313533c5702c8b17d15f4a37fb4d5de730",
+      "after": "1ec2f587b45c862f25dcd17743524de0637a8d4d2372d91f4f79088e1ac676f0"
+    },
+    {
+      "file": "feature_health.py",
+      "before": null,
+      "after": "539554d4f4fae0cda74952a4229746c76ee9477c021902ba564acaba5c69fd81"
+    },
+    {
+      "file": "paper_validation_epoch.py",
+      "before": "9534a2c474527e762088ea2a94b7e79820818846ea3fdd089999ab87a9ee59c1",
+      "after": "c78b0b99a853745fc4e32d0fd5537e4c22f1f9a6e6cc01d1d6b56ce76e5ef289"
+    }
+  ],
+  "previous_aggregate_fingerprint": "f632f3a6f8c77b26dca217150f20bbafbcff84ab35d43e9be11d3278e320fb8d",
+  "proposed_aggregate_fingerprint": "8d1761a63c2efcb2ea3d6151a977d67b55af1ed2672aa4b5549bde75794b12eb",
+  "verified_read_only_recheck": true,
+  "reviewed_ci_run": 34368690042,
+  "epoch_id": "paper-v20260909T152459Z",
+  "epoch_started_at": "2026-09-09T15:24:59+00:00",
+  "previous_epoch_id": "paper-v20260909T081448Z",
+  "version_lock_passed": true,
+  "applied_aggregate_fingerprint": "8d1761a63c2efcb2ea3d6151a977d67b55af1ed2672aa4b5549bde75794b12eb",
+  "prior_observations_count_as_new": false,
+  "release_commit": "4e13c065367be4751caab3dbfefdc93aa168f9ca",
+  "daily_rerun_id": 34370140204,
+  "daily_rerun_url": "https://github.com/uwuexdeemeow/Stock-Market-AI-Bot/actions/runs/34370140204"
+}

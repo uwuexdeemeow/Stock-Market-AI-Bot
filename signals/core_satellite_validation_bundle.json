@@ -1,10 +1,10 @@
 {
   "schema_version": 2,
-  "created_at": "2026-09-03T14:01:41+00:00",
+  "created_at": "2026-09-09T08:11:23+00:00",
   "strategy": "core-alpha",
-  "source_json": "signals\\core_satellite_nested_walkforward.json",
+  "source_json": "signals/core_satellite_nested_walkforward.json",
   "source_json_sha256": "e85435034180025ba05a64afe3498afcd9939114f63d8ed18098a124998e83e1",
-  "git_commit": "517d093b36f986030463889a7e6d4ec53769fdff",
+  "git_commit": "9d42ba37c9e2af2306637aeb26ef9fbc2bb49f8a",
   "config": {
     "strategy": "core-alpha",
     "core_preset": "nested_qqq_trend_switch_overlay70_core55_cashbuffer_h20_ov0.50_ma100_volpercentile0.30_tqqq0.00_riskoff",
@@ -84,7 +84,7 @@
   },
   "config_fingerprint": "a9f616b5f6185fcf",
   "dataset": {
-    "manifest_path": "signals\\research_run_manifest.json",
+    "manifest_path": "signals/research_run_manifest.json",
     "manifest_exists": true,
     "manifest_sha256": "6fb4ce229ee0c5e91d450a1e4908a1eaa4825c047e61d8a43190d410a5ec8970",
     "dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
@@ -95,7 +95,7 @@
   },
   "universe_membership": {
     "complete": false,
-    "path": "data\\universe_membership.csv",
+    "path": "data/universe_membership.csv",
     "rows": 0,
     "source_count": 0,
     "required_provenance_columns": [
@@ -177,7 +177,7 @@
       "XOM"
     ],
     "coverage_start": "2010-01-01",
-    "coverage_end": "2026-09-03",
+    "coverage_end": "2026-09-09",
     "active_members_at_coverage_start": 0,
     "minimum_active_members": 400,
     "inactive_members": 0,
@@ -1485,7 +1485,7 @@
   "robustness_reports": {
     "survivorship": {
       "name": "survivorship",
-      "path": "D:\\Stock Market AI Bot\\logs\\core_satellite_survivorship_audit.json",
+      "path": "/Users/amos/Code/Stock Market AI Bot/logs/core_satellite_survivorship_audit.json",
       "exists": true,
       "match": true,
       "reasons": [],
@@ -1493,7 +1493,7 @@
       "generated_at": "2026-09-03T03:02:49.625186",
       "observed_config_fingerprint": "a9f616b5f6185fcf",
       "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-      "age_days": 0.458,
+      "age_days": 6.214,
       "max_age_days": 60,
       "health": {
         "pass": true,
@@ -1515,7 +1515,7 @@
     },
     "execution_stress": {
       "name": "execution_stress",
-      "path": "D:\\Stock Market AI Bot\\logs\\core_satellite_execution_stress.json",
+      "path": "/Users/amos/Code/Stock Market AI Bot/logs/core_satellite_execution_stress.json",
       "exists": true,
       "match": true,
       "reasons": [],
@@ -1523,7 +1523,7 @@
       "generated_at": "2026-09-03T03:01:29.559776",
       "observed_config_fingerprint": "a9f616b5f6185fcf",
       "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-      "age_days": 0.458,
+      "age_days": 6.215,
       "max_age_days": 60,
       "health": {
         "pass": true,
@@ -1533,7 +1533,7 @@
     },
     "factor_decay": {
       "name": "factor_decay",
-      "path": "D:\\Stock Market AI Bot\\logs\\factor_decay_monitor.json",
+      "path": "/Users/amos/Code/Stock Market AI Bot/logs/factor_decay_monitor.json",
       "exists": true,
       "match": true,
       "reasons": [],
@@ -1541,7 +1541,7 @@
       "generated_at": "2026-09-03T03:05:03.953579",
       "observed_config_fingerprint": "a9f616b5f6185fcf",
       "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-      "age_days": 0.456,
+      "age_days": 6.213,
       "max_age_days": 7,
       "health": {
         "pass": true,
@@ -1556,7 +1556,7 @@
     "reports": {
       "survivorship": {
         "name": "survivorship",
-        "path": "D:\\Stock Market AI Bot\\logs\\core_satellite_survivorship_audit.json",
+        "path": "/Users/amos/Code/Stock Market AI Bot/logs/core_satellite_survivorship_audit.json",
         "exists": true,
         "match": true,
         "reasons": [],
@@ -1564,7 +1564,7 @@
         "generated_at": "2026-09-03T03:02:49.625186",
         "observed_config_fingerprint": "a9f616b5f6185fcf",
         "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-        "age_days": 0.458,
+        "age_days": 6.214,
         "max_age_days": 60,
         "health": {
           "pass": true,
@@ -1586,7 +1586,7 @@
       },
       "execution_stress": {
         "name": "execution_stress",
-        "path": "D:\\Stock Market AI Bot\\logs\\core_satellite_execution_stress.json",
+        "path": "/Users/amos/Code/Stock Market AI Bot/logs/core_satellite_execution_stress.json",
         "exists": true,
         "match": true,
         "reasons": [],
@@ -1594,7 +1594,7 @@
         "generated_at": "2026-09-03T03:01:29.559776",
         "observed_config_fingerprint": "a9f616b5f6185fcf",
         "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-        "age_days": 0.458,
+        "age_days": 6.215,
         "max_age_days": 60,
         "health": {
           "pass": true,
@@ -1604,7 +1604,7 @@
       },
       "factor_decay": {
         "name": "factor_decay",
-        "path": "D:\\Stock Market AI Bot\\logs\\factor_decay_monitor.json",
+        "path": "/Users/amos/Code/Stock Market AI Bot/logs/factor_decay_monitor.json",
         "exists": true,
         "match": true,
         "reasons": [],
@@ -1612,7 +1612,7 @@
         "generated_at": "2026-09-03T03:05:03.953579",
         "observed_config_fingerprint": "a9f616b5f6185fcf",
         "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-        "age_days": 0.456,
+        "age_days": 6.213,
         "max_age_days": 7,
         "health": {
           "pass": true,
@@ -1694,5 +1694,5 @@
       "survivorship_capital_evidence_incomplete"
     ]
   },
-  "validation_bundle_hash": "16dc3335d99c4f7c61701038abb8ec2c5dfc4b1c6db5fe04e7613efeb6b615b5"
+  "validation_bundle_hash": "3ddcebd7eb32f79781ff447a565f450bb02290ae2d8ab2afe6abf5a6686f2701"
 }
