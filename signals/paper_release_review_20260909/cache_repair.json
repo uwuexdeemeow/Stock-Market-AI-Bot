@@ -64,5 +64,17 @@
   "prior_observations_count_as_new": false,
   "release_commit": "4e13c065367be4751caab3dbfefdc93aa168f9ca",
   "daily_rerun_id": 34370140204,
-  "daily_rerun_url": "https://github.com/uwuexdeemeow/Stock-Market-AI-Bot/actions/runs/34370140204"
+  "daily_rerun_url": "https://github.com/uwuexdeemeow/Stock-Market-AI-Bot/actions/runs/34370140204",
+  "daily_rerun_conclusion": "failure",
+  "cache_recovery_seconds": 2,
+  "cache_recovery_passed": true,
+  "signal_generation_passed": true,
+  "submission_blocker": "outside_execution_window",
+  "submission_refused_at": "2026-09-09T15:30:19Z",
+  "alignment_gate_passed": false,
+  "release_ci_run": 34370121563,
+  "release_ci_passed": true,
+  "maximum_target_weight_gap": 0.026754,
+  "operational_bundle_complete": true,
+  "new_corrected_validation_observations": 0
 }
