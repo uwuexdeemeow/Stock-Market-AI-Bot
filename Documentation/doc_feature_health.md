@@ -74,3 +74,5 @@ The generated profile includes `source_fingerprints` for the exact quality JSON
 and optional research-summary CSV used. These identify contents, not file-copy
 times. Run `python3 feature_health.py --max-specs 48` to regenerate this derived
 profile; the command does not download prices or submit orders.
+
+The command also disables the feature loader’s implicit output, so `--no-write` really leaves report files untouched and `--output-dir` controls the only destination.

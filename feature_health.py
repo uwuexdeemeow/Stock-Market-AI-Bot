@@ -439,7 +439,9 @@ def main() -> None:
     # so this command audits the exact feature set the strategy would score.
     from alpha_factor_backtest import load_feature_specs
 
-    specs = load_feature_specs(max_specs=int(args.max_specs))
+    # Loading features must not write to the default signals directory. Only
+    # the final calculation below owns output and honors --no-write.
+    specs = load_feature_specs(max_specs=int(args.max_specs), write_health_outputs=False)
     if not specs:
         raise SystemExit(
             "No feature specs found. Run feature research first or check logs/feature_ic_shortlist.csv."

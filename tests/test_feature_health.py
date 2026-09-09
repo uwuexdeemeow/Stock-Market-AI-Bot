@@ -165,3 +165,21 @@ def test_profile_rejects_source_changed_during_calculation(monkeypatch, tmp_path
     with pytest.raises(ValueError, match="source changed"):
         build_feature_health_profile(["ret_5d"], output_dir=tmp_path)
     assert not (tmp_path / "feature_health_profile.json").exists()
+
+
+def test_cli_no_write_disables_loader_side_effects(monkeypatch, tmp_path):
+    """Even loading the shortlist must honor a read-only CLI invocation."""
+    import sys
+    import types
+
+    calls = []
+
+    def loader(*, max_specs, write_health_outputs):
+        calls.append(write_health_outputs)
+        return [{"feature": "ret_5d"}]
+
+    monkeypatch.setitem(sys.modules, "alpha_factor_backtest", types.SimpleNamespace(load_feature_specs=loader))
+    monkeypatch.setattr(sys, "argv", ["feature_health.py", "--no-write", "--output-dir", str(tmp_path)])
+    feature_health_module.main()
+    assert calls == [False]
+    assert not list(tmp_path.iterdir())
