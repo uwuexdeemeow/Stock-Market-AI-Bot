@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-09T23:16:38+00:00",
-  "source_generated_at": "2026-09-09T23:16:35+00:00",
+  "generated_at": "2026-09-10T21:16:15+00:00",
+  "source_generated_at": "2026-09-10T21:16:12+00:00",
   "status": "collecting",
-  "sample_count": 11,
+  "sample_count": 12,
   "minimum_sample_count": 20,
   "recommended_one_way_slippage_bps": 10.0,
   "configured_floor_bps": 10.0,
@@ -52,8 +52,8 @@
       "side": "sell",
       "order_type": "trailing_stop",
       "liquidity_bucket": "low",
-      "median_notional": 10129.88,
-      "samples": 2,
+      "median_notional": 2214.6,
+      "samples": 3,
       "median_slippage_bps": 0.0,
       "p75_slippage_bps": 0.0,
       "mean_slippage_bps": 0.0

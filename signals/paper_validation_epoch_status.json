@@ -1,16 +1,16 @@
 {
   "schema_version": 2,
-  "epoch_id": "paper-v20260909T152459Z",
-  "evaluated_at": "2026-09-09T23:16:39+00:00",
+  "epoch_id": "paper-v20260910T045130Z",
+  "evaluated_at": "2026-09-10T21:16:15+00:00",
   "status": "collecting",
   "trading_days": 1,
   "rebalance_events": 0,
   "accepted_orders": 0,
-  "classified_sessions": 1,
+  "classified_sessions": 0,
   "duplicate_orders": 0,
   "unexplained_orders": 0,
-  "maximum_target_weight_gap": 0.027019,
-  "gross_exposure_gap": 0.005,
+  "maximum_target_weight_gap": 0.022702,
+  "gross_exposure_gap": 0.024507,
   "alignment_status": "fail",
   "open_critical_incidents": 0,
   "fill_rate": null,
@@ -46,8 +46,16 @@
   "two_stage_design_improves_slippage": false,
   "execution_scorecard_decision_eligible": false,
   "execution_scorecard_schema_version": 3,
-  "paper_version_lock_valid": true,
-  "paper_version_lock_issues": [],
+  "paper_version_lock_valid": false,
+  "paper_version_lock_issues": [
+    "locked_file_changed:.github/workflows/daily_paper_trading.yml",
+    "locked_file_changed:logs/core_satellite_execution_stress.json",
+    "locked_file_changed:logs/core_satellite_survivorship_audit.json",
+    "locked_file_changed:logs/factor_decay_monitor.json",
+    "locked_file_changed:signals/core_satellite_live_configs.json",
+    "locked_file_changed:signals/core_satellite_validation_bundle.json",
+    "paper_logic_fingerprint_mismatch"
+  ],
   "checks": {
     "trading_days": false,
     "rebalance_events": false,
@@ -64,18 +72,18 @@
     "bad_slippage_rate": false,
     "stage_comparison_ready": false,
     "two_stage_design": false,
-    "paper_version_lock": true
+    "paper_version_lock": false
   },
   "manual_real_capital_review_eligible": false,
   "real_capital_approved": false,
   "run_context": {
-    "run_id": "post-market-34416113810-1",
-    "generated_at": "2026-09-09T23:16:39+00:00",
+    "run_id": "post-market-34531126957-1",
+    "generated_at": "2026-09-10T21:16:15+00:00",
     "signal_as_of": "2026-09-09T23:30+08:00",
-    "git_commit": "4e13c065367be4751caab3dbfefdc93aa168f9ca",
-    "configuration_fingerprint": "81ce534046da7b28fde31b5e32b505b91df29fda52ad32e3dacbfe025a221a53",
-    "paper_version_fingerprint": "8d1761a63c2efcb2ea3d6151a977d67b55af1ed2672aa4b5549bde75794b12eb",
+    "git_commit": "d7c846b84b5767c31ae01f6b3226cce4a3784f01",
+    "configuration_fingerprint": "726615167861202953fd093feb3fcb7616d3226ba2ac48b75d232a5a1f1fff87",
+    "paper_version_fingerprint": "f122e05e9daa3e532c52365fcd6c7df923033174198be1078cd7f034619c25de",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-34416113810-1"
+  "run_id": "post-market-34531126957-1"
 }

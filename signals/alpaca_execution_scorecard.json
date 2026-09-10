@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
-  "generated_at": "2026-09-09T23:16:37+00:00",
-  "measurement_cutoff_60m": "2026-09-09T22:16:37.823663+00:00",
+  "generated_at": "2026-09-10T21:16:14+00:00",
+  "measurement_cutoff_60m": "2026-09-10T20:16:14.665124+00:00",
   "status": "collecting",
   "score": 100.0,
   "decision_eligible": false,
@@ -88,20 +88,20 @@
     "minimum_rebalance_sessions": 3
   },
   "protective_stops": {
-    "orders_seen": 2,
-    "eligible_orders": 2,
-    "measured_slippage_count": 2,
-    "slippage_eligible_orders": 2,
-    "slippage_measured_orders": 2,
+    "orders_seen": 3,
+    "eligible_orders": 3,
+    "measured_slippage_count": 3,
+    "slippage_eligible_orders": 3,
+    "slippage_measured_orders": 3,
     "slippage_coverage_rate": 1.0,
-    "trading_sessions": 1,
-    "avg_slippage_bps": -17.85,
-    "median_slippage_bps": -17.85,
-    "p75_slippage_bps": -15.125,
-    "worst_slippage_bps": -12.4,
+    "trading_sessions": 2,
+    "avg_slippage_bps": -13.513,
+    "median_slippage_bps": -12.4,
+    "p75_slippage_bps": -8.62,
+    "worst_slippage_bps": -4.84,
     "mean_slippage_95ci_bps": [
-      -28.532,
-      -7.168
+      -24.015,
+      -3.012
     ],
     "bad_slippage_count": 0,
     "bad_slippage_rate": 0.0,
@@ -110,17 +110,17 @@
     "raw_bad_slippage_rate": 0.0,
     "minor_bad_slippage_count": 0,
     "adverse_15m_count": 2,
-    "adverse_15m_observations": 2,
-    "adverse_15m_eligible_orders": 2,
-    "adverse_15m_measured_orders": 2,
+    "adverse_15m_observations": 3,
+    "adverse_15m_eligible_orders": 3,
+    "adverse_15m_measured_orders": 3,
     "adverse_15m_coverage_rate": 1.0,
-    "adverse_15m_rate": 1.0,
+    "adverse_15m_rate": 0.6667,
     "adverse_60m_count": 2,
-    "adverse_60m_observations": 2,
-    "adverse_60m_eligible_orders": 2,
-    "adverse_60m_measured_orders": 2,
+    "adverse_60m_observations": 3,
+    "adverse_60m_eligible_orders": 3,
+    "adverse_60m_measured_orders": 3,
     "adverse_60m_coverage_rate": 1.0,
-    "adverse_60m_rate": 1.0
+    "adverse_60m_rate": 0.6667
   },
   "entry_timing": {
     "status": "advisory",
@@ -293,8 +293,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 0.5,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-08-10T23:16:35.403015+00:00",
-      "denominator_end": "2026-09-09T23:16:35.264998+00:00"
+      "denominator_start": "2026-08-11T21:16:12.299339+00:00",
+      "denominator_end": "2026-09-10T21:16:12.226093+00:00"
     },
     "stage2": {
       "orders": 2,
@@ -310,8 +310,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 1.0,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-08-10T23:16:35.403015+00:00",
-      "denominator_end": "2026-09-09T23:16:35.264998+00:00"
+      "denominator_start": "2026-08-11T21:16:12.299339+00:00",
+      "denominator_end": "2026-09-10T21:16:12.226093+00:00"
     }
   },
   "throttle": {
@@ -382,13 +382,13 @@
     "previous_scorecard": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json"
   },
   "run_context": {
-    "run_id": "post-market-34416113810-1",
-    "generated_at": "2026-09-09T23:16:37+00:00",
+    "run_id": "post-market-34531126957-1",
+    "generated_at": "2026-09-10T21:16:14+00:00",
     "signal_as_of": "",
-    "git_commit": "4e13c065367be4751caab3dbfefdc93aa168f9ca",
-    "configuration_fingerprint": "81ce534046da7b28fde31b5e32b505b91df29fda52ad32e3dacbfe025a221a53",
-    "paper_version_fingerprint": "8d1761a63c2efcb2ea3d6151a977d67b55af1ed2672aa4b5549bde75794b12eb",
+    "git_commit": "d7c846b84b5767c31ae01f6b3226cce4a3784f01",
+    "configuration_fingerprint": "726615167861202953fd093feb3fcb7616d3226ba2ac48b75d232a5a1f1fff87",
+    "paper_version_fingerprint": "f122e05e9daa3e532c52365fcd6c7df923033174198be1078cd7f034619c25de",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-34416113810-1"
+  "run_id": "post-market-34531126957-1"
 }
