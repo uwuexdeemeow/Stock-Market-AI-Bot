@@ -522,6 +522,8 @@ def test_workflow_skips_publication_only_for_explicit_closed_market():
     for name in ('Commit signals to repo', 'Upload run logs', 'Save data cache', 'Save state files cache'):
         assert "steps.run_daily_paper.outputs.market_closed != 'true'" in steps[name]['if']
     assert 'Evidence manifest is incomplete' in steps['Commit signals to repo']['run']
+    assert 'exit 0' in steps['Commit signals to repo']['run']
+    assert '--detail-log-glob "logs/daily_run_*.json"' in steps['Publish detailed failure annotation']['run']
     assert "steps.run_daily_paper.outputs.market_closed == 'true'" in steps['Upload closed-market metadata']['if']
     assert 'signals/alpaca_paper_log.csv' not in steps['Upload closed-market metadata']['with']['path']
 

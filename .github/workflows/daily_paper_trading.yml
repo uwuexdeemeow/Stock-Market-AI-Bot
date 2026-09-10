@@ -619,7 +619,7 @@ jobs:
           # Never replace signals/latest with a mixed or partial daily bundle.
           # Failed-but-complete evidence is publishable for diagnosis; missing
           # or mismatched evidence stays only in the run artifact.
-          python3 - <<'PY'
+          if ! python3 - <<'PY'
           import json
           from pathlib import Path
           path = Path("signals/paper_run_manifest.json")
@@ -628,6 +628,12 @@ jobs:
               raise SystemExit("Evidence manifest is incomplete; refusing signals/latest publication")
           print(f"Publishing complete evidence run {payload.get('run_id')}")
           PY
+          then
+            # The trading step already owns the job failure. Refusing to publish
+            # partial evidence is expected cleanup behavior, not a second fault.
+            echo "::notice::Evidence manifest is incomplete; signals/latest was not changed."
+            exit 0
+          fi
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -948,4 +954,4 @@ jobs:
         env:
           WORKFLOW_STEPS_JSON: ${{ toJSON(steps) }}
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: python3 workflow_failure_annotation.py --workflow-file .github/workflows/daily_paper_trading.yml --workflow-name "Daily Paper Trading"
+        run: python3 workflow_failure_annotation.py --workflow-file .github/workflows/daily_paper_trading.yml --workflow-name "Daily Paper Trading" --detail-log-glob "logs/daily_run_*.json"
