@@ -18,6 +18,7 @@ Daily workflow (runs in order):
     4.  fill_monitor.py --days 2           → verify yesterday's fills before placing new orders
     5.  broker_health.py                   → pre-flight ping of Alpaca (alerts if down)
     6.  core_satellite_alpha.py            → generate the Alpaca paper signal
+    6a. regime_monitor.py                  → record the generated regime before submission
     7.  alpaca_paper_trading.py --submit   → submit to Alpaca
     8.  alpaca_paper_trading.py --reconcile → check if Alpaca orders filled
     9.  execution_guard.py --once          → repair ETF stops, stale orders, P&L guard
@@ -25,7 +26,6 @@ Daily workflow (runs in order):
     11. paper_health.py                    → build deep health summary (slippage, drift, risk)
     12. execution_scorecard.py             → grade fill quality and throttled buys
     13. alpaca_paper_gauntlet.py           → check Alpaca health
-    14. regime_monitor.py                  → detect and alert on regime changes
 
 Schedule with cron (9:30 AM ET on weekdays):
     30 9 * * 1-5 cd "/path/to/Stock Market AI Bot" && python3 daily_run.py >> logs/daily_run.log 2>&1
@@ -680,9 +680,12 @@ def build_steps(
     steps.append(FACTOR_DATA_HEALTH_STEP)
     steps.append(DRIFT_MONITOR_STEP)
     steps.append(CORE_SATELLITE_SIGNAL_STEP)
+    # Record the generated market regime before submitting orders. A broker
+    # refusal must not hide a valid signal; failed signal generation still
+    # blocks this step through the normal critical-failure guard.
+    steps.append(REGIME_MONITOR_STEP)
     if run_alpaca:
         steps.extend(ALPACA_STEPS)
-    steps.append(REGIME_MONITOR_STEP)
     # Watchdog + housekeeping — non-critical, run last
     steps.append(MONITOR_HEARTBEAT_STEP)
     steps.append(CANONICAL_READINESS_STEP)

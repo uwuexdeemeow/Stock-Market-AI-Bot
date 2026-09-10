@@ -366,3 +366,5 @@ small derived profile and rechecks the strict gate. This prevents a checkout-tim
 metadata discrepancy from triggering an hour-long price refresh and missing the
 09:35–10:30 New York submission window. Genuine input failures retain the full
 recovery path; execution-window and portfolio-alignment thresholds are unchanged.
+
+The daily run records the regime immediately after successful signal generation, before order submission. A rejected or out-of-window order therefore cannot suppress this independent observation. Failed signal generation still blocks regime recording, and the original trading failure remains visible.

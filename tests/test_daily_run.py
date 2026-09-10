@@ -542,3 +542,20 @@ def test_closed_market_summary_never_labels_old_account_data_as_current(tmp_path
     assert 'no orders submitted by this run' in result.stdout
     assert '123456789' not in result.stdout
     assert 'Daily log: missing' not in result.stdout
+
+
+@pytest.mark.parametrize('failure', ['alpaca_submit', 'core_satellite_signal'])
+def test_regime_observation_depends_on_signal_not_submission(monkeypatch, failure):
+    """A broker refusal does not erase a signal; a failed signal is not observed."""
+    steps = daily_run.build_steps(skip_refresh=True, skip_factor_refresh=True)
+
+    def fake_run(name, *_args, **_kwargs):
+        return {'name': name, 'status': 'failed' if name == failure else 'ok', 'elapsed': 0}
+
+    monkeypatch.setattr(daily_run, 'run_step', fake_run)
+    results = daily_run.run_steps(steps, dry_run=False, timeout=1)
+    by_name = {r['name']: r for r in results}
+    assert by_name[failure]['status'] == 'failed'
+    assert by_name['regime_monitor']['status'] == ('ok' if failure == 'alpaca_submit' else 'blocked')
+    if failure == 'core_satellite_signal':
+        assert by_name['regime_monitor']['blocked_by'] == failure

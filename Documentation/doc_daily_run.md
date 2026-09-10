@@ -195,3 +195,5 @@ never republishes prior broker/account reports as today's results. Missing skip
 outputs or genuine trading failures still face the original complete-manifest
 publication check. `--force`, `--dry-run` and health-only behavior stay explicit;
 normal manual reruns keep the holiday guard enabled.
+
+The daily run records the regime immediately after successful signal generation, before order submission. A rejected or out-of-window order therefore cannot suppress this independent observation. Failed signal generation still blocks regime recording, and the original trading failure remains visible.
