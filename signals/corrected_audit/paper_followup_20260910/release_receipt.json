@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "code_commit": "be84331a086cf5bbac2500957b968932fb45b2b0",
+  "ci_run_id": 34438614383,
+  "ci_passed": true,
+  "changed_locked_files": [
+    {
+      "file": "daily_run.py",
+      "before": "08fb198449888646606e23b1934b43216a3bfd81ee98ac2e4f92d2e1759d1e97",
+      "after": "b2805ddd08d050750b4869634152379d09726152a9dc83ad03c11b7a7fe9c403"
+    }
+  ],
+  "old_fingerprint": "8d1761a63c2efcb2ea3d6151a977d67b55af1ed2672aa4b5549bde75794b12eb",
+  "new_fingerprint": "f122e05e9daa3e532c52365fcd6c7df923033174198be1078cd7f034619c25de",
+  "epoch_id": "paper-v20260910T045130Z",
+  "previous_epoch_id": "paper-v20260909T152459Z",
+  "prior_observations_count_as_new": false,
+  "version_lock_passed": true,
+  "corrected_prospective_freeze_started": false,
+  "real_capital_approved": false,
+  "next_operational_verification": "Existing 09:35 New York scheduled daily run",
+  "release_commit": "6992e925185663b544cc9abeb0985cf44737968a",
+  "release_ci_run_id": 34438801469,
+  "release_ci_passed": true,
+  "runtime_approved": false,
+  "runtime_blocker": "current_robustness_failed:factor_decay:report_stale"
+}
