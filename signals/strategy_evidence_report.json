@@ -1,10 +1,10 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-09-10T04:52:04.131604+00:00",
+  "generated_at": "2026-09-10T14:02:13.023135+00:00",
   "audit_start": "2012-01-01",
-  "audit_end": "2026-09-06",
+  "audit_end": "2026-09-10",
   "audit_code_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-  "audit_worktree_dirty": false,
+  "audit_worktree_dirty": true,
   "status": "blocked",
   "sources": [
     {
@@ -34,8 +34,9 @@
       "file_hashes": {
         "core_satellite_live_configs.json": "1d0bf9c29cd0003938c775111ffb37374c7b9ac117702b260469bef81a533b6e",
         "core_satellite_validation_bundle.json": "81764e5363ae6ff54693cff9abda3d4fd9150313b72e5c98a5e9363ad21caef9",
-        "core_satellite_alpha_orders.csv": "7caba6295972d2d7dcf5467e0127e1fbfb73eced6159ed4b3a0118d0f420831e",
-        "core_satellite_alpha_input_snapshot.csv": "e59db0ed7521a06b59b519c6a8452c9584164f8fcc7cbd623e38d570777fc01e"
+        "alpaca_paper_log.csv": "732c6a03f9b4740315520d95a230e0c82ec2c83a420e5f42bbc6e42b3a35e762",
+        "core_satellite_alpha_signal.csv": "8d36f7cd3c692cfce309d7c966ec4ce282b2d97080a20885641f903d57c7afc3",
+        "core_satellite_alpha_input_snapshot.csv": "3e604adf9c584845b134d32ee4318030b43ea35bafd68db83ba36e5e2a05887a"
       },
       "approval": {
         "status": "identity_consistent_pending_runtime_checks",
@@ -57,11 +58,11 @@
     },
     {
       "source": "signals/latest",
-      "source_commit": "509cacbef8f32f9c2007232c0284092b7148c5f1",
+      "source_commit": "f3792090ae29451f6e5b097ddba7753ae7546e41",
       "profile": "execution_observation_only",
       "run_commit": "4e13c065367be4751caab3dbfefdc93aa168f9ca",
       "generated_at": "2026-09-09T23:16:41+00:00",
-      "age_hours": 5.589696479166666,
+      "age_hours": 14.758797694722222,
       "complete": true,
       "issues": [],
       "measured_fills": 9,
@@ -114,17 +115,16 @@
       }
     },
     {
-      "source": "workflow_artifact:34381542992:10116099962:failure",
-      "source_commit": "4e13c065367be4751caab3dbfefdc93aa168f9ca",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
+      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
       "profile": "daily",
-      "run_commit": "4e13c065367be4751caab3dbfefdc93aa168f9ca",
-      "generated_at": "2026-09-09T17:14:47+00:00",
-      "age_hours": 11.621363815,
+      "run_commit": "6992e925185663b544cc9abeb0985cf44737968a",
+      "generated_at": "2026-09-10T13:56:11+00:00",
+      "age_hours": 0.10046487083333333,
       "complete": false,
       "issues": [
         "complete_run_manifest_missing",
-        "required_evidence_missing:core_satellite_alpha_orders.csv",
-        "required_evidence_missing:core_satellite_alpha_signal.csv"
+        "required_evidence_missing:core_satellite_alpha_orders.csv"
       ],
       "measured_fills": 9,
       "sessions": 2,
@@ -142,14 +142,15 @@
         "epoch_check_failed:two_stage_design"
       ],
       "file_hashes": {
+        "core_satellite_alpha_signal.csv": "14bfa3e0a74b278cbae65366559ef4236e159979b6f744872b845f64942798bc",
         "alpaca_paper_log.csv": "4d78586c3be72d6ec53cd08edbd723c002da0d2da68e429b22950257b3e2335e",
-        "alpaca_paper_health.json": "e0478eff97d5e7bad012c7cef6591d3c0f43f7797bdca9b20faf051b5887eb3e",
-        "alpaca_execution_scorecard.json": "9cad7204f8faf11c99be1bcbf0e076d1d4c075742288fae08e26b89ec71f02e9",
+        "alpaca_paper_health.json": "cf8313ac0f501384366d56d79f05540c767ac88ee7882919465b7f0765c2760a",
+        "alpaca_execution_scorecard.json": "3b1a4a285073e62a39b8ece7cfd8d7afeb3a3aba1aa5d20c44ff3d7b9d678082",
         "alpaca_submit_outcomes.csv": "187603d0bbe3e56e8f7c3a4b4dcda3536145bf503dfe68833ffde84916d1bdee",
-        "paper_validation_epoch_status.json": "39a0afc29ead0bb0b40c99cebc02d544161d26f2d0a5533020d15f6bb1975901",
-        "broker_truth.json": "43be2e99501f8d93f8b17f3208acacb4135a74218a37ca49efe9d5f2c21653ac",
-        "paper_run_manifest.json": "2e222ea000d2fb9b11a595a0615fcf95e9dfabd1681d2ff646bbb67d980ead1e",
-        "workflow_heartbeat_daily.json": "86001c7a678ce5e0d13d285e27796b69c329957f7440359e0c46cfe8ce882194"
+        "paper_validation_epoch_status.json": "0a5c0c4f8eea3ee1a629ab178031ba30ec64c593952485fbec707bb79add6462",
+        "broker_truth.json": "bea05d1a8e673a162b8e8976f43b41e3d1edd24ca1f6c1842544907b35d3d950",
+        "paper_run_manifest.json": "eaf462bb5cd446b492476f39b281f0e787521d2aecbf7b8646834d43c9f37827",
+        "workflow_heartbeat_daily.json": "a8c5f566fd5fff558a3042516a7827a383ecbeaab33ac9bdbc1cd552485b18eb"
       },
       "approval": {
         "status": "blocked",
@@ -181,8 +182,8 @@
     }
   ],
   "recovery": {
-    "source_sha256": "e813a41ae7d28b21898d7d647e8de0e76d19f1854ce79e752c0c2a04cc4a134e",
-    "generated_at": "2026-09-10T04:46:27.238971+00:00",
+    "source_sha256": null,
+    "generated_at": null,
     "corporate_actions": {
       "rows": null,
       "missing_dividend_payment_dates": null,
@@ -193,8 +194,8 @@
       "verified_full_coverage": null
     },
     "activity_counts": {
-      "FILL": 0,
-      "FEE": 0
+      "FILL": null,
+      "FEE": null
     },
     "source_candidates": [],
     "price_probes": []
@@ -314,16 +315,16 @@
     "next_action": "Supply attributed historical membership, raw bars, actions and dated context; rerun source checks."
   },
   "replay": {
-    "certified": true,
-    "reconciled": true,
-    "evidence_scope": "balance_continuity_only_no_activity",
+    "certified": false,
+    "reconciled": false,
+    "evidence_scope": "unspecified_in_source",
     "activity_counts": {
-      "FILL": 0,
-      "FEE": 0
+      "FILL": null,
+      "FEE": null
     },
-    "interval_start": "2026-09-08T16:59:32.988868+00:00",
-    "interval_end": "2026-09-10T04:46:32.672621+00:00",
-    "source_sha256": "b63741dde6ce3af4830d08fd46c4094ac54619c3f20be366d724966635bf48d0",
+    "interval_start": null,
+    "interval_end": null,
+    "source_sha256": null,
     "arrival_quotes": "unavailable_unless_recorded_with_order"
   },
   "shadow_candidate": {
@@ -429,122 +430,117 @@
     },
     {
       "reason": "complete_run_manifest_missing",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "required_evidence_missing:core_satellite_alpha_orders.csv",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
-      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
-    },
-    {
-      "reason": "required_evidence_missing:core_satellite_alpha_signal.csv",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "config_fingerprint_missing",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "configuration_fingerprint_mismatch",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "deployed_configuration_missing",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "deployment_state_missing",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "deployment_status_conflict",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "paper_approval_not_unanimous",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "robustness_review_missing",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "strategy_bundle_reference_mismatch",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "top_bundle_reference_mismatch",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "validation_bundle_hash_missing",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "validation_bundle_schema_outdated",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "signal_freshness_failed",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "execution_observations_insufficient_or_failed",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:trading_days",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:rebalance_events",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:accepted_orders",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:classified_sessions",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:average_slippage",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:bad_slippage_rate",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:stage_comparison_ready",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:two_stage_design",
-      "source": "workflow_artifact:34381542992:10116099962:failure",
+      "source": "workflow_artifact:34485337896:10155521944:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
@@ -680,7 +676,11 @@
     {
       "reason": "current_robustness_failed",
       "source": "local_runtime",
-      "next_action": "Factor-decay evidence exceeded its existing 7-day limit. Recover matching verified research inputs and regenerate dependent evidence; 70 of 159 local files differ from the approved snapshot. Do not retimestamp or relax the limit."
+      "next_action": "Review current runtime evidence and version lock; preserve existing freeze."
+    },
+    {
+      "reason": "recorded_replay_not_certified",
+      "next_action": "Recover complete activities, fees and independently verified interval balances; replay to one-cent cash tolerance."
     },
     {
       "reason": "normal_session_activity_reconciliation_awaiting_observations",
@@ -695,632 +695,29 @@
       "next_action": "After verified inputs, successful evaluation and certified reconciliation, obtain explicit freeze before 252 new sessions and 20 independent matured cohorts."
     },
     {
+      "reason": "review_report_missing",
+      "source": "membership_identity_report",
+      "next_action": "Regenerate the attributed review and resolve its verified-input dependencies."
+    },
+    {
+      "reason": "review_source_identity_incomplete",
+      "source": "membership_identity_report",
+      "next_action": "Regenerate the attributed review and resolve its verified-input dependencies."
+    },
+    {
       "reason": "review_not_fully_verified",
       "source": "membership_identity_report",
       "next_action": "Regenerate the attributed review and resolve its verified-input dependencies."
     },
     {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "FOXA",
-      "count": 861,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
+      "reason": "review_report_missing",
+      "source": "security_transition_report",
+      "next_action": "Regenerate the attributed review and resolve its verified-input dependencies."
     },
     {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "IR",
-      "count": 861,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "AGN",
-      "count": 817,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "ARNC",
-      "count": 816,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "HCP",
-      "count": 807,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "BHGE",
-      "count": 806,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "LLL",
-      "count": 799,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "PX",
-      "count": 768,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "XL",
-      "count": 752,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "MON",
-      "count": 718,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "WYND",
-      "count": 714,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "DOW",
-      "count": 705,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "CHK",
-      "count": 693,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "AABA",
-      "count": 612,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "DNB",
-      "count": 592,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "URBN",
-      "count": 585,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "HAR",
-      "count": 581,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "SE",
-      "count": 574,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "DO",
-      "count": 534,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "HOT",
-      "count": 531,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "EMC",
-      "count": 525,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "GAS",
-      "count": 505,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "CCE",
-      "count": 492,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "FOX",
-      "count": 471,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "POM",
-      "count": 459,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "PCL",
-      "count": 445,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "PCP",
-      "count": 439,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "RIG",
-      "count": 436,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "ALTR",
-      "count": 424,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "FOSL",
-      "count": 407,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "ADT",
-      "count": 399,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "PLL",
-      "count": 382,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "DTV",
-      "count": 371,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "NE",
-      "count": 367,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "TEG",
-      "count": 358,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "MNK",
-      "count": 346,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "SIG",
-      "count": 320,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "BEAM",
-      "count": 241,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "LIFE",
-      "count": 215,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "DELL",
-      "count": 187,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "BMC",
-      "count": 173,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "S",
-      "count": 158,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "CVH",
-      "count": 135,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "SUN",
-      "count": 81,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "ANRZQ",
-      "count": 78,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "SHLD",
-      "count": 70,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "CCEP",
-      "count": 64,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "PGN",
-      "count": 52,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "HSH",
-      "count": 51,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "NVLS",
-      "count": 44,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "CEG",
-      "count": 35,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "VFC",
-      "count": 2,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "AMTM",
-      "count": 2,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "RVTY",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "PKI",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "FI",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "FISV",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "EG",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "RE",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "KVUE",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "AAP",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "COR",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "ABC",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "VLTO",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "DXC",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "DAY",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "CDAY",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "CPAY",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "FLT",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "SOLV",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "GEV",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "XRAY",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "SW",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "WRK",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "APO",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "LII",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "WDAY",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "QRVO",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "DASH",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "EXE",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "TKO",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "WSM",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "BWA",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "CE",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "FMC",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "TFX",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "DDOG",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "PSKY",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "historical_membership_source_disagreement",
-      "ticker": "PARA",
-      "count": 1,
-      "source": "membership_identity_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
+      "reason": "review_source_identity_incomplete",
+      "source": "security_transition_report",
+      "next_action": "Regenerate the attributed review and resolve its verified-input dependencies."
     },
     {
       "reason": "review_not_fully_verified",
@@ -1328,99 +725,19 @@
       "next_action": "Regenerate the attributed review and resolve its verified-input dependencies."
     },
     {
-      "reason": "unseparated_issuer_history",
-      "ticker": "FOXA",
-      "date": "2019-03-19",
-      "source": "security_transition_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
+      "reason": "review_report_missing",
+      "source": "edge_ablation_comparison",
+      "next_action": "Regenerate the attributed review and resolve its verified-input dependencies."
     },
     {
-      "reason": "unseparated_issuer_history",
-      "ticker": "FOX",
-      "date": "2019-03-19",
-      "source": "security_transition_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "candidate_disagrees",
-      "ticker": "TFCFA",
-      "date": "2019-03-19",
-      "source": "security_transition_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "candidate_disagrees",
-      "ticker": "TFCF",
-      "date": "2019-03-19",
-      "source": "security_transition_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "unseparated_issuer_history",
-      "ticker": "IR",
-      "date": "2020-03-02",
-      "source": "security_transition_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "candidate_disagrees",
-      "ticker": "TT",
-      "date": "2020-03-02",
-      "source": "security_transition_report",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
+      "reason": "review_source_identity_incomplete",
+      "source": "edge_ablation_comparison",
+      "next_action": "Regenerate the attributed review and resolve its verified-input dependencies."
     },
     {
       "reason": "review_not_fully_verified",
       "source": "edge_ablation_comparison",
       "next_action": "Regenerate the attributed review and resolve its verified-input dependencies."
-    },
-    {
-      "reason": "ablation_verified_result_unavailable",
-      "variant": "full",
-      "source": "edge_ablation_comparison",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "ablation_verified_result_unavailable",
-      "variant": "momentum_only",
-      "source": "edge_ablation_comparison",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "ablation_verified_result_unavailable",
-      "variant": "without_momentum",
-      "source": "edge_ablation_comparison",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "ablation_verified_result_unavailable",
-      "variant": "without_volatility",
-      "source": "edge_ablation_comparison",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "ablation_verified_result_unavailable",
-      "variant": "without_dollar_volume",
-      "source": "edge_ablation_comparison",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "ablation_verified_result_unavailable",
-      "variant": "neutral_allocation",
-      "source": "edge_ablation_comparison",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "ablation_verified_result_unavailable",
-      "variant": "without_stock_overlay",
-      "source": "edge_ablation_comparison",
-      "next_action": "Resolve the named security/date or verified-input dependency; retain original observations."
-    },
-    {
-      "reason": "approved_research_snapshot_unavailable_locally",
-      "source": "supplemental_snapshot_review",
-      "file": "dataset_recovery_blocker.json",
-      "next_action": "Recover the exact approved research snapshot or regenerate all dependent strategy and robustness evidence for a newly verified dataset; never relabel current inputs as the old approved fingerprint."
     }
   ],
   "real_capital_approved": false,
@@ -1428,570 +745,54 @@
   "historical_interpretation": "superseded_results_require_corrected_rebuild",
   "workflow_observations": [
     {
-      "run_id": 34385828433,
-      "status": "intentional_skip",
-      "reason": "schedule_guard",
-      "source_commit": "4e13c065367be4751caab3dbfefdc93aa168f9ca"
-    },
-    {
-      "run_id": 34381542992,
+      "run_id": 34485337896,
       "status": "artifact_selected",
-      "older_fallback": true,
-      "source_commit": "4e13c065367be4751caab3dbfefdc93aa168f9ca"
+      "older_fallback": false,
+      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a"
     }
   ],
   "review_sections": {
     "membership_identity_report": {
       "source_file": "membership_identity_report.json",
-      "source_sha256": "0caed0be12cfa4bc766caba8bcc7f3d0be6b31ff9c48ae1406758a9645534a7f",
-      "source_commit": "70610bd68ce717017a8f5653b45bb2b32a69fc03",
-      "generated_at": "2026-09-08T17:03:19.829027+00:00",
+      "source_sha256": null,
+      "source_commit": null,
+      "generated_at": null,
       "complete": false,
-      "status": "blocked_partial_primary_evidence",
+      "status": "missing",
       "issues": [
+        "review_report_missing",
+        "review_source_identity_incomplete",
         "review_not_fully_verified"
       ],
-      "findings": [
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "FOXA",
-          "count": 861
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "IR",
-          "count": 861
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "AGN",
-          "count": 817
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "ARNC",
-          "count": 816
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "HCP",
-          "count": 807
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "BHGE",
-          "count": 806
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "LLL",
-          "count": 799
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "PX",
-          "count": 768
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "XL",
-          "count": 752
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "MON",
-          "count": 718
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "WYND",
-          "count": 714
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "DOW",
-          "count": 705
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "CHK",
-          "count": 693
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "AABA",
-          "count": 612
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "DNB",
-          "count": 592
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "URBN",
-          "count": 585
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "HAR",
-          "count": 581
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "SE",
-          "count": 574
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "DO",
-          "count": 534
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "HOT",
-          "count": 531
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "EMC",
-          "count": 525
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "GAS",
-          "count": 505
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "CCE",
-          "count": 492
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "FOX",
-          "count": 471
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "POM",
-          "count": 459
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "PCL",
-          "count": 445
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "PCP",
-          "count": 439
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "RIG",
-          "count": 436
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "ALTR",
-          "count": 424
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "FOSL",
-          "count": 407
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "ADT",
-          "count": 399
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "PLL",
-          "count": 382
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "DTV",
-          "count": 371
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "NE",
-          "count": 367
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "TEG",
-          "count": 358
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "MNK",
-          "count": 346
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "SIG",
-          "count": 320
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "BEAM",
-          "count": 241
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "LIFE",
-          "count": 215
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "DELL",
-          "count": 187
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "BMC",
-          "count": 173
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "S",
-          "count": 158
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "CVH",
-          "count": 135
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "SUN",
-          "count": 81
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "ANRZQ",
-          "count": 78
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "SHLD",
-          "count": 70
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "CCEP",
-          "count": 64
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "PGN",
-          "count": 52
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "HSH",
-          "count": 51
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "NVLS",
-          "count": 44
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "CEG",
-          "count": 35
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "VFC",
-          "count": 2
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "AMTM",
-          "count": 2
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "RVTY",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "PKI",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "FI",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "FISV",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "EG",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "RE",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "KVUE",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "AAP",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "COR",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "ABC",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "VLTO",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "DXC",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "DAY",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "CDAY",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "CPAY",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "FLT",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "SOLV",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "GEV",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "XRAY",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "SW",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "WRK",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "APO",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "LII",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "WDAY",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "QRVO",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "DASH",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "EXE",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "TKO",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "WSM",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "BWA",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "CE",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "FMC",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "TFX",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "DDOG",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "PSKY",
-          "count": 1
-        },
-        {
-          "reason": "historical_membership_source_disagreement",
-          "ticker": "PARA",
-          "count": 1
-        }
-      ],
-      "candidate_cutoff": "2026-08-18",
-      "candidate_symbols": 815,
-      "candidate_intervals": 831,
-      "verified_full_intervals": 0,
-      "disagreement_dates": 876,
-      "disagreement_symbols": 89,
-      "facts_sha256": "55f6e6b49a98d59acba61d25390cb16b6930e1a28860b53a7d37907b61ccb1ed"
+      "findings": []
     },
     "security_transition_report": {
       "source_file": "security_transition_report.json",
-      "source_sha256": "f13482b3287d82b6104cf9be6344e0bbc75296d3ce0d61784cadc79d0d52fe60",
-      "source_commit": "70610bd68ce717017a8f5653b45bb2b32a69fc03",
-      "generated_at": "2026-09-08T17:03:19.902393+00:00",
+      "source_sha256": null,
+      "source_commit": null,
+      "generated_at": null,
       "complete": false,
-      "status": "blocked_partial_event_evidence",
+      "status": "missing",
       "issues": [
+        "review_report_missing",
+        "review_source_identity_incomplete",
         "review_not_fully_verified"
       ],
-      "findings": [
-        {
-          "reason": "unseparated_issuer_history",
-          "ticker": "FOXA",
-          "date": "2019-03-19"
-        },
-        {
-          "reason": "unseparated_issuer_history",
-          "ticker": "FOX",
-          "date": "2019-03-19"
-        },
-        {
-          "reason": "candidate_disagrees",
-          "ticker": "TFCFA",
-          "date": "2019-03-19"
-        },
-        {
-          "reason": "candidate_disagrees",
-          "ticker": "TFCF",
-          "date": "2019-03-19"
-        },
-        {
-          "reason": "unseparated_issuer_history",
-          "ticker": "IR",
-          "date": "2020-03-02"
-        },
-        {
-          "reason": "candidate_disagrees",
-          "ticker": "TT",
-          "date": "2020-03-02"
-        }
-      ],
-      "facts_sha256": "a0c8383244127e3d6d4b2670529d21ba8ebb598baeba929f8b9ac998ce4ed70f"
+      "findings": []
     },
     "edge_ablation_comparison": {
       "source_file": "edge_ablation_comparison.json",
-      "source_sha256": "b8dce439b9bb3aad9b238537487896f1725047b62ac1c59cde95661ddc46b085",
-      "source_commit": "70610bd68ce717017a8f5653b45bb2b32a69fc03",
-      "generated_at": "2026-09-08T17:03:21.007759+00:00",
+      "source_sha256": null,
+      "source_commit": null,
+      "generated_at": null,
       "complete": false,
-      "status": "blocked",
+      "status": "missing",
       "issues": [
+        "review_report_missing",
+        "review_source_identity_incomplete",
         "review_not_fully_verified"
       ],
-      "findings": [
-        {
-          "reason": "ablation_verified_result_unavailable",
-          "variant": "full"
-        },
-        {
-          "reason": "ablation_verified_result_unavailable",
-          "variant": "momentum_only"
-        },
-        {
-          "reason": "ablation_verified_result_unavailable",
-          "variant": "without_momentum"
-        },
-        {
-          "reason": "ablation_verified_result_unavailable",
-          "variant": "without_volatility"
-        },
-        {
-          "reason": "ablation_verified_result_unavailable",
-          "variant": "without_dollar_volume"
-        },
-        {
-          "reason": "ablation_verified_result_unavailable",
-          "variant": "neutral_allocation"
-        },
-        {
-          "reason": "ablation_verified_result_unavailable",
-          "variant": "without_stock_overlay"
-        }
-      ],
-      "candidate_identity": "617c8a66ba4d237c6f5e15a384a81344dfad7879a43db49c1a6736b78dc4fdb9",
-      "deployed_strategy_equivalent": false
+      "findings": []
     }
   },
   "version_lock_changes": {
@@ -2002,266 +803,11 @@
     "lock_modified": false,
     "replacement_approved": false
   },
-  "verified_fixes": [
-    {
-      "id": "code-d039d7e1dd8fdc9a",
-      "reason": "zero_weight_fund_does_not_require_pre_inception_prices",
-      "tests": [
-        "tests.test_daily_zero_weight.test_zero_weight_fund_does_not_require_pre_inception_prices"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-05584030559f4e9b",
-      "reason": "publisher_preserves_remote_history_and_other_jobs[daily_paper_trading.yml-Commit signals to repo-alpaca_paper_log.csv-False]",
-      "tests": [
-        "tests.test_evidence_publication.test_publisher_preserves_remote_history_and_other_jobs[daily_paper_trading.yml-Commit signals to repo-alpaca_paper_log.csv-False]"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-56819377a80b05e8",
-      "reason": "publisher_preserves_remote_history_and_other_jobs[shadow_paper_journal.yml-Commit shadow journal to repo-shadow_paper_journal.csv-False]",
-      "tests": [
-        "tests.test_evidence_publication.test_publisher_preserves_remote_history_and_other_jobs[shadow_paper_journal.yml-Commit shadow journal to repo-shadow_paper_journal.csv-False]"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-3244e27d2f8474de",
-      "reason": "publisher_preserves_remote_history_and_other_jobs[shadow_paper_journal.yml-Commit shadow journal to repo-strategy_evidence_report.json-False]",
-      "tests": [
-        "tests.test_evidence_publication.test_publisher_preserves_remote_history_and_other_jobs[shadow_paper_journal.yml-Commit shadow journal to repo-strategy_evidence_report.json-False]"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-e7504c3a146b5032",
-      "reason": "publisher_preserves_remote_history_and_other_jobs[post_market_execution_quality.yml-Publish refreshed evidence-alpaca_execution_scorecard.json-False]",
-      "tests": [
-        "tests.test_evidence_publication.test_publisher_preserves_remote_history_and_other_jobs[post_market_execution_quality.yml-Publish refreshed evidence-alpaca_execution_scorecard.json-False]"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-be9948e0e08a2920",
-      "reason": "publisher_preserves_remote_history_and_other_jobs[post_market_execution_quality.yml-Publish refreshed evidence-alpaca_execution_scorecard.json-True]",
-      "tests": [
-        "tests.test_evidence_publication.test_publisher_preserves_remote_history_and_other_jobs[post_market_execution_quality.yml-Publish refreshed evidence-alpaca_execution_scorecard.json-True]"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-1450861d9117e97d",
-      "reason": "original_findings_survive_disappearance",
-      "tests": [
-        "tests.test_gap_closure.test_original_findings_survive_disappearance"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-b5bbcc8e869d360e",
-      "reason": "paginate_and_reject_repeated_ids",
-      "tests": [
-        "tests.test_gap_closure.test_paginate_and_reject_repeated_ids"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-f502567bfd05037e",
-      "reason": "execution_manifest_does_not_borrow_daily_identity",
-      "tests": [
-        "tests.test_gap_closure.test_execution_manifest_does_not_borrow_daily_identity"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-8ef9370f55fbef77",
-      "reason": "malformed_manifest_remains_deliverable",
-      "tests": [
-        "tests.test_gap_closure.test_malformed_manifest_remains_deliverable"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-2658f7844b84389a",
-      "reason": "remaining_basis_uses_fractional_current_holdings_not_last_buy",
-      "tests": [
-        "tests.test_gap_closure.test_remaining_basis_uses_fractional_current_holdings_not_last_buy"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-92594256f150c037",
-      "reason": "no_basis_does_not_fall_back_to_incomplete_journal",
-      "tests": [
-        "tests.test_gap_closure.test_no_basis_does_not_fall_back_to_incomplete_journal"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-6c779978146f38c7",
-      "reason": "stage_denominator_includes_zero_and_partial_fills",
-      "tests": [
-        "tests.test_gap_closure.test_stage_denominator_includes_zero_and_partial_fills"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-34102999adac0982",
-      "reason": "lock_diff_does_not_change_frozen_bytes",
-      "tests": [
-        "tests.test_gap_closure.test_lock_diff_does_not_change_frozen_bytes"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-637ed000a3edaf3a",
-      "reason": "dividend_date_matches_identity_and_exact_amount",
-      "tests": [
-        "tests.test_gap_closure.test_dividend_date_matches_identity_and_exact_amount"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-4d2481ac37ec4a33",
-      "reason": "verified_settlement_retains_parent_and_distributes_child_once",
-      "tests": [
-        "tests.test_gap_closure.test_verified_settlement_retains_parent_and_distributes_child_once"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-c6fcf3f3d7cca24d",
-      "reason": "invalid_settlement_is_atomic",
-      "tests": [
-        "tests.test_gap_closure.test_invalid_settlement_is_atomic"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-76f7e753aa09b24e",
-      "reason": "cash_movements_preserve_signed_broker_amounts",
-      "tests": [
-        "tests.test_gap_closure.test_cash_movements_preserve_signed_broker_amounts"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-588c0958b5bdf1b2",
-      "reason": "prospective_review_requires_both_sessions_and_independent_cohorts",
-      "tests": [
-        "tests.test_gap_closure.test_prospective_review_requires_both_sessions_and_independent_cohorts"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-510d1e484a698a92",
-      "reason": "closure_requires_current_code_and_passing_named_case",
-      "tests": [
-        "tests.test_gap_closure.test_closure_requires_current_code_and_passing_named_case"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-6be12a1a2423b840",
-      "reason": "register_ids_survive_reworded_next_action",
-      "tests": [
-        "tests.test_gap_closure.test_register_ids_survive_reworded_next_action"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-cceaa294673e78bd",
-      "reason": "code_closure_cannot_overwrite_original_finding",
-      "tests": [
-        "tests.test_gap_closure.test_code_closure_cannot_overwrite_original_finding"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-2ae12e51714262ed",
-      "reason": "daily_loader_uses_same_conflict_gate_as_audit",
-      "tests": [
-        "tests.test_core_satellite_live_signal.test_daily_loader_uses_same_conflict_gate_as_audit"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-e13838fefd97d9c8",
-      "reason": "validation_bundle_rebuild_restores_only_matching_approved_folds",
-      "tests": [
-        "tests.test_reliability_hardening.test_validation_bundle_rebuild_restores_only_matching_approved_folds"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-derived-health-cache-recovery",
-      "reason": "Fresh factor inputs no longer trigger a full research rebuild because checkout times differ; changed source content and concurrent changes remain blocked.",
-      "tests": [
-        "tests.test_factor_cache_recovery.test_recovery_downloads_only_when_price_or_quality_inputs_need_it[True-True]",
-        "tests.test_factor_cache_recovery.test_recovery_downloads_only_when_price_or_quality_inputs_need_it[False-True]",
-        "tests.test_factor_cache_recovery.test_recovery_downloads_only_when_price_or_quality_inputs_need_it[True-False]",
-        "tests.test_factor_data_health.test_bound_profile_survives_checkout_mtime_but_rejects_changed_source",
-        "tests.test_feature_health.test_profile_rejects_source_changed_during_calculation"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-feature-health-read-only-cli",
-      "reason": "Feature health no-write mode suppresses feature-loader writes as well as final report writes.",
-      "tests": [
-        "tests.test_feature_health.test_cli_no_write_disables_loader_side_effects"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    },
-    {
-      "id": "code-regime-monitor-submission-isolation",
-      "reason": "A submission failure cannot suppress recording a successfully generated regime; failed signal generation still blocks the observation.",
-      "tests": [
-        "tests.test_daily_run.test_regime_observation_depends_on_signal_not_submission[alpaca_submit]",
-        "tests.test_daily_run.test_regime_observation_depends_on_signal_not_submission[core_satellite_signal]"
-      ],
-      "source_commit": "6992e925185663b544cc9abeb0985cf44737968a",
-      "verification_sha256": "192a0bbbac26b958e8febb435c285d8abd049761255db06999f3874026509867"
-    }
-  ],
+  "verified_fixes": [],
   "gap_register": {
-    "findings": 346,
+    "findings": 199,
     "original_findings": 92,
     "path": "gap_register.json",
     "automatic_closure": false
-  },
-  "supplemental_snapshot_review": {
-    "source_file": "dataset_recovery_blocker.json",
-    "sha256": "989db62a3c5c2bd582dc88667c851b165818831a1f0ddd80199b63d062a289dd",
-    "generated_at": "2026-09-10T04:56:37.108890+00:00",
-    "method": "Read-only SHA-256 comparison with all approved research manifest files, local archive search, and complete GitHub factor-cache metadata inventory. Cache metadata alone is not proof of matching contents."
   }
 }

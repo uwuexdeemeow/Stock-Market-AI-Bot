@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-09T17:29:09+00:00",
+  "generated_at": "2026-09-10T14:02:03+00:00",
   "status": "ok",
   "mode": "fractional_shadow_only",
   "capital": {
@@ -14,19 +14,19 @@
     "predicted_at": "2026-09-09T23:30+08:00",
     "valuation_date": "2026-09-08",
     "live_config_hash": "f8364333b4771d2c",
-    "repeated_signal": false
+    "repeated_signal": true
   },
   "execution": {
-    "orders_simulated": 2,
+    "orders_simulated": 0,
     "broker_orders_submitted": false,
     "minimum_order_notional": 1.0,
     "quantity_precision_decimals": 9,
     "order_type": "market",
     "time_in_force": "day",
     "slippage_bps": 10.0,
-    "slippage_cost_today": 0.01543286,
-    "regulatory_fees_today": 0.01,
-    "regulatory_fees_raw_today": 0.00017474,
+    "slippage_cost_today": 0.0,
+    "regulatory_fees_today": 0.0,
+    "regulatory_fees_raw_today": 0.0,
     "commission_today": 0.0,
     "fee_model": {
       "sec_sell_fee_bps": 0.206,
