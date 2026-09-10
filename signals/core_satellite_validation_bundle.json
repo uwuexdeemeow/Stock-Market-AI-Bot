@@ -1,10 +1,10 @@
 {
   "schema_version": 2,
-  "created_at": "2026-09-09T08:11:23+00:00",
+  "created_at": "2026-09-10T16:40:05+00:00",
   "strategy": "core-alpha",
-  "source_json": "signals/core_satellite_nested_walkforward.json",
+  "source_json": "signals\\core_satellite_nested_walkforward.json",
   "source_json_sha256": "e85435034180025ba05a64afe3498afcd9939114f63d8ed18098a124998e83e1",
-  "git_commit": "9d42ba37c9e2af2306637aeb26ef9fbc2bb49f8a",
+  "git_commit": "62359f820a641f32a991068ee988dc31ca7c9254",
   "config": {
     "strategy": "core-alpha",
     "core_preset": "nested_qqq_trend_switch_overlay70_core55_cashbuffer_h20_ov0.50_ma100_volpercentile0.30_tqqq0.00_riskoff",
@@ -84,7 +84,7 @@
   },
   "config_fingerprint": "a9f616b5f6185fcf",
   "dataset": {
-    "manifest_path": "signals/research_run_manifest.json",
+    "manifest_path": "signals\\research_run_manifest.json",
     "manifest_exists": true,
     "manifest_sha256": "6fb4ce229ee0c5e91d450a1e4908a1eaa4825c047e61d8a43190d410a5ec8970",
     "dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
@@ -95,7 +95,7 @@
   },
   "universe_membership": {
     "complete": false,
-    "path": "data/universe_membership.csv",
+    "path": "data\\universe_membership.csv",
     "rows": 0,
     "source_count": 0,
     "required_provenance_columns": [
@@ -177,7 +177,7 @@
       "XOM"
     ],
     "coverage_start": "2010-01-01",
-    "coverage_end": "2026-09-09",
+    "coverage_end": "2026-09-10",
     "active_members_at_coverage_start": 0,
     "minimum_active_members": 400,
     "inactive_members": 0,
@@ -1485,68 +1485,67 @@
   "robustness_reports": {
     "survivorship": {
       "name": "survivorship",
-      "path": "/Users/amos/Code/Stock Market AI Bot/logs/core_satellite_survivorship_audit.json",
+      "path": "D:\\Stock Market AI Bot\\logs\\core_satellite_survivorship_audit.json",
       "exists": true,
       "match": true,
       "reasons": [],
-      "sha256": "291d39de18d7d4ca62a4282cb9cc1092f9baa431f0838ff5fe51dad1686d3bfc",
-      "generated_at": "2026-09-03T03:02:49.625186",
+      "sha256": "48647d729b82db9d5eff6e7e8a20f246a105897911fee3b84f5fa9523b3ae4da",
+      "generated_at": "2026-09-11T00:39:34.207747",
       "observed_config_fingerprint": "a9f616b5f6185fcf",
       "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-      "age_days": 6.214,
+      "age_days": 0.0,
       "max_age_days": 60,
       "health": {
         "pass": true,
         "capital_approval_pass": false,
-        "survivorship_adjusted_score": 0.7954,
-        "audit_rebalance_selections": 28,
-        "total_return_delta_pct": -1095.62,
-        "max_drawdown_delta_pct": -0.63,
+        "survivorship_adjusted_score": 0.8787,
+        "audit_rebalance_selections": 12,
+        "total_return_delta_pct": -968.75,
+        "max_drawdown_delta_pct": -0.79,
         "failed_name_coverage_rate": 0.2941,
         "minimum_failed_name_coverage_for_capital": 1.0,
         "point_in_time_universe_complete": false,
         "capital_blockers": [
           "failed_name_coverage_incomplete",
           "point_in_time_universe_incomplete",
-          "survivorship_adjusted_score_below_capital_floor",
           "survivorship_return_delta_below_capital_floor"
         ]
       }
     },
     "execution_stress": {
       "name": "execution_stress",
-      "path": "/Users/amos/Code/Stock Market AI Bot/logs/core_satellite_execution_stress.json",
+      "path": "D:\\Stock Market AI Bot\\logs\\core_satellite_execution_stress.json",
       "exists": true,
       "match": true,
       "reasons": [],
-      "sha256": "723795def0d666eb9aafbc88d600766da77c91ab1987fe4c49ee6c6bf5bd10d6",
-      "generated_at": "2026-09-03T03:01:29.559776",
+      "sha256": "60a55a87871726aaebba2907d339d6c811f76a50198bdb9c2c0d883d8e52d639",
+      "generated_at": "2026-09-11T00:38:26.556855",
       "observed_config_fingerprint": "a9f616b5f6185fcf",
       "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-      "age_days": 6.215,
+      "age_days": 0.0,
       "max_age_days": 60,
       "health": {
         "pass": true,
         "failed_scenarios": 0,
-        "worst_stressed_drawdown_pct": -25.71
+        "worst_stressed_drawdown_pct": -25.58
       }
     },
     "factor_decay": {
       "name": "factor_decay",
-      "path": "/Users/amos/Code/Stock Market AI Bot/logs/factor_decay_monitor.json",
+      "path": "D:\\Stock Market AI Bot\\logs\\factor_decay_monitor.json",
       "exists": true,
       "match": true,
       "reasons": [],
-      "sha256": "89c2e6849743514dad4b7fb79ac007b7e655ec0d8631b7e2da781f027eea0e46",
-      "generated_at": "2026-09-03T03:05:03.953579",
+      "sha256": "51e855e43cef42f0714ad158c6b4ee7355805345e428bcbad389de2160ebd756",
+      "generated_at": "2026-09-11T00:40:05.102328",
       "observed_config_fingerprint": "a9f616b5f6185fcf",
       "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-      "age_days": 6.213,
+      "age_days": 0.0,
       "max_age_days": 7,
       "health": {
         "pass": true,
         "edge_health_status": "advisory",
-        "reason": "rank IC is weak/negative but top-bucket edge and overlay alpha remain positive"
+        "reason": "corrected paired-ledger evidence is missing, sparse, or inconclusive"
       }
     }
   },
@@ -1556,68 +1555,67 @@
     "reports": {
       "survivorship": {
         "name": "survivorship",
-        "path": "/Users/amos/Code/Stock Market AI Bot/logs/core_satellite_survivorship_audit.json",
+        "path": "D:\\Stock Market AI Bot\\logs\\core_satellite_survivorship_audit.json",
         "exists": true,
         "match": true,
         "reasons": [],
-        "sha256": "291d39de18d7d4ca62a4282cb9cc1092f9baa431f0838ff5fe51dad1686d3bfc",
-        "generated_at": "2026-09-03T03:02:49.625186",
+        "sha256": "48647d729b82db9d5eff6e7e8a20f246a105897911fee3b84f5fa9523b3ae4da",
+        "generated_at": "2026-09-11T00:39:34.207747",
         "observed_config_fingerprint": "a9f616b5f6185fcf",
         "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-        "age_days": 6.214,
+        "age_days": 0.0,
         "max_age_days": 60,
         "health": {
           "pass": true,
           "capital_approval_pass": false,
-          "survivorship_adjusted_score": 0.7954,
-          "audit_rebalance_selections": 28,
-          "total_return_delta_pct": -1095.62,
-          "max_drawdown_delta_pct": -0.63,
+          "survivorship_adjusted_score": 0.8787,
+          "audit_rebalance_selections": 12,
+          "total_return_delta_pct": -968.75,
+          "max_drawdown_delta_pct": -0.79,
           "failed_name_coverage_rate": 0.2941,
           "minimum_failed_name_coverage_for_capital": 1.0,
           "point_in_time_universe_complete": false,
           "capital_blockers": [
             "failed_name_coverage_incomplete",
             "point_in_time_universe_incomplete",
-            "survivorship_adjusted_score_below_capital_floor",
             "survivorship_return_delta_below_capital_floor"
           ]
         }
       },
       "execution_stress": {
         "name": "execution_stress",
-        "path": "/Users/amos/Code/Stock Market AI Bot/logs/core_satellite_execution_stress.json",
+        "path": "D:\\Stock Market AI Bot\\logs\\core_satellite_execution_stress.json",
         "exists": true,
         "match": true,
         "reasons": [],
-        "sha256": "723795def0d666eb9aafbc88d600766da77c91ab1987fe4c49ee6c6bf5bd10d6",
-        "generated_at": "2026-09-03T03:01:29.559776",
+        "sha256": "60a55a87871726aaebba2907d339d6c811f76a50198bdb9c2c0d883d8e52d639",
+        "generated_at": "2026-09-11T00:38:26.556855",
         "observed_config_fingerprint": "a9f616b5f6185fcf",
         "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-        "age_days": 6.215,
+        "age_days": 0.0,
         "max_age_days": 60,
         "health": {
           "pass": true,
           "failed_scenarios": 0,
-          "worst_stressed_drawdown_pct": -25.71
+          "worst_stressed_drawdown_pct": -25.58
         }
       },
       "factor_decay": {
         "name": "factor_decay",
-        "path": "/Users/amos/Code/Stock Market AI Bot/logs/factor_decay_monitor.json",
+        "path": "D:\\Stock Market AI Bot\\logs\\factor_decay_monitor.json",
         "exists": true,
         "match": true,
         "reasons": [],
-        "sha256": "89c2e6849743514dad4b7fb79ac007b7e655ec0d8631b7e2da781f027eea0e46",
-        "generated_at": "2026-09-03T03:05:03.953579",
+        "sha256": "51e855e43cef42f0714ad158c6b4ee7355805345e428bcbad389de2160ebd756",
+        "generated_at": "2026-09-11T00:40:05.102328",
         "observed_config_fingerprint": "a9f616b5f6185fcf",
         "observed_dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-        "age_days": 6.213,
+        "age_days": 0.0,
         "max_age_days": 7,
         "health": {
           "pass": true,
           "edge_health_status": "advisory",
-          "reason": "rank IC is weak/negative but top-bucket edge and overlay alpha remain positive"
+          "reason": "corrected paired-ledger evidence is missing, sparse, or inconclusive"
         }
       }
     },
@@ -1627,29 +1625,28 @@
       "survivorship_review": {
         "pass": true,
         "capital_approval_pass": false,
-        "survivorship_adjusted_score": 0.7954,
-        "audit_rebalance_selections": 28,
-        "total_return_delta_pct": -1095.62,
-        "max_drawdown_delta_pct": -0.63,
+        "survivorship_adjusted_score": 0.8787,
+        "audit_rebalance_selections": 12,
+        "total_return_delta_pct": -968.75,
+        "max_drawdown_delta_pct": -0.79,
         "failed_name_coverage_rate": 0.2941,
         "minimum_failed_name_coverage_for_capital": 1.0,
         "point_in_time_universe_complete": false,
         "capital_blockers": [
           "failed_name_coverage_incomplete",
           "point_in_time_universe_incomplete",
-          "survivorship_adjusted_score_below_capital_floor",
           "survivorship_return_delta_below_capital_floor"
         ]
       },
       "execution_stress_review": {
         "pass": true,
         "failed_scenarios": 0,
-        "worst_stressed_drawdown_pct": -25.71
+        "worst_stressed_drawdown_pct": -25.58
       },
       "factor_decay_review": {
         "pass": true,
         "edge_health_status": "advisory",
-        "reason": "rank IC is weak/negative but top-bucket edge and overlay alpha remain positive"
+        "reason": "corrected paired-ledger evidence is missing, sparse, or inconclusive"
       }
     }
   },
@@ -1694,5 +1691,5 @@
       "survivorship_capital_evidence_incomplete"
     ]
   },
-  "validation_bundle_hash": "3ddcebd7eb32f79781ff447a565f450bb02290ae2d8ab2afe6abf5a6686f2701"
+  "validation_bundle_hash": "22e761bd07ffb7e819bda09d8eb02dc9e017662db4a0ca351d1f16528f03a4f1"
 }

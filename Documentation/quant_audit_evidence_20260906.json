@@ -1,0 +1,47 @@
+{
+  "regime_one_day_dip": {
+    "raw": [
+      false,
+      true,
+      true,
+      true
+    ],
+    "confirmed": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "holiday_exit": {
+    "signal": "2024-12-02",
+    "nominal_BDay20": "2024-12-30",
+    "actual_20_sessions": "2024-12-31"
+  },
+  "cache_wrong_index": {
+    "requested_rows": 3,
+    "returned_rows": 2,
+    "missing_middle_date": true
+  },
+  "raw_return_called_alpha": {
+    "lookback_days": 60,
+    "overlay_periods": 1,
+    "overlay_return_sum_pct": 1.0,
+    "overlay_hit_rate": 1.0,
+    "overlay_alpha_sum_pct": 1.0
+  },
+  "drawdown_sampling": {
+    "daily": -40.0,
+    "endpoints_only": 0.0
+  },
+  "stage1_wide_spread": {
+    "spread_pct": 0.09523809523809523,
+    "configured_limit": 0.005,
+    "submitted_to_stub": 1
+  },
+  "pure_core_cost": {
+    "estimated_cost_pct": 0.0,
+    "turnover_pct": 0.0,
+    "initial_core_gross": 1.0
+  }
+}

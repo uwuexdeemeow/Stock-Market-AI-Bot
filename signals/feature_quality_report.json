@@ -1,76 +1,76 @@
 {
   "n_features": 42,
   "grade_counts": {
-    "A": 15,
-    "B": 13,
-    "C": 8,
-    "D": 5,
+    "A": 17,
+    "B": 16,
+    "C": 5,
+    "D": 3,
     "F": 1
   },
   "features": [
     {
       "feature": "factor_liquidity_dollar_vol_20d",
       "preferred_direction": "low_is_good",
-      "mean_ic": 0.018298,
-      "std_ic": 0.126972,
-      "t_stat": 9.3116,
-      "n_days": 4175,
+      "mean_ic": 0.017948,
+      "std_ic": 0.127159,
+      "t_stat": 9.1059,
+      "n_days": 4162,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.691,
-          "mean_rolling_ic": 0.018334,
-          "std_rolling_ic": 0.034356,
-          "stability_ratio": 0.5336,
-          "worst_window_ic": -0.084209,
-          "positive_windows": 2864,
-          "total_windows": 4145
+          "hit_rate": 0.6876,
+          "mean_rolling_ic": 0.018192,
+          "std_rolling_ic": 0.034331,
+          "stability_ratio": 0.5299,
+          "worst_window_ic": -0.084256,
+          "positive_windows": 2841,
+          "total_windows": 4132
         },
         {
           "window_days": 126,
-          "hit_rate": 0.7488,
-          "mean_rolling_ic": 0.018222,
-          "std_rolling_ic": 0.02466,
-          "stability_ratio": 0.7389,
-          "worst_window_ic": -0.042896,
-          "positive_windows": 3080,
-          "total_windows": 4113
+          "hit_rate": 0.749,
+          "mean_rolling_ic": 0.018049,
+          "std_rolling_ic": 0.024693,
+          "stability_ratio": 0.731,
+          "worst_window_ic": -0.042954,
+          "positive_windows": 3071,
+          "total_windows": 4100
         },
         {
           "window_days": 252,
-          "hit_rate": 0.8444,
-          "mean_rolling_ic": 0.017935,
-          "std_rolling_ic": 0.016617,
-          "stability_ratio": 1.0793,
-          "worst_window_ic": -0.022518,
-          "positive_windows": 3420,
-          "total_windows": 4050
+          "hit_rate": 0.8402,
+          "mean_rolling_ic": 0.017777,
+          "std_rolling_ic": 0.016673,
+          "stability_ratio": 1.0662,
+          "worst_window_ic": -0.022588,
+          "positive_windows": 3392,
+          "total_windows": 4037
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.016048,
-        "bear_ic": 0.020242,
-        "bull_days": 1935,
-        "bear_days": 2240,
-        "regime_ratio": 1.2614,
+        "bull_ic": 0.019659,
+        "bear_ic": 0.016373,
+        "bull_days": 1995,
+        "bear_days": 2167,
+        "regime_ratio": 0.8329,
         "regime_stable": true
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": -0.002765,
+            "ic": -0.003153,
             "available": true,
-            "n_days": 4175
+            "n_days": 4162
           },
           "10": {
-            "ic": -0.004294,
+            "ic": -0.003855,
             "available": true,
-            "n_days": 4170
+            "n_days": 4157
           },
           "20": {
-            "ic": -0.006839,
+            "ic": -0.005742,
             "available": true,
-            "n_days": 4160
+            "n_days": 4147
           },
           "40": {
             "ic": 0.0,
@@ -81,14 +81,14 @@
             "available": false
           }
         },
-        "peak_ic": 0.006839,
-        "half_life_days": 5,
-        "decays_fast": true
+        "peak_ic": 0.005742,
+        "half_life_days": null,
+        "decays_fast": false
       },
       "turnover_impact": {
-        "mean_turnover_pct": 15.4,
-        "std_turnover_pct": 14.3,
-        "n_periods": 418,
+        "mean_turnover_pct": 15.3,
+        "std_turnover_pct": 14.2,
+        "n_periods": 419,
         "available": true,
         "high_turnover": false
       },
@@ -97,66 +97,66 @@
     {
       "feature": "xs_rank_market_factor_liquidity_dollar_vol_20d",
       "preferred_direction": "low_is_good",
-      "mean_ic": 0.018298,
-      "std_ic": 0.126972,
-      "t_stat": 9.3116,
-      "n_days": 4175,
+      "mean_ic": 0.017948,
+      "std_ic": 0.127159,
+      "t_stat": 9.1059,
+      "n_days": 4162,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.691,
-          "mean_rolling_ic": 0.018334,
-          "std_rolling_ic": 0.034356,
-          "stability_ratio": 0.5336,
-          "worst_window_ic": -0.084209,
-          "positive_windows": 2864,
-          "total_windows": 4145
+          "hit_rate": 0.6876,
+          "mean_rolling_ic": 0.018192,
+          "std_rolling_ic": 0.034331,
+          "stability_ratio": 0.5299,
+          "worst_window_ic": -0.084256,
+          "positive_windows": 2841,
+          "total_windows": 4132
         },
         {
           "window_days": 126,
-          "hit_rate": 0.7488,
-          "mean_rolling_ic": 0.018222,
-          "std_rolling_ic": 0.02466,
-          "stability_ratio": 0.7389,
-          "worst_window_ic": -0.042896,
-          "positive_windows": 3080,
-          "total_windows": 4113
+          "hit_rate": 0.749,
+          "mean_rolling_ic": 0.018049,
+          "std_rolling_ic": 0.024693,
+          "stability_ratio": 0.731,
+          "worst_window_ic": -0.042954,
+          "positive_windows": 3071,
+          "total_windows": 4100
         },
         {
           "window_days": 252,
-          "hit_rate": 0.8444,
-          "mean_rolling_ic": 0.017935,
-          "std_rolling_ic": 0.016617,
-          "stability_ratio": 1.0793,
-          "worst_window_ic": -0.022518,
-          "positive_windows": 3420,
-          "total_windows": 4050
+          "hit_rate": 0.8402,
+          "mean_rolling_ic": 0.017777,
+          "std_rolling_ic": 0.016673,
+          "stability_ratio": 1.0662,
+          "worst_window_ic": -0.022588,
+          "positive_windows": 3392,
+          "total_windows": 4037
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.016048,
-        "bear_ic": 0.020242,
-        "bull_days": 1935,
-        "bear_days": 2240,
-        "regime_ratio": 1.2614,
+        "bull_ic": 0.019659,
+        "bear_ic": 0.016373,
+        "bull_days": 1995,
+        "bear_days": 2167,
+        "regime_ratio": 0.8329,
         "regime_stable": true
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": -0.002765,
+            "ic": -0.003153,
             "available": true,
-            "n_days": 4175
+            "n_days": 4162
           },
           "10": {
-            "ic": -0.004294,
+            "ic": -0.003855,
             "available": true,
-            "n_days": 4170
+            "n_days": 4157
           },
           "20": {
-            "ic": -0.006839,
+            "ic": -0.005742,
             "available": true,
-            "n_days": 4160
+            "n_days": 4147
           },
           "40": {
             "ic": 0.0,
@@ -167,14 +167,14 @@
             "available": false
           }
         },
-        "peak_ic": 0.006839,
-        "half_life_days": 5,
-        "decays_fast": true
+        "peak_ic": 0.005742,
+        "half_life_days": null,
+        "decays_fast": false
       },
       "turnover_impact": {
-        "mean_turnover_pct": 15.4,
-        "std_turnover_pct": 14.3,
-        "n_periods": 418,
+        "mean_turnover_pct": 15.3,
+        "std_turnover_pct": 14.2,
+        "n_periods": 419,
         "available": true,
         "high_turnover": false
       },
@@ -183,66 +183,66 @@
     {
       "feature": "xs_rank_market_factor_illiquidity_amihud_20d",
       "preferred_direction": "high_is_good",
-      "mean_ic": 0.0171,
-      "std_ic": 0.143849,
-      "t_stat": 7.6791,
-      "n_days": 4173,
+      "mean_ic": 0.017102,
+      "std_ic": 0.144249,
+      "t_stat": 7.6431,
+      "n_days": 4156,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.6553,
-          "mean_rolling_ic": 0.017248,
-          "std_rolling_ic": 0.039061,
-          "stability_ratio": 0.4416,
-          "worst_window_ic": -0.093879,
-          "positive_windows": 2715,
-          "total_windows": 4143
+          "hit_rate": 0.6624,
+          "mean_rolling_ic": 0.017488,
+          "std_rolling_ic": 0.039095,
+          "stability_ratio": 0.4473,
+          "worst_window_ic": -0.093878,
+          "positive_windows": 2733,
+          "total_windows": 4126
         },
         {
           "window_days": 126,
-          "hit_rate": 0.6838,
-          "mean_rolling_ic": 0.017064,
-          "std_rolling_ic": 0.029076,
-          "stability_ratio": 0.5869,
-          "worst_window_ic": -0.063289,
-          "positive_windows": 2811,
-          "total_windows": 4111
+          "hit_rate": 0.6856,
+          "mean_rolling_ic": 0.017304,
+          "std_rolling_ic": 0.029099,
+          "stability_ratio": 0.5946,
+          "worst_window_ic": -0.063359,
+          "positive_windows": 2807,
+          "total_windows": 4094
         },
         {
           "window_days": 252,
-          "hit_rate": 0.7915,
-          "mean_rolling_ic": 0.016496,
-          "std_rolling_ic": 0.019545,
-          "stability_ratio": 0.844,
-          "worst_window_ic": -0.031314,
-          "positive_windows": 3204,
-          "total_windows": 4048
+          "hit_rate": 0.7938,
+          "mean_rolling_ic": 0.01678,
+          "std_rolling_ic": 0.019472,
+          "stability_ratio": 0.8618,
+          "worst_window_ic": -0.031286,
+          "positive_windows": 3200,
+          "total_windows": 4031
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.013554,
-        "bear_ic": 0.020163,
-        "bull_days": 1934,
-        "bear_days": 2239,
-        "regime_ratio": 1.4876,
+        "bull_ic": 0.017724,
+        "bear_ic": 0.01653,
+        "bull_days": 1991,
+        "bear_days": 2165,
+        "regime_ratio": 0.9326,
         "regime_stable": true
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": 0.001887,
+            "ic": 0.001147,
             "available": true,
-            "n_days": 4173
+            "n_days": 4156
           },
           "10": {
-            "ic": 0.005144,
+            "ic": 0.004355,
             "available": true,
-            "n_days": 4168
+            "n_days": 4151
           },
           "20": {
-            "ic": 0.007683,
+            "ic": 0.007144,
             "available": true,
-            "n_days": 4158
+            "n_days": 4141
           },
           "40": {
             "ic": 0.0,
@@ -253,14 +253,14 @@
             "available": false
           }
         },
-        "peak_ic": 0.007683,
+        "peak_ic": 0.007144,
         "half_life_days": 5,
         "decays_fast": true
       },
       "turnover_impact": {
-        "mean_turnover_pct": 15.5,
-        "std_turnover_pct": 15.3,
-        "n_periods": 418,
+        "mean_turnover_pct": 15.8,
+        "std_turnover_pct": 16.4,
+        "n_periods": 419,
         "available": true,
         "high_turnover": false
       },
@@ -269,66 +269,66 @@
     {
       "feature": "factor_illiquidity_amihud_20d",
       "preferred_direction": "high_is_good",
-      "mean_ic": 0.0171,
-      "std_ic": 0.143849,
-      "t_stat": 7.6791,
-      "n_days": 4173,
+      "mean_ic": 0.017102,
+      "std_ic": 0.144249,
+      "t_stat": 7.6431,
+      "n_days": 4156,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.6553,
-          "mean_rolling_ic": 0.017248,
-          "std_rolling_ic": 0.039061,
-          "stability_ratio": 0.4416,
-          "worst_window_ic": -0.093879,
-          "positive_windows": 2715,
-          "total_windows": 4143
+          "hit_rate": 0.6624,
+          "mean_rolling_ic": 0.017488,
+          "std_rolling_ic": 0.039095,
+          "stability_ratio": 0.4473,
+          "worst_window_ic": -0.093878,
+          "positive_windows": 2733,
+          "total_windows": 4126
         },
         {
           "window_days": 126,
-          "hit_rate": 0.6838,
-          "mean_rolling_ic": 0.017064,
-          "std_rolling_ic": 0.029076,
-          "stability_ratio": 0.5869,
-          "worst_window_ic": -0.063289,
-          "positive_windows": 2811,
-          "total_windows": 4111
+          "hit_rate": 0.6856,
+          "mean_rolling_ic": 0.017304,
+          "std_rolling_ic": 0.029099,
+          "stability_ratio": 0.5946,
+          "worst_window_ic": -0.063359,
+          "positive_windows": 2807,
+          "total_windows": 4094
         },
         {
           "window_days": 252,
-          "hit_rate": 0.7915,
-          "mean_rolling_ic": 0.016496,
-          "std_rolling_ic": 0.019545,
-          "stability_ratio": 0.844,
-          "worst_window_ic": -0.031314,
-          "positive_windows": 3204,
-          "total_windows": 4048
+          "hit_rate": 0.7938,
+          "mean_rolling_ic": 0.01678,
+          "std_rolling_ic": 0.019472,
+          "stability_ratio": 0.8618,
+          "worst_window_ic": -0.031286,
+          "positive_windows": 3200,
+          "total_windows": 4031
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.013554,
-        "bear_ic": 0.020163,
-        "bull_days": 1934,
-        "bear_days": 2239,
-        "regime_ratio": 1.4876,
+        "bull_ic": 0.017724,
+        "bear_ic": 0.01653,
+        "bull_days": 1991,
+        "bear_days": 2165,
+        "regime_ratio": 0.9326,
         "regime_stable": true
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": 0.001887,
+            "ic": 0.001147,
             "available": true,
-            "n_days": 4173
+            "n_days": 4156
           },
           "10": {
-            "ic": 0.005144,
+            "ic": 0.004355,
             "available": true,
-            "n_days": 4168
+            "n_days": 4151
           },
           "20": {
-            "ic": 0.007683,
+            "ic": 0.007144,
             "available": true,
-            "n_days": 4158
+            "n_days": 4141
           },
           "40": {
             "ic": 0.0,
@@ -339,14 +339,14 @@
             "available": false
           }
         },
-        "peak_ic": 0.007683,
+        "peak_ic": 0.007144,
         "half_life_days": 5,
         "decays_fast": true
       },
       "turnover_impact": {
-        "mean_turnover_pct": 15.5,
-        "std_turnover_pct": 15.3,
-        "n_periods": 418,
+        "mean_turnover_pct": 15.8,
+        "std_turnover_pct": 16.4,
+        "n_periods": 419,
         "available": true,
         "high_turnover": false
       },
@@ -355,66 +355,66 @@
     {
       "feature": "dist_ma5",
       "preferred_direction": "low_is_good",
-      "mean_ic": 0.013024,
-      "std_ic": 0.146715,
-      "t_stat": 5.7359,
-      "n_days": 4175,
+      "mean_ic": 0.013068,
+      "std_ic": 0.146908,
+      "t_stat": 5.7385,
+      "n_days": 4162,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.6738,
-          "mean_rolling_ic": 0.012669,
-          "std_rolling_ic": 0.026451,
-          "stability_ratio": 0.479,
-          "worst_window_ic": -0.053239,
-          "positive_windows": 2793,
-          "total_windows": 4145
+          "hit_rate": 0.6772,
+          "mean_rolling_ic": 0.012856,
+          "std_rolling_ic": 0.026471,
+          "stability_ratio": 0.4857,
+          "worst_window_ic": -0.05324,
+          "positive_windows": 2798,
+          "total_windows": 4132
         },
         {
           "window_days": 126,
-          "hit_rate": 0.7518,
-          "mean_rolling_ic": 0.012443,
-          "std_rolling_ic": 0.01764,
-          "stability_ratio": 0.7054,
-          "worst_window_ic": -0.025134,
-          "positive_windows": 3092,
-          "total_windows": 4113
+          "hit_rate": 0.7593,
+          "mean_rolling_ic": 0.012585,
+          "std_rolling_ic": 0.017669,
+          "stability_ratio": 0.7122,
+          "worst_window_ic": -0.025128,
+          "positive_windows": 3113,
+          "total_windows": 4100
         },
         {
           "window_days": 252,
-          "hit_rate": 0.8899,
-          "mean_rolling_ic": 0.01248,
-          "std_rolling_ic": 0.011214,
-          "stability_ratio": 1.1129,
-          "worst_window_ic": -0.013766,
-          "positive_windows": 3604,
-          "total_windows": 4050
+          "hit_rate": 0.8893,
+          "mean_rolling_ic": 0.01259,
+          "std_rolling_ic": 0.011189,
+          "stability_ratio": 1.1252,
+          "worst_window_ic": -0.013771,
+          "positive_windows": 3590,
+          "total_windows": 4037
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.012946,
-        "bear_ic": 0.013092,
-        "bull_days": 1935,
-        "bear_days": 2240,
-        "regime_ratio": 1.0113,
+        "bull_ic": 0.009359,
+        "bear_ic": 0.016482,
+        "bull_days": 1995,
+        "bear_days": 2167,
+        "regime_ratio": 1.7611,
         "regime_stable": true
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": 0.008418,
+            "ic": 0.008909,
             "available": true,
-            "n_days": 4175
+            "n_days": 4162
           },
           "10": {
-            "ic": 0.007944,
+            "ic": 0.00861,
             "available": true,
-            "n_days": 4170
+            "n_days": 4157
           },
           "20": {
-            "ic": 0.00171,
+            "ic": 0.002378,
             "available": true,
-            "n_days": 4160
+            "n_days": 4147
           },
           "40": {
             "ic": 0.0,
@@ -425,14 +425,14 @@
             "available": false
           }
         },
-        "peak_ic": 0.008418,
+        "peak_ic": 0.008909,
         "half_life_days": 20,
         "decays_fast": false
       },
       "turnover_impact": {
-        "mean_turnover_pct": 87.2,
-        "std_turnover_pct": 15.6,
-        "n_periods": 418,
+        "mean_turnover_pct": 86.9,
+        "std_turnover_pct": 16.1,
+        "n_periods": 419,
         "available": true,
         "high_turnover": true
       },
@@ -441,1698 +441,64 @@
     {
       "feature": "ret_3d",
       "preferred_direction": "low_is_good",
-      "mean_ic": 0.012072,
-      "std_ic": 0.146484,
-      "t_stat": 5.3263,
-      "n_days": 4177,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.6641,
-          "mean_rolling_ic": 0.011712,
-          "std_rolling_ic": 0.024861,
-          "stability_ratio": 0.4711,
-          "worst_window_ic": -0.047223,
-          "positive_windows": 2754,
-          "total_windows": 4147
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.7606,
-          "mean_rolling_ic": 0.011452,
-          "std_rolling_ic": 0.016398,
-          "stability_ratio": 0.6984,
-          "worst_window_ic": -0.024948,
-          "positive_windows": 3130,
-          "total_windows": 4115
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.8808,
-          "mean_rolling_ic": 0.011452,
-          "std_rolling_ic": 0.010659,
-          "stability_ratio": 1.0744,
-          "worst_window_ic": -0.012968,
-          "positive_windows": 3569,
-          "total_windows": 4052
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.012337,
-        "bear_ic": 0.011844,
-        "bull_days": 1936,
-        "bear_days": 2241,
-        "regime_ratio": 0.96,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.007833,
-            "available": true,
-            "n_days": 4177
-          },
-          "10": {
-            "ic": 0.007065,
-            "available": true,
-            "n_days": 4172
-          },
-          "20": {
-            "ic": 0.00171,
-            "available": true,
-            "n_days": 4162
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.007833,
-        "half_life_days": 20,
-        "decays_fast": false
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 87.1,
-        "std_turnover_pct": 15.6,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "A"
-    },
-    {
-      "feature": "dist_ma10",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.012719,
-      "std_ic": 0.149024,
-      "t_stat": 5.5082,
-      "n_days": 4165,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.6706,
-          "mean_rolling_ic": 0.012427,
-          "std_rolling_ic": 0.029987,
-          "stability_ratio": 0.4144,
-          "worst_window_ic": -0.08008,
-          "positive_windows": 2773,
-          "total_windows": 4135
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.7202,
-          "mean_rolling_ic": 0.012141,
-          "std_rolling_ic": 0.020268,
-          "stability_ratio": 0.599,
-          "worst_window_ic": -0.056126,
-          "positive_windows": 2955,
-          "total_windows": 4103
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.8171,
-          "mean_rolling_ic": 0.011928,
-          "std_rolling_ic": 0.013679,
-          "stability_ratio": 0.872,
-          "worst_window_ic": -0.032919,
-          "positive_windows": 3301,
-          "total_windows": 4040
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.011813,
-        "bear_ic": 0.013502,
-        "bull_days": 1930,
-        "bear_days": 2235,
-        "regime_ratio": 1.1429,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.008679,
-            "available": true,
-            "n_days": 4165
-          },
-          "10": {
-            "ic": 0.007192,
-            "available": true,
-            "n_days": 4160
-          },
-          "20": {
-            "ic": -0.002144,
-            "available": true,
-            "n_days": 4150
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.008679,
-        "half_life_days": 20,
-        "decays_fast": false
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 88.8,
-        "std_turnover_pct": 14.4,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "A"
-    },
-    {
-      "feature": "ret_5d",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.011769,
-      "std_ic": 0.14671,
-      "t_stat": 5.1822,
-      "n_days": 4173,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.6626,
-          "mean_rolling_ic": 0.011519,
-          "std_rolling_ic": 0.027827,
-          "stability_ratio": 0.4139,
-          "worst_window_ic": -0.071837,
-          "positive_windows": 2745,
-          "total_windows": 4143
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.7181,
-          "mean_rolling_ic": 0.011221,
-          "std_rolling_ic": 0.018279,
-          "stability_ratio": 0.6139,
-          "worst_window_ic": -0.042442,
-          "positive_windows": 2952,
-          "total_windows": 4111
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.8493,
-          "mean_rolling_ic": 0.011021,
-          "std_rolling_ic": 0.011782,
-          "stability_ratio": 0.9354,
-          "worst_window_ic": -0.024589,
-          "positive_windows": 3438,
-          "total_windows": 4048
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.009172,
-        "bear_ic": 0.014013,
-        "bull_days": 1934,
-        "bear_days": 2239,
-        "regime_ratio": 1.5278,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.007813,
-            "available": true,
-            "n_days": 4173
-          },
-          "10": {
-            "ic": 0.007113,
-            "available": true,
-            "n_days": 4168
-          },
-          "20": {
-            "ic": -0.000674,
-            "available": true,
-            "n_days": 4158
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.007813,
-        "half_life_days": 20,
-        "decays_fast": false
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 88.7,
-        "std_turnover_pct": 14.7,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "A"
-    },
-    {
-      "feature": "xs_rank_market_ret_5d",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.011769,
-      "std_ic": 0.14671,
-      "t_stat": 5.1822,
-      "n_days": 4173,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.6626,
-          "mean_rolling_ic": 0.011519,
-          "std_rolling_ic": 0.027827,
-          "stability_ratio": 0.4139,
-          "worst_window_ic": -0.071837,
-          "positive_windows": 2745,
-          "total_windows": 4143
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.7181,
-          "mean_rolling_ic": 0.011221,
-          "std_rolling_ic": 0.018279,
-          "stability_ratio": 0.6139,
-          "worst_window_ic": -0.042442,
-          "positive_windows": 2952,
-          "total_windows": 4111
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.8493,
-          "mean_rolling_ic": 0.011021,
-          "std_rolling_ic": 0.011782,
-          "stability_ratio": 0.9354,
-          "worst_window_ic": -0.024589,
-          "positive_windows": 3438,
-          "total_windows": 4048
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.009172,
-        "bear_ic": 0.014013,
-        "bull_days": 1934,
-        "bear_days": 2239,
-        "regime_ratio": 1.5278,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.007813,
-            "available": true,
-            "n_days": 4173
-          },
-          "10": {
-            "ic": 0.007113,
-            "available": true,
-            "n_days": 4168
-          },
-          "20": {
-            "ic": -0.000674,
-            "available": true,
-            "n_days": 4158
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.007813,
-        "half_life_days": 20,
-        "decays_fast": false
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 88.7,
-        "std_turnover_pct": 14.7,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "A"
-    },
-    {
-      "feature": "ret_vs_spy_5d",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.011761,
-      "std_ic": 0.150576,
-      "t_stat": 5.0454,
-      "n_days": 4173,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.651,
-          "mean_rolling_ic": 0.011512,
-          "std_rolling_ic": 0.028887,
-          "stability_ratio": 0.3985,
-          "worst_window_ic": -0.074661,
-          "positive_windows": 2697,
-          "total_windows": 4143
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.7263,
-          "mean_rolling_ic": 0.011217,
-          "std_rolling_ic": 0.018291,
-          "stability_ratio": 0.6133,
-          "worst_window_ic": -0.040202,
-          "positive_windows": 2986,
-          "total_windows": 4111
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.8214,
-          "mean_rolling_ic": 0.010988,
-          "std_rolling_ic": 0.011686,
-          "stability_ratio": 0.9403,
-          "worst_window_ic": -0.018452,
-          "positive_windows": 3325,
-          "total_windows": 4048
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.009813,
-        "bear_ic": 0.013443,
-        "bull_days": 1934,
-        "bear_days": 2239,
-        "regime_ratio": 1.37,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.007103,
-            "available": true,
-            "n_days": 4173
-          },
-          "10": {
-            "ic": 0.005738,
-            "available": true,
-            "n_days": 4168
-          },
-          "20": {
-            "ic": -0.001407,
-            "available": true,
-            "n_days": 4158
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.007103,
-        "half_life_days": 20,
-        "decays_fast": false
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 87.6,
-        "std_turnover_pct": 15.2,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "A"
-    },
-    {
-      "feature": "ret_vs_qqq_5d",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.010483,
-      "std_ic": 0.152116,
-      "t_stat": 4.4519,
-      "n_days": 4173,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.6256,
-          "mean_rolling_ic": 0.010237,
-          "std_rolling_ic": 0.029214,
-          "stability_ratio": 0.3504,
-          "worst_window_ic": -0.084734,
-          "positive_windows": 2592,
-          "total_windows": 4143
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.6989,
-          "mean_rolling_ic": 0.009897,
-          "std_rolling_ic": 0.019366,
-          "stability_ratio": 0.511,
-          "worst_window_ic": -0.048593,
-          "positive_windows": 2873,
-          "total_windows": 4111
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.8165,
-          "mean_rolling_ic": 0.009601,
-          "std_rolling_ic": 0.012132,
-          "stability_ratio": 0.7914,
-          "worst_window_ic": -0.031554,
-          "positive_windows": 3305,
-          "total_windows": 4048
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.007748,
-        "bear_ic": 0.012846,
-        "bull_days": 1934,
-        "bear_days": 2239,
-        "regime_ratio": 1.658,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.006078,
-            "available": true,
-            "n_days": 4173
-          },
-          "10": {
-            "ic": 0.006838,
-            "available": true,
-            "n_days": 4168
-          },
-          "20": {
-            "ic": -0.001006,
-            "available": true,
-            "n_days": 4158
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.006838,
-        "half_life_days": 20,
-        "decays_fast": false
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 87.3,
-        "std_turnover_pct": 15.8,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "B"
-    },
-    {
-      "feature": "xs_rank_sector_factor_illiquidity_amihud_20d",
-      "preferred_direction": "high_is_good",
-      "mean_ic": 0.017719,
-      "std_ic": 0.161101,
-      "t_stat": 7.1133,
-      "n_days": 4183,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.6569,
-          "mean_rolling_ic": 0.018029,
-          "std_rolling_ic": 0.043827,
-          "stability_ratio": 0.4114,
-          "worst_window_ic": -0.097652,
-          "positive_windows": 2728,
-          "total_windows": 4153
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.6773,
-          "mean_rolling_ic": 0.017783,
-          "std_rolling_ic": 0.0331,
-          "stability_ratio": 0.5372,
-          "worst_window_ic": -0.058579,
-          "positive_windows": 2791,
-          "total_windows": 4121
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.7267,
-          "mean_rolling_ic": 0.016973,
-          "std_rolling_ic": 0.022347,
-          "stability_ratio": 0.7595,
-          "worst_window_ic": -0.039343,
-          "positive_windows": 2949,
-          "total_windows": 4058
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.014534,
-        "bear_ic": 0.020465,
-        "bull_days": 1937,
-        "bear_days": 2246,
-        "regime_ratio": 1.408,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.00994,
-            "available": true,
-            "n_days": 4183
-          },
-          "10": {
-            "ic": 0.01478,
-            "available": true,
-            "n_days": 4178
-          },
-          "20": {
-            "ic": 0.020749,
-            "available": true,
-            "n_days": 4168
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.020749,
-        "half_life_days": 5,
-        "decays_fast": true
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 9.9,
-        "std_turnover_pct": 14.1,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": false
-      },
-      "grade": "A"
-    },
-    {
-      "feature": "xs_rank_sector_ret_5d",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.012082,
-      "std_ic": 0.159639,
-      "t_stat": 4.895,
-      "n_days": 4183,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.6357,
-          "mean_rolling_ic": 0.011766,
-          "std_rolling_ic": 0.03127,
-          "stability_ratio": 0.3763,
-          "worst_window_ic": -0.085501,
-          "positive_windows": 2640,
-          "total_windows": 4153
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.7076,
-          "mean_rolling_ic": 0.011457,
-          "std_rolling_ic": 0.020425,
-          "stability_ratio": 0.5609,
-          "worst_window_ic": -0.053805,
-          "positive_windows": 2916,
-          "total_windows": 4121
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.811,
-          "mean_rolling_ic": 0.011179,
-          "std_rolling_ic": 0.013807,
-          "stability_ratio": 0.8096,
-          "worst_window_ic": -0.028719,
-          "positive_windows": 3291,
-          "total_windows": 4058
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.008969,
-        "bear_ic": 0.014767,
-        "bull_days": 1937,
-        "bear_days": 2246,
-        "regime_ratio": 1.6464,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.006406,
-            "available": true,
-            "n_days": 4183
-          },
-          "10": {
-            "ic": 0.00717,
-            "available": true,
-            "n_days": 4178
-          },
-          "20": {
-            "ic": 0.001594,
-            "available": true,
-            "n_days": 4168
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.00717,
-        "half_life_days": 20,
-        "decays_fast": false
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 86.9,
-        "std_turnover_pct": 15.6,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "B"
-    },
-    {
-      "feature": "ret_vs_sector_5d",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.01266,
-      "std_ic": 0.157848,
-      "t_stat": 5.1811,
-      "n_days": 4173,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.6575,
-          "mean_rolling_ic": 0.012342,
-          "std_rolling_ic": 0.032312,
-          "stability_ratio": 0.382,
-          "worst_window_ic": -0.089683,
-          "positive_windows": 2724,
-          "total_windows": 4143
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.6952,
-          "mean_rolling_ic": 0.011906,
-          "std_rolling_ic": 0.021342,
-          "stability_ratio": 0.5579,
-          "worst_window_ic": -0.044053,
-          "positive_windows": 2858,
-          "total_windows": 4111
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.7873,
-          "mean_rolling_ic": 0.011551,
-          "std_rolling_ic": 0.014372,
-          "stability_ratio": 0.8037,
-          "worst_window_ic": -0.023541,
-          "positive_windows": 3187,
-          "total_windows": 4048
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.010669,
-        "bear_ic": 0.01438,
-        "bull_days": 1934,
-        "bear_days": 2239,
-        "regime_ratio": 1.3479,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.007719,
-            "available": true,
-            "n_days": 4173
-          },
-          "10": {
-            "ic": 0.006823,
-            "available": true,
-            "n_days": 4168
-          },
-          "20": {
-            "ic": 0.002082,
-            "available": true,
-            "n_days": 4158
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.007719,
-        "half_life_days": 20,
-        "decays_fast": false
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 86.2,
-        "std_turnover_pct": 15.0,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "A"
-    },
-    {
-      "feature": "sector_rs_slope_5d",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.012651,
-      "std_ic": 0.157899,
-      "t_stat": 5.1758,
-      "n_days": 4173,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.6577,
-          "mean_rolling_ic": 0.01233,
-          "std_rolling_ic": 0.032389,
-          "stability_ratio": 0.3807,
-          "worst_window_ic": -0.089594,
-          "positive_windows": 2725,
-          "total_windows": 4143
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.6925,
-          "mean_rolling_ic": 0.011887,
-          "std_rolling_ic": 0.0214,
-          "stability_ratio": 0.5555,
-          "worst_window_ic": -0.044336,
-          "positive_windows": 2847,
-          "total_windows": 4111
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.7856,
-          "mean_rolling_ic": 0.011532,
-          "std_rolling_ic": 0.014422,
-          "stability_ratio": 0.7996,
-          "worst_window_ic": -0.023389,
-          "positive_windows": 3180,
-          "total_windows": 4048
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.010628,
-        "bear_ic": 0.014398,
-        "bull_days": 1934,
-        "bear_days": 2239,
-        "regime_ratio": 1.3547,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.007751,
-            "available": true,
-            "n_days": 4173
-          },
-          "10": {
-            "ic": 0.006919,
-            "available": true,
-            "n_days": 4168
-          },
-          "20": {
-            "ic": 0.002073,
-            "available": true,
-            "n_days": 4158
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.007751,
-        "half_life_days": 20,
-        "decays_fast": false
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 86.3,
-        "std_turnover_pct": 15.0,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "A"
-    },
-    {
-      "feature": "ret_1d",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.010554,
-      "std_ic": 0.144027,
-      "t_stat": 4.7384,
-      "n_days": 4181,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.6936,
-          "mean_rolling_ic": 0.010232,
-          "std_rolling_ic": 0.018714,
-          "stability_ratio": 0.5467,
-          "worst_window_ic": -0.035297,
-          "positive_windows": 2879,
-          "total_windows": 4151
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.7871,
-          "mean_rolling_ic": 0.010029,
-          "std_rolling_ic": 0.012744,
-          "stability_ratio": 0.7869,
-          "worst_window_ic": -0.018773,
-          "positive_windows": 3242,
-          "total_windows": 4119
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.8715,
-          "mean_rolling_ic": 0.009945,
-          "std_rolling_ic": 0.00853,
-          "stability_ratio": 1.1659,
-          "worst_window_ic": -0.010686,
-          "positive_windows": 3535,
-          "total_windows": 4056
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.010695,
-        "bear_ic": 0.010433,
-        "bull_days": 1937,
-        "bear_days": 2244,
-        "regime_ratio": 0.9756,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.009218,
-            "available": true,
-            "n_days": 4181
-          },
-          "10": {
-            "ic": 0.008938,
-            "available": true,
-            "n_days": 4176
-          },
-          "20": {
-            "ic": 0.00311,
-            "available": true,
-            "n_days": 4166
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.009218,
-        "half_life_days": 20,
-        "decays_fast": false
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 88.1,
-        "std_turnover_pct": 15.4,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "A"
-    },
-    {
-      "feature": "xs_rank_sector_factor_liquidity_dollar_vol_20d",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.014166,
-      "std_ic": 0.141335,
-      "t_stat": 6.4824,
-      "n_days": 4183,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.6419,
-          "mean_rolling_ic": 0.014302,
-          "std_rolling_ic": 0.03776,
-          "stability_ratio": 0.3788,
-          "worst_window_ic": -0.091223,
-          "positive_windows": 2666,
-          "total_windows": 4153
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.6955,
-          "mean_rolling_ic": 0.014249,
-          "std_rolling_ic": 0.028161,
-          "stability_ratio": 0.506,
-          "worst_window_ic": -0.057027,
-          "positive_windows": 2866,
-          "total_windows": 4121
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.7629,
-          "mean_rolling_ic": 0.013866,
-          "std_rolling_ic": 0.020434,
-          "stability_ratio": 0.6786,
-          "worst_window_ic": -0.045552,
-          "positive_windows": 3096,
-          "total_windows": 4058
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.012343,
-        "bear_ic": 0.015738,
-        "bull_days": 1937,
-        "bear_days": 2246,
-        "regime_ratio": 1.2751,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.005031,
-            "available": true,
-            "n_days": 4183
-          },
-          "10": {
-            "ic": 0.006605,
-            "available": true,
-            "n_days": 4178
-          },
-          "20": {
-            "ic": 0.010187,
-            "available": true,
-            "n_days": 4168
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.010187,
-        "half_life_days": 5,
-        "decays_fast": true
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 16.5,
-        "std_turnover_pct": 15.4,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": false
-      },
-      "grade": "A"
-    },
-    {
-      "feature": "ret_vs_sector_1d",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.01014,
-      "std_ic": 0.159455,
-      "t_stat": 4.1118,
-      "n_days": 4181,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.6907,
-          "mean_rolling_ic": 0.009655,
-          "std_rolling_ic": 0.02037,
-          "stability_ratio": 0.474,
-          "worst_window_ic": -0.056993,
-          "positive_windows": 2867,
-          "total_windows": 4151
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.7521,
-          "mean_rolling_ic": 0.00944,
-          "std_rolling_ic": 0.013736,
-          "stability_ratio": 0.6872,
-          "worst_window_ic": -0.020661,
-          "positive_windows": 3098,
-          "total_windows": 4119
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.8183,
-          "mean_rolling_ic": 0.009381,
-          "std_rolling_ic": 0.009524,
-          "stability_ratio": 0.9851,
-          "worst_window_ic": -0.013054,
-          "positive_windows": 3319,
-          "total_windows": 4056
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.009145,
-        "bear_ic": 0.010998,
-        "bull_days": 1937,
-        "bear_days": 2244,
-        "regime_ratio": 1.2027,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.006639,
-            "available": true,
-            "n_days": 4181
-          },
-          "10": {
-            "ic": 0.006804,
-            "available": true,
-            "n_days": 4176
-          },
-          "20": {
-            "ic": 0.003301,
-            "available": true,
-            "n_days": 4166
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.006804,
-        "half_life_days": 20,
-        "decays_fast": false
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 85.2,
-        "std_turnover_pct": 16.5,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "B"
-    },
-    {
-      "feature": "macd_hist",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.009515,
-      "std_ic": 0.13912,
-      "t_stat": 4.4223,
-      "n_days": 4181,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.5929,
-          "mean_rolling_ic": 0.009471,
-          "std_rolling_ic": 0.034891,
-          "stability_ratio": 0.2715,
-          "worst_window_ic": -0.093324,
-          "positive_windows": 2461,
-          "total_windows": 4151
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.6225,
-          "mean_rolling_ic": 0.009591,
-          "std_rolling_ic": 0.025094,
-          "stability_ratio": 0.3822,
-          "worst_window_ic": -0.056742,
-          "positive_windows": 2564,
-          "total_windows": 4119
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.7308,
-          "mean_rolling_ic": 0.009033,
-          "std_rolling_ic": 0.016882,
-          "stability_ratio": 0.5351,
-          "worst_window_ic": -0.036506,
-          "positive_windows": 2964,
-          "total_windows": 4056
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.005,
-        "bear_ic": 0.013412,
-        "bull_days": 1937,
-        "bear_days": 2244,
-        "regime_ratio": 2.6822,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.007405,
-            "available": true,
-            "n_days": 4181
-          },
-          "10": {
-            "ic": 0.001693,
-            "available": true,
-            "n_days": 4176
-          },
-          "20": {
-            "ic": -0.004968,
-            "available": true,
-            "n_days": 4166
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.007405,
-        "half_life_days": 10,
-        "decays_fast": true
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 80.0,
-        "std_turnover_pct": 18.8,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "C"
-    },
-    {
-      "feature": "vwap_dist",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.010649,
-      "std_ic": 0.152633,
-      "t_stat": 4.4918,
-      "n_days": 4145,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.6107,
-          "mean_rolling_ic": 0.010413,
-          "std_rolling_ic": 0.033721,
-          "stability_ratio": 0.3088,
-          "worst_window_ic": -0.088175,
-          "positive_windows": 2513,
-          "total_windows": 4115
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.6444,
-          "mean_rolling_ic": 0.010173,
-          "std_rolling_ic": 0.023752,
-          "stability_ratio": 0.4283,
-          "worst_window_ic": -0.067843,
-          "positive_windows": 2631,
-          "total_windows": 4083
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.7177,
-          "mean_rolling_ic": 0.00987,
-          "std_rolling_ic": 0.016074,
-          "stability_ratio": 0.6141,
-          "worst_window_ic": -0.044977,
-          "positive_windows": 2885,
-          "total_windows": 4020
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.010585,
-        "bear_ic": 0.010704,
-        "bull_days": 1921,
-        "bear_days": 2224,
-        "regime_ratio": 1.0113,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.002673,
-            "available": true,
-            "n_days": 4145
-          },
-          "10": {
-            "ic": 0.000395,
-            "available": true,
-            "n_days": 4140
-          },
-          "20": {
-            "ic": -0.007417,
-            "available": true,
-            "n_days": 4130
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.007417,
-        "half_life_days": 5,
-        "decays_fast": true
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 77.1,
-        "std_turnover_pct": 19.4,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "B"
-    },
-    {
-      "feature": "vol_trend_20_60",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.010288,
-      "std_ic": 0.132846,
-      "t_stat": 4.9981,
-      "n_days": 4165,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.5985,
-          "mean_rolling_ic": 0.010582,
-          "std_rolling_ic": 0.035299,
-          "stability_ratio": 0.2998,
-          "worst_window_ic": -0.087411,
-          "positive_windows": 2475,
-          "total_windows": 4135
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.6442,
-          "mean_rolling_ic": 0.010766,
-          "std_rolling_ic": 0.026095,
-          "stability_ratio": 0.4126,
-          "worst_window_ic": -0.056436,
-          "positive_windows": 2643,
-          "total_windows": 4103
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.745,
-          "mean_rolling_ic": 0.011005,
-          "std_rolling_ic": 0.017946,
-          "stability_ratio": 0.6132,
-          "worst_window_ic": -0.036436,
-          "positive_windows": 3010,
-          "total_windows": 4040
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.008866,
-        "bear_ic": 0.011516,
-        "bull_days": 1930,
-        "bear_days": 2235,
-        "regime_ratio": 1.2989,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.012,
-            "available": true,
-            "n_days": 4165
-          },
-          "10": {
-            "ic": 0.014794,
-            "available": true,
-            "n_days": 4160
-          },
-          "20": {
-            "ic": 0.011653,
-            "available": true,
-            "n_days": 4150
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.014794,
-        "half_life_days": null,
-        "decays_fast": false
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 60.3,
-        "std_turnover_pct": 20.0,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "B"
-    },
-    {
-      "feature": "uptick_ratio",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.006854,
-      "std_ic": 0.136071,
-      "t_stat": 3.2548,
-      "n_days": 4175,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.5899,
-          "mean_rolling_ic": 0.006675,
-          "std_rolling_ic": 0.029856,
-          "stability_ratio": 0.2236,
-          "worst_window_ic": -0.073879,
-          "positive_windows": 2445,
-          "total_windows": 4145
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.5903,
-          "mean_rolling_ic": 0.006242,
-          "std_rolling_ic": 0.020555,
-          "stability_ratio": 0.3037,
-          "worst_window_ic": -0.053009,
-          "positive_windows": 2428,
-          "total_windows": 4113
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.6827,
-          "mean_rolling_ic": 0.006038,
-          "std_rolling_ic": 0.013117,
-          "stability_ratio": 0.4603,
-          "worst_window_ic": -0.024582,
-          "positive_windows": 2765,
-          "total_windows": 4050
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.003284,
-        "bear_ic": 0.009938,
-        "bull_days": 1935,
-        "bear_days": 2240,
-        "regime_ratio": 3.0259,
-        "regime_stable": false
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.006196,
-            "available": true,
-            "n_days": 4175
-          },
-          "10": {
-            "ic": 0.007257,
-            "available": true,
-            "n_days": 4170
-          },
-          "20": {
-            "ic": 0.000465,
-            "available": true,
-            "n_days": 4160
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.007257,
-        "half_life_days": 20,
-        "decays_fast": false
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 88.1,
-        "std_turnover_pct": 14.1,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "C"
-    },
-    {
-      "feature": "dist_ma20",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.010242,
-      "std_ic": 0.152164,
-      "t_stat": 4.3333,
-      "n_days": 4145,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.6051,
-          "mean_rolling_ic": 0.009968,
-          "std_rolling_ic": 0.033811,
-          "stability_ratio": 0.2948,
-          "worst_window_ic": -0.084561,
-          "positive_windows": 2490,
-          "total_windows": 4115
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.6297,
-          "mean_rolling_ic": 0.009751,
-          "std_rolling_ic": 0.023777,
-          "stability_ratio": 0.4101,
-          "worst_window_ic": -0.064887,
-          "positive_windows": 2571,
-          "total_windows": 4083
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.7012,
-          "mean_rolling_ic": 0.009543,
-          "std_rolling_ic": 0.016023,
-          "stability_ratio": 0.5955,
-          "worst_window_ic": -0.041771,
-          "positive_windows": 2819,
-          "total_windows": 4020
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.010497,
-        "bear_ic": 0.010021,
-        "bull_days": 1921,
-        "bear_days": 2224,
-        "regime_ratio": 0.9546,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.002169,
-            "available": true,
-            "n_days": 4145
-          },
-          "10": {
-            "ic": -0.00053,
-            "available": true,
-            "n_days": 4140
-          },
-          "20": {
-            "ic": -0.008283,
-            "available": true,
-            "n_days": 4130
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.008283,
-        "half_life_days": 5,
-        "decays_fast": true
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 76.8,
-        "std_turnover_pct": 19.3,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "C"
-    },
-    {
-      "feature": "bb_pos",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.00754,
-      "std_ic": 0.143824,
-      "t_stat": 3.3753,
-      "n_days": 4145,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.5623,
-          "mean_rolling_ic": 0.00714,
-          "std_rolling_ic": 0.03279,
-          "stability_ratio": 0.2177,
-          "worst_window_ic": -0.088993,
-          "positive_windows": 2314,
-          "total_windows": 4115
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.591,
-          "mean_rolling_ic": 0.006904,
-          "std_rolling_ic": 0.02367,
-          "stability_ratio": 0.2917,
-          "worst_window_ic": -0.065767,
-          "positive_windows": 2413,
-          "total_windows": 4083
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.657,
-          "mean_rolling_ic": 0.006675,
-          "std_rolling_ic": 0.01614,
-          "stability_ratio": 0.4135,
-          "worst_window_ic": -0.042671,
-          "positive_windows": 2641,
-          "total_windows": 4020
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.007146,
-        "bear_ic": 0.007881,
-        "bull_days": 1921,
-        "bear_days": 2224,
-        "regime_ratio": 1.1029,
-        "regime_stable": true
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.000135,
-            "available": true,
-            "n_days": 4145
-          },
-          "10": {
-            "ic": 0.001643,
-            "available": true,
-            "n_days": 4140
-          },
-          "20": {
-            "ic": -0.005246,
-            "available": true,
-            "n_days": 4130
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.005246,
-        "half_life_days": 5,
-        "decays_fast": true
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 88.1,
-        "std_turnover_pct": 17.4,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": true
-      },
-      "grade": "C"
-    },
-    {
-      "feature": "rsi_7",
-      "preferred_direction": "low_is_good",
-      "mean_ic": 0.008392,
-      "std_ic": 0.140484,
-      "t_stat": 3.8569,
+      "mean_ic": 0.012127,
+      "std_ic": 0.146462,
+      "t_stat": 5.346,
       "n_days": 4169,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.5873,
-          "mean_rolling_ic": 0.008151,
-          "std_rolling_ic": 0.03029,
-          "stability_ratio": 0.2691,
-          "worst_window_ic": -0.077399,
-          "positive_windows": 2431,
+          "hit_rate": 0.6666,
+          "mean_rolling_ic": 0.011881,
+          "std_rolling_ic": 0.024923,
+          "stability_ratio": 0.4767,
+          "worst_window_ic": -0.047223,
+          "positive_windows": 2759,
           "total_windows": 4139
         },
         {
           "window_days": 126,
-          "hit_rate": 0.6384,
-          "mean_rolling_ic": 0.007791,
-          "std_rolling_ic": 0.021332,
-          "stability_ratio": 0.3652,
-          "worst_window_ic": -0.064298,
-          "positive_windows": 2622,
+          "hit_rate": 0.7631,
+          "mean_rolling_ic": 0.011578,
+          "std_rolling_ic": 0.016436,
+          "stability_ratio": 0.7044,
+          "worst_window_ic": -0.024938,
+          "positive_windows": 3134,
           "total_windows": 4107
         },
         {
           "window_days": 252,
-          "hit_rate": 0.7379,
-          "mean_rolling_ic": 0.007296,
-          "std_rolling_ic": 0.014664,
-          "stability_ratio": 0.4975,
-          "worst_window_ic": -0.039637,
-          "positive_windows": 2984,
+          "hit_rate": 0.8833,
+          "mean_rolling_ic": 0.011548,
+          "std_rolling_ic": 0.010642,
+          "stability_ratio": 1.0852,
+          "worst_window_ic": -0.012978,
+          "positive_windows": 3572,
           "total_windows": 4044
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.00606,
-        "bear_ic": 0.010405,
-        "bull_days": 1932,
-        "bear_days": 2237,
-        "regime_ratio": 1.7171,
+        "bull_ic": 0.009009,
+        "bear_ic": 0.014993,
+        "bull_days": 1997,
+        "bear_days": 2172,
+        "regime_ratio": 1.6642,
         "regime_stable": true
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": 0.00535,
+            "ic": 0.008097,
             "available": true,
             "n_days": 4169
           },
           "10": {
-            "ic": 0.002299,
+            "ic": 0.007597,
             "available": true,
             "n_days": 4164
           },
           "20": {
-            "ic": -0.003924,
+            "ic": 0.002151,
             "available": true,
             "n_days": 4154
           },
@@ -2145,80 +511,854 @@
             "available": false
           }
         },
-        "peak_ic": 0.00535,
-        "half_life_days": 10,
-        "decays_fast": true
+        "peak_ic": 0.008097,
+        "half_life_days": 20,
+        "decays_fast": false
       },
       "turnover_impact": {
-        "mean_turnover_pct": 91.1,
-        "std_turnover_pct": 13.8,
-        "n_periods": 418,
+        "mean_turnover_pct": 86.9,
+        "std_turnover_pct": 16.2,
+        "n_periods": 419,
         "available": true,
         "high_turnover": true
       },
-      "grade": "C"
+      "grade": "A"
     },
     {
-      "feature": "xs_rank_sector_factor_mom_12_1",
-      "preferred_direction": "high_is_good",
-      "mean_ic": 0.01105,
-      "std_ic": 0.180078,
-      "t_stat": 3.9685,
-      "n_days": 4183,
+      "feature": "dist_ma10",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.012624,
+      "std_ic": 0.149602,
+      "t_stat": 5.4288,
+      "n_days": 4139,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.5772,
-          "mean_rolling_ic": 0.01128,
-          "std_rolling_ic": 0.043562,
-          "stability_ratio": 0.2589,
-          "worst_window_ic": -0.102941,
-          "positive_windows": 2397,
-          "total_windows": 4153
+          "hit_rate": 0.6719,
+          "mean_rolling_ic": 0.012514,
+          "std_rolling_ic": 0.03001,
+          "stability_ratio": 0.417,
+          "worst_window_ic": -0.080099,
+          "positive_windows": 2761,
+          "total_windows": 4109
         },
         {
           "window_days": 126,
-          "hit_rate": 0.6452,
-          "mean_rolling_ic": 0.011395,
-          "std_rolling_ic": 0.031125,
-          "stability_ratio": 0.3661,
-          "worst_window_ic": -0.08512,
-          "positive_windows": 2659,
-          "total_windows": 4121
+          "hit_rate": 0.7162,
+          "mean_rolling_ic": 0.012193,
+          "std_rolling_ic": 0.020405,
+          "stability_ratio": 0.5976,
+          "worst_window_ic": -0.056135,
+          "positive_windows": 2920,
+          "total_windows": 4077
         },
         {
           "window_days": 252,
-          "hit_rate": 0.7238,
-          "mean_rolling_ic": 0.01165,
-          "std_rolling_ic": 0.020306,
-          "stability_ratio": 0.5737,
-          "worst_window_ic": -0.038517,
-          "positive_windows": 2937,
-          "total_windows": 4058
+          "hit_rate": 0.8174,
+          "mean_rolling_ic": 0.011947,
+          "std_rolling_ic": 0.013662,
+          "stability_ratio": 0.8744,
+          "worst_window_ic": -0.032923,
+          "positive_windows": 3281,
+          "total_windows": 4014
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.008864,
-        "bear_ic": 0.012935,
-        "bull_days": 1937,
-        "bear_days": 2246,
-        "regime_ratio": 1.4592,
+        "bull_ic": 0.008512,
+        "bear_ic": 0.01641,
+        "bull_days": 1984,
+        "bear_days": 2155,
+        "regime_ratio": 1.9279,
         "regime_stable": true
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": 0.015797,
+            "ic": 0.009249,
+            "available": true,
+            "n_days": 4139
+          },
+          "10": {
+            "ic": 0.008625,
+            "available": true,
+            "n_days": 4134
+          },
+          "20": {
+            "ic": -0.000469,
+            "available": true,
+            "n_days": 4124
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.009249,
+        "half_life_days": 20,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 88.7,
+        "std_turnover_pct": 15.0,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "A"
+    },
+    {
+      "feature": "ret_5d",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.011758,
+      "std_ic": 0.146989,
+      "t_stat": 5.157,
+      "n_days": 4156,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.6648,
+          "mean_rolling_ic": 0.011627,
+          "std_rolling_ic": 0.027884,
+          "stability_ratio": 0.417,
+          "worst_window_ic": -0.071843,
+          "positive_windows": 2743,
+          "total_windows": 4126
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.7193,
+          "mean_rolling_ic": 0.011304,
+          "std_rolling_ic": 0.018329,
+          "stability_ratio": 0.6167,
+          "worst_window_ic": -0.042445,
+          "positive_windows": 2945,
+          "total_windows": 4094
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.8499,
+          "mean_rolling_ic": 0.011059,
+          "std_rolling_ic": 0.011818,
+          "stability_ratio": 0.9358,
+          "worst_window_ic": -0.02459,
+          "positive_windows": 3426,
+          "total_windows": 4031
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.009499,
+        "bear_ic": 0.013836,
+        "bull_days": 1991,
+        "bear_days": 2165,
+        "regime_ratio": 1.4565,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.008432,
+            "available": true,
+            "n_days": 4156
+          },
+          "10": {
+            "ic": 0.008482,
+            "available": true,
+            "n_days": 4151
+          },
+          "20": {
+            "ic": 0.000465,
+            "available": true,
+            "n_days": 4141
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.008482,
+        "half_life_days": 20,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 88.5,
+        "std_turnover_pct": 15.3,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "A"
+    },
+    {
+      "feature": "xs_rank_market_ret_5d",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.011758,
+      "std_ic": 0.146989,
+      "t_stat": 5.157,
+      "n_days": 4156,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.6648,
+          "mean_rolling_ic": 0.011627,
+          "std_rolling_ic": 0.027884,
+          "stability_ratio": 0.417,
+          "worst_window_ic": -0.071843,
+          "positive_windows": 2743,
+          "total_windows": 4126
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.7193,
+          "mean_rolling_ic": 0.011304,
+          "std_rolling_ic": 0.018329,
+          "stability_ratio": 0.6167,
+          "worst_window_ic": -0.042445,
+          "positive_windows": 2945,
+          "total_windows": 4094
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.8499,
+          "mean_rolling_ic": 0.011059,
+          "std_rolling_ic": 0.011818,
+          "stability_ratio": 0.9358,
+          "worst_window_ic": -0.02459,
+          "positive_windows": 3426,
+          "total_windows": 4031
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.009499,
+        "bear_ic": 0.013836,
+        "bull_days": 1991,
+        "bear_days": 2165,
+        "regime_ratio": 1.4565,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.008432,
+            "available": true,
+            "n_days": 4156
+          },
+          "10": {
+            "ic": 0.008482,
+            "available": true,
+            "n_days": 4151
+          },
+          "20": {
+            "ic": 0.000465,
+            "available": true,
+            "n_days": 4141
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.008482,
+        "half_life_days": 20,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 88.5,
+        "std_turnover_pct": 15.3,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "A"
+    },
+    {
+      "feature": "ret_vs_spy_5d",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.011752,
+      "std_ic": 0.146918,
+      "t_stat": 5.1567,
+      "n_days": 4156,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.6646,
+          "mean_rolling_ic": 0.011619,
+          "std_rolling_ic": 0.027882,
+          "stability_ratio": 0.4167,
+          "worst_window_ic": -0.071843,
+          "positive_windows": 2742,
+          "total_windows": 4126
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.722,
+          "mean_rolling_ic": 0.011296,
+          "std_rolling_ic": 0.01832,
+          "stability_ratio": 0.6166,
+          "worst_window_ic": -0.043066,
+          "positive_windows": 2956,
+          "total_windows": 4094
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.8499,
+          "mean_rolling_ic": 0.011044,
+          "std_rolling_ic": 0.01179,
+          "stability_ratio": 0.9367,
+          "worst_window_ic": -0.024588,
+          "positive_windows": 3426,
+          "total_windows": 4031
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.009516,
+        "bear_ic": 0.013808,
+        "bull_days": 1991,
+        "bear_days": 2165,
+        "regime_ratio": 1.4509,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.008334,
+            "available": true,
+            "n_days": 4156
+          },
+          "10": {
+            "ic": 0.008357,
+            "available": true,
+            "n_days": 4151
+          },
+          "20": {
+            "ic": 0.000315,
+            "available": true,
+            "n_days": 4141
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.008357,
+        "half_life_days": 20,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 88.5,
+        "std_turnover_pct": 15.3,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "A"
+    },
+    {
+      "feature": "ret_vs_qqq_5d",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.011714,
+      "std_ic": 0.14689,
+      "t_stat": 5.1411,
+      "n_days": 4156,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.6646,
+          "mean_rolling_ic": 0.011583,
+          "std_rolling_ic": 0.027866,
+          "stability_ratio": 0.4157,
+          "worst_window_ic": -0.071874,
+          "positive_windows": 2742,
+          "total_windows": 4126
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.7201,
+          "mean_rolling_ic": 0.011259,
+          "std_rolling_ic": 0.018315,
+          "stability_ratio": 0.6148,
+          "worst_window_ic": -0.043289,
+          "positive_windows": 2948,
+          "total_windows": 4094
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.8497,
+          "mean_rolling_ic": 0.011003,
+          "std_rolling_ic": 0.011768,
+          "stability_ratio": 0.935,
+          "worst_window_ic": -0.024587,
+          "positive_windows": 3425,
+          "total_windows": 4031
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.009492,
+        "bear_ic": 0.013757,
+        "bull_days": 1991,
+        "bear_days": 2165,
+        "regime_ratio": 1.4493,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.008308,
+            "available": true,
+            "n_days": 4156
+          },
+          "10": {
+            "ic": 0.008322,
+            "available": true,
+            "n_days": 4151
+          },
+          "20": {
+            "ic": 0.000285,
+            "available": true,
+            "n_days": 4141
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.008322,
+        "half_life_days": 20,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 88.5,
+        "std_turnover_pct": 15.3,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "A"
+    },
+    {
+      "feature": "xs_rank_sector_factor_illiquidity_amihud_20d",
+      "preferred_direction": "high_is_good",
+      "mean_ic": 0.017768,
+      "std_ic": 0.161275,
+      "t_stat": 7.1324,
+      "n_days": 4191,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.658,
+          "mean_rolling_ic": 0.018213,
+          "std_rolling_ic": 0.043808,
+          "stability_ratio": 0.4157,
+          "worst_window_ic": -0.09788,
+          "positive_windows": 2738,
+          "total_windows": 4161
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.6868,
+          "mean_rolling_ic": 0.018014,
+          "std_rolling_ic": 0.032976,
+          "stability_ratio": 0.5463,
+          "worst_window_ic": -0.05878,
+          "positive_windows": 2836,
+          "total_windows": 4129
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.7314,
+          "mean_rolling_ic": 0.017255,
+          "std_rolling_ic": 0.022248,
+          "stability_ratio": 0.7756,
+          "worst_window_ic": -0.039326,
+          "positive_windows": 2974,
+          "total_windows": 4066
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.018385,
+        "bear_ic": 0.017202,
+        "bull_days": 2007,
+        "bear_days": 2184,
+        "regime_ratio": 0.9356,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.010166,
+            "available": true,
+            "n_days": 4191
+          },
+          "10": {
+            "ic": 0.015369,
+            "available": true,
+            "n_days": 4186
+          },
+          "20": {
+            "ic": 0.021414,
+            "available": true,
+            "n_days": 4176
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.021414,
+        "half_life_days": 5,
+        "decays_fast": true
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 10.1,
+        "std_turnover_pct": 14.8,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": false
+      },
+      "grade": "A"
+    },
+    {
+      "feature": "xs_rank_sector_ret_5d",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.012032,
+      "std_ic": 0.159546,
+      "t_stat": 4.8821,
+      "n_days": 4191,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.6381,
+          "mean_rolling_ic": 0.011832,
+          "std_rolling_ic": 0.031282,
+          "stability_ratio": 0.3783,
+          "worst_window_ic": -0.08551,
+          "positive_windows": 2655,
+          "total_windows": 4161
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.7036,
+          "mean_rolling_ic": 0.011475,
+          "std_rolling_ic": 0.020468,
+          "stability_ratio": 0.5606,
+          "worst_window_ic": -0.053809,
+          "positive_windows": 2905,
+          "total_windows": 4129
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.8099,
+          "mean_rolling_ic": 0.011155,
+          "std_rolling_ic": 0.013832,
+          "stability_ratio": 0.8065,
+          "worst_window_ic": -0.028719,
+          "positive_windows": 3293,
+          "total_windows": 4066
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.008195,
+        "bear_ic": 0.015557,
+        "bull_days": 2007,
+        "bear_days": 2184,
+        "regime_ratio": 1.8983,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.006029,
+            "available": true,
+            "n_days": 4191
+          },
+          "10": {
+            "ic": 0.006866,
+            "available": true,
+            "n_days": 4186
+          },
+          "20": {
+            "ic": 0.001266,
+            "available": true,
+            "n_days": 4176
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.006866,
+        "half_life_days": 20,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 86.7,
+        "std_turnover_pct": 16.1,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "B"
+    },
+    {
+      "feature": "ret_vs_sector_5d",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.01306,
+      "std_ic": 0.171034,
+      "t_stat": 4.9226,
+      "n_days": 4156,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.6643,
+          "mean_rolling_ic": 0.012828,
+          "std_rolling_ic": 0.033099,
+          "stability_ratio": 0.3876,
+          "worst_window_ic": -0.080863,
+          "positive_windows": 2741,
+          "total_windows": 4126
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.7208,
+          "mean_rolling_ic": 0.012401,
+          "std_rolling_ic": 0.020912,
+          "stability_ratio": 0.593,
+          "worst_window_ic": -0.045511,
+          "positive_windows": 2951,
+          "total_windows": 4094
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.8318,
+          "mean_rolling_ic": 0.011995,
+          "std_rolling_ic": 0.013448,
+          "stability_ratio": 0.8919,
+          "worst_window_ic": -0.025385,
+          "positive_windows": 3353,
+          "total_windows": 4031
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.009465,
+        "bear_ic": 0.016365,
+        "bull_days": 1991,
+        "bear_days": 2165,
+        "regime_ratio": 1.729,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.007842,
+            "available": true,
+            "n_days": 4156
+          },
+          "10": {
+            "ic": 0.006581,
+            "available": true,
+            "n_days": 4151
+          },
+          "20": {
+            "ic": 0.001139,
+            "available": true,
+            "n_days": 4141
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.007842,
+        "half_life_days": 20,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 86.3,
+        "std_turnover_pct": 15.0,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "A"
+    },
+    {
+      "feature": "sector_rs_slope_5d",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.013022,
+      "std_ic": 0.171002,
+      "t_stat": 4.9091,
+      "n_days": 4156,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.6604,
+          "mean_rolling_ic": 0.01279,
+          "std_rolling_ic": 0.033182,
+          "stability_ratio": 0.3854,
+          "worst_window_ic": -0.080986,
+          "positive_windows": 2725,
+          "total_windows": 4126
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.7189,
+          "mean_rolling_ic": 0.012355,
+          "std_rolling_ic": 0.021022,
+          "stability_ratio": 0.5877,
+          "worst_window_ic": -0.046002,
+          "positive_windows": 2943,
+          "total_windows": 4094
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.8291,
+          "mean_rolling_ic": 0.011949,
+          "std_rolling_ic": 0.013541,
+          "stability_ratio": 0.8824,
+          "worst_window_ic": -0.025786,
+          "positive_windows": 3342,
+          "total_windows": 4031
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.00936,
+        "bear_ic": 0.016389,
+        "bull_days": 1991,
+        "bear_days": 2165,
+        "regime_ratio": 1.7509,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.00787,
+            "available": true,
+            "n_days": 4156
+          },
+          "10": {
+            "ic": 0.006699,
+            "available": true,
+            "n_days": 4151
+          },
+          "20": {
+            "ic": 0.001052,
+            "available": true,
+            "n_days": 4141
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.00787,
+        "half_life_days": 20,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 86.5,
+        "std_turnover_pct": 15.0,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "A"
+    },
+    {
+      "feature": "ret_1d",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.010378,
+      "std_ic": 0.144209,
+      "t_stat": 4.6545,
+      "n_days": 4183,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.6913,
+          "mean_rolling_ic": 0.010178,
+          "std_rolling_ic": 0.018918,
+          "stability_ratio": 0.538,
+          "worst_window_ic": -0.035297,
+          "positive_windows": 2871,
+          "total_windows": 4153
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.7908,
+          "mean_rolling_ic": 0.00995,
+          "std_rolling_ic": 0.013033,
+          "stability_ratio": 0.7635,
+          "worst_window_ic": -0.024519,
+          "positive_windows": 3259,
+          "total_windows": 4121
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.86,
+          "mean_rolling_ic": 0.009834,
+          "std_rolling_ic": 0.00876,
+          "stability_ratio": 1.1227,
+          "worst_window_ic": -0.012616,
+          "positive_windows": 3490,
+          "total_windows": 4058
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.005822,
+        "bear_ic": 0.014572,
+        "bull_days": 2005,
+        "bear_days": 2178,
+        "regime_ratio": 2.5029,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.009217,
             "available": true,
             "n_days": 4183
           },
           "10": {
-            "ic": 0.016489,
+            "ic": 0.009195,
             "available": true,
             "n_days": 4178
           },
           "20": {
-            "ic": 0.017325,
+            "ic": 0.003253,
             "available": true,
             "n_days": 4168
           },
@@ -2231,14 +1371,874 @@
             "available": false
           }
         },
-        "peak_ic": 0.017325,
+        "peak_ic": 0.009217,
+        "half_life_days": 20,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 88.1,
+        "std_turnover_pct": 15.4,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "A"
+    },
+    {
+      "feature": "xs_rank_sector_factor_liquidity_dollar_vol_20d",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.013793,
+      "std_ic": 0.141365,
+      "t_stat": 6.3165,
+      "n_days": 4191,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.6429,
+          "mean_rolling_ic": 0.014181,
+          "std_rolling_ic": 0.037672,
+          "stability_ratio": 0.3764,
+          "worst_window_ic": -0.091291,
+          "positive_windows": 2675,
+          "total_windows": 4161
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.698,
+          "mean_rolling_ic": 0.014104,
+          "std_rolling_ic": 0.028076,
+          "stability_ratio": 0.5024,
+          "worst_window_ic": -0.057197,
+          "positive_windows": 2882,
+          "total_windows": 4129
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.7614,
+          "mean_rolling_ic": 0.01376,
+          "std_rolling_ic": 0.020414,
+          "stability_ratio": 0.674,
+          "worst_window_ic": -0.045689,
+          "positive_windows": 3096,
+          "total_windows": 4066
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.015217,
+        "bear_ic": 0.012484,
+        "bull_days": 2007,
+        "bear_days": 2184,
+        "regime_ratio": 0.8204,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.00435,
+            "available": true,
+            "n_days": 4191
+          },
+          "10": {
+            "ic": 0.005825,
+            "available": true,
+            "n_days": 4186
+          },
+          "20": {
+            "ic": 0.009311,
+            "available": true,
+            "n_days": 4176
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.009311,
+        "half_life_days": 5,
+        "decays_fast": true
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 16.2,
+        "std_turnover_pct": 14.9,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": false
+      },
+      "grade": "A"
+    },
+    {
+      "feature": "ret_vs_sector_1d",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.011426,
+      "std_ic": 0.167989,
+      "t_stat": 4.3992,
+      "n_days": 4183,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.6879,
+          "mean_rolling_ic": 0.011059,
+          "std_rolling_ic": 0.02179,
+          "stability_ratio": 0.5075,
+          "worst_window_ic": -0.043191,
+          "positive_windows": 2857,
+          "total_windows": 4153
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.7845,
+          "mean_rolling_ic": 0.01078,
+          "std_rolling_ic": 0.014629,
+          "stability_ratio": 0.7369,
+          "worst_window_ic": -0.024063,
+          "positive_windows": 3233,
+          "total_windows": 4121
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.8667,
+          "mean_rolling_ic": 0.010691,
+          "std_rolling_ic": 0.00971,
+          "stability_ratio": 1.1011,
+          "worst_window_ic": -0.014877,
+          "positive_windows": 3517,
+          "total_windows": 4058
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.007261,
+        "bear_ic": 0.015261,
+        "bull_days": 2005,
+        "bear_days": 2178,
+        "regime_ratio": 2.1019,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.008178,
+            "available": true,
+            "n_days": 4183
+          },
+          "10": {
+            "ic": 0.006752,
+            "available": true,
+            "n_days": 4178
+          },
+          "20": {
+            "ic": 0.002833,
+            "available": true,
+            "n_days": 4168
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.008178,
+        "half_life_days": 20,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 86.8,
+        "std_turnover_pct": 16.2,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "A"
+    },
+    {
+      "feature": "macd_hist",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.009497,
+      "std_ic": 0.140297,
+      "t_stat": 4.3783,
+      "n_days": 4183,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.5979,
+          "mean_rolling_ic": 0.009745,
+          "std_rolling_ic": 0.034752,
+          "stability_ratio": 0.2804,
+          "worst_window_ic": -0.093395,
+          "positive_windows": 2483,
+          "total_windows": 4153
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.6411,
+          "mean_rolling_ic": 0.009883,
+          "std_rolling_ic": 0.025046,
+          "stability_ratio": 0.3946,
+          "worst_window_ic": -0.056801,
+          "positive_windows": 2642,
+          "total_windows": 4121
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.7408,
+          "mean_rolling_ic": 0.009333,
+          "std_rolling_ic": 0.016909,
+          "stability_ratio": 0.5519,
+          "worst_window_ic": -0.0365,
+          "positive_windows": 3006,
+          "total_windows": 4058
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.00993,
+        "bear_ic": 0.009099,
+        "bull_days": 2005,
+        "bear_days": 2178,
+        "regime_ratio": 0.9164,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.00737,
+            "available": true,
+            "n_days": 4183
+          },
+          "10": {
+            "ic": 0.003195,
+            "available": true,
+            "n_days": 4178
+          },
+          "20": {
+            "ic": -0.003424,
+            "available": true,
+            "n_days": 4168
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.00737,
+        "half_life_days": 10,
+        "decays_fast": true
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 80.1,
+        "std_turnover_pct": 18.8,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "B"
+    },
+    {
+      "feature": "vwap_dist",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.010977,
+      "std_ic": 0.153571,
+      "t_stat": 4.5789,
+      "n_days": 4104,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.621,
+          "mean_rolling_ic": 0.010915,
+          "std_rolling_ic": 0.033646,
+          "stability_ratio": 0.3244,
+          "worst_window_ic": -0.088195,
+          "positive_windows": 2530,
+          "total_windows": 4074
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.6675,
+          "mean_rolling_ic": 0.010681,
+          "std_rolling_ic": 0.02375,
+          "stability_ratio": 0.4497,
+          "worst_window_ic": -0.067853,
+          "positive_windows": 2698,
+          "total_windows": 4042
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.7153,
+          "mean_rolling_ic": 0.010368,
+          "std_rolling_ic": 0.01634,
+          "stability_ratio": 0.6346,
+          "worst_window_ic": -0.044983,
+          "positive_windows": 2846,
+          "total_windows": 3979
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.007677,
+        "bear_ic": 0.01402,
+        "bull_days": 1969,
+        "bear_days": 2135,
+        "regime_ratio": 1.8262,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.003856,
+            "available": true,
+            "n_days": 4104
+          },
+          "10": {
+            "ic": 0.002373,
+            "available": true,
+            "n_days": 4099
+          },
+          "20": {
+            "ic": -0.004974,
+            "available": true,
+            "n_days": 4089
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.004974,
         "half_life_days": null,
         "decays_fast": false
       },
       "turnover_impact": {
-        "mean_turnover_pct": 19.5,
-        "std_turnover_pct": 20.0,
-        "n_periods": 418,
+        "mean_turnover_pct": 76.7,
+        "std_turnover_pct": 20.2,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "B"
+    },
+    {
+      "feature": "vol_trend_20_60",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.010189,
+      "std_ic": 0.132518,
+      "t_stat": 4.9468,
+      "n_days": 4139,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.5977,
+          "mean_rolling_ic": 0.010534,
+          "std_rolling_ic": 0.035433,
+          "stability_ratio": 0.2973,
+          "worst_window_ic": -0.087411,
+          "positive_windows": 2456,
+          "total_windows": 4109
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.6458,
+          "mean_rolling_ic": 0.010695,
+          "std_rolling_ic": 0.026289,
+          "stability_ratio": 0.4068,
+          "worst_window_ic": -0.063107,
+          "positive_windows": 2633,
+          "total_windows": 4077
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.7414,
+          "mean_rolling_ic": 0.010977,
+          "std_rolling_ic": 0.018055,
+          "stability_ratio": 0.6079,
+          "worst_window_ic": -0.033945,
+          "positive_windows": 2976,
+          "total_windows": 4014
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.009793,
+        "bear_ic": 0.010554,
+        "bull_days": 1984,
+        "bear_days": 2155,
+        "regime_ratio": 1.0777,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.011434,
+            "available": true,
+            "n_days": 4139
+          },
+          "10": {
+            "ic": 0.014382,
+            "available": true,
+            "n_days": 4134
+          },
+          "20": {
+            "ic": 0.010678,
+            "available": true,
+            "n_days": 4124
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.014382,
+        "half_life_days": null,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 61.0,
+        "std_turnover_pct": 20.4,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "B"
+    },
+    {
+      "feature": "uptick_ratio",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.006979,
+      "std_ic": 0.136525,
+      "t_stat": 3.2973,
+      "n_days": 4161,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.5928,
+          "mean_rolling_ic": 0.007036,
+          "std_rolling_ic": 0.02954,
+          "stability_ratio": 0.2382,
+          "worst_window_ic": -0.071811,
+          "positive_windows": 2449,
+          "total_windows": 4131
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.5967,
+          "mean_rolling_ic": 0.006638,
+          "std_rolling_ic": 0.020347,
+          "stability_ratio": 0.3263,
+          "worst_window_ic": -0.05244,
+          "positive_windows": 2446,
+          "total_windows": 4099
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.694,
+          "mean_rolling_ic": 0.006403,
+          "std_rolling_ic": 0.012918,
+          "stability_ratio": 0.4957,
+          "worst_window_ic": -0.024573,
+          "positive_windows": 2801,
+          "total_windows": 4036
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.004613,
+        "bear_ic": 0.009155,
+        "bull_days": 1994,
+        "bear_days": 2167,
+        "regime_ratio": 1.9846,
+        "regime_stable": false
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.006884,
+            "available": true,
+            "n_days": 4161
+          },
+          "10": {
+            "ic": 0.008787,
+            "available": true,
+            "n_days": 4156
+          },
+          "20": {
+            "ic": 0.002055,
+            "available": true,
+            "n_days": 4146
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.008787,
+        "half_life_days": 20,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 87.8,
+        "std_turnover_pct": 14.7,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "C"
+    },
+    {
+      "feature": "dist_ma20",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.010713,
+      "std_ic": 0.153157,
+      "t_stat": 4.4811,
+      "n_days": 4104,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.6176,
+          "mean_rolling_ic": 0.010614,
+          "std_rolling_ic": 0.033716,
+          "stability_ratio": 0.3148,
+          "worst_window_ic": -0.084579,
+          "positive_windows": 2516,
+          "total_windows": 4074
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.6519,
+          "mean_rolling_ic": 0.010394,
+          "std_rolling_ic": 0.023794,
+          "stability_ratio": 0.4368,
+          "worst_window_ic": -0.064917,
+          "positive_windows": 2635,
+          "total_windows": 4042
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.6984,
+          "mean_rolling_ic": 0.01018,
+          "std_rolling_ic": 0.016431,
+          "stability_ratio": 0.6196,
+          "worst_window_ic": -0.041787,
+          "positive_windows": 2779,
+          "total_windows": 3979
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.007436,
+        "bear_ic": 0.013736,
+        "bull_days": 1969,
+        "bear_days": 2135,
+        "regime_ratio": 1.8473,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.003427,
+            "available": true,
+            "n_days": 4104
+          },
+          "10": {
+            "ic": 0.001508,
+            "available": true,
+            "n_days": 4099
+          },
+          "20": {
+            "ic": -0.005739,
+            "available": true,
+            "n_days": 4089
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.005739,
+        "half_life_days": 10,
+        "decays_fast": true
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 76.4,
+        "std_turnover_pct": 20.1,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "B"
+    },
+    {
+      "feature": "bb_pos",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.007454,
+      "std_ic": 0.144489,
+      "t_stat": 3.305,
+      "n_days": 4104,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.565,
+          "mean_rolling_ic": 0.007171,
+          "std_rolling_ic": 0.032917,
+          "stability_ratio": 0.2179,
+          "worst_window_ic": -0.088997,
+          "positive_windows": 2302,
+          "total_windows": 4074
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.5876,
+          "mean_rolling_ic": 0.00692,
+          "std_rolling_ic": 0.0239,
+          "stability_ratio": 0.2895,
+          "worst_window_ic": -0.065776,
+          "positive_windows": 2375,
+          "total_windows": 4042
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.6567,
+          "mean_rolling_ic": 0.006671,
+          "std_rolling_ic": 0.016195,
+          "stability_ratio": 0.4119,
+          "worst_window_ic": -0.04268,
+          "positive_windows": 2613,
+          "total_windows": 3979
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.004585,
+        "bear_ic": 0.0101,
+        "bull_days": 1969,
+        "bear_days": 2135,
+        "regime_ratio": 2.2027,
+        "regime_stable": false
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.001402,
+            "available": true,
+            "n_days": 4104
+          },
+          "10": {
+            "ic": 0.003563,
+            "available": true,
+            "n_days": 4099
+          },
+          "20": {
+            "ic": -0.002776,
+            "available": true,
+            "n_days": 4089
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.003563,
+        "half_life_days": null,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 87.9,
+        "std_turnover_pct": 17.9,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "C"
+    },
+    {
+      "feature": "rsi_7",
+      "preferred_direction": "low_is_good",
+      "mean_ic": 0.008266,
+      "std_ic": 0.140826,
+      "t_stat": 3.7799,
+      "n_days": 4147,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.5856,
+          "mean_rolling_ic": 0.008182,
+          "std_rolling_ic": 0.030342,
+          "stability_ratio": 0.2697,
+          "worst_window_ic": -0.07746,
+          "positive_windows": 2411,
+          "total_windows": 4117
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.6316,
+          "mean_rolling_ic": 0.007806,
+          "std_rolling_ic": 0.021458,
+          "stability_ratio": 0.3638,
+          "worst_window_ic": -0.064318,
+          "positive_windows": 2580,
+          "total_windows": 4085
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.7379,
+          "mean_rolling_ic": 0.007283,
+          "std_rolling_ic": 0.014699,
+          "stability_ratio": 0.4955,
+          "worst_window_ic": -0.039645,
+          "positive_windows": 2968,
+          "total_windows": 4022
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.005393,
+        "bear_ic": 0.010912,
+        "bull_days": 1988,
+        "bear_days": 2159,
+        "regime_ratio": 2.0235,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.006156,
+            "available": true,
+            "n_days": 4147
+          },
+          "10": {
+            "ic": 0.004017,
+            "available": true,
+            "n_days": 4142
+          },
+          "20": {
+            "ic": -0.002361,
+            "available": true,
+            "n_days": 4132
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.006156,
+        "half_life_days": 20,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 91.1,
+        "std_turnover_pct": 14.1,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": true
+      },
+      "grade": "B"
+    },
+    {
+      "feature": "xs_rank_sector_factor_mom_12_1",
+      "preferred_direction": "high_is_good",
+      "mean_ic": 0.011038,
+      "std_ic": 0.179498,
+      "t_stat": 3.9811,
+      "n_days": 4191,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.5739,
+          "mean_rolling_ic": 0.011312,
+          "std_rolling_ic": 0.043198,
+          "stability_ratio": 0.2619,
+          "worst_window_ic": -0.102939,
+          "positive_windows": 2388,
+          "total_windows": 4161
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.6447,
+          "mean_rolling_ic": 0.01145,
+          "std_rolling_ic": 0.030925,
+          "stability_ratio": 0.3703,
+          "worst_window_ic": -0.085128,
+          "positive_windows": 2662,
+          "total_windows": 4129
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.7273,
+          "mean_rolling_ic": 0.011707,
+          "std_rolling_ic": 0.020175,
+          "stability_ratio": 0.5803,
+          "worst_window_ic": -0.03852,
+          "positive_windows": 2957,
+          "total_windows": 4066
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.010506,
+        "bear_ic": 0.011527,
+        "bull_days": 2007,
+        "bear_days": 2184,
+        "regime_ratio": 1.0972,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.016269,
+            "available": true,
+            "n_days": 4191
+          },
+          "10": {
+            "ic": 0.017515,
+            "available": true,
+            "n_days": 4186
+          },
+          "20": {
+            "ic": 0.018615,
+            "available": true,
+            "n_days": 4176
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.018615,
+        "half_life_days": null,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 18.7,
+        "std_turnover_pct": 19.5,
+        "n_periods": 419,
         "available": true,
         "high_turnover": false
       },
@@ -2247,66 +2247,66 @@
     {
       "feature": "ret_10d",
       "preferred_direction": "low_is_good",
-      "mean_ic": 0.01022,
-      "std_ic": 0.150858,
-      "t_stat": 4.3709,
-      "n_days": 4163,
+      "mean_ic": 0.010231,
+      "std_ic": 0.15134,
+      "t_stat": 4.347,
+      "n_days": 4135,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.618,
-          "mean_rolling_ic": 0.009937,
-          "std_rolling_ic": 0.032155,
-          "stability_ratio": 0.309,
-          "worst_window_ic": -0.094485,
-          "positive_windows": 2554,
-          "total_windows": 4133
+          "hit_rate": 0.6207,
+          "mean_rolling_ic": 0.010017,
+          "std_rolling_ic": 0.032107,
+          "stability_ratio": 0.312,
+          "worst_window_ic": -0.094523,
+          "positive_windows": 2548,
+          "total_windows": 4105
         },
         {
           "window_days": 126,
-          "hit_rate": 0.6845,
-          "mean_rolling_ic": 0.009831,
-          "std_rolling_ic": 0.022289,
-          "stability_ratio": 0.4411,
-          "worst_window_ic": -0.080069,
-          "positive_windows": 2807,
-          "total_windows": 4101
+          "hit_rate": 0.6872,
+          "mean_rolling_ic": 0.009879,
+          "std_rolling_ic": 0.022308,
+          "stability_ratio": 0.4428,
+          "worst_window_ic": -0.080088,
+          "positive_windows": 2799,
+          "total_windows": 4073
         },
         {
           "window_days": 252,
-          "hit_rate": 0.7632,
-          "mean_rolling_ic": 0.00953,
-          "std_rolling_ic": 0.015216,
-          "stability_ratio": 0.6263,
-          "worst_window_ic": -0.046321,
-          "positive_windows": 3082,
-          "total_windows": 4038
+          "hit_rate": 0.7618,
+          "mean_rolling_ic": 0.009572,
+          "std_rolling_ic": 0.015186,
+          "stability_ratio": 0.6303,
+          "worst_window_ic": -0.046339,
+          "positive_windows": 3055,
+          "total_windows": 4010
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.011248,
-        "bear_ic": 0.009332,
-        "bull_days": 1929,
-        "bear_days": 2234,
-        "regime_ratio": 0.8297,
+        "bull_ic": 0.007803,
+        "bear_ic": 0.01247,
+        "bull_days": 1984,
+        "bear_days": 2151,
+        "regime_ratio": 1.5982,
         "regime_stable": true
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": 0.004078,
+            "ic": 0.00491,
             "available": true,
-            "n_days": 4163
+            "n_days": 4135
           },
           "10": {
-            "ic": 0.002743,
+            "ic": 0.004412,
             "available": true,
-            "n_days": 4158
+            "n_days": 4130
           },
           "20": {
-            "ic": -0.006363,
+            "ic": -0.00449,
             "available": true,
-            "n_days": 4148
+            "n_days": 4120
           },
           "40": {
             "ic": 0.0,
@@ -2317,14 +2317,14 @@
             "available": false
           }
         },
-        "peak_ic": 0.006363,
-        "half_life_days": 10,
-        "decays_fast": true
+        "peak_ic": 0.00491,
+        "half_life_days": null,
+        "decays_fast": false
       },
       "turnover_impact": {
-        "mean_turnover_pct": 89.2,
-        "std_turnover_pct": 15.2,
-        "n_periods": 418,
+        "mean_turnover_pct": 89.3,
+        "std_turnover_pct": 15.1,
+        "n_periods": 419,
         "available": true,
         "high_turnover": true
       },
@@ -2333,66 +2333,66 @@
     {
       "feature": "xs_rank_market_ret_10d",
       "preferred_direction": "low_is_good",
-      "mean_ic": 0.01022,
-      "std_ic": 0.150858,
-      "t_stat": 4.3709,
-      "n_days": 4163,
+      "mean_ic": 0.010231,
+      "std_ic": 0.15134,
+      "t_stat": 4.347,
+      "n_days": 4135,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.618,
-          "mean_rolling_ic": 0.009937,
-          "std_rolling_ic": 0.032155,
-          "stability_ratio": 0.309,
-          "worst_window_ic": -0.094485,
-          "positive_windows": 2554,
-          "total_windows": 4133
+          "hit_rate": 0.6207,
+          "mean_rolling_ic": 0.010017,
+          "std_rolling_ic": 0.032107,
+          "stability_ratio": 0.312,
+          "worst_window_ic": -0.094523,
+          "positive_windows": 2548,
+          "total_windows": 4105
         },
         {
           "window_days": 126,
-          "hit_rate": 0.6845,
-          "mean_rolling_ic": 0.009831,
-          "std_rolling_ic": 0.022289,
-          "stability_ratio": 0.4411,
-          "worst_window_ic": -0.080069,
-          "positive_windows": 2807,
-          "total_windows": 4101
+          "hit_rate": 0.6872,
+          "mean_rolling_ic": 0.009879,
+          "std_rolling_ic": 0.022308,
+          "stability_ratio": 0.4428,
+          "worst_window_ic": -0.080088,
+          "positive_windows": 2799,
+          "total_windows": 4073
         },
         {
           "window_days": 252,
-          "hit_rate": 0.7632,
-          "mean_rolling_ic": 0.00953,
-          "std_rolling_ic": 0.015216,
-          "stability_ratio": 0.6263,
-          "worst_window_ic": -0.046321,
-          "positive_windows": 3082,
-          "total_windows": 4038
+          "hit_rate": 0.7618,
+          "mean_rolling_ic": 0.009572,
+          "std_rolling_ic": 0.015186,
+          "stability_ratio": 0.6303,
+          "worst_window_ic": -0.046339,
+          "positive_windows": 3055,
+          "total_windows": 4010
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.011248,
-        "bear_ic": 0.009332,
-        "bull_days": 1929,
-        "bear_days": 2234,
-        "regime_ratio": 0.8297,
+        "bull_ic": 0.007803,
+        "bear_ic": 0.01247,
+        "bull_days": 1984,
+        "bear_days": 2151,
+        "regime_ratio": 1.5982,
         "regime_stable": true
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": 0.004078,
+            "ic": 0.00491,
             "available": true,
-            "n_days": 4163
+            "n_days": 4135
           },
           "10": {
-            "ic": 0.002743,
+            "ic": 0.004412,
             "available": true,
-            "n_days": 4158
+            "n_days": 4130
           },
           "20": {
-            "ic": -0.006363,
+            "ic": -0.00449,
             "available": true,
-            "n_days": 4148
+            "n_days": 4120
           },
           "40": {
             "ic": 0.0,
@@ -2403,14 +2403,14 @@
             "available": false
           }
         },
-        "peak_ic": 0.006363,
-        "half_life_days": 10,
-        "decays_fast": true
+        "peak_ic": 0.00491,
+        "half_life_days": null,
+        "decays_fast": false
       },
       "turnover_impact": {
-        "mean_turnover_pct": 89.2,
-        "std_turnover_pct": 15.2,
-        "n_periods": 418,
+        "mean_turnover_pct": 89.3,
+        "std_turnover_pct": 15.1,
+        "n_periods": 419,
         "available": true,
         "high_turnover": true
       },
@@ -2419,152 +2419,66 @@
     {
       "feature": "xs_rank_sector_factor_resid_mom_sector_12_1",
       "preferred_direction": "high_is_good",
-      "mean_ic": 0.005257,
-      "std_ic": 0.171179,
-      "t_stat": 1.9863,
-      "n_days": 4183,
+      "mean_ic": 0.008965,
+      "std_ic": 0.182277,
+      "t_stat": 3.1842,
+      "n_days": 4191,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.5442,
-          "mean_rolling_ic": 0.005464,
-          "std_rolling_ic": 0.04326,
-          "stability_ratio": 0.1263,
-          "worst_window_ic": -0.13209,
-          "positive_windows": 2260,
-          "total_windows": 4153
+          "hit_rate": 0.5643,
+          "mean_rolling_ic": 0.009225,
+          "std_rolling_ic": 0.044547,
+          "stability_ratio": 0.2071,
+          "worst_window_ic": -0.114961,
+          "positive_windows": 2348,
+          "total_windows": 4161
         },
         {
           "window_days": 126,
-          "hit_rate": 0.5989,
-          "mean_rolling_ic": 0.005535,
-          "std_rolling_ic": 0.030987,
-          "stability_ratio": 0.1786,
-          "worst_window_ic": -0.106215,
-          "positive_windows": 2468,
-          "total_windows": 4121
+          "hit_rate": 0.635,
+          "mean_rolling_ic": 0.009347,
+          "std_rolling_ic": 0.030986,
+          "stability_ratio": 0.3017,
+          "worst_window_ic": -0.09256,
+          "positive_windows": 2622,
+          "total_windows": 4129
         },
         {
           "window_days": 252,
-          "hit_rate": 0.6658,
-          "mean_rolling_ic": 0.005699,
-          "std_rolling_ic": 0.020598,
-          "stability_ratio": 0.2767,
-          "worst_window_ic": -0.056423,
-          "positive_windows": 2702,
-          "total_windows": 4058
+          "hit_rate": 0.7248,
+          "mean_rolling_ic": 0.009572,
+          "std_rolling_ic": 0.020854,
+          "stability_ratio": 0.459,
+          "worst_window_ic": -0.048196,
+          "positive_windows": 2947,
+          "total_windows": 4066
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.004798,
-        "bear_ic": 0.005654,
-        "bull_days": 1937,
-        "bear_days": 2246,
-        "regime_ratio": 1.1784,
-        "regime_stable": false
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.011247,
-            "available": true,
-            "n_days": 4183
-          },
-          "10": {
-            "ic": 0.012542,
-            "available": true,
-            "n_days": 4178
-          },
-          "20": {
-            "ic": 0.013694,
-            "available": true,
-            "n_days": 4168
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.013694,
-        "half_life_days": null,
-        "decays_fast": false
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 18.6,
-        "std_turnover_pct": 20.7,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": false
-      },
-      "grade": "C"
-    },
-    {
-      "feature": "xs_rank_market_factor_mom_12_1",
-      "preferred_direction": "high_is_good",
-      "mean_ic": 0.009253,
-      "std_ic": 0.179974,
-      "t_stat": 3.1185,
-      "n_days": 3679,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.5667,
-          "mean_rolling_ic": 0.010046,
-          "std_rolling_ic": 0.045834,
-          "stability_ratio": 0.2192,
-          "worst_window_ic": -0.115237,
-          "positive_windows": 2068,
-          "total_windows": 3649
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.6182,
-          "mean_rolling_ic": 0.0098,
-          "std_rolling_ic": 0.033311,
-          "stability_ratio": 0.2942,
-          "worst_window_ic": -0.088612,
-          "positive_windows": 2236,
-          "total_windows": 3617
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.6958,
-          "mean_rolling_ic": 0.009779,
-          "std_rolling_ic": 0.021683,
-          "stability_ratio": 0.451,
-          "worst_window_ic": -0.049758,
-          "positive_windows": 2473,
-          "total_windows": 3554
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.008081,
-        "bear_ic": 0.010239,
-        "bull_days": 1681,
-        "bear_days": 1998,
-        "regime_ratio": 1.2671,
+        "bull_ic": 0.008191,
+        "bear_ic": 0.009677,
+        "bull_days": 2007,
+        "bear_days": 2184,
+        "regime_ratio": 1.1815,
         "regime_stable": true
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": 0.019263,
+            "ic": 0.015748,
             "available": true,
-            "n_days": 3679
+            "n_days": 4191
           },
           "10": {
-            "ic": 0.020247,
+            "ic": 0.018631,
             "available": true,
-            "n_days": 3674
+            "n_days": 4186
           },
           "20": {
-            "ic": 0.023597,
+            "ic": 0.022363,
             "available": true,
-            "n_days": 3672
+            "n_days": 4176
           },
           "40": {
             "ic": 0.0,
@@ -2575,14 +2489,100 @@
             "available": false
           }
         },
-        "peak_ic": 0.023597,
+        "peak_ic": 0.022363,
         "half_life_days": null,
         "decays_fast": false
       },
       "turnover_impact": {
-        "mean_turnover_pct": 16.9,
+        "mean_turnover_pct": 17.7,
+        "std_turnover_pct": 19.3,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": false
+      },
+      "grade": "B"
+    },
+    {
+      "feature": "xs_rank_market_factor_mom_12_1",
+      "preferred_direction": "high_is_good",
+      "mean_ic": 0.009762,
+      "std_ic": 0.180611,
+      "t_stat": 3.249,
+      "n_days": 3613,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.5615,
+          "mean_rolling_ic": 0.009703,
+          "std_rolling_ic": 0.045927,
+          "stability_ratio": 0.2113,
+          "worst_window_ic": -0.115237,
+          "positive_windows": 2012,
+          "total_windows": 3583
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.615,
+          "mean_rolling_ic": 0.009664,
+          "std_rolling_ic": 0.033509,
+          "stability_ratio": 0.2884,
+          "worst_window_ic": -0.088623,
+          "positive_windows": 2184,
+          "total_windows": 3551
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.6901,
+          "mean_rolling_ic": 0.009646,
+          "std_rolling_ic": 0.021852,
+          "stability_ratio": 0.4414,
+          "worst_window_ic": -0.049763,
+          "positive_windows": 2407,
+          "total_windows": 3488
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.009327,
+        "bear_ic": 0.010169,
+        "bull_days": 1745,
+        "bear_days": 1868,
+        "regime_ratio": 1.0902,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.019826,
+            "available": true,
+            "n_days": 3613
+          },
+          "10": {
+            "ic": 0.021225,
+            "available": true,
+            "n_days": 3608
+          },
+          "20": {
+            "ic": 0.025101,
+            "available": true,
+            "n_days": 3600
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.025101,
+        "half_life_days": null,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 16.4,
         "std_turnover_pct": 15.5,
-        "n_periods": 418,
+        "n_periods": 419,
         "available": true,
         "high_turnover": false
       },
@@ -2591,66 +2591,66 @@
     {
       "feature": "factor_mom_12_1",
       "preferred_direction": "high_is_good",
-      "mean_ic": 0.009253,
-      "std_ic": 0.179974,
-      "t_stat": 3.1185,
-      "n_days": 3679,
+      "mean_ic": 0.009762,
+      "std_ic": 0.180611,
+      "t_stat": 3.249,
+      "n_days": 3613,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.5667,
-          "mean_rolling_ic": 0.010046,
-          "std_rolling_ic": 0.045834,
-          "stability_ratio": 0.2192,
+          "hit_rate": 0.5615,
+          "mean_rolling_ic": 0.009703,
+          "std_rolling_ic": 0.045927,
+          "stability_ratio": 0.2113,
           "worst_window_ic": -0.115237,
-          "positive_windows": 2068,
-          "total_windows": 3649
+          "positive_windows": 2012,
+          "total_windows": 3583
         },
         {
           "window_days": 126,
-          "hit_rate": 0.6182,
-          "mean_rolling_ic": 0.0098,
-          "std_rolling_ic": 0.033311,
-          "stability_ratio": 0.2942,
-          "worst_window_ic": -0.088612,
-          "positive_windows": 2236,
-          "total_windows": 3617
+          "hit_rate": 0.615,
+          "mean_rolling_ic": 0.009664,
+          "std_rolling_ic": 0.033509,
+          "stability_ratio": 0.2884,
+          "worst_window_ic": -0.088623,
+          "positive_windows": 2184,
+          "total_windows": 3551
         },
         {
           "window_days": 252,
-          "hit_rate": 0.6958,
-          "mean_rolling_ic": 0.009779,
-          "std_rolling_ic": 0.021683,
-          "stability_ratio": 0.451,
-          "worst_window_ic": -0.049758,
-          "positive_windows": 2473,
-          "total_windows": 3554
+          "hit_rate": 0.6901,
+          "mean_rolling_ic": 0.009646,
+          "std_rolling_ic": 0.021852,
+          "stability_ratio": 0.4414,
+          "worst_window_ic": -0.049763,
+          "positive_windows": 2407,
+          "total_windows": 3488
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.008081,
-        "bear_ic": 0.010239,
-        "bull_days": 1681,
-        "bear_days": 1998,
-        "regime_ratio": 1.2671,
+        "bull_ic": 0.009327,
+        "bear_ic": 0.010169,
+        "bull_days": 1745,
+        "bear_days": 1868,
+        "regime_ratio": 1.0902,
         "regime_stable": true
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": 0.019263,
+            "ic": 0.019826,
             "available": true,
-            "n_days": 3679
+            "n_days": 3613
           },
           "10": {
-            "ic": 0.020247,
+            "ic": 0.021225,
             "available": true,
-            "n_days": 3674
+            "n_days": 3608
           },
           "20": {
-            "ic": 0.023597,
+            "ic": 0.025101,
             "available": true,
-            "n_days": 3672
+            "n_days": 3600
           },
           "40": {
             "ic": 0.0,
@@ -2661,14 +2661,14 @@
             "available": false
           }
         },
-        "peak_ic": 0.023597,
+        "peak_ic": 0.025101,
         "half_life_days": null,
         "decays_fast": false
       },
       "turnover_impact": {
-        "mean_turnover_pct": 16.9,
+        "mean_turnover_pct": 16.4,
         "std_turnover_pct": 15.5,
-        "n_periods": 418,
+        "n_periods": 419,
         "available": true,
         "high_turnover": false
       },
@@ -2677,66 +2677,66 @@
     {
       "feature": "xs_rank_sector_factor_idio_vol_252_spy",
       "preferred_direction": "high_is_good",
-      "mean_ic": 0.003222,
-      "std_ic": 0.170153,
-      "t_stat": 1.2247,
-      "n_days": 4183,
+      "mean_ic": 0.003207,
+      "std_ic": 0.188674,
+      "t_stat": 1.1005,
+      "n_days": 4191,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.5244,
-          "mean_rolling_ic": 0.003403,
-          "std_rolling_ic": 0.041268,
-          "stability_ratio": 0.0825,
-          "worst_window_ic": -0.115378,
-          "positive_windows": 2178,
-          "total_windows": 4153
+          "hit_rate": 0.496,
+          "mean_rolling_ic": 0.003234,
+          "std_rolling_ic": 0.047609,
+          "stability_ratio": 0.0679,
+          "worst_window_ic": -0.14301,
+          "positive_windows": 2064,
+          "total_windows": 4161
         },
         {
           "window_days": 126,
-          "hit_rate": 0.5268,
-          "mean_rolling_ic": 0.003222,
-          "std_rolling_ic": 0.027953,
-          "stability_ratio": 0.1153,
-          "worst_window_ic": -0.06732,
-          "positive_windows": 2171,
-          "total_windows": 4121
+          "hit_rate": 0.5316,
+          "mean_rolling_ic": 0.003211,
+          "std_rolling_ic": 0.033485,
+          "stability_ratio": 0.0959,
+          "worst_window_ic": -0.083651,
+          "positive_windows": 2195,
+          "total_windows": 4129
         },
         {
           "window_days": 252,
-          "hit_rate": 0.5488,
-          "mean_rolling_ic": 0.003044,
-          "std_rolling_ic": 0.019279,
-          "stability_ratio": 0.1579,
-          "worst_window_ic": -0.045397,
-          "positive_windows": 2227,
-          "total_windows": 4058
+          "hit_rate": 0.5457,
+          "mean_rolling_ic": 0.003101,
+          "std_rolling_ic": 0.023519,
+          "stability_ratio": 0.1319,
+          "worst_window_ic": -0.054435,
+          "positive_windows": 2219,
+          "total_windows": 4066
         }
       ],
       "regime_conditional": {
-        "bull_ic": -0.0032,
-        "bear_ic": 0.008761,
-        "bull_days": 1937,
-        "bear_days": 2246,
-        "regime_ratio": -2.7377,
+        "bull_ic": 0.000936,
+        "bear_ic": 0.005295,
+        "bull_days": 2007,
+        "bear_days": 2184,
+        "regime_ratio": 5.6595,
         "regime_stable": false
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": 0.004826,
+            "ic": 0.007437,
             "available": true,
-            "n_days": 4183
+            "n_days": 4191
           },
           "10": {
-            "ic": 0.009712,
+            "ic": 0.015141,
             "available": true,
-            "n_days": 4178
+            "n_days": 4186
           },
           "20": {
-            "ic": 0.011915,
+            "ic": 0.019571,
             "available": true,
-            "n_days": 4168
+            "n_days": 4176
           },
           "40": {
             "ic": 0.0,
@@ -2747,14 +2747,14 @@
             "available": false
           }
         },
-        "peak_ic": 0.011915,
+        "peak_ic": 0.019571,
         "half_life_days": 5,
         "decays_fast": true
       },
       "turnover_impact": {
-        "mean_turnover_pct": 5.2,
-        "std_turnover_pct": 12.8,
-        "n_periods": 418,
+        "mean_turnover_pct": 5.7,
+        "std_turnover_pct": 11.9,
+        "n_periods": 419,
         "available": true,
         "high_turnover": false
       },
@@ -2763,66 +2763,66 @@
     {
       "feature": "xs_rank_sector_ret_10d",
       "preferred_direction": "low_is_good",
-      "mean_ic": 0.009118,
-      "std_ic": 0.162022,
-      "t_stat": 3.6399,
-      "n_days": 4183,
+      "mean_ic": 0.009092,
+      "std_ic": 0.161889,
+      "t_stat": 3.6358,
+      "n_days": 4191,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.5962,
-          "mean_rolling_ic": 0.008799,
-          "std_rolling_ic": 0.035084,
-          "stability_ratio": 0.2508,
-          "worst_window_ic": -0.112922,
-          "positive_windows": 2476,
-          "total_windows": 4153
+          "hit_rate": 0.5977,
+          "mean_rolling_ic": 0.008877,
+          "std_rolling_ic": 0.0349,
+          "stability_ratio": 0.2544,
+          "worst_window_ic": -0.112959,
+          "positive_windows": 2487,
+          "total_windows": 4161
         },
         {
           "window_days": 126,
-          "hit_rate": 0.6678,
-          "mean_rolling_ic": 0.008883,
-          "std_rolling_ic": 0.024421,
-          "stability_ratio": 0.3637,
-          "worst_window_ic": -0.09959,
-          "positive_windows": 2752,
-          "total_windows": 4121
+          "hit_rate": 0.6767,
+          "mean_rolling_ic": 0.008895,
+          "std_rolling_ic": 0.024329,
+          "stability_ratio": 0.3656,
+          "worst_window_ic": -0.099609,
+          "positive_windows": 2794,
+          "total_windows": 4129
         },
         {
           "window_days": 252,
-          "hit_rate": 0.7435,
-          "mean_rolling_ic": 0.008476,
-          "std_rolling_ic": 0.0166,
-          "stability_ratio": 0.5106,
-          "worst_window_ic": -0.053647,
-          "positive_windows": 3017,
-          "total_windows": 4058
+          "hit_rate": 0.7445,
+          "mean_rolling_ic": 0.0085,
+          "std_rolling_ic": 0.016521,
+          "stability_ratio": 0.5145,
+          "worst_window_ic": -0.053656,
+          "positive_windows": 3027,
+          "total_windows": 4066
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.01054,
-        "bear_ic": 0.007892,
-        "bull_days": 1937,
-        "bear_days": 2246,
-        "regime_ratio": 0.7488,
+        "bull_ic": 0.00573,
+        "bear_ic": 0.012181,
+        "bull_days": 2007,
+        "bear_days": 2184,
+        "regime_ratio": 2.1258,
         "regime_stable": true
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": 0.003052,
+            "ic": 0.002167,
             "available": true,
-            "n_days": 4183
+            "n_days": 4191
           },
           "10": {
-            "ic": 0.003811,
+            "ic": 0.003065,
             "available": true,
-            "n_days": 4178
+            "n_days": 4186
           },
           "20": {
-            "ic": -0.003226,
+            "ic": -0.003593,
             "available": true,
-            "n_days": 4168
+            "n_days": 4176
           },
           "40": {
             "ic": 0.0,
@@ -2833,14 +2833,14 @@
             "available": false
           }
         },
-        "peak_ic": 0.003811,
+        "peak_ic": 0.003593,
         "half_life_days": null,
         "decays_fast": false
       },
       "turnover_impact": {
-        "mean_turnover_pct": 88.5,
+        "mean_turnover_pct": 88.6,
         "std_turnover_pct": 15.3,
-        "n_periods": 418,
+        "n_periods": 419,
         "available": true,
         "high_turnover": true
       },
@@ -2849,66 +2849,66 @@
     {
       "feature": "rsi_divergence",
       "preferred_direction": "high_is_good",
-      "mean_ic": 0.011327,
-      "std_ic": 0.135478,
-      "t_stat": 5.3826,
-      "n_days": 4145,
+      "mean_ic": 0.011494,
+      "std_ic": 0.135767,
+      "t_stat": 5.4237,
+      "n_days": 4104,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.6389,
-          "mean_rolling_ic": 0.01121,
-          "std_rolling_ic": 0.026786,
-          "stability_ratio": 0.4185,
-          "worst_window_ic": -0.061839,
-          "positive_windows": 2629,
-          "total_windows": 4115
+          "hit_rate": 0.6495,
+          "mean_rolling_ic": 0.011462,
+          "std_rolling_ic": 0.026845,
+          "stability_ratio": 0.427,
+          "worst_window_ic": -0.061858,
+          "positive_windows": 2646,
+          "total_windows": 4074
         },
         {
           "window_days": 126,
-          "hit_rate": 0.6882,
-          "mean_rolling_ic": 0.011212,
-          "std_rolling_ic": 0.018594,
-          "stability_ratio": 0.603,
-          "worst_window_ic": -0.04621,
-          "positive_windows": 2810,
-          "total_windows": 4083
+          "hit_rate": 0.6982,
+          "mean_rolling_ic": 0.011493,
+          "std_rolling_ic": 0.018593,
+          "stability_ratio": 0.6181,
+          "worst_window_ic": -0.046207,
+          "positive_windows": 2822,
+          "total_windows": 4042
         },
         {
           "window_days": 252,
-          "hit_rate": 0.801,
-          "mean_rolling_ic": 0.010907,
-          "std_rolling_ic": 0.012506,
-          "stability_ratio": 0.8721,
-          "worst_window_ic": -0.015409,
-          "positive_windows": 3220,
-          "total_windows": 4020
+          "hit_rate": 0.8105,
+          "mean_rolling_ic": 0.011163,
+          "std_rolling_ic": 0.012403,
+          "stability_ratio": 0.9,
+          "worst_window_ic": -0.015402,
+          "positive_windows": 3225,
+          "total_windows": 3979
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.010235,
-        "bear_ic": 0.012269,
-        "bull_days": 1921,
-        "bear_days": 2224,
-        "regime_ratio": 1.1987,
+        "bull_ic": 0.010202,
+        "bear_ic": 0.012686,
+        "bull_days": 1969,
+        "bear_days": 2135,
+        "regime_ratio": 1.2435,
         "regime_stable": true
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": 0.007852,
+            "ic": 0.007322,
             "available": true,
-            "n_days": 4145
+            "n_days": 4104
           },
           "10": {
-            "ic": 0.006804,
+            "ic": 0.006597,
             "available": true,
-            "n_days": 4140
+            "n_days": 4099
           },
           "20": {
-            "ic": -0.002452,
+            "ic": -0.003062,
             "available": true,
-            "n_days": 4130
+            "n_days": 4089
           },
           "40": {
             "ic": 0.0,
@@ -2919,14 +2919,14 @@
             "available": false
           }
         },
-        "peak_ic": 0.007852,
+        "peak_ic": 0.007322,
         "half_life_days": 20,
         "decays_fast": false
       },
       "turnover_impact": {
-        "mean_turnover_pct": 92.4,
-        "std_turnover_pct": 14.2,
-        "n_periods": 418,
+        "mean_turnover_pct": 91.8,
+        "std_turnover_pct": 16.0,
+        "n_periods": 419,
         "available": true,
         "high_turnover": true
       },
@@ -2935,66 +2935,66 @@
     {
       "feature": "xs_rank_sector_factor_beta_252_spy",
       "preferred_direction": "high_is_good",
-      "mean_ic": 0.009705,
-      "std_ic": 0.172289,
-      "t_stat": 3.6432,
-      "n_days": 4183,
+      "mean_ic": 0.007666,
+      "std_ic": 0.181718,
+      "t_stat": 2.7312,
+      "n_days": 4191,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.6078,
-          "mean_rolling_ic": 0.010275,
-          "std_rolling_ic": 0.044072,
-          "stability_ratio": 0.2331,
-          "worst_window_ic": -0.136064,
-          "positive_windows": 2524,
-          "total_windows": 4153
+          "hit_rate": 0.5727,
+          "mean_rolling_ic": 0.008065,
+          "std_rolling_ic": 0.047172,
+          "stability_ratio": 0.171,
+          "worst_window_ic": -0.146237,
+          "positive_windows": 2383,
+          "total_windows": 4161
         },
         {
           "window_days": 126,
-          "hit_rate": 0.6292,
-          "mean_rolling_ic": 0.009794,
-          "std_rolling_ic": 0.032905,
-          "stability_ratio": 0.2977,
-          "worst_window_ic": -0.093124,
-          "positive_windows": 2593,
-          "total_windows": 4121
+          "hit_rate": 0.5955,
+          "mean_rolling_ic": 0.007748,
+          "std_rolling_ic": 0.035375,
+          "stability_ratio": 0.219,
+          "worst_window_ic": -0.111773,
+          "positive_windows": 2459,
+          "total_windows": 4129
         },
         {
           "window_days": 252,
-          "hit_rate": 0.6774,
-          "mean_rolling_ic": 0.009017,
-          "std_rolling_ic": 0.021991,
-          "stability_ratio": 0.41,
-          "worst_window_ic": -0.048488,
-          "positive_windows": 2749,
-          "total_windows": 4058
+          "hit_rate": 0.6161,
+          "mean_rolling_ic": 0.006984,
+          "std_rolling_ic": 0.023834,
+          "stability_ratio": 0.293,
+          "worst_window_ic": -0.060896,
+          "positive_windows": 2505,
+          "total_windows": 4066
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.005313,
-        "bear_ic": 0.013493,
-        "bull_days": 1937,
-        "bear_days": 2246,
-        "regime_ratio": 2.5394,
+        "bull_ic": 0.006729,
+        "bear_ic": 0.008528,
+        "bull_days": 2007,
+        "bear_days": 2184,
+        "regime_ratio": 1.2674,
         "regime_stable": true
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": 0.010847,
+            "ic": 0.008243,
             "available": true,
-            "n_days": 4183
+            "n_days": 4191
           },
           "10": {
-            "ic": 0.017134,
+            "ic": 0.014947,
             "available": true,
-            "n_days": 4178
+            "n_days": 4186
           },
           "20": {
-            "ic": 0.02432,
+            "ic": 0.021675,
             "available": true,
-            "n_days": 4168
+            "n_days": 4176
           },
           "40": {
             "ic": 0.0,
@@ -3005,168 +3005,168 @@
             "available": false
           }
         },
-        "peak_ic": 0.02432,
+        "peak_ic": 0.021675,
         "half_life_days": 5,
         "decays_fast": true
       },
       "turnover_impact": {
-        "mean_turnover_pct": 7.1,
-        "std_turnover_pct": 14.0,
-        "n_periods": 418,
+        "mean_turnover_pct": 7.2,
+        "std_turnover_pct": 12.7,
+        "n_periods": 419,
+        "available": true,
+        "high_turnover": false
+      },
+      "grade": "C"
+    },
+    {
+      "feature": "xs_rank_market_factor_resid_mom_sector_12_1",
+      "preferred_direction": "high_is_good",
+      "mean_ic": 0.00827,
+      "std_ic": 0.191752,
+      "t_stat": 2.5923,
+      "n_days": 3613,
+      "rolling_stats": [
+        {
+          "window_days": 63,
+          "hit_rate": 0.5551,
+          "mean_rolling_ic": 0.008072,
+          "std_rolling_ic": 0.047909,
+          "stability_ratio": 0.1685,
+          "worst_window_ic": -0.120539,
+          "positive_windows": 1989,
+          "total_windows": 3583
+        },
+        {
+          "window_days": 126,
+          "hit_rate": 0.6232,
+          "mean_rolling_ic": 0.008086,
+          "std_rolling_ic": 0.033171,
+          "stability_ratio": 0.2438,
+          "worst_window_ic": -0.096507,
+          "positive_windows": 2213,
+          "total_windows": 3551
+        },
+        {
+          "window_days": 252,
+          "hit_rate": 0.7024,
+          "mean_rolling_ic": 0.008102,
+          "std_rolling_ic": 0.021993,
+          "stability_ratio": 0.3684,
+          "worst_window_ic": -0.050661,
+          "positive_windows": 2450,
+          "total_windows": 3488
+        }
+      ],
+      "regime_conditional": {
+        "bull_ic": 0.006284,
+        "bear_ic": 0.010125,
+        "bull_days": 1745,
+        "bear_days": 1868,
+        "regime_ratio": 1.6111,
+        "regime_stable": true
+      },
+      "ic_decay": {
+        "horizons": {
+          "5": {
+            "ic": 0.018246,
+            "available": true,
+            "n_days": 3613
+          },
+          "10": {
+            "ic": 0.021877,
+            "available": true,
+            "n_days": 3608
+          },
+          "20": {
+            "ic": 0.028766,
+            "available": true,
+            "n_days": 3600
+          },
+          "40": {
+            "ic": 0.0,
+            "available": false
+          },
+          "60": {
+            "ic": 0.0,
+            "available": false
+          }
+        },
+        "peak_ic": 0.028766,
+        "half_life_days": null,
+        "decays_fast": false
+      },
+      "turnover_impact": {
+        "mean_turnover_pct": 13.8,
+        "std_turnover_pct": 16.6,
+        "n_periods": 419,
         "available": true,
         "high_turnover": false
       },
       "grade": "B"
     },
     {
-      "feature": "xs_rank_market_factor_resid_mom_sector_12_1",
-      "preferred_direction": "high_is_good",
-      "mean_ic": 0.004959,
-      "std_ic": 0.17793,
-      "t_stat": 1.6904,
-      "n_days": 3679,
-      "rolling_stats": [
-        {
-          "window_days": 63,
-          "hit_rate": 0.5278,
-          "mean_rolling_ic": 0.005387,
-          "std_rolling_ic": 0.044835,
-          "stability_ratio": 0.1202,
-          "worst_window_ic": -0.126307,
-          "positive_windows": 1926,
-          "total_windows": 3649
-        },
-        {
-          "window_days": 126,
-          "hit_rate": 0.5789,
-          "mean_rolling_ic": 0.005112,
-          "std_rolling_ic": 0.031666,
-          "stability_ratio": 0.1614,
-          "worst_window_ic": -0.104338,
-          "positive_windows": 2094,
-          "total_windows": 3617
-        },
-        {
-          "window_days": 252,
-          "hit_rate": 0.6773,
-          "mean_rolling_ic": 0.005086,
-          "std_rolling_ic": 0.020266,
-          "stability_ratio": 0.251,
-          "worst_window_ic": -0.057669,
-          "positive_windows": 2407,
-          "total_windows": 3554
-        }
-      ],
-      "regime_conditional": {
-        "bull_ic": 0.005999,
-        "bear_ic": 0.004083,
-        "bull_days": 1681,
-        "bear_days": 1998,
-        "regime_ratio": 0.6806,
-        "regime_stable": false
-      },
-      "ic_decay": {
-        "horizons": {
-          "5": {
-            "ic": 0.013892,
-            "available": true,
-            "n_days": 3679
-          },
-          "10": {
-            "ic": 0.016819,
-            "available": true,
-            "n_days": 3674
-          },
-          "20": {
-            "ic": 0.020628,
-            "available": true,
-            "n_days": 3672
-          },
-          "40": {
-            "ic": 0.0,
-            "available": false
-          },
-          "60": {
-            "ic": 0.0,
-            "available": false
-          }
-        },
-        "peak_ic": 0.020628,
-        "half_life_days": null,
-        "decays_fast": false
-      },
-      "turnover_impact": {
-        "mean_turnover_pct": 13.2,
-        "std_turnover_pct": 16.0,
-        "n_periods": 418,
-        "available": true,
-        "high_turnover": false
-      },
-      "grade": "C"
-    },
-    {
       "feature": "factor_resid_mom_sector_12_1",
       "preferred_direction": "high_is_good",
-      "mean_ic": 0.004959,
-      "std_ic": 0.17793,
-      "t_stat": 1.6904,
-      "n_days": 3679,
+      "mean_ic": 0.00827,
+      "std_ic": 0.191752,
+      "t_stat": 2.5923,
+      "n_days": 3613,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.5278,
-          "mean_rolling_ic": 0.005387,
-          "std_rolling_ic": 0.044835,
-          "stability_ratio": 0.1202,
-          "worst_window_ic": -0.126307,
-          "positive_windows": 1926,
-          "total_windows": 3649
+          "hit_rate": 0.5551,
+          "mean_rolling_ic": 0.008072,
+          "std_rolling_ic": 0.047909,
+          "stability_ratio": 0.1685,
+          "worst_window_ic": -0.120539,
+          "positive_windows": 1989,
+          "total_windows": 3583
         },
         {
           "window_days": 126,
-          "hit_rate": 0.5789,
-          "mean_rolling_ic": 0.005112,
-          "std_rolling_ic": 0.031666,
-          "stability_ratio": 0.1614,
-          "worst_window_ic": -0.104338,
-          "positive_windows": 2094,
-          "total_windows": 3617
+          "hit_rate": 0.6232,
+          "mean_rolling_ic": 0.008086,
+          "std_rolling_ic": 0.033171,
+          "stability_ratio": 0.2438,
+          "worst_window_ic": -0.096507,
+          "positive_windows": 2213,
+          "total_windows": 3551
         },
         {
           "window_days": 252,
-          "hit_rate": 0.6773,
-          "mean_rolling_ic": 0.005086,
-          "std_rolling_ic": 0.020266,
-          "stability_ratio": 0.251,
-          "worst_window_ic": -0.057669,
-          "positive_windows": 2407,
-          "total_windows": 3554
+          "hit_rate": 0.7024,
+          "mean_rolling_ic": 0.008102,
+          "std_rolling_ic": 0.021993,
+          "stability_ratio": 0.3684,
+          "worst_window_ic": -0.050661,
+          "positive_windows": 2450,
+          "total_windows": 3488
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.005999,
-        "bear_ic": 0.004083,
-        "bull_days": 1681,
-        "bear_days": 1998,
-        "regime_ratio": 0.6806,
-        "regime_stable": false
+        "bull_ic": 0.006284,
+        "bear_ic": 0.010125,
+        "bull_days": 1745,
+        "bear_days": 1868,
+        "regime_ratio": 1.6111,
+        "regime_stable": true
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": 0.013892,
+            "ic": 0.018246,
             "available": true,
-            "n_days": 3679
+            "n_days": 3613
           },
           "10": {
-            "ic": 0.016819,
+            "ic": 0.021877,
             "available": true,
-            "n_days": 3674
+            "n_days": 3608
           },
           "20": {
-            "ic": 0.020628,
+            "ic": 0.028766,
             "available": true,
-            "n_days": 3672
+            "n_days": 3600
           },
           "40": {
             "ic": 0.0,
@@ -3177,82 +3177,82 @@
             "available": false
           }
         },
-        "peak_ic": 0.020628,
+        "peak_ic": 0.028766,
         "half_life_days": null,
         "decays_fast": false
       },
       "turnover_impact": {
-        "mean_turnover_pct": 13.2,
-        "std_turnover_pct": 16.0,
-        "n_periods": 418,
+        "mean_turnover_pct": 13.8,
+        "std_turnover_pct": 16.6,
+        "n_periods": 419,
         "available": true,
         "high_turnover": false
       },
-      "grade": "C"
+      "grade": "B"
     },
     {
       "feature": "ret_vs_spy_20d",
       "preferred_direction": "low_is_good",
-      "mean_ic": 0.004786,
-      "std_ic": 0.157005,
-      "t_stat": 1.962,
-      "n_days": 4143,
+      "mean_ic": 0.005393,
+      "std_ic": 0.152249,
+      "t_stat": 2.2684,
+      "n_days": 4101,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.5478,
-          "mean_rolling_ic": 0.004491,
-          "std_rolling_ic": 0.036737,
-          "stability_ratio": 0.1223,
-          "worst_window_ic": -0.103963,
-          "positive_windows": 2253,
-          "total_windows": 4113
+          "hit_rate": 0.5578,
+          "mean_rolling_ic": 0.005214,
+          "std_rolling_ic": 0.035213,
+          "stability_ratio": 0.1481,
+          "worst_window_ic": -0.094403,
+          "positive_windows": 2271,
+          "total_windows": 4071
         },
         {
           "window_days": 126,
-          "hit_rate": 0.5673,
-          "mean_rolling_ic": 0.004206,
-          "std_rolling_ic": 0.025984,
-          "stability_ratio": 0.1619,
-          "worst_window_ic": -0.065657,
-          "positive_windows": 2315,
-          "total_windows": 4081
+          "hit_rate": 0.5759,
+          "mean_rolling_ic": 0.00493,
+          "std_rolling_ic": 0.025876,
+          "stability_ratio": 0.1905,
+          "worst_window_ic": -0.059539,
+          "positive_windows": 2326,
+          "total_windows": 4039
         },
         {
           "window_days": 252,
-          "hit_rate": 0.5314,
-          "mean_rolling_ic": 0.004107,
-          "std_rolling_ic": 0.018085,
-          "stability_ratio": 0.2271,
-          "worst_window_ic": -0.037662,
-          "positive_windows": 2135,
-          "total_windows": 4018
+          "hit_rate": 0.577,
+          "mean_rolling_ic": 0.004854,
+          "std_rolling_ic": 0.018858,
+          "stability_ratio": 0.2574,
+          "worst_window_ic": -0.041628,
+          "positive_windows": 2294,
+          "total_windows": 3976
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.003558,
-        "bear_ic": 0.005847,
-        "bull_days": 1921,
-        "bear_days": 2222,
-        "regime_ratio": 1.6434,
+        "bull_ic": 0.002774,
+        "bear_ic": 0.007811,
+        "bull_days": 1969,
+        "bear_days": 2132,
+        "regime_ratio": 2.8155,
         "regime_stable": false
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": -0.003704,
+            "ic": -0.002157,
             "available": true,
-            "n_days": 4143
+            "n_days": 4101
           },
           "10": {
-            "ic": -0.004851,
+            "ic": -0.002748,
             "available": true,
-            "n_days": 4138
+            "n_days": 4096
           },
           "20": {
-            "ic": -0.007184,
+            "ic": -0.004362,
             "available": true,
-            "n_days": 4128
+            "n_days": 4086
           },
           "40": {
             "ic": 0.0,
@@ -3263,82 +3263,82 @@
             "available": false
           }
         },
-        "peak_ic": 0.007184,
+        "peak_ic": 0.004362,
         "half_life_days": null,
         "decays_fast": false
       },
       "turnover_impact": {
-        "mean_turnover_pct": 64.4,
-        "std_turnover_pct": 22.2,
-        "n_periods": 418,
+        "mean_turnover_pct": 65.3,
+        "std_turnover_pct": 23.2,
+        "n_periods": 419,
         "available": true,
         "high_turnover": true
       },
-      "grade": "D"
+      "grade": "C"
     },
     {
       "feature": "ret_vs_qqq_20d",
       "preferred_direction": "low_is_good",
-      "mean_ic": 0.003473,
-      "std_ic": 0.157238,
-      "t_stat": 1.4219,
-      "n_days": 4143,
+      "mean_ic": 0.005377,
+      "std_ic": 0.152248,
+      "t_stat": 2.2616,
+      "n_days": 4101,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.5553,
-          "mean_rolling_ic": 0.003111,
-          "std_rolling_ic": 0.036114,
-          "stability_ratio": 0.0862,
-          "worst_window_ic": -0.111268,
-          "positive_windows": 2284,
-          "total_windows": 4113
+          "hit_rate": 0.5574,
+          "mean_rolling_ic": 0.005198,
+          "std_rolling_ic": 0.035229,
+          "stability_ratio": 0.1475,
+          "worst_window_ic": -0.094403,
+          "positive_windows": 2269,
+          "total_windows": 4071
         },
         {
           "window_days": 126,
-          "hit_rate": 0.5533,
-          "mean_rolling_ic": 0.00285,
-          "std_rolling_ic": 0.026752,
-          "stability_ratio": 0.1065,
-          "worst_window_ic": -0.071479,
-          "positive_windows": 2258,
-          "total_windows": 4081
+          "hit_rate": 0.5754,
+          "mean_rolling_ic": 0.004913,
+          "std_rolling_ic": 0.025889,
+          "stability_ratio": 0.1898,
+          "worst_window_ic": -0.060044,
+          "positive_windows": 2324,
+          "total_windows": 4039
         },
         {
           "window_days": 252,
-          "hit_rate": 0.5555,
-          "mean_rolling_ic": 0.002785,
-          "std_rolling_ic": 0.01998,
-          "stability_ratio": 0.1394,
-          "worst_window_ic": -0.055894,
-          "positive_windows": 2232,
-          "total_windows": 4018
+          "hit_rate": 0.5765,
+          "mean_rolling_ic": 0.004837,
+          "std_rolling_ic": 0.018869,
+          "stability_ratio": 0.2563,
+          "worst_window_ic": -0.041856,
+          "positive_windows": 2292,
+          "total_windows": 3976
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.002583,
-        "bear_ic": 0.004244,
-        "bull_days": 1921,
-        "bear_days": 2222,
-        "regime_ratio": 1.6432,
+        "bull_ic": 0.002779,
+        "bear_ic": 0.007776,
+        "bull_days": 1969,
+        "bear_days": 2132,
+        "regime_ratio": 2.7984,
         "regime_stable": false
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": -0.003157,
+            "ic": -0.002173,
             "available": true,
-            "n_days": 4143
+            "n_days": 4101
           },
           "10": {
-            "ic": -0.004029,
+            "ic": -0.002769,
             "available": true,
-            "n_days": 4138
+            "n_days": 4096
           },
           "20": {
-            "ic": -0.006788,
+            "ic": -0.004341,
             "available": true,
-            "n_days": 4128
+            "n_days": 4086
           },
           "40": {
             "ic": 0.0,
@@ -3349,82 +3349,82 @@
             "available": false
           }
         },
-        "peak_ic": 0.006788,
-        "half_life_days": 5,
-        "decays_fast": true
+        "peak_ic": 0.004341,
+        "half_life_days": null,
+        "decays_fast": false
       },
       "turnover_impact": {
-        "mean_turnover_pct": 63.7,
-        "std_turnover_pct": 22.8,
-        "n_periods": 418,
+        "mean_turnover_pct": 65.3,
+        "std_turnover_pct": 23.1,
+        "n_periods": 419,
         "available": true,
         "high_turnover": true
       },
-      "grade": "D"
+      "grade": "C"
     },
     {
       "feature": "rsi_14",
       "preferred_direction": "low_is_good",
-      "mean_ic": 0.005507,
-      "std_ic": 0.14537,
-      "t_stat": 2.442,
-      "n_days": 4155,
+      "mean_ic": 0.005362,
+      "std_ic": 0.145952,
+      "t_stat": 2.3576,
+      "n_days": 4119,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.529,
-          "mean_rolling_ic": 0.005236,
-          "std_rolling_ic": 0.034227,
-          "stability_ratio": 0.153,
-          "worst_window_ic": -0.100337,
-          "positive_windows": 2182,
-          "total_windows": 4125
+          "hit_rate": 0.5322,
+          "mean_rolling_ic": 0.005155,
+          "std_rolling_ic": 0.034248,
+          "stability_ratio": 0.1505,
+          "worst_window_ic": -0.100332,
+          "positive_windows": 2176,
+          "total_windows": 4089
         },
         {
           "window_days": 126,
-          "hit_rate": 0.5568,
-          "mean_rolling_ic": 0.005142,
-          "std_rolling_ic": 0.025108,
-          "stability_ratio": 0.2048,
-          "worst_window_ic": -0.06981,
-          "positive_windows": 2279,
-          "total_windows": 4093
+          "hit_rate": 0.5576,
+          "mean_rolling_ic": 0.005057,
+          "std_rolling_ic": 0.025173,
+          "stability_ratio": 0.2009,
+          "worst_window_ic": -0.069849,
+          "positive_windows": 2262,
+          "total_windows": 4057
         },
         {
           "window_days": 252,
-          "hit_rate": 0.6022,
-          "mean_rolling_ic": 0.004929,
-          "std_rolling_ic": 0.017502,
-          "stability_ratio": 0.2816,
-          "worst_window_ic": -0.038948,
-          "positive_windows": 2427,
-          "total_windows": 4030
+          "hit_rate": 0.5986,
+          "mean_rolling_ic": 0.00484,
+          "std_rolling_ic": 0.017488,
+          "stability_ratio": 0.2768,
+          "worst_window_ic": -0.038964,
+          "positive_windows": 2391,
+          "total_windows": 3994
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.003876,
-        "bear_ic": 0.006913,
-        "bull_days": 1924,
-        "bear_days": 2231,
-        "regime_ratio": 1.7835,
+        "bull_ic": 0.003366,
+        "bear_ic": 0.007203,
+        "bull_days": 1977,
+        "bear_days": 2142,
+        "regime_ratio": 2.14,
         "regime_stable": false
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": -0.003749,
+            "ic": -0.002786,
             "available": true,
-            "n_days": 4155
+            "n_days": 4119
           },
           "10": {
-            "ic": -0.00684,
+            "ic": -0.005353,
             "available": true,
-            "n_days": 4150
+            "n_days": 4114
           },
           "20": {
-            "ic": -0.010643,
+            "ic": -0.008446,
             "available": true,
-            "n_days": 4140
+            "n_days": 4104
           },
           "40": {
             "ic": 0.0,
@@ -3435,14 +3435,14 @@
             "available": false
           }
         },
-        "peak_ic": 0.010643,
+        "peak_ic": 0.008446,
         "half_life_days": 5,
         "decays_fast": true
       },
       "turnover_impact": {
-        "mean_turnover_pct": 81.1,
-        "std_turnover_pct": 18.5,
-        "n_periods": 418,
+        "mean_turnover_pct": 81.0,
+        "std_turnover_pct": 18.7,
+        "n_periods": 419,
         "available": true,
         "high_turnover": true
       },
@@ -3451,66 +3451,66 @@
     {
       "feature": "xs_rank_market_rsi_14",
       "preferred_direction": "low_is_good",
-      "mean_ic": 0.005507,
-      "std_ic": 0.14537,
-      "t_stat": 2.442,
-      "n_days": 4155,
+      "mean_ic": 0.005362,
+      "std_ic": 0.145952,
+      "t_stat": 2.3576,
+      "n_days": 4119,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.529,
-          "mean_rolling_ic": 0.005236,
-          "std_rolling_ic": 0.034227,
-          "stability_ratio": 0.153,
-          "worst_window_ic": -0.100337,
-          "positive_windows": 2182,
-          "total_windows": 4125
+          "hit_rate": 0.5322,
+          "mean_rolling_ic": 0.005155,
+          "std_rolling_ic": 0.034248,
+          "stability_ratio": 0.1505,
+          "worst_window_ic": -0.100332,
+          "positive_windows": 2176,
+          "total_windows": 4089
         },
         {
           "window_days": 126,
-          "hit_rate": 0.5568,
-          "mean_rolling_ic": 0.005142,
-          "std_rolling_ic": 0.025108,
-          "stability_ratio": 0.2048,
-          "worst_window_ic": -0.06981,
-          "positive_windows": 2279,
-          "total_windows": 4093
+          "hit_rate": 0.5576,
+          "mean_rolling_ic": 0.005057,
+          "std_rolling_ic": 0.025173,
+          "stability_ratio": 0.2009,
+          "worst_window_ic": -0.069849,
+          "positive_windows": 2262,
+          "total_windows": 4057
         },
         {
           "window_days": 252,
-          "hit_rate": 0.6022,
-          "mean_rolling_ic": 0.004929,
-          "std_rolling_ic": 0.017502,
-          "stability_ratio": 0.2816,
-          "worst_window_ic": -0.038948,
-          "positive_windows": 2427,
-          "total_windows": 4030
+          "hit_rate": 0.5986,
+          "mean_rolling_ic": 0.00484,
+          "std_rolling_ic": 0.017488,
+          "stability_ratio": 0.2768,
+          "worst_window_ic": -0.038964,
+          "positive_windows": 2391,
+          "total_windows": 3994
         }
       ],
       "regime_conditional": {
-        "bull_ic": 0.003876,
-        "bear_ic": 0.006913,
-        "bull_days": 1924,
-        "bear_days": 2231,
-        "regime_ratio": 1.7835,
+        "bull_ic": 0.003366,
+        "bear_ic": 0.007203,
+        "bull_days": 1977,
+        "bear_days": 2142,
+        "regime_ratio": 2.14,
         "regime_stable": false
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": -0.003749,
+            "ic": -0.002786,
             "available": true,
-            "n_days": 4155
+            "n_days": 4119
           },
           "10": {
-            "ic": -0.00684,
+            "ic": -0.005353,
             "available": true,
-            "n_days": 4150
+            "n_days": 4114
           },
           "20": {
-            "ic": -0.010643,
+            "ic": -0.008446,
             "available": true,
-            "n_days": 4140
+            "n_days": 4104
           },
           "40": {
             "ic": 0.0,
@@ -3521,14 +3521,14 @@
             "available": false
           }
         },
-        "peak_ic": 0.010643,
+        "peak_ic": 0.008446,
         "half_life_days": 5,
         "decays_fast": true
       },
       "turnover_impact": {
-        "mean_turnover_pct": 81.1,
-        "std_turnover_pct": 18.5,
-        "n_periods": 418,
+        "mean_turnover_pct": 81.0,
+        "std_turnover_pct": 18.7,
+        "n_periods": 419,
         "available": true,
         "high_turnover": true
       },
@@ -3537,66 +3537,66 @@
     {
       "feature": "xs_rank_market_factor_idio_vol_252_spy",
       "preferred_direction": "high_is_good",
-      "mean_ic": -0.001713,
-      "std_ic": 0.151995,
-      "t_stat": -0.7006,
-      "n_days": 3865,
+      "mean_ic": -0.001862,
+      "std_ic": 0.168847,
+      "t_stat": -0.6797,
+      "n_days": 3799,
       "rolling_stats": [
         {
           "window_days": 63,
-          "hit_rate": 0.4699,
-          "mean_rolling_ic": -0.001594,
-          "std_rolling_ic": 0.036794,
-          "stability_ratio": -0.0433,
-          "worst_window_ic": -0.095522,
-          "positive_windows": 1802,
-          "total_windows": 3835
+          "hit_rate": 0.4622,
+          "mean_rolling_ic": -0.001916,
+          "std_rolling_ic": 0.043705,
+          "stability_ratio": -0.0438,
+          "worst_window_ic": -0.118514,
+          "positive_windows": 1742,
+          "total_windows": 3769
         },
         {
           "window_days": 126,
-          "hit_rate": 0.4712,
-          "mean_rolling_ic": -0.001828,
-          "std_rolling_ic": 0.024709,
-          "stability_ratio": -0.074,
-          "worst_window_ic": -0.061701,
-          "positive_windows": 1792,
-          "total_windows": 3803
+          "hit_rate": 0.486,
+          "mean_rolling_ic": -0.002055,
+          "std_rolling_ic": 0.030565,
+          "stability_ratio": -0.0672,
+          "worst_window_ic": -0.080834,
+          "positive_windows": 1816,
+          "total_windows": 3737
         },
         {
           "window_days": 252,
-          "hit_rate": 0.434,
-          "mean_rolling_ic": -0.002015,
-          "std_rolling_ic": 0.016962,
-          "stability_ratio": -0.1188,
-          "worst_window_ic": -0.038266,
-          "positive_windows": 1623,
-          "total_windows": 3740
+          "hit_rate": 0.4679,
+          "mean_rolling_ic": -0.002073,
+          "std_rolling_ic": 0.021423,
+          "stability_ratio": -0.0968,
+          "worst_window_ic": -0.054687,
+          "positive_windows": 1719,
+          "total_windows": 3674
         }
       ],
       "regime_conditional": {
-        "bull_ic": -0.007866,
-        "bear_ic": 0.003469,
-        "bull_days": 1767,
-        "bear_days": 2098,
-        "regime_ratio": -0.4411,
+        "bull_ic": -0.005667,
+        "bear_ic": 0.001704,
+        "bull_days": 1838,
+        "bear_days": 1961,
+        "regime_ratio": -0.3007,
         "regime_stable": false
       },
       "ic_decay": {
         "horizons": {
           "5": {
-            "ic": 0.01317,
+            "ic": 0.013739,
             "available": true,
-            "n_days": 3865
+            "n_days": 3799
           },
           "10": {
-            "ic": 0.020909,
+            "ic": 0.02383,
             "available": true,
-            "n_days": 3860
+            "n_days": 3794
           },
           "20": {
-            "ic": 0.02852,
+            "ic": 0.032959,
             "available": true,
-            "n_days": 3850
+            "n_days": 3784
           },
           "40": {
             "ic": 0.0,
@@ -3607,14 +3607,14 @@
             "available": false
           }
         },
-        "peak_ic": 0.02852,
+        "peak_ic": 0.032959,
         "half_life_days": 5,
         "decays_fast": true
       },
       "turnover_impact": {
-        "mean_turnover_pct": 4.9,
-        "std_turnover_pct": 11.2,
-        "n_periods": 418,
+        "mean_turnover_pct": 4.3,
+        "std_turnover_pct": 10.9,
+        "n_periods": 419,
         "available": true,
         "high_turnover": false
       },
@@ -3630,42 +3630,42 @@
     {
       "feature_1": "factor_liquidity_dollar_vol_20d",
       "feature_2": "xs_rank_market_factor_illiquidity_amihud_20d",
-      "correlation": -0.9204
+      "correlation": -0.9252
     },
     {
       "feature_1": "factor_liquidity_dollar_vol_20d",
       "feature_2": "factor_illiquidity_amihud_20d",
-      "correlation": -0.9204
+      "correlation": -0.9252
     },
     {
       "feature_1": "factor_liquidity_dollar_vol_20d",
       "feature_2": "xs_rank_sector_factor_illiquidity_amihud_20d",
-      "correlation": -0.713
+      "correlation": -0.7163
     },
     {
       "feature_1": "factor_liquidity_dollar_vol_20d",
       "feature_2": "xs_rank_sector_factor_liquidity_dollar_vol_20d",
-      "correlation": 0.8027
+      "correlation": 0.8014
     },
     {
       "feature_1": "xs_rank_market_factor_liquidity_dollar_vol_20d",
       "feature_2": "xs_rank_market_factor_illiquidity_amihud_20d",
-      "correlation": -0.9204
+      "correlation": -0.9252
     },
     {
       "feature_1": "xs_rank_market_factor_liquidity_dollar_vol_20d",
       "feature_2": "factor_illiquidity_amihud_20d",
-      "correlation": -0.9204
+      "correlation": -0.9252
     },
     {
       "feature_1": "xs_rank_market_factor_liquidity_dollar_vol_20d",
       "feature_2": "xs_rank_sector_factor_illiquidity_amihud_20d",
-      "correlation": -0.713
+      "correlation": -0.7163
     },
     {
       "feature_1": "xs_rank_market_factor_liquidity_dollar_vol_20d",
       "feature_2": "xs_rank_sector_factor_liquidity_dollar_vol_20d",
-      "correlation": 0.8027
+      "correlation": 0.8014
     },
     {
       "feature_1": "xs_rank_market_factor_illiquidity_amihud_20d",
@@ -3675,122 +3675,132 @@
     {
       "feature_1": "xs_rank_market_factor_illiquidity_amihud_20d",
       "feature_2": "xs_rank_sector_factor_illiquidity_amihud_20d",
-      "correlation": 0.8063
+      "correlation": 0.8048
     },
     {
       "feature_1": "xs_rank_market_factor_illiquidity_amihud_20d",
       "feature_2": "xs_rank_sector_factor_liquidity_dollar_vol_20d",
-      "correlation": -0.7649
+      "correlation": -0.7681
     },
     {
       "feature_1": "factor_illiquidity_amihud_20d",
       "feature_2": "xs_rank_sector_factor_illiquidity_amihud_20d",
-      "correlation": 0.8063
+      "correlation": 0.8048
     },
     {
       "feature_1": "factor_illiquidity_amihud_20d",
       "feature_2": "xs_rank_sector_factor_liquidity_dollar_vol_20d",
-      "correlation": -0.7649
+      "correlation": -0.7681
     },
     {
       "feature_1": "dist_ma5",
       "feature_2": "ret_3d",
-      "correlation": 0.9257
+      "correlation": 0.9256
     },
     {
       "feature_1": "dist_ma5",
       "feature_2": "dist_ma10",
-      "correlation": 0.811
+      "correlation": 0.8108
     },
     {
       "feature_1": "dist_ma5",
       "feature_2": "ret_5d",
-      "correlation": 0.7717
+      "correlation": 0.7718
     },
     {
       "feature_1": "dist_ma5",
       "feature_2": "xs_rank_market_ret_5d",
-      "correlation": 0.7717
+      "correlation": 0.7718
     },
     {
       "feature_1": "dist_ma5",
       "feature_2": "ret_vs_spy_5d",
-      "correlation": 0.7699
+      "correlation": 0.7718
     },
     {
       "feature_1": "dist_ma5",
       "feature_2": "ret_vs_qqq_5d",
-      "correlation": 0.7693
+      "correlation": 0.7717
     },
     {
       "feature_1": "ret_3d",
       "feature_2": "dist_ma10",
-      "correlation": 0.7569
+      "correlation": 0.7566
     },
     {
       "feature_1": "ret_3d",
       "feature_2": "ret_5d",
-      "correlation": 0.7187
+      "correlation": 0.7186
     },
     {
       "feature_1": "ret_3d",
       "feature_2": "xs_rank_market_ret_5d",
-      "correlation": 0.7187
+      "correlation": 0.7186
     },
     {
       "feature_1": "ret_3d",
       "feature_2": "ret_vs_spy_5d",
-      "correlation": 0.717
+      "correlation": 0.7185
     },
     {
       "feature_1": "ret_3d",
       "feature_2": "ret_vs_qqq_5d",
-      "correlation": 0.717
+      "correlation": 0.7185
     },
     {
       "feature_1": "dist_ma10",
       "feature_2": "ret_5d",
-      "correlation": 0.8917
+      "correlation": 0.8916
     },
     {
       "feature_1": "dist_ma10",
       "feature_2": "xs_rank_market_ret_5d",
-      "correlation": 0.8917
+      "correlation": 0.8916
     },
     {
       "feature_1": "dist_ma10",
       "feature_2": "ret_vs_spy_5d",
-      "correlation": 0.8896
+      "correlation": 0.8916
     },
     {
       "feature_1": "dist_ma10",
       "feature_2": "ret_vs_qqq_5d",
-      "correlation": 0.8891
+      "correlation": 0.8915
     },
     {
       "feature_1": "dist_ma10",
       "feature_2": "xs_rank_sector_ret_5d",
-      "correlation": 0.7881
+      "correlation": 0.7872
+    },
+    {
+      "feature_1": "dist_ma10",
+      "feature_2": "ret_vs_sector_5d",
+      "correlation": 0.74
+    },
+    {
+      "feature_1": "dist_ma10",
+      "feature_2": "sector_rs_slope_5d",
+      "correlation": 0.7395
     },
     {
       "feature_1": "dist_ma10",
       "feature_2": "vwap_dist",
-      "correlation": 0.8307
+      "correlation": 0.8309
     },
     {
       "feature_1": "dist_ma10",
       "feature_2": "dist_ma20",
-      "correlation": 0.8268
+      "correlation": 0.827
     },
     {
       "feature_1": "dist_ma10",
       "feature_2": "bb_pos",
-      "correlation": 0.8274
+      "correlation": 0.8286
     },
     {
       "feature_1": "dist_ma10",
       "feature_2": "rsi_7",
-      "correlation": 0.8528
+      "correlation": 0.8537
     },
     {
       "feature_1": "dist_ma10",
@@ -3805,7 +3815,7 @@
     {
       "feature_1": "dist_ma10",
       "feature_2": "xs_rank_sector_ret_10d",
-      "correlation": 0.7112
+      "correlation": 0.7101
     },
     {
       "feature_1": "ret_5d",
@@ -3815,162 +3825,172 @@
     {
       "feature_1": "ret_5d",
       "feature_2": "ret_vs_spy_5d",
-      "correlation": 0.9976
+      "correlation": 0.9999
     },
     {
       "feature_1": "ret_5d",
       "feature_2": "ret_vs_qqq_5d",
-      "correlation": 0.9967
+      "correlation": 0.9998
     },
     {
       "feature_1": "ret_5d",
       "feature_2": "xs_rank_sector_ret_5d",
-      "correlation": 0.8829
+      "correlation": 0.8817
     },
     {
       "feature_1": "ret_5d",
       "feature_2": "ret_vs_sector_5d",
-      "correlation": 0.7383
+      "correlation": 0.8229
     },
     {
       "feature_1": "ret_5d",
       "feature_2": "sector_rs_slope_5d",
-      "correlation": 0.7379
+      "correlation": 0.8224
     },
     {
       "feature_1": "ret_5d",
       "feature_2": "vwap_dist",
-      "correlation": 0.7009
+      "correlation": 0.7007
     },
     {
       "feature_1": "ret_5d",
       "feature_2": "bb_pos",
-      "correlation": 0.7207
+      "correlation": 0.7214
     },
     {
       "feature_1": "ret_5d",
       "feature_2": "rsi_7",
-      "correlation": 0.7492
+      "correlation": 0.7499
     },
     {
       "feature_1": "xs_rank_market_ret_5d",
       "feature_2": "ret_vs_spy_5d",
-      "correlation": 0.9976
+      "correlation": 0.9999
     },
     {
       "feature_1": "xs_rank_market_ret_5d",
       "feature_2": "ret_vs_qqq_5d",
-      "correlation": 0.9967
+      "correlation": 0.9998
     },
     {
       "feature_1": "xs_rank_market_ret_5d",
       "feature_2": "xs_rank_sector_ret_5d",
-      "correlation": 0.8829
+      "correlation": 0.8817
     },
     {
       "feature_1": "xs_rank_market_ret_5d",
       "feature_2": "ret_vs_sector_5d",
-      "correlation": 0.7383
+      "correlation": 0.8229
     },
     {
       "feature_1": "xs_rank_market_ret_5d",
       "feature_2": "sector_rs_slope_5d",
-      "correlation": 0.7379
+      "correlation": 0.8224
     },
     {
       "feature_1": "xs_rank_market_ret_5d",
       "feature_2": "vwap_dist",
-      "correlation": 0.7009
+      "correlation": 0.7007
     },
     {
       "feature_1": "xs_rank_market_ret_5d",
       "feature_2": "bb_pos",
-      "correlation": 0.7207
+      "correlation": 0.7214
     },
     {
       "feature_1": "xs_rank_market_ret_5d",
       "feature_2": "rsi_7",
-      "correlation": 0.7492
+      "correlation": 0.7499
     },
     {
       "feature_1": "ret_vs_spy_5d",
       "feature_2": "ret_vs_qqq_5d",
-      "correlation": 0.9963
+      "correlation": 1.0
     },
     {
       "feature_1": "ret_vs_spy_5d",
       "feature_2": "xs_rank_sector_ret_5d",
-      "correlation": 0.8729
+      "correlation": 0.8817
     },
     {
       "feature_1": "ret_vs_spy_5d",
       "feature_2": "ret_vs_sector_5d",
-      "correlation": 0.7441
+      "correlation": 0.823
     },
     {
       "feature_1": "ret_vs_spy_5d",
       "feature_2": "sector_rs_slope_5d",
-      "correlation": 0.7438
+      "correlation": 0.8225
+    },
+    {
+      "feature_1": "ret_vs_spy_5d",
+      "feature_2": "vwap_dist",
+      "correlation": 0.7006
     },
     {
       "feature_1": "ret_vs_spy_5d",
       "feature_2": "bb_pos",
-      "correlation": 0.718
+      "correlation": 0.7214
     },
     {
       "feature_1": "ret_vs_spy_5d",
       "feature_2": "rsi_7",
-      "correlation": 0.7465
+      "correlation": 0.7499
     },
     {
       "feature_1": "ret_vs_qqq_5d",
       "feature_2": "xs_rank_sector_ret_5d",
-      "correlation": 0.8773
+      "correlation": 0.8816
     },
     {
       "feature_1": "ret_vs_qqq_5d",
       "feature_2": "ret_vs_sector_5d",
-      "correlation": 0.7615
+      "correlation": 0.823
     },
     {
       "feature_1": "ret_vs_qqq_5d",
       "feature_2": "sector_rs_slope_5d",
-      "correlation": 0.7612
+      "correlation": 0.8224
+    },
+    {
+      "feature_1": "ret_vs_qqq_5d",
+      "feature_2": "vwap_dist",
+      "correlation": 0.7006
     },
     {
       "feature_1": "ret_vs_qqq_5d",
       "feature_2": "bb_pos",
-      "correlation": 0.7177
+      "correlation": 0.7214
     },
     {
       "feature_1": "ret_vs_qqq_5d",
       "feature_2": "rsi_7",
-      "correlation": 0.7465
+      "correlation": 0.7499
     },
     {
       "feature_1": "xs_rank_sector_factor_illiquidity_amihud_20d",
       "feature_2": "xs_rank_sector_factor_liquidity_dollar_vol_20d",
-      "correlation": -0.849
+      "correlation": -0.85
     },
     {
       "feature_1": "xs_rank_sector_ret_5d",
       "feature_2": "ret_vs_sector_5d",
-      "correlation": 0.7395
+      "correlation": 0.8188
     },
     {
       "feature_1": "xs_rank_sector_ret_5d",
       "feature_2": "sector_rs_slope_5d",
-      "correlation": 0.7392
+      "correlation": 0.8184
     },
     {
       "feature_1": "ret_vs_sector_5d",
       "feature_2": "sector_rs_slope_5d",
-      "correlation": 0.9994
+      "correlation": 0.9993
     },
     {
       "feature_1": "ret_1d",
       "feature_2": "ret_vs_sector_1d",
-      "correlation": 0.7234
+      "correlation": 0.805
     },
     {
       "feature_1": "vwap_dist",
@@ -3980,147 +4000,157 @@
     {
       "feature_1": "vwap_dist",
       "feature_2": "bb_pos",
-      "correlation": 0.8831
+      "correlation": 0.8838
     },
     {
       "feature_1": "vwap_dist",
       "feature_2": "rsi_7",
-      "correlation": 0.7469
+      "correlation": 0.747
     },
     {
       "feature_1": "vwap_dist",
       "feature_2": "ret_10d",
-      "correlation": 0.8782
+      "correlation": 0.8786
     },
     {
       "feature_1": "vwap_dist",
       "feature_2": "xs_rank_market_ret_10d",
-      "correlation": 0.8782
+      "correlation": 0.8786
     },
     {
       "feature_1": "vwap_dist",
       "feature_2": "xs_rank_sector_ret_10d",
-      "correlation": 0.7761
+      "correlation": 0.775
     },
     {
       "feature_1": "vwap_dist",
       "feature_2": "ret_vs_spy_20d",
-      "correlation": 0.8087
+      "correlation": 0.8119
     },
     {
       "feature_1": "vwap_dist",
       "feature_2": "ret_vs_qqq_20d",
-      "correlation": 0.8078
+      "correlation": 0.8119
     },
     {
       "feature_1": "vwap_dist",
       "feature_2": "rsi_14",
-      "correlation": 0.8621
+      "correlation": 0.8633
     },
     {
       "feature_1": "vwap_dist",
       "feature_2": "xs_rank_market_rsi_14",
-      "correlation": 0.8621
+      "correlation": 0.8633
     },
     {
       "feature_1": "dist_ma20",
       "feature_2": "bb_pos",
-      "correlation": 0.888
+      "correlation": 0.8888
     },
     {
       "feature_1": "dist_ma20",
       "feature_2": "rsi_7",
-      "correlation": 0.7435
+      "correlation": 0.7438
     },
     {
       "feature_1": "dist_ma20",
       "feature_2": "ret_10d",
-      "correlation": 0.8835
+      "correlation": 0.884
     },
     {
       "feature_1": "dist_ma20",
       "feature_2": "xs_rank_market_ret_10d",
-      "correlation": 0.8835
+      "correlation": 0.884
     },
     {
       "feature_1": "dist_ma20",
       "feature_2": "xs_rank_sector_ret_10d",
-      "correlation": 0.7809
+      "correlation": 0.7798
     },
     {
       "feature_1": "dist_ma20",
       "feature_2": "ret_vs_spy_20d",
-      "correlation": 0.8194
+      "correlation": 0.8224
     },
     {
       "feature_1": "dist_ma20",
       "feature_2": "ret_vs_qqq_20d",
-      "correlation": 0.8181
+      "correlation": 0.8224
     },
     {
       "feature_1": "dist_ma20",
       "feature_2": "rsi_14",
-      "correlation": 0.8692
+      "correlation": 0.8705
     },
     {
       "feature_1": "dist_ma20",
       "feature_2": "xs_rank_market_rsi_14",
-      "correlation": 0.8692
+      "correlation": 0.8705
     },
     {
       "feature_1": "bb_pos",
       "feature_2": "rsi_7",
-      "correlation": 0.7897
+      "correlation": 0.7898
     },
     {
       "feature_1": "bb_pos",
       "feature_2": "ret_10d",
-      "correlation": 0.8057
+      "correlation": 0.8068
     },
     {
       "feature_1": "bb_pos",
       "feature_2": "xs_rank_market_ret_10d",
-      "correlation": 0.8057
+      "correlation": 0.8068
     },
     {
       "feature_1": "bb_pos",
       "feature_2": "xs_rank_sector_ret_10d",
-      "correlation": 0.7178
+      "correlation": 0.7175
+    },
+    {
+      "feature_1": "bb_pos",
+      "feature_2": "ret_vs_spy_20d",
+      "correlation": 0.7015
+    },
+    {
+      "feature_1": "bb_pos",
+      "feature_2": "ret_vs_qqq_20d",
+      "correlation": 0.7015
     },
     {
       "feature_1": "bb_pos",
       "feature_2": "rsi_14",
-      "correlation": 0.8203
+      "correlation": 0.8205
     },
     {
       "feature_1": "bb_pos",
       "feature_2": "xs_rank_market_rsi_14",
-      "correlation": 0.8203
+      "correlation": 0.8205
     },
     {
       "feature_1": "rsi_7",
       "feature_2": "ret_10d",
-      "correlation": 0.7372
+      "correlation": 0.7373
     },
     {
       "feature_1": "rsi_7",
       "feature_2": "xs_rank_market_ret_10d",
-      "correlation": 0.7372
+      "correlation": 0.7373
     },
     {
       "feature_1": "xs_rank_sector_factor_mom_12_1",
       "feature_2": "xs_rank_sector_factor_resid_mom_sector_12_1",
-      "correlation": 0.7349
+      "correlation": 0.8308
     },
     {
       "feature_1": "xs_rank_sector_factor_mom_12_1",
       "feature_2": "xs_rank_market_factor_mom_12_1",
-      "correlation": 0.8267
+      "correlation": 0.8236
     },
     {
       "feature_1": "xs_rank_sector_factor_mom_12_1",
       "feature_2": "factor_mom_12_1",
-      "correlation": 0.8267
+      "correlation": 0.8236
     },
     {
       "feature_1": "ret_10d",
@@ -4130,42 +4160,42 @@
     {
       "feature_1": "ret_10d",
       "feature_2": "xs_rank_sector_ret_10d",
-      "correlation": 0.8836
+      "correlation": 0.882
     },
     {
       "feature_1": "ret_10d",
       "feature_2": "rsi_14",
-      "correlation": 0.7619
+      "correlation": 0.763
     },
     {
       "feature_1": "ret_10d",
       "feature_2": "xs_rank_market_rsi_14",
-      "correlation": 0.7619
+      "correlation": 0.763
     },
     {
       "feature_1": "xs_rank_market_ret_10d",
       "feature_2": "xs_rank_sector_ret_10d",
-      "correlation": 0.8836
+      "correlation": 0.882
     },
     {
       "feature_1": "xs_rank_market_ret_10d",
       "feature_2": "rsi_14",
-      "correlation": 0.7619
+      "correlation": 0.763
     },
     {
       "feature_1": "xs_rank_market_ret_10d",
       "feature_2": "xs_rank_market_rsi_14",
-      "correlation": 0.7619
+      "correlation": 0.763
     },
     {
       "feature_1": "xs_rank_sector_factor_resid_mom_sector_12_1",
       "feature_2": "xs_rank_market_factor_resid_mom_sector_12_1",
-      "correlation": 0.8691
+      "correlation": 0.8646
     },
     {
       "feature_1": "xs_rank_sector_factor_resid_mom_sector_12_1",
       "feature_2": "factor_resid_mom_sector_12_1",
-      "correlation": 0.8691
+      "correlation": 0.8646
     },
     {
       "feature_1": "xs_rank_market_factor_mom_12_1",
@@ -4173,9 +4203,29 @@
       "correlation": 1.0
     },
     {
+      "feature_1": "xs_rank_market_factor_mom_12_1",
+      "feature_2": "xs_rank_market_factor_resid_mom_sector_12_1",
+      "correlation": 0.7532
+    },
+    {
+      "feature_1": "xs_rank_market_factor_mom_12_1",
+      "feature_2": "factor_resid_mom_sector_12_1",
+      "correlation": 0.7532
+    },
+    {
+      "feature_1": "factor_mom_12_1",
+      "feature_2": "xs_rank_market_factor_resid_mom_sector_12_1",
+      "correlation": 0.7532
+    },
+    {
+      "feature_1": "factor_mom_12_1",
+      "feature_2": "factor_resid_mom_sector_12_1",
+      "correlation": 0.7532
+    },
+    {
       "feature_1": "xs_rank_sector_factor_idio_vol_252_spy",
       "feature_2": "xs_rank_market_factor_idio_vol_252_spy",
-      "correlation": 0.815
+      "correlation": 0.7896
     },
     {
       "feature_1": "xs_rank_market_factor_resid_mom_sector_12_1",
@@ -4185,27 +4235,27 @@
     {
       "feature_1": "ret_vs_spy_20d",
       "feature_2": "ret_vs_qqq_20d",
-      "correlation": 0.9962
+      "correlation": 1.0
     },
     {
       "feature_1": "ret_vs_spy_20d",
       "feature_2": "rsi_14",
-      "correlation": 0.754
+      "correlation": 0.7576
     },
     {
       "feature_1": "ret_vs_spy_20d",
       "feature_2": "xs_rank_market_rsi_14",
-      "correlation": 0.754
+      "correlation": 0.7576
     },
     {
       "feature_1": "ret_vs_qqq_20d",
       "feature_2": "rsi_14",
-      "correlation": 0.7525
+      "correlation": 0.7576
     },
     {
       "feature_1": "ret_vs_qqq_20d",
       "feature_2": "xs_rank_market_rsi_14",
-      "correlation": 0.7525
+      "correlation": 0.7576
     },
     {
       "feature_1": "rsi_14",
@@ -4233,41 +4283,39 @@
       "ret_1d",
       "xs_rank_sector_factor_liquidity_dollar_vol_20d",
       "ret_vs_sector_1d",
+      "macd_hist",
       "vwap_dist",
       "vol_trend_20_60",
+      "dist_ma20",
+      "rsi_7",
       "xs_rank_sector_factor_mom_12_1",
       "ret_10d",
       "xs_rank_market_ret_10d",
+      "xs_rank_sector_factor_resid_mom_sector_12_1",
       "xs_rank_market_factor_mom_12_1",
       "factor_mom_12_1",
       "xs_rank_sector_ret_10d",
       "rsi_divergence",
-      "xs_rank_sector_factor_beta_252_spy"
-    ],
-    "reduce_weight": [
-      "macd_hist",
-      "uptick_ratio",
-      "dist_ma20",
-      "bb_pos",
-      "rsi_7",
-      "xs_rank_sector_factor_resid_mom_sector_12_1",
       "xs_rank_market_factor_resid_mom_sector_12_1",
       "factor_resid_mom_sector_12_1"
     ],
+    "reduce_weight": [
+      "uptick_ratio",
+      "bb_pos",
+      "xs_rank_sector_factor_beta_252_spy",
+      "ret_vs_spy_20d",
+      "ret_vs_qqq_20d"
+    ],
     "consider_dropping": [
       "xs_rank_sector_factor_idio_vol_252_spy",
-      "ret_vs_spy_20d",
-      "ret_vs_qqq_20d",
       "rsi_14",
       "xs_rank_market_rsi_14",
       "xs_rank_market_factor_idio_vol_252_spy"
     ],
     "regime_sensitive": [
       "uptick_ratio",
-      "xs_rank_sector_factor_resid_mom_sector_12_1",
+      "bb_pos",
       "xs_rank_sector_factor_idio_vol_252_spy",
-      "xs_rank_market_factor_resid_mom_sector_12_1",
-      "factor_resid_mom_sector_12_1",
       "ret_vs_spy_20d",
       "ret_vs_qqq_20d",
       "rsi_14",
@@ -4276,10 +4324,8 @@
     ],
     "regime_dependent": [
       "uptick_ratio",
-      "xs_rank_sector_factor_resid_mom_sector_12_1",
+      "bb_pos",
       "xs_rank_sector_factor_idio_vol_252_spy",
-      "xs_rank_market_factor_resid_mom_sector_12_1",
-      "factor_resid_mom_sector_12_1",
       "ret_vs_spy_20d",
       "ret_vs_qqq_20d",
       "rsi_14",

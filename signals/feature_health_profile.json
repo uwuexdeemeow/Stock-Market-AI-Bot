@@ -1,29 +1,32 @@
 {
   "purpose": "feature_health_profile",
+  "source_fingerprints": {
+    "feature_quality_report.json": "a8acdb8b59ceb6811e2be59dac8a1a676751cf030a74fc94b8293488700f09e9",
+    "feature_research_summary.csv": "596c3043ebb2345f6c889b12c5d2e9899710d8d50356ac7119f632b4acaec96a"
+  },
   "correlation_cluster_threshold": 0.7,
   "decay_quarantine_ratio": 0.5,
   "decay_watch_ratio": 0.8,
   "min_active_clusters": 6,
   "max_cluster_weight_allowed": 0.25,
   "summary": {
-    "raw_feature_count": 36,
-    "cluster_count": 9,
+    "raw_feature_count": 42,
+    "cluster_count": 10,
     "active_cluster_count": 8,
     "effective_cluster_count": 8,
     "quarantined_features": [
-      "ret_vs_sector_1d",
-      "macd_hist",
-      "vwap_dist",
-      "dist_ma20",
-      "bb_pos"
-    ],
-    "watchlist_features": [
-      "ret_1d",
+      "factor_liquidity_dollar_vol_20d",
+      "xs_rank_market_factor_liquidity_dollar_vol_20d",
       "xs_rank_sector_factor_liquidity_dollar_vol_20d",
+      "macd_hist",
       "vol_trend_20_60"
     ],
+    "watchlist_features": [
+      "xs_rank_market_factor_illiquidity_amihud_20d",
+      "factor_illiquidity_amihud_20d"
+    ],
     "structurally_unavailable_features": [],
-    "max_cluster_weight": 0.142857,
+    "max_cluster_weight": 0.125,
     "feature_health_gate_pass": true,
     "feature_health_gate_reasons": []
   },
@@ -32,235 +35,235 @@
       "feature": "factor_liquidity_dollar_vol_20d",
       "cluster_id": "cluster_01",
       "canonical_root": "factor_liquidity_dollar_vol_20d",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": 1.0212741816531457,
-      "recent_ic": -0.018002,
-      "full_ic": -0.017627,
-      "active_candidate": true,
+      "health_state": "quarantined",
+      "recent_vs_full_ratio": 0.6462239658454969,
+      "recent_ic": -0.011201,
+      "full_ic": -0.017333,
+      "active_candidate": false,
       "forced_quarantine_reason": "",
-      "root_quarantine_inherited": false,
-      "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "root_quarantine_inherited": true,
+      "contributes_to_score": false,
+      "effective_weight": 0.0
     },
     {
       "feature": "xs_rank_market_factor_liquidity_dollar_vol_20d",
       "cluster_id": "cluster_01",
       "canonical_root": "factor_liquidity_dollar_vol_20d",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": 1.200009821253192,
-      "recent_ic": -0.024437,
-      "full_ic": -0.020364,
-      "active_candidate": true,
+      "health_state": "quarantined",
+      "recent_vs_full_ratio": 0.7051870324189528,
+      "recent_ic": -0.014139,
+      "full_ic": -0.02005,
+      "active_candidate": false,
       "forced_quarantine_reason": "",
-      "root_quarantine_inherited": false,
-      "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "root_quarantine_inherited": true,
+      "contributes_to_score": false,
+      "effective_weight": 0.0
     },
     {
       "feature": "xs_rank_market_factor_illiquidity_amihud_20d",
       "cluster_id": "cluster_01",
       "canonical_root": "factor_illiquidity_amihud_20d",
-      "health_state": "strengthening",
-      "recent_vs_full_ratio": 2.028801787362184,
-      "recent_ic": 0.041771,
-      "full_ic": 0.020589,
+      "health_state": "watchlist",
+      "recent_vs_full_ratio": 0.7739291248063177,
+      "recent_ic": 0.015484,
+      "full_ic": 0.020007,
       "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
-      "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "contributes_to_score": false,
+      "effective_weight": 0.0
     },
     {
       "feature": "factor_illiquidity_amihud_20d",
       "cluster_id": "cluster_01",
       "canonical_root": "factor_illiquidity_amihud_20d",
-      "health_state": "strengthening",
-      "recent_vs_full_ratio": 1.900852504963214,
-      "recent_ic": 0.032554,
-      "full_ic": 0.017126,
+      "health_state": "watchlist",
+      "recent_vs_full_ratio": 0.6700030147723848,
+      "recent_ic": 0.011112,
+      "full_ic": 0.016585,
       "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
-      "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "contributes_to_score": false,
+      "effective_weight": 0.0
     },
     {
       "feature": "dist_ma5",
       "cluster_id": "cluster_02",
       "canonical_root": "dist_ma5",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": 0.8737494352288131,
-      "recent_ic": -0.013537,
-      "full_ic": -0.015493,
+      "health_state": "strengthening",
+      "recent_vs_full_ratio": 2.196296984333395,
+      "recent_ic": -0.035468,
+      "full_ic": -0.016149,
       "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "ret_3d",
       "cluster_id": "cluster_02",
       "canonical_root": "ret_3d",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": 1.3275567987992085,
-      "recent_ic": -0.019458,
-      "full_ic": -0.014657,
+      "health_state": "strengthening",
+      "recent_vs_full_ratio": 2.6650745878042397,
+      "recent_ic": -0.040733,
+      "full_ic": -0.015284,
       "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "dist_ma10",
       "cluster_id": "cluster_02",
       "canonical_root": "dist_ma10",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": 1.0739048642837947,
-      "recent_ic": -0.015984,
-      "full_ic": -0.014884,
+      "health_state": "strengthening",
+      "recent_vs_full_ratio": 2.277465708687133,
+      "recent_ic": -0.034868,
+      "full_ic": -0.01531,
       "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "ret_5d",
       "cluster_id": "cluster_02",
       "canonical_root": "ret_5d",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": 1.4645892351274787,
-      "recent_ic": -0.02068,
-      "full_ic": -0.01412,
+      "health_state": "strengthening",
+      "recent_vs_full_ratio": 2.7241730625551854,
+      "recent_ic": -0.040108,
+      "full_ic": -0.014723,
       "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "xs_rank_market_ret_5d",
       "cluster_id": "cluster_02",
       "canonical_root": "ret_5d",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": 1.40959175024721,
-      "recent_ic": -0.019957,
-      "full_ic": -0.014158,
+      "health_state": "strengthening",
+      "recent_vs_full_ratio": 2.712720632988436,
+      "recent_ic": -0.040113,
+      "full_ic": -0.014787,
       "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "ret_vs_spy_5d",
       "cluster_id": "cluster_02",
       "canonical_root": "ret_5d",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": 1.4660428186587269,
-      "recent_ic": -0.02068,
-      "full_ic": -0.014106,
+      "health_state": "strengthening",
+      "recent_vs_full_ratio": 2.7217698154180234,
+      "recent_ic": -0.040108,
+      "full_ic": -0.014736,
       "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "ret_vs_qqq_5d",
       "cluster_id": "cluster_02",
       "canonical_root": "ret_5d",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": 1.4697938877043355,
-      "recent_ic": -0.02068,
-      "full_ic": -0.01407,
+      "health_state": "strengthening",
+      "recent_vs_full_ratio": 2.7304785894206547,
+      "recent_ic": -0.040108,
+      "full_ic": -0.014689,
       "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "xs_rank_sector_factor_illiquidity_amihud_20d",
       "cluster_id": "cluster_01",
       "canonical_root": "factor_illiquidity_amihud_20d",
-      "health_state": "strengthening",
-      "recent_vs_full_ratio": 2.6506366177188236,
-      "recent_ic": 0.059748,
-      "full_ic": 0.022541,
+      "health_state": "healthy",
+      "recent_vs_full_ratio": 1.1774044674173898,
+      "recent_ic": 0.025512,
+      "full_ic": 0.021668,
       "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "xs_rank_sector_ret_5d",
       "cluster_id": "cluster_02",
       "canonical_root": "ret_5d",
       "health_state": "strengthening",
-      "recent_vs_full_ratio": 1.8067870441930722,
-      "recent_ic": -0.025716,
-      "full_ic": -0.014233,
+      "recent_vs_full_ratio": 3.231576848960064,
+      "recent_ic": -0.048632,
+      "full_ic": -0.015049,
       "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "ret_vs_sector_5d",
       "cluster_id": "cluster_02",
       "canonical_root": "ret_vs_sector_5d",
       "health_state": "strengthening",
-      "recent_vs_full_ratio": 2.004280363830926,
-      "recent_ic": -0.029968,
-      "full_ic": -0.014952,
+      "recent_vs_full_ratio": 3.718665236863685,
+      "recent_ic": -0.058952,
+      "full_ic": -0.015853,
       "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "sector_rs_slope_5d",
       "cluster_id": "cluster_02",
       "canonical_root": "sector_rs_slope_5d",
       "health_state": "strengthening",
-      "recent_vs_full_ratio": 2.0326123350967658,
-      "recent_ic": -0.030353,
-      "full_ic": -0.014933,
+      "recent_vs_full_ratio": 3.7547515312243482,
+      "recent_ic": -0.059464,
+      "full_ic": -0.015837,
       "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "ret_1d",
       "cluster_id": "cluster_03",
       "canonical_root": "ret_1d",
-      "health_state": "watchlist",
-      "recent_vs_full_ratio": 0.7436391027787077,
-      "recent_ic": -0.008885,
-      "full_ic": -0.011948,
+      "health_state": "strengthening",
+      "recent_vs_full_ratio": 2.357924151696607,
+      "recent_ic": -0.029533,
+      "full_ic": -0.012525,
       "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.071429
+      "effective_weight": 0.125
     },
     {
       "feature": "xs_rank_sector_factor_liquidity_dollar_vol_20d",
       "cluster_id": "cluster_01",
       "canonical_root": "factor_liquidity_dollar_vol_20d",
-      "health_state": "watchlist",
-      "recent_vs_full_ratio": 0.7441723695466211,
-      "recent_ic": -0.013919,
-      "full_ic": -0.018704,
-      "active_candidate": true,
+      "health_state": "quarantined",
+      "recent_vs_full_ratio": 0.11629053461875546,
+      "recent_ic": -0.002123,
+      "full_ic": -0.018256,
+      "active_candidate": false,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": false,
@@ -270,24 +273,24 @@
       "feature": "ret_vs_sector_1d",
       "cluster_id": "cluster_03",
       "canonical_root": "ret_vs_sector_1d",
-      "health_state": "quarantined",
-      "recent_vs_full_ratio": 0.49040427874783704,
-      "recent_ic": -0.006235,
-      "full_ic": -0.012714,
-      "active_candidate": false,
+      "health_state": "strengthening",
+      "recent_vs_full_ratio": 2.4955602847288474,
+      "recent_ic": -0.034007,
+      "full_ic": -0.013627,
+      "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
-      "contributes_to_score": false,
-      "effective_weight": 0.0
+      "contributes_to_score": true,
+      "effective_weight": 0.125
     },
     {
       "feature": "macd_hist",
       "cluster_id": "cluster_04",
       "canonical_root": "macd_hist",
       "health_state": "quarantined",
-      "recent_vs_full_ratio": -0.8967095015576324,
-      "recent_ic": 0.009211,
-      "full_ic": -0.010272,
+      "recent_vs_full_ratio": -0.724699572946668,
+      "recent_ic": 0.007297,
+      "full_ic": -0.010069,
       "active_candidate": false,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
@@ -298,71 +301,71 @@
       "feature": "vwap_dist",
       "cluster_id": "cluster_02",
       "canonical_root": "vwap_dist",
-      "health_state": "quarantined",
-      "recent_vs_full_ratio": 0.42405218100285363,
-      "recent_ic": -0.005201,
-      "full_ic": -0.012265,
-      "active_candidate": false,
+      "health_state": "healthy",
+      "recent_vs_full_ratio": 1.3247175359851417,
+      "recent_ic": -0.017118,
+      "full_ic": -0.012922,
+      "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
-      "contributes_to_score": false,
-      "effective_weight": 0.0
+      "contributes_to_score": true,
+      "effective_weight": 0.125
     },
     {
       "feature": "vol_trend_20_60",
       "cluster_id": "cluster_05",
       "canonical_root": "vol_trend_20_60",
-      "health_state": "watchlist",
-      "recent_vs_full_ratio": 0.6778913609941871,
-      "recent_ic": -0.006764,
-      "full_ic": -0.009978,
-      "active_candidate": true,
+      "health_state": "quarantined",
+      "recent_vs_full_ratio": -1.4098538170005415,
+      "recent_ic": 0.01302,
+      "full_ic": -0.009235,
+      "active_candidate": false,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
-      "contributes_to_score": true,
-      "effective_weight": 0.071429
+      "contributes_to_score": false,
+      "effective_weight": 0.0
     },
     {
       "feature": "uptick_ratio",
       "cluster_id": "cluster_06",
       "canonical_root": "uptick_ratio",
       "health_state": "strengthening",
-      "recent_vs_full_ratio": 2.7779233870967746,
-      "recent_ic": -0.027557,
-      "full_ic": -0.00992,
+      "recent_vs_full_ratio": 3.4232291254451916,
+      "recent_ic": -0.034602,
+      "full_ic": -0.010108,
       "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "dist_ma20",
       "cluster_id": "cluster_02",
       "canonical_root": "dist_ma20",
-      "health_state": "quarantined",
-      "recent_vs_full_ratio": 0.15570307785153895,
-      "recent_ic": -0.001806,
-      "full_ic": -0.011599,
-      "active_candidate": false,
+      "health_state": "healthy",
+      "recent_vs_full_ratio": 1.4114664267604482,
+      "recent_ic": -0.017258,
+      "full_ic": -0.012227,
+      "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
-      "contributes_to_score": false,
-      "effective_weight": 0.0
+      "contributes_to_score": true,
+      "effective_weight": 0.125
     },
     {
       "feature": "bb_pos",
       "cluster_id": "cluster_02",
       "canonical_root": "bb_pos",
-      "health_state": "quarantined",
-      "recent_vs_full_ratio": 0.4810889645114244,
-      "recent_ic": -0.004948,
-      "full_ic": -0.010285,
-      "active_candidate": false,
+      "health_state": "strengthening",
+      "recent_vs_full_ratio": 2.3598314863998535,
+      "recent_ic": -0.025767,
+      "full_ic": -0.010919,
+      "active_candidate": true,
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
-      "contributes_to_score": false,
-      "effective_weight": 0.0
+      "contributes_to_score": true,
+      "effective_weight": 0.125
     },
     {
       "feature": "rsi_7",
@@ -376,7 +379,7 @@
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "xs_rank_sector_factor_mom_12_1",
@@ -390,7 +393,7 @@
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "ret_10d",
@@ -404,7 +407,7 @@
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "xs_rank_market_ret_10d",
@@ -418,7 +421,7 @@
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "xs_rank_sector_factor_resid_mom_sector_12_1",
@@ -432,7 +435,7 @@
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "xs_rank_market_factor_mom_12_1",
@@ -446,7 +449,7 @@
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "factor_mom_12_1",
@@ -460,7 +463,21 @@
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
+    },
+    {
+      "feature": "xs_rank_sector_factor_idio_vol_252_spy",
+      "cluster_id": "cluster_08",
+      "canonical_root": "factor_idio_vol_252_spy",
+      "health_state": "healthy",
+      "recent_vs_full_ratio": null,
+      "recent_ic": null,
+      "full_ic": null,
+      "active_candidate": true,
+      "forced_quarantine_reason": "",
+      "root_quarantine_inherited": false,
+      "contributes_to_score": true,
+      "effective_weight": 0.125
     },
     {
       "feature": "xs_rank_sector_ret_10d",
@@ -474,11 +491,11 @@
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "rsi_divergence",
-      "cluster_id": "cluster_08",
+      "cluster_id": "cluster_09",
       "canonical_root": "rsi_divergence",
       "health_state": "healthy",
       "recent_vs_full_ratio": null,
@@ -488,11 +505,11 @@
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "xs_rank_sector_factor_beta_252_spy",
-      "cluster_id": "cluster_09",
+      "cluster_id": "cluster_10",
       "canonical_root": "factor_beta_252_spy",
       "health_state": "healthy",
       "recent_vs_full_ratio": null,
@@ -502,7 +519,7 @@
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "xs_rank_market_factor_resid_mom_sector_12_1",
@@ -516,7 +533,7 @@
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "feature": "factor_resid_mom_sector_12_1",
@@ -530,7 +547,77 @@
       "forced_quarantine_reason": "",
       "root_quarantine_inherited": false,
       "contributes_to_score": true,
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
+    },
+    {
+      "feature": "ret_vs_spy_20d",
+      "cluster_id": "cluster_02",
+      "canonical_root": "ret_20d",
+      "health_state": "healthy",
+      "recent_vs_full_ratio": null,
+      "recent_ic": null,
+      "full_ic": null,
+      "active_candidate": true,
+      "forced_quarantine_reason": "",
+      "root_quarantine_inherited": false,
+      "contributes_to_score": true,
+      "effective_weight": 0.125
+    },
+    {
+      "feature": "ret_vs_qqq_20d",
+      "cluster_id": "cluster_02",
+      "canonical_root": "ret_20d",
+      "health_state": "healthy",
+      "recent_vs_full_ratio": null,
+      "recent_ic": null,
+      "full_ic": null,
+      "active_candidate": true,
+      "forced_quarantine_reason": "",
+      "root_quarantine_inherited": false,
+      "contributes_to_score": true,
+      "effective_weight": 0.125
+    },
+    {
+      "feature": "rsi_14",
+      "cluster_id": "cluster_02",
+      "canonical_root": "rsi_14",
+      "health_state": "healthy",
+      "recent_vs_full_ratio": null,
+      "recent_ic": null,
+      "full_ic": null,
+      "active_candidate": true,
+      "forced_quarantine_reason": "",
+      "root_quarantine_inherited": false,
+      "contributes_to_score": true,
+      "effective_weight": 0.125
+    },
+    {
+      "feature": "xs_rank_market_rsi_14",
+      "cluster_id": "cluster_02",
+      "canonical_root": "rsi_14",
+      "health_state": "healthy",
+      "recent_vs_full_ratio": null,
+      "recent_ic": null,
+      "full_ic": null,
+      "active_candidate": true,
+      "forced_quarantine_reason": "",
+      "root_quarantine_inherited": false,
+      "contributes_to_score": true,
+      "effective_weight": 0.125
+    },
+    {
+      "feature": "xs_rank_market_factor_idio_vol_252_spy",
+      "cluster_id": "cluster_08",
+      "canonical_root": "factor_idio_vol_252_spy",
+      "health_state": "healthy",
+      "recent_vs_full_ratio": null,
+      "recent_ic": null,
+      "full_ic": null,
+      "active_candidate": true,
+      "forced_quarantine_reason": "",
+      "root_quarantine_inherited": false,
+      "contributes_to_score": true,
+      "effective_weight": 0.125
     }
   ],
   "clusters": [
@@ -551,14 +638,14 @@
       "health_state": "active",
       "raw_weight": 1.0,
       "contributing_features": [
-        "factor_liquidity_dollar_vol_20d",
-        "xs_rank_market_factor_liquidity_dollar_vol_20d",
-        "xs_rank_market_factor_illiquidity_amihud_20d",
-        "factor_illiquidity_amihud_20d",
         "xs_rank_sector_factor_illiquidity_amihud_20d"
       ],
-      "quarantined_features": [],
-      "effective_weight": 0.142857
+      "quarantined_features": [
+        "factor_liquidity_dollar_vol_20d",
+        "xs_rank_market_factor_liquidity_dollar_vol_20d",
+        "xs_rank_sector_factor_liquidity_dollar_vol_20d"
+      ],
+      "effective_weight": 0.125
     },
     {
       "cluster_id": "cluster_02",
@@ -568,9 +655,11 @@
         "dist_ma20",
         "dist_ma5",
         "ret_10d",
+        "ret_20d",
         "ret_3d",
         "ret_5d",
         "ret_vs_sector_5d",
+        "rsi_14",
         "rsi_7",
         "sector_rs_slope_5d",
         "vwap_dist"
@@ -592,7 +681,11 @@
         "rsi_7",
         "ret_10d",
         "xs_rank_market_ret_10d",
-        "xs_rank_sector_ret_10d"
+        "xs_rank_sector_ret_10d",
+        "ret_vs_spy_20d",
+        "ret_vs_qqq_20d",
+        "rsi_14",
+        "xs_rank_market_rsi_14"
       ],
       "health_state": "active",
       "raw_weight": 1.0,
@@ -607,17 +700,20 @@
         "xs_rank_sector_ret_5d",
         "ret_vs_sector_5d",
         "sector_rs_slope_5d",
+        "vwap_dist",
+        "dist_ma20",
+        "bb_pos",
         "rsi_7",
         "ret_10d",
         "xs_rank_market_ret_10d",
-        "xs_rank_sector_ret_10d"
+        "xs_rank_sector_ret_10d",
+        "ret_vs_spy_20d",
+        "ret_vs_qqq_20d",
+        "rsi_14",
+        "xs_rank_market_rsi_14"
       ],
-      "quarantined_features": [
-        "vwap_dist",
-        "dist_ma20",
-        "bb_pos"
-      ],
-      "effective_weight": 0.142857
+      "quarantined_features": [],
+      "effective_weight": 0.125
     },
     {
       "cluster_id": "cluster_03",
@@ -629,15 +725,14 @@
         "ret_1d",
         "ret_vs_sector_1d"
       ],
-      "health_state": "watchlist",
-      "raw_weight": 0.5,
+      "health_state": "active",
+      "raw_weight": 1.0,
       "contributing_features": [
-        "ret_1d"
-      ],
-      "quarantined_features": [
+        "ret_1d",
         "ret_vs_sector_1d"
       ],
-      "effective_weight": 0.071429
+      "quarantined_features": [],
+      "effective_weight": 0.125
     },
     {
       "cluster_id": "cluster_04",
@@ -663,13 +758,13 @@
       "features": [
         "vol_trend_20_60"
       ],
-      "health_state": "watchlist",
-      "raw_weight": 0.5,
-      "contributing_features": [
+      "health_state": "quarantined",
+      "raw_weight": 0.0,
+      "contributing_features": [],
+      "quarantined_features": [
         "vol_trend_20_60"
       ],
-      "quarantined_features": [],
-      "effective_weight": 0.071429
+      "effective_weight": 0.0
     },
     {
       "cluster_id": "cluster_06",
@@ -685,7 +780,7 @@
         "uptick_ratio"
       ],
       "quarantined_features": [],
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "cluster_id": "cluster_07",
@@ -712,10 +807,28 @@
         "factor_resid_mom_sector_12_1"
       ],
       "quarantined_features": [],
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
       "cluster_id": "cluster_08",
+      "canonical_roots": [
+        "factor_idio_vol_252_spy"
+      ],
+      "features": [
+        "xs_rank_sector_factor_idio_vol_252_spy",
+        "xs_rank_market_factor_idio_vol_252_spy"
+      ],
+      "health_state": "active",
+      "raw_weight": 1.0,
+      "contributing_features": [
+        "xs_rank_sector_factor_idio_vol_252_spy",
+        "xs_rank_market_factor_idio_vol_252_spy"
+      ],
+      "quarantined_features": [],
+      "effective_weight": 0.125
+    },
+    {
+      "cluster_id": "cluster_09",
       "canonical_roots": [
         "rsi_divergence"
       ],
@@ -728,10 +841,10 @@
         "rsi_divergence"
       ],
       "quarantined_features": [],
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     },
     {
-      "cluster_id": "cluster_09",
+      "cluster_id": "cluster_10",
       "canonical_roots": [
         "factor_beta_252_spy"
       ],
@@ -744,7 +857,7 @@
         "xs_rank_sector_factor_beta_252_spy"
       ],
       "quarantined_features": [],
-      "effective_weight": 0.142857
+      "effective_weight": 0.125
     }
   ]
 }

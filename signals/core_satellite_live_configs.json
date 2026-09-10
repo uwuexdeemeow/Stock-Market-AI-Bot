@@ -1,9 +1,9 @@
 {
   "created_at": "2026-09-02T18:48:27+00:00",
-  "source_json": "signals/core_satellite_nested_walkforward.json",
+  "source_json": "signals\\core_satellite_nested_walkforward.json",
   "source_json_sha256": "e85435034180025ba05a64afe3498afcd9939114f63d8ed18098a124998e83e1",
-  "validation_bundle_path": "signals/core_satellite_validation_bundle.json",
-  "validation_bundle_hash": "3ddcebd7eb32f79781ff447a565f450bb02290ae2d8ab2afe6abf5a6686f2701",
+  "validation_bundle_path": "signals\\core_satellite_validation_bundle.json",
+  "validation_bundle_hash": "22e761bd07ffb7e819bda09d8eb02dc9e017662db4a0ca351d1f16528f03a4f1",
   "deployment_status": "paper_provisional",
   "paper_approved": true,
   "real_capital_approved": false,
@@ -169,7 +169,7 @@
         }
       },
       "deployment_status": "paper_provisional",
-      "validation_bundle_hash": "3ddcebd7eb32f79781ff447a565f450bb02290ae2d8ab2afe6abf5a6686f2701",
+      "validation_bundle_hash": "22e761bd07ffb7e819bda09d8eb02dc9e017662db4a0ca351d1f16528f03a4f1",
       "real_capital_approved": false,
       "paper_approved": true
     }
