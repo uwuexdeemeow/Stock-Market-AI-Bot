@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-14T16:59:11+00:00",
+  "generated_at": "2026-09-14T19:01:16+00:00",
   "status": "ok",
   "mode": "fractional_shadow_only",
   "capital": {
@@ -10,23 +10,23 @@
     "invested_value": 408.29838
   },
   "signal": {
-    "signal_key": "3a76775486ad9f53ffef",
-    "predicted_at": "2026-09-15T00:12+08:00",
+    "signal_key": "f347bd42664bc155e9fa",
+    "predicted_at": "2026-09-15T02:53+08:00",
     "valuation_date": "2026-09-11",
     "live_config_hash": "efc9620f12f77952",
     "repeated_signal": false
   },
   "execution": {
-    "orders_simulated": 2,
+    "orders_simulated": 0,
     "broker_orders_submitted": false,
     "minimum_order_notional": 1.0,
     "quantity_precision_decimals": 9,
     "order_type": "market",
     "time_in_force": "day",
     "slippage_bps": 10.0,
-    "slippage_cost_today": 0.02092784,
-    "regulatory_fees_today": 0.01,
-    "regulatory_fees_raw_today": 0.00024099,
+    "slippage_cost_today": 0.0,
+    "regulatory_fees_today": 0.0,
+    "regulatory_fees_raw_today": 0.0,
     "commission_today": 0.0,
     "fee_model": {
       "sec_sell_fee_bps": 0.206,
