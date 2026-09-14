@@ -1,14 +1,13 @@
 {
-  "checked_at": "2026-09-14T13:36:40+00:00",
+  "checked_at": "2026-09-14T15:50:44+00:00",
   "lookback_days": 2,
   "status": "ok",
-  "reason": "no_recent_orders",
-  "total_checked": 0,
-  "filled": 0,
+  "total_checked": 1,
+  "filled": 1,
   "cancelled": 0,
   "partial": 0,
   "unknown": 0,
   "not_submitted": 0,
   "problems": [],
-  "fill_rate": 0
+  "fill_rate": 100.0
 }

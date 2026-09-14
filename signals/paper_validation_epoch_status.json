@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "epoch_id": "paper-v20260910T045130Z",
-  "evaluated_at": "2026-09-14T13:40:47+00:00",
+  "evaluated_at": "2026-09-14T15:53:50+00:00",
   "status": "collecting",
   "trading_days": 3,
   "rebalance_events": 1,
@@ -9,8 +9,8 @@
   "classified_sessions": 1,
   "duplicate_orders": 0,
   "unexplained_orders": 0,
-  "maximum_target_weight_gap": 0.1947,
-  "gross_exposure_gap": 0.227798,
+  "maximum_target_weight_gap": 0.174486,
+  "gross_exposure_gap": 0.225568,
   "alignment_status": "fail",
   "open_critical_incidents": 6,
   "fill_rate": 1.0,
@@ -26,13 +26,13 @@
   "child_attempts": 1,
   "unclassifiable_order_rows": 0,
   "unclassifiable_logical_orders": 0,
-  "average_slippage_bps": null,
-  "bad_slippage_rate": null,
+  "average_slippage_bps": -0.03,
+  "bad_slippage_rate": 0.0,
   "stage_comparison": {
     "stage1": {
-      "measured_fills": 0,
-      "average_slippage_bps": null,
-      "median_slippage_bps": null
+      "measured_fills": 1,
+      "average_slippage_bps": -0.03,
+      "median_slippage_bps": -0.03
     },
     "stage2": {
       "measured_fills": 0,
@@ -40,7 +40,7 @@
       "median_slippage_bps": null
     }
   },
-  "stage_comparison_measured_fills": 0,
+  "stage_comparison_measured_fills": 1,
   "stage_comparison_minimum_fills": 20,
   "stage_comparison_review_ready": false,
   "two_stage_design_improves_slippage": false,
@@ -69,13 +69,13 @@
   "manual_real_capital_review_eligible": false,
   "real_capital_approved": false,
   "run_context": {
-    "run_id": "github-34850140992",
-    "generated_at": "2026-09-14T13:40:47+00:00",
-    "signal_as_of": "2026-09-14T21:40+08:00",
-    "git_commit": "a98b15469a3a26bd6766d383c274e8df6947ce5b",
-    "configuration_fingerprint": "726615167861202953fd093feb3fcb7616d3226ba2ac48b75d232a5a1f1fff87",
-    "paper_version_fingerprint": "7929e5106d74e553121ac3cb2af723de11057dfdc306072ca1a845fc0aaf7016",
+    "run_id": "github-34864665751",
+    "generated_at": "2026-09-14T15:53:50+00:00",
+    "signal_as_of": "2026-09-14T23:53+08:00",
+    "git_commit": "3646a0bb631a368c071381d1a3d6f58c1e4621d3",
+    "configuration_fingerprint": "01589c43c2fb5a0bc5b4d36b124e759bab5559e3bd863da0fb17805f4258f507",
+    "paper_version_fingerprint": "eb566ddf99dba7a949f314afc44e0e750d74695e9ce75c4ba45baf3d5735c5a3",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "github-34850140992"
+  "run_id": "github-34864665751"
 }

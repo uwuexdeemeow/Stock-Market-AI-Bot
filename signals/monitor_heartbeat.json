@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-09-14T13:40:48+00:00",
+  "checked_at": "2026-09-14T15:53:50+00:00",
   "max_age_hours": 36,
   "all_ok": true,
   "stale_monitors": [],
@@ -58,18 +58,16 @@
     "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/operational_incident_ledger.csv",
     "open_count": 0,
     "new_incident_ids": [],
-    "resolved_incident_ids": [
-      "7406058fc13145b7"
-    ]
+    "resolved_incident_ids": []
   },
   "run_context": {
-    "run_id": "github-34850140992",
-    "generated_at": "2026-09-14T13:40:48+00:00",
+    "run_id": "github-34864665751",
+    "generated_at": "2026-09-14T15:53:50+00:00",
     "signal_as_of": "",
-    "git_commit": "a98b15469a3a26bd6766d383c274e8df6947ce5b",
-    "configuration_fingerprint": "726615167861202953fd093feb3fcb7616d3226ba2ac48b75d232a5a1f1fff87",
-    "paper_version_fingerprint": "7929e5106d74e553121ac3cb2af723de11057dfdc306072ca1a845fc0aaf7016",
+    "git_commit": "3646a0bb631a368c071381d1a3d6f58c1e4621d3",
+    "configuration_fingerprint": "01589c43c2fb5a0bc5b4d36b124e759bab5559e3bd863da0fb17805f4258f507",
+    "paper_version_fingerprint": "eb566ddf99dba7a949f314afc44e0e750d74695e9ce75c4ba45baf3d5735c5a3",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "github-34850140992"
+  "run_id": "github-34864665751"
 }

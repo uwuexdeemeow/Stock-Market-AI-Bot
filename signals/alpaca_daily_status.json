@@ -1,33 +1,33 @@
 {
   "broker": "alpaca",
   "paper_account_hash": "53467e021997593c",
-  "generated_at": "2026-09-14T13:40:36",
-  "account_equity": 106318.79,
+  "generated_at": "2026-09-14T15:53:41",
+  "account_equity": 107412.87,
   "account_cash": 24228.03,
-  "account_invested": 82090.76,
+  "account_invested": 83184.84,
   "position_count": 2,
   "positions": {
     "INTC": 197.0,
     "QQQ": 90.0
   },
   "position_values": {
-    "INTC": 18819.41,
-    "QQQ": 63270.0
+    "INTC": 19290.24,
+    "QQQ": 63894.6
   },
   "position_details": [
     {
       "ticker": "INTC",
       "quantity": 197.0,
       "avg_price": 95.52,
-      "market_value": 18819.41,
-      "unrealized_pl": 1.97
+      "market_value": 19290.24,
+      "unrealized_pl": 472.8
     },
     {
       "ticker": "QQQ",
       "quantity": 90.0,
       "avg_price": 712.019889,
-      "market_value": 63270.0,
-      "unrealized_pl": -811.79
+      "market_value": 63894.6,
+      "unrealized_pl": -187.19
     }
   ]
 }
