@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-11T23:17:21+00:00",
-  "run_id": "post-market-34657407008-1",
+  "generated_at": "2026-09-14T21:16:20+00:00",
+  "run_id": "post-market-34897725608-1",
   "status": "complete",
   "problems": [],
   "files": {
@@ -11,8 +11,8 @@
       "required": true,
       "exists": true,
       "readable": true,
-      "run_id": "post-market-34657407008-1",
-      "sha256": "742519fb254233c03274c433c0ddeb65e5b3b104b02cd50c758f255fa5883581"
+      "run_id": "post-market-34897725608-1",
+      "sha256": "308607fca7f29987562236253d58f282ebedc74f99549706a41ea2d99666e2c4"
     },
     "alpaca_execution_scorecard.json": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json",
@@ -20,8 +20,8 @@
       "required": true,
       "exists": true,
       "readable": true,
-      "run_id": "post-market-34657407008-1",
-      "sha256": "9f2068357717b3809731c0cacd5927b26a0d9304ac0d9b100d67dd4684370220"
+      "run_id": "post-market-34897725608-1",
+      "sha256": "30976aa30408640e2bdced89ec809cb1794562be1eef27455086ca2f2396c7ff"
     },
     "paper_validation_epoch_status.json": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/paper_validation_epoch_status.json",
@@ -29,8 +29,8 @@
       "required": true,
       "exists": true,
       "readable": true,
-      "run_id": "post-market-34657407008-1",
-      "sha256": "390e0b5ca76fec52ba4e35a3000bddaf1600422f928eeacb2cbee110b31b458a"
+      "run_id": "post-market-34897725608-1",
+      "sha256": "c941184a38adc347b4d6f2de3d9759f80ac18a1c9118f668f63b48ba77833770"
     },
     "alpaca_paper_health.json": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_paper_health.json",
@@ -38,17 +38,17 @@
       "required": true,
       "exists": true,
       "readable": true,
-      "run_id": "post-market-34657407008-1",
-      "sha256": "144a4d551acf783fbb88cbdc859bcfff9d219e5a1b0ce80b97c086c9fd661ac4"
+      "run_id": "post-market-34897725608-1",
+      "sha256": "a20fd295c50dfd9b36158020bfe0ce12f187018c3fa9a94fefd9be174ac1437e"
     }
   },
   "run_context": {
-    "run_id": "post-market-34657407008-1",
-    "generated_at": "2026-09-11T23:17:21+00:00",
+    "run_id": "post-market-34897725608-1",
+    "generated_at": "2026-09-14T21:16:20+00:00",
     "signal_as_of": "",
-    "git_commit": "d7c846b84b5767c31ae01f6b3226cce4a3784f01",
-    "configuration_fingerprint": "726615167861202953fd093feb3fcb7616d3226ba2ac48b75d232a5a1f1fff87",
-    "paper_version_fingerprint": "f122e05e9daa3e532c52365fcd6c7df923033174198be1078cd7f034619c25de",
+    "git_commit": "02e4b3bb3c0a58d0c567327bfbf39c3a4fd0bcec",
+    "configuration_fingerprint": "6abf102cf21618361187aae18ab7b376511f5464a5002a7bb1d6b9aa522f9738",
+    "paper_version_fingerprint": "d953f6012cbd13b7501d530035943228dbc486955aa13c3f7a3f4a19227ec76b",
     "paper_account_hash": "53467e021997593c"
   },
   "real_capital_approved": false,
