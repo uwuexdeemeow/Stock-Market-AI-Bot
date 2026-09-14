@@ -4156,6 +4156,8 @@ def main():
                         help="Check if pending orders filled and update log")
     parser.add_argument("--force", action="store_true",
                         help="Skip drift thresholds AND duplicate-day check")
+    parser.add_argument("--allow-repeat-submit", action="store_true",
+                        help="Bypass only the same-day duplicate submission check for a recovery rerun")
     parser.add_argument("--market-order", action="store_true",
                         help="Use market orders only when ALPACA_ALLOW_MARKET_ORDER_OVERRIDE=1")
     parser.add_argument("--limit-order", action="store_true",
@@ -4416,8 +4418,8 @@ def main():
               f"(halt at {PORTFOLIO_DRAWDOWN_HALT_PCT*100:.0f}%)")
 
     # Duplicate submission check — prevents running --submit twice in one day
-    if _already_submitted_today(broker) and not args.force:
-        print("  ⚠  Orders already submitted today. Use --force to override.")
+    if _already_submitted_today(broker) and not (args.force or args.allow_repeat_submit):
+        print("  ⚠  Orders already submitted today. Use --allow-repeat-submit for a recovery rerun.")
         print(f"     Check Alpaca orders or local log: {PAPER_LOG_FILE}")
         _set_submit_outcome(
             "no_action",

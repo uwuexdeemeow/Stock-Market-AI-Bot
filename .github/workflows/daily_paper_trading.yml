@@ -44,6 +44,14 @@ on:
         options:
           - "false"
           - "true"
+      allow_repeat_submit:
+        description: "Recovery rerun: bypass only the same-day duplicate check"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
       dry_run:
         description: "Dry run (show steps without executing)"
         required: false
@@ -470,6 +478,9 @@ jobs:
           FLAGS="--alpaca --timeout 900 --skip-factor-refresh"
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
             FLAGS="$FLAGS --force"
+          fi
+          if [ "${{ github.event.inputs.allow_repeat_submit }}" = "true" ]; then
+            FLAGS="$FLAGS --allow-repeat-submit"
           fi
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             FLAGS="$FLAGS --dry-run"

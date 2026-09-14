@@ -25,6 +25,20 @@ def test_default_steps_include_one_shared_signal_before_alpaca():
     assert names.index("factor_data_health") < names.index("drift_monitor")
     assert names.index("drift_monitor") < names.index("core_satellite_signal")
     assert names.index("core_satellite_signal") < names.index("alpaca_submit")
+    submit = next(step for step in steps if step.name == "alpaca_submit")
+    assert "--allow-repeat-submit" not in submit.cmd
+
+
+def test_recovery_rerun_only_passes_narrow_duplicate_override():
+    steps = daily_run.build_steps(
+        skip_refresh=True,
+        run_alpaca=True,
+        allow_repeat_submit=True,
+    )
+    submit = next(step for step in steps if step.name == "alpaca_submit")
+    assert "--allow-repeat-submit" in submit.cmd
+    assert "--force" not in submit.cmd
+    assert "--allow-repeat-submit" not in daily_run.ALPACA_STEPS[0].cmd
 
 
 def test_daily_refresh_forces_etf_download():
@@ -38,6 +52,8 @@ def test_daily_workflow_pins_execution_safety_env():
     # PLAIN ENGLISH: the GitHub workflow writes its own .env file, so this test
     # catches accidental removal of the safety knobs the live submit script needs.
     workflow = Path(".github/workflows/daily_paper_trading.yml").read_text(encoding="utf-8")
+    assert "github.event.inputs.allow_repeat_submit" in workflow
+    assert 'FLAGS="$FLAGS --allow-repeat-submit"' in workflow
     required_lines = [
         "ALPACA_MAX_GROSS_EXPOSURE=1.00",
         "ALPACA_ORDER_TYPE=limit",

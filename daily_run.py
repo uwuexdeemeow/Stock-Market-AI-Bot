@@ -38,7 +38,7 @@ import os
 import subprocess
 import sys
 from uuid import uuid4
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from pathlib import Path
@@ -644,6 +644,7 @@ def build_steps(
     run_alpaca: bool = True,
     health_only: bool = False,
     stress: bool = False,
+    allow_repeat_submit: bool = False,
 ) -> list[Step]:
     steps: list[Step] = []
     if health_only:
@@ -685,7 +686,16 @@ def build_steps(
     # blocks this step through the normal critical-failure guard.
     steps.append(REGIME_MONITOR_STEP)
     if run_alpaca:
-        steps.extend(ALPACA_STEPS)
+        alpaca_steps = list(ALPACA_STEPS)
+        if allow_repeat_submit:
+            # PLAIN ENGLISH: A recovery rerun may pass only the duplicate-day
+            # checkpoint. It must not inherit Alpaca's broad --force switch,
+            # which also relaxes unrelated trading safety gates.
+            alpaca_steps[0] = replace(
+                alpaca_steps[0],
+                cmd=[*alpaca_steps[0].cmd, "--allow-repeat-submit"],
+            )
+        steps.extend(alpaca_steps)
     # Watchdog + housekeeping — non-critical, run last
     steps.append(MONITOR_HEARTBEAT_STEP)
     steps.append(CANONICAL_READINESS_STEP)
@@ -984,6 +994,8 @@ def main():
                         help="Refresh ETF data, but use latest existing factor data/report")
     parser.add_argument("--force", action="store_true",
                         help="Run even on weekends and US market holidays")
+    parser.add_argument("--allow-repeat-submit", action="store_true",
+                        help="Recovery rerun: bypass only the same-day duplicate submission check")
     parser.add_argument("--timeout", type=int, default=300,
                         help="Max seconds per step (default: 300)")
     args = parser.parse_args()
@@ -1081,6 +1093,7 @@ def main():
         run_alpaca=bool(run_alpaca),
         health_only=bool(args.health_only),
         stress=bool(args.stress),
+        allow_repeat_submit=bool(args.allow_repeat_submit),
     )
 
     # Header

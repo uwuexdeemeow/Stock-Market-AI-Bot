@@ -71,6 +71,10 @@ python3 daily_run.py --health-only --no-github-sync
 # Force-run on weekends/holidays
 python3 daily_run.py --force
 
+# Recovery rerun after an earlier same-day partial submission. This bypasses
+# only the duplicate-day check; all trading safety gates stay enabled.
+python3 daily_run.py --allow-repeat-submit
+
 # Also run stress tests (factor decay, drawdown throttle, execution, survivorship)
 python3 daily_run.py --alpaca --stress
 
@@ -101,6 +105,9 @@ The workflow file `.github/workflows/daily_paper_trading.yml` invokes
   running (prevents cron + manual overlap from double-submitting).
 - **Weekend/holiday guard** — skips automatically on weekends and US
   market holidays.  Use `--force` to override (e.g., for testing).
+- **Narrow recovery reruns** — `--allow-repeat-submit` bypasses only the
+  same-day duplicate-submission check. It does not bypass drift, drawdown,
+  signal-sanity, broker-truth, quote, spread, cash, or exposure controls.
 - **Critical-step short-circuit** — if a step marked `critical=True`
   fails, downstream trading steps don't run.  Better to skip than to trade on
   broken state.
