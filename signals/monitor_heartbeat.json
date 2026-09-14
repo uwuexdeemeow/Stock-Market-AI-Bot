@@ -1,11 +1,9 @@
 {
-  "checked_at": "2026-09-09T15:30:30+00:00",
+  "checked_at": "2026-09-14T13:40:48+00:00",
   "max_age_hours": 36,
-  "all_ok": false,
+  "all_ok": true,
   "stale_monitors": [],
-  "missing_monitors": [
-    "regime_monitor"
-  ],
+  "missing_monitors": [],
   "monitors": {
     "paper_health": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_paper_health.json",
@@ -33,9 +31,9 @@
     },
     "regime_monitor": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/regime_history.json",
-      "exists": false,
-      "age_hours": null,
-      "status": "missing"
+      "exists": true,
+      "age_hours": 0.0,
+      "status": "fresh"
     },
     "broker_health": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/broker_health.json",
@@ -50,7 +48,7 @@
       "status": "fresh"
     },
     "daily_run": {
-      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/logs/daily_run_20260909.json",
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/logs/daily_run_20260914.json",
       "exists": true,
       "age_hours": 0.1,
       "status": "fresh"
@@ -58,18 +56,20 @@
   },
   "operational_incidents": {
     "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/operational_incident_ledger.csv",
-    "open_count": 1,
+    "open_count": 0,
     "new_incident_ids": [],
-    "resolved_incident_ids": []
+    "resolved_incident_ids": [
+      "7406058fc13145b7"
+    ]
   },
   "run_context": {
-    "run_id": "github-34370140204",
-    "generated_at": "2026-09-09T15:30:30+00:00",
+    "run_id": "github-34850140992",
+    "generated_at": "2026-09-14T13:40:48+00:00",
     "signal_as_of": "",
-    "git_commit": "4e13c065367be4751caab3dbfefdc93aa168f9ca",
-    "configuration_fingerprint": "81ce534046da7b28fde31b5e32b505b91df29fda52ad32e3dacbfe025a221a53",
-    "paper_version_fingerprint": "8d1761a63c2efcb2ea3d6151a977d67b55af1ed2672aa4b5549bde75794b12eb",
+    "git_commit": "a98b15469a3a26bd6766d383c274e8df6947ce5b",
+    "configuration_fingerprint": "726615167861202953fd093feb3fcb7616d3226ba2ac48b75d232a5a1f1fff87",
+    "paper_version_fingerprint": "7929e5106d74e553121ac3cb2af723de11057dfdc306072ca1a845fc0aaf7016",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "github-34370140204"
+  "run_id": "github-34850140992"
 }

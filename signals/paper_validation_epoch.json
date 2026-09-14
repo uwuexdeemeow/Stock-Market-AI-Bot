@@ -1,10 +1,12 @@
 {
   "schema_version": 2,
-  "epoch_id": "paper-v20260909T152459Z",
-  "started_at": "2026-09-09T15:24:59+00:00",
+  "epoch_id": "paper-v20260910T045130Z",
+  "started_at": "2026-09-10T04:51:30+00:00",
   "status": "collecting",
-  "archive_dir": "archive/paper_epochs/paper-v20260909T152459Z",
-  "archived_files": [],
+  "archive_dir": "archive/paper_epochs/paper-v20260910T045130Z",
+  "archived_files": [
+    "archive/paper_epochs/paper-v20260910T045130Z/alpaca_paper_equity.csv"
+  ],
   "requirements": {
     "minimum_trading_days": 30,
     "minimum_rebalance_events": 3,
@@ -22,8 +24,8 @@
     "maximum_bad_slippage_rate": 0.4
   },
   "real_capital_approved": false,
-  "supersedes_epoch_id": "paper-v20260909T081448Z",
+  "supersedes_epoch_id": "paper-v20260909T152459Z",
   "release_scope": "operational_provisional_paper_only",
   "corrected_prospective_freeze_started": false,
-  "release_reason": "Reviewed repair of false cache staleness and read-only health reporting"
+  "release_reason": "Reviewed isolation of regime monitoring from broker submission failures"
 }
