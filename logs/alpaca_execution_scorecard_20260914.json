@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
-  "generated_at": "2026-09-14T15:53:47+00:00",
-  "measurement_cutoff_60m": "2026-09-14T14:53:47.605906+00:00",
+  "generated_at": "2026-09-14T16:00:31+00:00",
+  "measurement_cutoff_60m": "2026-09-14T15:00:31.019457+00:00",
   "status": "collecting",
   "score": 100.0,
   "decision_eligible": false,
@@ -76,7 +76,7 @@
       "adverse_15m_measured_orders": 1,
       "adverse_60m_measured_orders": 1
     },
-    "slippage_delta_vs_prior_scorecard_bps": -0.119
+    "slippage_delta_vs_prior_scorecard_bps": 0.0
   },
   "sample_gate": {
     "ready": false,
@@ -300,8 +300,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 0.6666666666666666,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-08-15T15:53:41.804874+00:00",
-      "denominator_end": "2026-09-14T15:53:41.710732+00:00"
+      "denominator_start": "2026-08-15T16:00:25.879272+00:00",
+      "denominator_end": "2026-09-14T16:00:25.841946+00:00"
     },
     "stage2": {
       "orders": 2,
@@ -317,8 +317,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 1.0,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-08-15T15:53:41.804874+00:00",
-      "denominator_end": "2026-09-14T15:53:41.710732+00:00"
+      "denominator_start": "2026-08-15T16:00:25.879272+00:00",
+      "denominator_end": "2026-09-14T16:00:25.841946+00:00"
     }
   },
   "throttle": {
@@ -389,13 +389,13 @@
     "previous_scorecard": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json"
   },
   "run_context": {
-    "run_id": "github-34864665751",
-    "generated_at": "2026-09-14T15:53:47+00:00",
+    "run_id": "github-34865332195",
+    "generated_at": "2026-09-14T16:00:31+00:00",
     "signal_as_of": "",
     "git_commit": "3646a0bb631a368c071381d1a3d6f58c1e4621d3",
     "configuration_fingerprint": "01589c43c2fb5a0bc5b4d36b124e759bab5559e3bd863da0fb17805f4258f507",
     "paper_version_fingerprint": "eb566ddf99dba7a949f314afc44e0e750d74695e9ce75c4ba45baf3d5735c5a3",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "github-34864665751"
+  "run_id": "github-34865332195"
 }
