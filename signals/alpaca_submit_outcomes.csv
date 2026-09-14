@@ -14,3 +14,4 @@ schema_version,run_id,generated_at,status,reason_code,market_open,planned_orders
 1,github-34850140992,2026-09-14T13:40:34+00:00,executed,orders_accepted,,3,1,1,1,0,2,0,0,"{""fail_count"": 0, ""score"": 90.0, ""status"": ""warning"", ""warning_count"": 2}",[],"{""656b8244-ba8a-4161-9185-39b0c71f0085"": ""filled""}"
 1,github-34864665751,2026-09-14T15:53:40+00:00,no_action,duplicate_retry_already_submitted,1.0,3,0,0,0,0,0,0,0,{},[],
 1,github-34865332195,2026-09-14T16:00:24+00:00,no_action,duplicate_retry_already_submitted,1.0,3,0,0,0,0,0,0,0,{},[],
+1,github-34866758080,2026-09-14T16:12:53+00:00,blocked,outside_execution_window,1.0,3,0,0,0,0,0,0,0,{},[],

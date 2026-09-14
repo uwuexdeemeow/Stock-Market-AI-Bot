@@ -1,37 +1,25 @@
 {
   "schema_version": 1,
-  "run_id": "github-34865332195",
-  "signal_as_of": "2026-09-15T00:00+08:00",
+  "run_id": "github-34866758080",
+  "signal_as_of": "2026-09-15T00:12+08:00",
   "status": "rejected",
-  "updated_at": "2026-09-14T16:00:28+00:00",
+  "updated_at": "2026-09-14T16:12:57+00:00",
   "terminal": true,
   "history": [
     {
       "status": "planned",
-      "at": "2026-09-14T16:00:23+00:00",
+      "at": "2026-09-14T16:12:52+00:00",
       "details": {}
     },
     {
-      "status": "filled",
-      "at": "2026-09-14T16:00:24+00:00",
-      "details": {
-        "outcome_status": "no_action",
-        "reason_code": "duplicate_retry_already_submitted",
-        "planned_orders": 3,
-        "accepted_orders": 0,
-        "filled_orders": 0,
-        "open_orders": 0
-      }
-    },
-    {
       "status": "rejected",
-      "at": "2026-09-14T16:00:28+00:00",
+      "at": "2026-09-14T16:12:57+00:00",
       "details": {
         "alignment_status": "fail",
-        "reason": "max_weight_gap_0.174486_above_0.020000;gross_exposure_gap_0.225674_above_0.050000",
+        "reason": "max_weight_gap_0.174486_above_0.020000;gross_exposure_gap_0.225855_above_0.050000",
         "active_rebalance_order_count": 0,
         "maximum_target_weight_gap": 0.174486,
-        "gross_exposure_gap": 0.225674
+        "gross_exposure_gap": 0.225855
       }
     }
   ],
