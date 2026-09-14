@@ -57,6 +57,31 @@ def test_fill_monitor_accepts_current_alpaca_log_schema(tmp_path, monkeypatch):
     assert {p["status"] for p in result["problems"]} == {"submission_failed", "partially_filled"}
 
 
+def test_fill_monitor_excludes_intentionally_skipped_safety_orders(tmp_path, monkeypatch):
+    """A quote guard decision is not a broker order with an unknown fill."""
+    signal_dir = tmp_path / "signals"
+    signal_dir.mkdir()
+    trade_path = signal_dir / "alpaca_paper_log.csv"
+    now = datetime.now(timezone.utc).isoformat()
+    trade_path.write_text(
+        "\n".join([
+            "submitted_at,order_id,ticker,side,quantity,fill_status",
+            f"{now},SKIPPED: spread_guard,MU,buy,23,skipped",
+            f"{now},broker-order-1,INTC,buy,197,filled",
+        ]),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(fill_monitor, "PAPER_TRADES_FILE", trade_path)
+    result = fill_monitor.check_recent_fills(lookback_days=2, quiet=True)
+
+    assert result["status"] == "ok"
+    assert result["total_checked"] == 1
+    assert result["filled"] == 1
+    assert result["fill_rate"] == 100.0
+    assert result["problems"] == []
+
+
 def test_monitor_heartbeat_finds_daily_run_fill_stub(tmp_path, monkeypatch):
     signal_dir = tmp_path / "signals_abs"
     log_dir = tmp_path / "logs_abs"

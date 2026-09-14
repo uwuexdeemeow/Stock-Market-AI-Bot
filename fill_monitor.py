@@ -174,7 +174,19 @@ def check_recent_fills(*, lookback_days: int = 1, quiet: bool = False) -> dict:
         action_text = recent["side"].astype(str).str.upper().str.strip()
     else:
         action_text = pd.Series("BUY", index=recent.index)
-    actionable = recent[action_text.isin(["BUY", "SELL"])]
+    # A safety guard records a skipped BUY/SELL so the decision is auditable,
+    # but no broker order exists to fill. Exclude those rows from broker fill
+    # rates; treating them as unknown fills blocks the next run permanently.
+    if "fill_status" in recent.columns:
+        fill_text = recent["fill_status"].astype(str).str.lower().str.strip()
+    else:
+        fill_text = pd.Series("", index=recent.index)
+    if "order_id" in recent.columns:
+        order_id_text = recent["order_id"].astype(str).str.upper().str.strip()
+    else:
+        order_id_text = pd.Series("", index=recent.index)
+    submitted_mask = ~fill_text.eq("skipped") & ~order_id_text.str.startswith("SKIPPED:")
+    actionable = recent[action_text.isin(["BUY", "SELL"]) & submitted_mask]
     if actionable.empty:
         if not quiet:
             print(f"  No actionable orders (BUY/SELL) in the last {lookback_days} day(s)")

@@ -6,6 +6,10 @@
 that did not cleanly fill. It catches cancelled, rejected, partial, open, or
 missing broker orders before the next daily trade cycle.
 
+An order recorded as `skipped` by a pre-submit safety guard was never sent to
+the broker. These audit rows are excluded from fill counts and fill-rate
+calculations instead of being mislabeled as unknown fills.
+
 The monitor accepts the current Alpaca paper log shape (`side`, `quantity`,
 `filled_qty`) as well as older logs that used `action`, `broker_qty`, and
 `broker_dealt_qty`.
