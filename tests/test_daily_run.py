@@ -165,12 +165,13 @@ def test_shadow_workflow_requires_safe_defaults_and_verified_evidence():
     assert all(token not in workflow for token in forbidden)
 
 
-def test_shadow_cache_cannot_overwrite_validation_evidence():
-    """Shadow restores current factor inputs but never caches approved reports."""
+def test_shadow_cache_cannot_overwrite_strategy_approval_evidence():
+    """Shadow restores generated factor reports but not strategy approvals."""
     workflow = Path(".github/workflows/shadow_paper_journal.yml").read_text(encoding="utf-8")
     # PLAIN ENGLISH: old shared caches contained tracked safety reports. A new
     # runner could unpack those stale files over Git's reviewed versions.
-    assert "runtime-state-v2-" in workflow
+    assert "runtime-state-v3-" in workflow
+    assert "signals/feature_quality_report.json" in workflow
     assert "shadow-journal-v2-" in workflow
     assert "shadow-state-files-" not in workflow
     assert "            state-files-" not in workflow

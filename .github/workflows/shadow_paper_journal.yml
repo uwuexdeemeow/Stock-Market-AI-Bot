@@ -108,9 +108,17 @@ jobs:
             signals/core_satellite_alpha_metrics.json
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
+            signals/feature_quality_report.json
+            signals/feature_quality_summary.csv
+            signals/feature_health_profile.json
+            signals/feature_health_profile.csv
+            signals/feature_research_report.json
+            signals/feature_research_summary.csv
+            signals/research_run_manifest.json
+            logs/feature_ic_shortlist.csv
           key: shadow-runtime-reader-${{ github.run_id }}
           restore-keys: |
-            runtime-state-v2-
+            runtime-state-v3-
 
       # PLAIN ENGLISH: this cache contains only the shadow account's own
       # journal. Approved validation reports stay exactly as checked out from
@@ -248,8 +256,22 @@ jobs:
         if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
         run: |
           if ! python3 factor_data_health.py --strict --no-write; then
-            echo "::error::No healthy completed Factor Data Refresh cache was restored. Shadow will not rebuild research data; run Factor Data Refresh first."
-            exit 1
+            # Older caches contain fresh parquets but omit their generated
+            # quality reports. Repair only those reports, never factor data.
+            if python3 - <<'PY'
+          from factor_data_health import build_factor_data_health
+          report = build_factor_data_health()
+          raise SystemExit(0 if report['factor_data_fresh'] else 1)
+          PY
+            then
+              echo "Factor parquets are fresh; repairing derived quality and health reports."
+              python3 feature_quality_diagnostic.py --top 48
+              python3 feature_health.py --max-specs 48
+              python3 factor_data_health.py --strict
+            else
+              echo "::error::No healthy completed Factor Data Refresh cache was restored. Shadow will not rebuild research data; run Factor Data Refresh first."
+              exit 1
+            fi
           fi
           echo "Restored completed factor-data cache is trade-ready."
         env:

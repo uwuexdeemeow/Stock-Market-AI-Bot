@@ -70,3 +70,6 @@ def test_publisher_preserves_remote_history_and_other_jobs(tmp_path, filename, s
     git("merge-base", "--is-ancestor", prior, "origin/signals/latest")
     if filename == "daily_paper_trading.yml":
         assert git("show", "origin/signals/latest:logs/daily_run_20260905.json") == "{}"
+        # Publication temporarily visits signals/latest, but later diagnostic
+        # steps must execute the helper scripts from the workflow source commit.
+        assert git("rev-parse", "HEAD") == git("rev-parse", "main")

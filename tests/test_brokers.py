@@ -1296,6 +1296,7 @@ def test_apply_spread_guard_logs_wide_spread_skip(monkeypatch):
 
     monkeypatch.setattr(apt, "MAX_SPREAD_PCT_OVERLAY", 0.01)
     monkeypatch.setattr(apt, "REQUIRE_QUOTE_FOR_SUBMIT", True)
+    monkeypatch.setattr(apt, "SPREAD_GUARD_QUOTE_RETRIES", 0)
     alerts = []
     monkeypatch.setattr(
         apt,
@@ -1321,6 +1322,7 @@ def test_apply_spread_guard_blocks_missing_quote_when_required(monkeypatch):
     import alpaca_paper_trading as apt
 
     monkeypatch.setattr(apt, "REQUIRE_QUOTE_FOR_SUBMIT", True)
+    monkeypatch.setattr(apt, "SPREAD_GUARD_QUOTE_RETRIES", 0)
     monkeypatch.setattr(apt, "_send_deduped_submit_guard_alert", lambda *args, **kwargs: True)
     broker = _QuoteBroker({})
     order = _planned_order("MU", "buy")
@@ -1336,6 +1338,7 @@ def test_apply_spread_guard_blocks_stale_timestamped_quote(monkeypatch):
     import alpaca_paper_trading as apt
 
     monkeypatch.setattr(apt, "EXECUTION_QUOTE_MAX_AGE_SECONDS", 5)
+    monkeypatch.setattr(apt, "SPREAD_GUARD_QUOTE_RETRIES", 0)
     monkeypatch.setattr(apt, "_send_deduped_submit_guard_alert", lambda *args, **kwargs: True)
     broker = _QuoteBroker({
         "MU": {
@@ -1353,6 +1356,33 @@ def test_apply_spread_guard_blocks_stale_timestamped_quote(monkeypatch):
     assert remaining == []
     assert skipped == [order]
     assert ids[0].startswith("SKIPPED: quote_stale")
+
+
+def test_apply_spread_guard_retries_a_transient_wide_quote(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "MAX_SPREAD_PCT_OVERLAY", 0.005)
+    monkeypatch.setattr(apt, "SPREAD_GUARD_QUOTE_RETRIES", 2)
+    quotes = iter([
+        {"bid_price": 67.8, "ask_price": 70.8, "quote_timestamp": datetime.now(timezone.utc).isoformat()},
+        {"bid_price": 68.0, "ask_price": 68.2, "quote_timestamp": datetime.now(timezone.utc).isoformat()},
+    ])
+
+    class RetryQuoteBroker:
+        def get_quote_snapshot(self, _ticker):
+            return next(quotes)
+
+    order = _planned_order("FCX", "buy")
+    sleeps = []
+    remaining, skipped, ids = apt._apply_spread_guard(
+        RetryQuoteBroker(), [order], sleep_fn=lambda seconds: sleeps.append(seconds)
+    )
+
+    assert remaining == [order]
+    assert skipped == []
+    assert ids == []
+    assert sleeps == [apt.SPREAD_GUARD_RETRY_SECONDS]
+    assert order["spread_guard_quote_attempts"] == 2
 
 
 def test_spread_guard_alert_is_deduped(tmp_path, monkeypatch):

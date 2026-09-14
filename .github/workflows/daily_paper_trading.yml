@@ -147,22 +147,15 @@ jobs:
       #    Without this, walkforward approval, factor decay reports, and
       #    feature quality reports are lost between runs — causing
       #    paper_ready=False every time.
-      # NOTE: Files now tracked in git (committed in main) are intentionally
-      # excluded from the cache list — caching them would overwrite the
-      # known-good baseline checked out from git with a potentially stale
-      # cached copy.  Currently git-tracked:
-      #   signals/feature_quality_report.json
-      #   signals/feature_quality_summary.csv
-      #   signals/feature_health_profile.json
-      #   signals/feature_health_profile.csv
-      #   logs/feature_ic_shortlist.csv
+      # The generated quality reports below must travel with the parquets that
+      # produced them. This v3 cache is published only after strict validation.
+      # Reviewed strategy approvals remain owned by main and are not cached:
       #   signals/core_satellite_live_configs.json
       #   signals/core_satellite_nested_walkforward.json
       #   signals/adaptive_factor_weights.json
       #   logs/factor_decay_monitor.json
       #   logs/core_satellite_execution_stress.json
       #   logs/core_satellite_survivorship_audit.json
-      # Only NON-git-tracked state files belong in cache below.
       - name: Cache signals and logs state
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v6
@@ -171,12 +164,18 @@ jobs:
             signals/core_satellite_alpha_metrics.json
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
-          # v2 caches contain only non-git runtime files. The old state-files
-          # archives also contained tracked robustness reports and silently
-          # overwrote the approved checksums after checkout.
-          key: runtime-state-v2-${{ github.run_id }}
+            signals/feature_quality_report.json
+            signals/feature_quality_summary.csv
+            signals/feature_health_profile.json
+            signals/feature_health_profile.csv
+            signals/feature_research_report.json
+            signals/feature_research_summary.csv
+            signals/research_run_manifest.json
+            logs/feature_ic_shortlist.csv
+          # v3 binds generated factor reports to the latest healthy data set.
+          key: runtime-state-v3-${{ github.run_id }}
           restore-keys: |
-            runtime-state-v2-
+            runtime-state-v3-
 
       # Restore the operational audit trail from the dedicated signal branch.
       # PLAIN ENGLISH: GitHub runners are new computers each day. These files
@@ -264,6 +263,8 @@ jobs:
           ALPACA_EXECUTION_STAGE2_OFFSET_BPS_ETF=1
           ALPACA_EXECUTION_STAGE2_OFFSET_BPS_OVERLAY=3
           ALPACA_EXECUTION_QUOTE_MAX_AGE_SECONDS=5
+          ALPACA_SPREAD_GUARD_QUOTE_RETRIES=4
+          ALPACA_SPREAD_GUARD_RETRY_SECONDS=2
           ALPACA_EXECUTION_WINDOW_START=09:35
           ALPACA_EXECUTION_WINDOW_END=10:30
           ALPACA_EXECUTION_SYMBOL_MIN_SAMPLES=5
@@ -642,6 +643,7 @@ jobs:
           # Build on the existing shared branch so prior runs and files owned
           # by the shadow/post-market jobs remain available for recovery.
           generated_dir="$(mktemp -d)"
+          source_commit="$(git rev-parse HEAD)"
           cp -R signals "$generated_dir/signals"
           cp -R logs "$generated_dir/logs"
           git stash push --include-untracked --message "daily generated evidence"
@@ -719,6 +721,11 @@ jobs:
           fi
           git commit -m "signals: $(date -u +%Y-%m-%d) daily run #${{ github.run_number }}" || echo "No signal changes to commit"
           git push origin signals/latest
+          # Run later diagnostics from today's source, not the historical
+          # helper scripts stored on the evidence-only branch.
+          git checkout --detach "$source_commit"
+          cp -R "$generated_dir/signals/." signals/
+          cp -R "$generated_dir/logs/." logs/
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -743,7 +750,15 @@ jobs:
             signals/core_satellite_alpha_metrics.json
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
-          key: runtime-state-v2-${{ github.run_id }}
+            signals/feature_quality_report.json
+            signals/feature_quality_summary.csv
+            signals/feature_health_profile.json
+            signals/feature_health_profile.csv
+            signals/feature_research_report.json
+            signals/feature_research_summary.csv
+            signals/research_run_manifest.json
+            logs/feature_ic_shortlist.csv
+          key: runtime-state-v3-${{ github.run_id }}
 
       # ── 11. One consolidated Telegram summary ──────────────────────
       #    Python scripts suppress their own Telegram messages in Actions

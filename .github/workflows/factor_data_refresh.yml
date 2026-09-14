@@ -112,10 +112,8 @@ jobs:
           restore-keys: |
             factor-data-parquets-
 
-      # Files now tracked in git are intentionally excluded — caching them
-      # would overwrite the known-good baseline checked out from git with
-      # a potentially stale cached copy.  See daily_paper_trading.yml for
-      # the full list.
+      # Restore the generated reports together with their factor parquets.
+      # The v3 cache is saved only after the strict health gate passes.
       - name: Restore state cache
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v6
@@ -124,9 +122,17 @@ jobs:
             signals/core_satellite_alpha_metrics.json
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
-          key: runtime-state-v2-${{ github.run_id }}
+            signals/feature_quality_report.json
+            signals/feature_quality_summary.csv
+            signals/feature_health_profile.json
+            signals/feature_health_profile.csv
+            signals/feature_research_report.json
+            signals/feature_research_summary.csv
+            signals/research_run_manifest.json
+            logs/feature_ic_shortlist.csv
+          key: runtime-state-v3-${{ github.run_id }}
           restore-keys: |
-            runtime-state-v2-
+            runtime-state-v3-
 
       - name: Create .env from secrets
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
@@ -223,19 +229,27 @@ jobs:
           path: data/
           key: factor-data-parquets-${{ github.run_id }}
 
-      # Git-tracked files excluded — they're owned by main, not cache.
+      # Publish one validated report set for readers of this factor snapshot.
       - name: Save state cache
         # Only publish state after its strict health check passes.  A failed
         # report stays in the run artifact, while later runs keep using the
         # last known-good state rather than inheriting a broken one.
-        if: ${{ always() && steps.validate_factor_data_health.outcome == 'success' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ always() && steps.validate_factor_data_health.outcome == 'success' && steps.validate_research_outputs.outcome == 'success' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v6
         with:
           path: |
             signals/core_satellite_alpha_metrics.json
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
-          key: runtime-state-v2-${{ github.run_id }}
+            signals/feature_quality_report.json
+            signals/feature_quality_summary.csv
+            signals/feature_health_profile.json
+            signals/feature_health_profile.csv
+            signals/feature_research_report.json
+            signals/feature_research_summary.csv
+            signals/research_run_manifest.json
+            logs/feature_ic_shortlist.csv
+          key: runtime-state-v3-${{ github.run_id }}
 
       - name: Send consolidated Telegram summary
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}

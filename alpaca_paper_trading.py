@@ -408,6 +408,11 @@ TQQQ_FAST_DD_FAIL_CLOSED = os.environ.get("TQQQ_FAST_DD_FAIL_CLOSED", "1").strip
     "true", "1", "yes", "y", "on"
 }
 SPREAD_GUARD_ALERT_TTL_HOURS = float(os.environ.get("SPREAD_GUARD_ALERT_TTL_HOURS", "20"))
+# Quotes can be briefly crossed, stale, or abnormally wide just after the
+# opening bell. Recheck a few times before safely deferring an order; this
+# never weakens the spread limit or submits against a rejected quote.
+SPREAD_GUARD_QUOTE_RETRIES = max(0, int(os.environ.get("ALPACA_SPREAD_GUARD_QUOTE_RETRIES", "2")))
+SPREAD_GUARD_RETRY_SECONDS = max(0.0, float(os.environ.get("ALPACA_SPREAD_GUARD_RETRY_SECONDS", "1")))
 
 
 def _truthy(value: object) -> bool:
@@ -2298,6 +2303,8 @@ def _apply_broker_truth_gate(
 def _apply_spread_guard(
     broker: AlpacaBroker,
     orders: list[dict],
+    *,
+    sleep_fn=time.sleep,
 ) -> tuple[list[dict], list[dict], list[str]]:
     """
     Remove orders that have unsafe or unverifiable bid-ask spreads.
@@ -2313,13 +2320,27 @@ def _apply_spread_guard(
 
     for order_row in orders:
         ticker = str(order_row.get("ticker", "")).upper()
-        quote, reason = _submission_quote(broker.get_quote_snapshot(ticker), ticker)
-        order_row.setdefault("arrival_mid", quote.get("quote_mid_price"))
-        order_row.setdefault("arrival_quote_timestamp", quote.get("quote_timestamp"))
-        order_row.setdefault("arrival_feed", quote.get("feed", "unknown"))
-        arrival_spread = _float_or_none(quote.get("spread_pct"))
+        first_quote: dict | None = None
+        quote: dict = {}
+        reason = "quote_unavailable"
+        attempts = SPREAD_GUARD_QUOTE_RETRIES + 1
+        for attempt in range(attempts):
+            quote, reason = _submission_quote(broker.get_quote_snapshot(ticker), ticker)
+            if first_quote is None:
+                first_quote = dict(quote)
+            if not reason:
+                break
+            if attempt + 1 < attempts:
+                sleep_fn(SPREAD_GUARD_RETRY_SECONDS)
+
+        arrival_quote = first_quote or quote
+        order_row.setdefault("arrival_mid", arrival_quote.get("quote_mid_price"))
+        order_row.setdefault("arrival_quote_timestamp", arrival_quote.get("quote_timestamp"))
+        order_row.setdefault("arrival_feed", arrival_quote.get("feed", "unknown"))
+        arrival_spread = _float_or_none(arrival_quote.get("spread_pct"))
         order_row.setdefault("arrival_spread_bps", arrival_spread * 10000 if arrival_spread is not None else None)
         order_row.setdefault("original_requested_quantity", order_row.get("quantity"))
+        order_row["spread_guard_quote_attempts"] = attempts if reason else attempt + 1
         order_row.update({
             "bid_price": quote.get("bid_price"),
             "ask_price": quote.get("ask_price"),
