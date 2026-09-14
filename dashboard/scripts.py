@@ -36,7 +36,7 @@ SCRIPT_CATEGORIES: dict[str, set[str]] = {
         "intraday_features", "alternative_data_features",
     },
     "Robustness & validation": {
-        "alpha_factor_backtest", "concentration_overlay",
+        "alpha_factor_backtest",
         "core_satellite_drawdown_throttle", "core_satellite_execution_stress",
         "core_satellite_survivorship_audit", "factor_decay_monitor",
         "factor_data_health",

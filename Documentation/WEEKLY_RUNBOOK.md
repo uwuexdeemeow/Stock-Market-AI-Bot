@@ -284,8 +284,7 @@ python core_satellite_survivorship_audit.py
 python core_satellite_execution_stress.py
 python core_satellite_drawdown_throttle.py
 
-# ── 3. Concentration / regime checks (~5 min) ──────────────────────
-python concentration_overlay.py
+# ── 3. Regime check (~5 min) ──────────────────────────────────────
 python regime_monitor.py
 
 # ── 4. Nested walkforward (~30-60 min) ─────────────────────────────
@@ -429,7 +428,6 @@ paper workflows after their New York deadlines.
 | Script | What it does | When |
 |---|---|---|
 | `alpha_factor_backtest.py` | Per-factor backtest (one factor at a time) | research |
-| `concentration_overlay.py` | Position concentration risk audit | monthly |
 | `core_satellite_drawdown_throttle.py` | Stress: drawdown circuit breaker | monthly |
 | `core_satellite_execution_stress.py` | Stress: execution costs / slippage | monthly |
 | `core_satellite_survivorship_audit.py` | Stress: survivorship bias check | monthly |
@@ -445,7 +443,6 @@ paper workflows after their New York deadlines.
 
 | Script | What it does | When |
 |---|---|---|
-| `memprofile_walkforward.py` | Reproduce the walkforward memory leak (now fixed) | rare, debugging only |
 | `publish_live_config_from_csv.py` | Manual live-config promote; blocks analyzer FAIL and selection-bias overfit | after walkforward (`--source stable_family`, `--dry-run`, `--force`) |
 | `pull_daily.bat` / `pull_daily.sh` | Sync Actions outputs into local repo | every morning |
 | `refresh_local_research_data.py` | Local mirror of `factor_data_refresh.yml` plus feature research | `--skip-research`, `--skip-feature-research`, `--pairs`, `--top N`, `--dry-run` |

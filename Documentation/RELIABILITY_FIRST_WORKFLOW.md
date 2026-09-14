@@ -1,5 +1,16 @@
 # Reliability-First Project Workflow
 
+## Current script maintenance
+
+The September 14 cleanup removed an unused concentration-sizing prototype, an
+old memory-leak reproducer, and an overlapping shell sync helper. The active
+concentration calculation remains in `core_satellite_alpha.py`. Local research
+refresh remains in `refresh_local_research_data.py`; `pull_daily.sh` and
+`pull_daily.bat` remain the platform-specific evidence download commands.
+Research, shadow evaluation, incident recovery, and memory-bounded walk-forward
+tools remain available even when they are not called by a daily workflow.
+See `SCRIPT_CLEANUP_20260914.md` for the removal decisions and retained tools.
+
 ## Corrected audit track: shadow first
 
 The earlier historical accounting and audit results are preserved as superseded

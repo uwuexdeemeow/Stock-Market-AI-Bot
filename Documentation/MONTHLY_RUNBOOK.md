@@ -24,8 +24,7 @@ python core_satellite_survivorship_audit.py
 python core_satellite_execution_stress.py
 python core_satellite_drawdown_throttle.py
 
-# ── 3. Concentration / regime checks (~5 min) ──────────────────────
-python concentration_overlay.py
+# ── 3. Regime check (~5 min) ──────────────────────────────────────
 python regime_monitor.py
 
 # ── 4. Nested walkforward (~30-60 min, batched for memory safety) ──
@@ -85,15 +84,16 @@ Old JSONs cause the gate to fail with
 `medium_risk_review_failed:<X>_review_missing`.  Refresh these BEFORE
 the walkforward so the gate sees current values.
 
-### 3. Concentration + regime checks
+### 3. Regime check
 
-`concentration_overlay.py` audits whether the strategy's alpha
-concentrates in too few names / sectors.  `regime_monitor.py`
+`regime_monitor.py`
 detects whether the live regime classification (risk_on/neutral/
 risk_off) has shifted since last month.
 
-These don't gate the walkforward but they help you spot drift
-before it's a problem.
+This helps you spot regime drift before it becomes a problem. Concentration
+sizing already runs inside `core_satellite_alpha.py`; use the strategy's
+generated metrics to inspect it. The removed standalone prototype only printed
+a sample multiplier curve and never audited account positions.
 
 ### 4. `run_walkforward_batched.py`
 
