@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-14T16:12:56+00:00",
+  "generated_at": "2026-09-14T18:54:14+00:00",
   "status": "warning",
   "score": 85.0,
   "summary": {
@@ -8,7 +8,7 @@
     "fail_count": 0,
     "warning_count": 3,
     "pass_count": 3,
-    "account_equity": 107272.17,
+    "account_equity": 107744.36,
     "account_cash": 24228.03,
     "live_open_orders_available": true,
     "live_open_orders_count": 2,
@@ -29,17 +29,17 @@
       "TQQQ": 0.0
     },
     "target_gross_exposure": 1.0,
-    "broker_gross_exposure": 0.774144,
+    "broker_gross_exposure": 0.77514,
     "maximum_target_weight_gap": 0.174486,
     "alignment": {
       "status": "fail",
       "passed": false,
-      "reason": "max_weight_gap_0.174486_above_0.020000;gross_exposure_gap_0.225855_above_0.050000",
+      "reason": "max_weight_gap_0.174486_above_0.020000;gross_exposure_gap_0.224860_above_0.050000",
       "comparable_tickers": 6,
       "maximum_target_weight_gap": 0.174486,
-      "current_gross_exposure": 0.774145,
+      "current_gross_exposure": 0.77514,
       "target_gross_exposure": 1.0,
-      "gross_exposure_gap": 0.225855,
+      "gross_exposure_gap": 0.22486,
       "weight_tolerance": 0.02,
       "gross_exposure_tolerance": 0.05,
       "active_rebalance_order_count": 0,
@@ -53,9 +53,9 @@
     },
     "alignment_incident_ledger": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alignment_incident_ledger.csv",
-      "total_incidents": 8,
-      "open_incidents": 8,
-      "current_incident_id": "eaaab1d9a9e5d4e0",
+      "total_incidents": 9,
+      "open_incidents": 9,
+      "current_incident_id": "b567b6361f56b999",
       "orders_submitted": false
     }
   },
@@ -65,31 +65,31 @@
       "exists": true,
       "rows": 1,
       "error": "",
-      "modified_at": "2026-09-14T16:12:51+00:00",
-      "as_of": "2026-09-15T00:12+08:00",
+      "modified_at": "2026-09-14T18:53:59+00:00",
+      "as_of": "2026-09-15T02:53+08:00",
       "target_count": 6,
       "freshness_status": "fresh",
       "age_hours": 0.02,
       "timestamp_used": "as_of",
-      "timestamp_utc": "2026-09-14T16:12:00+00:00"
+      "timestamp_utc": "2026-09-14T18:53:00+00:00"
     },
     "order_plan": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/core_satellite_alpha_orders.csv",
       "exists": true,
       "rows": 3,
       "error": "",
-      "modified_at": "2026-09-14T16:12:53+00:00",
+      "modified_at": "2026-09-14T18:54:03+00:00",
       "freshness_status": "fresh",
       "age_hours": 0.0,
       "timestamp_used": "modified_at",
-      "timestamp_utc": "2026-09-14T16:12:53+00:00"
+      "timestamp_utc": "2026-09-14T18:54:03+00:00"
     },
     "paper_log": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_paper_log.csv",
       "exists": true,
       "rows": 11,
       "error": "",
-      "modified_at": "2026-09-14T16:09:49+00:00",
+      "modified_at": "2026-09-14T18:49:45+00:00",
       "latest_submitted_date": "2026-09-14",
       "stale_vs_broker_status": false
     },
@@ -97,25 +97,25 @@
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_daily_status.json",
       "exists": true,
       "error": "",
-      "modified_at": "2026-09-14T16:12:54+00:00",
-      "generated_at": "2026-09-14T16:12:57+00:00",
-      "equity": 107272.17,
+      "modified_at": "2026-09-14T18:54:08+00:00",
+      "generated_at": "2026-09-14T18:54:15+00:00",
+      "equity": 107744.36,
       "cash": 24228.03,
       "position_count": 2,
       "available": true,
       "attempted": true,
       "source": "alpaca_api",
-      "file_generated_at": "2026-09-14T16:12:54"
+      "file_generated_at": "2026-09-14T18:54:08"
     },
     "live_positions": {
       "available": true,
       "attempted": true,
       "source": "alpaca_api",
       "error": "",
-      "equity": 107272.17,
+      "equity": 107744.36,
       "cash": 24228.03,
       "position_count": 2,
-      "generated_at": "2026-09-14T16:12:57+00:00"
+      "generated_at": "2026-09-14T18:54:15+00:00"
     },
     "open_orders": {
       "available": true,
@@ -136,11 +136,11 @@
       "broker_value": 0.0,
       "broker_weight": 0.0,
       "planned_side": "buy",
-      "planned_quantity": 39.0,
-      "planned_buy_qty": 39.0,
+      "planned_quantity": 40.0,
+      "planned_buy_qty": 40.0,
       "planned_sell_qty": 0.0,
       "planned_current_qty": 0.0,
-      "planned_target_qty": 39.0,
+      "planned_target_qty": 40.0,
       "planned_target_weight": 0.0255,
       "submitted_quantity": 44.0,
       "accepted_quantity": 0.0,
@@ -165,14 +165,14 @@
       "ticker": "INTC",
       "target_weight": 0.2,
       "broker_qty": 197.0,
-      "broker_value": 19186.89,
-      "broker_weight": 0.178862,
+      "broker_value": 19428.89,
+      "broker_weight": 0.180324,
       "planned_side": "buy",
-      "planned_quantity": 23.0,
-      "planned_buy_qty": 23.0,
+      "planned_quantity": 21.0,
+      "planned_buy_qty": 21.0,
       "planned_sell_qty": 0.0,
       "planned_current_qty": 197.0,
-      "planned_target_qty": 220.0,
+      "planned_target_qty": 218.0,
       "planned_target_weight": 0.2,
       "submitted_quantity": 197.0,
       "accepted_quantity": 197.0,
@@ -191,7 +191,7 @@
       "trailing_stop_count": 1,
       "stop_required": true,
       "issue_severity": "warning",
-      "issues": "broker_qty_differs_from_latest_log_expected_qty;broker_weight_gap_0.0211"
+      "issues": "broker_qty_differs_from_latest_log_expected_qty"
     },
     {
       "ticker": "MU",
@@ -229,8 +229,8 @@
       "ticker": "QQQ",
       "target_weight": 0.6,
       "broker_qty": 90.0,
-      "broker_value": 63857.25,
-      "broker_weight": 0.595283,
+      "broker_value": 64088.1,
+      "broker_weight": 0.594816,
       "planned_side": "",
       "planned_quantity": 0.0,
       "planned_buy_qty": 0.0,
@@ -323,13 +323,13 @@
     }
   ],
   "run_context": {
-    "run_id": "github-34866758080",
-    "generated_at": "2026-09-14T16:12:56+00:00",
-    "signal_as_of": "2026-09-15T00:12+08:00",
+    "run_id": "github-34883033239",
+    "generated_at": "2026-09-14T18:54:14+00:00",
+    "signal_as_of": "2026-09-15T02:53+08:00",
     "git_commit": "02e4b3bb3c0a58d0c567327bfbf39c3a4fd0bcec",
     "configuration_fingerprint": "6abf102cf21618361187aae18ab7b376511f5464a5002a7bb1d6b9aa522f9738",
     "paper_version_fingerprint": "d953f6012cbd13b7501d530035943228dbc486955aa13c3f7a3f4a19227ec76b",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "github-34866758080"
+  "run_id": "github-34883033239"
 }

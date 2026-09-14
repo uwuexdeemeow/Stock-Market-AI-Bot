@@ -1,15 +1,15 @@
 {
-  "checked_at": "2026-09-14T16:10:06+00:00",
+  "checked_at": "2026-09-14T18:50:19+00:00",
   "all_healthy": true,
   "down_brokers": [],
   "brokers": {
     "alpaca": {
       "broker": "alpaca",
       "healthy": true,
-      "equity": 107204.42,
-      "latency_ms": 304.2,
+      "equity": 107737.71,
+      "latency_ms": 818.6,
       "error": null,
-      "checked_at": "2026-09-14T16:10:05+00:00"
+      "checked_at": "2026-09-14T18:50:18+00:00"
     }
   }
 }

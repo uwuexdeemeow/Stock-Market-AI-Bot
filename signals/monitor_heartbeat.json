@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-09-14T16:13:01+00:00",
+  "checked_at": "2026-09-14T18:54:22+00:00",
   "max_age_hours": 36,
   "all_ok": true,
   "stale_monitors": [],
@@ -26,7 +26,7 @@
     "fill_monitor": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/fill_monitor.json",
       "exists": true,
-      "age_hours": 0.0,
+      "age_hours": 0.1,
       "status": "fresh"
     },
     "regime_monitor": {
@@ -38,7 +38,7 @@
     "broker_health": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/broker_health.json",
       "exists": true,
-      "age_hours": 0.0,
+      "age_hours": 0.1,
       "status": "fresh"
     },
     "execution_guard": {
@@ -61,13 +61,13 @@
     "resolved_incident_ids": []
   },
   "run_context": {
-    "run_id": "github-34866758080",
-    "generated_at": "2026-09-14T16:13:01+00:00",
+    "run_id": "github-34883033239",
+    "generated_at": "2026-09-14T18:54:22+00:00",
     "signal_as_of": "",
     "git_commit": "02e4b3bb3c0a58d0c567327bfbf39c3a4fd0bcec",
     "configuration_fingerprint": "6abf102cf21618361187aae18ab7b376511f5464a5002a7bb1d6b9aa522f9738",
     "paper_version_fingerprint": "d953f6012cbd13b7501d530035943228dbc486955aa13c3f7a3f4a19227ec76b",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "github-34866758080"
+  "run_id": "github-34883033239"
 }
