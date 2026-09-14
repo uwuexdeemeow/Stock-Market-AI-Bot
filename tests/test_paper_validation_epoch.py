@@ -8,6 +8,38 @@ import pandas as pd
 import paper_validation_epoch as epoch_module
 
 
+def test_check_lock_cli_reports_failure_without_changing_files(tmp_path, monkeypatch, capsys):
+    """CI must reject changed code, and checking must never approve that code."""
+    import sys
+
+    epoch_path = tmp_path / "epoch.json"
+    lock_path = tmp_path / "lock.json"
+    logic_path = tmp_path / "logic.py"
+    epoch_path.write_text(json.dumps({"epoch_id": "test", "started_at": "2026-09-10"}))
+    logic_path.write_text("SAFE = True\n")
+    monkeypatch.setattr(epoch_module, "PAPER_LOGIC_FILES", ("logic.py",))
+    epoch_module.freeze_current_paper_version(
+        epoch_path=epoch_path, lock_path=lock_path, project_root=tmp_path,
+    )
+    original_validate = epoch_module.validate_paper_version_lock
+    monkeypatch.setattr(epoch_module, "validate_paper_version_lock", lambda: original_validate(
+        epoch_path=epoch_path, lock_path=lock_path, project_root=tmp_path,
+    ))
+    monkeypatch.setattr(sys, "argv", ["paper_validation_epoch.py", "--check-lock"])
+    assert epoch_module.main() == 0
+    assert json.loads(capsys.readouterr().out)["paper_version_lock_valid"] is True
+
+    # A changed release must return failure while leaving its old approval intact.
+    saved_lock = lock_path.read_bytes()
+    saved_epoch = epoch_path.read_bytes()
+    logic_path.write_text("SAFE = False\n")
+    assert epoch_module.main() == 1
+    result = json.loads(capsys.readouterr().out)
+    assert "locked_file_changed:logic.py" in result["issues"]
+    assert lock_path.read_bytes() == saved_lock
+    assert epoch_path.read_bytes() == saved_epoch
+
+
 def test_shadow_evidence_scripts_are_part_of_paper_version_lock():
     """A changed shadow calculation must require a deliberate refreeze."""
     # PLAIN ENGLISH: the journal and small-account simulator help judge this

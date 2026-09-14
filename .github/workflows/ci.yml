@@ -26,6 +26,10 @@ jobs:
       - name: Validate workflow YAML
         run: |
           yamllint -d '{extends: relaxed, rules: {line-length: disable, truthy: disable}}' .github/workflows
+      - name: Validate reviewed paper release
+        # Catch a stale release fingerprint before a daily run blocks orders.
+        # This only checks; a reviewed release must be frozen deliberately.
+        run: python paper_validation_epoch.py --check-lock
       - name: Run complete test suite
         env:
           ALPACA_BASE_URL: https://paper-api.alpaca.markets

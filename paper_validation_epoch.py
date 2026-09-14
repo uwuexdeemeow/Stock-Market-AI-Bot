@@ -569,6 +569,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--status", action="store_true", help="Evaluate the current epoch without starting a new one.")
     parser.add_argument(
+        "--check-lock", action="store_true",
+        help="Check the reviewed release without writing files or contacting the broker.",
+    )
+    parser.add_argument(
         "--freeze-current",
         action="store_true",
         help="Freeze current paper logic without changing the active epoch start.",
@@ -585,6 +589,12 @@ def main() -> int:
         help="Reason stored with --invalidate-current (may be repeated).",
     )
     args = parser.parse_args()
+    if args.check_lock:
+        # PLAIN ENGLISH: CI checks the saved release before the next trading day.
+        # Checking never approves changed files or starts a new evidence period.
+        valid, issues = validate_paper_version_lock()
+        print(json.dumps({"paper_version_lock_valid": valid, "issues": issues}, indent=2))
+        return 0 if valid else 1
     if args.invalidate_current:
         reasons = args.reason or ["paper_evidence_rules_changed"]
         epoch = invalidate_epoch(reasons=reasons)

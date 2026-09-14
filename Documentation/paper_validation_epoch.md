@@ -24,6 +24,20 @@ incomplete scorecards remain in `collecting` state.
 
 ## How To Run It
 
+Check the release before pushing or running the daily workflow:
+
+```bash
+python3 paper_validation_epoch.py --check-lock
+```
+
+This reads the epoch, lock, and protected files, prints a JSON result, and exits
+with code 0 for a match or 1 for a mismatch. It never writes evidence or contacts
+Alpaca. Paper Safety CI runs this check so changes to a workflow or regenerated
+validation reports cannot silently leave the next daily run with a stale lock.
+After reviewing changed files and passing tests, commit the release, deliberately
+freeze it with `--freeze-current`, then commit the updated lock and push both
+commits together. Never automatically freeze changed files in the daily job.
+
 Start a new epoch:
 
 ```bash
