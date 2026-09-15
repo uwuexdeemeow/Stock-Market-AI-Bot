@@ -1,18 +1,18 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-14T19:01:16+00:00",
+  "generated_at": "2026-09-15T13:59:15+00:00",
   "status": "ok",
   "mode": "fractional_shadow_only",
   "capital": {
     "initial_equity": 400.0,
-    "current_equity": 412.583289,
+    "current_equity": 402.062627,
     "cash": 4.28491,
-    "invested_value": 408.29838
+    "invested_value": 397.777718
   },
   "signal": {
-    "signal_key": "f347bd42664bc155e9fa",
-    "predicted_at": "2026-09-15T02:53+08:00",
-    "valuation_date": "2026-09-11",
+    "signal_key": "d7cb4d95a12095512845",
+    "predicted_at": "2026-09-15T21:40+08:00",
+    "valuation_date": "2026-09-14",
     "live_config_hash": "efc9620f12f77952",
     "repeated_signal": false
   },
@@ -43,19 +43,19 @@
       "QQQ": 0.6
     },
     "actual_weights": {
-      "FCX": 0.0209583712,
-      "INTC": 0.1990149172,
-      "MU": 0.1736265844,
-      "QQQ": 0.5960145645
+      "FCX": 0.0209832597,
+      "INTC": 0.192815071,
+      "MU": 0.1688106407,
+      "QQQ": 0.6067337097
     },
     "target_weight_gaps": {
-      "FCX": -0.0045556288,
-      "INTC": -0.0009850828,
-      "MU": -0.0008594156,
-      "QQQ": -0.0039854355
+      "FCX": -0.0045307403,
+      "INTC": -0.007184929,
+      "MU": -0.0056753593,
+      "QQQ": 0.0067337097
     },
-    "max_absolute_target_weight_gap": 0.0045556288,
-    "cash_weight": 0.0103855627,
+    "max_absolute_target_weight_gap": 0.007184929,
+    "cash_weight": 0.0106573189,
     "positions": {
       "QQQ": {
         "quantity": 0.343981714,
@@ -77,10 +77,10 @@
   },
   "data": {
     "price_dates": {
-      "FCX": "2026-09-11",
-      "INTC": "2026-09-11",
-      "MU": "2026-09-11",
-      "QQQ": "2026-09-11"
+      "FCX": "2026-09-14",
+      "INTC": "2026-09-14",
+      "MU": "2026-09-14",
+      "QQQ": "2026-09-14"
     },
     "no_lookahead": true
   },
