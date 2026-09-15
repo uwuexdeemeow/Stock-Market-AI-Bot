@@ -2,49 +2,49 @@
   "stage_attempt_counts": {
     "complete": true,
     "population": "submitted_child_attempts",
-    "start": "2026-08-16T15:47:45.467342+00:00",
-    "end": "2026-09-15T15:47:45.382627+00:00",
+    "start": "2026-08-16T15:53:24.051412+00:00",
+    "end": "2026-09-15T15:53:23.994527+00:00",
     "stages": {
       "stage1": {
-        "orders": 6,
+        "orders": 7,
         "filled_orders": 3,
         "any_filled_orders": 4,
-        "fill_rate": 0.5,
-        "any_fill_rate": 0.6666666666666666
+        "fill_rate": 0.42857142857142855,
+        "any_fill_rate": 0.5714285714285714
       },
       "stage2": {
-        "orders": 2,
-        "filled_orders": 2,
-        "any_filled_orders": 2,
+        "orders": 3,
+        "filled_orders": 3,
+        "any_filled_orders": 3,
         "fill_rate": 1.0,
         "any_fill_rate": 1.0
       }
     }
   },
   "schema_version": 3,
-  "generated_at": "2026-09-15T15:47:45+00:00",
-  "measurement_cutoff_60m": "2026-09-15T14:47:45+00:00",
+  "generated_at": "2026-09-15T15:53:23+00:00",
+  "measurement_cutoff_60m": "2026-09-15T14:53:23+00:00",
   "source": "alpaca_api",
   "api_order_limit": 100,
   "lookback_orders": 100,
   "lookback_days": 30,
   "summary": {
-    "orders_seen": 17,
+    "orders_seen": 18,
     "orders_analyzed": 16,
-    "eligible_orders": 17,
-    "slippage_eligible_orders": 17,
+    "eligible_orders": 18,
+    "slippage_eligible_orders": 18,
     "slippage_measured_orders": 16,
-    "slippage_coverage_rate": 0.9412,
+    "slippage_coverage_rate": 0.8889,
     "avg_slippage_bps": -3.61,
     "median_slippage_bps": 0.26,
     "slippage_bad_threshold_bps": 2.0,
     "slippage_bad_count": 4,
     "raw_slippage_bad_count": 8,
     "minor_bad_slippage_count": 4,
-    "adverse_5m_eligible_orders": 16,
+    "adverse_5m_eligible_orders": 17,
     "adverse_5m_measured_orders": 16,
     "adverse_5m_observations": 16,
-    "adverse_5m_coverage_rate": 1.0,
+    "adverse_5m_coverage_rate": 0.9412,
     "adverse_5m_count": 8,
     "adverse_15m_eligible_orders": 16,
     "adverse_15m_measured_orders": 16,
@@ -66,22 +66,22 @@
   },
   "segments": {
     "all_orders": {
-      "orders_seen": 17,
+      "orders_seen": 18,
       "orders_analyzed": 16,
-      "eligible_orders": 17,
-      "slippage_eligible_orders": 17,
+      "eligible_orders": 18,
+      "slippage_eligible_orders": 18,
       "slippage_measured_orders": 16,
-      "slippage_coverage_rate": 0.9412,
+      "slippage_coverage_rate": 0.8889,
       "avg_slippage_bps": -3.61,
       "median_slippage_bps": 0.26,
       "slippage_bad_threshold_bps": 2.0,
       "slippage_bad_count": 4,
       "raw_slippage_bad_count": 8,
       "minor_bad_slippage_count": 4,
-      "adverse_5m_eligible_orders": 16,
+      "adverse_5m_eligible_orders": 17,
       "adverse_5m_measured_orders": 16,
       "adverse_5m_observations": 16,
-      "adverse_5m_coverage_rate": 1.0,
+      "adverse_5m_coverage_rate": 0.9412,
       "adverse_5m_count": 8,
       "adverse_15m_eligible_orders": 16,
       "adverse_15m_measured_orders": 16,
@@ -102,22 +102,22 @@
       "max_worst_adverse_60m_bps": 285.88
     },
     "rebalance_orders": {
-      "orders_seen": 12,
+      "orders_seen": 13,
       "orders_analyzed": 11,
-      "eligible_orders": 12,
-      "slippage_eligible_orders": 12,
+      "eligible_orders": 13,
+      "slippage_eligible_orders": 13,
       "slippage_measured_orders": 11,
-      "slippage_coverage_rate": 0.9167,
+      "slippage_coverage_rate": 0.8462,
       "avg_slippage_bps": 1.64,
       "median_slippage_bps": 0.68,
       "slippage_bad_threshold_bps": 2.0,
       "slippage_bad_count": 4,
       "raw_slippage_bad_count": 8,
       "minor_bad_slippage_count": 4,
-      "adverse_5m_eligible_orders": 11,
+      "adverse_5m_eligible_orders": 12,
       "adverse_5m_measured_orders": 11,
       "adverse_5m_observations": 11,
-      "adverse_5m_coverage_rate": 1.0,
+      "adverse_5m_coverage_rate": 0.9167,
       "adverse_5m_count": 6,
       "adverse_15m_eligible_orders": 11,
       "adverse_15m_measured_orders": 11,
@@ -174,22 +174,22 @@
       "max_worst_adverse_60m_bps": 285.88
     },
     "limit_orders": {
-      "orders_seen": 12,
+      "orders_seen": 13,
       "orders_analyzed": 11,
-      "eligible_orders": 12,
-      "slippage_eligible_orders": 12,
+      "eligible_orders": 13,
+      "slippage_eligible_orders": 13,
       "slippage_measured_orders": 11,
-      "slippage_coverage_rate": 0.9167,
+      "slippage_coverage_rate": 0.8462,
       "avg_slippage_bps": 1.64,
       "median_slippage_bps": 0.68,
       "slippage_bad_threshold_bps": 2.0,
       "slippage_bad_count": 4,
       "raw_slippage_bad_count": 8,
       "minor_bad_slippage_count": 4,
-      "adverse_5m_eligible_orders": 11,
+      "adverse_5m_eligible_orders": 12,
       "adverse_5m_measured_orders": 11,
       "adverse_5m_observations": 11,
-      "adverse_5m_coverage_rate": 1.0,
+      "adverse_5m_coverage_rate": 0.9167,
       "adverse_5m_count": 6,
       "adverse_15m_eligible_orders": 11,
       "adverse_15m_measured_orders": 11,
@@ -287,7 +287,7 @@
       "symbol": "MU",
       "orders": 1,
       "rebalance_orders": 1,
-      "orders_seen": 1,
+      "orders_seen": 2,
       "sample_ready": false,
       "avg_slippage_bps": 1.79,
       "bad_slippage_rate": 0.0,
@@ -369,6 +369,39 @@
     }
   ],
   "orders": [
+    {
+      "order_id": "54dd93b8-d625-408f-bb37-07ab7cbdc3e7",
+      "client_order_id": "20260915_MU_buy_19-r90946596-a2",
+      "filled_at": "2026-09-15T15:53:19+00:00",
+      "symbol": "MU",
+      "side": "buy",
+      "order_type": "limit",
+      "filled_qty": 19.0,
+      "fill_price": 927.438421,
+      "fill_minute_vwap": null,
+      "slippage_bps": null,
+      "adverse_5m_bps": null,
+      "adverse_15m_bps": null,
+      "adverse_30m_bps": null,
+      "adverse_60m_bps": null,
+      "worst_adverse_60m_bps": null,
+      "best_favorable_60m_bps": null,
+      "arrival_mid": 925.685,
+      "arrival_quote_timestamp": "2026-09-15T15:53:00.414806+00:00",
+      "arrival_feed": "unknown",
+      "fill_latency_seconds": 2.201029,
+      "quote_age_seconds": 17.03194,
+      "arrival_shortfall_bps": 18.941875475998888,
+      "original_requested_quantity": 19.0,
+      "arrival_spread_bps": 36.40547270399763,
+      "spread_bucket": "over35bps",
+      "liquidity_bucket": "unknown",
+      "size_bucket": "over10k",
+      "session": "2026-09-15",
+      "parent_client_order_id": "20260915_MU_buy_19-r90946596",
+      "execution_stage": "stage2",
+      "parent_order_id": "20260915_MU_buy_19-r90946596"
+    },
     {
       "order_id": "338ebc71-6161-49f2-a72b-e36e0b992af9",
       "client_order_id": "20260915_FCX_buy_40-r90273238-a1",
@@ -936,14 +969,14 @@
   "measurement_sample_complete": true,
   "arrival_implementation_shortfall": {
     "complete": false,
-    "matched_fills": 3,
+    "matched_fills": 4,
     "missing_arrival_fills": 14,
     "groups": {
       "side": {
         "buy": {
-          "count": 3,
-          "median_bps": -1.4568764568767545,
-          "p95_bps": 9.807061927047055
+          "count": 4,
+          "median_bps": 4.800867089747585,
+          "p95_bps": 17.75938575005542
         }
       },
       "execution_stage": {
@@ -951,6 +984,11 @@
           "count": 3,
           "median_bps": -1.4568764568767545,
           "p95_bps": 9.807061927047055
+        },
+        "stage2": {
+          "count": 1,
+          "median_bps": 18.94187547599957,
+          "p95_bps": 18.94187547599957
         }
       },
       "spread_bucket": {
@@ -963,13 +1001,18 @@
           "count": 1,
           "median_bps": 11.058610636371924,
           "p95_bps": 11.058610636371924
+        },
+        "over35bps": {
+          "count": 1,
+          "median_bps": 18.94187547599957,
+          "p95_bps": 18.94187547599957
         }
       },
       "liquidity_bucket": {
         "unknown": {
-          "count": 3,
-          "median_bps": -1.4568764568767545,
-          "p95_bps": 9.807061927047055
+          "count": 4,
+          "median_bps": 4.800867089747585,
+          "p95_bps": 17.75938575005542
         }
       },
       "size_bucket": {
@@ -979,9 +1022,9 @@
           "p95_bps": 10.43283628170949
         },
         "over10k": {
-          "count": 1,
-          "median_bps": -8.890748391821024,
-          "p95_bps": -8.890748391821024
+          "count": 2,
+          "median_bps": 5.025563542089273,
+          "p95_bps": 17.55024428260854
         }
       },
       "session": {
@@ -991,13 +1034,47 @@
           "p95_bps": -8.890748391821024
         },
         "2026-09-15": {
-          "count": 2,
-          "median_bps": 4.800867089747585,
-          "p95_bps": 10.43283628170949
+          "count": 3,
+          "median_bps": 11.058610636371924,
+          "p95_bps": 18.153548992036804
         }
       }
     },
     "fills": [
+      {
+        "order_id": "54dd93b8-d625-408f-bb37-07ab7cbdc3e7",
+        "client_order_id": "20260915_MU_buy_19-r90946596-a2",
+        "filled_at": "2026-09-15T15:53:19+00:00",
+        "symbol": "MU",
+        "side": "buy",
+        "order_type": "limit",
+        "filled_qty": 19.0,
+        "fill_price": 927.438421,
+        "fill_minute_vwap": NaN,
+        "slippage_bps": NaN,
+        "adverse_5m_bps": NaN,
+        "adverse_15m_bps": NaN,
+        "adverse_30m_bps": NaN,
+        "adverse_60m_bps": NaN,
+        "worst_adverse_60m_bps": NaN,
+        "best_favorable_60m_bps": NaN,
+        "arrival_mid": 925.685,
+        "arrival_quote_timestamp": "2026-09-15T15:53:00.414806+00:00",
+        "arrival_feed": "unknown",
+        "fill_latency_seconds": 2.201029,
+        "quote_age_seconds": 17.03194,
+        "arrival_shortfall_bps": 18.941875475998888,
+        "original_requested_quantity": 19.0,
+        "arrival_spread_bps": 36.40547270399763,
+        "spread_bucket": "over35bps",
+        "liquidity_bucket": "unknown",
+        "size_bucket": "over10k",
+        "session": "2026-09-15",
+        "parent_client_order_id": "20260915_MU_buy_19-r90946596",
+        "execution_stage": "stage2",
+        "parent_order_id": "20260915_MU_buy_19-r90946596",
+        "shortfall_bps": 18.94187547599957
+      },
       {
         "order_id": "338ebc71-6161-49f2-a72b-e36e0b992af9",
         "client_order_id": "20260915_FCX_buy_40-r90273238-a1",
@@ -1104,8 +1181,8 @@
   },
   "parent_execution": {
     "complete": false,
-    "parent_count": 21,
-    "child_order_count": 23,
+    "parent_count": 23,
+    "child_order_count": 26,
     "parents": [
       {
         "parent_order_id": "20260826_COP_sell_131",
@@ -1252,6 +1329,18 @@
         "filled_children": 1
       },
       {
+        "parent_order_id": "20260915_MU_buy_19-r90946596",
+        "child_orders": 2,
+        "filled_quantity": 19.0,
+        "original_requested_quantity": 19.0,
+        "unfilled_quantity": 0.0,
+        "quantity_complete": true,
+        "opportunity_cost_dollars": 0.0,
+        "opportunity_cost_complete": true,
+        "canceled_children": 1,
+        "filled_children": 1
+      },
+      {
         "parent_order_id": "3069979a-1a22-4219-ae17-0df35ea5be3d",
         "child_orders": 1,
         "filled_quantity": 208.0,
@@ -1337,6 +1426,18 @@
       },
       {
         "parent_order_id": "a825b36b-69fb-4cdc-b78b-11ad4a85c80b",
+        "child_orders": 1,
+        "filled_quantity": 0.0,
+        "original_requested_quantity": null,
+        "unfilled_quantity": null,
+        "quantity_complete": false,
+        "opportunity_cost_dollars": null,
+        "opportunity_cost_complete": false,
+        "canceled_children": 0,
+        "filled_children": 0
+      },
+      {
+        "parent_order_id": "b549c953-14a9-40c5-b59a-10ece42a7cd9",
         "child_orders": 1,
         "filled_quantity": 0.0,
         "original_requested_quantity": null,

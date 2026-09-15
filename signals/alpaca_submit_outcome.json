@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "run_id": "github-34990273238",
-  "generated_at": "2026-09-15T15:47:44+00:00",
+  "run_id": "github-34990946596",
+  "generated_at": "2026-09-15T15:53:22+00:00",
   "status": "executed",
   "reason_code": "orders_accepted",
   "market_open": null,
-  "planned_orders": 2,
+  "planned_orders": 1,
   "submitted_orders": 1,
   "accepted_orders": 1,
   "filled_orders": 1,
   "open_orders": 0,
-  "skipped_orders": 1,
+  "skipped_orders": 0,
   "rejected_orders": 0,
   "failed_orders": 0,
   "account_alignment": {
@@ -21,6 +21,6 @@
   },
   "errors": [],
   "order_statuses": {
-    "338ebc71-6161-49f2-a72b-e36e0b992af9": "filled"
+    "54dd93b8-d625-408f-bb37-07ab7cbdc3e7": "filled"
   }
 }

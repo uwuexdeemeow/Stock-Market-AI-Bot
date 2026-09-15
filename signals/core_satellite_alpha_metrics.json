@@ -63,7 +63,7 @@
   "vol_target": 0.0,
   "live_config_source": "nested_walkforward",
   "live_config_source_json": "signals\\core_satellite_nested_walkforward.json",
-  "total_return_pct": 4875.29,
+  "total_return_pct": 4875.28,
   "cagr_pct": 26.56,
   "sharpe": 1.364,
   "max_drawdown_pct": -21.3,
