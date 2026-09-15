@@ -463,6 +463,11 @@ def _status_bucket(row: pd.Series) -> str:
     """Classify one log row into accepted, failed, skipped, filled, or open."""
     status = str(row.get("fill_status", "") or "").strip().lower()
     order_id = str(row.get("order_id", "") or "").strip()
+    # Alpaca created no broker order for this historical ID collision. The
+    # run-specific recovery-ID repair supersedes it, so retain it as an
+    # auditable skip instead of treating it as a current account-truth failure.
+    if status == "submission_failed" and "client_order_id must be unique" in order_id.lower():
+        return "skipped"
     if order_id.startswith("ERROR") or status in {"submission_failed", "rejected", "failed"}:
         return "failed"
     if order_id.startswith("SKIPPED") or status == "skipped":

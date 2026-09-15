@@ -16,6 +16,20 @@ def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
+def test_status_bucket_keeps_only_superseded_client_id_failure_noncritical():
+    superseded = pd.Series({
+        "order_id": "ERROR: client_order_id must be unique",
+        "fill_status": "submission_failed",
+    })
+    generic = pd.Series({
+        "order_id": "ERROR: broker rejected request",
+        "fill_status": "submission_failed",
+    })
+
+    assert broker_truth._status_bucket(superseded) == "skipped"
+    assert broker_truth._status_bucket(generic) == "failed"
+
+
 def test_broker_truth_flags_failed_order_and_missing_stop(tmp_path):
     signal_path = tmp_path / "signal.csv"
     plan_path = tmp_path / "orders.csv"

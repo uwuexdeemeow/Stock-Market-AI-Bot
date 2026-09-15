@@ -18,7 +18,8 @@ cancellations and rejections remain fill problems and still block trading.
 The historical `client_order_id must be unique` submission failure is excluded
 after the run-specific recovery-ID repair: Alpaca rejected it before creating a
 broker order, so there is no fill to verify. Other submission failures remain
-blocking problems.
+blocking problems. Broker-truth uses the same narrow classification so its
+pre-submit gate does not re-block the repaired recovery order.
 
 The monitor accepts the current Alpaca paper log shape (`side`, `quantity`,
 `filled_qty`) as well as older logs that used `action`, `broker_qty`, and
