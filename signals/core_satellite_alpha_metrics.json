@@ -63,18 +63,18 @@
   "vol_target": 0.0,
   "live_config_source": "nested_walkforward",
   "live_config_source_json": "signals\\core_satellite_nested_walkforward.json",
-  "total_return_pct": 4774.66,
-  "cagr_pct": 26.4,
-  "sharpe": 1.358,
-  "max_drawdown_pct": -21.45,
-  "turnover_pct": 4475.19,
-  "estimated_cost_pct": 8.9504,
+  "total_return_pct": 4875.28,
+  "cagr_pct": 26.56,
+  "sharpe": 1.364,
+  "max_drawdown_pct": -21.3,
+  "turnover_pct": 4506.15,
+  "estimated_cost_pct": 9.0123,
   "avg_gross_exposure": 0.946,
   "avg_overlay_positions": 3.0,
-  "avg_effective_overlay_names": 2.605,
+  "avg_effective_overlay_names": 2.612,
   "max_sector_overlay_weight": 0.3677,
   "top_ticker_overlay_contributor": "NVDA",
-  "top_ticker_overlay_contribution_share": 0.203,
+  "top_ticker_overlay_contribution_share": 0.223,
   "n_rebalances": 209,
   "boundary_mode": "full_history",
   "evaluation_trade_start": "2010-01-04",
@@ -91,18 +91,18 @@
   "benchmark_comparisons": {
     "SPY": {
       "benchmark_return_pct": 807.38,
-      "alpha_pct": 3967.27,
-      "nw_tstat_vs_benchmark": 4.239
+      "alpha_pct": 4067.9,
+      "nw_tstat_vs_benchmark": 4.321
     },
     "QQQ": {
       "benchmark_return_pct": 1682.79,
-      "alpha_pct": 3091.87,
-      "nw_tstat_vs_benchmark": 2.573
+      "alpha_pct": 3192.49,
+      "nw_tstat_vs_benchmark": 2.652
     },
     "BLEND": {
       "benchmark_return_pct": 1157.54,
-      "alpha_pct": 3617.11,
-      "nw_tstat_vs_benchmark": 3.707
+      "alpha_pct": 3717.73,
+      "nw_tstat_vs_benchmark": 3.799
     }
   },
   "benchmark_stats": {
@@ -128,57 +128,57 @@
   "subperiods": {
     "2015_2019": {
       "data_available": true,
-      "return_pct": 168.43,
+      "return_pct": 172.12,
       "benchmark_return_pct": 90.35,
-      "alpha_pct": 78.08
+      "alpha_pct": 81.77
     },
     "2020_2021": {
       "data_available": true,
-      "return_pct": 127.37,
+      "return_pct": 127.49,
       "benchmark_return_pct": 68.04,
-      "alpha_pct": 59.32
+      "alpha_pct": 59.44
     },
     "2022": {
       "data_available": true,
-      "return_pct": -9.26,
+      "return_pct": -9.38,
       "benchmark_return_pct": -15.85,
-      "alpha_pct": 6.59
+      "alpha_pct": 6.48
     },
     "2023_2026": {
       "data_available": true,
-      "return_pct": 216.63,
+      "return_pct": 215.47,
       "benchmark_return_pct": 131.18,
-      "alpha_pct": 85.45
+      "alpha_pct": 84.29
     }
   },
   "holdout_2023_2026": {
     "data_available": true,
-    "strategy_return_pct": 216.63,
+    "strategy_return_pct": 215.47,
     "spy_return_pct": 101.41,
-    "alpha_vs_spy_pct": 115.22,
+    "alpha_vs_spy_pct": 114.06,
     "qqq_return_pct": 160.59,
-    "alpha_vs_qqq_pct": 56.04,
+    "alpha_vs_qqq_pct": 54.89,
     "blend_return_pct": 131.18,
-    "alpha_vs_blend_pct": 85.45
+    "alpha_vs_blend_pct": 84.29
   },
   "yearly_alpha_pct": {
     "2010": -0.79,
     "2011": -3.43,
-    "2012": 13.52,
+    "2012": 13.53,
     "2013": 6.74,
-    "2014": 16.87,
+    "2014": 16.81,
     "2015": -3.14,
-    "2016": 33.79,
+    "2016": 33.44,
     "2017": 12.26,
-    "2018": -2.72,
-    "2019": 2.78,
-    "2020": 29.48,
+    "2018": -2.4,
+    "2019": 4.51,
+    "2020": 29.56,
     "2021": 19.5,
-    "2022": 9.75,
-    "2023": 6.76,
-    "2024": 27.77,
+    "2022": 9.64,
+    "2023": 7.95,
+    "2024": 27.73,
     "2025": -2.85,
-    "2026": 12.88
+    "2026": 12.84
   },
   "cost_stress": 2.0,
   "core_satellite_gate_results": {
@@ -191,7 +191,7 @@
   },
   "feature_health_gate_pass": true,
   "feature_health_gate_reasons": [],
-  "raw_feature_count": 38,
+  "raw_feature_count": 36,
   "active_cluster_count": 7,
   "effective_cluster_count": 7,
   "quarantined_features": [
@@ -639,30 +639,6 @@
       "recent_vs_full_ratio": null,
       "effective_weight": 0.142857,
       "contributes_to_score": true
-    },
-    {
-      "feature": "rsi_14",
-      "preferred_direction": "low_is_good",
-      "t_stat": -3.256231633701744,
-      "mean_ic": -0.0063327553050076,
-      "cluster_id": "cluster_02",
-      "canonical_root": "rsi_14",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": null,
-      "effective_weight": 0.142857,
-      "contributes_to_score": true
-    },
-    {
-      "feature": "xs_rank_market_rsi_14",
-      "preferred_direction": "low_is_good",
-      "t_stat": -3.256231633701744,
-      "mean_ic": -0.0063327553050076,
-      "cluster_id": "cluster_02",
-      "canonical_root": "rsi_14",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": null,
-      "effective_weight": 0.142857,
-      "contributes_to_score": true
     }
   ],
   "grid_rows": 0,
@@ -747,7 +723,7 @@
     "year_alpha_concentration_pass": true,
     "turnover_adjusted_alpha_pass": true,
     "drawdown_vs_qqq_pass": true,
-    "max_positive_year_alpha_share": 0.176,
+    "max_positive_year_alpha_share": 0.172,
     "holdout_2023_2026_vs_qqq_pass": true,
     "holdout_2023_2026_vs_blend_pass": true,
     "single_name_weight_cap_pass": true,

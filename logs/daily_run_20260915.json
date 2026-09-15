@@ -1,0 +1,171 @@
+{
+  "timestamp": "2026-09-15T13:36:18.766987",
+  "run_id": "github-34975933092",
+  "mode": "daily_run",
+  "steps_total": 20,
+  "steps_ok": 17,
+  "steps_no_action": 0,
+  "steps_failed": 3,
+  "total_elapsed_seconds": 272.6,
+  "results": [
+    {
+      "name": "refresh_etf_data",
+      "status": "ok",
+      "elapsed": 11.0
+    },
+    {
+      "name": "fill_monitor",
+      "status": "ok",
+      "elapsed": 0.5
+    },
+    {
+      "name": "broker_health",
+      "status": "ok",
+      "elapsed": 1.0
+    },
+    {
+      "name": "factor_data_health",
+      "status": "ok",
+      "elapsed": 1.6
+    },
+    {
+      "name": "drift_monitor",
+      "status": "ok",
+      "elapsed": 0.4
+    },
+    {
+      "name": "core_satellite_signal",
+      "status": "ok",
+      "elapsed": 208.1
+    },
+    {
+      "name": "regime_monitor",
+      "status": "ok",
+      "elapsed": 0.5
+    },
+    {
+      "name": "alpaca_submit",
+      "status": "failed",
+      "exit_code": 1,
+      "elapsed": 34.1,
+      "stderr_tail": "",
+      "execution_outcome": {
+        "schema_version": 1,
+        "run_id": "github-34975933092",
+        "generated_at": "2026-09-15T13:40:35+00:00",
+        "status": "failed",
+        "reason_code": "partial_or_rejected_submission",
+        "market_open": null,
+        "planned_orders": 3,
+        "submitted_orders": 2,
+        "accepted_orders": 2,
+        "filled_orders": 1,
+        "open_orders": 0,
+        "skipped_orders": 1,
+        "rejected_orders": 1,
+        "failed_orders": 0,
+        "account_alignment": {
+          "status": "warning",
+          "score": 90.0,
+          "fail_count": 0,
+          "warning_count": 2
+        },
+        "errors": [],
+        "order_statuses": {
+          "36c11e0b-949d-477a-a8db-ac62f4517556": "canceled",
+          "1ce1e093-ff82-4474-80f9-1ef225806acb": "filled"
+        }
+      }
+    },
+    {
+      "name": "alpaca_reconcile",
+      "status": "ok",
+      "elapsed": 3.3,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "alpaca_execution_guard",
+      "status": "ok",
+      "elapsed": 1.7,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "broker_truth",
+      "status": "failed",
+      "exit_code": 1,
+      "elapsed": 1.3,
+      "stderr_tail": "",
+      "alignment": {
+        "status": "fail",
+        "passed": false,
+        "reason": "max_weight_gap_0.174486_above_0.020000;gross_exposure_gap_0.206590_above_0.050000",
+        "comparable_tickers": 6,
+        "maximum_target_weight_gap": 0.174486,
+        "current_gross_exposure": 0.79341,
+        "target_gross_exposure": 1.0,
+        "gross_exposure_gap": 0.20659,
+        "weight_tolerance": 0.02,
+        "gross_exposure_tolerance": 0.05,
+        "active_rebalance_order_count": 0,
+        "waited_seconds": 0.0
+      },
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "alpaca_paper_health",
+      "status": "ok",
+      "elapsed": 2.3,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "alpaca_execution_scorecard",
+      "status": "ok",
+      "elapsed": 0.7,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "execution_cost_calibration",
+      "status": "ok",
+      "elapsed": 0.6,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "alpaca_gauntlet",
+      "status": "ok",
+      "elapsed": 1.2,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "paper_validation_epoch",
+      "status": "ok",
+      "elapsed": 1.0,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "monitor_heartbeat",
+      "status": "ok",
+      "elapsed": 0.5,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "canonical_paper_readiness",
+      "status": "failed",
+      "exit_code": 1,
+      "elapsed": 2.2,
+      "stderr_tail": "",
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "paper_evidence_manifest",
+      "status": "ok",
+      "elapsed": 0.5,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "log_cleanup",
+      "status": "ok",
+      "elapsed": 0.1,
+      "upstream_blocked_by": "alpaca_submit"
+    }
+  ]
+}
