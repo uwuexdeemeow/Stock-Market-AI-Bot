@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "frozen_at": "2026-09-15T15:24:05+00:00",
+  "frozen_at": "2026-09-15T15:30:29+00:00",
   "epoch_id": "paper-v20260910T045130Z",
   "epoch_started_at": "2026-09-10T04:51:30+00:00",
-  "git_commit_at_freeze": "20a7d38a59f0526242d5c888585d4fcaa2492f1d",
-  "logic_fingerprint": "b04bd96683ff45f397cc48ae3c96bf33b5ad4fb081ada0f9f458ce2358b24449",
+  "git_commit_at_freeze": "268204bd5ec77dbd6eeef6c0b6cab571b12633df",
+  "logic_fingerprint": "233d7830466ac8f89c6baf676537fb0edddb02fb5f5a5d3864e693798db79b52",
   "files": {
     ".github/workflows/daily_paper_trading.yml": "3d4d42245f5a038522fb35cf9c3f348e1a8a489c35de49cfbde8d1d56658b963",
     ".github/workflows/factor_data_refresh.yml": "f2662dea677f9cbd17e945de3c4dd5cae95506c41bd8fe2c032a4da8359f3328",
@@ -25,7 +25,7 @@
     "execution_scorecard.py": "91d076144906470927f58c1024e1f81d225ba7009f6b333135587645b12ddd47",
     "factor_data_health.py": "1ec2f587b45c862f25dcd17743524de0637a8d4d2372d91f4f79088e1ac676f0",
     "feature_health.py": "539554d4f4fae0cda74952a4229746c76ee9477c021902ba564acaba5c69fd81",
-    "fill_monitor.py": "c563c5fca8ed6a2546973e330dac4c845eedd226f7420e467b76b11de7663958",
+    "fill_monitor.py": "b479491a64c02ef7fecfe88c4e0695009dda6af92213eb5d05e01ff93412799c",
     "fractional_shadow_paper.py": "3a5d5bfaebef9bddfc262497f34c5096ceee5bba8bc11345b84db5905bed7a8c",
     "monitor_heartbeat.py": "843f7e7a345b69ebcec03e22004bcb596db48cb1802499250d73c1fac1f24fa2",
     "order_accounting.py": "bee3e3f39af187593f9f9bae23df1b4aaf3bcf764ae7a2842119900f5e6d0562",
