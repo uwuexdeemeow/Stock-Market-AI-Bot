@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-09-15T13:40:48+00:00",
+  "checked_at": "2026-09-15T15:20:37+00:00",
   "max_age_hours": 36,
   "all_ok": true,
   "stale_monitors": [],
@@ -61,13 +61,13 @@
     "resolved_incident_ids": []
   },
   "run_context": {
-    "run_id": "github-34975933092",
-    "generated_at": "2026-09-15T13:40:48+00:00",
+    "run_id": "github-34987308361",
+    "generated_at": "2026-09-15T15:20:37+00:00",
     "signal_as_of": "",
-    "git_commit": "02e4b3bb3c0a58d0c567327bfbf39c3a4fd0bcec",
-    "configuration_fingerprint": "6abf102cf21618361187aae18ab7b376511f5464a5002a7bb1d6b9aa522f9738",
-    "paper_version_fingerprint": "d953f6012cbd13b7501d530035943228dbc486955aa13c3f7a3f4a19227ec76b",
+    "git_commit": "4a59dbfd25649aee46d67a2908530bfa4dc34207",
+    "configuration_fingerprint": "33c269c626e1fbbfa531a20c522a614eee7d4c3b8756a09e9df790912bba3c76",
+    "paper_version_fingerprint": "3161a6a43188cc178176cb47e2405c1bea5dfeb0c20286b4326702fee1f8691a",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "github-34975933092"
+  "run_id": "github-34987308361"
 }

@@ -1,24 +1,24 @@
 {
   "schema_version": 3,
-  "generated_at": "2026-09-15T13:40:44+00:00",
-  "measurement_cutoff_60m": "2026-09-15T12:40:44.944715+00:00",
+  "generated_at": "2026-09-15T15:20:34+00:00",
+  "measurement_cutoff_60m": "2026-09-15T14:20:34.865504+00:00",
   "status": "collecting",
   "score": 100.0,
   "decision_eligible": false,
   "decision_blockers": [
-    "slippage_sample_10_below_20",
-    "adverse_15m_sample_10_below_20",
-    "adverse_60m_sample_9_below_20"
+    "slippage_sample_11_below_20",
+    "adverse_15m_sample_11_below_20",
+    "adverse_60m_sample_10_below_20"
   ],
   "lookback_days": 30,
   "summary": {
-    "paper_log_rows": 14,
+    "paper_log_rows": 16,
     "unmatched_broker_fill_count": 0,
     "unmatched_broker_fill_ids": [],
     "accepted_orders": 11,
     "filled_orders": 10,
     "any_filled_orders": 10,
-    "skipped_orders": 3,
+    "skipped_orders": 4,
     "fill_rate": 0.9091,
     "complete_fill_rate": 0.9091,
     "any_fill_rate": 0.9091,
@@ -30,57 +30,57 @@
     "child_attempts": 13,
     "unclassifiable_order_rows": 0,
     "unclassifiable_logical_orders": 0,
-    "skipped_rate": 0.2143,
+    "skipped_rate": 0.25,
     "orders_seen": 11,
     "eligible_orders": 11,
-    "measured_slippage_count": 10,
+    "measured_slippage_count": 11,
     "slippage_eligible_orders": 11,
-    "slippage_measured_orders": 10,
-    "slippage_coverage_rate": 0.9091,
+    "slippage_measured_orders": 11,
+    "slippage_coverage_rate": 1.0,
     "trading_sessions": 4,
-    "avg_slippage_bps": 1.042,
-    "median_slippage_bps": 0.65,
-    "p75_slippage_bps": 2.21,
-    "worst_slippage_bps": 5.8,
+    "avg_slippage_bps": 1.64,
+    "median_slippage_bps": 0.68,
+    "p75_slippage_bps": 2.435,
+    "worst_slippage_bps": 7.62,
     "mean_slippage_95ci_bps": [
-      -0.429,
-      2.513
+      -0.133,
+      3.413
     ],
-    "bad_slippage_count": 3,
-    "bad_slippage_rate": 0.3,
+    "bad_slippage_count": 4,
+    "bad_slippage_rate": 0.3636,
     "bad_slippage_threshold_bps": 2.0,
-    "raw_bad_slippage_count": 7,
-    "raw_bad_slippage_rate": 0.7,
+    "raw_bad_slippage_count": 8,
+    "raw_bad_slippage_rate": 0.7273,
     "minor_bad_slippage_count": 4,
     "adverse_15m_count": 3,
-    "adverse_15m_observations": 10,
-    "adverse_15m_eligible_orders": 10,
-    "adverse_15m_measured_orders": 10,
+    "adverse_15m_observations": 11,
+    "adverse_15m_eligible_orders": 11,
+    "adverse_15m_measured_orders": 11,
     "adverse_15m_coverage_rate": 1.0,
-    "adverse_15m_rate": 0.3,
-    "adverse_60m_count": 0,
-    "adverse_60m_observations": 9,
-    "adverse_60m_eligible_orders": 10,
-    "adverse_60m_measured_orders": 9,
-    "adverse_60m_coverage_rate": 0.9,
-    "adverse_60m_rate": 0.0,
-    "orders_analyzed": 10,
-    "limit_avg_slippage_bps": 1.042,
+    "adverse_15m_rate": 0.2727,
+    "adverse_60m_count": 1,
+    "adverse_60m_observations": 10,
+    "adverse_60m_eligible_orders": 11,
+    "adverse_60m_measured_orders": 10,
+    "adverse_60m_coverage_rate": 0.9091,
+    "adverse_60m_rate": 0.1,
+    "orders_analyzed": 11,
+    "limit_avg_slippage_bps": 1.64,
     "market_avg_slippage_bps": null,
     "limit_vs_market_delta_bps": null,
     "source": "alpaca_api",
     "latest_run_coverage": {
       "run_date_new_york": "2026-09-15",
       "eligible_orders": 1,
-      "slippage_measured_orders": 0,
-      "adverse_15m_measured_orders": 0,
-      "adverse_60m_measured_orders": 0
+      "slippage_measured_orders": 1,
+      "adverse_15m_measured_orders": 1,
+      "adverse_60m_measured_orders": 1
     },
-    "slippage_delta_vs_prior_scorecard_bps": 0.0
+    "slippage_delta_vs_prior_scorecard_bps": 0.598
   },
   "sample_gate": {
     "ready": false,
-    "measured_rebalance_fills": 10,
+    "measured_rebalance_fills": 11,
     "minimum_rebalance_fills": 20,
     "minimum_definitive_fills": 20,
     "rebalance_sessions": 4,
@@ -123,10 +123,10 @@
   },
   "entry_timing": {
     "status": "advisory",
-    "adverse_15m_rate": 0.3,
-    "adverse_15m_observations": 10,
-    "adverse_60m_rate": 0.0,
-    "adverse_60m_observations": 9,
+    "adverse_15m_rate": 0.2727,
+    "adverse_15m_observations": 11,
+    "adverse_60m_rate": 0.1,
+    "adverse_60m_observations": 10,
     "note": "Post-fill movement measures entry timing, not fill quality."
   },
   "diagnostics": {
@@ -150,11 +150,11 @@
       },
       {
         "group": "INTC",
-        "samples": 4,
-        "mean_bps": -0.097,
-        "median_bps": 0.325,
-        "p75_bps": 1.098,
-        "worst_bps": 2.35
+        "samples": 5,
+        "mean_bps": 1.446,
+        "median_bps": 0.68,
+        "p75_bps": 2.35,
+        "worst_bps": 7.62
       },
       {
         "group": "MU",
@@ -184,11 +184,11 @@
     "by_side": [
       {
         "group": "buy",
-        "samples": 8,
-        "mean_bps": 1.292,
-        "median_bps": 1.235,
-        "p75_bps": 2.393,
-        "worst_bps": 5.8
+        "samples": 9,
+        "mean_bps": 1.996,
+        "median_bps": 1.79,
+        "p75_bps": 2.52,
+        "worst_bps": 7.62
       },
       {
         "group": "sell",
@@ -210,11 +210,11 @@
       },
       {
         "group": "stage1",
-        "samples": 2,
-        "mean_bps": 0.325,
-        "median_bps": 0.325,
-        "p75_bps": 0.503,
-        "worst_bps": 0.68
+        "samples": 3,
+        "mean_bps": 2.757,
+        "median_bps": 0.68,
+        "p75_bps": 4.15,
+        "worst_bps": 7.62
       },
       {
         "group": "stage2",
@@ -228,24 +228,32 @@
     "by_order_type": [
       {
         "group": "limit",
-        "samples": 10,
-        "mean_bps": 1.042,
-        "median_bps": 0.65,
-        "p75_bps": 2.21,
-        "worst_bps": 5.8
+        "samples": 11,
+        "mean_bps": 1.64,
+        "median_bps": 0.68,
+        "p75_bps": 2.435,
+        "worst_bps": 7.62
       }
     ],
     "by_spread_band": [
       {
         "group": "unknown",
-        "samples": 10,
-        "mean_bps": 1.042,
-        "median_bps": 0.65,
-        "p75_bps": 2.21,
-        "worst_bps": 5.8
+        "samples": 11,
+        "mean_bps": 1.64,
+        "median_bps": 0.68,
+        "p75_bps": 2.435,
+        "worst_bps": 7.62
       }
     ],
     "by_quote_age_band": [
+      {
+        "group": "5-30s",
+        "samples": 1,
+        "mean_bps": 7.62,
+        "median_bps": 7.62,
+        "p75_bps": 7.62,
+        "worst_bps": 7.62
+      },
       {
         "group": "<= 5s",
         "samples": 1,
@@ -266,23 +274,21 @@
     "by_fill_latency_band": [
       {
         "group": "<= 30s",
-        "samples": 10,
-        "mean_bps": 1.042,
-        "median_bps": 0.65,
-        "p75_bps": 2.21,
-        "worst_bps": 5.8
+        "samples": 11,
+        "mean_bps": 1.64,
+        "median_bps": 0.68,
+        "p75_bps": 2.435,
+        "worst_bps": 7.62
       }
     ],
     "missing_measurement_reasons": {
-      "missing_reference_or_fill_price": 1,
-      "adverse_15m_bps_not_observed": 1,
-      "adverse_60m_bps_not_observed": 2
+      "adverse_60m_bps_not_observed": 1
     },
     "note": "Diagnostics are observation-only and do not tune live order parameters."
   },
   "calibration_advisory": {
     "status": "collecting",
-    "measured_rebalance_fills": 10,
+    "measured_rebalance_fills": 11,
     "minimum_samples": 20,
     "may_change_live_parameters": false,
     "requires_new_epoch_if_applied": true
@@ -292,18 +298,18 @@
       "orders": 5,
       "filled_orders": 2,
       "any_filled_orders": 3,
-      "measured_fills": 2,
+      "measured_fills": 3,
       "fill_rate": 0.4,
       "fill_rate_reason": "complete_submission_population",
-      "avg_slippage_bps": 0.325,
-      "median_slippage_bps": 0.325,
-      "material_bad_rate": 0.0,
+      "avg_slippage_bps": 2.757,
+      "median_slippage_bps": 0.68,
+      "material_bad_rate": 0.3333,
       "avg_fill_latency_seconds": 9.98,
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 0.6,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-08-16T13:40:37.835081+00:00",
-      "denominator_end": "2026-09-15T13:40:37.696115+00:00"
+      "denominator_start": "2026-08-16T15:20:30.780099+00:00",
+      "denominator_end": "2026-09-15T15:20:30.742686+00:00"
     },
     "stage2": {
       "orders": 2,
@@ -319,8 +325,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 1.0,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-08-16T13:40:37.835081+00:00",
-      "denominator_end": "2026-09-15T13:40:37.696115+00:00"
+      "denominator_start": "2026-08-16T15:20:30.780099+00:00",
+      "denominator_end": "2026-09-15T15:20:30.742686+00:00"
     }
   },
   "throttle": {
@@ -337,7 +343,7 @@
     {
       "name": "avg_slippage_bps",
       "status": "pass",
-      "value": 1.042,
+      "value": 1.64,
       "threshold": 10.0,
       "operator": "<=",
       "reason": "ok"
@@ -345,7 +351,7 @@
     {
       "name": "bad_slippage_rate",
       "status": "pass",
-      "value": 0.3,
+      "value": 0.3636,
       "threshold": 0.6,
       "operator": "<=",
       "reason": "ok"
@@ -361,7 +367,7 @@
     {
       "name": "skipped_rate",
       "status": "pass",
-      "value": 0.2143,
+      "value": 0.25,
       "threshold": 0.35,
       "operator": "<=",
       "reason": "ok"
@@ -391,13 +397,13 @@
     "previous_scorecard": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json"
   },
   "run_context": {
-    "run_id": "github-34975933092",
-    "generated_at": "2026-09-15T13:40:44+00:00",
+    "run_id": "github-34987308361",
+    "generated_at": "2026-09-15T15:20:34+00:00",
     "signal_as_of": "",
-    "git_commit": "02e4b3bb3c0a58d0c567327bfbf39c3a4fd0bcec",
-    "configuration_fingerprint": "6abf102cf21618361187aae18ab7b376511f5464a5002a7bb1d6b9aa522f9738",
-    "paper_version_fingerprint": "d953f6012cbd13b7501d530035943228dbc486955aa13c3f7a3f4a19227ec76b",
+    "git_commit": "4a59dbfd25649aee46d67a2908530bfa4dc34207",
+    "configuration_fingerprint": "33c269c626e1fbbfa531a20c522a614eee7d4c3b8756a09e9df790912bba3c76",
+    "paper_version_fingerprint": "3161a6a43188cc178176cb47e2405c1bea5dfeb0c20286b4326702fee1f8691a",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "github-34975933092"
+  "run_id": "github-34987308361"
 }

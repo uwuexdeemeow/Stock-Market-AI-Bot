@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-15T13:36:30+00:00",
+  "checked_at": "2026-09-15T15:17:33+00:00",
   "lookback_days": 2,
   "status": "ok",
-  "total_checked": 1,
-  "filled": 1,
+  "total_checked": 2,
+  "filled": 2,
   "cancelled": 0,
   "partial": 0,
   "unknown": 0,
