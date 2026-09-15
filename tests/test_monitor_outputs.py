@@ -82,6 +82,33 @@ def test_fill_monitor_excludes_intentionally_skipped_safety_orders(tmp_path, mon
     assert result["problems"] == []
 
 
+def test_fill_monitor_excludes_only_verified_stage2_spread_cancellations(tmp_path, monkeypatch):
+    """A deliberate spread cancellation is safe; a generic cancel still blocks."""
+    signal_dir = tmp_path / "signals"
+    signal_dir.mkdir()
+    trade_path = signal_dir / "alpaca_paper_log.csv"
+    now = datetime.now(timezone.utc).isoformat()
+    trade_path.write_text(
+        "\n".join([
+            "submitted_at,order_id,ticker,side,quantity,fill_status,execution_stage,stage2_block_reason",
+            f"{now},safe-cancel,FCX,buy,40,canceled,stage2_blocked,spread_guard:6.07%>0.5%",
+            f"{now},ordinary-cancel,MU,buy,20,canceled,stage1,",
+            f"{now},filled-order,INTC,buy,20,filled,stage1,",
+        ]),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(fill_monitor, "PAPER_TRADES_FILE", trade_path)
+    result = fill_monitor.check_recent_fills(lookback_days=2, quiet=True)
+
+    assert result["status"] == "warning"
+    assert result["total_checked"] == 2
+    assert result["filled"] == 1
+    assert result["cancelled"] == 1
+    assert result["fill_rate"] == 50.0
+    assert [problem["ticker"] for problem in result["problems"]] == ["MU"]
+
+
 def test_monitor_heartbeat_finds_daily_run_fill_stub(tmp_path, monkeypatch):
     signal_dir = tmp_path / "signals_abs"
     log_dir = tmp_path / "logs_abs"

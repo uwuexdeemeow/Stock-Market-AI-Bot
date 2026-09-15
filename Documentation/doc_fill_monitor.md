@@ -10,6 +10,11 @@ An order recorded as `skipped` by a pre-submit safety guard was never sent to
 the broker. These audit rows are excluded from fill counts and fill-rate
 calculations instead of being mislabeled as unknown fills.
 
+A first-stage limit that is deliberately cancelled after its refreshed quote
+breaches the spread guard is also excluded when the log explicitly records
+`execution_stage=stage2_blocked` and a `spread_guard:` reason. Generic broker
+cancellations and rejections remain fill problems and still block trading.
+
 The monitor accepts the current Alpaca paper log shape (`side`, `quantity`,
 `filled_qty`) as well as older logs that used `action`, `broker_qty`, and
 `broker_dealt_qty`.

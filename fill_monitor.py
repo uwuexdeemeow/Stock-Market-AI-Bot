@@ -185,7 +185,28 @@ def check_recent_fills(*, lookback_days: int = 1, quiet: bool = False) -> dict:
         order_id_text = recent["order_id"].astype(str).str.upper().str.strip()
     else:
         order_id_text = pd.Series("", index=recent.index)
-    submitted_mask = ~fill_text.eq("skipped") & ~order_id_text.str.startswith("SKIPPED:")
+    # A two-stage order can be accepted, then deliberately cancelled when the
+    # refreshed quote becomes unsafe. That is a verified safety outcome, not an
+    # unexplained fill failure. Exclude only the narrowly recorded spread-guard
+    # case; ordinary broker cancellations and rejections still block trading.
+    if "execution_stage" in recent.columns:
+        stage_text = recent["execution_stage"].astype(str).str.lower().str.strip()
+    else:
+        stage_text = pd.Series("", index=recent.index)
+    if "stage2_block_reason" in recent.columns:
+        stage2_reason_text = recent["stage2_block_reason"].astype(str).str.lower().str.strip()
+    else:
+        stage2_reason_text = pd.Series("", index=recent.index)
+    expected_spread_cancel = (
+        fill_text.isin(["canceled", "cancelled"])
+        & stage_text.eq("stage2_blocked")
+        & stage2_reason_text.str.startswith("spread_guard:")
+    )
+    submitted_mask = (
+        ~fill_text.eq("skipped")
+        & ~order_id_text.str.startswith("SKIPPED:")
+        & ~expected_spread_cancel
+    )
     actionable = recent[action_text.isin(["BUY", "SELL"]) & submitted_mask]
     if actionable.empty:
         if not quiet:
