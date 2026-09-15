@@ -1,10 +1,10 @@
 {
   "broker": "alpaca",
   "paper_account_hash": "53467e021997593c",
-  "generated_at": "2026-09-15T21:16:07",
-  "account_equity": 106783.23,
+  "generated_at": "2026-09-15T23:33:03",
+  "account_equity": 106724.21,
   "account_cash": 1869.9,
-  "account_invested": 104913.33,
+  "account_invested": 104854.31,
   "position_count": 4,
   "positions": {
     "FCX": 40.0,
@@ -13,39 +13,39 @@
     "QQQ": 90.0
   },
   "position_values": {
-    "FCX": 2780.0,
-    "INTC": 21057.18,
-    "MU": 17606.35,
-    "QQQ": 63469.8
+    "FCX": 2775.6,
+    "INTC": 21049.02,
+    "MU": 17575.19,
+    "QQQ": 63454.5
   },
   "position_details": [
     {
       "ticker": "FCX",
       "quantity": 40.0,
       "avg_price": 68.63,
-      "market_value": 2780.0,
-      "unrealized_pl": 34.8
+      "market_value": 2775.6,
+      "unrealized_pl": 30.4
     },
     {
       "ticker": "INTC",
       "quantity": 217.0,
       "avg_price": 95.894194,
-      "market_value": 21057.18,
-      "unrealized_pl": 248.14
+      "market_value": 21049.02,
+      "unrealized_pl": 239.98
     },
     {
       "ticker": "MU",
       "quantity": 19.0,
       "avg_price": 927.438421,
-      "market_value": 17606.35,
-      "unrealized_pl": -14.98
+      "market_value": 17575.19,
+      "unrealized_pl": -46.14
     },
     {
       "ticker": "QQQ",
       "quantity": 90.0,
       "avg_price": 712.019889,
-      "market_value": 63469.8,
-      "unrealized_pl": -611.99
+      "market_value": 63454.5,
+      "unrealized_pl": -627.29
     }
   ]
 }
