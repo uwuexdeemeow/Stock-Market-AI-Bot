@@ -111,7 +111,9 @@ The workflow file `.github/workflows/daily_paper_trading.yml` invokes
   market holidays.  Use `--force` to override (e.g., for testing).
 - **Narrow recovery reruns** — `--allow-repeat-submit` bypasses only the
   same-day duplicate-submission check. It does not bypass drift, drawdown,
-  signal-sanity, broker-truth, quote, spread, cash, or exposure controls.
+  signal-sanity, broker-truth, quote, spread, cash, or exposure controls. The
+  recovery dispatch adds a run-specific Alpaca client-order suffix so a safe
+  replacement does not collide with an earlier cancelled limit order.
 - **Explicit time-window recovery** — `--allow-outside-execution-window`
   bypasses only the normal 09:35–10:30 New York execution window. Market-open,
   quote freshness, spread, limit-price, cash, exposure, and risk gates remain.

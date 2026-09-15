@@ -1021,6 +1021,28 @@ def test_two_stage_client_ids_are_deterministic_and_distinct():
     assert apt.bot_client_order_id(row, today=day, attempt=1) != apt.bot_client_order_id(row, today=day, attempt=2)
 
 
+def test_recovery_client_ids_are_run_specific_but_stable_within_run():
+    import alpaca_paper_trading as apt
+
+    day = datetime(2026, 6, 8, tzinfo=timezone.utc)
+    normal = {"ticker": "FCX", "side": "buy", "quantity": 40}
+    recovery = {
+        **normal,
+        "client_order_id_retry_token": apt.recovery_client_order_token("github-34987308361"),
+    }
+    other_recovery = {
+        **normal,
+        "client_order_id_retry_token": apt.recovery_client_order_token("github-34999999999"),
+    }
+
+    first = apt.bot_client_order_id(recovery, today=day, attempt=1)
+    assert first == apt.bot_client_order_id(recovery, today=day, attempt=1)
+    assert first != apt.bot_client_order_id(normal, today=day, attempt=1)
+    assert first != apt.bot_client_order_id(other_recovery, today=day, attempt=1)
+    assert first.endswith("-r87308361-a1")
+    assert len(first) <= 48
+
+
 def test_scorecard_changes_price_policy_not_quantity(monkeypatch):
     import alpaca_paper_trading as apt
 

@@ -1794,16 +1794,28 @@ def bot_client_order_id(
     Build the deterministic client order id used for rebalance orders.
 
     PLAIN ENGLISH: Alpaca rejects duplicate client_order_id values.  By making
-    the id from today's date + ticker + side + quantity, a retry cannot submit
-    the same logical trade twice.
+    the id from today's date + ticker + side + quantity, a normal retry cannot
+    submit the same logical trade twice. An explicitly authorized recovery run
+    adds its run token so Alpaca accepts a replacement for a cancelled order.
     """
     day = (today or datetime.now(timezone.utc)).strftime("%Y%m%d")
     ticker = str(order_row["ticker"]).upper()
     side = str(order_row["side"]).lower()
     quantity = int(order_row["quantity"])
     base = f"{day}_{ticker}_{side}_{quantity}"
-    suffix = f"-a{int(attempt)}" if attempt is not None else ""
+    raw_retry_token = str(order_row.get("client_order_id_retry_token", ""))
+    retry_token = "".join(char for char in raw_retry_token if char.isalnum())[-8:]
+    retry_suffix = f"-r{retry_token}" if retry_token else ""
+    attempt_suffix = f"-a{int(attempt)}" if attempt is not None else ""
+    suffix = retry_suffix + attempt_suffix
     return (base[: 48 - len(suffix)] + suffix)[:48]
+
+
+def recovery_client_order_token(run_id: str | None = None) -> str:
+    """Return a short stable token that is unique to one recovery dispatch."""
+    raw = str(run_id or current_run_id())
+    cleaned = "".join(char for char in raw if char.isalnum())
+    return cleaned[-8:] or datetime.now(timezone.utc).strftime("%H%M%S%f")[-8:]
 
 
 def _list_recent_alpaca_orders(broker: AlpacaBroker, *, limit: int = 500) -> list:
@@ -4473,6 +4485,15 @@ def main():
             planned_orders=len(orders),
         )
         return 2
+
+    if args.allow_repeat_submit:
+        # PLAIN ENGLISH: Alpaca requires every client order ID to be unique.
+        # Normal runs stay date-deterministic for duplicate protection, while
+        # an authorized recovery dispatch receives a stable run-specific suffix.
+        retry_token = recovery_client_order_token()
+        for order_row in orders:
+            order_row["client_order_id_retry_token"] = retry_token
+        print(f"  Recovery client-order token active: {retry_token}")
 
     # ── Core ETF protective stops — clear before rebalance ───────────────
     # PLAIN ENGLISH: Broker-side trailing stops reserve shares. If we are
