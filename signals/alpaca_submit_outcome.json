@@ -1,18 +1,26 @@
 {
   "schema_version": 1,
-  "run_id": "github-34989151059",
-  "generated_at": "2026-09-15T15:37:38+00:00",
-  "status": "blocked",
-  "reason_code": "broker_truth_gate_removed_all_orders",
-  "market_open": true,
+  "run_id": "github-34990273238",
+  "generated_at": "2026-09-15T15:47:44+00:00",
+  "status": "executed",
+  "reason_code": "orders_accepted",
+  "market_open": null,
   "planned_orders": 2,
-  "submitted_orders": 0,
-  "accepted_orders": 0,
-  "filled_orders": 0,
+  "submitted_orders": 1,
+  "accepted_orders": 1,
+  "filled_orders": 1,
   "open_orders": 0,
-  "skipped_orders": 2,
+  "skipped_orders": 1,
   "rejected_orders": 0,
   "failed_orders": 0,
-  "account_alignment": {},
-  "errors": []
+  "account_alignment": {
+    "status": "warning",
+    "score": 90.0,
+    "fail_count": 0,
+    "warning_count": 2
+  },
+  "errors": [],
+  "order_statuses": {
+    "338ebc71-6161-49f2-a72b-e36e0b992af9": "filled"
+  }
 }

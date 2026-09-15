@@ -1,5 +1,5 @@
 {
-  "computed_at": "2026-09-15T15:34:03.985021",
+  "computed_at": "2026-09-15T15:44:11.636157",
   "as_of_date": "2026-09-14",
   "warn_trading_days": 1,
   "block_trading_days": 2,
@@ -62,7 +62,7 @@
     "adaptive_weight_status": "adaptive",
     "adaptive_weight_reason": "loaded",
     "adaptive_weights_file": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/adaptive_factor_weights.json",
-    "adaptive_weight_age_days": 4.696,
+    "adaptive_weight_age_days": 4.703,
     "adaptive_weight_computed_at": "2026-09-10T22:52:26"
   },
   "signal_ready": true,
