@@ -1,26 +1,18 @@
 {
   "schema_version": 1,
-  "run_id": "github-34990946596",
-  "generated_at": "2026-09-15T15:53:22+00:00",
-  "status": "executed",
-  "reason_code": "orders_accepted",
-  "market_open": null,
+  "run_id": "github-35003018446",
+  "generated_at": "2026-09-15T17:47:57+00:00",
+  "status": "no_action",
+  "reason_code": "duplicate_retry_already_submitted",
+  "market_open": true,
   "planned_orders": 1,
-  "submitted_orders": 1,
-  "accepted_orders": 1,
-  "filled_orders": 1,
+  "submitted_orders": 0,
+  "accepted_orders": 0,
+  "filled_orders": 0,
   "open_orders": 0,
   "skipped_orders": 0,
   "rejected_orders": 0,
   "failed_orders": 0,
-  "account_alignment": {
-    "status": "warning",
-    "score": 90.0,
-    "fail_count": 0,
-    "warning_count": 2
-  },
-  "errors": [],
-  "order_statuses": {
-    "54dd93b8-d625-408f-bb37-07ab7cbdc3e7": "filled"
-  }
+  "account_alignment": {},
+  "errors": []
 }

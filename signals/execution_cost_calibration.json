@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-15T15:53:29+00:00",
-  "source_generated_at": "2026-09-15T15:53:23+00:00",
+  "generated_at": "2026-09-15T17:48:07+00:00",
+  "source_generated_at": "2026-09-15T17:47:59+00:00",
   "status": "collecting",
   "sample_count": 18,
   "minimum_sample_count": 20,
@@ -13,10 +13,10 @@
       "order_type": "limit",
       "liquidity_bucket": "low",
       "median_notional": 9100.49,
-      "samples": 8,
+      "samples": 10,
       "median_slippage_bps": 2.07,
-      "p75_slippage_bps": 3.34,
-      "mean_slippage_bps": 2.595
+      "p75_slippage_bps": 3.8025,
+      "mean_slippage_bps": 2.499
     },
     {
       "side": "buy",
