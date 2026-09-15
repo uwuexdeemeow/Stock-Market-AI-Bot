@@ -109,6 +109,30 @@ def test_fill_monitor_excludes_only_verified_stage2_spread_cancellations(tmp_pat
     assert [problem["ticker"] for problem in result["problems"]] == ["MU"]
 
 
+def test_fill_monitor_excludes_superseded_unique_client_id_failure(tmp_path, monkeypatch):
+    """A rejected client ID created no broker order whose fill can be checked."""
+    signal_dir = tmp_path / "signals"
+    signal_dir.mkdir()
+    trade_path = signal_dir / "alpaca_paper_log.csv"
+    now = datetime.now(timezone.utc).isoformat()
+    trade_path.write_text(
+        "\n".join([
+            "submitted_at,order_id,ticker,side,quantity,fill_status",
+            f'{now},"ERROR: client_order_id must be unique",FCX,buy,40,submission_failed',
+            f"{now},filled-order,INTC,buy,20,filled",
+        ]),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(fill_monitor, "PAPER_TRADES_FILE", trade_path)
+    result = fill_monitor.check_recent_fills(lookback_days=2, quiet=True)
+
+    assert result["status"] == "ok"
+    assert result["total_checked"] == 1
+    assert result["filled"] == 1
+    assert result["problems"] == []
+
+
 def test_monitor_heartbeat_finds_daily_run_fill_stub(tmp_path, monkeypatch):
     signal_dir = tmp_path / "signals_abs"
     log_dir = tmp_path / "logs_abs"

@@ -15,6 +15,11 @@ breaches the spread guard is also excluded when the log explicitly records
 `execution_stage=stage2_blocked` and a `spread_guard:` reason. Generic broker
 cancellations and rejections remain fill problems and still block trading.
 
+The historical `client_order_id must be unique` submission failure is excluded
+after the run-specific recovery-ID repair: Alpaca rejected it before creating a
+broker order, so there is no fill to verify. Other submission failures remain
+blocking problems.
+
 The monitor accepts the current Alpaca paper log shape (`side`, `quantity`,
 `filled_qty`) as well as older logs that used `action`, `broker_qty`, and
 `broker_dealt_qty`.

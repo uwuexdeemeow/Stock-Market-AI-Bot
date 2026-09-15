@@ -202,10 +202,18 @@ def check_recent_fills(*, lookback_days: int = 1, quiet: bool = False) -> dict:
         & stage_text.eq("stage2_blocked")
         & stage2_reason_text.str.startswith("spread_guard:")
     )
+    # Alpaca never created an order for this historical failure, and the
+    # recovery client-ID scheme now prevents it. Keep the row as audit evidence
+    # without asking the fill monitor to verify a nonexistent broker order.
+    superseded_client_id_failure = (
+        fill_text.eq("submission_failed")
+        & order_id_text.str.contains("CLIENT_ORDER_ID MUST BE UNIQUE", regex=False)
+    )
     submitted_mask = (
         ~fill_text.eq("skipped")
         & ~order_id_text.str.startswith("SKIPPED:")
         & ~expected_spread_cancel
+        & ~superseded_client_id_failure
     )
     actionable = recent[action_text.isin(["BUY", "SELL"]) & submitted_mask]
     if actionable.empty:
