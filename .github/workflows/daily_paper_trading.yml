@@ -52,6 +52,14 @@ on:
         options:
           - "false"
           - "true"
+      allow_outside_execution_window:
+        description: "Emergency recovery: permit trading outside 09:35-10:30 New York"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
       dry_run:
         description: "Dry run (show steps without executing)"
         required: false
@@ -481,6 +489,9 @@ jobs:
           fi
           if [ "${{ github.event.inputs.allow_repeat_submit }}" = "true" ]; then
             FLAGS="$FLAGS --allow-repeat-submit"
+          fi
+          if [ "${{ github.event.inputs.allow_outside_execution_window }}" = "true" ]; then
+            FLAGS="$FLAGS --allow-outside-execution-window"
           fi
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             FLAGS="$FLAGS --dry-run"

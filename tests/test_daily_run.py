@@ -41,6 +41,20 @@ def test_recovery_rerun_only_passes_narrow_duplicate_override():
     assert "--allow-repeat-submit" not in daily_run.ALPACA_STEPS[0].cmd
 
 
+def test_emergency_rerun_passes_only_narrow_time_and_duplicate_overrides():
+    steps = daily_run.build_steps(
+        skip_refresh=True,
+        run_alpaca=True,
+        allow_repeat_submit=True,
+        allow_outside_execution_window=True,
+    )
+    submit = next(step for step in steps if step.name == "alpaca_submit")
+    assert "--allow-repeat-submit" in submit.cmd
+    assert "--allow-outside-execution-window" in submit.cmd
+    assert "--force" not in submit.cmd
+    assert "--allow-outside-execution-window" not in daily_run.ALPACA_STEPS[0].cmd
+
+
 def test_daily_refresh_forces_etf_download():
     etf_step = next(step for step in daily_run.DATA_REFRESH_STEPS if step.name == "refresh_etf_data")
     assert "--refresh" in etf_step.cmd
@@ -54,6 +68,8 @@ def test_daily_workflow_pins_execution_safety_env():
     workflow = Path(".github/workflows/daily_paper_trading.yml").read_text(encoding="utf-8")
     assert "github.event.inputs.allow_repeat_submit" in workflow
     assert 'FLAGS="$FLAGS --allow-repeat-submit"' in workflow
+    assert "github.event.inputs.allow_outside_execution_window" in workflow
+    assert 'FLAGS="$FLAGS --allow-outside-execution-window"' in workflow
     required_lines = [
         "ALPACA_MAX_GROSS_EXPOSURE=1.00",
         "ALPACA_ORDER_TYPE=limit",

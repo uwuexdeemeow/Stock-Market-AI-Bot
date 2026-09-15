@@ -75,6 +75,10 @@ python3 daily_run.py --force
 # only the duplicate-day check; all trading safety gates stay enabled.
 python3 daily_run.py --allow-repeat-submit
 
+# Explicit emergency recovery while the market is open but after 10:30 New
+# York time. Pair with --allow-repeat-submit after a partial same-day run.
+python3 daily_run.py --allow-repeat-submit --allow-outside-execution-window
+
 # Also run stress tests (factor decay, drawdown throttle, execution, survivorship)
 python3 daily_run.py --alpaca --stress
 
@@ -108,6 +112,9 @@ The workflow file `.github/workflows/daily_paper_trading.yml` invokes
 - **Narrow recovery reruns** — `--allow-repeat-submit` bypasses only the
   same-day duplicate-submission check. It does not bypass drift, drawdown,
   signal-sanity, broker-truth, quote, spread, cash, or exposure controls.
+- **Explicit time-window recovery** — `--allow-outside-execution-window`
+  bypasses only the normal 09:35–10:30 New York execution window. Market-open,
+  quote freshness, spread, limit-price, cash, exposure, and risk gates remain.
 - **Critical-step short-circuit** — if a step marked `critical=True`
   fails, downstream trading steps don't run.  Better to skip than to trade on
   broken state.

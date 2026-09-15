@@ -645,6 +645,7 @@ def build_steps(
     health_only: bool = False,
     stress: bool = False,
     allow_repeat_submit: bool = False,
+    allow_outside_execution_window: bool = False,
 ) -> list[Step]:
     steps: list[Step] = []
     if health_only:
@@ -687,13 +688,18 @@ def build_steps(
     steps.append(REGIME_MONITOR_STEP)
     if run_alpaca:
         alpaca_steps = list(ALPACA_STEPS)
+        submit_overrides: list[str] = []
         if allow_repeat_submit:
-            # PLAIN ENGLISH: A recovery rerun may pass only the duplicate-day
-            # checkpoint. It must not inherit Alpaca's broad --force switch,
-            # which also relaxes unrelated trading safety gates.
+            submit_overrides.append("--allow-repeat-submit")
+        if allow_outside_execution_window:
+            submit_overrides.append("--allow-outside-execution-window")
+        if submit_overrides:
+            # PLAIN ENGLISH: Recovery runs receive only their explicitly chosen
+            # narrow exceptions. They never inherit Alpaca's broad --force
+            # switch, which also relaxes unrelated trading safety gates.
             alpaca_steps[0] = replace(
                 alpaca_steps[0],
-                cmd=[*alpaca_steps[0].cmd, "--allow-repeat-submit"],
+                cmd=[*alpaca_steps[0].cmd, *submit_overrides],
             )
         steps.extend(alpaca_steps)
     # Watchdog + housekeeping — non-critical, run last
@@ -996,6 +1002,8 @@ def main():
                         help="Run even on weekends and US market holidays")
     parser.add_argument("--allow-repeat-submit", action="store_true",
                         help="Recovery rerun: bypass only the same-day duplicate submission check")
+    parser.add_argument("--allow-outside-execution-window", action="store_true",
+                        help="Emergency recovery: permit submission outside the normal New York window")
     parser.add_argument("--timeout", type=int, default=300,
                         help="Max seconds per step (default: 300)")
     args = parser.parse_args()
@@ -1094,6 +1102,7 @@ def main():
         health_only=bool(args.health_only),
         stress=bool(args.stress),
         allow_repeat_submit=bool(args.allow_repeat_submit),
+        allow_outside_execution_window=bool(args.allow_outside_execution_window),
     )
 
     # Header
