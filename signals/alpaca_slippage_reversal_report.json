@@ -2,15 +2,15 @@
   "stage_attempt_counts": {
     "complete": true,
     "population": "submitted_child_attempts",
-    "start": "2026-08-17T23:40:14.000445+00:00",
-    "end": "2026-09-16T23:40:13.886950+00:00",
+    "start": "2026-08-18T13:39:21.008852+00:00",
+    "end": "2026-09-17T13:39:20.972464+00:00",
     "stages": {
       "stage1": {
-        "orders": 8,
-        "filled_orders": 4,
-        "any_filled_orders": 5,
-        "fill_rate": 0.5,
-        "any_fill_rate": 0.625
+        "orders": 9,
+        "filled_orders": 5,
+        "any_filled_orders": 6,
+        "fill_rate": 0.5555555555555556,
+        "any_fill_rate": 0.6666666666666666
       },
       "stage2": {
         "orders": 3,
@@ -22,19 +22,19 @@
     }
   },
   "schema_version": 3,
-  "generated_at": "2026-09-16T23:40:13+00:00",
-  "measurement_cutoff_60m": "2026-09-16T22:40:13+00:00",
+  "generated_at": "2026-09-17T13:39:20+00:00",
+  "measurement_cutoff_60m": "2026-09-17T12:39:20+00:00",
   "source": "alpaca_api",
   "api_order_limit": 100,
   "lookback_orders": 100,
   "lookback_days": 30,
   "summary": {
-    "orders_seen": 19,
+    "orders_seen": 20,
     "orders_analyzed": 19,
-    "eligible_orders": 19,
-    "slippage_eligible_orders": 19,
+    "eligible_orders": 20,
+    "slippage_eligible_orders": 20,
     "slippage_measured_orders": 19,
-    "slippage_coverage_rate": 1.0,
+    "slippage_coverage_rate": 0.95,
     "avg_slippage_bps": -0.66,
     "median_slippage_bps": 0.55,
     "slippage_bad_threshold_bps": 2.0,
@@ -66,12 +66,12 @@
   },
   "segments": {
     "all_orders": {
-      "orders_seen": 19,
+      "orders_seen": 20,
       "orders_analyzed": 19,
-      "eligible_orders": 19,
-      "slippage_eligible_orders": 19,
+      "eligible_orders": 20,
+      "slippage_eligible_orders": 20,
       "slippage_measured_orders": 19,
-      "slippage_coverage_rate": 1.0,
+      "slippage_coverage_rate": 0.95,
       "avg_slippage_bps": -0.66,
       "median_slippage_bps": 0.55,
       "slippage_bad_threshold_bps": 2.0,
@@ -102,12 +102,12 @@
       "max_worst_adverse_60m_bps": 285.88
     },
     "rebalance_orders": {
-      "orders_seen": 14,
+      "orders_seen": 15,
       "orders_analyzed": 14,
-      "eligible_orders": 14,
-      "slippage_eligible_orders": 14,
+      "eligible_orders": 15,
+      "slippage_eligible_orders": 15,
       "slippage_measured_orders": 14,
-      "slippage_coverage_rate": 1.0,
+      "slippage_coverage_rate": 0.9333,
       "avg_slippage_bps": 4.52,
       "median_slippage_bps": 1.24,
       "slippage_bad_threshold_bps": 2.0,
@@ -174,12 +174,12 @@
       "max_worst_adverse_60m_bps": 285.88
     },
     "limit_orders": {
-      "orders_seen": 14,
+      "orders_seen": 15,
       "orders_analyzed": 14,
-      "eligible_orders": 14,
-      "slippage_eligible_orders": 14,
+      "eligible_orders": 15,
+      "slippage_eligible_orders": 15,
       "slippage_measured_orders": 14,
-      "slippage_coverage_rate": 1.0,
+      "slippage_coverage_rate": 0.9333,
       "avg_slippage_bps": 4.52,
       "median_slippage_bps": 1.24,
       "slippage_bad_threshold_bps": 2.0,
@@ -315,7 +315,7 @@
       "symbol": "QQQ",
       "orders": 1,
       "rebalance_orders": 1,
-      "orders_seen": 1,
+      "orders_seen": 2,
       "sample_ready": false,
       "avg_slippage_bps": 0.62,
       "bad_slippage_rate": 0.0,
@@ -369,6 +369,39 @@
     }
   ],
   "orders": [
+    {
+      "order_id": "f0635b55-5a7c-4827-ba39-9c3c17d9d82f",
+      "client_order_id": "20260917_QQQ_sell_32-a1",
+      "filled_at": "2026-09-17T13:39:18+00:00",
+      "symbol": "QQQ",
+      "side": "sell",
+      "order_type": "limit",
+      "filled_qty": 32.0,
+      "fill_price": 713.496875,
+      "fill_minute_vwap": null,
+      "slippage_bps": null,
+      "adverse_5m_bps": null,
+      "adverse_15m_bps": null,
+      "adverse_30m_bps": null,
+      "adverse_60m_bps": null,
+      "worst_adverse_60m_bps": null,
+      "best_favorable_60m_bps": null,
+      "arrival_mid": 713.5550000000001,
+      "arrival_quote_timestamp": "2026-09-17T13:39:05.841752+00:00",
+      "arrival_feed": "unknown",
+      "fill_latency_seconds": 2.263684,
+      "quote_age_seconds": 10.153461,
+      "arrival_shortfall_bps": 0.8145833187353207,
+      "original_requested_quantity": 32.0,
+      "arrival_spread_bps": 1.2612902999773223,
+      "spread_bucket": "0-10bps",
+      "liquidity_bucket": "unknown",
+      "size_bucket": "over10k",
+      "session": "2026-09-17",
+      "parent_client_order_id": "20260917_QQQ_sell_32",
+      "execution_stage": "stage1",
+      "parent_order_id": "20260917_QQQ_sell_32"
+    },
     {
       "order_id": "c673676a-3eda-4b98-a2c9-fcce69026c23",
       "client_order_id": "20260916_INTC_sell_18-a1",
@@ -1002,7 +1035,7 @@
   "measurement_sample_complete": true,
   "arrival_implementation_shortfall": {
     "complete": false,
-    "matched_fills": 5,
+    "matched_fills": 6,
     "missing_arrival_fills": 14,
     "groups": {
       "side": {
@@ -1012,16 +1045,16 @@
           "p95_bps": 17.75938575005542
         },
         "sell": {
-          "count": 1,
-          "median_bps": -4.7069192189708176,
-          "p95_bps": -4.7069192189708176
+          "count": 2,
+          "median_bps": -1.9461679501175944,
+          "p95_bps": 0.5385081918503063
         }
       },
       "execution_stage": {
         "stage1": {
-          "count": 4,
-          "median_bps": -3.081897837923786,
-          "p95_bps": 9.181287572384617
+          "count": 5,
+          "median_bps": -1.4568764568767545,
+          "p95_bps": 9.009805172844663
         },
         "stage2": {
           "count": 1,
@@ -1031,9 +1064,9 @@
       },
       "spread_bucket": {
         "0-10bps": {
-          "count": 3,
-          "median_bps": -4.7069192189708176,
-          "p95_bps": -1.781880733086161
+          "count": 4,
+          "median_bps": -3.081897837923786,
+          "p95_bps": 0.4738643523937705
         },
         "10-35bps": {
           "count": 1,
@@ -1048,9 +1081,9 @@
       },
       "liquidity_bucket": {
         "unknown": {
-          "count": 5,
-          "median_bps": -1.4568764568767545,
-          "p95_bps": 17.36522250807404
+          "count": 6,
+          "median_bps": -0.3211465690705628,
+          "p95_bps": 16.97105926609266
         }
       },
       "size_bucket": {
@@ -1060,9 +1093,9 @@
           "p95_bps": 9.807061927047055
         },
         "over10k": {
-          "count": 2,
-          "median_bps": 5.025563542089273,
-          "p95_bps": 17.55024428260854
+          "count": 3,
+          "median_bps": 0.8145833187356288,
+          "p95_bps": 17.129146260273174
         }
       },
       "session": {
@@ -1080,10 +1113,49 @@
           "count": 1,
           "median_bps": -4.7069192189708176,
           "p95_bps": -4.7069192189708176
+        },
+        "2026-09-17": {
+          "count": 1,
+          "median_bps": 0.8145833187356288,
+          "p95_bps": 0.8145833187356288
         }
       }
     },
     "fills": [
+      {
+        "order_id": "f0635b55-5a7c-4827-ba39-9c3c17d9d82f",
+        "client_order_id": "20260917_QQQ_sell_32-a1",
+        "filled_at": "2026-09-17T13:39:18+00:00",
+        "symbol": "QQQ",
+        "side": "sell",
+        "order_type": "limit",
+        "filled_qty": 32.0,
+        "fill_price": 713.496875,
+        "fill_minute_vwap": NaN,
+        "slippage_bps": NaN,
+        "adverse_5m_bps": NaN,
+        "adverse_15m_bps": NaN,
+        "adverse_30m_bps": NaN,
+        "adverse_60m_bps": NaN,
+        "worst_adverse_60m_bps": NaN,
+        "best_favorable_60m_bps": NaN,
+        "arrival_mid": 713.5550000000001,
+        "arrival_quote_timestamp": "2026-09-17T13:39:05.841752+00:00",
+        "arrival_feed": "unknown",
+        "fill_latency_seconds": 2.263684,
+        "quote_age_seconds": 10.153461,
+        "arrival_shortfall_bps": 0.8145833187353207,
+        "original_requested_quantity": 32.0,
+        "arrival_spread_bps": 1.2612902999773223,
+        "spread_bucket": "0-10bps",
+        "liquidity_bucket": "unknown",
+        "size_bucket": "over10k",
+        "session": "2026-09-17",
+        "parent_client_order_id": "20260917_QQQ_sell_32",
+        "execution_stage": "stage1",
+        "parent_order_id": "20260917_QQQ_sell_32",
+        "shortfall_bps": 0.8145833187356288
+      },
       {
         "order_id": "c673676a-3eda-4b98-a2c9-fcce69026c23",
         "client_order_id": "20260916_INTC_sell_18-a1",
@@ -1258,8 +1330,8 @@
   },
   "parent_execution": {
     "complete": false,
-    "parent_count": 25,
-    "child_order_count": 28,
+    "parent_count": 28,
+    "child_order_count": 31,
     "parents": [
       {
         "parent_order_id": "20260826_COP_sell_131",
@@ -1430,6 +1502,18 @@
         "filled_children": 1
       },
       {
+        "parent_order_id": "20260917_QQQ_sell_32",
+        "child_orders": 1,
+        "filled_quantity": 32.0,
+        "original_requested_quantity": 32.0,
+        "unfilled_quantity": 0.0,
+        "quantity_complete": true,
+        "opportunity_cost_dollars": 0.0,
+        "opportunity_cost_complete": true,
+        "canceled_children": 0,
+        "filled_children": 1
+      },
+      {
         "parent_order_id": "3069979a-1a22-4219-ae17-0df35ea5be3d",
         "child_orders": 1,
         "filled_quantity": 208.0,
@@ -1546,11 +1630,35 @@
         "quantity_complete": false,
         "opportunity_cost_dollars": null,
         "opportunity_cost_complete": false,
-        "canceled_children": 0,
+        "canceled_children": 1,
         "filled_children": 0
       },
       {
         "parent_order_id": "core-stop-QQQ-20260826T193945132329",
+        "child_orders": 1,
+        "filled_quantity": 0.0,
+        "original_requested_quantity": null,
+        "unfilled_quantity": null,
+        "quantity_complete": false,
+        "opportunity_cost_dollars": null,
+        "opportunity_cost_complete": false,
+        "canceled_children": 1,
+        "filled_children": 0
+      },
+      {
+        "parent_order_id": "core-stop-QQQ-20260917T133919988389",
+        "child_orders": 1,
+        "filled_quantity": 0.0,
+        "original_requested_quantity": null,
+        "unfilled_quantity": null,
+        "quantity_complete": false,
+        "opportunity_cost_dollars": null,
+        "opportunity_cost_complete": false,
+        "canceled_children": 0,
+        "filled_children": 0
+      },
+      {
+        "parent_order_id": "f56023a1-ce9e-46d1-9e44-af12892b4639",
         "child_orders": 1,
         "filled_quantity": 0.0,
         "original_requested_quantity": null,

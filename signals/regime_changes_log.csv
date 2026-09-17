@@ -1,0 +1,2 @@
+strategy,from,to,changed_at,core_gross,overlay_gross,overlay_tickers
+alpaca_core_satellite,risk_on,neutral,2026-09-17T13:39:04,0.5,0.5,"FCX,MU,GS"

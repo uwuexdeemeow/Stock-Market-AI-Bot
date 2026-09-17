@@ -63,80 +63,80 @@
   "vol_target": 0.0,
   "live_config_source": "nested_walkforward",
   "live_config_source_json": "signals\\core_satellite_nested_walkforward.json",
-  "total_return_pct": 4770.58,
-  "cagr_pct": 26.4,
-  "sharpe": 1.357,
+  "total_return_pct": 3960.27,
+  "cagr_pct": 24.89,
+  "sharpe": 1.305,
   "max_drawdown_pct": -21.45,
-  "turnover_pct": 4475.45,
-  "estimated_cost_pct": 8.9509,
+  "turnover_pct": 4449.62,
+  "estimated_cost_pct": 8.8992,
   "avg_gross_exposure": 0.946,
   "avg_overlay_positions": 3.0,
-  "avg_effective_overlay_names": 2.605,
+  "avg_effective_overlay_names": 2.596,
   "max_sector_overlay_weight": 0.3677,
   "top_ticker_overlay_contributor": "NVDA",
-  "top_ticker_overlay_contribution_share": 0.203,
-  "n_rebalances": 209,
+  "top_ticker_overlay_contribution_share": 0.219,
+  "n_rebalances": 210,
   "boundary_mode": "full_history",
   "evaluation_trade_start": "2010-01-04",
-  "evaluation_trade_end": "2026-08-18",
+  "evaluation_trade_end": "2026-09-16",
   "purged_leading_trade_count": 0,
   "purged_trailing_trade_count": 1,
   "concentration_overlay_active_rebalances": 0,
   "avg_concentration_overlay_adjustment": 0.0,
   "regime_counts": {
     "neutral": 11,
-    "risk_off": 56,
+    "risk_off": 57,
     "risk_on": 142
   },
   "benchmark_comparisons": {
     "SPY": {
-      "benchmark_return_pct": 807.38,
-      "alpha_pct": 3963.19,
-      "nw_tstat_vs_benchmark": 4.238
+      "benchmark_return_pct": 791.54,
+      "alpha_pct": 3168.74,
+      "nw_tstat_vs_benchmark": 3.792
     },
     "QQQ": {
-      "benchmark_return_pct": 1682.79,
-      "alpha_pct": 3087.79,
-      "nw_tstat_vs_benchmark": 2.571
+      "benchmark_return_pct": 1651.01,
+      "alpha_pct": 2309.27,
+      "nw_tstat_vs_benchmark": 2.09
     },
     "BLEND": {
-      "benchmark_return_pct": 1157.54,
-      "alpha_pct": 3613.03,
-      "nw_tstat_vs_benchmark": 3.706
+      "benchmark_return_pct": 1135.33,
+      "alpha_pct": 2824.95,
+      "nw_tstat_vs_benchmark": 3.191
     }
   },
   "benchmark_stats": {
     "SPY": {
-      "total_return_pct": 807.38,
-      "cagr_pct": 14.22,
-      "sharpe": 0.965,
+      "total_return_pct": 791.54,
+      "cagr_pct": 14.03,
+      "sharpe": 0.954,
       "max_drawdown_pct": -25.25
     },
     "QQQ": {
-      "total_return_pct": 1682.79,
-      "cagr_pct": 18.97,
-      "sharpe": 1.053,
+      "total_return_pct": 1651.01,
+      "cagr_pct": 18.74,
+      "sharpe": 1.043,
       "max_drawdown_pct": -31.42
     },
     "BLEND": {
-      "total_return_pct": 1157.54,
-      "cagr_pct": 16.49,
-      "sharpe": 1.02,
+      "total_return_pct": 1135.33,
+      "cagr_pct": 16.28,
+      "sharpe": 1.01,
       "max_drawdown_pct": -26.69
     }
   },
   "subperiods": {
     "2015_2019": {
       "data_available": true,
-      "return_pct": 168.43,
+      "return_pct": 168.73,
       "benchmark_return_pct": 90.35,
-      "alpha_pct": 78.08
+      "alpha_pct": 78.38
     },
     "2020_2021": {
       "data_available": true,
-      "return_pct": 127.37,
+      "return_pct": 127.3,
       "benchmark_return_pct": 68.04,
-      "alpha_pct": 59.32
+      "alpha_pct": 59.25
     },
     "2022": {
       "data_available": true,
@@ -146,39 +146,39 @@
     },
     "2023_2026": {
       "data_available": true,
-      "return_pct": 216.36,
-      "benchmark_return_pct": 131.18,
-      "alpha_pct": 85.18
+      "return_pct": 163.73,
+      "benchmark_return_pct": 127.1,
+      "alpha_pct": 36.64
     }
   },
   "holdout_2023_2026": {
     "data_available": true,
-    "strategy_return_pct": 216.36,
-    "spy_return_pct": 101.41,
-    "alpha_vs_spy_pct": 114.95,
-    "qqq_return_pct": 160.59,
-    "alpha_vs_qqq_pct": 55.78,
-    "blend_return_pct": 131.18,
-    "alpha_vs_blend_pct": 85.18
+    "strategy_return_pct": 163.73,
+    "spy_return_pct": 97.89,
+    "alpha_vs_spy_pct": 65.84,
+    "qqq_return_pct": 155.94,
+    "alpha_vs_qqq_pct": 7.79,
+    "blend_return_pct": 127.1,
+    "alpha_vs_blend_pct": 36.64
   },
   "yearly_alpha_pct": {
     "2010": -0.79,
     "2011": -3.43,
-    "2012": 13.52,
-    "2013": 6.74,
+    "2012": 13.4,
+    "2013": 6.64,
     "2014": 16.87,
     "2015": -3.14,
-    "2016": 33.79,
+    "2016": 33.95,
     "2017": 12.26,
     "2018": -2.72,
     "2019": 2.78,
-    "2020": 29.48,
+    "2020": 29.43,
     "2021": 19.5,
     "2022": 9.75,
-    "2023": 6.76,
+    "2023": 5.9,
     "2024": 27.77,
-    "2025": -2.85,
-    "2026": 12.77
+    "2025": -2.45,
+    "2026": -5.9
   },
   "cost_stress": 2.0,
   "core_satellite_gate_results": {
@@ -191,7 +191,7 @@
   },
   "feature_health_gate_pass": true,
   "feature_health_gate_reasons": [],
-  "raw_feature_count": 38,
+  "raw_feature_count": 39,
   "active_cluster_count": 7,
   "effective_cluster_count": 7,
   "quarantined_features": [
@@ -641,6 +641,18 @@
       "contributes_to_score": true
     },
     {
+      "feature": "ret_vs_spy_20d",
+      "preferred_direction": "low_is_good",
+      "t_stat": -3.431207551345902,
+      "mean_ic": -0.0070846190227864,
+      "cluster_id": "cluster_02",
+      "canonical_root": "ret_20d",
+      "health_state": "healthy",
+      "recent_vs_full_ratio": null,
+      "effective_weight": 0.142857,
+      "contributes_to_score": true
+    },
+    {
       "feature": "rsi_14",
       "preferred_direction": "low_is_good",
       "t_stat": -3.256231633701744,
@@ -747,7 +759,7 @@
     "year_alpha_concentration_pass": true,
     "turnover_adjusted_alpha_pass": true,
     "drawdown_vs_qqq_pass": true,
-    "max_positive_year_alpha_share": 0.176,
+    "max_positive_year_alpha_share": 0.19,
     "holdout_2023_2026_vs_qqq_pass": true,
     "holdout_2023_2026_vs_blend_pass": true,
     "single_name_weight_cap_pass": true,
