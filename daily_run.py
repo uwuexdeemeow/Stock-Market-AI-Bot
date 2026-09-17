@@ -457,7 +457,7 @@ def _read_fresh_submit_outcome(started_at: datetime) -> tuple[dict, str]:
     except (OSError, json.JSONDecodeError) as exc:
         return {}, f"submit_outcome_invalid:{exc.__class__.__name__}"
     status = str(payload.get("status", ""))
-    if status not in {"executed", "no_action", "blocked", "failed"}:
+    if status not in {"executed", "partial_execution", "no_action", "blocked", "failed"}:
         return payload, f"submit_outcome_unknown_status:{status or 'missing'}"
     return payload, ""
 
@@ -601,7 +601,7 @@ def run_step(
                     "error": submit_outcome_error,
                 }
             execution_status = str(submit_outcome.get("status"))
-            if execution_status in {"blocked", "failed"}:
+            if execution_status in {"partial_execution", "blocked", "failed"}:
                 print(
                     f"  ✗ {execution_status.upper()}: "
                     f"{submit_outcome.get('reason_code', 'unknown')}"

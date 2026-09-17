@@ -12,7 +12,7 @@ Install the project requirements, then run the paper trader normally:
 python3 alpaca_paper_trading.py --status
 ```
 
-The adapter is created automatically. It requires `ALPACA_API_KEY` and `ALPACA_SECRET_KEY`. The trading script still refuses a live-money endpoint.
+The adapter is created automatically. It requires `ALPACA_API_KEY` and `ALPACA_SECRET_KEY`. `ALPACA_DATA_FEED` selects the explicit quote source and defaults to `iex`; choose `sip` only when the account subscription permits it. The trading script still refuses a live-money endpoint.
 
 ## Key terms
 
@@ -20,6 +20,7 @@ The adapter is created automatically. It requires `ALPACA_API_KEY` and `ALPACA_S
 - **Adapter:** A small translator between an old interface and a new interface.
 - **Request object:** A typed container describing an order or market-data query.
 - **Paper account:** A simulated brokerage account that uses no real capital.
+- **Data feed:** The named exchange-data source used for trades and quotes.
 
 Model detection reads `model_fields` from the object's class, as required by
 current Pydantic, avoiding deprecated instance access. This changes neither

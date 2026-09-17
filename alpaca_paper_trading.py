@@ -158,7 +158,7 @@ def _begin_submit_outcome() -> None:
     _SUBMIT_OUTCOME_ACTIVE = True
     _SUBMIT_OUTCOME_LOGGED = False
     _SUBMIT_OUTCOME = {
-        "schema_version": 1,
+        "schema_version": 2,
         # All scripts launched by daily_run.py inherit this same ID. Standalone
         # use still receives a safe unique identifier.
         "run_id": current_run_id(),
@@ -174,6 +174,10 @@ def _begin_submit_outcome() -> None:
         "skipped_orders": 0,
         "rejected_orders": 0,
         "failed_orders": 0,
+        "completion_ratio": 0.0,
+        "recovery_eligible": False,
+        "unresolved_orders": [],
+        "quote_feed": "",
         "account_alignment": {},
         "errors": [],
     }
@@ -200,6 +204,7 @@ def _set_submit_outcome(status: str, reason_code: str, **updates) -> dict:
         "no_action": "filled",
         "blocked": "rejected",
         "failed": "rejected",
+        "partial_execution": "partially_filled",
     }.get(str(status), "partially_filled" if open_orders and filled_orders else "submitted" if open_orders else "filled")
     update_rebalance_state(
         lifecycle_status,
@@ -213,7 +218,7 @@ def _set_submit_outcome(status: str, reason_code: str, **updates) -> dict:
             "open_orders": open_orders,
         },
     )
-    if status in {"executed", "no_action", "blocked", "failed"} and not _SUBMIT_OUTCOME_LOGGED:
+    if status in {"executed", "partial_execution", "no_action", "blocked", "failed"} and not _SUBMIT_OUTCOME_LOGGED:
         row = {
             key: value if not isinstance(value, (dict, list)) else json.dumps(value, sort_keys=True)
             for key, value in _SUBMIT_OUTCOME.items()
@@ -251,6 +256,7 @@ def _finalize_submit_outcome(
     *,
     planned_count: int,
     order_ids: list[str],
+    orders: list[dict] | None = None,
 ) -> dict:
     """Account for each order and attach a final broker-truth snapshot."""
     accepted_ids = [oid for oid in order_ids if not str(oid).startswith(("ERROR", "SKIPPED"))]
@@ -274,12 +280,30 @@ def _finalize_submit_outcome(
     except Exception as exc:
         errors.append(f"broker_truth_refresh_failed:{exc}")
 
+    unresolved_orders: list[dict] = []
+    rows = list(orders or [])
+    for index, oid in enumerate(order_ids):
+        row = rows[index] if index < len(rows) else {}
+        broker_status = statuses.get(oid, "")
+        if str(oid).startswith(("ERROR", "SKIPPED")) or broker_status != "filled":
+            unresolved_orders.append({
+                "ticker": str(row.get("ticker", "")).upper(),
+                "side": str(row.get("side", "")).lower(),
+                "order_id": str(oid),
+                "status": broker_status or str(row.get("fill_status", "unresolved")),
+                "reason": str(row.get("submitted_limit_reference", "")),
+            })
+
+    completion_ratio = round(filled_count / planned_count, 6) if planned_count else 1.0
     if failed_count or rejected_count:
         status = "failed"
         reason = "partial_or_rejected_submission"
-    elif accepted_ids:
+    elif accepted_ids and not unresolved_orders and filled_count == planned_count:
         status = "executed"
-        reason = "orders_accepted"
+        reason = "all_planned_orders_filled"
+    elif accepted_ids:
+        status = "partial_execution"
+        reason = "orders_partially_completed"
     elif skipped_count:
         status = "blocked"
         reason = "all_orders_safety_skipped"
@@ -297,6 +321,15 @@ def _finalize_submit_outcome(
         skipped_orders=int(skipped_count),
         rejected_orders=int(rejected_count),
         failed_orders=int(failed_count),
+        completion_ratio=completion_ratio,
+        recovery_eligible=bool(
+            status == "partial_execution"
+            and open_count == 0
+            and failed_count == 0
+            and rejected_count == 0
+        ),
+        unresolved_orders=unresolved_orders,
+        quote_feed=ALPACA_DATA_FEED,
         account_alignment=alignment,
         errors=errors,
         order_statuses=statuses,
@@ -334,6 +367,7 @@ BROKER_TRUTH_BLOCK_BUYS_ON_FAIL = os.environ.get(
 # orders.  PLAIN ENGLISH: a marketable limit order still tries to fill now,
 # but it refuses to pay beyond a small cushion from the latest price.
 DEFAULT_ORDER_TYPE = os.environ.get("ALPACA_ORDER_TYPE", "limit").strip().lower()
+ALPACA_DATA_FEED = os.environ.get("ALPACA_DATA_FEED", "iex").strip().lower()
 # Quote anchoring is now the default because the slippage report showed last-
 # trade anchored fills were still bleeding versus limit orders.  PLAIN ENGLISH:
 # a live bid/ask quote is a fresher anchor than the last trade print; if the
@@ -413,6 +447,11 @@ SPREAD_GUARD_ALERT_TTL_HOURS = float(os.environ.get("SPREAD_GUARD_ALERT_TTL_HOUR
 # never weakens the spread limit or submits against a rejected quote.
 SPREAD_GUARD_QUOTE_RETRIES = max(0, int(os.environ.get("ALPACA_SPREAD_GUARD_QUOTE_RETRIES", "2")))
 SPREAD_GUARD_RETRY_SECONDS = max(0.0, float(os.environ.get("ALPACA_SPREAD_GUARD_RETRY_SECONDS", "1")))
+# Risk-reducing sells deserve more chances to obtain a safe quote, but the
+# spread ceiling itself never changes. Twelve attempts fifteen seconds apart
+# give a transient opening quote three minutes to normalize.
+SELL_QUOTE_ATTEMPTS = max(1, int(os.environ.get("ALPACA_SELL_QUOTE_ATTEMPTS", "12")))
+SELL_QUOTE_RETRY_SECONDS = max(0.0, float(os.environ.get("ALPACA_SELL_QUOTE_RETRY_SECONDS", "15")))
 
 
 def _truthy(value: object) -> bool:
@@ -716,6 +755,42 @@ def _submission_quote(quote: dict, ticker: str) -> tuple[dict, str]:
     return checked, ""
 
 
+def _submission_quote_with_retries(
+    broker,
+    ticker: str,
+    side: str,
+    *,
+    extended_sell_retry: bool = True,
+    sleep_fn=None,
+) -> tuple[dict, str, int]:
+    """Return one safe fresh quote without ever relaxing the spread ceiling.
+
+    PLAIN ENGLISH: A single quote can briefly look stale or wide. Buys get the
+    normal short retry budget. A sell that reduces an existing long position
+    gets up to three minutes because abandoning that sale can leave the whole
+    portfolio misaligned. Every attempt still has to pass the same hard limit.
+    """
+    ticker = str(ticker).upper()
+    side = str(side).lower()
+    sleeper = sleep_fn or time.sleep
+    if side == "sell" and extended_sell_retry:
+        attempts = SELL_QUOTE_ATTEMPTS
+        retry_seconds = SELL_QUOTE_RETRY_SECONDS
+    else:
+        attempts = SPREAD_GUARD_QUOTE_RETRIES + 1
+        retry_seconds = SPREAD_GUARD_RETRY_SECONDS
+
+    quote: dict = {}
+    reason = "quote_unavailable"
+    for attempt in range(attempts):
+        quote, reason = _submission_quote(broker.get_quote_snapshot(ticker), ticker)
+        if not reason:
+            return quote, "", attempt + 1
+        if attempt + 1 < attempts:
+            sleeper(retry_seconds)
+    return quote, reason, attempts
+
+
 def _two_stage_price_policy(order_row: dict) -> tuple[float, float, str]:
     """Turn scorecard evidence into patience and price caps, never position size."""
     status = str(order_row.get("execution_scorecard_status", "")).lower()
@@ -914,6 +989,7 @@ class AlpacaBroker(Broker):
             key_id=ALPACA_API_KEY,
             secret_key=ALPACA_SECRET_KEY,
             base_url=ALPACA_BASE_URL,
+            data_feed=ALPACA_DATA_FEED,
         )
         # Verify connection
         try:
@@ -1107,6 +1183,9 @@ class AlpacaBroker(Broker):
             "quote_mid_price": None,
             "spread_pct": None,
             "quote_timestamp": None,
+            "feed": ALPACA_DATA_FEED,
+            "bid_exchange": None,
+            "ask_exchange": None,
         }
         try:
             snapshot = self._api.get_snapshot(ticker)
@@ -1122,8 +1201,12 @@ class AlpacaBroker(Broker):
                 quote_timestamp = getattr(quote, "timestamp", getattr(quote, "t", None))
                 parsed_timestamp = _parse_broker_datetime(quote_timestamp)
                 out["quote_timestamp"] = parsed_timestamp.isoformat() if parsed_timestamp is not None else None
-        except Exception:
-            pass
+                out["bid_exchange"] = getattr(quote, "bid_exchange", getattr(quote, "bx", None))
+                out["ask_exchange"] = getattr(quote, "ask_exchange", getattr(quote, "ax", None))
+        except Exception as exc:
+            # PLAIN ENGLISH: A requested feed that the account cannot use must
+            # remain an unavailable quote; submission then fails closed.
+            out["quote_error"] = f"{type(exc).__name__}: {exc}"
         return out
 
     def get_last_price(self, ticker: str) -> float:
@@ -1988,7 +2071,9 @@ def _submit_two_stage_limit(broker: AlpacaBroker, order_row: dict) -> str:
     requested_qty = int(order_row["quantity"])
     started = datetime.now(timezone.utc)
     stage1_wait, stage2_offset, price_policy = _two_stage_price_policy(order_row)
-    quote, blocked_reason = _submission_quote(broker.get_quote_snapshot(ticker), ticker)
+    quote, blocked_reason, quote_attempts = _submission_quote_with_retries(
+        broker, ticker, side, extended_sell_retry=True
+    )
     # Even blocked attempts retain the exact quote that caused the rejection.
     order_row.update({
         "bid_price": quote.get("bid_price"), "ask_price": quote.get("ask_price"),
@@ -1996,6 +2081,9 @@ def _submit_two_stage_limit(broker: AlpacaBroker, order_row: dict) -> str:
         "quote_time": datetime.now(timezone.utc).isoformat(),
         "broker_quote_timestamp": quote.get("quote_timestamp"),
         "quote_age_seconds": _quote_age_seconds(quote),
+        "quote_feed": quote.get("feed", ALPACA_DATA_FEED),
+        "submission_quote_attempts": quote_attempts,
+        "submission_quote_final_reason": blocked_reason,
     })
     if blocked_reason:
         order_row["execution_stage"] = "stage1_blocked"
@@ -2087,7 +2175,9 @@ def _submit_two_stage_limit(broker: AlpacaBroker, order_row: dict) -> str:
         order_row["fill_status"] = "filled"
         return stage1_oid
 
-    second_quote, blocked_reason = _submission_quote(broker.get_quote_snapshot(ticker), ticker)
+    second_quote, blocked_reason, second_quote_attempts = _submission_quote_with_retries(
+        broker, ticker, side, extended_sell_retry=True
+    )
     second_bid = _float_or_none(second_quote.get("bid_price"))
     second_ask = _float_or_none(second_quote.get("ask_price"))
     second_spread = _float_or_none(second_quote.get("spread_pct"))
@@ -2097,6 +2187,8 @@ def _submit_two_stage_limit(broker: AlpacaBroker, order_row: dict) -> str:
         "stage2_broker_quote_timestamp": second_quote.get("quote_timestamp"),
         "stage2_bid_price": second_bid, "stage2_ask_price": second_ask,
         "stage2_spread_pct": second_spread, "stage2_quote_age_seconds": second_quote_age,
+        "stage2_quote_feed": second_quote.get("feed", ALPACA_DATA_FEED),
+        "stage2_quote_attempts": second_quote_attempts,
     })
     if blocked_reason:
         order_row["stage2_block_reason"] = blocked_reason
@@ -2173,11 +2265,19 @@ def _submit_one_rebalance_order(
         ):
             return _submit_two_stage_limit(broker, order_row)
         # Each queued order needs a new quote; an earlier planning check can expire.
-        quote, reason = _submission_quote(broker.get_quote_snapshot(str(order_row["ticker"])), str(order_row["ticker"]))
+        quote, reason, quote_attempts = _submission_quote_with_retries(
+            broker,
+            str(order_row["ticker"]),
+            str(order_row.get("side", "")),
+            extended_sell_retry=True,
+        )
         order_row.update(quote)
         order_row.update(broker_quote_timestamp=quote.get("quote_timestamp"),
                          quote_age_seconds=_quote_age_seconds(quote),
-                         quote_time=datetime.now(timezone.utc).isoformat())
+                         quote_time=datetime.now(timezone.utc).isoformat(),
+                         quote_feed=quote.get("feed", ALPACA_DATA_FEED),
+                         submission_quote_attempts=quote_attempts,
+                         submission_quote_final_reason=reason)
         if reason:
             return _skip_order(order_row, reason)
         order = build_submission_order(
@@ -2335,15 +2435,18 @@ def _apply_spread_guard(
         first_quote: dict | None = None
         quote: dict = {}
         reason = "quote_unavailable"
-        attempts = SPREAD_GUARD_QUOTE_RETRIES + 1
-        for attempt in range(attempts):
-            quote, reason = _submission_quote(broker.get_quote_snapshot(ticker), ticker)
-            if first_quote is None:
-                first_quote = dict(quote)
-            if not reason:
-                break
-            if attempt + 1 < attempts:
-                sleep_fn(SPREAD_GUARD_RETRY_SECONDS)
+        side = str(order_row.get("side", "")).lower()
+        # Sells are not discarded by this preliminary pass. Their definitive
+        # check happens in sell-first submission with the extended retry budget,
+        # so a momentary quote cannot prevent the recovery logic from running.
+        quote, reason, attempts_used = _submission_quote_with_retries(
+            broker,
+            ticker,
+            side,
+            extended_sell_retry=False,
+            sleep_fn=sleep_fn,
+        )
+        first_quote = dict(quote)
 
         arrival_quote = first_quote or quote
         order_row.setdefault("arrival_mid", arrival_quote.get("quote_mid_price"))
@@ -2352,7 +2455,7 @@ def _apply_spread_guard(
         arrival_spread = _float_or_none(arrival_quote.get("spread_pct"))
         order_row.setdefault("arrival_spread_bps", arrival_spread * 10000 if arrival_spread is not None else None)
         order_row.setdefault("original_requested_quantity", order_row.get("quantity"))
-        order_row["spread_guard_quote_attempts"] = attempts if reason else attempt + 1
+        order_row["spread_guard_quote_attempts"] = attempts_used
         order_row.update({
             "bid_price": quote.get("bid_price"),
             "ask_price": quote.get("ask_price"),
@@ -2360,9 +2463,14 @@ def _apply_spread_guard(
             "spread_pct": quote.get("spread_pct"),
             "broker_quote_timestamp": quote.get("quote_timestamp"),
             "quote_age_seconds": _quote_age_seconds(quote),
+            "quote_feed": quote.get("feed", ALPACA_DATA_FEED),
         })
 
         if reason:
+            if side == "sell":
+                order_row["spread_guard_precheck_reason"] = reason
+                remaining.append(order_row)
+                continue
             skipped_orders.append(order_row)
             skipped_ids.append(_skip_order(order_row, reason))
             continue
@@ -2473,37 +2581,70 @@ def _fit_buy_orders_to_available_cash(
     """
     adjusted: list[dict] = []
     skipped: list[tuple[dict, str]] = []
-    remaining_cash = max(0.0, float(cash_available))
+    cash_limit = max(0.0, float(cash_available))
+    candidates: list[dict] = []
 
-    for order_row in buy_orders:
+    for index, order_row in enumerate(buy_orders):
         reserve_price = _buy_cash_reserve_price(order_row, use_market_order=use_market_order)
         requested_quantity = _float_or_none(order_row.get("quantity"))
         original_quantity = max(0, int(requested_quantity or 0))
         if reserve_price is None or reserve_price <= 0 or original_quantity <= 0:
             skipped.append((order_row, "invalid_cash_reserve_price"))
             continue
+        candidates.append({
+            "index": index,
+            "row": order_row,
+            "price": float(reserve_price),
+            "original": original_quantity,
+            "allocated": 0,
+        })
 
-        affordable_quantity = min(
-            original_quantity,
-            int(math.floor((remaining_cash + 1e-9) / reserve_price)),
+    requested_value = sum(item["original"] * item["price"] for item in candidates)
+    scale = min(1.0, cash_limit / requested_value) if requested_value > 0 else 0.0
+    # Start every order at the same fraction of its requested shares. This avoids
+    # spending all available cash on whichever ticker happened to sort first.
+    for item in candidates:
+        item["allocated"] = min(item["original"], int(math.floor(item["original"] * scale)))
+
+    spent = sum(item["allocated"] * item["price"] for item in candidates)
+    remaining_cash = max(0.0, cash_limit - spent)
+    # Whole-share rounding leaves spare cash. Give one share at a time to the
+    # most underfilled order; ticker/index make equal cases deterministic.
+    while True:
+        affordable = [
+            item for item in candidates
+            if item["allocated"] < item["original"] and item["price"] <= remaining_cash + 1e-9
+        ]
+        if not affordable:
+            break
+        chosen = min(
+            affordable,
+            key=lambda item: (
+                item["allocated"] / item["original"],
+                -float(item["row"].get("target_weight", 0) or 0),
+                item["index"],
+            ),
         )
+        chosen["allocated"] += 1
+        remaining_cash -= chosen["price"]
+
+    for item in candidates:
+        order_row = item["row"]
+        reserve_price = item["price"]
+        original_quantity = item["original"]
+        affordable_quantity = item["allocated"]
         if affordable_quantity <= 0:
-            skipped.append((
-                order_row,
-                (
-                    f"insufficient_cash_for_one_share:"
-                    f"available_cash={remaining_cash:.2f};reserve_px={reserve_price:.2f}"
-                ),
-            ))
+            skipped.append((order_row, (
+                f"insufficient_cash_for_one_share:available_cash={cash_limit:.2f};"
+                f"reserve_px={reserve_price:.2f}"
+            )))
             continue
         if affordable_quantity * reserve_price < MIN_TRADE_VALUE:
-            skipped.append((
-                order_row,
-                (
-                    f"cash_clamped_below_min_trade:{affordable_quantity * reserve_price:.2f}"
-                    f"<{MIN_TRADE_VALUE:.2f}"
-                ),
-            ))
+            skipped.append((order_row, (
+                f"cash_clamped_below_min_trade:{affordable_quantity * reserve_price:.2f}"
+                f"<{MIN_TRADE_VALUE:.2f}"
+            )))
+            remaining_cash += affordable_quantity * reserve_price
             continue
 
         if affordable_quantity < original_quantity:
@@ -2512,24 +2653,22 @@ def _fit_buy_orders_to_available_cash(
             order_row["quantity"] = affordable_quantity
             order_row["cash_clamped_to_available"] = True
             order_row["cash_clamp_reason"] = (
-                f"cash_limited:{original_quantity}->{affordable_quantity};"
-                f"available_cash_before_order={remaining_cash:.2f};reserve_px={reserve_price:.2f}"
+                f"proportional_cash_limited:{original_quantity}->{affordable_quantity};"
+                f"cash_available={cash_limit:.2f};reserve_px={reserve_price:.2f}"
             )
             order_row["trade_value"] = round(abs(affordable_quantity * mark_price), 6)
             print(
                 f"    CASH CLAMP {order_row['ticker']}: "
                 f"{original_quantity} -> {affordable_quantity} shares "
-                f"(cash ${remaining_cash:,.2f}, reserve ${reserve_price:,.2f}/share)"
+                f"(shared cash ${cash_limit:,.2f}, reserve ${reserve_price:,.2f}/share)"
             )
         else:
             order_row.setdefault("original_quantity_before_cash_clamp", "")
             order_row.setdefault("cash_clamped_to_available", False)
             order_row.setdefault("cash_clamp_reason", "")
-
-        remaining_cash -= affordable_quantity * reserve_price
         adjusted.append(order_row)
 
-    return adjusted, skipped, remaining_cash
+    return adjusted, skipped, max(0.0, remaining_cash)
 
 
 def submit_rebalance_orders(
@@ -2556,7 +2695,7 @@ def submit_rebalance_orders(
     cash_clamp_note = ""
 
     sell_ids: list[str] = []
-    sell_failed = False
+    sell_phase_issues: list[str] = []
     if sell_orders:
         print("  Phase 1/2: submitting sells first...")
     for order_row in sell_orders:
@@ -2569,20 +2708,26 @@ def submit_rebalance_orders(
         attempted_orders.append(order_row)
         order_ids.append(oid)
         sell_ids.append(oid)
-        # A submission-time guard can skip a sell. That has not freed any cash.
-        sell_failed = sell_failed or str(oid).startswith(("ERROR", "SKIPPED"))
+        # A failed sell has not freed cash, but it must not block purchases that
+        # the broker confirms are affordable from cash already on hand.
+        if str(oid).startswith(("ERROR", "SKIPPED")):
+            sell_phase_issues.append(str(oid))
 
     skip_buy_reason = ""
     if buy_orders:
-        if sell_failed:
-            skip_buy_reason = "sell_submission_failed"
-        elif sell_ids and SKIP_BUYS_UNTIL_SELLS_FILLED:
+        usable_sell_ids = [oid for oid in sell_ids if not str(oid).startswith(("ERROR", "SKIPPED"))]
+        if usable_sell_ids and SKIP_BUYS_UNTIL_SELLS_FILLED:
             print(f"  Waiting up to {SELL_FILL_WAIT_SECONDS:g}s for sells to fill before buys...")
-            statuses = wait_for_order_fills(broker, sell_ids)
+            statuses = wait_for_order_fills(broker, usable_sell_ids)
             unfilled = {oid: status for oid, status in statuses.items() if status != "filled"}
             if unfilled:
                 status_note = ", ".join(f"{oid[:8]}={status}" for oid, status in list(unfilled.items())[:4])
-                skip_buy_reason = f"sell_not_filled:{status_note}"
+                sell_phase_issues.append(f"sell_not_filled:{status_note}")
+        if sell_phase_issues:
+            issue_note = ";".join(sell_phase_issues[:4])
+            print(f"  Sell phase incomplete; sizing buys from verified cash only: {issue_note}")
+            for order_row in buy_orders:
+                order_row["sell_phase_issues"] = issue_note
         if not skip_buy_reason and SKIP_BUYS_WHEN_CASH_BELOW > -1e12:
             try:
                 cash = broker.get_cash()
@@ -4680,11 +4825,14 @@ def main():
         broker,
         planned_count=len(logged_orders),
         order_ids=logged_order_ids,
+        orders=logged_orders,
     )
     if outcome.get("status") == "failed":
         return 1
     if outcome.get("status") == "blocked":
         return 2
+    if outcome.get("status") == "partial_execution":
+        return 3
     return 0
 
 

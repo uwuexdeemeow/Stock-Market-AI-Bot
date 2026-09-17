@@ -25,10 +25,16 @@ watchdog itself. Reports and alert state are stored under `signals/`.
 The daily-paper fallback is allowed only from 9:45 through 10:25 AM New York.
 It never supplies the emergency override. Factor, shadow, and post-market
 fallbacks are also time-bounded and keep their original workflow safeguards.
-Each workflow gets at most one watchdog dispatch per New York session. The
-read-only shadow workflow may use that one dispatch to retry a failed or
-cancelled run. A manually launched daily dry run does not count as a successful
-real paper session.
+Each missing workflow gets at most one fallback dispatch per New York session.
+The read-only shadow workflow may instead use that dispatch to retry a failed
+or cancelled run. Daily paper trading may receive exactly one additional
+partial recovery when
+its matching published outcome says `partial_execution`, all accepted orders
+are terminal, no broker failure occurred, and the clock is still before 10:25.
+That recovery uses `allow_repeat_submit=true` but never bypasses the market
+window. It regenerates orders from fresh broker state rather than replaying the
+old plan. A manually launched daily dry run does not count as a successful real
+paper session.
 The GitHub query reads twenty recent runs so daylight-saving duplicates and
 manual diagnostics cannot hide the intended scheduled run.
 Because GitHub may deliver cron events hours late, the watchdog treats a
@@ -42,6 +48,7 @@ run. A fast daylight-saving gate-only success is ignored.
 - **Deduplication:** one alert for a continuing problem.
 - **Recovery alert:** confirmation that the problem cleared.
 - **Fallback dispatch:** a guarded manual start when the normal cron is absent.
+- **Partial recovery:** one guarded retry after a settled, incomplete rebalance.
 - **Incident key:** a stable workflow identity used to avoid false recovery
   messages when only the failure explanation changes.
 # Timing evidence

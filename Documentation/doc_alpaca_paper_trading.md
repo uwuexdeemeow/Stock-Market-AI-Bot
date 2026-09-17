@@ -279,9 +279,11 @@ guard catches that anyway, but it's wasted effort.
 
 Every `--submit` run first writes a fail-closed
 `signals/alpaca_submit_outcome.json`. The final status is `executed`,
-`no_action`, `blocked`, or `failed`. Counts show every planned order's final
-state. A CSV journal keeps one row per run, and deterministic Alpaca client
-order IDs stop a retry from creating a duplicate order.
+`partial_execution`, `no_action`, `blocked`, or `failed`. `Executed` means all
+planned orders filled; one fill can no longer hide skipped work. The report
+includes a completion ratio, unresolved orders, quote feed, and whether one
+bounded recovery is safe. A CSV journal keeps one row per run, and
+deterministic Alpaca client order IDs stop a retry from creating a duplicate.
 # Paper-account identity
 
 The status snapshot records a short one-way hash of the Alpaca paper account ID. This proves that validation evidence belongs to one consistent account without saving the private account ID itself.
@@ -291,6 +293,13 @@ The status snapshot records a short one-way hash of the Alpaca paper account ID.
 Every rebalance submission now checks the exact bid and ask it will use, including the passive first stage, the replacement stage, and single-stage orders. Both prices must be finite and positive; the ask must not be below the bid. The broker timestamp must be present, no later than now, and within `EXECUTION_QUOTE_MAX_AGE_SECONDS`. Spread is calculated as `(ask - bid) / midpoint`, rather than trusted from a supplied field. Existing ETF and stock spread limits apply to buys and sells, including market-order overrides.
 
 An unsafe pre-submit quote is retried a small, bounded number of times before the order is logged as skipped. `ALPACA_SPREAD_GUARD_QUOTE_RETRIES` controls the extra attempts (default 2), and `ALPACA_SPREAD_GUARD_RETRY_SECONDS` controls the pause (default 1 second). Every retry must pass the same freshness and spread limits; retries never weaken the safety gate. An unsafe replacement preserves the first order's fills and cancellation result, and records `stage2_block_reason`, the broker timestamp, and the rejected quote. `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT=0` no longer bypasses quote validation. A spread is the gap between the buyer's bid and seller's ask; a midpoint is their average.
+
+Risk-reducing sells use a longer final quote budget: twelve attempts fifteen
+seconds apart by default. If a sell still cannot pass, buys are not cancelled
+automatically. The bot refreshes cash and buying power, keeps the 0.5% buffer,
+and proportionally reduces eligible buys to whole shares. It cannot spend sale
+proceeds that the broker has not credited. `ALPACA_DATA_FEED` defaults to
+`iex`; the feed and available exchange codes are recorded with the quote.
 
 Verify offline with `python -m pytest tests/test_brokers.py tests/test_submission_history_guards.py -q`. These tests use fake brokers. Expected output is passing tests; no broker orders are sent.
 

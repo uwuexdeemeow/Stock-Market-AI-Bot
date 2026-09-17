@@ -323,3 +323,31 @@ def test_every_planned_order_receives_a_final_execution_state(tmp_path, monkeypa
     )
     assert accounted == outcome["planned_orders"]
     assert outcome["status"] == "failed"
+
+
+def test_partial_submit_outcome_is_truthful_and_recoverable(tmp_path, monkeypatch):
+    monkeypatch.setattr(alpaca, "SUBMIT_OUTCOME_FILE", tmp_path / "outcome.json")
+    monkeypatch.setattr(alpaca, "SUBMIT_OUTCOME_JOURNAL_FILE", tmp_path / "outcomes.csv")
+    monkeypatch.setattr(
+        alpaca,
+        "_write_broker_truth_gate_report",
+        lambda: {"status": "warning", "summary": {"fail_count": 0, "warning_count": 1}},
+    )
+    monkeypatch.setattr(alpaca, "_order_status", lambda _broker, _order_id: "filled")
+    rows = [
+        {"ticker": "QQQ", "side": "sell", "fill_status": "filled"},
+        {"ticker": "INTC", "side": "sell", "fill_status": "skipped", "submitted_limit_reference": "spread_guard"},
+    ]
+
+    alpaca._begin_submit_outcome()
+    outcome = alpaca._finalize_submit_outcome(
+        object(),
+        planned_count=2,
+        order_ids=["broker-order", "SKIPPED: spread_guard"],
+        orders=rows,
+    )
+
+    assert outcome["status"] == "partial_execution"
+    assert outcome["completion_ratio"] == 0.5
+    assert outcome["recovery_eligible"] is True
+    assert outcome["unresolved_orders"][0]["ticker"] == "INTC"

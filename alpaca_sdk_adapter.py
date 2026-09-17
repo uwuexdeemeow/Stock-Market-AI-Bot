@@ -40,6 +40,7 @@ class AlpacaPyRESTCompat:
         *,
         trading_client: Any | None = None,
         data_client: Any | None = None,
+        data_feed: str = "iex",
     ) -> None:
         # Imports stay here so non-broker research scripts can run without the
         # optional broker package being loaded.
@@ -51,6 +52,19 @@ class AlpacaPyRESTCompat:
             key_id, secret_key, paper=paper, url_override=base_url
         )
         self._data = data_client or StockHistoricalDataClient(key_id, secret_key)  # type: ignore[name-defined]
+        # PLAIN ENGLISH: Keep the requested exchange feed explicit. Alpaca can
+        # otherwise silently choose a feed from the account subscription, which
+        # makes a recorded spread impossible to audit later.
+        self._data_feed = str(data_feed or "iex").strip().lower()
+
+    def _request_feed(self) -> Any:
+        """Translate the configured feed name into Alpaca's typed enum."""
+        from alpaca.data.enums import DataFeed
+
+        try:
+            return DataFeed(self._data_feed)
+        except ValueError as exc:
+            raise ValueError(f"Unsupported Alpaca data feed: {self._data_feed}") from exc
 
     def get_account(self) -> Any:
         return _wrapped(self._trading.get_account())
@@ -114,13 +128,17 @@ class AlpacaPyRESTCompat:
     def get_snapshot(self, symbol: str) -> Any:
         from alpaca.data.requests import StockSnapshotRequest
 
-        result = self._data.get_stock_snapshot(StockSnapshotRequest(symbol_or_symbols=symbol))
+        result = self._data.get_stock_snapshot(
+            StockSnapshotRequest(symbol_or_symbols=symbol, feed=self._request_feed())
+        )
         return result[str(symbol).upper()]
 
     def get_latest_trade(self, symbol: str) -> Any:
         from alpaca.data.requests import StockLatestTradeRequest
 
-        result = self._data.get_stock_latest_trade(StockLatestTradeRequest(symbol_or_symbols=symbol))
+        result = self._data.get_stock_latest_trade(
+            StockLatestTradeRequest(symbol_or_symbols=symbol, feed=self._request_feed())
+        )
         return result[str(symbol).upper()]
 
     def get_bars(

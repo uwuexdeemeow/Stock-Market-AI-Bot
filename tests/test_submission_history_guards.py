@@ -44,6 +44,7 @@ def test_threshold_uses_prices_and_asset_type(monkeypatch):
 def test_narrow_planning_quote_then_wide_submission_blocks(monkeypatch, two_stage):
     monkeypatch.setattr(trading, "MAX_SPREAD_PCT_OVERLAY", .005)
     monkeypatch.setattr(trading, "TWO_STAGE_EXECUTION_ENABLED", two_stage)
+    monkeypatch.setattr(trading, "SPREAD_GUARD_QUOTE_RETRIES", 0)
     snapshots = iter([quote(), quote(100, 110)])
     sent = []
     broker = SimpleNamespace(get_quote_snapshot=lambda ticker: next(snapshots),
@@ -200,6 +201,7 @@ def test_delayed_fold_boundary_uses_exchange_exit(monkeypatch):
 def test_blocked_replacement_preserves_partial_fill_and_reason(tmp_path, monkeypatch, replacement):
     monkeypatch.setattr(trading, "EXECUTION_STAGE1_WAIT_SECONDS", 0)
     monkeypatch.setattr(trading, "EXECUTION_CANCEL_WAIT_SECONDS", 0)
+    monkeypatch.setattr(trading, "SPREAD_GUARD_QUOTE_RETRIES", 0)
     monkeypatch.setattr(trading, "_send_submit_guard_alert", lambda *args, **kwargs: None)
     monkeypatch.setattr(trading, "PAPER_LOG_FILE", tmp_path / "log.csv")
     if replacement["quote_timestamp"] is not None:
@@ -238,14 +240,21 @@ def test_causal_alignment_uses_interior_source_bar_and_refresh(tmp_path, monkeyp
     assert core._cached_etf_prices(requested, ["SPY"]).SPY.tolist() == [1., 1.15]
 
 
-def test_skipped_sell_cannot_unlock_buy_phase(monkeypatch):
+def test_skipped_sell_only_unlocks_cash_funded_buy(monkeypatch):
     calls = []
     def skip_sell(broker, row, **kwargs):
         calls.append(row["ticker"])
-        return trading._skip_order(row, "spread_guard:test")
+        if row["side"] == "sell":
+            return trading._skip_order(row, "spread_guard:test")
+        return "buy-FCX-1"
     monkeypatch.setattr(trading, "_submit_one_rebalance_order", skip_sell)
     rows = [{"ticker": "MU", "side": "sell", "quantity": 1},
-            {"ticker": "FCX", "side": "buy", "quantity": 1}]
-    _, ids = trading.submit_rebalance_orders(SimpleNamespace(), rows, use_market_order=False, use_quote_limit=True)
-    assert calls == ["MU"]
-    assert ids[1] == "SKIPPED: sell_submission_failed"
+            {"ticker": "FCX", "side": "buy", "quantity": 1, "price": 50.0}]
+    broker = SimpleNamespace(
+        get_cash=lambda: 100.0,
+        get_buying_power=lambda: 100.0,
+        get_equity=lambda: 100.0,
+    )
+    _, ids = trading.submit_rebalance_orders(broker, rows, use_market_order=False, use_quote_limit=True)
+    assert calls == ["MU", "FCX"]
+    assert ids[1] == "buy-FCX-1"

@@ -1449,7 +1449,7 @@ def test_force_does_not_allow_closed_market_queue(monkeypatch):
     ) is True
 
 
-def test_submit_rebalance_orders_skips_buys_when_sell_submission_fails(monkeypatch):
+def test_submit_rebalance_orders_uses_verified_cash_when_sell_submission_fails(monkeypatch):
     import alpaca_paper_trading as apt
 
     monkeypatch.setattr(apt, "_send_submit_guard_alert", lambda *args, **kwargs: None)
@@ -1465,11 +1465,12 @@ def test_submit_rebalance_orders_skips_buys_when_sell_submission_fails(monkeypat
 
     assert [o["ticker"] for o in submitted] == ["FCX", "MU"]
     assert order_ids[0].startswith("ERROR")
-    assert order_ids[1].startswith("SKIPPED: sell_submission_failed")
-    assert [o.ticker for o in broker.orders] == []
+    assert order_ids[1] == "buy-MU-1"
+    assert [o.ticker for o in broker.orders] == ["MU"]
+    assert "ERROR" in submitted[1]["sell_phase_issues"]
 
 
-def test_submit_rebalance_orders_skips_buys_when_sell_not_filled(monkeypatch):
+def test_submit_rebalance_orders_uses_verified_cash_when_sell_not_filled(monkeypatch):
     import alpaca_paper_trading as apt
 
     monkeypatch.setattr(apt, "_send_submit_guard_alert", lambda *args, **kwargs: None)
@@ -1486,8 +1487,81 @@ def test_submit_rebalance_orders_skips_buys_when_sell_not_filled(monkeypatch):
 
     assert [o["ticker"] for o in submitted] == ["FCX", "MU"]
     assert order_ids[0] == "sell-FCX-1"
-    assert order_ids[1].startswith("SKIPPED: sell_not_filled")
-    assert [o.ticker for o in broker.orders] == ["FCX"]
+    assert order_ids[1] == "buy-MU-2"
+    assert [o.ticker for o in broker.orders] == ["FCX", "MU"]
+    assert "sell_not_filled" in submitted[1]["sell_phase_issues"]
+
+
+def test_cash_fit_scales_multiple_buys_proportionally(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "MIN_TRADE_VALUE", 0.0)
+    rows = [
+        _planned_order("SPY", "buy", quantity=18),
+        _planned_order("MU", "buy", quantity=7),
+        _planned_order("FCX", "buy", quantity=87),
+    ]
+    adjusted, skipped, cash_left = apt._fit_buy_orders_to_available_cash(
+        rows, 2_600.0, use_market_order=False
+    )
+
+    quantities = {row["ticker"]: row["quantity"] for row in adjusted}
+    assert skipped == []
+    assert quantities == {"SPY": 4, "MU": 1, "FCX": 20}
+    assert cash_left >= 0
+    assert all(row["cash_clamped_to_available"] for row in adjusted)
+
+
+def test_cash_fit_replays_september_17_safe_buy_capacity(monkeypatch):
+    """Today's failed INTC sell must not discard otherwise affordable buys."""
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "MIN_TRADE_VALUE", 0.0)
+    rows = [
+        {**_planned_order("SPY", "buy", 18), "price": 761.215, "limit_price": 761.215},
+        {**_planned_order("MU", "buy", 7), "price": 970.59, "limit_price": 970.59},
+        {**_planned_order("FCX", "buy", 87), "price": 70.41, "limit_price": 70.41},
+    ]
+
+    adjusted, skipped, cash_left = apt._fit_buy_orders_to_available_cash(
+        rows, 25_999.49, use_market_order=False
+    )
+
+    assert skipped == []
+    assert {row["ticker"]: row["quantity"] for row in adjusted} == {
+        "SPY": 17,
+        "MU": 7,
+        "FCX": 87,
+    }
+    assert cash_left >= 0
+
+
+def test_sell_quote_retries_without_relaxing_spread_limit(monkeypatch):
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "SELL_QUOTE_ATTEMPTS", 12)
+    monkeypatch.setattr(apt, "SELL_QUOTE_RETRY_SECONDS", 15)
+    spreads = iter([0.0054, 0.0054, 0.0049])
+
+    class QuoteBroker:
+        def get_quote_snapshot(self, _ticker):
+            spread = next(spreads)
+            return {
+                "bid_price": 100 * (1 - spread / 2),
+                "ask_price": 100 * (1 + spread / 2),
+                "quote_timestamp": datetime.now(timezone.utc).isoformat(),
+                "feed": "iex",
+            }
+
+    sleeps = []
+    quote, reason, attempts = apt._submission_quote_with_retries(
+        QuoteBroker(), "INTC", "sell", sleep_fn=sleeps.append
+    )
+
+    assert reason == ""
+    assert attempts == 3
+    assert quote["spread_pct"] <= apt.MAX_SPREAD_PCT_OVERLAY
+    assert sleeps == [15, 15]
 
 
 def test_submit_rebalance_orders_skips_buys_when_cash_negative(monkeypatch):
@@ -1630,7 +1704,7 @@ def test_submit_rebalance_orders_cash_clamps_buy_quantity(monkeypatch):
     assert submitted[0]["quantity"] == 1
     assert submitted[0]["original_quantity_before_cash_clamp"] == 2
     assert submitted[0]["cash_clamped_to_available"] is True
-    assert "cash_limited:2->1" in submitted[0]["cash_clamp_reason"]
+    assert "proportional_cash_limited:2->1" in submitted[0]["cash_clamp_reason"]
     assert broker.orders[0].quantity == 1
 
 

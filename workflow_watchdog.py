@@ -8,6 +8,7 @@ recovery message when they become healthy. It has no Alpaca credentials.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import urllib.error
@@ -46,6 +47,12 @@ RECOVERY_INPUTS = {
     "daily_paper": {"force": "false", "dry_run": "false"},
     "shadow_paper": {"force": "false", "ignore_stale": "false", "fractional_initial_equity": "400"},
     "execution_quality": {},
+}
+DAILY_PARTIAL_RECOVERY_INPUTS = {
+    "force": "false",
+    "allow_repeat_submit": "true",
+    "allow_outside_execution_window": "false",
+    "dry_run": "false",
 }
 
 
@@ -87,6 +94,52 @@ def _github_runs(repository: str, workflow_file: str, token: str) -> list[dict]:
     with urllib.request.urlopen(request, timeout=20) as response:
         payload = json.loads(response.read().decode("utf-8"))
     return payload.get("workflow_runs", []) or []
+
+
+def _github_json_file(repository: str, path: str, ref: str, token: str) -> dict:
+    """Read one JSON file from a repository branch through GitHub's API."""
+    url = f"https://api.github.com/repos/{repository}/contents/{path}?ref={ref}"
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "stockbot-independent-watchdog",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=20) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    encoded = str(payload.get("content", "")).replace("\n", "")
+    decoded = base64.b64decode(encoded).decode("utf-8")
+    value = json.loads(decoded)
+    return value if isinstance(value, dict) else {}
+
+
+def _daily_partial_recovery_eligible(repository: str, token: str, run: dict) -> bool:
+    """Approve only a settled partial outcome produced by this exact run."""
+    run_id = str(run.get("id", "")).strip()
+    if not run_id:
+        return False
+    try:
+        outcome = _github_json_file(
+            repository,
+            "signals/alpaca_submit_outcome.json",
+            "signals/latest",
+            token,
+        )
+    except Exception:
+        return False
+    # PLAIN ENGLISH: Never use an older run's safe-looking file to authorize a
+    # retry for today's failure. GitHub daily runs use this exact ID format.
+    return bool(
+        str(outcome.get("run_id", "")) == f"github-{run_id}"
+        and str(outcome.get("status", "")) == "partial_execution"
+        and bool(outcome.get("recovery_eligible", False))
+        and int(outcome.get("open_orders", 0) or 0) == 0
+        and int(outcome.get("failed_orders", 0) or 0) == 0
+        and int(outcome.get("rejected_orders", 0) or 0) == 0
+    )
 
 
 def _dispatch_workflow(
@@ -294,11 +347,23 @@ def check_workflows(*, now: datetime | None = None) -> dict:
                 and conclusion in {"failure", "cancelled", "timed_out"}
                 and retries_today < 1
             )
+            retryable_daily_partial = bool(
+                name == "daily_paper"
+                and ran_today
+                and conclusion in {"failure", "cancelled"}
+                and retries_today < 1
+                and _daily_partial_recovery_eligible(repository, token, latest)
+            )
             missing_run_recovery = bool(not ran_today and attempts_today < 1)
             recovery_due = bool(
                 session
                 and fallback_at <= clock.time() <= fallback_cutoff
-                and (missing_run_recovery or retryable_shadow_failure)
+                and (missing_run_recovery or retryable_shadow_failure or retryable_daily_partial)
+            )
+            dispatch_inputs = (
+                DAILY_PARTIAL_RECOVERY_INPUTS
+                if retryable_daily_partial
+                else RECOVERY_INPUTS.get(name, {})
             )
             recovery_dispatched = bool(
                 recovery_due
@@ -306,17 +371,17 @@ def check_workflows(*, now: datetime | None = None) -> dict:
                     repository,
                     workflow_file,
                     token,
-                    inputs=RECOVERY_INPUTS.get(name, {}),
+                    inputs=dispatch_inputs,
                 )
             )
             if recovery_dispatched:
                 dispatched.append(name)
                 recovery_attempts[attempt_key] = attempts_today + 1
-                if retryable_shadow_failure:
+                if retryable_shadow_failure or retryable_daily_partial:
                     retry_attempts[attempt_key] = retries_today + 1
             healthy = bool(not due or (ran_today and conclusion == "success"))
             if recovery_dispatched:
-                reason = "fallback_dispatched"
+                reason = "partial_recovery_dispatched" if retryable_daily_partial else "fallback_dispatched"
             elif healthy:
                 reason = "not_due" if not due else "ok"
             elif run_pending:

@@ -4,7 +4,7 @@ import workflow_watchdog
 
 
 def _run(created_at, conclusion="success"):
-    return {"event": "schedule", "created_at": created_at, "conclusion": conclusion, "html_url": "https://example.test/run"}
+    return {"id": 123, "event": "schedule", "created_at": created_at, "conclusion": conclusion, "html_url": "https://example.test/run"}
 
 
 def _manual_run(created_at, conclusion="success", title="Daily Paper Trading (paper-session)"):
@@ -118,6 +118,52 @@ def test_watchdog_retries_failed_shadow_only_once(tmp_path, monkeypatch):
     workflow_watchdog.check_workflows(now=datetime(2026, 8, 31, 16, 10, tzinfo=timezone.utc))
 
     assert len(dispatched) == 1
+
+
+def test_watchdog_retries_settled_daily_partial_only_once(tmp_path, monkeypatch):
+    state = tmp_path / "state.json"
+    monkeypatch.setattr(workflow_watchdog, "STATE_FILE", state)
+    monkeypatch.setattr(workflow_watchdog, "REPORT_FILE", tmp_path / "report.json")
+    monkeypatch.setattr(workflow_watchdog, "WORKFLOWS", {
+        "daily_paper": ("daily.yml", workflow_watchdog.time(9, 35), workflow_watchdog.time(9, 45), workflow_watchdog.time(10, 25), workflow_watchdog.time(11)),
+    })
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setattr(workflow_watchdog, "_is_nyse_session", lambda _clock: True)
+    monkeypatch.setattr(workflow_watchdog, "_github_runs", lambda *_args: [_run("2026-08-31T13:40:00Z", "failure")])
+    monkeypatch.setattr(workflow_watchdog, "_daily_partial_recovery_eligible", lambda *_args: True)
+    dispatched = []
+    monkeypatch.setattr(
+        workflow_watchdog,
+        "_dispatch_workflow",
+        lambda _repo, workflow, _token, *, inputs: dispatched.append((workflow, inputs)) or True,
+    )
+
+    first = workflow_watchdog.check_workflows(now=datetime(2026, 8, 31, 13, 50, tzinfo=timezone.utc))
+    workflow_watchdog.check_workflows(now=datetime(2026, 8, 31, 14, 0, tzinfo=timezone.utc))
+
+    assert first["checks"]["daily_paper"]["reason"] == "partial_recovery_dispatched"
+    assert len(dispatched) == 1
+    assert dispatched[0][1] == workflow_watchdog.DAILY_PARTIAL_RECOVERY_INPUTS
+
+
+def test_daily_partial_recovery_requires_matching_settled_outcome(monkeypatch):
+    base = {
+        "run_id": "github-123",
+        "status": "partial_execution",
+        "recovery_eligible": True,
+        "open_orders": 0,
+        "failed_orders": 0,
+        "rejected_orders": 0,
+    }
+    monkeypatch.setattr(workflow_watchdog, "_github_json_file", lambda *_args: dict(base))
+    assert workflow_watchdog._daily_partial_recovery_eligible("owner/repo", "token", {"id": 123}) is True
+
+    for field, value in (("run_id", "github-older"), ("open_orders", 1), ("failed_orders", 1)):
+        changed = dict(base)
+        changed[field] = value
+        monkeypatch.setattr(workflow_watchdog, "_github_json_file", lambda *_args, row=changed: row)
+        assert workflow_watchdog._daily_partial_recovery_eligible("owner/repo", "token", {"id": 123}) is False
 
 
 def test_manual_daily_dry_run_does_not_count_as_real_session(tmp_path, monkeypatch):
