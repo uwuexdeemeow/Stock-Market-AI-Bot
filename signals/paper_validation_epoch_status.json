@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "epoch_id": "paper-v20260910T045130Z",
-  "evaluated_at": "2026-09-17T21:16:23+00:00",
+  "evaluated_at": "2026-09-17T23:34:49+00:00",
   "status": "collecting",
   "trading_days": 6,
   "rebalance_events": 4,
@@ -9,8 +9,8 @@
   "classified_sessions": 4,
   "duplicate_orders": 0,
   "unexplained_orders": 0,
-  "maximum_target_weight_gap": 0.195866,
-  "gross_exposure_gap": 0.238328,
+  "maximum_target_weight_gap": 0.19541,
+  "gross_exposure_gap": 0.238621,
   "alignment_status": "fail",
   "open_critical_incidents": 0,
   "fill_rate": 0.8571,
@@ -69,13 +69,13 @@
   "manual_real_capital_review_eligible": false,
   "real_capital_approved": false,
   "run_context": {
-    "run_id": "post-market-35275598039-1",
-    "generated_at": "2026-09-17T21:16:23+00:00",
+    "run_id": "post-market-35287374508-1",
+    "generated_at": "2026-09-17T23:34:49+00:00",
     "signal_as_of": "2026-09-18T01:46+08:00",
     "git_commit": "e732122e4a6909e55fba0e731f5f6810b46f0d4a",
     "configuration_fingerprint": "8e079bbbc67d583df152b76b05c3e99aeb02aa9a4465150a5a6690667358814d",
     "paper_version_fingerprint": "d94acc9d0e4a74353af2d7c0793fd1de77390f0eaac7375285873322db05cc43",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-35275598039-1"
+  "run_id": "post-market-35287374508-1"
 }
