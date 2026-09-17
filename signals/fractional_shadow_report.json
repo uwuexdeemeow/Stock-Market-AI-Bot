@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-17T14:00:22+00:00",
+  "generated_at": "2026-09-17T17:54:49+00:00",
   "status": "ok",
   "mode": "fractional_shadow_only",
   "capital": {
@@ -10,23 +10,23 @@
     "invested_value": 401.4148
   },
   "signal": {
-    "signal_key": "611b939723cba112afab",
-    "predicted_at": "2026-09-17T21:39+08:00",
+    "signal_key": "9c9bef4217fe7e55ee11",
+    "predicted_at": "2026-09-18T01:46+08:00",
     "valuation_date": "2026-09-16",
     "live_config_hash": "efc9620f12f77952",
     "repeated_signal": false
   },
   "execution": {
-    "orders_simulated": 6,
+    "orders_simulated": 0,
     "broker_orders_submitted": false,
     "minimum_order_notional": 1.0,
     "quantity_precision_decimals": 9,
     "order_type": "market",
     "time_in_force": "day",
     "slippage_bps": 10.0,
-    "slippage_cost_today": 0.34662522,
-    "regulatory_fees_today": 0.01,
-    "regulatory_fees_raw_today": 0.00373218,
+    "slippage_cost_today": 0.0,
+    "regulatory_fees_today": 0.0,
+    "regulatory_fees_raw_today": 0.0,
     "commission_today": 0.0,
     "fee_model": {
       "sec_sell_fee_bps": 0.206,
@@ -37,9 +37,9 @@
   },
   "allocation": {
     "target_weights": {
-      "FCX": 0.080938,
+      "FCX": 0.080325,
       "GS": 0.188679,
-      "MU": 0.230383,
+      "MU": 0.230995,
       "QQQ": 0.375,
       "SPY": 0.125
     },
@@ -51,13 +51,13 @@
       "SPY": 0.1244849464
     },
     "target_weight_gaps": {
-      "FCX": -0.0011927072,
+      "FCX": -0.0005797072,
       "GS": -0.0007774373,
-      "MU": -0.0009492749,
+      "MU": -0.0015612749,
       "QQQ": -0.0015451591,
       "SPY": -0.0005150536
     },
-    "max_absolute_target_weight_gap": 0.0015451591,
+    "max_absolute_target_weight_gap": 0.0015612749,
     "cash_weight": 0.0049796321,
     "positions": {
       "QQQ": {
@@ -86,7 +86,6 @@
     "price_dates": {
       "FCX": "2026-09-16",
       "GS": "2026-09-16",
-      "INTC": "2026-09-16",
       "MU": "2026-09-16",
       "QQQ": "2026-09-16",
       "SPY": "2026-09-16"

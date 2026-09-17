@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-17T14:00:32.224162+00:00",
-  "source_commit": "fafd30aee0248ef236114f0f9210e64fb6449fb3",
+  "generated_at": "2026-09-17T17:54:57.813795+00:00",
+  "source_commit": "e732122e4a6909e55fba0e731f5f6810b46f0d4a",
   "baseline_count": 92,
   "baseline_sha256": "a7a2efce2ae1f75b3ade6fb8798eb754f635d5f7797a668b3088f3bac09a00d3",
   "findings": [
@@ -5452,7 +5452,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5473,7 +5473,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5494,7 +5494,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5515,7 +5515,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5536,7 +5536,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5557,7 +5557,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5578,7 +5578,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5599,7 +5599,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5620,7 +5620,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5641,7 +5641,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5662,7 +5662,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5683,7 +5683,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5704,7 +5704,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5725,7 +5725,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5746,7 +5746,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5767,7 +5767,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5788,7 +5788,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5809,7 +5809,7 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
@@ -5830,8 +5830,407 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35227985744:10500072592:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "epoch_check_failed"
+    },
+    {
+      "id": "gap-366fdefee5d42bbb9507",
+      "finding": {
+        "reason": "config_fingerprint_missing",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "config_fingerprint_missing"
+    },
+    {
+      "id": "gap-1f8116b5519d478a0df2",
+      "finding": {
+        "reason": "configuration_fingerprint_mismatch",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "configuration_fingerprint_mismatch"
+    },
+    {
+      "id": "gap-b7362b88e21d780f5021",
+      "finding": {
+        "reason": "deployed_configuration_missing",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "deployed_configuration_missing"
+    },
+    {
+      "id": "gap-04367910ad4c93f2e40c",
+      "finding": {
+        "reason": "deployment_state_missing",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "deployment_state_missing"
+    },
+    {
+      "id": "gap-c87dfa3581dde8aa4915",
+      "finding": {
+        "reason": "deployment_status_conflict",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "deployment_status_conflict"
+    },
+    {
+      "id": "gap-b476737884e6378b2d86",
+      "finding": {
+        "reason": "paper_approval_not_unanimous",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "paper_approval_not_unanimous"
+    },
+    {
+      "id": "gap-316e09c3cfdbd8b2409a",
+      "finding": {
+        "reason": "robustness_review_missing",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "robustness_review_missing"
+    },
+    {
+      "id": "gap-9e0569e872c242c84b37",
+      "finding": {
+        "reason": "strategy_bundle_reference_mismatch",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "strategy_bundle_reference_mismatch"
+    },
+    {
+      "id": "gap-24bda656092bbc482416",
+      "finding": {
+        "reason": "top_bundle_reference_mismatch",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "top_bundle_reference_mismatch"
+    },
+    {
+      "id": "gap-39ed6367f8fc10490294",
+      "finding": {
+        "reason": "validation_bundle_hash_missing",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "validation_bundle_hash_missing"
+    },
+    {
+      "id": "gap-a95bdbfd53d02570c4e7",
+      "finding": {
+        "reason": "validation_bundle_schema_outdated",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "validation_bundle_schema_outdated"
+    },
+    {
+      "id": "gap-03079e5601283303f776",
+      "finding": {
+        "reason": "execution_observations_insufficient_or_failed",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "execution_observations_insufficient_or_failed"
+    },
+    {
+      "id": "gap-bfe8b23c78f7fafbed88",
+      "finding": {
+        "reason": "epoch_check_failed:trading_days",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "epoch_check_failed"
+    },
+    {
+      "id": "gap-befecabaa05e79544180",
+      "finding": {
+        "reason": "epoch_check_failed:accepted_orders",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "epoch_check_failed"
+    },
+    {
+      "id": "gap-c7fafea3515711bfc0d7",
+      "finding": {
+        "reason": "epoch_check_failed:classified_sessions",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "epoch_check_failed"
+    },
+    {
+      "id": "gap-c1cf27367e5b9b17b351",
+      "finding": {
+        "reason": "epoch_check_failed:average_slippage",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "epoch_check_failed"
+    },
+    {
+      "id": "gap-f4b2aadc2cacc3b095b6",
+      "finding": {
+        "reason": "epoch_check_failed:bad_slippage_rate",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "epoch_check_failed"
+    },
+    {
+      "id": "gap-71b52d0fca709e99f93b",
+      "finding": {
+        "reason": "epoch_check_failed:stage_comparison_ready",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-17"
+      },
+      "group": "epoch_check_failed"
+    },
+    {
+      "id": "gap-138d8b167f3ca981eb6f",
+      "finding": {
+        "reason": "epoch_check_failed:two_stage_design",
+        "source": "workflow_artifact:35254254571:10512268424:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-17T17:54:57.813795+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:35254254571:10512268424:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {

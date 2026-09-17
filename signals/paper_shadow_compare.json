@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-17T14:00:22+00:00",
+  "generated_at": "2026-09-17T17:54:49+00:00",
   "status": "collecting",
   "reason": "awaiting_second_aligned_observation",
   "common_start_date": "2026-09-17",
@@ -7,8 +7,8 @@
   "latest_dates_match": true,
   "alpaca": {
     "latest_date": "2026-09-17",
-    "latest_equity": 111211.2,
-    "start_equity": 111211.2,
+    "latest_equity": 111552.98,
+    "start_equity": 111552.98,
     "return_pct_since_common_start": 0.0
   },
   "shadow": {

@@ -27,16 +27,15 @@
       "avg_cost": 754.8040377808
     }
   },
-  "last_signal_key": "611b939723cba112afab",
+  "last_signal_key": "9c9bef4217fe7e55ee11",
   "last_valuation_date": "2026-09-16",
   "cumulative_slippage_cost": 0.780588316,
   "cumulative_regulatory_fees": 0.04,
   "created_at": "2026-08-31T23:45:09+00:00",
-  "last_run_at": "2026-09-17T14:00:22+00:00",
+  "last_run_at": "2026-09-17T17:54:49+00:00",
   "last_price_dates": {
     "FCX": "2026-09-16",
     "GS": "2026-09-16",
-    "INTC": "2026-09-16",
     "MU": "2026-09-16",
     "QQQ": "2026-09-16",
     "SPY": "2026-09-16"
