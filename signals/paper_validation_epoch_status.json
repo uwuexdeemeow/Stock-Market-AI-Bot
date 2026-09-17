@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "epoch_id": "paper-v20260910T045130Z",
-  "evaluated_at": "2026-09-17T13:39:27+00:00",
+  "evaluated_at": "2026-09-17T17:46:44+00:00",
   "status": "collecting",
   "trading_days": 6,
   "rebalance_events": 4,
@@ -9,10 +9,10 @@
   "classified_sessions": 4,
   "duplicate_orders": 0,
   "unexplained_orders": 0,
-  "maximum_target_weight_gap": 0.191465,
-  "gross_exposure_gap": 0.240723,
+  "maximum_target_weight_gap": 0.198103,
+  "gross_exposure_gap": 0.238012,
   "alignment_status": "fail",
-  "open_critical_incidents": 1,
+  "open_critical_incidents": 2,
   "fill_rate": 0.8571,
   "complete_fill_rate": 0.8571,
   "any_fill_rate": 0.8571,
@@ -26,13 +26,13 @@
   "child_attempts": 8,
   "unclassifiable_order_rows": 0,
   "unclassifiable_logical_orders": 0,
-  "average_slippage_bps": 10.565999999999999,
-  "bad_slippage_rate": 0.6,
+  "average_slippage_bps": 9.02,
+  "bad_slippage_rate": 0.5,
   "stage_comparison": {
     "stage1": {
-      "measured_fills": 4,
-      "average_slippage_bps": 12.149999999999999,
-      "median_slippage_bps": 3.795
+      "measured_fills": 5,
+      "average_slippage_bps": 9.977999999999998,
+      "median_slippage_bps": 1.29
     },
     "stage2": {
       "measured_fills": 1,
@@ -40,7 +40,7 @@
       "median_slippage_bps": 4.23
     }
   },
-  "stage_comparison_measured_fills": 5,
+  "stage_comparison_measured_fills": 6,
   "stage_comparison_minimum_fills": 20,
   "stage_comparison_review_ready": false,
   "two_stage_design_improves_slippage": false,
@@ -69,13 +69,13 @@
   "manual_real_capital_review_eligible": false,
   "real_capital_approved": false,
   "run_context": {
-    "run_id": "github-35227985744",
-    "generated_at": "2026-09-17T13:39:27+00:00",
-    "signal_as_of": "2026-09-17T21:39+08:00",
-    "git_commit": "fafd30aee0248ef236114f0f9210e64fb6449fb3",
-    "configuration_fingerprint": "507621cca778cb5b7590fc9e2dc5154591aa5ffa0387c97f867a7c807a05579e",
-    "paper_version_fingerprint": "d8ed5f81b878c4af3f2471d02bcc532a4b1b845a63996ac32a41daf81f4d0011",
+    "run_id": "github-35254254571",
+    "generated_at": "2026-09-17T17:46:44+00:00",
+    "signal_as_of": "2026-09-18T01:46+08:00",
+    "git_commit": "e732122e4a6909e55fba0e731f5f6810b46f0d4a",
+    "configuration_fingerprint": "8e079bbbc67d583df152b76b05c3e99aeb02aa9a4465150a5a6690667358814d",
+    "paper_version_fingerprint": "d94acc9d0e4a74353af2d7c0793fd1de77390f0eaac7375285873322db05cc43",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "github-35227985744"
+  "run_id": "github-35254254571"
 }

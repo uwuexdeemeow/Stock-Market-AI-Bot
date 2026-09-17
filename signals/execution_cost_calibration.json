@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-17T13:39:26+00:00",
-  "source_generated_at": "2026-09-17T13:39:20+00:00",
+  "generated_at": "2026-09-17T17:46:43+00:00",
+  "source_generated_at": "2026-09-17T17:46:36+00:00",
   "status": "ready",
   "sample_count": 20,
   "minimum_sample_count": 20,
@@ -43,10 +43,10 @@
       "order_type": "limit",
       "liquidity_bucket": "unknown",
       "median_notional": 29049.36,
-      "samples": 1,
-      "median_slippage_bps": 0.0,
-      "p75_slippage_bps": 0.0,
-      "mean_slippage_bps": 0.0
+      "samples": 2,
+      "median_slippage_bps": 0.645,
+      "p75_slippage_bps": 0.9675,
+      "mean_slippage_bps": 0.645
     },
     {
       "side": "sell",

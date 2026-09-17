@@ -91,7 +91,7 @@
   "benchmark_comparisons": {
     "SPY": {
       "benchmark_return_pct": 791.54,
-      "alpha_pct": 3168.74,
+      "alpha_pct": 3168.73,
       "nw_tstat_vs_benchmark": 3.792
     },
     "QQQ": {
