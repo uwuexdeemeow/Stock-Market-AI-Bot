@@ -1,20 +1,20 @@
 {
-  "generated_at": "2026-09-17T17:54:49+00:00",
+  "generated_at": "2026-09-18T13:59:45+00:00",
   "status": "collecting",
   "reason": "awaiting_second_aligned_observation",
-  "common_start_date": "2026-09-17",
+  "common_start_date": "2026-09-18",
   "aligned_days": 1,
   "latest_dates_match": true,
   "alpaca": {
-    "latest_date": "2026-09-17",
-    "latest_equity": 111552.98,
-    "start_equity": 111552.98,
+    "latest_date": "2026-09-18",
+    "latest_equity": 111610.38,
+    "start_equity": 111610.38,
     "return_pct_since_common_start": 0.0
   },
   "shadow": {
-    "latest_date": "2026-09-17",
-    "latest_equity": 104887.62,
-    "start_equity": 104887.62,
+    "latest_date": "2026-09-18",
+    "latest_equity": 107530.13,
+    "start_equity": 107530.13,
     "return_pct_since_common_start": 0.0
   },
   "spread": {
