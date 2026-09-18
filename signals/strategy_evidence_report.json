@@ -1,9 +1,9 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-09-18T13:59:54.912662+00:00",
+  "generated_at": "2026-09-18T17:58:06.047695+00:00",
   "audit_start": "2012-01-01",
   "audit_end": "2026-09-18",
-  "audit_code_commit": "e732122e4a6909e55fba0e731f5f6810b46f0d4a",
+  "audit_code_commit": "41b9c7a6a7f517b38ba9c250f4db9e17c619ab1e",
   "audit_worktree_dirty": true,
   "status": "blocked",
   "sources": [
@@ -36,7 +36,7 @@
         "core_satellite_validation_bundle.json": "c02a982cf74b789ee01ffa0a25f8f73751d55394490fe6f024ef445fcf0b2f17",
         "alpaca_paper_log.csv": "732c6a03f9b4740315520d95a230e0c82ec2c83a420e5f42bbc6e42b3a35e762",
         "core_satellite_alpha_signal.csv": "44d3f38bd17ce8d40585aacdf136a78a982199dacd5154245e5f5dcdedcbbf3f",
-        "core_satellite_alpha_input_snapshot.csv": "bd28322f1d2896cbc96befbbaf87fa240eff40d5c1f57a7a58d15d80c020a760"
+        "core_satellite_alpha_input_snapshot.csv": "49ac24e5d169b1a46a81dcc9e385d27cc3934bffb8a85f60364ffd65b04bf1c6"
       },
       "approval": {
         "status": "identity_consistent_pending_runtime_checks",
@@ -58,11 +58,11 @@
     },
     {
       "source": "signals/latest",
-      "source_commit": "d10e64d02ccfdedf644c8fa6e738e2628d1443b5",
+      "source_commit": "a7f39dbf88ea6e5ec68b47190fb95d117840135b",
       "profile": "execution_observation_only",
       "run_commit": "e732122e4a6909e55fba0e731f5f6810b46f0d4a",
       "generated_at": "2026-09-17T23:34:52+00:00",
-      "age_hours": 14.417348438333335,
+      "age_hours": 18.3871172375,
       "complete": true,
       "issues": [],
       "measured_fills": 15,
@@ -114,12 +114,12 @@
       }
     },
     {
-      "source": "workflow_artifact:35351065965:10549464502:failure",
-      "source_commit": "e732122e4a6909e55fba0e731f5f6810b46f0d4a",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
+      "source_commit": "41b9c7a6a7f517b38ba9c250f4db9e17c619ab1e",
       "profile": "daily",
-      "run_commit": "e732122e4a6909e55fba0e731f5f6810b46f0d4a",
-      "generated_at": "2026-09-18T13:38:42+00:00",
-      "age_hours": 0.35346030666666667,
+      "run_commit": "41b9c7a6a7f517b38ba9c250f4db9e17c619ab1e",
+      "generated_at": "2026-09-18T17:12:07+00:00",
+      "age_hours": 0.7662846361111111,
       "complete": false,
       "issues": [
         "complete_run_manifest_missing",
@@ -140,15 +140,15 @@
         "epoch_check_failed:two_stage_design"
       ],
       "file_hashes": {
-        "core_satellite_alpha_signal.csv": "8b10fd8c97d8cc8ed2699e51a5c61b33a050c6b9dd35c6344aa5aad47d98259b",
+        "core_satellite_alpha_signal.csv": "9d99a99b8a40d2844b5c4b1aabedf7f4d1a8b26238e7fbe8200ae85bf84b68a5",
         "alpaca_paper_log.csv": "589c313f5313965250c57f277a347f0424485546eb645485118edfa423059134",
-        "alpaca_paper_health.json": "4fcfb5c63bed30f3381d4bb778ac8948213d8a9b3b36fa068e9a26df3a10040b",
-        "alpaca_execution_scorecard.json": "f8862518de48fe2e6836ffbb00b01632bf5d6e9c1a6df8dc49c8d88a8acc9864",
+        "alpaca_paper_health.json": "3db51d778eb246e591306fad32b5fafc17bded2c090ee5f775093b0fed255201",
+        "alpaca_execution_scorecard.json": "42ba5759ff887d90334c56e269ba6cded7a77a631154c8279c0eafa904a1d71c",
         "alpaca_submit_outcomes.csv": "ed5dfc7066245367b6b8b191e059085cdd2937ca6e7cee03bf8b88c86341b6c5",
-        "paper_validation_epoch_status.json": "f921bf10f8e57cc786ed47cc52a93fc081e794d9ff3fa5aad2ee8c374f97de40",
-        "broker_truth.json": "1af387dbba50d3af2402ab3478b1d458f1458039fecbe3673bb6f27afae5590f",
-        "paper_run_manifest.json": "7466082c59ee858b9b69f6b5a9aa396152e02ae00101ba8307e5bb4ad1215f47",
-        "workflow_heartbeat_daily.json": "b4a68d15f8b01239b8d1140b8ce9d69b98e5e8ebec560da1dbbfe5bcc36076bd"
+        "paper_validation_epoch_status.json": "78f8502696aa1cfbe3d1fda356689317affd87dac6f6001891a036c03056fc09",
+        "broker_truth.json": "3f25026c7ea4f5d7a6d817f19604b3eb192bb924dc5708909960d02d9555af73",
+        "paper_run_manifest.json": "e2d06541549f4b8f187f01996f3f14cb0021c434f1762f97fd01e877c13a32ee",
+        "workflow_heartbeat_daily.json": "bfa0b9ea32d98b569df393aecb3a1f5b2304fa80009c9673e126ceb45e83b99c"
       },
       "approval": {
         "status": "blocked",
@@ -332,6 +332,10 @@
   },
   "blockers": [
     {
+      "reason": "completed_run_has_no_artifact:35376327842",
+      "next_action": "Restore read-only access and retrieve the latest completed run."
+    },
+    {
       "reason": "complete_run_manifest_missing",
       "source": "local_snapshot",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
@@ -423,112 +427,112 @@
     },
     {
       "reason": "complete_run_manifest_missing",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "required_evidence_missing:core_satellite_alpha_orders.csv",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "config_fingerprint_missing",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "configuration_fingerprint_mismatch",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "deployed_configuration_missing",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "deployment_state_missing",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "deployment_status_conflict",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "paper_approval_not_unanimous",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "robustness_review_missing",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "strategy_bundle_reference_mismatch",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "top_bundle_reference_mismatch",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "validation_bundle_hash_missing",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "validation_bundle_schema_outdated",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "signal_freshness_failed",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "execution_observations_insufficient_or_failed",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:trading_days",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:accepted_orders",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:classified_sessions",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:average_slippage",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:bad_slippage_rate",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:stage_comparison_ready",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:two_stage_design",
-      "source": "workflow_artifact:35351065965:10549464502:failure",
+      "source": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
@@ -733,10 +737,10 @@
   "historical_interpretation": "superseded_results_require_corrected_rebuild",
   "workflow_observations": [
     {
-      "run_id": 35351065965,
+      "run_id": 35372565754,
       "status": "artifact_selected",
-      "older_fallback": false,
-      "source_commit": "e732122e4a6909e55fba0e731f5f6810b46f0d4a"
+      "older_fallback": true,
+      "source_commit": "41b9c7a6a7f517b38ba9c250f4db9e17c619ab1e"
     }
   ],
   "review_sections": {
@@ -785,15 +789,15 @@
   },
   "version_lock_changes": {
     "epoch_id": "paper-v20260910T045130Z",
-    "expected_fingerprint": "d94acc9d0e4a74353af2d7c0793fd1de77390f0eaac7375285873322db05cc43",
-    "observed_fingerprint": "d94acc9d0e4a74353af2d7c0793fd1de77390f0eaac7375285873322db05cc43",
+    "expected_fingerprint": "c9f3f5a5e71526ca260dbeade427b45da8ff5aeb8200d971f9ccda980189e3b1",
+    "observed_fingerprint": "c9f3f5a5e71526ca260dbeade427b45da8ff5aeb8200d971f9ccda980189e3b1",
     "changes": [],
     "lock_modified": false,
     "replacement_approved": false
   },
   "verified_fixes": [],
   "gap_register": {
-    "findings": 319,
+    "findings": 342,
     "original_findings": 92,
     "path": "gap_register.json",
     "automatic_closure": false
