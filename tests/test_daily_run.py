@@ -223,6 +223,10 @@ def test_shadow_cache_restores_current_evidence_without_strategy_approval():
 def test_factor_refresh_publishes_current_robustness_with_its_data():
     """A successful data refresh cannot leave the seven-day monitor stale."""
     workflow = Path(".github/workflows/factor_data_refresh.yml").read_text(encoding="utf-8")
+    assert "refresh_etf_data.py --refresh --force --strict" in workflow
+    assert workflow.index("refresh_etf_data.py --refresh --force --strict") < workflow.index(
+        "core_satellite_alpha.py --validation-refresh"
+    )
     for command in (
         "core_satellite_alpha.py --validation-refresh",
         "core_satellite_execution_stress.py",
@@ -230,6 +234,7 @@ def test_factor_refresh_publishes_current_robustness_with_its_data():
         "factor_decay_monitor.py",
     ):
         assert command in workflow
+    assert "steps.refresh_etf_prices.outcome == 'success'" in workflow
     assert "steps.refresh_robustness_evidence.outcome == 'success'" in workflow
     assert "runtime-state-v4-" in workflow
 
