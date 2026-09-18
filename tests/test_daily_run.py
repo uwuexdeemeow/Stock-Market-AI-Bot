@@ -200,12 +200,12 @@ def test_shadow_workflow_requires_safe_defaults_and_verified_evidence():
     assert all(token not in workflow for token in forbidden)
 
 
-def test_shadow_cache_cannot_overwrite_strategy_approval_evidence():
-    """Shadow restores generated factor reports but not strategy approvals."""
+def test_shadow_cache_restores_current_evidence_without_strategy_approval():
+    """Shadow reads validated rolling reports but cannot replace approvals."""
     workflow = Path(".github/workflows/shadow_paper_journal.yml").read_text(encoding="utf-8")
-    # PLAIN ENGLISH: old shared caches contained tracked safety reports. A new
-    # runner could unpack those stale files over Git's reviewed versions.
-    assert "runtime-state-v3-" in workflow
+    # PLAIN ENGLISH: Factor Refresh owns the rolling reports. The cache includes
+    # those reports, but never the reviewed live config or validation bundle.
+    assert "runtime-state-v4-" in workflow
     assert "signals/feature_quality_report.json" in workflow
     assert "shadow-journal-v2-" in workflow
     assert "shadow-state-files-" not in workflow
@@ -215,7 +215,23 @@ def test_shadow_cache_cannot_overwrite_strategy_approval_evidence():
         "logs/core_satellite_execution_stress.json",
         "logs/core_satellite_survivorship_audit.json",
     ):
-        assert report not in workflow
+        assert report in workflow
+    assert "signals/core_satellite_live_configs.json" not in workflow
+    assert "signals/core_satellite_validation_bundle.json" not in workflow
+
+
+def test_factor_refresh_publishes_current_robustness_with_its_data():
+    """A successful data refresh cannot leave the seven-day monitor stale."""
+    workflow = Path(".github/workflows/factor_data_refresh.yml").read_text(encoding="utf-8")
+    for command in (
+        "core_satellite_alpha.py --validation-refresh",
+        "core_satellite_execution_stress.py",
+        "core_satellite_survivorship_audit.py",
+        "factor_decay_monitor.py",
+    ):
+        assert command in workflow
+    assert "steps.refresh_robustness_evidence.outcome == 'success'" in workflow
+    assert "runtime-state-v4-" in workflow
 
 
 def test_alpaca_only_still_generates_shared_signal():

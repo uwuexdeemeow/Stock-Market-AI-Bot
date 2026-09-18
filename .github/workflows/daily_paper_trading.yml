@@ -163,15 +163,12 @@ jobs:
       #    Without this, walkforward approval, factor decay reports, and
       #    feature quality reports are lost between runs — causing
       #    paper_ready=False every time.
-      # The generated quality reports below must travel with the parquets that
-      # produced them. This v3 cache is published only after strict validation.
-      # Reviewed strategy approvals remain owned by main and are not cached:
+      # Generated quality and rolling robustness reports travel with the
+      # parquets that produced them. This v4 cache is published only after all
+      # reports validate. Reviewed strategy approvals remain owned by main:
       #   signals/core_satellite_live_configs.json
       #   signals/core_satellite_nested_walkforward.json
       #   signals/adaptive_factor_weights.json
-      #   logs/factor_decay_monitor.json
-      #   logs/core_satellite_execution_stress.json
-      #   logs/core_satellite_survivorship_audit.json
       - name: Cache signals and logs state
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v6
@@ -188,10 +185,13 @@ jobs:
             signals/feature_research_summary.csv
             signals/research_run_manifest.json
             logs/feature_ic_shortlist.csv
-          # v3 binds generated factor reports to the latest healthy data set.
-          key: runtime-state-v3-${{ github.run_id }}
+            logs/factor_decay_monitor.json
+            logs/core_satellite_execution_stress.json
+            logs/core_satellite_survivorship_audit.json
+          # v4 binds current robustness evidence to the latest healthy data set.
+          key: runtime-state-v4-${{ github.run_id }}
           restore-keys: |
-            runtime-state-v3-
+            runtime-state-v4-
 
       # Restore the operational audit trail from the dedicated signal branch.
       # PLAIN ENGLISH: GitHub runners are new computers each day. These files
@@ -764,9 +764,8 @@ jobs:
           key: daily-factor-reader-${{ github.run_id }}
 
       # ── 10. Save updated state files ──────────────────────────────
-      #    Gate reports and approval configs updated during this run
-      #    must persist for the next run to see paper_ready=True.
-      # NOTE: Files now in git are excluded — they're owned by main, not cache.
+      #    Preserve the validated factor/report set under a new immutable cache
+      #    key. Strategy approval files remain owned by main.
       - name: Save state files cache
         if: ${{ steps.run_daily_paper.outputs.market_closed != 'true' && success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v6
@@ -783,7 +782,10 @@ jobs:
             signals/feature_research_summary.csv
             signals/research_run_manifest.json
             logs/feature_ic_shortlist.csv
-          key: runtime-state-v3-${{ github.run_id }}
+            logs/factor_decay_monitor.json
+            logs/core_satellite_execution_stress.json
+            logs/core_satellite_survivorship_audit.json
+          key: runtime-state-v4-${{ github.run_id }}
 
       # ── 11. One consolidated Telegram summary ──────────────────────
       #    Python scripts suppress their own Telegram messages in Actions

@@ -375,9 +375,16 @@ def test_daily_loader_uses_same_conflict_gate_as_audit(tmp_path, monkeypatch):
     live['validation_bundle_path'] = str(bundle_path)
     live_path = tmp_path / 'live.json'
     monkeypatch.setattr(csa, 'LIVE_CONFIG_PATH', live_path)
-    monkeypatch.setattr(csa, 'current_robustness_evidence', lambda **kw: {'pass': True, 'reports': {}})
+    observed = {}
+    monkeypatch.setattr(csa, 'load_dataset_context', lambda: {'dataset_fingerprint': 'current-data'})
+    def current_evidence(**kwargs):
+        observed.update(kwargs)
+        # Rolling evidence changes as new market sessions arrive.
+        return {'pass': True, 'reports': {'factor_decay': {'sha256': 'new-report'}}}
+    monkeypatch.setattr(csa, 'current_robustness_evidence', current_evidence)
     live_path.write_text(json.dumps(live))
     assert csa._load_approved_live_config().get('approved') is not False
+    assert observed['expected_dataset_fingerprint'] == 'current-data'
     # A rejection at either level remains blocked even with a valid bundle.
     live['approved_live_configs']['core-alpha']['deployment_status'] = 'rejected'
     live_path.write_text(json.dumps(live))

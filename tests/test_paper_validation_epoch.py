@@ -48,6 +48,19 @@ def test_shadow_evidence_scripts_are_part_of_paper_version_lock():
     assert "fractional_shadow_paper.py" in epoch_module.PAPER_LOGIC_FILES
 
 
+def test_rolling_reports_are_not_locked_as_executable_policy():
+    """A validated market-data refresh may replace evidence without a refreeze."""
+    for report in (
+        "logs/factor_decay_monitor.json",
+        "logs/core_satellite_execution_stress.json",
+        "logs/core_satellite_survivorship_audit.json",
+    ):
+        assert report not in epoch_module.PAPER_LOGIC_FILES
+    # The code that produces and interprets the evidence remains protected.
+    assert "core_satellite_alpha.py" in epoch_module.PAPER_LOGIC_FILES
+    assert "validation_bundle.py" in epoch_module.PAPER_LOGIC_FILES
+
+
 def test_version_lock_hash_ignores_cross_platform_line_endings(tmp_path):
     """A Git checkout must keep the same lock checksum on Windows and Linux."""
     windows_copy = tmp_path / "windows.py"

@@ -44,7 +44,9 @@ concurrency:
 jobs:
   refresh-factor-data:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Full research currently takes about 65 minutes. Leave room for the
+    # rolling stress reports that now complete the same validated snapshot.
+    timeout-minutes: 120
 
     steps:
       # -- 0. DST-safe schedule gate ---------------------------------
@@ -113,7 +115,7 @@ jobs:
             factor-data-parquets-
 
       # Restore the generated reports together with their factor parquets.
-      # The v3 cache is saved only after the strict health gate passes.
+      # The v4 cache is saved only after factor and robustness gates pass.
       - name: Restore state cache
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v6
@@ -130,9 +132,12 @@ jobs:
             signals/feature_research_summary.csv
             signals/research_run_manifest.json
             logs/feature_ic_shortlist.csv
-          key: runtime-state-v3-${{ github.run_id }}
+            logs/factor_decay_monitor.json
+            logs/core_satellite_execution_stress.json
+            logs/core_satellite_survivorship_audit.json
+          key: runtime-state-v4-${{ github.run_id }}
           restore-keys: |
-            runtime-state-v3-
+            runtime-state-v4-
 
       - name: Create .env from secrets
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
@@ -201,6 +206,20 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
 
+      - name: Refresh rolling robustness evidence
+        id: refresh_robustness_evidence
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        run: |
+          # These reports change with market data. They must all describe the
+          # same current dataset before daily signal generation can trust them.
+          python3 core_satellite_alpha.py --validation-refresh
+          python3 core_satellite_execution_stress.py
+          python3 core_satellite_survivorship_audit.py
+          python3 factor_decay_monitor.py
+        env:
+          PYTHONUNBUFFERED: "1"
+          STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
+
       - name: Upload refresh logs
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/upload-artifact@v7
@@ -217,6 +236,10 @@ jobs:
             signals/feature_research_summary.csv
             signals/factor_data_health.json
             signals/research_run_manifest.json
+            signals/factor_decay_monitor.csv
+            logs/factor_decay_monitor.json
+            logs/core_satellite_execution_stress.json
+            logs/core_satellite_survivorship_audit.json
           retention-days: 30
 
       - name: Save data cache
@@ -234,7 +257,7 @@ jobs:
         # Only publish state after its strict health check passes.  A failed
         # report stays in the run artifact, while later runs keep using the
         # last known-good state rather than inheriting a broken one.
-        if: ${{ always() && steps.validate_factor_data_health.outcome == 'success' && steps.validate_research_outputs.outcome == 'success' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ always() && steps.validate_factor_data_health.outcome == 'success' && steps.validate_research_outputs.outcome == 'success' && steps.refresh_robustness_evidence.outcome == 'success' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v6
         with:
           path: |
@@ -249,7 +272,10 @@ jobs:
             signals/feature_research_summary.csv
             signals/research_run_manifest.json
             logs/feature_ic_shortlist.csv
-          key: runtime-state-v3-${{ github.run_id }}
+            logs/factor_decay_monitor.json
+            logs/core_satellite_execution_stress.json
+            logs/core_satellite_survivorship_audit.json
+          key: runtime-state-v4-${{ github.run_id }}
 
       - name: Send consolidated Telegram summary
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}

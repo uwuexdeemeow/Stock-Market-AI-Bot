@@ -83,6 +83,12 @@ validation progress, monitor continuity, and incidents are consolidated into
 `signals/paper_run_manifest.json` status of `complete`; only that bundle may
 replace the `signals/latest` branch.
 
+Factor Data Refresh also owns the rolling robustness set. After refreshing its
+parquets, it regenerates validation signal metrics, execution stress,
+survivorship, and factor decay, then saves all of them under `runtime-state-v4`.
+Daily and shadow workflows restore that exact set. The strategy approval files
+remain on `main`; only current evidence moves through the cache.
+
 The workflow stays paper-only. Alignment recovery and execution calibration
 are review-only, and no readiness result can approve real capital.
 

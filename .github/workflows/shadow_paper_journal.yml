@@ -116,13 +116,16 @@ jobs:
             signals/feature_research_summary.csv
             signals/research_run_manifest.json
             logs/feature_ic_shortlist.csv
+            logs/factor_decay_monitor.json
+            logs/core_satellite_execution_stress.json
+            logs/core_satellite_survivorship_audit.json
           key: shadow-runtime-reader-${{ github.run_id }}
           restore-keys: |
-            runtime-state-v3-
+            runtime-state-v4-
 
       # PLAIN ENGLISH: this cache contains only the shadow account's own
-      # journal. Approved validation reports stay exactly as checked out from
-      # main, so an old cache cannot replace them and falsely block trading.
+      # journal. Strategy approval stays on main; rolling robustness evidence
+      # comes only from the validated factor-data cache above.
       - name: Cache shadow journal state
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v6

@@ -1,5 +1,11 @@
 # validation_bundle.py
 
+The bundle preserves the reports used for original strategy approval. Paper
+checks also read rolling robustness reports from the current factor-data cache.
+Their checksums may change with new market sessions, but their configuration and
+dataset fingerprints, age, and health must all pass. Routine evidence refresh
+therefore does not rewrite strategy approval or weaken its gates.
+
 When `--run-robustness` is used, the bundle builder generates a research-only
 signal from the newly walk-forward-approved configuration before rerunning the
 execution, survivorship, and factor-decay reports. This breaks the safe

@@ -54,9 +54,9 @@ PAPER_LOGIC_FILES = (
     "fractional_shadow_paper.py",
     "monitor_heartbeat.py",
     "order_accounting.py",
-    "logs/core_satellite_execution_stress.json",
-    "logs/core_satellite_survivorship_audit.json",
-    "logs/factor_decay_monitor.json",
+    # Rolling robustness reports are evidence, not executable policy. Their
+    # producing scripts stay locked; Factor Data Refresh replaces the reports
+    # only after matching them to the current dataset and approved config.
     "paper_health.py",
     "paper_shadow_compare.py",
     "shadow_paper_journal.py",

@@ -103,6 +103,12 @@ cron: "35 14 * * 1-5"  # 14:35 UTC = 9:35 AM ET, weekdays only
 The workflow file `.github/workflows/daily_paper_trading.yml` invokes
 `python3 daily_run.py --alpaca --timeout 600`.
 
+Factor Data Refresh now regenerates signal metrics, execution stress,
+survivorship, and factor-decay evidence as one set. It saves them in the same
+`runtime-state-v4` cache as the factor parquets. Daily Run restores that set, so
+a successful data refresh cannot leave the seven-day decay monitor stale. The
+approved strategy configuration and validation bundle remain owned by `main`.
+
 ## Safety features
 
 - **PID lock** — refuses to run if another `daily_run.py` is already

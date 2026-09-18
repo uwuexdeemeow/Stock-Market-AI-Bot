@@ -67,6 +67,11 @@ The lock also covers `requirements-ci.txt` and `requirements.txt`. Package
 version changes can alter model, market-data, or broker behavior even when the
 Python files themselves did not change.
 
+Rolling execution-stress, survivorship, and factor-decay reports are evidence,
+not executable policy, so they are outside this source lock. Their producing
+and validating scripts remain locked. The daily signal still checks each
+report's approved configuration, current dataset, age, and health.
+
 The independent watchdog workflow and `workflow_watchdog.py` are locked too,
 because their guarded fallback can start a missed paper-trading workflow.
 The shadow workflow, journal generator, fractional simulator, and

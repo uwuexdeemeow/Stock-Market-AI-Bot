@@ -38,6 +38,7 @@ from signal_freshness import latest_completed_us_trading_day, live_config_finger
 from validation_bundle import (
     validate_live_approval_identity,
     current_robustness_evidence,
+    load_dataset_context,
     strategy_config_fingerprint,
     validate_validation_bundle,
 )
@@ -2693,17 +2694,17 @@ def _load_approved_live_config(
     if not bool(deployment.get("paper_approved", False)):
         bundle_issues.append("validation_bundle_not_paper_approved")
 
-    # PLAIN ENGLISH: the bundle records what passed when it was created.  Read
-    # today's files too, compare their checksums, and refuse to trust a copied
-    # approval when a report has since become stale or changed to warning.
+    # PLAIN ENGLISH: the bundle records the original approval. The current
+    # reports are rolling monitors, so validate them against today's data and
+    # the approved configuration instead of requiring their bytes to remain
+    # identical forever.
+    current_dataset = load_dataset_context()
     current_robustness = current_robustness_evidence(
         expected_config_fingerprint=str(bundle.get("config_fingerprint", "")),
-        expected_dataset_fingerprint=str((bundle.get("dataset", {}) or {}).get("dataset_fingerprint", "")),
+        expected_dataset_fingerprint=str(current_dataset.get("dataset_fingerprint", "")),
     )
-    bundled_reports = bundle.get("robustness_reports", {}) or {}
-    for name, current_record in (current_robustness.get("reports", {}) or {}).items():
-        if str(current_record.get("sha256", "")) != str((bundled_reports.get(name, {}) or {}).get("sha256", "")):
-            bundle_issues.append(f"robustness_report_changed:{name}")
+    if not current_dataset.get("dataset_fingerprint"):
+        bundle_issues.append("current_dataset_fingerprint_missing")
     if not bool(current_robustness.get("pass", False)):
         bundle_issues.extend(
             f"current_robustness_failed:{reason}"
