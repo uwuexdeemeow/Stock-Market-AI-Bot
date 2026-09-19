@@ -104,7 +104,10 @@ def test_broker_truth_flags_failed_order_and_missing_stop(tmp_path):
     assert rows["QQQ"]["issue_severity"] == "pass"
 
 
-def test_write_broker_truth_writes_latest_and_dated_outputs(tmp_path):
+def test_write_broker_truth_writes_latest_and_dated_outputs(tmp_path, monkeypatch):
+    # PLAIN ENGLISH: this unit test exercises lifecycle output without changing
+    # the workstation's real rebalance state used by the next daily run.
+    monkeypatch.setattr(broker_truth, "update_rebalance_state", lambda *_args, **_kwargs: {})
     signal_path = tmp_path / "signal.csv"
     plan_path = tmp_path / "orders.csv"
     log_path = tmp_path / "alpaca_paper_log.csv"

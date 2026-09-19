@@ -219,3 +219,16 @@ publication check. `--force`, `--dry-run` and health-only behavior stay explicit
 normal manual reruns keep the holiday guard enabled.
 
 The daily run records the regime immediately after successful signal generation, before order submission. A rejected or out-of-window order therefore cannot suppress this independent observation. Failed signal generation still blocks regime recording, and the original trading failure remains visible.
+
+## Strict broker and same-run evidence checks
+
+Normal trading runs call `broker_health.py --strict`. Unreachable Alpaca,
+invalid credentials, or invalid account equity now stop signal generation and
+submission early. Health-only dashboard refreshes remain report-only.
+
+The submit outcome and broker-alignment report must contain the same
+`STOCKBOT_RUN_ID` as the current daily orchestration. File modification time is
+still checked, but a recently restored report from another run is rejected.
+
+The daily data cache is saved under the same `factor-data-parquets-` prefix the
+workflow restores, so validated data from one run can warm the next run.

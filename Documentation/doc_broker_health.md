@@ -19,12 +19,16 @@ clear error into `signals/broker_health.json`.
 ```bash
 python3 broker_health.py
 python3 broker_health.py --json
+python3 broker_health.py --strict
 ```
 
 Expected output:
 
 - `healthy=true` when Alpaca is reachable and equity is usable.
 - `healthy=false` with an error message when the pre-flight check fails.
+- `--strict` also returns a nonzero process exit code when unhealthy. The real
+  daily trading pipeline uses this mode so it stops before generating or
+  submitting a signal against an unavailable broker.
 
 ## Key Concepts
 

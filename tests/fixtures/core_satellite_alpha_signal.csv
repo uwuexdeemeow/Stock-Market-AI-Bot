@@ -1,0 +1,2 @@
+paper_signal_type,paper_ready,current_regime,target_spy_weight,target_qqq_weight,target_tqqq_weight,target_cash_weight,gross_exposure,overlay_tickers,overlay_weights_json,predicted_at,gates_all_pass
+core_satellite_alpha,True,risk_on,0.40,0.25,0.10,0.10,0.90,"AMAT,CAT","{""AMAT"": 0.10, ""CAT"": 0.05}",2026-01-02T09:35:00-05:00,True

@@ -640,9 +640,8 @@ def _execution_risk_metadata(
     symbol = str(ticker).upper()
     risk = risk_map.get(symbol, {})
     score = _float_or_none(risk.get("score"))
-    symbol_scale, band = _execution_risk_buy_scale(score)
+    _, band = _execution_risk_buy_scale(score)
     scorecard_state = scorecard_state or {}
-    scorecard_scale = _clamped_buy_scale(scorecard_state.get("scale"), 1.0)
     # PLAIN ENGLISH: Poor fills now change how patiently the order is priced,
     # not how much of the approved portfolio target we buy. Silently shrinking
     # quantity created unexplained underweights without fixing per-share price.
@@ -2872,9 +2871,12 @@ def _already_submitted_today(broker: AlpacaBroker | None = None) -> bool:
     --submit twice in one day, the second run will warn you instead of
     placing duplicate trades.
     """
+    broker_check_succeeded = broker is None
+    broker_error = ""
     if broker is not None:
         try:
             alpaca_orders = _alpaca_rebalance_orders_submitted_today(broker)
+            broker_check_succeeded = True
             if alpaca_orders:
                 tickers = ", ".join(
                     f"{o['ticker']} {o['side']} {o['qty']:g}" for o in alpaca_orders[:6]
@@ -2883,9 +2885,15 @@ def _already_submitted_today(broker: AlpacaBroker | None = None) -> bool:
                 print(f"  Alpaca already has bot orders today: {tickers}{suffix}")
                 return True
         except Exception as exc:
+            broker_error = str(exc)
             print(f"  ⚠ Could not check Alpaca duplicate orders; falling back to local log: {exc}")
 
     if not PAPER_LOG_FILE.exists():
+        if broker is not None and not broker_check_succeeded:
+            raise RuntimeError(
+                "duplicate-order check is uncertain: Alpaca history failed and local log is missing"
+                f" ({broker_error})"
+            )
         return False
     try:
         log = pd.read_csv(PAPER_LOG_FILE)
@@ -2915,7 +2923,12 @@ def _already_submitted_today(broker: AlpacaBroker | None = None) -> bool:
             | order_id_col.str.startswith(("SKIPPED", "ERROR"), na=False)
         )
         return bool(actually_sent.any())
-    except Exception:
+    except Exception as exc:
+        if broker is not None and not broker_check_succeeded:
+            raise RuntimeError(
+                "duplicate-order check is uncertain: Alpaca history and local log are unreadable"
+                f" ({broker_error}; {exc})"
+            ) from exc
         return False
 
 
@@ -3313,7 +3326,6 @@ def build_slippage_reversal_report(
 
     filled_orders = []
     for raw in raw_orders:
-        status = str(_obj_value(raw, "status", "")).lower()
         filled_at = _parse_broker_datetime(_obj_value(raw, "filled_at"))
         fill_price = _float_or_none(_obj_value(raw, "filled_avg_price"))
         qty = _float_or_none(_obj_value(raw, "filled_qty"))
@@ -3352,7 +3364,6 @@ def build_slippage_reversal_report(
         vwap = _fill_minute_vwap(bars, filled_at)
         row: dict[str, object] = {
             "order_id": str(_obj_value(raw, "id", "")),
-            "client_order_id": str(_obj_value(raw, "client_order_id", "")),
             "filled_at": filled_at.isoformat(timespec="seconds"),
             "symbol": ticker,
             "side": side,
@@ -3662,7 +3673,7 @@ def print_account_status(broker: AlpacaBroker) -> None:
     positions = broker.get_positions()
 
     print(f"\n{'═'*60}")
-    print(f"  ALPACA PAPER TRADING ACCOUNT")
+    print("  ALPACA PAPER TRADING ACCOUNT")
     print(f"{'═'*60}")
     print(f"  Equity:     ${equity:,.2f}")
     print(f"  Cash:       ${cash:,.2f}")
@@ -4186,9 +4197,10 @@ def _tqqq_pre_trade_check(broker: AlpacaBroker) -> tuple[bool, float]:
         return True, 0.0
 
 
-# Sentinel file written when emergency liquidation fires — prevents re-triggering
-# on subsequent runs.  Auto-clears on the next calendar day if drawdown has
-# recovered past half the halt threshold (e.g. from -12% back to -6%).
+# Sentinel file written when emergency liquidation fires. It blocks new entries
+# during recovery but does not suppress retries for positions that failed to
+# close. It auto-clears on a later calendar day only after drawdown recovers
+# past half the halt threshold (e.g. from -12% back to -6%).
 _HALT_SENTINEL_FILE = Path(SIGNAL_DIR) / "alpaca_halt_active.txt"
 
 # Recovery threshold: auto-clear the halt sentinel when drawdown improves
@@ -4200,11 +4212,11 @@ _HALT_RECOVERY_RATIO = 0.5
 def _write_halt_sentinel(path: Path = _HALT_SENTINEL_FILE, *, now: datetime | None = None) -> None:
     """Write the trading-halt sentinel through an atomic text write.
 
-    PLAIN ENGLISH: This tiny file tells future runs "emergency liquidation
-    already fired." Writing it atomically prevents a half-written halt marker
-    from confusing the next trading run.
+    PLAIN ENGLISH: This tiny file tells future runs that a drawdown recovery
+    lock is active. Writing it atomically prevents a half-written halt marker
+    from confusing the next trading run. It does not suppress close retries.
     """
-    timestamp = (now or datetime.now()).isoformat()
+    timestamp = (now or datetime.now(timezone.utc)).isoformat()
     atomic_write_text(
         path,
         f"Emergency liquidation triggered at {timestamp}\n"
@@ -4237,10 +4249,18 @@ def _maybe_auto_clear_halt(broker: AlpacaBroker) -> bool:
         # Parse the timestamp from the first line: "Emergency liquidation triggered at 2026-05-14T..."
         ts_str = sentinel_text.split("at ")[-1].split("\n")[0].strip()
         halt_time = datetime.fromisoformat(ts_str)
-        if (datetime.now() - halt_time).days < 1:
+        if halt_time.tzinfo is None:
+            # Older sentinels used a timezone-free local timestamp. Treat it as
+            # UTC consistently rather than mixing aware and naive datetimes.
+            halt_time = halt_time.replace(tzinfo=timezone.utc)
+        if (datetime.now(timezone.utc) - halt_time.astimezone(timezone.utc)).days < 1:
             return False  # same day — don't auto-clear yet
-    except Exception:
-        pass  # if we can't parse the timestamp, proceed with recovery check
+    except (OSError, ValueError, IndexError) as exc:
+        # PLAIN ENGLISH: A damaged halt file is safety evidence we do not
+        # understand. Keep the lock active until a human repairs it instead of
+        # silently clearing it and allowing new orders.
+        print(f"  ⚠ Halt sentinel is unreadable; keeping trading blocked: {exc}")
+        return False
 
     # Check current drawdown
     _, current_dd = check_portfolio_drawdown(broker)
@@ -4258,47 +4278,67 @@ def _maybe_auto_clear_halt(broker: AlpacaBroker) -> bool:
         return False
 
 
-def _emergency_liquidate(broker: AlpacaBroker) -> None:
+def _emergency_liquidate(broker: AlpacaBroker) -> dict:
     """
     Cancel all open orders and close all positions via market sells.
 
     PLAIN ENGLISH: When the portfolio drawdown crosses the halt threshold, we
     don't just stop NEW orders — we also close everything we already hold.
     This prevents continuing to bleed through an existing position while the
-    account keeps dropping.  A sentinel file is written so this function only
-    fires ONCE per halt event; the user must manually delete
-    signals/alpaca_halt_active.txt to re-enable trading after reviewing.
+    account keeps dropping. A recovery-lock sentinel blocks new entries, while
+    incomplete close attempts remain eligible for retry on the next cycle.
     """
-    if _HALT_SENTINEL_FILE.exists():
-        print(f"  ⚠ Emergency liquidation already fired this halt event "
-              f"(sentinel: {_HALT_SENTINEL_FILE}). Skipping re-trigger.")
-        return
-
     print("  🚨 EMERGENCY LIQUIDATION — cancelling all orders and closing all positions...")
 
     cancelled = broker.cancel_all_orders()
     print(f"    ✓ Cancelled pending orders (Alpaca reports: {cancelled})")
 
     positions = broker.get_positions()
+    submitted: list[dict] = []
+    errors: list[dict] = []
     if not positions:
         print("    ✓ No open positions to close.")
     else:
         for pos in positions:
+            quantity = abs(int(pos.quantity))
+            if quantity <= 0:
+                continue
+            # PLAIN ENGLISH: Long positions close with a sell. An unexpected
+            # short position closes with a buy; selling it would increase risk.
+            side = "sell" if int(pos.quantity) > 0 else "buy"
             try:
                 order = Order(
                     ticker=pos.ticker,
-                    side="sell",
-                    quantity=pos.quantity,
+                    side=side,
+                    quantity=quantity,
                     type="market",
                 )
                 oid = broker.place_order(order)
-                print(f"    ✓ CLOSE {pos.quantity} {pos.ticker} → {oid[:12]}...")
+                submitted.append({
+                    "ticker": pos.ticker,
+                    "side": side,
+                    "quantity": quantity,
+                    "order_id": str(oid),
+                })
+                print(f"    ✓ CLOSE {quantity} {pos.ticker} ({side}) → {str(oid)[:12]}...")
             except Exception as e:
+                errors.append({"ticker": pos.ticker, "error": str(e)})
                 print(f"    ✗ CLOSE {pos.ticker} FAILED: {e}")
 
-    # Write sentinel so this doesn't re-trigger on the next run.
+    # The sentinel is a recovery lock, not proof that every close succeeded.
+    # Future hard-halt checks still retry unresolved positions. New entries stay
+    # blocked until the recovery threshold is verified.
     _write_halt_sentinel()
-    print(f"  ✓ Sentinel written: {_HALT_SENTINEL_FILE}")
+    complete = not errors
+    label = "complete" if complete else "incomplete"
+    print(f"  {'✓' if complete else '⚠'} Halt recovery lock written ({label}): {_HALT_SENTINEL_FILE}")
+    return {
+        "complete": complete,
+        "cancelled_orders": cancelled,
+        "positions_seen": len(positions),
+        "submitted": submitted,
+        "errors": errors,
+    }
 
 
 def main():
@@ -4430,14 +4470,14 @@ def main():
         try:
             from notifications import send_alert
             send_alert(
-                f"Signal sanity check FAILED:\n" + "\n".join(f"• {i}" for i in sanity_issues),
+                "Signal sanity check FAILED:\n" + "\n".join(f"• {i}" for i in sanity_issues),
                 title="Signal Sanity",
                 priority="critical",
             )
         except Exception:
             pass
         if not getattr(args, 'force', False):
-            print(f"  ✗ Aborting order submission. Use --force to override.")
+            print("  ✗ Aborting order submission. Use --force to override.")
             sys.exit(1)
 
     # ── Parse and scale target weights ──────────────────────────────────
@@ -4450,7 +4490,7 @@ def main():
         print(f"    Scaled {raw_gross:.2f}x → {scaled_gross:.2f}x "
               f"(max gross = {MAX_GROSS_EXPOSURE:.2f}x)")
 
-    print(f"\n  TARGET ALLOCATION")
+    print("\n  TARGET ALLOCATION")
     print(f"  {'─'*40}")
     for ticker, w in sorted(target_weights.items(), key=lambda x: -abs(x[1])):
         label = "ETF" if ticker in ETF_TICKERS else "Stock"
@@ -4550,7 +4590,7 @@ def main():
     # drawdown, check if the account has recovered enough to resume.
     # The sentinel auto-clears the next day if drawdown improved to
     # less than half the halt threshold.
-    _maybe_auto_clear_halt(broker)
+    halt_cleared = _maybe_auto_clear_halt(broker)
 
     # ── Portfolio drawdown halt check ──────────────────────────────────
     # PLAIN ENGLISH: If the portfolio has dropped too much from its peak,
@@ -4560,13 +4600,27 @@ def main():
     if halted and not args.force:
         print(f"  🛑 PORTFOLIO DRAWDOWN HALT: account is {current_dd*100:.1f}% below peak")
         print(f"     Threshold: {PORTFOLIO_DRAWDOWN_HALT_PCT*100:.0f}%")
-        print(f"     No new orders until drawdown recovers. Use --force to override.")
-        _emergency_liquidate(broker)
+        print("     No new orders until drawdown recovers. Use --force to override.")
+        liquidation = _emergency_liquidate(broker)
         _set_submit_outcome(
             "blocked",
             "portfolio_drawdown_halt",
             market_open=bool(broker.is_market_open()),
             planned_orders=len(orders),
+            liquidation=liquidation,
+        )
+        return 2
+    elif _HALT_SENTINEL_FILE.exists() and not halt_cleared and not args.force:
+        # PLAIN ENGLISH: Crossing back above the hard halt line is not enough.
+        # Keep new trades blocked until the stronger recovery threshold clears
+        # the sentinel, so the bot cannot immediately re-enter after a crash.
+        print("  🛑 RECOVERY HALT ACTIVE: new orders remain blocked until drawdown recovery is verified")
+        _set_submit_outcome(
+            "blocked",
+            "portfolio_recovery_halt_active",
+            market_open=bool(broker.is_market_open()),
+            planned_orders=len(orders),
+            current_drawdown=current_dd,
         )
         return 2
     elif current_dd < -0.05:
@@ -4575,7 +4629,19 @@ def main():
               f"(halt at {PORTFOLIO_DRAWDOWN_HALT_PCT*100:.0f}%)")
 
     # Duplicate submission check — prevents running --submit twice in one day
-    if _already_submitted_today(broker) and not (args.force or args.allow_repeat_submit):
+    try:
+        already_submitted = _already_submitted_today(broker)
+    except RuntimeError as exc:
+        print(f"  ✗ Aborting: {exc}")
+        _set_submit_outcome(
+            "blocked",
+            "duplicate_order_check_unavailable",
+            market_open=bool(broker.is_market_open()),
+            planned_orders=len(orders),
+            errors=[str(exc)],
+        )
+        return 2
+    if already_submitted and not (args.force or args.allow_repeat_submit):
         print("  ⚠  Orders already submitted today. Use --allow-repeat-submit for a recovery rerun.")
         print(f"     Check Alpaca orders or local log: {PAPER_LOG_FILE}")
         _set_submit_outcome(
@@ -4720,7 +4786,7 @@ def main():
                       f"{TQQQ_FAST_DD_LOOKBACK_DAYS}-day high (threshold {TQQQ_FAST_DD_THRESHOLD*100:.0f}%).")
             else:
                 print("  🛑 TQQQ fast circuit breaker: price data unavailable, blocking TQQQ buy.")
-            print(f"     Removing TQQQ buy orders and closing any existing TQQQ position.")
+            print("     Removing TQQQ buy orders and closing any existing TQQQ position.")
             skip_reason = (
                 "tqqq_fast_dd_data_unavailable"
                 if not np.isfinite(tqqq_dd)
@@ -4819,7 +4885,7 @@ def main():
             logger=lambda msg: print(f"    {msg}"),
         )
 
-    print(f"    Check fills: python3 alpaca_paper_trading.py --reconcile")
+    print("    Check fills: python3 alpaca_paper_trading.py --reconcile")
 
     outcome = _finalize_submit_outcome(
         broker,

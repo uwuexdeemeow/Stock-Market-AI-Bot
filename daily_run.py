@@ -134,7 +134,6 @@ def notify_failures(results: list[dict], total_time: float) -> None:
     from notifications import send_alert
 
     # Build a short summary for notifications
-    failed_names = ", ".join(r["name"] for r in failures)
     ok_count = sum(1 for r in results if r["status"] in ("ok", "no_action"))
     total = len(results)
 
@@ -240,7 +239,7 @@ FILL_MONITOR_STEP = Step(
 
 BROKER_HEALTH_STEP = Step(
     "broker_health",
-    [sys.executable, "broker_health.py"],
+    [sys.executable, "broker_health.py", "--strict"],
     "Pre-flight Alpaca connectivity check",
     critical=True,
 )
@@ -457,6 +456,13 @@ def _read_fresh_submit_outcome(started_at: datetime) -> tuple[dict, str]:
     except (OSError, json.JSONDecodeError) as exc:
         return {}, f"submit_outcome_invalid:{exc.__class__.__name__}"
     status = str(payload.get("status", ""))
+    observed_run_id = str(payload.get("run_id", "") or "")
+    expected_run_id = current_run_id()
+    if observed_run_id != expected_run_id:
+        return payload, (
+            "submit_outcome_run_id_mismatch:"
+            f"expected={expected_run_id};observed={observed_run_id or 'missing'}"
+        )
     if status not in {"executed", "partial_execution", "no_action", "blocked", "failed"}:
         return payload, f"submit_outcome_unknown_status:{status or 'missing'}"
     return payload, ""
@@ -474,6 +480,13 @@ def _read_fresh_broker_alignment(started_at: datetime) -> tuple[dict, str]:
         alignment = payload.get("summary", {}).get("alignment", {})
     except (OSError, json.JSONDecodeError) as exc:
         return {}, f"broker_truth_invalid:{exc.__class__.__name__}"
+    observed_run_id = str(payload.get("run_id", "") or "")
+    expected_run_id = current_run_id()
+    if observed_run_id != expected_run_id:
+        return {}, (
+            "broker_truth_run_id_mismatch:"
+            f"expected={expected_run_id};observed={observed_run_id or 'missing'}"
+        )
     if not isinstance(alignment, dict) or alignment.get("status") not in {
         "pass",
         "pending",
@@ -506,7 +519,7 @@ def run_step(
     print(f"  Command: {' '.join(cmd)}")
 
     if dry_run:
-        print(f"  ⏭  DRY RUN — skipped")
+        print("  ⏭  DRY RUN — skipped")
         return {"name": name, "status": "skipped", "elapsed": 0.0}
 
     start = datetime.now()
@@ -673,12 +686,7 @@ def build_steps(
             steps.extend(FACTOR_REFRESH_STEPS)
     steps.append(FILL_MONITOR_STEP)
     if run_alpaca:
-        steps.append(Step(
-            "broker_health",
-            [sys.executable, "broker_health.py"],
-            "Pre-flight Alpaca connectivity check",
-            critical=False,
-        ))
+        steps.append(BROKER_HEALTH_STEP)
     steps.append(FACTOR_DATA_HEALTH_STEP)
     steps.append(DRIFT_MONITOR_STEP)
     steps.append(CORE_SATELLITE_SIGNAL_STEP)
@@ -1053,11 +1061,11 @@ def main():
         # Saturday = 5, Sunday = 6
         if today.weekday() >= 5:
             print(f"{'═'*60}")
-            print(f"  DAILY PAPER TRADING RUN")
+            print("  DAILY PAPER TRADING RUN")
             print(f"  {today.strftime('%Y-%m-%d %H:%M:%S')}")
             _record_closed_market_skip(today, "weekend")
             print(f"  ⏭ Skipping — today is {today.strftime('%A')} (market closed)")
-            print(f"  Use --force to run anyway")
+            print("  Use --force to run anyway")
             print(f"{'═'*60}\n")
             sys.exit(0)
 
@@ -1067,11 +1075,11 @@ def main():
         # closures but covers the standard calendar.
         if _is_us_market_holiday(today):
             print(f"{'═'*60}")
-            print(f"  DAILY PAPER TRADING RUN")
+            print("  DAILY PAPER TRADING RUN")
             print(f"  {today.strftime('%Y-%m-%d %H:%M:%S')}")
             _record_closed_market_skip(today, "us_market_holiday")
-            print(f"  ⏭ Skipping — today is a US market holiday")
-            print(f"  Use --force to run anyway")
+            print("  ⏭ Skipping — today is a US market holiday")
+            print("  Use --force to run anyway")
             print(f"{'═'*60}\n")
             sys.exit(0)
 
@@ -1108,14 +1116,14 @@ def main():
     # Header
     now = datetime.now()
     print(f"{'═'*60}")
-    print(f"  DAILY PAPER TRADING RUN")
+    print("  DAILY PAPER TRADING RUN")
     print(f"  {now.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"  Steps: {len(steps)}")
     print(f"  Run ID: {current_run_id()}")
     if run_alpaca:
-        print(f"  Alpaca: core-satellite unified signal")
+        print("  Alpaca: core-satellite unified signal")
     if args.dry_run:
-        print(f"  ⚠ DRY RUN MODE — nothing will execute")
+        print("  ⚠ DRY RUN MODE — nothing will execute")
     if args.health_only:
         print("  Mode: health-only local dashboard refresh (no order submission)")
         if not args.no_github_sync:
@@ -1150,7 +1158,7 @@ def main():
     total_time = sum(r.get("elapsed", 0) for r in results)
 
     print(f"\n{'═'*60}")
-    print(f"  SUMMARY")
+    print("  SUMMARY")
     print(f"{'═'*60}")
     print(f"  ✓ Completed: {ok + no_action}/{len(results)}")
     if no_action:
@@ -1176,7 +1184,6 @@ def main():
 
     if not args.dry_run:
         # Save run log
-        import json
         log_prefix = "local_health" if args.health_only else "daily_run"
         log_path = LOGS / f"{log_prefix}_{now.strftime('%Y%m%d')}.json"
         run_log = {

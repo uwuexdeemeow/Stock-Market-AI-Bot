@@ -62,6 +62,15 @@ def test_daily_refresh_forces_etf_download():
     assert "--strict" in etf_step.cmd
 
 
+def test_daily_broker_health_is_a_strict_critical_gate():
+    """A known broker outage must stop signal generation and submission early."""
+    steps = daily_run.build_steps(skip_refresh=True, run_alpaca=True)
+    broker_step = next(step for step in steps if step.name == "broker_health")
+
+    assert "--strict" in broker_step.cmd
+    assert broker_step.critical is True
+
+
 def test_daily_workflow_pins_execution_safety_env():
     # PLAIN ENGLISH: the GitHub workflow writes its own .env file, so this test
     # catches accidental removal of the safety knobs the live submit script needs.
@@ -153,11 +162,22 @@ def test_daily_workflow_never_retries_the_trading_pipeline():
     assert "retrying in 30s" not in workflow
 
 
+def test_daily_data_cache_save_uses_a_restorable_prefix():
+    """A cache written today must match tomorrow's restore prefix."""
+    workflow = Path(".github/workflows/daily_paper_trading.yml").read_text(encoding="utf-8")
+
+    assert "key: factor-data-parquets-daily-${{ github.run_id }}" in workflow
+    assert "factor-data-parquets-" in workflow
+    assert "key: daily-factor-reader-${{ github.run_id }}" not in workflow
+
+
 def test_daily_run_reads_canonical_alignment_for_audit_log(tmp_path, monkeypatch):
     signal_dir = tmp_path / "signals"
     signal_dir.mkdir()
     monkeypatch.setattr(daily_run, "SIGNAL_DIR", signal_dir)
+    monkeypatch.setenv("STOCKBOT_RUN_ID", "alignment-test-run")
     payload = {
+        "run_id": "alignment-test-run",
         "summary": {
             "alignment": {
                 "status": "fail",
@@ -174,6 +194,43 @@ def test_daily_run_reads_canonical_alignment_for_audit_log(tmp_path, monkeypatch
     assert error == ""
     assert alignment["status"] == "fail"
     assert alignment["maximum_target_weight_gap"] == 0.08
+
+
+def test_daily_run_rejects_submit_outcome_from_another_run(tmp_path, monkeypatch):
+    """A newly copied old report cannot masquerade as this run's submission."""
+    signal_dir = tmp_path / "signals"
+    signal_dir.mkdir()
+    monkeypatch.setattr(daily_run, "SIGNAL_DIR", signal_dir)
+    monkeypatch.setenv("STOCKBOT_RUN_ID", "current-run")
+    (signal_dir / "alpaca_submit_outcome.json").write_text(
+        json.dumps({"run_id": "older-run", "status": "executed"}),
+        encoding="utf-8",
+    )
+
+    payload, error = daily_run._read_fresh_submit_outcome(datetime.now())
+
+    assert payload["run_id"] == "older-run"
+    assert error.startswith("submit_outcome_run_id_mismatch:")
+
+
+def test_daily_run_rejects_broker_truth_from_another_run(tmp_path, monkeypatch):
+    """Alignment evidence must belong to the same orchestration run."""
+    signal_dir = tmp_path / "signals"
+    signal_dir.mkdir()
+    monkeypatch.setattr(daily_run, "SIGNAL_DIR", signal_dir)
+    monkeypatch.setenv("STOCKBOT_RUN_ID", "current-run")
+    (signal_dir / "broker_truth.json").write_text(
+        json.dumps({
+            "run_id": "older-run",
+            "summary": {"alignment": {"status": "pass"}},
+        }),
+        encoding="utf-8",
+    )
+
+    alignment, error = daily_run._read_fresh_broker_alignment(datetime.now())
+
+    assert alignment == {}
+    assert error.startswith("broker_truth_run_id_mismatch:")
 
 
 def test_signal_latest_workflows_share_publish_lock():

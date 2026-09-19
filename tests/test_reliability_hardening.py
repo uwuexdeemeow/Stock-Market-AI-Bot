@@ -285,6 +285,9 @@ def test_submit_outcome_is_fail_closed_and_journaled_once(tmp_path, monkeypatch)
     journal_path = tmp_path / "outcomes.csv"
     monkeypatch.setattr(alpaca, "SUBMIT_OUTCOME_FILE", outcome_path)
     monkeypatch.setattr(alpaca, "SUBMIT_OUTCOME_JOURNAL_FILE", journal_path)
+    # PLAIN ENGLISH: keep this unit test from touching the workstation's real
+    # operational rebalance state while it exercises outcome bookkeeping.
+    monkeypatch.setattr(alpaca, "update_rebalance_state", lambda *_args, **_kwargs: {})
 
     alpaca._begin_submit_outcome()
     initial = json.loads(outcome_path.read_text(encoding="utf-8"))
@@ -301,6 +304,7 @@ def test_submit_outcome_is_fail_closed_and_journaled_once(tmp_path, monkeypatch)
 def test_every_planned_order_receives_a_final_execution_state(tmp_path, monkeypatch):
     monkeypatch.setattr(alpaca, "SUBMIT_OUTCOME_FILE", tmp_path / "outcome.json")
     monkeypatch.setattr(alpaca, "SUBMIT_OUTCOME_JOURNAL_FILE", tmp_path / "outcomes.csv")
+    monkeypatch.setattr(alpaca, "update_rebalance_state", lambda *_args, **_kwargs: {})
     monkeypatch.setattr(
         alpaca,
         "_write_broker_truth_gate_report",

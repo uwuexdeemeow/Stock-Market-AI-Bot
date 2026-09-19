@@ -313,3 +313,19 @@ Historical results affected by these changes must be regenerated. Original audit
 ## Evidence closure update
 
 Read-only status preserves fractional quantities instead of truncating to whole shares. The execution report records complete stage-attempt counts including canceled zero-fill attempts, with submission-time population bounds. Quote age and fill latency use recorded timestamps; missing timestamps remain unavailable. These reporting changes do not submit orders or change trading thresholds. Use the existing --status or --slippage-report read-only modes.
+
+## Recovery-halt and duplicate-order hardening
+
+Emergency liquidation now reports whether every close order was accepted. A
+rejected close remains eligible for retry on the next guard cycle; the recovery
+lock never suppresses another close attempt. Long positions close with sells,
+while an unexpected short position closes with a buy.
+
+After a drawdown halt, `signals/alpaca_halt_active.txt` blocks new entries until
+the configured recovery threshold is verified. A corrupt or unreadable lock
+fails closed and must be repaired or reviewed manually.
+
+Before submitting a rebalance, Alpaca order history remains the primary
+duplicate check. If that request fails and the local order journal is also
+missing or unreadable, submission is blocked as uncertain instead of assuming
+that no prior order exists.

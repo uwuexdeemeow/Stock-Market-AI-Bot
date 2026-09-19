@@ -61,7 +61,21 @@ def test_publisher_preserves_remote_history_and_other_jobs(tmp_path, filename, s
     workflow = yaml.safe_load((Path(".github/workflows") / filename).read_text())
     step = next(step for job in workflow["jobs"].values() for step in job["steps"] if step["name"] == step_name)
     shell = re.sub(r"\$\{\{.*?\}\}", "123", step["run"]).replace("python3 -", shlex.quote(sys.executable) + " -")
-    result = subprocess.run([bash, "-e", "-o", "pipefail", "-c", shell], cwd=root, capture_output=True, text=True)
+    shell_env = os.environ.copy()
+    if os.name == "nt":
+        # PLAIN ENGLISH: Git Bash keeps tools such as `mktemp` in usr/bin.
+        # Some Windows test runners can launch bash.exe but omit that companion
+        # directory from PATH, which creates a false workflow failure.
+        git_usr_bin = Path(bash).parent.parent / "usr" / "bin"
+        shell_env["PATH"] = str(git_usr_bin) + os.pathsep + shell_env.get("PATH", "")
+    result = subprocess.run(
+        [bash, "-e", "-o", "pipefail", "-c", shell],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        env=shell_env,
+        check=False,
+    )
     assert result.returncode == 0, result.stdout + result.stderr
     assert git("show", "origin/signals/latest:signals/fractional_shadow_state.json") == "preserve me"
     assert git("show", f"origin/signals/latest:signals/{output}") == ("old output" if incomplete else "new output")

@@ -21,7 +21,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -120,6 +119,11 @@ def main() -> None:
                         help="Check Alpaca only")
     parser.add_argument("--json", action="store_true",
                         help="Output results as JSON")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit nonzero when Alpaca is unhealthy (used by the trading pipeline)",
+    )
     args = parser.parse_args()
 
     summary = check_all(alpaca=True)
@@ -138,6 +142,9 @@ def main() -> None:
                 print(f"           error: {result['error']}")
         print(f"\n  Overall: {'ALL HEALTHY' if summary['all_healthy'] else 'DEGRADED — ' + ', '.join(summary['down_brokers']) + ' DOWN'}")
         print(f"  Saved → {HEALTH_FILE}")
+
+    if args.strict and not summary["all_healthy"]:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

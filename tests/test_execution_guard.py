@@ -233,6 +233,84 @@ def test_pnl_halt_closed_market_alerts_without_liquidating(monkeypatch):
     assert alerts
 
 
+def test_pnl_halt_dry_run_does_not_suppress_later_real_liquidation(monkeypatch):
+    """A rehearsal must never persist the flag that means liquidation happened."""
+    import execution_guard
+
+    account = SimpleNamespace(equity="90000", last_equity="100000")
+    broker = FakeBroker(account=account, market_open=True)
+    calls = []
+    monkeypatch.setattr(execution_guard, "_emergency_liquidate", lambda _broker: calls.append("liquidate"))
+    monkeypatch.setattr(execution_guard, "send_alert", lambda _msg, **_kwargs: None)
+    monkeypatch.setattr(execution_guard, "log", lambda _msg: None)
+    state = {"date": "2026-05-12"}
+
+    execution_guard.guard_intraday_pnl(
+        broker,
+        state,
+        dry_run=True,
+        market_open=True,
+        force_market_closed=False,
+    )
+
+    assert calls == []
+    assert state["pnl_halt_sent"] is False
+
+
+def test_pnl_halt_retries_when_liquidation_is_incomplete(monkeypatch):
+    """Rejected close orders keep the retry flag open for the next guard cycle."""
+    import execution_guard
+
+    account = SimpleNamespace(equity="90000", last_equity="100000")
+    broker = FakeBroker(account=account, market_open=True)
+    alerts = []
+    monkeypatch.setattr(
+        execution_guard,
+        "_emergency_liquidate",
+        lambda _broker: {"complete": False, "errors": [{"ticker": "QQQ", "error": "rejected"}]},
+    )
+    monkeypatch.setattr(execution_guard, "send_alert", lambda msg, **_kwargs: alerts.append(msg))
+    monkeypatch.setattr(execution_guard, "log", lambda _msg: None)
+    state = {"date": "2026-05-12"}
+
+    execution_guard.guard_intraday_pnl(
+        broker,
+        state,
+        dry_run=False,
+        market_open=True,
+        force_market_closed=False,
+    )
+
+    assert state["pnl_halt_sent"] is False
+    assert any("will retry" in message for message in alerts)
+
+
+def test_pnl_halt_marks_sent_only_after_all_close_orders_are_accepted(monkeypatch):
+    """A successful liquidation request may debounce later guard cycles."""
+    import execution_guard
+
+    account = SimpleNamespace(equity="90000", last_equity="100000")
+    broker = FakeBroker(account=account, market_open=True)
+    monkeypatch.setattr(
+        execution_guard,
+        "_emergency_liquidate",
+        lambda _broker: {"complete": True, "errors": []},
+    )
+    monkeypatch.setattr(execution_guard, "send_alert", lambda _msg, **_kwargs: None)
+    monkeypatch.setattr(execution_guard, "log", lambda _msg: None)
+    state = {"date": "2026-05-12"}
+
+    execution_guard.guard_intraday_pnl(
+        broker,
+        state,
+        dry_run=False,
+        market_open=True,
+        force_market_closed=False,
+    )
+
+    assert state["pnl_halt_sent"] is True
+
+
 def test_pnl_guard_skips_invalid_current_equity(monkeypatch):
     import execution_guard
 

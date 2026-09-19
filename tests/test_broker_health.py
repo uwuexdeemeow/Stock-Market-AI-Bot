@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import sys
+
+import pytest
+
 
 class _FakeBroker:
     equity = 100_000.0
@@ -33,3 +37,20 @@ def test_broker_health_accepts_positive_finite_equity(monkeypatch):
 
     assert result["healthy"] is True
     assert result["equity"] == 12345.67
+
+
+def test_strict_cli_exits_nonzero_when_broker_is_unhealthy(monkeypatch, tmp_path):
+    """The daily runner can fail fast instead of discovering an outage at submit."""
+    import broker_health
+
+    monkeypatch.setattr(
+        broker_health,
+        "check_all",
+        lambda **_kwargs: {"all_healthy": False, "down_brokers": ["alpaca"], "brokers": {}},
+    )
+    monkeypatch.setattr(sys, "argv", ["broker_health.py", "--strict", "--json"])
+
+    with pytest.raises(SystemExit) as caught:
+        broker_health.main()
+
+    assert caught.value.code == 1

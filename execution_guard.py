@@ -431,9 +431,21 @@ def guard_intraday_pnl(
                     send_alert(f"DRY RUN {message}")
                 else:
                     log(message)
-                    _emergency_liquidate(broker)
-                    send_alert(f"{message}; liquidation requested")
-                state["pnl_halt_sent"] = True
+                    result = _emergency_liquidate(broker)
+                    if result.get("complete"):
+                        state["pnl_halt_sent"] = True
+                        send_alert(f"{message}; all close orders accepted")
+                    else:
+                        # PLAIN ENGLISH: Keep this false so the next guard cycle
+                        # retries positions whose emergency close was rejected.
+                        state["pnl_halt_sent"] = False
+                        failures = ", ".join(
+                            str(item.get("ticker", "?")) for item in result.get("errors", [])
+                        ) or "unknown positions"
+                        send_alert(
+                            f"{message}; liquidation incomplete for {failures}; guard will retry",
+                            priority="critical",
+                        )
             return
         if not state.get("pnl_halt_blocked_alert_sent"):
             send_alert(

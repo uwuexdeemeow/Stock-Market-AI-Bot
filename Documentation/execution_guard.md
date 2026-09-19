@@ -126,3 +126,14 @@ stops from reserving shares and blocking rebalance sell orders.
 - If Alpaca rejects a protective stop, the guard logs and alerts the failure,
   but it cannot force the broker to accept the order.
 - Telegram delivery is optional; logs are still written when it is unavailable.
+
+## Halt retry behavior
+
+`--dry-run` never records `pnl_halt_sent`, because no liquidation was actually
+requested. During a real halt, the flag becomes true only after every close
+order is accepted. If any symbol fails, the guard sends a critical alert, keeps
+the flag false, and retries unresolved positions on the next cycle.
+
+The Alpaca halt sentinel is a recovery lock, not a claim that liquidation
+finished. It prevents new entries until recovery is verified but does not stop
+the guard from retrying failed close orders.

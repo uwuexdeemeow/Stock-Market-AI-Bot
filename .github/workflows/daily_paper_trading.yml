@@ -155,7 +155,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: data/
-          key: daily-factor-reader-${{ github.run_id }}
+          key: factor-data-parquets-daily-${{ github.run_id }}
           restore-keys: |
             factor-data-parquets-
 
@@ -761,7 +761,9 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: data/
-          key: daily-factor-reader-${{ github.run_id }}
+          # PLAIN ENGLISH: use the same prefix restored near the start of this
+          # workflow, so today's validated data can warm the next daily run.
+          key: factor-data-parquets-daily-${{ github.run_id }}
 
       # ── 10. Save updated state files ──────────────────────────────
       #    Preserve the validated factor/report set under a new immutable cache

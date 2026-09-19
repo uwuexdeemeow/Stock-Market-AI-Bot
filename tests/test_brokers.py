@@ -22,6 +22,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from broker_interface import Position
+
 
 def _alpaca_package_or_skip() -> None:
     if importlib.util.find_spec("alpaca") is None:
@@ -47,6 +49,103 @@ def test_halt_sentinel_uses_atomic_writer(monkeypatch, tmp_path):
     assert calls[0][0] == "alpaca_halt_active.txt"
     assert "Emergency liquidation triggered at 2026-06-05T14:00:00+00:00" in calls[0][1]
     assert "Delete this file to re-enable trading" in calls[0][1]
+
+
+def test_emergency_liquidation_retries_even_when_recovery_lock_exists(monkeypatch, tmp_path):
+    """The halt file blocks re-entry, but never suppresses another close attempt."""
+    import alpaca_paper_trading as apt
+
+    sentinel = tmp_path / "alpaca_halt_active.txt"
+    sentinel.write_text("Emergency liquidation triggered at 2026-05-12T09:40:00+00:00\n")
+    monkeypatch.setattr(apt, "_HALT_SENTINEL_FILE", sentinel)
+
+    class Broker:
+        def __init__(self):
+            self.orders = []
+
+        def cancel_all_orders(self):
+            return 2
+
+        def get_positions(self):
+            return [Position("SPY", 3, 500.0), Position("HEDGE", -2, 100.0)]
+
+        def place_order(self, order):
+            self.orders.append(order)
+            return f"close-{len(self.orders)}"
+
+    broker = Broker()
+    result = apt._emergency_liquidate(broker)
+
+    assert result["complete"] is True
+    assert [(order.ticker, order.side, order.quantity) for order in broker.orders] == [
+        ("SPY", "sell", 3),
+        ("HEDGE", "buy", 2),
+    ]
+
+
+def test_emergency_liquidation_reports_partial_failure_for_retry(monkeypatch, tmp_path):
+    """One rejected close keeps the liquidation result incomplete."""
+    import alpaca_paper_trading as apt
+
+    monkeypatch.setattr(apt, "_HALT_SENTINEL_FILE", tmp_path / "alpaca_halt_active.txt")
+
+    class Broker:
+        def cancel_all_orders(self):
+            return 0
+
+        def get_positions(self):
+            return [Position("SPY", 3, 500.0), Position("QQQ", 4, 400.0)]
+
+        def place_order(self, order):
+            if order.ticker == "QQQ":
+                raise RuntimeError("broker rejected close")
+            return "close-spy"
+
+    result = apt._emergency_liquidate(Broker())
+
+    assert result["complete"] is False
+    assert result["errors"] == [{"ticker": "QQQ", "error": "broker rejected close"}]
+
+
+def test_unreadable_halt_sentinel_stays_active(monkeypatch, tmp_path):
+    """Corrupt recovery evidence must fail closed instead of being deleted."""
+    import alpaca_paper_trading as apt
+
+    sentinel = tmp_path / "alpaca_halt_active.txt"
+    sentinel.write_text("not a timestamp")
+    monkeypatch.setattr(apt, "_HALT_SENTINEL_FILE", sentinel)
+    monkeypatch.setattr(apt, "check_portfolio_drawdown", lambda _broker: (False, 0.0))
+
+    assert apt._maybe_auto_clear_halt(object()) is False
+    assert sentinel.exists()
+
+
+def test_recovery_halt_stays_active_until_stronger_threshold(monkeypatch, tmp_path):
+    """Moving above the emergency line alone must not permit new entries."""
+    import alpaca_paper_trading as apt
+
+    sentinel = tmp_path / "alpaca_halt_active.txt"
+    sentinel.write_text("Emergency liquidation triggered at 2026-05-12T09:40:00+00:00\n")
+    monkeypatch.setattr(apt, "_HALT_SENTINEL_FILE", sentinel)
+    monkeypatch.setattr(apt, "PORTFOLIO_DRAWDOWN_HALT_PCT", 0.12)
+    monkeypatch.setattr(apt, "check_portfolio_drawdown", lambda _broker: (False, -0.10))
+
+    assert apt._maybe_auto_clear_halt(object()) is False
+    assert sentinel.exists()
+
+
+def test_recovery_halt_clears_after_verified_recovery(monkeypatch, tmp_path):
+    """The recovery lock clears only after drawdown improves past half the halt."""
+    import alpaca_paper_trading as apt
+
+    sentinel = tmp_path / "alpaca_halt_active.txt"
+    sentinel.write_text("Emergency liquidation triggered at 2026-05-12T09:40:00+00:00\n")
+    monkeypatch.setattr(apt, "_HALT_SENTINEL_FILE", sentinel)
+    monkeypatch.setattr(apt, "PORTFOLIO_DRAWDOWN_HALT_PCT", 0.12)
+    monkeypatch.setattr(apt, "check_portfolio_drawdown", lambda _broker: (False, -0.05))
+
+    assert apt._maybe_auto_clear_halt(object()) is True
+    assert not sentinel.exists()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2073,6 +2172,35 @@ class TestDuplicatePrevention:
         ]
         broker = SimpleNamespace(_api=SimpleNamespace(list_orders=lambda **_kwargs: orders))
 
+        orig = apt.PAPER_LOG_FILE
+        apt.PAPER_LOG_FILE = tmp_path / "missing.csv"
+        try:
+            assert apt._already_submitted_today(broker) is False
+        finally:
+            apt.PAPER_LOG_FILE = orig
+
+    def test_duplicate_check_fails_closed_when_broker_and_local_log_are_unavailable(self, tmp_path):
+        """Submission must stop when neither duplicate source can be trusted."""
+        import alpaca_paper_trading as apt
+
+        class BrokenAPI:
+            def list_orders(self, **_kwargs):
+                raise ConnectionError("history endpoint unavailable")
+
+        broker = SimpleNamespace(_api=BrokenAPI())
+        orig = apt.PAPER_LOG_FILE
+        apt.PAPER_LOG_FILE = tmp_path / "missing.csv"
+        try:
+            with pytest.raises(RuntimeError, match="duplicate-order check is uncertain"):
+                apt._already_submitted_today(broker)
+        finally:
+            apt.PAPER_LOG_FILE = orig
+
+    def test_duplicate_check_uses_successful_broker_history_when_local_log_is_missing(self, tmp_path):
+        """An authoritative empty broker result is enough to allow submission."""
+        import alpaca_paper_trading as apt
+
+        broker = SimpleNamespace(_api=SimpleNamespace(list_orders=lambda **_kwargs: []))
         orig = apt.PAPER_LOG_FILE
         apt.PAPER_LOG_FILE = tmp_path / "missing.csv"
         try:
