@@ -145,7 +145,9 @@ approved strategy configuration and validation bundle remain owned by `main`.
   Alpaca positions and equity as the automated run.
 - **Per-step timeout** — default 5 min per step (10 min recommended
   for research.py).  The timeout is enforced even when a child script is
-  silent and prints no progress.
+  silent and prints no progress. A timed-out step runs in its own process group,
+  so helper processes are stopped too and cannot continue work after the daily
+  runner reports failure.
 - **Internal Telegram alert** — sends a warning when any step fails,
   regardless of the workflow exit code.
 - **No automatic trading retry** — GitHub runs the trading pipeline once. A
@@ -232,3 +234,7 @@ still checked, but a recently restored report from another run is rejected.
 
 The daily data cache is saved under the same `factor-data-parquets-` prefix the
 workflow restores, so validated data from one run can warm the next run.
+
+CI also runs a small static bug gate against the daily trading path. It checks
+undefined names, accidental redefinitions, and loop-closure mistakes without
+mixing a large style-only rewrite into operational code.

@@ -322,8 +322,19 @@ lock never suppresses another close attempt. Long positions close with sells,
 while an unexpected short position closes with a buy.
 
 After a drawdown halt, `signals/alpaca_halt_active.txt` blocks new entries until
-the configured recovery threshold is verified. A corrupt or unreadable lock
-fails closed and must be repaired or reviewed manually.
+the configured recovery threshold is verified. The lock also stores structured
+liquidation evidence. It clears only after Alpaca reports no remaining
+positions, no open orders, successful cancellation of old orders, and no
+liquidation errors. A price recovery by itself cannot unlock trading. A corrupt
+or unreadable lock fails closed and must be repaired or reviewed manually.
+
+Emergency close orders use deterministic client IDs, which lets Alpaca reject
+an accidental duplicate dispatch. Failed order cancellation is recorded as an
+incomplete liquidation and remains eligible for a later safety retry.
+
+After ordinary orders, core and overlay protective-stop repair results are part
+of the final submission outcome. A filled trade with missing required
+protection is reported as partial or failed, never as a successful green run.
 
 Before submitting a rebalance, Alpaca order history remains the primary
 duplicate check. If that request fails and the local order journal is also

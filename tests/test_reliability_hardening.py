@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timezone
 
 import pandas as pd
+import pytest
 
 import alpaca_paper_trading as alpaca
 import core_satellite_nested_walkforward as walkforward
@@ -12,6 +13,12 @@ import core_satellite_survivorship_audit as survivorship_stress
 import data_manifest
 import factor_decay_monitor
 import validation_bundle
+
+
+@pytest.fixture(autouse=True)
+def _isolate_rebalance_lifecycle(monkeypatch):
+    """Unit tests must never rewrite the operator's live rebalance state."""
+    monkeypatch.setattr(alpaca, "update_rebalance_state", lambda *_args, **_kwargs: {})
 
 
 def test_validation_file_hash_ignores_cross_platform_line_endings(tmp_path):
@@ -355,3 +362,30 @@ def test_partial_submit_outcome_is_truthful_and_recoverable(tmp_path, monkeypatc
     assert outcome["completion_ratio"] == 0.5
     assert outcome["recovery_eligible"] is True
     assert outcome["unresolved_orders"][0]["ticker"] == "INTC"
+
+
+def test_post_trade_protection_failure_cannot_report_green(tmp_path, monkeypatch):
+    """A filled buy without its required stop remains a failed daily outcome."""
+    monkeypatch.setattr(alpaca, "SUBMIT_OUTCOME_FILE", tmp_path / "outcome.json")
+    monkeypatch.setattr(alpaca, "SUBMIT_OUTCOME_JOURNAL_FILE", tmp_path / "outcomes.csv")
+    monkeypatch.setattr(alpaca, "update_rebalance_state", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(
+        alpaca,
+        "_write_broker_truth_gate_report",
+        lambda: {"status": "pass", "summary": {"fail_count": 0, "warning_count": 0}},
+    )
+    monkeypatch.setattr(alpaca, "_order_status", lambda _broker, _order_id: "filled")
+
+    alpaca._begin_submit_outcome()
+    outcome = alpaca._finalize_submit_outcome(
+        object(),
+        planned_count=1,
+        order_ids=["accepted-filled"],
+        orders=[{"ticker": "SPY", "side": "buy"}],
+        post_trade_errors=["core_stop:SPY:broker rejected stop"],
+    )
+
+    assert outcome["status"] == "partial_execution"
+    assert outcome["reason_code"] == "post_trade_protection_incomplete"
+    assert outcome["recovery_eligible"] is False
+    assert outcome["errors"] == ["core_stop:SPY:broker rejected stop"]

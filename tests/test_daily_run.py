@@ -498,6 +498,31 @@ def test_run_step_timeout_stops_quiet_process():
     assert time.monotonic() - start < 2.5
 
 
+def test_run_step_timeout_stops_descendant_process(tmp_path):
+    """A timed-out step cannot leave a helper writing files later."""
+    marker = tmp_path / "orphan.txt"
+    child_code = (
+        "import time; from pathlib import Path; "
+        f"time.sleep(2); Path({str(marker)!r}).write_text('orphan')"
+    )
+    parent_code = (
+        "import subprocess, sys, time; "
+        f"subprocess.Popen([sys.executable, '-c', {child_code!r}]); "
+        "time.sleep(10)"
+    )
+
+    result = daily_run.run_step(
+        "tree_timeout",
+        [sys.executable, "-c", parent_code],
+        "Process tree should stop together",
+        timeout=1,
+    )
+    time.sleep(2.5)
+
+    assert result["status"] == "timeout"
+    assert not marker.exists()
+
+
 def test_dry_run_skipped_critical_steps_do_not_block(monkeypatch):
     steps = [
         daily_run.DATA_REFRESH_STEPS[0],

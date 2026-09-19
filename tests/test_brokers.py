@@ -49,6 +49,7 @@ def test_halt_sentinel_uses_atomic_writer(monkeypatch, tmp_path):
     assert calls[0][0] == "alpaca_halt_active.txt"
     assert "Emergency liquidation triggered at 2026-06-05T14:00:00+00:00" in calls[0][1]
     assert "Delete this file to re-enable trading" in calls[0][1]
+    assert '"schema_version": 2' in calls[0][1]
 
 
 def test_emergency_liquidation_retries_even_when_recovery_lock_exists(monkeypatch, tmp_path):
@@ -81,6 +82,7 @@ def test_emergency_liquidation_retries_even_when_recovery_lock_exists(monkeypatc
         ("SPY", "sell", 3),
         ("HEDGE", "buy", 2),
     ]
+    assert all(order.client_id.startswith("halt-") for order in broker.orders)
 
 
 def test_emergency_liquidation_reports_partial_failure_for_retry(monkeypatch, tmp_path):
@@ -104,7 +106,10 @@ def test_emergency_liquidation_reports_partial_failure_for_retry(monkeypatch, tm
     result = apt._emergency_liquidate(Broker())
 
     assert result["complete"] is False
-    assert result["errors"] == [{"ticker": "QQQ", "error": "broker rejected close"}]
+    assert result["errors"] == [
+        {"ticker": "*", "error": "cancel_all_orders_failed"},
+        {"ticker": "QQQ", "error": "broker rejected close"},
+    ]
 
 
 def test_unreadable_halt_sentinel_stays_active(monkeypatch, tmp_path):
@@ -125,12 +130,20 @@ def test_recovery_halt_stays_active_until_stronger_threshold(monkeypatch, tmp_pa
     import alpaca_paper_trading as apt
 
     sentinel = tmp_path / "alpaca_halt_active.txt"
-    sentinel.write_text("Emergency liquidation triggered at 2026-05-12T09:40:00+00:00\n")
+    apt._write_halt_sentinel(
+        sentinel,
+        now=datetime(2026, 5, 12, 9, 40, tzinfo=timezone.utc),
+        liquidation={"cancel_verified": True, "errors": []},
+    )
     monkeypatch.setattr(apt, "_HALT_SENTINEL_FILE", sentinel)
     monkeypatch.setattr(apt, "PORTFOLIO_DRAWDOWN_HALT_PCT", 0.12)
     monkeypatch.setattr(apt, "check_portfolio_drawdown", lambda _broker: (False, -0.10))
 
-    assert apt._maybe_auto_clear_halt(object()) is False
+    broker = SimpleNamespace(
+        get_positions=lambda: [],
+        _api=SimpleNamespace(list_orders=lambda **_kwargs: []),
+    )
+    assert apt._maybe_auto_clear_halt(broker) is False
     assert sentinel.exists()
 
 
@@ -139,13 +152,63 @@ def test_recovery_halt_clears_after_verified_recovery(monkeypatch, tmp_path):
     import alpaca_paper_trading as apt
 
     sentinel = tmp_path / "alpaca_halt_active.txt"
-    sentinel.write_text("Emergency liquidation triggered at 2026-05-12T09:40:00+00:00\n")
+    apt._write_halt_sentinel(
+        sentinel,
+        now=datetime(2026, 5, 12, 9, 40, tzinfo=timezone.utc),
+        liquidation={"cancel_verified": True, "errors": []},
+    )
     monkeypatch.setattr(apt, "_HALT_SENTINEL_FILE", sentinel)
     monkeypatch.setattr(apt, "PORTFOLIO_DRAWDOWN_HALT_PCT", 0.12)
     monkeypatch.setattr(apt, "check_portfolio_drawdown", lambda _broker: (False, -0.05))
 
-    assert apt._maybe_auto_clear_halt(object()) is True
+    broker = SimpleNamespace(
+        get_positions=lambda: [],
+        _api=SimpleNamespace(list_orders=lambda **_kwargs: []),
+    )
+    assert apt._maybe_auto_clear_halt(broker) is True
     assert not sentinel.exists()
+
+
+def test_recovery_halt_does_not_clear_while_positions_remain(monkeypatch, tmp_path):
+    """Recovered prices cannot unlock trading before Alpaca is flat."""
+    import alpaca_paper_trading as apt
+
+    sentinel = tmp_path / "alpaca_halt_active.txt"
+    apt._write_halt_sentinel(
+        sentinel,
+        now=datetime(2026, 5, 12, 9, 40, tzinfo=timezone.utc),
+        liquidation={"cancel_verified": True, "errors": []},
+    )
+    monkeypatch.setattr(apt, "_HALT_SENTINEL_FILE", sentinel)
+    monkeypatch.setattr(apt, "check_portfolio_drawdown", lambda _broker: (False, -0.01))
+    broker = SimpleNamespace(
+        get_positions=lambda: [Position("SPY", 1, 500.0)],
+        _api=SimpleNamespace(list_orders=lambda **_kwargs: []),
+    )
+
+    assert apt._maybe_auto_clear_halt(broker) is False
+    assert sentinel.exists()
+
+
+def test_recovery_halt_does_not_clear_with_open_orders(monkeypatch, tmp_path):
+    """An unresolved emergency order keeps the recovery lock active."""
+    import alpaca_paper_trading as apt
+
+    sentinel = tmp_path / "alpaca_halt_active.txt"
+    apt._write_halt_sentinel(
+        sentinel,
+        now=datetime(2026, 5, 12, 9, 40, tzinfo=timezone.utc),
+        liquidation={"cancel_verified": True, "errors": []},
+    )
+    monkeypatch.setattr(apt, "_HALT_SENTINEL_FILE", sentinel)
+    monkeypatch.setattr(apt, "check_portfolio_drawdown", lambda _broker: (False, -0.01))
+    broker = SimpleNamespace(
+        get_positions=lambda: [],
+        _api=SimpleNamespace(list_orders=lambda **_kwargs: [SimpleNamespace(id="close-1")]),
+    )
+
+    assert apt._maybe_auto_clear_halt(broker) is False
+    assert sentinel.exists()
 
 
 # ─────────────────────────────────────────────────────────────────────────────

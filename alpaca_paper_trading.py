@@ -257,6 +257,7 @@ def _finalize_submit_outcome(
     planned_count: int,
     order_ids: list[str],
     orders: list[dict] | None = None,
+    post_trade_errors: list[str] | None = None,
 ) -> dict:
     """Account for each order and attach a final broker-truth snapshot."""
     accepted_ids = [oid for oid in order_ids if not str(oid).startswith(("ERROR", "SKIPPED"))]
@@ -268,7 +269,7 @@ def _finalize_submit_outcome(
     open_count = sum(status not in {"filled", "rejected", "canceled", "expired"} for status in statuses.values())
 
     alignment: dict = {}
-    errors: list[str] = []
+    errors: list[str] = list(post_trade_errors or [])
     try:
         truth = _write_broker_truth_gate_report()
         alignment = {
@@ -298,6 +299,11 @@ def _finalize_submit_outcome(
     if failed_count or rejected_count:
         status = "failed"
         reason = "partial_or_rejected_submission"
+    elif errors:
+        # PLAIN ENGLISH: Orders may fill successfully while their required
+        # broker-side protection fails. That is not a green execution.
+        status = "partial_execution" if accepted_ids else "failed"
+        reason = "post_trade_protection_incomplete"
     elif accepted_ids and not unresolved_orders and filled_count == planned_count:
         status = "executed"
         reason = "all_planned_orders_filled"
@@ -327,6 +333,7 @@ def _finalize_submit_outcome(
             and open_count == 0
             and failed_count == 0
             and rejected_count == 0
+            and not errors
         ),
         unresolved_orders=unresolved_orders,
         quote_feed=ALPACA_DATA_FEED,
@@ -4077,6 +4084,16 @@ def repair_all_overlay_trailing_stops(broker: AlpacaBroker) -> dict:
     return repair_overlay_trailing_stops(broker, tickers=tickers)
 
 
+def _protection_error_messages(result: dict, label: str) -> list[str]:
+    """Turn stop-repair failures into durable submission outcome messages."""
+    messages: list[str] = []
+    for row in result.get("errors", []) or []:
+        ticker = str(row.get("ticker", "?") or "?").upper()
+        detail = str(row.get("error", "unknown_error") or "unknown_error")
+        messages.append(f"{label}:{ticker}:{detail}")
+    return messages
+
+
 def check_portfolio_drawdown(broker: AlpacaBroker) -> tuple[bool, float]:
     """
     Check if the portfolio has hit the drawdown halt threshold.
@@ -4209,19 +4226,56 @@ _HALT_SENTINEL_FILE = Path(SIGNAL_DIR) / "alpaca_halt_active.txt"
 _HALT_RECOVERY_RATIO = 0.5
 
 
-def _write_halt_sentinel(path: Path = _HALT_SENTINEL_FILE, *, now: datetime | None = None) -> None:
+def _write_halt_sentinel(
+    path: Path | None = None,
+    *,
+    now: datetime | None = None,
+    liquidation: dict | None = None,
+) -> None:
     """Write the trading-halt sentinel through an atomic text write.
 
     PLAIN ENGLISH: This tiny file tells future runs that a drawdown recovery
     lock is active. Writing it atomically prevents a half-written halt marker
     from confusing the next trading run. It does not suppress close retries.
     """
+    target = path or _HALT_SENTINEL_FILE
     timestamp = (now or datetime.now(timezone.utc)).isoformat()
+    state = {
+        "schema_version": 2,
+        "triggered_at": timestamp,
+        "liquidation": dict(liquidation or {}),
+    }
     atomic_write_text(
-        path,
+        target,
         f"Emergency liquidation triggered at {timestamp}\n"
-        f"Delete this file to re-enable trading after reviewing the halt.\n",
+        f"Delete this file to re-enable trading after reviewing the halt.\n"
+        f"State: {json.dumps(state, sort_keys=True)}\n",
     )
+
+
+def _read_halt_sentinel(path: Path | None = None) -> tuple[datetime, dict]:
+    """Read the recovery lock and require its machine-readable safety state."""
+    target = path or _HALT_SENTINEL_FILE
+    sentinel_text = target.read_text(encoding="utf-8", errors="replace")
+    first_line = sentinel_text.splitlines()[0]
+    ts_str = first_line.split("at ", 1)[1].strip()
+    halt_time = datetime.fromisoformat(ts_str)
+    if halt_time.tzinfo is None:
+        halt_time = halt_time.replace(tzinfo=timezone.utc)
+    state_line = next(
+        (line for line in sentinel_text.splitlines() if line.startswith("State: ")),
+        "",
+    )
+    state = json.loads(state_line.removeprefix("State: ")) if state_line else {}
+    return halt_time.astimezone(timezone.utc), state
+
+
+def _halt_open_orders(broker: AlpacaBroker) -> list:
+    """Return live open orders; inability to verify is a recovery blocker."""
+    try:
+        return list(broker._api.list_orders(status="open", limit=500, nested=False))
+    except TypeError:
+        return list(broker._api.list_orders(status="open", limit=500))
 
 
 def _maybe_auto_clear_halt(broker: AlpacaBroker) -> bool:
@@ -4245,24 +4299,37 @@ def _maybe_auto_clear_halt(broker: AlpacaBroker) -> bool:
     # This prevents clearing the same day the halt fired — gives you time
     # to review what happened.
     try:
-        sentinel_text = _HALT_SENTINEL_FILE.read_text(encoding="utf-8", errors="replace")
-        # Parse the timestamp from the first line: "Emergency liquidation triggered at 2026-05-14T..."
-        ts_str = sentinel_text.split("at ")[-1].split("\n")[0].strip()
-        halt_time = datetime.fromisoformat(ts_str)
-        if halt_time.tzinfo is None:
-            # Older sentinels used a timezone-free local timestamp. Treat it as
-            # UTC consistently rather than mixing aware and naive datetimes.
-            halt_time = halt_time.replace(tzinfo=timezone.utc)
-        if (datetime.now(timezone.utc) - halt_time.astimezone(timezone.utc)).days < 1:
+        halt_time, state = _read_halt_sentinel()
+        if (datetime.now(timezone.utc) - halt_time).days < 1:
             return False  # same day — don't auto-clear yet
-    except (OSError, ValueError, IndexError) as exc:
+    except (OSError, ValueError, IndexError, KeyError, json.JSONDecodeError) as exc:
         # PLAIN ENGLISH: A damaged halt file is safety evidence we do not
         # understand. Keep the lock active until a human repairs it instead of
         # silently clearing it and allowing new orders.
         print(f"  ⚠ Halt sentinel is unreadable; keeping trading blocked: {exc}")
         return False
 
-    # Check current drawdown
+    liquidation = state.get("liquidation", {}) if isinstance(state, dict) else {}
+    if not liquidation or not liquidation.get("cancel_verified") or liquidation.get("errors"):
+        print("  ⚠ Halt still active: liquidation safety state is incomplete")
+        return False
+
+    # PLAIN ENGLISH: A price recovery alone is not proof that emergency exits
+    # finished. The account must be flat and Alpaca must report no open orders.
+    try:
+        positions = list(broker.get_positions())
+        open_orders = _halt_open_orders(broker)
+    except Exception as exc:
+        print(f"  ⚠ Halt still active: could not verify flat broker state: {exc}")
+        return False
+    if positions:
+        print(f"  ⚠ Halt still active: {len(positions)} broker position(s) remain")
+        return False
+    if open_orders:
+        print(f"  ⚠ Halt still active: {len(open_orders)} broker order(s) remain open")
+        return False
+
+    # Check current drawdown only after broker liquidation is verified.
     _, current_dd = check_portfolio_drawdown(broker)
     recovery_threshold = -PORTFOLIO_DRAWDOWN_HALT_PCT * _HALT_RECOVERY_RATIO
 
@@ -4290,12 +4357,27 @@ def _emergency_liquidate(broker: AlpacaBroker) -> dict:
     """
     print("  🚨 EMERGENCY LIQUIDATION — cancelling all orders and closing all positions...")
 
+    # PLAIN ENGLISH: Each deliberate retry gets a new broker client ID, while
+    # every ticker inside one attempt remains idempotent. This avoids reusing a
+    # cancelled ID when the guard retries later in the same daily run.
+    attempt = 1
+    if _HALT_SENTINEL_FILE.exists():
+        try:
+            _, previous_state = _read_halt_sentinel()
+            previous_liquidation = previous_state.get("liquidation", {})
+            attempt = int(previous_liquidation.get("attempt", 0) or 0) + 1
+        except (OSError, ValueError, IndexError, KeyError, json.JSONDecodeError, TypeError):
+            attempt = 1
+
     cancelled = broker.cancel_all_orders()
+    cancel_verified = bool(cancelled)
     print(f"    ✓ Cancelled pending orders (Alpaca reports: {cancelled})")
 
     positions = broker.get_positions()
     submitted: list[dict] = []
     errors: list[dict] = []
+    if not cancel_verified:
+        errors.append({"ticker": "*", "error": "cancel_all_orders_failed"})
     if not positions:
         print("    ✓ No open positions to close.")
     else:
@@ -4312,6 +4394,12 @@ def _emergency_liquidate(broker: AlpacaBroker) -> dict:
                     side=side,
                     quantity=quantity,
                     type="market",
+                    # One logical emergency close gets one stable ID per run.
+                    # Alpaca rejects an accidental duplicate retry for us.
+                    client_id=(
+                        f"halt-{recovery_client_order_token()}-{attempt}-"
+                        f"{str(pos.ticker).upper()}-{side}"
+                    )[:48],
                 )
                 oid = broker.place_order(order)
                 submitted.append({
@@ -4328,13 +4416,22 @@ def _emergency_liquidate(broker: AlpacaBroker) -> dict:
     # The sentinel is a recovery lock, not proof that every close succeeded.
     # Future hard-halt checks still retry unresolved positions. New entries stay
     # blocked until the recovery threshold is verified.
-    _write_halt_sentinel()
+    liquidation = {
+        "cancel_verified": cancel_verified,
+        "attempt": attempt,
+        "positions_seen": len(positions),
+        "submitted": submitted,
+        "errors": errors,
+        "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    _write_halt_sentinel(liquidation=liquidation)
     complete = not errors
     label = "complete" if complete else "incomplete"
     print(f"  {'✓' if complete else '⚠'} Halt recovery lock written ({label}): {_HALT_SENTINEL_FILE}")
     return {
         "complete": complete,
         "cancelled_orders": cancelled,
+        "cancel_verified": cancel_verified,
         "positions_seen": len(positions),
         "submitted": submitted,
         "errors": errors,
@@ -4526,17 +4623,29 @@ def main():
         print(f"  ⚠ Could not write order plan: {_exc}")
 
     if not orders:
+        protection_errors: list[str] = []
         if args.submit and CORE_PROTECTION_ENABLED:
             print("  Checking core ETF protective stops...")
-            repair_core_etf_protective_stops(
+            core_result = repair_core_etf_protective_stops(
                 broker,
                 tickers=CORE_PROTECTION_TICKERS,
                 logger=lambda msg: print(f"    {msg}"),
             )
+            protection_errors.extend(_protection_error_messages(core_result, "core_stop"))
         if args.submit and TRAILING_STOP_ENABLED:
-            repair_all_overlay_trailing_stops(broker)
+            overlay_result = repair_all_overlay_trailing_stops(broker)
+            protection_errors.extend(_protection_error_messages(overlay_result, "overlay_stop"))
         if args.submit:
             warn_if_margin_exposure(broker)
+            if protection_errors:
+                _set_submit_outcome(
+                    "failed",
+                    "protective_stop_repair_failed",
+                    market_open=bool(broker.is_market_open()),
+                    planned_orders=0,
+                    errors=protection_errors,
+                )
+                return 1
             _set_submit_outcome(
                 "no_action",
                 "portfolio_within_rebalance_thresholds",
@@ -4563,27 +4672,31 @@ def main():
         if pre_submit_skipped_orders:
             log_submission(pre_submit_skipped_orders, pre_submit_skipped_ids)
             print(f"  Logged {len(pre_submit_skipped_orders)} broker-truth skipped orders -> {PAPER_LOG_FILE}")
+        protection_errors: list[str] = []
         if CORE_PROTECTION_ENABLED:
             print("  Checking core ETF protective stops...")
-            repair_core_etf_protective_stops(
+            core_result = repair_core_etf_protective_stops(
                 broker,
                 tickers=CORE_PROTECTION_TICKERS,
                 logger=lambda msg: print(f"    {msg}"),
             )
+            protection_errors.extend(_protection_error_messages(core_result, "core_stop"))
         if TRAILING_STOP_ENABLED:
-            repair_all_overlay_trailing_stops(broker)
+            overlay_result = repair_all_overlay_trailing_stops(broker)
+            protection_errors.extend(_protection_error_messages(overlay_result, "overlay_stop"))
         warn_if_margin_exposure(broker)
         snapshot_equity(broker)
         snapshot_status(broker)
         build_slippage_reversal_report(broker)
         _set_submit_outcome(
-            "blocked",
-            "broker_truth_gate_removed_all_orders",
+            "failed" if protection_errors else "blocked",
+            "protective_stop_repair_failed" if protection_errors else "broker_truth_gate_removed_all_orders",
             market_open=bool(broker.is_market_open()),
             planned_orders=len(pre_submit_skipped_orders),
             skipped_orders=len(pre_submit_skipped_orders),
+            errors=protection_errors,
         )
-        return 2
+        return 1 if protection_errors else 2
 
     # ── Auto-clear halt if drawdown has recovered ──────────────────────
     # PLAIN ENGLISH: If we halted trading yesterday because of a big
@@ -4771,6 +4884,8 @@ def main():
             )
             return 2
 
+    execution_safety_errors: list[str] = []
+
     # ── TQQQ fast circuit breaker — pre-trade check ───────────────────────
     # PLAIN ENGLISH: Before submitting any TQQQ buy, verify that TQQQ hasn't
     # already crashed more than TQQQ_FAST_DD_THRESHOLD from its recent high.
@@ -4806,6 +4921,7 @@ def main():
                     print(f"    ✓ Closed {tqqq_pos} TQQQ shares (circuit breaker exit).")
                 except Exception as e:
                     print(f"    ✗ TQQQ close FAILED: {e}")
+                    execution_safety_errors.append(f"tqqq_emergency_close:TQQQ:{e}")
         else:
             if tqqq_dd < -0.08:
                 print(f"  ⚠ TQQQ is {tqqq_dd*100:.1f}% from {TQQQ_FAST_DD_LOOKBACK_DAYS}-day high "
@@ -4853,11 +4969,18 @@ def main():
         successful_stops = [s for s in stop_ids if not str(s).startswith("ERROR")]
         print(f"  ✓ {len(successful_stops)}/{len(stop_ids)} trailing stops placed")
 
+    post_trade_errors: list[str] = list(execution_safety_errors)
     if overlay_sell_tickers:
         print("  Repairing overlay trailing stops after sell rebalance...")
-        repair_overlay_trailing_stops(broker, tickers=overlay_sell_tickers)
+        sell_repair_result = repair_overlay_trailing_stops(
+            broker, tickers=overlay_sell_tickers
+        )
+        post_trade_errors.extend(
+            _protection_error_messages(sell_repair_result, "overlay_stop")
+        )
     if TRAILING_STOP_ENABLED:
-        repair_all_overlay_trailing_stops(broker)
+        overlay_result = repair_all_overlay_trailing_stops(broker)
+        post_trade_errors.extend(_protection_error_messages(overlay_result, "overlay_stop"))
     warn_if_margin_exposure(broker)
 
     # ── Auto-snapshot equity for gauntlet tracking ─────────────────────
@@ -4879,11 +5002,12 @@ def main():
     # when the laptop sleeps or is offline.
     if CORE_PROTECTION_ENABLED:
         print("  Repairing core ETF protective stops...")
-        repair_core_etf_protective_stops(
+        core_result = repair_core_etf_protective_stops(
             broker,
             tickers=CORE_PROTECTION_TICKERS,
             logger=lambda msg: print(f"    {msg}"),
         )
+        post_trade_errors.extend(_protection_error_messages(core_result, "core_stop"))
 
     print("    Check fills: python3 alpaca_paper_trading.py --reconcile")
 
@@ -4892,6 +5016,7 @@ def main():
         planned_count=len(logged_orders),
         order_ids=logged_order_ids,
         orders=logged_orders,
+        post_trade_errors=post_trade_errors,
     )
     if outcome.get("status") == "failed":
         return 1

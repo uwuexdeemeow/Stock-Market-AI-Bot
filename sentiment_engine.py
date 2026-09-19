@@ -67,6 +67,13 @@ import time
 import logging
 from collections import defaultdict
 from functools import lru_cache
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # PLAIN ENGLISH: Pandas is imported inside the functions that need it so
+    # startup stays light. This type-only import lets static checks verify the
+    # annotations without doing work at runtime.
+    import pandas as pd
 
 log = logging.getLogger("sentiment_engine")
 
@@ -720,8 +727,6 @@ def _fetch_finnhub_headlines(
             key = _get_finnhub_api_key()
             if not key:
                 return []
-            import requests
-
             payload = []
             cache_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "sentiment_cache")
             os.makedirs(cache_dir, exist_ok=True)
@@ -1119,8 +1124,6 @@ def fetch_premarket_news_by_provider(
     finnhub_result = _empty_provider_result("finnhub", "finnhub_api", True)
     if finnhub_key:
         try:
-            import requests
-
             today_utc = datetime.now(timezone.utc).date()
             start_utc = (datetime.now(timezone.utc) - timedelta(hours=max_age_hours)).date()
             url = "https://finnhub.io/api/v1/company-news"

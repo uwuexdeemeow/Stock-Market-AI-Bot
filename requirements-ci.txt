@@ -40,6 +40,7 @@ tqdm==4.67.3
 psutil==7.2.2
 matplotlib==3.10.8
 rich==15.0.0
+ruff==0.16.5
 # The full CI suite imports dashboard helpers even though trading jobs do not
 # launch the web interface.
 streamlit==1.56.0

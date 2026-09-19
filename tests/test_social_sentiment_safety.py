@@ -11,6 +11,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 import pipeline_shared
+import data_provider
 
 
 def _price_frame() -> pd.DataFrame:
@@ -33,6 +34,12 @@ def _empty_frame_for_dates(*args, **kwargs) -> pd.DataFrame:
 
 
 def _patch_live_feature_dependencies(monkeypatch):
+    # PLAIN ENGLISH: These are unit tests, not provider availability checks.
+    # Blocking every price downloader keeps the suite deterministic even when
+    # another test reloads a module or changes the normal provider fallback.
+    monkeypatch.setattr(data_provider, "_try_yfinance", lambda *args, **kwargs: None)
+    monkeypatch.setattr(data_provider, "_try_yahooquery", lambda *args, **kwargs: None)
+    monkeypatch.setattr(data_provider, "_try_stooq", lambda *args, **kwargs: None)
     monkeypatch.setattr(pipeline_shared, "fetch_price_data", lambda *args, **kwargs: _price_frame())
     monkeypatch.setattr(pipeline_shared, "build_multi_timeframe", lambda close, dates: pd.DataFrame(index=dates))
     monkeypatch.setattr(pipeline_shared, "build_vix_features", lambda dates, *args, **kwargs: pd.DataFrame(index=dates))

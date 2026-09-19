@@ -26,6 +26,19 @@ jobs:
       - name: Validate workflow YAML
         run: |
           yamllint -d '{extends: relaxed, rules: {line-length: disable, truthy: disable}}' .github/workflows
+      - name: Run critical static safety checks
+        # PLAIN ENGLISH: Start with bug-prone rules on daily trading code. A
+        # narrow gate avoids mixing a large style cleanup into operational fixes.
+        run: >-
+          python -m ruff check
+          daily_run.py
+          alpaca_paper_trading.py
+          broker_health.py
+          execution_guard.py
+          alpaca_protection.py
+          core_satellite_alpha.py
+          sentiment_engine.py
+          --select F821,F811,B023
       - name: Validate reviewed paper release
         # Catch a stale release fingerprint before a daily run blocks orders.
         # This only checks; a reviewed release must be frozen deliberately.

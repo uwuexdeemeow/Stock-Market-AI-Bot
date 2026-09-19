@@ -10,6 +10,9 @@ It checks:
 - Alpaca credentials can connect.
 - Account equity can be read.
 - Equity is positive and finite, not missing, NaN, infinite, or zero.
+- The paper account is active and not blocked from trading.
+- Buying power is finite and non-negative.
+- Alpaca's market clock endpoint responds with a valid open/closed value.
 
 If the broker is down or returns unusable equity, the check fails and writes a
 clear error into `signals/broker_health.json`.
@@ -37,4 +40,6 @@ Expected output:
 | Pre-flight check | A small safety check before the main trading job runs. |
 | Equity | Account value: cash plus positions. |
 | Finite number | A normal usable number, not NaN or infinity. |
-| Broker down | The API cannot be reached, credentials fail, or account data is unusable. |
+| Buying power | Money Alpaca currently permits the paper account to use after reservations. |
+| Trading blocked | Alpaca can be reached, but the account is not permitted to place trades. |
+| Broker down | The API cannot be reached, credentials fail, the account is restricted, or account data is unusable. |

@@ -44,6 +44,10 @@ def check_alpaca() -> dict:
         "broker": "alpaca",
         "healthy": False,
         "equity": None,
+        "buying_power": None,
+        "account_status": None,
+        "trading_blocked": None,
+        "market_open": None,
         "latency_ms": None,
         "error": None,
         "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -52,12 +56,35 @@ def check_alpaca() -> dict:
         start = time.monotonic()
         from alpaca_paper_trading import AlpacaBroker
         broker = AlpacaBroker()
+        # PLAIN ENGLISH: A reachable endpoint is not enough. The account must
+        # still be active, permitted to trade, and able to answer the market
+        # clock before the daily runner is allowed to continue.
+        account = broker._api.get_account()
+        account_status = str(getattr(account, "status", "") or "").upper()
+        trading_blocked = bool(
+            getattr(account, "account_blocked", False)
+            or getattr(account, "trading_blocked", False)
+        )
+        if account_status != "ACTIVE":
+            raise RuntimeError(f"broker account is not active: {account_status}")
+        if trading_blocked:
+            raise RuntimeError("broker account is blocked from trading")
         equity = float(broker.get_equity())
         if not math.isfinite(equity) or equity <= 0:
             raise RuntimeError("invalid broker equity")
+        buying_power = float(broker.get_buying_power())
+        if not math.isfinite(buying_power) or buying_power < 0:
+            raise RuntimeError("invalid broker buying power")
+        market_open = broker.is_market_open()
+        if not isinstance(market_open, bool):
+            raise RuntimeError("invalid broker market clock response")
         latency = (time.monotonic() - start) * 1000
         result["healthy"] = True
         result["equity"] = round(equity, 2)
+        result["buying_power"] = round(buying_power, 2)
+        result["account_status"] = account_status or "UNKNOWN"
+        result["trading_blocked"] = trading_blocked
+        result["market_open"] = market_open
         result["latency_ms"] = round(latency, 1)
     except ImportError as exc:
         result["error"] = f"alpaca-py not installed: {exc}"
@@ -137,7 +164,14 @@ def main() -> None:
             status = "✓ HEALTHY" if result["healthy"] else "✗ DOWN"
             latency = f"{result['latency_ms']:.0f}ms" if result["latency_ms"] else "n/a"
             equity = f"${result['equity']:,.2f}" if result["equity"] else "n/a"
-            print(f"  {name:8s}  {status}  latency={latency}  equity={equity}")
+            buying_power = (
+                f"${result['buying_power']:,.2f}"
+                if result.get("buying_power") is not None else "n/a"
+            )
+            print(
+                f"  {name:8s}  {status}  latency={latency}  equity={equity} "
+                f"buying_power={buying_power} market_open={result.get('market_open')}"
+            )
             if result["error"]:
                 print(f"           error: {result['error']}")
         print(f"\n  Overall: {'ALL HEALTHY' if summary['all_healthy'] else 'DEGRADED — ' + ', '.join(summary['down_brokers']) + ' DOWN'}")

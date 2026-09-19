@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import subprocess
 import sys
 from uuid import uuid4
@@ -44,6 +45,7 @@ from zoneinfo import ZoneInfo
 from pathlib import Path
 
 import pandas as pd
+import psutil
 
 from safe_io import atomic_write_json, popen_utf8
 from run_evidence import current_run_id
@@ -531,6 +533,14 @@ def run_step(
     TAIL_SIZE = 200  # keep last 200 lines of each stream for summary/diagnostics
 
     try:
+        # PLAIN ENGLISH: Put every step in its own process group. If a timed-out
+        # script started helpers, killing only the first Python process could
+        # leave a helper running after the daily run reported failure.
+        process_group_options = (
+            {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+            if sys.platform == "win32"
+            else {"start_new_session": True}
+        )
         proc = popen_utf8(
             cmd,
             stdout=subprocess.PIPE,
@@ -538,6 +548,7 @@ def run_step(
             bufsize=1,  # line-buffered
             cwd=str(Path(__file__).parent),
             env=env,
+            **process_group_options,
         )
         # Use background threads for both streams so a quiet or long-running
         # child process is still governed by the timeout below.
@@ -563,7 +574,7 @@ def run_step(
         try:
             proc.wait(timeout=max(0.0, float(timeout)))
         except subprocess.TimeoutExpired:
-            proc.kill()
+            _terminate_process_tree(proc)
             proc.wait()
             out_thread.join(timeout=2.0)
             err_thread.join(timeout=2.0)
@@ -648,6 +659,30 @@ def run_step(
         elapsed = (datetime.now() - start).total_seconds()
         print(f"  ✗ ERROR: {e}")
         return {"name": name, "status": "error", "elapsed": round(elapsed, 1), "error": str(e)}
+
+
+def _terminate_process_tree(proc: subprocess.Popen) -> None:
+    """Stop a timed-out step and every child process it created."""
+    if proc.poll() is not None:
+        return
+    try:
+        if sys.platform == "win32":
+            parent = psutil.Process(proc.pid)
+            # Freeze the parent first so it cannot create another helper while
+            # we enumerate and stop the existing descendants.
+            parent.suspend()
+            descendants = parent.children(recursive=True)
+            for child in descendants:
+                child.terminate()
+            _, alive = psutil.wait_procs(descendants, timeout=2.0)
+            for child in alive:
+                child.kill()
+            parent.kill()
+        else:
+            os.killpg(proc.pid, signal.SIGKILL)
+    except (OSError, ProcessLookupError, psutil.Error):
+        if proc.poll() is None:
+            proc.kill()
 
 
 def build_steps(
