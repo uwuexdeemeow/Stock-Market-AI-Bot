@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -155,6 +156,70 @@ def _coerce_float(value: object, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _strict_weight(value: object) -> float | None:
+    """Return a finite numeric weight, or ``None`` when input is unsafe.
+
+    PLAIN ENGLISH: The forgiving parser below is useful for display tools, but
+    the trading gate must distinguish a real zero from broken text or infinity.
+    Otherwise a bad position can silently disappear from the safety totals.
+    """
+    try:
+        weight = float(value)
+    except (TypeError, ValueError):
+        return None
+    return weight if math.isfinite(weight) else None
+
+
+def _raw_signal_weight_issues(signal) -> list[str]:
+    """Describe malformed weight fields before any values are discarded."""
+    if not hasattr(signal, "get"):
+        return ["signal_is_not_mapping"]
+
+    issues: list[str] = []
+    items = list(signal.items()) if hasattr(signal, "items") else []
+    numeric_fields = [
+        (str(key), value)
+        for key, value in items
+        if str(key).startswith("target_weight_")
+        or str(key) in {"target_spy_weight", "target_qqq_weight", "target_tqqq_weight"}
+    ]
+    for field, value in numeric_fields:
+        if _strict_weight(value) is None:
+            issues.append(f"invalid_weight:{field}")
+
+    # A present target_weights field must be a dictionary; silently treating a
+    # list or string as empty could trigger unwanted sales of existing holdings.
+    target_weights = signal.get("target_weights")
+    if target_weights is not None:
+        if not isinstance(target_weights, dict):
+            issues.append("invalid_target_weights:not_object")
+        else:
+            for ticker, value in target_weights.items():
+                if not str(ticker).strip():
+                    issues.append("invalid_target_weight_ticker:blank")
+                if _strict_weight(value) is None:
+                    issues.append(f"invalid_weight:target_weights.{ticker}")
+
+    if "overlay_weights_json" in signal:
+        overlay_raw = signal.get("overlay_weights_json")
+        if isinstance(overlay_raw, dict):
+            overlay = overlay_raw
+        else:
+            try:
+                overlay = json.loads(str(overlay_raw))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                overlay = None
+        if not isinstance(overlay, dict):
+            issues.append("invalid_overlay_weights_json:not_object")
+        else:
+            for ticker, value in overlay.items():
+                if not str(ticker).strip():
+                    issues.append("invalid_overlay_ticker:blank")
+                if _strict_weight(value) is None:
+                    issues.append(f"invalid_weight:overlay.{ticker}")
+    return issues
 
 
 def extract_signal_weights(signal) -> dict[str, float]:
@@ -310,6 +375,9 @@ def validate_signal_sanity(
     if required_core_etfs is None:
         required_core_etfs = {"SPY", "QQQ"}
 
+    # Validate the raw representation first. The tolerant extractor must never
+    # turn malformed text/JSON into an apparently safe zero-weight position.
+    issues.extend(_raw_signal_weight_issues(signal))
     weights = extract_signal_weights(signal)
 
     if not weights:

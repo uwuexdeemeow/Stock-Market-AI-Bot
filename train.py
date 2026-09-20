@@ -1831,6 +1831,8 @@ def train_pooled(
                 inner_splits=3,
                 embargo=RETURN_HORIZON_DAYS,
                 min_test_size=500,
+                dates=pd.DatetimeIndex(dates_train),
+                session_dates=pd.DatetimeIndex(all_ts[train_mask].unique()),
             )
             if fold_results:
                 _observed_outer_folds = sorted({int(r.fold) for r in fold_results})
@@ -1843,28 +1845,31 @@ def train_pooled(
                     )
                     fold_results = []
             if fold_results:
-                # Select params by AVERAGE outer-fold AUC across all evaluated
-                # folds for each candidate combo, rather than picking the
-                # single-best outer fold.  This avoids choosing the combo that
-                # happened to win one lucky fold.
+                # Each outer fold has exactly one winner chosen using only its
+                # inner folds. Pick the most frequently selected settings for
+                # production; outer AUC remains an unbiased report, not a
+                # hyperparameter-selection input.
                 from collections import defaultdict as _dd
                 _combo_scores: dict[tuple, list[float]] = _dd(list)
                 for _r in fold_results:
                     # Make a hashable key from the tunable params only
                     _key = tuple(sorted((_k, _r.params[_k]) for _k in tunable_grid))
-                    _combo_scores[_key].append(_r.score)
-                # Choose the combo with the highest MEAN outer-fold AUC
-                _best_key = max(_combo_scores, key=lambda k: float(np.mean(_combo_scores[k])))
+                    _combo_scores[_key].append(_r.inner_score)
+                # Prefer repeat winners, then their mean inner-fold AUC.
+                _best_key = max(
+                    _combo_scores,
+                    key=lambda k: (len(_combo_scores[k]), float(np.mean(_combo_scores[k]))),
+                )
                 _best_mean = float(np.mean(_combo_scores[_best_key]))
                 tuned = dict(_best_key)
                 log.info(
-                    "[pooled] Nested CV best params (avg of %d folds, mean AUC=%.4f): %s",
+                    "[pooled] Nested CV most frequent inner winner (%d folds, mean inner AUC=%.4f): %s",
                     len(_combo_scores[_best_key]), _best_mean, tuned,
                 )
                 # Log all fold results for transparency
                 for r in fold_results:
-                    log.info("[pooled]   fold %d: score=%.4f  params=%s",
-                             r.fold, r.score,
+                    log.info("[pooled]   fold %d: inner=%.4f outer=%.4f params=%s",
+                             r.fold, r.inner_score, r.score,
                              {k: r.params[k] for k in tunable_grid})
                 # Merge: nested-CV params are the base; caller overrides (if any) win.
                 merged = dict(tuned)
@@ -1878,6 +1883,7 @@ def train_pooled(
                         "params": tuned,
                         "fold_results": [
                             {"fold": r.fold, "score": round(r.score, 4),
+                             "inner_score": round(r.inner_score, 4),
                              "params": {k: r.params[k] for k in tunable_grid}}
                             for r in fold_results
                         ],

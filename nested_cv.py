@@ -13,9 +13,10 @@ reg_lambda) by running a nested time-series cross-validation:
 This is the standard way to avoid overfitting hyperparameters to the test set:
 the test set is ONLY touched in the outer evaluation, never during inner tuning.
 
-The function returns one FoldResult per outer fold, each recording which params
-won on that fold.  Callers aggregate those results (e.g. pick best-scoring fold
-or take the mode across folds) to choose final production parameters.
+The function returns one FoldResult per outer fold, each recording the settings
+selected by inner validation plus the untouched outer score. Callers may use
+the mode of the inner-selected settings; outer scores are reporting evidence,
+not another tuning surface.
 
 New in v2
 ---------
@@ -45,6 +46,9 @@ class FoldResult:
     score: float
     # Which outer fold index (0-based).
     fold: int
+    # Mean AUC from the inner folds that selected these parameters. This is
+    # safe to use for choosing final production settings; outer AUC is not.
+    inner_score: float = 0.5
 
 
 def _time_splits(
@@ -94,6 +98,74 @@ def _time_splits(
     return out
 
 
+def _date_group_splits(
+    dates: pd.Index | pd.Series,
+    n_splits: int,
+    embargo: int,
+    *,
+    session_dates: pd.Index | pd.Series | None = None,
+    min_train_size: int = 50,
+    min_test_size: int = 500,
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Split complete dates and purge the label horizon in market sessions.
+
+    PLAIN ENGLISH: Pooled data has many stock rows for one date. Splitting by
+    row can put Monday's AAPL in training and Monday's MSFT in testing. This
+    helper keeps every date together and uses the full session calendar to
+    leave an honest gap after training.
+    """
+    row_dates = pd.DatetimeIndex(pd.to_datetime(dates)).tz_localize(None)
+    if len(row_dates) == 0 or n_splits <= 0:
+        return []
+    if not row_dates.is_monotonic_increasing:
+        raise ValueError("dates must be sorted chronologically")
+
+    unique_dates = pd.DatetimeIndex(row_dates.unique()).sort_values()
+    calendar = pd.DatetimeIndex(
+        pd.to_datetime(session_dates if session_dates is not None else unique_dates)
+    ).tz_localize(None).unique().sort_values()
+    missing = unique_dates.difference(calendar)
+    if len(missing):
+        raise ValueError("session_dates must contain every row date")
+    calendar_position = {date: pos for pos, date in enumerate(calendar)}
+
+    row_groups = {date: np.flatnonzero(row_dates == date) for date in unique_dates}
+    available_rows = len(row_dates) - min_train_size
+    if available_rows <= 0:
+        return []
+    effective_min_test = min(int(min_test_size), max(50, available_rows // n_splits))
+
+    candidates: list[tuple[np.ndarray, np.ndarray]] = []
+    for train_group_end in range(1, len(unique_dates)):
+        train_dates = unique_dates[:train_group_end]
+        train_idx = np.concatenate([row_groups[date] for date in train_dates])
+        if len(train_idx) < min_train_size:
+            continue
+
+        # A horizon-H label starting on the last training date may consume the
+        # next H sessions. Testing begins strictly after that label can end.
+        last_train_position = calendar_position[train_dates[-1]]
+        eligible_test_dates = [
+            date for date in unique_dates[train_group_end:]
+            if calendar_position[date] > last_train_position + max(0, int(embargo))
+        ]
+        test_parts: list[np.ndarray] = []
+        test_rows = 0
+        for date in eligible_test_dates:
+            part = row_groups[date]
+            test_parts.append(part)
+            test_rows += len(part)
+            if test_rows >= effective_min_test:
+                break
+        if test_rows >= effective_min_test:
+            candidates.append((train_idx, np.concatenate(test_parts)))
+
+    if not candidates:
+        return []
+    chosen = np.linspace(0, len(candidates) - 1, min(n_splits, len(candidates))).astype(int)
+    return [candidates[pos] for pos in dict.fromkeys(chosen.tolist())]
+
+
 def nested_walk_forward_search(
     X: pd.DataFrame,
     y: pd.Series,
@@ -103,6 +175,8 @@ def nested_walk_forward_search(
     inner_splits: int = 3,
     embargo: int = 5,
     min_test_size: int = 500,
+    dates: pd.Index | pd.Series | None = None,
+    session_dates: pd.Index | pd.Series | None = None,
 ) -> list[FoldResult]:
     """
     Nested walk-forward hyperparameter search.
@@ -123,17 +197,33 @@ def nested_walk_forward_search(
                               "eval_metric": "logloss"}
     outer_splits : Number of outer train/test folds.
     inner_splits : Number of inner folds used to select best params.
-    embargo      : Number of rows to skip between train and test to prevent
-                   leakage (should equal the return horizon in days).
+    embargo      : Number of market sessions to purge between train and test.
+    dates        : Date for each feature row. Required for pooled panels where
+                   many rows share a date.
+    session_dates: Full ordered market-session calendar used to measure the
+                   embargo even when ``dates`` was sampled at a wider stride.
 
     Returns
     -------
-    List of FoldResult, one per parameter combo per outer fold.  This lets the
-    caller average outer-fold ROC-AUC for every candidate instead of selecting
-    the combo that happened to win one lucky fold.
+    List of FoldResult, one inner-selected winner per outer fold. Outer scores
+    remain an honest estimate because losing candidates never see outer data.
     """
     n = len(X)
-    outer = _time_splits(n, outer_splits, embargo, min_train_size=500, min_test_size=min_test_size)
+    if dates is not None and len(dates) != n:
+        raise ValueError("dates must have one value per X row")
+    split_fn = _date_group_splits if dates is not None else None
+    outer = (
+        split_fn(
+            dates,
+            outer_splits,
+            embargo,
+            session_dates=session_dates,
+            min_train_size=500,
+            min_test_size=min_test_size,
+        )
+        if split_fn
+        else _time_splits(n, outer_splits, embargo, min_train_size=500, min_test_size=min_test_size)
+    )
 
     # Generate every combination of the tunable params.
     param_combos = [
@@ -143,10 +233,22 @@ def nested_walk_forward_search(
     results: list[FoldResult] = []
 
     for k, (tr, te) in enumerate(outer):
-        inner = _time_splits(len(tr), inner_splits, embargo, min_train_size=500, min_test_size=min_test_size)
+        inner = (
+            _date_group_splits(
+                pd.DatetimeIndex(dates)[tr],
+                inner_splits,
+                embargo,
+                session_dates=session_dates,
+                min_train_size=500,
+                min_test_size=min_test_size,
+            )
+            if dates is not None
+            else _time_splits(len(tr), inner_splits, embargo, min_train_size=500, min_test_size=min_test_size)
+        )
         if not inner:
             continue
 
+        scored_candidates: list[tuple[float, dict]] = []
         for tunable in param_combos:
             # Merge fixed + tunable params; tunable values override fixed if
             # the same key appears in both (caller is responsible for no overlap).
@@ -178,23 +280,29 @@ def nested_walk_forward_search(
 
             if not inner_scores:
                 continue
+            scored_candidates.append((float(np.mean(inner_scores)), full_params))
 
-            # Evaluate every candidate on this outer fold. The caller can then
-            # choose the parameter set with the best average outer AUC across
-            # all folds, avoiding the old "pick the luckiest fold" behavior.
-            scaler       = StandardScaler()
-            X_train_out  = scaler.fit_transform(X.iloc[tr])
-            X_test_out   = scaler.transform(X.iloc[te])
-            model = XGBClassifier(**full_params)
-            model.fit(X_train_out, y.iloc[tr], verbose=False)
-            y_te_out    = y.iloc[te]
-            outer_proba = model.predict_proba(X_test_out)[:, 1]
-            outer_score = (
-                roc_auc_score(y_te_out, outer_proba)
-                if len(np.unique(y_te_out)) >= 2
-                else 0.5
-            )
-
-            results.append(FoldResult(params=full_params, score=float(outer_score), fold=k))
+        if not scored_candidates:
+            continue
+        # Only the inner-fold winner earns one look at the untouched outer set.
+        best_inner_score, best_params = max(scored_candidates, key=lambda item: item[0])
+        scaler = StandardScaler()
+        X_train_out = scaler.fit_transform(X.iloc[tr])
+        X_test_out = scaler.transform(X.iloc[te])
+        model = XGBClassifier(**best_params)
+        model.fit(X_train_out, y.iloc[tr], verbose=False)
+        y_te_out = y.iloc[te]
+        outer_proba = model.predict_proba(X_test_out)[:, 1]
+        outer_score = (
+            roc_auc_score(y_te_out, outer_proba)
+            if len(np.unique(y_te_out)) >= 2
+            else 0.5
+        )
+        results.append(FoldResult(
+            params=best_params,
+            score=float(outer_score),
+            fold=k,
+            inner_score=best_inner_score,
+        ))
 
     return results

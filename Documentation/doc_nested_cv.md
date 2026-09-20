@@ -17,3 +17,9 @@ fold with its chosen parameters and AUC score. No files are written directly.
 - **Nested CV:** separate tuning folds inside separate evaluation folds.
 - **Embargo:** a gap that prevents overlapping future-return leakage.
 - **Hyperparameter:** a model setting chosen before fitting.
+
+Pooled rows are split as complete trading dates, and the embargo is measured
+against the full market-session calendar. This prevents different stocks from
+the same date appearing on opposite sides of a fold. Each outer fold evaluates
+only the parameter set selected by its inner folds, keeping outer performance
+independent from tuning.

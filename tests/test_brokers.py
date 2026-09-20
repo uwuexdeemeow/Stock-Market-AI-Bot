@@ -355,6 +355,33 @@ class TestSignalSafetyParsing:
         assert ok is False
         assert any(issue.startswith("AAPL_weight") for issue in issues)
 
+    def test_sanity_rejects_invalid_weight_instead_of_hiding_it(self):
+        """Broken numeric text must not become a safe-looking zero target."""
+        from signal_freshness import validate_signal_sanity
+
+        signal = pd.Series({
+            "target_spy_weight": 0.50,
+            "overlay_weights_json": json.dumps({"AAPL": "not-a-number"}),
+        })
+
+        ok, issues = validate_signal_sanity(signal)
+
+        assert ok is False
+        assert "invalid_weight:overlay.AAPL" in issues
+
+    def test_sanity_rejects_malformed_overlay_json(self):
+        from signal_freshness import validate_signal_sanity
+
+        signal = pd.Series({
+            "target_spy_weight": 0.50,
+            "overlay_weights_json": "{broken-json",
+        })
+
+        ok, issues = validate_signal_sanity(signal)
+
+        assert ok is False
+        assert "invalid_overlay_weights_json:not_object" in issues
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # WEIGHT SCALING TESTS

@@ -17,6 +17,11 @@ without enough future data remain missing and must not be trained on.
 - **Horizon:** how many future trading days define that answer.
 - **Triple barrier:** profit, loss, or time limit—whichever occurs first.
 
+Daily data shows only a bar's high and low, not which happened first. If one
+bar crosses both the profit and stop barriers, the label records the stop
+(`-1`). This conservative choice avoids inventing a profitable sequence that
+the available data cannot prove.
+
 
 ## Remaining audit repair, September 2026
 

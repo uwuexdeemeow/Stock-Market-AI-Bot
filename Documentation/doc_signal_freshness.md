@@ -55,3 +55,8 @@ Expected outputs:
 - **Gross exposure**: the sum of absolute portfolio weights.  A 100% QQQ plus
   25% stocks portfolio has 125% gross exposure.
 - **Overlay**: the individual stock sleeve around the SPY/QQQ core.
+
+Malformed numeric weights, non-finite values, non-object weight maps, and
+broken overlay JSON now fail the sanity gate. They are never silently changed
+to zero, because that could make the broker sell a holding that vanished only
+because its input was unreadable.

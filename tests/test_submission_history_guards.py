@@ -159,6 +159,27 @@ def test_cache_does_not_use_future_observation(tmp_path, monkeypatch):
         backtest._load_etf_price_frame(dates, ["SPY"])
 
 
+def test_etf_indicator_warmup_is_historical_and_not_backfilled(tmp_path, monkeypatch):
+    """Long moving averages use earlier bars, never later requested prices."""
+    monkeypatch.setattr(backtest, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(backtest, "_ETF_PRICE_FRAME_CACHE", {})
+    dates = pd.bdate_range("2023-01-02", periods=220)
+    path = tmp_path / "SPY.parquet"
+    pd.DataFrame({"Close": range(100, 320)}, index=dates).to_parquet(path)
+    requested = dates[-2:]
+
+    prices = backtest._load_etf_price_frame(requested, ["SPY"], warmup_calendar_days=400)
+    first_ma = prices.SPY.rolling(200, min_periods=50).mean().loc[requested[0]]
+    assert len(prices) > len(requested)
+
+    changed = pd.read_parquet(path)
+    changed.loc[requested[1], "Close"] = 10000.0
+    changed.to_parquet(path)
+    refreshed = backtest._load_etf_price_frame(requested, ["SPY"], warmup_calendar_days=400)
+    refreshed_first_ma = refreshed.SPY.rolling(200, min_periods=50).mean().loc[requested[0]]
+    assert refreshed_first_ma == pytest.approx(first_ma)
+
+
 def test_failed_download_can_retry(tmp_path, monkeypatch):
     monkeypatch.setattr(backtest, "DATA_DIR", str(tmp_path))
     monkeypatch.setattr(backtest, "_ETF_PRICE_FRAME_CACHE", {})

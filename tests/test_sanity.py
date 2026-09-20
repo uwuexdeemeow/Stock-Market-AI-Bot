@@ -123,6 +123,20 @@ def test_triple_barrier_outputs_in_set():
     assert set(lab.unique()).issubset({-1.0, 0.0, 1.0})
 
 
+def test_triple_barrier_ambiguous_daily_bar_is_conservative_stop():
+    """A daily bar crossing both barriers cannot be assumed to be a win."""
+    idx = pd.bdate_range("2024-01-01", periods=20)
+    close = pd.Series(100.0, index=idx)
+    high = pd.Series(101.0, index=idx)
+    low = pd.Series(99.0, index=idx)
+    high.iloc[15] = 110.0
+    low.iloc[15] = 90.0
+
+    labels = triple_barrier(close, high, low, pt_mult=1.0, sl_mult=1.0, max_hold=3, atr_window=14)
+
+    assert labels.iloc[14] == -1.0
+
+
 def test_risk_sizing_nonnegative():
     assert vol_target_size(100_000, 0.20) > 0
     assert vol_target_size(100_000, 0.0) == 0

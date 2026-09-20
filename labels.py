@@ -181,10 +181,19 @@ def triple_barrier(
         end = min(i + max_hold, n - 1)
         outcome = 0
         for j in range(i + 1, end + 1):
-            if h[j] >= up:
+            hit_up = h[j] >= up
+            hit_down = l[j] <= dn
+            # Daily candles do not reveal whether the high or low happened
+            # first. When both barriers are crossed, assume the stop was hit.
+            # This conservative rule avoids manufacturing a winning label from
+            # an ordering that the historical data cannot prove.
+            if hit_up and hit_down:
+                outcome = -1
+                break
+            if hit_up:
                 outcome = 1
                 break
-            if l[j] <= dn:
+            if hit_down:
                 outcome = -1
                 break
         labels.iloc[i] = outcome

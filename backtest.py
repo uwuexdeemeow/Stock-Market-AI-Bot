@@ -180,7 +180,7 @@ def _download_yfinance(*args, **kwargs) -> pd.DataFrame:
         return yf.download(*args, **kwargs)
 from xgb_feature_engineering import build_xgb_matrix
 from pipeline_shared import apply_sentiment_distribution_matching, fit_sentiment_zscore_stats
-from ranker_utils import build_rank_groups_from_dates, daily_rank_ic, load_adaptive_factor_weights
+from ranker_utils import build_rank_groups_from_dates, load_adaptive_factor_weights
 from portfolio_manager import PortfolioRiskManager, ProposedTrade
 from execution_model import realistic_fill_price, commission as calc_commission, capacity_warning
 from risk_sizing import compute_position_size, annualized_realized_vol
@@ -3677,8 +3677,13 @@ def _build_daily_vote_fraction(raw_predictions: dict[str, pd.DataFrame]) -> tupl
     return bull_fractions, date_votes
 
 
-def _load_etf_price_frame(index: pd.DatetimeIndex, symbols: tuple[str, ...] | list[str]) -> pd.DataFrame:
-    """Cache source prices, then independently align and normalize each request."""
+def _load_etf_price_frame(
+    index: pd.DatetimeIndex,
+    symbols: tuple[str, ...] | list[str],
+    *,
+    warmup_calendar_days: int = 0,
+) -> pd.DataFrame:
+    """Cache prices and optionally include causal history for indicators."""
     index = pd.DatetimeIndex(index)
     if index.empty:
         return pd.DataFrame(index=index)
@@ -3691,7 +3696,14 @@ def _load_etf_price_frame(index: pd.DatetimeIndex, symbols: tuple[str, ...] | li
         versions.append((symbol, stat.st_mtime_ns if stat else None, stat.st_size if stat else None))
     # Preserve the existing cache lifetime for prices downloaded in long runs.
     ttl = max(1, int(os.environ.get("ETF_PRICE_CACHE_TTL_SEC", "1800")))
-    cache_key = (clean_symbols, str(index.min().date()), str(index.max().date()), tuple(versions), int(time.time() // ttl))
+    warmup_calendar_days = max(0, int(warmup_calendar_days))
+    cache_key = (
+        clean_symbols,
+        str((index.min() - pd.Timedelta(days=warmup_calendar_days)).date()),
+        str(index.max().date()),
+        tuple(versions),
+        int(time.time() // ttl),
+    )
     source = _ETF_PRICE_FRAME_CACHE.get(cache_key)
     if source is None:
         series = {}
@@ -3703,9 +3715,9 @@ def _load_etf_price_frame(index: pd.DatetimeIndex, symbols: tuple[str, ...] | li
                 if "Close" in local:
                     close = local["Close"]
             if close is None:
-                # Include earlier sessions so a holiday can use the prior close.
+                # Include enough earlier sessions to seed long moving averages.
                 raw = _download_yfinance(
-                    [symbol], start=(index.min() - pd.Timedelta(days=10)).strftime("%Y-%m-%d"),
+                    [symbol], start=(index.min() - pd.Timedelta(days=warmup_calendar_days + 10)).strftime("%Y-%m-%d"),
                     end=(index.max() + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
                     progress=False, auto_adjust=True, group_by="ticker", threads=False, timeout=20,
                 )
@@ -3725,16 +3737,30 @@ def _load_etf_price_frame(index: pd.DatetimeIndex, symbols: tuple[str, ...] | li
             series[symbol] = close.loc[close.index <= index.max()]
         source = series
 
-    frame = pd.DataFrame(index=index)
+    alignment_index = index
+    if warmup_calendar_days:
+        warmup_start = index.min() - pd.Timedelta(days=warmup_calendar_days)
+        historical_dates = pd.DatetimeIndex([])
+        for symbol in clean_symbols:
+            available = source[symbol].index
+            historical_dates = historical_dates.union(
+                available[(available >= warmup_start) & (available <= index.max())]
+            )
+        # Keep requested dates too, because a signal date can occasionally be a
+        # holiday and must causally inherit the last known close.
+        alignment_index = historical_dates.union(index).sort_values()
+
+    frame = pd.DataFrame(index=alignment_index)
     for symbol in clean_symbols:
         # Reindex the full source, so interior observations are not discarded.
-        close = source[symbol].reindex(index, method="ffill")
+        close = source[symbol].reindex(alignment_index, method="ffill")
         invalid = ~np.isfinite(close) | close.le(0)
         if invalid.any():
             bad_date = close.index[invalid][0]
             raise ValueError(f"ETF price unavailable or invalid for {symbol} at {bad_date}; no future-price filling allowed")
         # Anchor to the earliest requested date even when request order is reversed.
-        base = float(close.loc[index.min()].iloc[0]) if isinstance(close.loc[index.min()], pd.Series) else float(close.loc[index.min()])
+        base_value = close.loc[alignment_index.min()]
+        base = float(base_value.iloc[0]) if isinstance(base_value, pd.Series) else float(base_value)
         frame[symbol] = close / base
     # Failed downloads/alignment never enter the cache and can be retried.
     if len(_ETF_PRICE_FRAME_CACHE) >= 32 and cache_key not in _ETF_PRICE_FRAME_CACHE:
@@ -3853,7 +3879,9 @@ def run_etf_rotation_backtest(
     defensive_mix = defensive_mix or ETF_ROTATION_DEFENSIVE_MIXES.get(defensive_mix_name) or ETF_ROTATION_DEFENSIVE_MIXES["bil_ief_gld"]
     timeline = pd.DatetimeIndex(sorted(bull_fractions.index.unique()))
     symbols = tuple(sorted(set(ETF_ROTATION_ASSETS) | {"SPY", "QQQ"}))
-    prices = _load_etf_price_frame(timeline, symbols)
+    # Load roughly one calendar year before the first signal. The 200-session
+    # SPY average can then use only information known on each decision date.
+    prices = _load_etf_price_frame(timeline, symbols, warmup_calendar_days=400)
     if prices.empty or prices.nunique(dropna=True).max() <= 1:
         if not quiet:
             print("[etf-rotation] No usable ETF price data")
@@ -3867,10 +3895,10 @@ def run_etf_rotation_backtest(
     symbol_idx = {sym: i for i, sym in enumerate(symbols_list)}
     bf_values = bull_fractions.reindex(timeline).fillna(0.0).to_numpy(dtype=float)
     ret_values = daily_asset_rets[symbols_list].reindex(timeline).fillna(0.0).to_numpy(dtype=float)
-    spy_values = prices["SPY"].reindex(timeline).ffill().bfill().to_numpy(dtype=float)
-    qqq_values = prices["QQQ"].reindex(timeline).ffill().bfill().to_numpy(dtype=float)
-    spy_ma_values = spy_ma200.reindex(timeline).ffill().bfill().to_numpy(dtype=float)
-    qqq_ma_values = qqq_ma100.reindex(timeline).ffill().bfill().to_numpy(dtype=float)
+    spy_values = prices["SPY"].reindex(timeline).ffill().to_numpy(dtype=float)
+    qqq_values = prices["QQQ"].reindex(timeline).ffill().to_numpy(dtype=float)
+    spy_ma_values = spy_ma200.reindex(timeline).ffill().to_numpy(dtype=float)
+    qqq_ma_values = qqq_ma100.reindex(timeline).ffill().to_numpy(dtype=float)
     vol_values = qqq_realized_vol.reindex(timeline).fillna(0.0).to_numpy(dtype=float)
 
     equity = INITIAL_CAPITAL

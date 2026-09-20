@@ -67,3 +67,9 @@ The shared ETF loader caches underlying price observations, not a frame already 
 Local file timestamps and sizes invalidate changed inputs; `ETF_PRICE_CACHE_TTL_SEC` (default 1800 seconds) limits downloaded-source cache reuse. The cache holds at most 32 source entries and returns independent results. Failed downloads are not permanently remembered, so restoring data and retrying can succeed.
 
 Run `python -m pytest tests/test_submission_history_guards.py -q` to verify sparse/dense requests, ordering, earlier-price alignment, refreshes, and failed-download retries with synthetic data. A cache is a saved copy used to avoid repeated loading; causal alignment means using only observations available by the requested date.
+
+ETF rotation requests about 400 calendar days of earlier price history before
+its first signal. The 200-day and 100-day moving averages therefore have real
+warm-up observations. Indicator gaps are not backward-filled from future
+values; an unavailable early trend remains unavailable and the regime logic
+stays defensive.

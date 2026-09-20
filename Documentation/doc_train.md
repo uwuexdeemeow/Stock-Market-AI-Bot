@@ -70,6 +70,11 @@ comparison proves it is better.
 | **Isotonic regression** | The type of calibration used here. It learns the shape of the score→probability mapping from data. |
 | **Early stopping** | Training automatically halts when accuracy on a held-out set stops improving, preventing the model from memorizing noise. |
 
+Nested tuning keeps every stock from one date in the same fold and purges the
+full prediction horizon using the market-session calendar. Inner folds choose
+one candidate per outer fold. Production settings use the most frequent inner
+winner; outer scores are reporting evidence and never select parameters.
+
 ---
 
 ## How It Connects
