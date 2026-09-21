@@ -4,12 +4,11 @@
 # the daily paper-trading workflow.  Keeping this separate prevents a slow
 # yfinance/research run from blocking broker health, fill checks, and trading.
 #
-# Schedule: 7:30 AM New York time on weekdays.
+# External trigger: cron-job.org calls workflow_dispatch at 7:30 AM New York
+# time on weekdays. GitHub's own cron schedule is intentionally disabled.
 #   - Research takes ~60 minutes, so this must start early enough to finish
 #     before the 9:35 AM paper-trading job.  7:30 AM start → ~8:30 AM finish
 #     gives a full hour of buffer before trading begins.
-#   - GitHub cron is UTC and does not handle DST, so this workflow schedules
-#     both possible UTC times and a gate below runs only the in-season one.
 #
 # Manual trigger: go to Actions tab -> "Factor Data Refresh" -> "Run workflow".
 # -----------------------------------------------------------------------------
@@ -17,12 +16,6 @@
 name: Factor Data Refresh
 
 on:
-  schedule:
-    # 11:30 UTC = 7:30 AM New York during daylight saving time (EDT, UTC-4).
-    # 12:30 UTC = 7:30 AM New York during standard time (EST, UTC-5).
-    - cron: "30 11 * * 1-5"
-    - cron: "30 12 * * 1-5"
-
   workflow_dispatch:
     inputs:
       xs_only:

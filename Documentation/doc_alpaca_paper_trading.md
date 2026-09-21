@@ -270,7 +270,8 @@ The workflow summary now separates planned trades from Alpaca outcomes:
 Typically:
 - Once per trading day, ~5 minutes after market open (so spreads are tight)
 - Via `daily_run.py --alpaca` which orchestrates the full pipeline
-- Or via GitHub Actions cron at 9:35 AM ET on weekdays
+- Or when cron-job.org dispatches the GitHub Actions workflow at 9:35 AM ET
+  on weekdays. GitHub's built-in cron trigger is disabled.
 
 You should not run it more than once a day — the duplicate-submission
 guard catches that anyway, but it's wasted effort.

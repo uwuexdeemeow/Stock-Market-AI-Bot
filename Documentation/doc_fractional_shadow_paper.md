@@ -42,7 +42,7 @@ second set of pretend trades is created.
 
 ## GitHub workflow
 
-The existing **Shadow Paper Journal** workflow runs this ledger at 9:55 AM New
+cron-job.org dispatches the existing **Shadow Paper Journal** workflow at 9:55 AM New
 York time on trading weekdays under the shared `signals-latest-publisher` lock.
 
 For a manual run, open GitHub Actions, select **Shadow Paper Journal**, choose

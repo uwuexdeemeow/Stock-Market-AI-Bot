@@ -1,10 +1,8 @@
 name: Independent Paper Workflow Watchdog
 
 on:
-  schedule:
-    # Multiple off-peak attempts make it unlikely that GitHub drops every
-    # watchdog event. The script itself decides whether any work is due.
-    - cron: "7,17,27,37,47,57 * * * 1-5"
+  # GitHub cron is disabled. Run manually or dispatch from the external
+  # cron-job.org scheduler if an independent watchdog check is desired.
   workflow_dispatch:
 
 permissions:

@@ -344,8 +344,9 @@ def test_daily_workflow_publishes_execution_scorecard():
 def test_post_market_workflow_is_delayed_read_only_and_serialized():
     workflow = Path(".github/workflows/post_market_execution_quality.yml").read_text(encoding="utf-8")
 
-    assert 'cron: "15 21 * * 1-5"' in workflow
-    assert 'cron: "15 22 * * 1-5"' in workflow
+    assert "workflow_dispatch:" in workflow
+    assert "schedule:" not in workflow
+    assert "cron:" not in workflow
     assert "group: signals-latest-publisher" in workflow
     assert "alpaca_paper_trading.py --status" in workflow
     assert "execution_scorecard.py" in workflow

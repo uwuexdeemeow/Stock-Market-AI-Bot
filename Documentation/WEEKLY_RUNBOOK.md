@@ -59,9 +59,9 @@ If you just want one command, find your goal here:
 
 | Cadence | What | Where |
 |---|---|---|
-| **Every 9:35 AM NY weekday** | Live trading via GitHub Actions | `.github/workflows/daily_paper_trading.yml` (automatic) |
-| **Every 9:55 AM NY weekday** | Shadow config journal via Actions | `.github/workflows/shadow_paper_journal.yml` (automatic) |
-| **Every 7:30 AM NY weekday** | Factor data refresh via Actions | `.github/workflows/factor_data_refresh.yml` (automatic) |
+| **Every 9:35 AM NY weekday** | cron-job.org dispatches live trading | `.github/workflows/daily_paper_trading.yml` |
+| **Every 9:55 AM NY weekday** | cron-job.org dispatches shadow journal | `.github/workflows/shadow_paper_journal.yml` |
+| **Every 7:30 AM NY weekday** | cron-job.org dispatches factor refresh | `.github/workflows/factor_data_refresh.yml` |
 | **Every morning** | `pull_daily.bat` to sync logs to laptop | you |
 | **Once per week (Fri)** | Scorecard + Alpaca gauntlet | you |
 | **Monthly (1st of month)** | Walkforward + medium-risk review + republish | you |
@@ -163,7 +163,7 @@ python daily_run.py --alpaca --timeout 900
 
 This is what Actions runs internally — refreshes data, generates signal, submits orders, reconciles fills, rebuilds health.  Idempotent: refuses to double-submit by checking Alpaca's live order history first, falling back to `alpaca_paper_log.csv`, and using deterministic `client_order_id` values.
 
-Manual runs no longer suppress the automatic cron later that same trading day.
+Manual runs do not suppress a later cron-job.org dispatch that same trading day.
 The workflow may still start on schedule after a manual test, but the broker
 duplicate-order checks and deterministic `client_order_id` values prevent
 double-submitting the same day's orders.
@@ -380,7 +380,7 @@ automatic cleanup. Rehearse recovery without writing or trading:
 python disaster_recovery.py --artifact path/to/downloaded/artifact --dry-run
 ```
 
-The independent watchdog runs hourly on weekdays and checks all four scheduled
+Dispatch the independent watchdog from cron-job.org if desired; it checks all four externally scheduled
 paper workflows after their New York deadlines.
 | `paper_shadow_compare.py` | Compare Alpaca paper equity vs shadow paper equity | `--alpaca-equity PATH`, `--shadow-equity PATH`, `--csv-out PATH`, `--json-out PATH` |
 | `regime_monitor.py` | Detect risk_on / neutral / risk_off regime shifts | none |

@@ -4,10 +4,9 @@
 # Heavy factor data refresh is handled by the separate "Factor Data Refresh"
 # workflow so this job can trade from the latest successful cached factor data.
 #
-# Schedule: 9:35 AM New York time on weekdays.
+# External trigger: cron-job.org calls workflow_dispatch at 9:35 AM New York
+# time on weekdays. GitHub's own cron schedule is intentionally disabled.
 #   - 5 minutes after market open so price data is fresh.
-#   - GitHub cron is UTC and does not handle DST, so this workflow schedules
-#     both possible UTC times and a gate below runs only the in-season one.
 #   - daily_run.py has its own NYSE holiday guard (skips holidays automatically).
 #
 # Manual trigger: go to Actions tab → "Daily Paper Trading" → "Run workflow".
@@ -25,15 +24,7 @@ run-name: >-
   Daily Paper Trading (${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' && 'dry-run' || 'paper-session' }})
 
 on:
-  # ── Automatic schedule ─────────────────────────────────────────
-  schedule:
-    # 13:35 UTC = 9:35 AM New York during daylight saving time.
-    # 14:35 UTC = 9:35 AM New York during standard time.
-    # The New York schedule gate skips the off-season duplicate trigger.
-    - cron: "35 13 * * 1-5"
-    - cron: "35 14 * * 1-5"
-
-  # Manual trigger (Actions tab → Run workflow)
+  # cron-job.org and the Actions tab both use this dispatch entry point.
   workflow_dispatch:
     inputs:
       force:

@@ -149,7 +149,7 @@ market direction as timing advice instead of pretending it is fill quality.
 # Post-market execution evidence
 
 The morning paper workflow can finish before 15-minute and 60-minute price
-observations exist. A separate GitHub workflow runs at 5:15 PM New York time.
+observations exist. cron-job.org dispatches a separate GitHub workflow at 5:15 PM New York time.
 It refreshes account status and execution reports without submitting,
 reconciling, cancelling, replacing, or creating orders. It shares the
 `signals-latest-publisher` lock with the daily and shadow workflows, then saves
@@ -179,7 +179,7 @@ configuration and never calls Alpaca.
 
 ### Small-capital fractional shadow
 
-The 9:55 AM New York Shadow Paper Journal workflow also runs a separate $400
+cron-job.org dispatches the 9:55 AM New York Shadow Paper Journal workflow, which also runs a separate $400
 fractional ledger from the restored active signal. It simulates market/day
 fractional fills, cash, slippage, and regulatory fees without importing a broker
 client. Daily and shadow workflows preserve its state together on

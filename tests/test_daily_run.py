@@ -296,6 +296,22 @@ def test_factor_refresh_publishes_current_robustness_with_its_data():
     assert "runtime-state-v4-" in workflow
 
 
+def test_operational_workflows_have_no_github_cron_schedules():
+    """cron-job.org is the sole scheduler; GitHub keeps dispatch endpoints."""
+    workflow_names = (
+        "daily_paper_trading.yml",
+        "factor_data_refresh.yml",
+        "independent_workflow_watchdog.yml",
+        "post_market_execution_quality.yml",
+        "shadow_paper_journal.yml",
+    )
+    for name in workflow_names:
+        workflow = Path(".github/workflows", name).read_text(encoding="utf-8")
+        assert "workflow_dispatch:" in workflow
+        assert "\n  schedule:" not in workflow
+        assert "\n    - cron:" not in workflow
+
+
 def test_alpaca_only_still_generates_shared_signal():
     steps = daily_run.build_steps(
         skip_refresh=True,

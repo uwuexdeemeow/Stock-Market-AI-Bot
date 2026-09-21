@@ -1,10 +1,7 @@
 name: Post-Market Execution Quality
 
 on:
-  schedule:
-    # 5:15 PM New York in daylight-saving and standard time.
-    - cron: "15 21 * * 1-5"
-    - cron: "15 22 * * 1-5"
+  # cron-job.org dispatches this after the market closes. GitHub cron is off.
   workflow_dispatch:
 
 permissions:

@@ -94,11 +94,9 @@ python3 daily_run.py --alpaca --stress
 
 ## Schedule
 
-In production, this is scheduled via GitHub Actions:
-
-```yaml
-cron: "35 14 * * 1-5"  # 14:35 UTC = 9:35 AM ET, weekdays only
-```
+In production, cron-job.org calls the workflow's `workflow_dispatch` endpoint
+at 9:35 AM New York time on weekdays. GitHub's built-in `schedule`/cron trigger
+is disabled so the pipeline cannot be started twice by competing schedulers.
 
 The workflow file `.github/workflows/daily_paper_trading.yml` invokes
 `python3 daily_run.py --alpaca --timeout 600`.

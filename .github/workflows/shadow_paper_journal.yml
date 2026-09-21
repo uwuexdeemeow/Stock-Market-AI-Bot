@@ -1,10 +1,7 @@
 name: Shadow Paper Journal
 
 on:
-  schedule:
-    # 9:55 AM New York, shortly after the normal paper workflow.
-    - cron: "55 13 * * 1-5"
-    - cron: "55 14 * * 1-5"
+  # cron-job.org dispatches this after the normal paper workflow. GitHub cron is off.
   workflow_dispatch:
     inputs:
       force:
