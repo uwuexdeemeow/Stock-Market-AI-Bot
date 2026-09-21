@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-18T17:57:55+00:00",
+  "generated_at": "2026-09-21T15:20:11+00:00",
   "status": "ok",
   "mode": "fractional_shadow_only",
   "capital": {
     "initial_equity": 400.0,
-    "current_equity": 403.423702,
+    "current_equity": 403.299305,
     "cash": 2.008902,
-    "invested_value": 401.4148
+    "invested_value": 401.290403
   },
   "signal": {
     "signal_key": "9c9bef4217fe7e55ee11",
@@ -44,21 +44,21 @@
       "SPY": 0.125
     },
     "actual_weights": {
-      "FCX": 0.0797452928,
-      "GS": 0.1879015627,
-      "MU": 0.2294337251,
-      "QQQ": 0.3734548409,
-      "SPY": 0.1244849464
+      "FCX": 0.07976989,
+      "GS": 0.1879595203,
+      "MU": 0.2295044933,
+      "QQQ": 0.3735700319,
+      "SPY": 0.1242148964
     },
     "target_weight_gaps": {
-      "FCX": -0.0005797072,
-      "GS": -0.0007774373,
-      "MU": -0.0015612749,
-      "QQQ": -0.0015451591,
-      "SPY": -0.0005150536
+      "FCX": -0.00055511,
+      "GS": -0.0007194797,
+      "MU": -0.0014905067,
+      "QQQ": -0.0014299681,
+      "SPY": -0.0007851036
     },
-    "max_absolute_target_weight_gap": 0.0015612749,
-    "cash_weight": 0.0049796321,
+    "max_absolute_target_weight_gap": 0.0014905067,
+    "cash_weight": 0.0049811681,
     "positions": {
       "QQQ": {
         "quantity": 0.213787803,
