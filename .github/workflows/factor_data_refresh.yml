@@ -206,16 +206,37 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
 
-      - name: Refresh rolling robustness evidence
-        id: refresh_robustness_evidence
+      # Keep each robustness program in its own named step. If one exits with
+      # an error, GitHub's public job metadata now identifies the exact program
+      # instead of reporting one ambiguous four-command failure.
+      - name: Refresh approved-config validation
+        id: refresh_core_alpha_validation
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        run: |
-          # These reports change with market data. They must all describe the
-          # same current dataset before daily signal generation can trust them.
-          python3 core_satellite_alpha.py --validation-refresh
-          python3 core_satellite_execution_stress.py
-          python3 core_satellite_survivorship_audit.py
-          python3 factor_decay_monitor.py
+        run: python3 core_satellite_alpha.py --validation-refresh
+        env:
+          PYTHONUNBUFFERED: "1"
+          STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
+
+      - name: Refresh execution-stress evidence
+        id: refresh_execution_stress
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        run: python3 core_satellite_execution_stress.py
+        env:
+          PYTHONUNBUFFERED: "1"
+          STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
+
+      - name: Refresh survivorship evidence
+        id: refresh_survivorship_audit
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        run: python3 core_satellite_survivorship_audit.py
+        env:
+          PYTHONUNBUFFERED: "1"
+          STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
+
+      - name: Refresh factor-decay evidence
+        id: refresh_factor_decay
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        run: python3 factor_decay_monitor.py
         env:
           PYTHONUNBUFFERED: "1"
           STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
@@ -257,7 +278,7 @@ jobs:
         # Only publish state after its strict health check passes.  A failed
         # report stays in the run artifact, while later runs keep using the
         # last known-good state rather than inheriting a broken one.
-        if: ${{ always() && steps.validate_factor_data_health.outcome == 'success' && steps.validate_research_outputs.outcome == 'success' && steps.refresh_etf_prices.outcome == 'success' && steps.refresh_robustness_evidence.outcome == 'success' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ always() && steps.validate_factor_data_health.outcome == 'success' && steps.validate_research_outputs.outcome == 'success' && steps.refresh_etf_prices.outcome == 'success' && steps.refresh_core_alpha_validation.outcome == 'success' && steps.refresh_execution_stress.outcome == 'success' && steps.refresh_survivorship_audit.outcome == 'success' && steps.refresh_factor_decay.outcome == 'success' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v6
         with:
           path: |

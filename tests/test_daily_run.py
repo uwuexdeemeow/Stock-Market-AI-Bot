@@ -292,7 +292,13 @@ def test_factor_refresh_publishes_current_robustness_with_its_data():
     ):
         assert command in workflow
     assert "steps.refresh_etf_prices.outcome == 'success'" in workflow
-    assert "steps.refresh_robustness_evidence.outcome == 'success'" in workflow
+    for step_id in (
+        "refresh_core_alpha_validation",
+        "refresh_execution_stress",
+        "refresh_survivorship_audit",
+        "refresh_factor_decay",
+    ):
+        assert f"steps.{step_id}.outcome == 'success'" in workflow
     assert "runtime-state-v4-" in workflow
 
 
