@@ -161,6 +161,45 @@ jobs:
           STOCKBOT_SKIP_RESEARCH_SENTIMENT: "1"
           RESEARCH_INCREMENTAL_WORKERS: "4"
 
+      - name: Ensure survivorship audit inputs
+        id: ensure_survivorship_inputs
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        run: |
+          # The newest shared data cache can come from Daily Paper Trading.
+          # That cache contains the live universe but older caches may omit the
+          # failed/delisted names used only by the survivorship stress test.
+          # Rebuild those research-only inputs when none survived the restore.
+          # Do this before feature-quality analysis because rebuilt parquet
+          # files are inputs to that report's strict freshness check.
+          if python3 - <<'PY'
+          from survivorship_audit import available_audit_tickers, existing_audit_profiles
+
+          tickers = available_audit_tickers(existing_audit_profiles())
+          print("Restored survivorship audit tickers:", tickers)
+          raise SystemExit(0 if tickers else 1)
+          PY
+          then
+            python3 survivorship_audit.py --report
+          else
+            echo "No usable survivorship inputs were restored; rebuilding them now."
+            python3 survivorship_audit.py --build --report
+          fi
+
+          # Fail here with a direct explanation if the data provider could not
+          # recover even one audit history. The later stress script must never
+          # be allowed to publish an empty or misleading report.
+          python3 - <<'PY'
+          from survivorship_audit import available_audit_tickers, existing_audit_profiles
+
+          tickers = available_audit_tickers(existing_audit_profiles())
+          if not tickers:
+              raise SystemExit("No usable survivorship audit histories could be restored or rebuilt.")
+          print("Survivorship audit inputs ready:", tickers)
+          PY
+        env:
+          PYTHONUNBUFFERED: "1"
+          STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
+
       - name: Refresh feature quality report
         id: refresh_feature_quality
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
@@ -221,43 +260,6 @@ jobs:
         id: refresh_execution_stress
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: python3 core_satellite_execution_stress.py
-        env:
-          PYTHONUNBUFFERED: "1"
-          STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
-
-      - name: Ensure survivorship audit inputs
-        id: ensure_survivorship_inputs
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        run: |
-          # The newest shared data cache can come from Daily Paper Trading.
-          # That cache contains the live universe but older caches may omit the
-          # failed/delisted names used only by the survivorship stress test.
-          # Rebuild those research-only inputs when none survived the restore.
-          if python3 - <<'PY'
-          from survivorship_audit import available_audit_tickers, existing_audit_profiles
-
-          tickers = available_audit_tickers(existing_audit_profiles())
-          print("Restored survivorship audit tickers:", tickers)
-          raise SystemExit(0 if tickers else 1)
-          PY
-          then
-            python3 survivorship_audit.py --report
-          else
-            echo "No usable survivorship inputs were restored; rebuilding them now."
-            python3 survivorship_audit.py --build --report
-          fi
-
-          # Fail here with a direct explanation if the data provider could not
-          # recover even one audit history. The later stress script must never
-          # be allowed to publish an empty or misleading report.
-          python3 - <<'PY'
-          from survivorship_audit import available_audit_tickers, existing_audit_profiles
-
-          tickers = available_audit_tickers(existing_audit_profiles())
-          if not tickers:
-              raise SystemExit("No usable survivorship audit histories could be restored or rebuilt.")
-          print("Survivorship audit inputs ready:", tickers)
-          PY
         env:
           PYTHONUNBUFFERED: "1"
           STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"

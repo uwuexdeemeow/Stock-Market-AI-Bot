@@ -293,7 +293,12 @@ def test_factor_refresh_publishes_current_robustness_with_its_data():
     ):
         assert command in workflow
     # PLAIN ENGLISH: a daily cache can omit research-only failed-company data.
-    # The refresh repairs that input before it attempts the survivorship test.
+    # The refresh repairs that input before it creates the feature-quality
+    # report or attempts the survivorship test. Otherwise a rebuilt audit
+    # parquet makes the just-created quality report immediately stale.
+    assert workflow.index("survivorship_audit.py --build --report") < workflow.index(
+        "feature_quality_diagnostic.py --top 48"
+    )
     assert workflow.index("survivorship_audit.py --build --report") < workflow.index(
         "core_satellite_survivorship_audit.py"
     )
