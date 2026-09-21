@@ -5,7 +5,9 @@
 # workflow so this job can trade from the latest successful cached factor data.
 #
 # External trigger: cron-job.org calls workflow_dispatch at 9:35 AM New York
-# time on weekdays. GitHub's own cron schedule is intentionally disabled.
+# time on weekdays. The daily job also refreshes its short-lived factor-decay
+# report from the restored cache, so it cannot submit using yesterday's report.
+# GitHub's own cron schedule is intentionally disabled.
 #   - 5 minutes after market open so price data is fresh.
 #   - daily_run.py has its own NYSE holiday guard (skips holidays automatically).
 #
@@ -469,6 +471,19 @@ jobs:
           fi
         env:
           PYTHONUNBUFFERED: "1"
+
+      # ── 6d. Refresh short-lived robustness evidence ───────────────
+      #    Factor-decay evidence expires faster than the parquet cache. A
+      #    prior refresh failure can leave a usable price cache paired with a
+      #    stale report, which correctly blocks signals. Rebuild this cheap
+      #    report from the restored, already-validated cache before trading.
+      - name: Refresh factor-decay evidence for daily cache
+        id: refresh_daily_factor_decay
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        run: python3 factor_decay_monitor.py
+        env:
+          PYTHONUNBUFFERED: "1"
+          STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
 
       # ── 7. Run the daily pipeline ─────────────────────────────────
       #    Uses the latest restored factor data/report.  core_satellite_alpha.py

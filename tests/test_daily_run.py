@@ -325,6 +325,15 @@ def test_operational_workflows_have_no_github_cron_schedules():
         assert "\n    - cron:" not in workflow
 
 
+def test_daily_paper_trading_refreshes_short_lived_factor_decay_evidence():
+    """Paper trading must not consume a stale factor-decay report."""
+    workflow = Path(".github/workflows/daily_paper_trading.yml").read_text(encoding="utf-8")
+    assert "factor_decay_monitor.py" in workflow
+    assert workflow.index("Refresh factor-decay evidence for daily cache") < workflow.index(
+        "Run daily paper trading (Alpaca only)"
+    )
+
+
 def test_alpaca_only_still_generates_shared_signal():
     steps = daily_run.build_steps(
         skip_refresh=True,
