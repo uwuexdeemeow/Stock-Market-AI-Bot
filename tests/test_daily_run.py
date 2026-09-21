@@ -287,14 +287,21 @@ def test_factor_refresh_publishes_current_robustness_with_its_data():
     for command in (
         "core_satellite_alpha.py --validation-refresh",
         "core_satellite_execution_stress.py",
+        "survivorship_audit.py --build --report",
         "core_satellite_survivorship_audit.py",
         "factor_decay_monitor.py",
     ):
         assert command in workflow
+    # PLAIN ENGLISH: a daily cache can omit research-only failed-company data.
+    # The refresh repairs that input before it attempts the survivorship test.
+    assert workflow.index("survivorship_audit.py --build --report") < workflow.index(
+        "core_satellite_survivorship_audit.py"
+    )
     assert "steps.refresh_etf_prices.outcome == 'success'" in workflow
     for step_id in (
         "refresh_core_alpha_validation",
         "refresh_execution_stress",
+        "ensure_survivorship_inputs",
         "refresh_survivorship_audit",
         "refresh_factor_decay",
     ):
