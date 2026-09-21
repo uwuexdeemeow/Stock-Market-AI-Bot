@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
-  "generated_at": "2026-09-18T23:19:56+00:00",
-  "measurement_cutoff_60m": "2026-09-18T22:19:56.986582+00:00",
+  "generated_at": "2026-09-21T21:16:11+00:00",
+  "measurement_cutoff_60m": "2026-09-21T20:16:11.515402+00:00",
   "status": "collecting",
   "score": 75.0,
   "decision_eligible": false,
@@ -308,8 +308,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 0.6666666666666666,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-08-19T23:19:53.985065+00:00",
-      "denominator_end": "2026-09-18T23:19:53.816350+00:00"
+      "denominator_start": "2026-08-22T21:16:09.492893+00:00",
+      "denominator_end": "2026-09-21T21:16:09.442798+00:00"
     },
     "stage2": {
       "orders": 3,
@@ -325,8 +325,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 1.0,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-08-19T23:19:53.985065+00:00",
-      "denominator_end": "2026-09-18T23:19:53.816350+00:00"
+      "denominator_start": "2026-08-22T21:16:09.492893+00:00",
+      "denominator_end": "2026-09-21T21:16:09.442798+00:00"
     }
   },
   "throttle": {
@@ -398,13 +398,13 @@
     "previous_scorecard": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json"
   },
   "run_context": {
-    "run_id": "post-market-35405186282-1",
-    "generated_at": "2026-09-18T23:19:56+00:00",
+    "run_id": "post-market-35656053519-1",
+    "generated_at": "2026-09-21T21:16:11+00:00",
     "signal_as_of": "",
-    "git_commit": "41b9c7a6a7f517b38ba9c250f4db9e17c619ab1e",
-    "configuration_fingerprint": "8e079bbbc67d583df152b76b05c3e99aeb02aa9a4465150a5a6690667358814d",
-    "paper_version_fingerprint": "c9f3f5a5e71526ca260dbeade427b45da8ff5aeb8200d971f9ccda980189e3b1",
+    "git_commit": "8e7a9cbb846a5b86763a0e88fb9605c048ac49df",
+    "configuration_fingerprint": "7f0030da7befbc3ec6addf3a7968825993623fb0b87d671061a814ffe3ff8e3c",
+    "paper_version_fingerprint": "ca580a1c463d812a58dd321129617de782f41046c0b3327ba43f2b905e0286dd",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-35405186282-1"
+  "run_id": "post-market-35656053519-1"
 }
