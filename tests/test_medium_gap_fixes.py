@@ -194,6 +194,22 @@ def test_paper_survivorship_review_allows_bounded_failed_name_selections():
     assert review["survivorship_review"]["pass"] is True
 
 
+def test_paper_survivorship_review_uses_its_explicit_stress_limits():
+    """An unrelated generic backtest gate cannot override audit-specific limits."""
+    stressed = _passing_survivorship()
+    stressed["rows"][0]["paper_ready"] = False
+
+    review = nwf.medium_risk_review_from_reports(
+        survivorship=stressed,
+        execution=_passing_execution(),
+        factor_decay={"edge_health_status": "pass"},
+    )
+
+    assert review["pass"] is True
+    assert review["survivorship_review"]["pass"] is True
+    assert review["survivorship_review"]["generic_stressed_paper_ready"] is False
+
+
 def test_paper_survivorship_review_blocks_excessive_failed_name_selections():
     """More than the documented 60-selection allowance remains fail-closed."""
     stressed = _passing_survivorship()

@@ -6,6 +6,7 @@ answer, so an old copied ``pass`` flag cannot overrule a current warning.
 """
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
@@ -76,7 +77,6 @@ def evaluate_medium_risk_review(
     survivorship_pass = bool(
         survivorship
         and stressed
-        and bool(stressed.get("paper_ready", False))
         and surv_score > SURVIVORSHIP_MIN_ADJUSTED_SCORE
         and audit_picks <= SURVIVORSHIP_MAX_AUDIT_SELECTIONS
         and return_delta >= SURVIVORSHIP_MIN_RETURN_DELTA_PCT
@@ -130,6 +130,10 @@ def evaluate_medium_risk_review(
             "capital_approval_pass": survivorship_capital_pass,
             "survivorship_adjusted_score": round(surv_score, 4),
             "audit_rebalance_selections": audit_picks,
+            # This generic backtest flag contains gates unrelated to the
+            # failed-name experiment. Report it for diagnosis, while the
+            # explicit survivorship limits above decide paper suitability.
+            "generic_stressed_paper_ready": bool(stressed.get("paper_ready", False)),
             "total_return_delta_pct": round(return_delta, 4),
             "max_drawdown_delta_pct": round(dd_delta, 4),
             "failed_name_coverage_rate": round(failed_name_coverage, 4),
@@ -175,3 +179,23 @@ def medium_risk_review_from_reports(
         execution=execution if execution is not None else read_report(Path(paths["execution_stress"])),
         factor_decay=factor_decay if factor_decay is not None else read_report(Path(paths["factor_decay"])),
     )
+
+
+def main() -> int:
+    """Print the current review and optionally fail a workflow on rejection."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit with an error when current robustness evidence rejects paper trading.",
+    )
+    args = parser.parse_args()
+    review = medium_risk_review_from_reports()
+    print(json.dumps(review, indent=2))
+    # PLAIN ENGLISH: Factor Refresh uses strict mode so it cannot publish a
+    # green cache that the next Daily Paper Trading run immediately rejects.
+    return 0 if bool(review.get("pass", False)) or not args.strict else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

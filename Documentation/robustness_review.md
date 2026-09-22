@@ -4,6 +4,9 @@ The survivorship paper-trading check allows up to 60 selections of the
 deliberately injected failed-company examples. Those selections are expected
 in a stress test; the review still blocks when selections exceed 60, adjusted
 performance falls below its floor, or drawdown deterioration is too large.
+The generic stressed-backtest `paper_ready` flag is shown for diagnosis but
+does not override these dedicated survivorship limits, because that broad flag
+also contains checks unrelated to the failed-name experiment.
 
 ## What It Does
 
@@ -27,6 +30,13 @@ live signal loader. For a quick read-only check, run:
 python3 -c "from robustness_review import medium_risk_review_from_reports; print(medium_risk_review_from_reports())"
 ```
 
+To use the same check as the Factor Refresh workflow and return a failing exit
+code when evidence rejects paper trading:
+
+```bash
+python3 robustness_review.py --strict
+```
+
 Input is the three JSON reports in `logs/`. Output is a dictionary containing
 the overall result, reasons, and one result per report.
 
@@ -35,3 +45,5 @@ the overall result, reasons, and one result per report.
 - **Robustness:** whether a strategy survives tests beyond its normal backtest.
 - **Fail closed:** missing or uncertain evidence blocks trading.
 - **Factor decay:** weakening of a signal's predictive relationship over time.
+- **Symbol reuse:** an exchange ticker being assigned to a different security
+  after the original company disappears.

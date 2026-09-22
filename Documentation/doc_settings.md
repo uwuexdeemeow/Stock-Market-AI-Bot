@@ -36,6 +36,10 @@ from settings import WATCHLIST, RETURN_HORIZON_DAYS, SLIPPAGE_BASE_PCT
 | `TOP_N_STOCKS` | 10 | How many make it onto the shortlist |
 | `MIN_PRICE` | $5.00 | Ignore penny stocks |
 
+`SURVIVORSHIP_FAILURE_DATES` records when each failed-company audit example
+failed. The audit uses these dates to reject recycled symbols, such as the
+modern SHLD ETF being mistaken for historical Sears shares.
+
 ### Time Windows
 | Setting | Default | Meaning |
 |---|---|---|

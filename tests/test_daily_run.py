@@ -290,6 +290,7 @@ def test_factor_refresh_publishes_current_robustness_with_its_data():
         "survivorship_audit.py --build --report",
         "core_satellite_survivorship_audit.py",
         "factor_decay_monitor.py",
+        "robustness_review.py --strict",
     ):
         assert command in workflow
     # PLAIN ENGLISH: a daily cache can omit research-only failed-company data.
@@ -309,8 +310,12 @@ def test_factor_refresh_publishes_current_robustness_with_its_data():
         "ensure_survivorship_inputs",
         "refresh_survivorship_audit",
         "refresh_factor_decay",
+        "verify_robustness_evidence",
     ):
         assert f"steps.{step_id}.outcome == 'success'" in workflow
+    assert workflow.index("factor_decay_monitor.py") < workflow.index(
+        "robustness_review.py --strict"
+    )
     assert "runtime-state-v4-" in workflow
 
 

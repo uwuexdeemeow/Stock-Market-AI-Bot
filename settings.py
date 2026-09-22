@@ -122,6 +122,30 @@ SURVIVORSHIP_AUDIT_TICKERS = {
     "TUP":  ["TUP", "TUPBQ"],       # Tupperware Brands
 }
 
+# The same exchange symbol can later belong to a different security. These
+# dates identify the failure event that each audit history must reach back
+# before. For example, SHLD is now an ETF symbol; a file beginning in 2023 is
+# not Sears history and must never enter the failed-company stress test.
+SURVIVORSHIP_FAILURE_DATES = {
+    "SIVB": "2023-03-10",
+    "FRC": "2023-05-01",
+    "BBBY": "2023-04-23",
+    "WE": "2023-11-06",
+    "RIDE": "2023-06-27",
+    "SHLD": "2018-10-15",
+    "JCP": "2020-05-15",
+    "HTZ": "2020-05-22",
+    "CHK": "2020-06-28",
+    "WLL": "2020-04-01",
+    "CRC": "2020-07-15",
+    "DO": "2020-04-26",
+    "MDR": "2020-01-21",
+    "FTR": "2020-04-14",
+    "WIN": "2019-02-25",
+    "WPG": "2021-06-13",
+    "TUP": "2024-09-17",
+}
+
 # Crashed/delisted tickers that are included in training data ONLY.
 # These contribute rows to the pooled model so it learns pre-crash patterns
 # without survivorship bias. They never appear in signals or live trading.

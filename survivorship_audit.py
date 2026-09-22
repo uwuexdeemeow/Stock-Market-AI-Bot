@@ -25,6 +25,7 @@ from settings import (
     DATA_DIR,
     LOG_DIR,
     SURVIVORSHIP_AUDIT_TICKERS,
+    SURVIVORSHIP_FAILURE_DATES,
     TRAIN_END,
     TRAIN_START,
 )
@@ -56,7 +57,7 @@ def _profile_frame(ticker: str, df: pd.DataFrame, alias_used: str | None = None)
     peak_to_final = close.iloc[-1] / max(float(close.loc[peak_idx]), 1e-9) - 1.0
     final_252d = close.iloc[-1] / close.iloc[-253] - 1.0 if len(close) > 252 else np.nan
 
-    return {
+    profile = {
         "ticker": ticker,
         "alias_used": alias_used,
         "status": "ok",
@@ -70,6 +71,24 @@ def _profile_frame(ticker: str, df: pd.DataFrame, alias_used: str | None = None)
             round(float(final_252d) * 100.0, 2) if np.isfinite(final_252d) else None
         ),
     }
+    # PLAIN ENGLISH: symbols get recycled. A modern SHLD file is an ETF, not
+    # Sears. Require at least one year of observations before the known
+    # failure date so a newly reused ticker cannot masquerade as old evidence.
+    failure_date_text = SURVIVORSHIP_FAILURE_DATES.get(str(ticker).upper())
+    if failure_date_text:
+        failure_date = pd.Timestamp(failure_date_text)
+        first_date = pd.to_datetime(df.index, errors="coerce").min()
+        latest_valid_start = failure_date - pd.DateOffset(years=1)
+        history_valid = bool(pd.notna(first_date) and first_date <= latest_valid_start)
+        profile.update({
+            "failure_date": failure_date.strftime("%Y-%m-%d"),
+            "latest_valid_start": latest_valid_start.strftime("%Y-%m-%d"),
+            "symbol_history_valid": history_valid,
+        })
+        if not history_valid:
+            profile["status"] = "symbol_reuse"
+            profile["reason"] = "history_starts_after_failed_company_validation_window"
+    return profile
 
 
 def _build_with_alias(canonical: str, alias: str, start: str, end: str) -> pd.DataFrame:
@@ -101,14 +120,19 @@ def build_audit_data(
     rows: list[dict] = []
     for canonical, aliases in SURVIVORSHIP_AUDIT_TICKERS.items():
         out_path = os.path.join(DATA_DIR, f"{canonical}.parquet")
+        rejected_existing: dict | None = None
         if os.path.exists(out_path) and not force:
             try:
                 existing = pd.read_parquet(out_path)
                 profile = _profile_frame(canonical, existing)
-                profile["status"] = "exists"
-                profile["path"] = out_path
-                rows.append(profile)
-                continue
+                if profile.get("status") == "ok" and len(existing) >= min_rows:
+                    profile["status"] = "exists"
+                    profile["path"] = out_path
+                    rows.append(profile)
+                    continue
+                # Keep the rejected profile in the report, but try aliases
+                # before declaring this failed company unavailable.
+                rejected_existing = dict(profile)
             except Exception:
                 pass
 
@@ -118,11 +142,21 @@ def build_audit_data(
         for alias in aliases:
             try:
                 df = _build_with_alias(canonical, alias, start, end)
-                if df is not None and len(df) >= min_rows:
+                if df is None:
+                    errors.append(f"{alias}: rows=0 status=missing")
+                    continue
+                candidate = _profile_frame(canonical, df, alias_used=alias)
+                if (
+                    len(df) >= min_rows
+                    and candidate.get("status") == "ok"
+                ):
                     built = df
                     alias_used = alias
                     break
-                errors.append(f"{alias}: rows={0 if df is None else len(df)}")
+                errors.append(
+                    f"{alias}: rows={0 if df is None else len(df)} "
+                    f"status={candidate.get('status', 'unknown')}"
+                )
             except Exception as exc:
                 errors.append(f"{alias}: {exc}")
 
@@ -132,6 +166,7 @@ def build_audit_data(
                 "aliases": aliases,
                 "status": "unavailable",
                 "errors": errors[-5:],
+                "rejected_existing": rejected_existing,
             })
             continue
 
@@ -153,7 +188,8 @@ def existing_audit_profiles(min_rows: int = 500) -> list[dict]:
         try:
             df = pd.read_parquet(path)
             profile = _profile_frame(canonical, df)
-            profile["status"] = "available" if len(df) >= min_rows else "too_short"
+            if profile.get("status") == "ok":
+                profile["status"] = "available" if len(df) >= min_rows else "too_short"
             profile["path"] = path
             rows.append(profile)
         except Exception as exc:
