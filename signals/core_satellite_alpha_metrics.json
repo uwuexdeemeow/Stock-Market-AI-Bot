@@ -63,18 +63,18 @@
   "vol_target": 0.0,
   "live_config_source": "nested_walkforward",
   "live_config_source_json": "signals\\core_satellite_nested_walkforward.json",
-  "total_return_pct": 3960.27,
-  "cagr_pct": 24.89,
-  "sharpe": 1.305,
-  "max_drawdown_pct": -21.45,
-  "turnover_pct": 4449.62,
-  "estimated_cost_pct": 8.8992,
+  "total_return_pct": 5585.01,
+  "cagr_pct": 27.43,
+  "sharpe": 1.387,
+  "max_drawdown_pct": -21.32,
+  "turnover_pct": 4596.83,
+  "estimated_cost_pct": 9.1937,
   "avg_gross_exposure": 0.946,
   "avg_overlay_positions": 3.0,
-  "avg_effective_overlay_names": 2.596,
-  "max_sector_overlay_weight": 0.3677,
+  "avg_effective_overlay_names": 2.589,
+  "max_sector_overlay_weight": 0.4056,
   "top_ticker_overlay_contributor": "NVDA",
-  "top_ticker_overlay_contribution_share": 0.219,
+  "top_ticker_overlay_contribution_share": 0.211,
   "n_rebalances": 210,
   "boundary_mode": "full_history",
   "evaluation_trade_start": "2010-01-04",
@@ -91,18 +91,18 @@
   "benchmark_comparisons": {
     "SPY": {
       "benchmark_return_pct": 791.54,
-      "alpha_pct": 3168.73,
-      "nw_tstat_vs_benchmark": 3.792
+      "alpha_pct": 4793.47,
+      "nw_tstat_vs_benchmark": 4.703
     },
     "QQQ": {
       "benchmark_return_pct": 1651.01,
-      "alpha_pct": 2309.27,
-      "nw_tstat_vs_benchmark": 2.09
+      "alpha_pct": 3934.0,
+      "nw_tstat_vs_benchmark": 3.084
     },
     "BLEND": {
       "benchmark_return_pct": 1135.33,
-      "alpha_pct": 2824.95,
-      "nw_tstat_vs_benchmark": 3.191
+      "alpha_pct": 4449.68,
+      "nw_tstat_vs_benchmark": 4.241
     }
   },
   "benchmark_stats": {
@@ -128,57 +128,57 @@
   "subperiods": {
     "2015_2019": {
       "data_available": true,
-      "return_pct": 168.73,
+      "return_pct": 193.24,
       "benchmark_return_pct": 90.35,
-      "alpha_pct": 78.38
+      "alpha_pct": 102.88
     },
     "2020_2021": {
       "data_available": true,
-      "return_pct": 127.3,
+      "return_pct": 127.49,
       "benchmark_return_pct": 68.04,
-      "alpha_pct": 59.25
+      "alpha_pct": 59.44
     },
     "2022": {
       "data_available": true,
-      "return_pct": -9.26,
+      "return_pct": -9.6,
       "benchmark_return_pct": -15.85,
-      "alpha_pct": 6.59
+      "alpha_pct": 6.26
     },
     "2023_2026": {
       "data_available": true,
-      "return_pct": 163.73,
+      "return_pct": 227.82,
       "benchmark_return_pct": 127.1,
-      "alpha_pct": 36.64
+      "alpha_pct": 100.72
     }
   },
   "holdout_2023_2026": {
     "data_available": true,
-    "strategy_return_pct": 163.73,
+    "strategy_return_pct": 227.82,
     "spy_return_pct": 97.89,
-    "alpha_vs_spy_pct": 65.84,
+    "alpha_vs_spy_pct": 129.93,
     "qqq_return_pct": 155.94,
-    "alpha_vs_qqq_pct": 7.79,
+    "alpha_vs_qqq_pct": 71.88,
     "blend_return_pct": 127.1,
-    "alpha_vs_blend_pct": 36.64
+    "alpha_vs_blend_pct": 100.72
   },
   "yearly_alpha_pct": {
     "2010": -0.79,
-    "2011": -3.43,
+    "2011": -2.72,
     "2012": 13.4,
-    "2013": 6.64,
-    "2014": 16.87,
-    "2015": -3.14,
-    "2016": 33.95,
+    "2013": 8.93,
+    "2014": 16.79,
+    "2015": 3.5,
+    "2016": 33.48,
     "2017": 12.26,
-    "2018": -2.72,
-    "2019": 2.78,
-    "2020": 29.43,
-    "2021": 19.5,
-    "2022": 9.75,
-    "2023": 5.9,
-    "2024": 27.77,
-    "2025": -2.45,
-    "2026": -5.9
+    "2018": -2.43,
+    "2019": 5.99,
+    "2020": 29.7,
+    "2021": 19.55,
+    "2022": 9.42,
+    "2023": 7.74,
+    "2024": 27.74,
+    "2025": 1.84,
+    "2026": 14.81
   },
   "cost_stress": 2.0,
   "core_satellite_gate_results": {
@@ -191,7 +191,7 @@
   },
   "feature_health_gate_pass": true,
   "feature_health_gate_reasons": [],
-  "raw_feature_count": 39,
+  "raw_feature_count": 36,
   "active_cluster_count": 7,
   "effective_cluster_count": 7,
   "quarantined_features": [
@@ -639,42 +639,6 @@
       "recent_vs_full_ratio": null,
       "effective_weight": 0.142857,
       "contributes_to_score": true
-    },
-    {
-      "feature": "ret_vs_spy_20d",
-      "preferred_direction": "low_is_good",
-      "t_stat": -3.431207551345902,
-      "mean_ic": -0.0070846190227864,
-      "cluster_id": "cluster_02",
-      "canonical_root": "ret_20d",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": null,
-      "effective_weight": 0.142857,
-      "contributes_to_score": true
-    },
-    {
-      "feature": "rsi_14",
-      "preferred_direction": "low_is_good",
-      "t_stat": -3.256231633701744,
-      "mean_ic": -0.0063327553050076,
-      "cluster_id": "cluster_02",
-      "canonical_root": "rsi_14",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": null,
-      "effective_weight": 0.142857,
-      "contributes_to_score": true
-    },
-    {
-      "feature": "xs_rank_market_rsi_14",
-      "preferred_direction": "low_is_good",
-      "t_stat": -3.256231633701744,
-      "mean_ic": -0.0063327553050076,
-      "cluster_id": "cluster_02",
-      "canonical_root": "rsi_14",
-      "health_state": "healthy",
-      "recent_vs_full_ratio": null,
-      "effective_weight": 0.142857,
-      "contributes_to_score": true
     }
   ],
   "grid_rows": 0,
@@ -759,7 +723,7 @@
     "year_alpha_concentration_pass": true,
     "turnover_adjusted_alpha_pass": true,
     "drawdown_vs_qqq_pass": true,
-    "max_positive_year_alpha_share": 0.19,
+    "max_positive_year_alpha_share": 0.163,
     "holdout_2023_2026_vs_qqq_pass": true,
     "holdout_2023_2026_vs_blend_pass": true,
     "single_name_weight_cap_pass": true,
@@ -777,23 +741,23 @@
   "survivorship_review": {
     "pass": true,
     "capital_approval_pass": false,
-    "survivorship_adjusted_score": 0.8787,
-    "audit_rebalance_selections": 12,
-    "total_return_delta_pct": -968.75,
-    "max_drawdown_delta_pct": -0.79,
-    "failed_name_coverage_rate": 0.2941,
+    "survivorship_adjusted_score": 1.6906,
+    "audit_rebalance_selections": 21,
+    "generic_stressed_paper_ready": true,
+    "total_return_delta_pct": 5555.19,
+    "max_drawdown_delta_pct": 0.0,
+    "failed_name_coverage_rate": 0.0588,
     "minimum_failed_name_coverage_for_capital": 1.0,
     "point_in_time_universe_complete": false,
     "capital_blockers": [
       "failed_name_coverage_incomplete",
-      "point_in_time_universe_incomplete",
-      "survivorship_return_delta_below_capital_floor"
+      "point_in_time_universe_incomplete"
     ]
   },
   "execution_stress_review": {
     "pass": true,
     "failed_scenarios": 0,
-    "worst_stressed_drawdown_pct": -25.58
+    "worst_stressed_drawdown_pct": -25.39
   },
   "factor_decay_review": {
     "pass": true,

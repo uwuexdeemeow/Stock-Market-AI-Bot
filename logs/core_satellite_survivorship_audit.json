@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-11T00:39:34.207747",
+  "generated_at": "2026-09-22T17:06:11.276801",
   "purpose": "core_satellite_survivorship_bias_stress",
   "selected_config": {
     "core_preset": "nested_qqq_trend_switch_overlay70_core55_cashbuffer_h20_ov0.50_ma100_volpercentile0.30_tqqq0.00_riskoff",
@@ -29,7 +29,7 @@
     "risk_control_mode": "off"
   },
   "base_universe_size": 62,
-  "stressed_universe_size": 67,
+  "stressed_universe_size": 63,
   "known_audit_tickers": [
     "BBBY",
     "CHK",
@@ -50,19 +50,19 @@
     "WPG"
   ],
   "available_audit_tickers": [
-    "FRC",
-    "BBBY",
-    "SHLD",
-    "HTZ",
-    "CRC"
+    "FRC"
   ],
   "missing_audit_tickers": [
+    "BBBY",
     "CHK",
+    "CRC",
     "DO",
     "FTR",
+    "HTZ",
     "JCP",
     "MDR",
     "RIDE",
+    "SHLD",
     "SIVB",
     "TUP",
     "WE",
@@ -70,14 +70,14 @@
     "WLL",
     "WPG"
   ],
-  "failed_name_coverage_count": 5,
+  "failed_name_coverage_count": 1,
   "failed_name_required_count": 17,
-  "failed_name_coverage_rate": 0.2941,
+  "failed_name_coverage_rate": 0.0588,
   "failed_name_coverage_complete": false,
   "point_in_time_universe_complete": false,
   "point_in_time_universe_status": {
     "complete": false,
-    "path": "data\\universe_membership.csv",
+    "path": "data/universe_membership.csv",
     "rows": 0,
     "source_count": 0,
     "required_provenance_columns": [
@@ -159,7 +159,7 @@
       "XOM"
     ],
     "coverage_start": "2010-01-01",
-    "coverage_end": "2026-09-10",
+    "coverage_end": "2026-09-22",
     "active_members_at_coverage_start": 0,
     "minimum_active_members": 400,
     "inactive_members": 0,
@@ -178,10 +178,10 @@
       "historical_price_coverage_incomplete"
     ]
   },
-  "survivorship_adjusted_score": 0.8787,
-  "primary_return_pct": 7984.12,
-  "failed_name_stressed_return_pct": 7015.37,
-  "stressed_return_delta_pct": -968.75,
+  "survivorship_adjusted_score": 1.6906,
+  "primary_return_pct": 8044.2,
+  "failed_name_stressed_return_pct": 13599.39,
+  "stressed_return_delta_pct": 5555.19,
   "limitations": [
     "This is a failed-name stress test, not a complete point-in-time constituent database.",
     "Only locally available audit tickers can be included.",
@@ -191,175 +191,182 @@
     {
       "scenario": "base_watchlist",
       "universe_size": 62,
-      "audit_tickers": "FRC,BBBY,SHLD,HTZ,CRC",
+      "audit_tickers": "FRC",
       "audit_rebalance_selections": 0,
-      "audit_selection_counts_json": "{\"BBBY\": 0, \"CRC\": 0, \"FRC\": 0, \"HTZ\": 0, \"SHLD\": 0}",
-      "total_return_pct": 7984.12,
-      "cagr_pct": 30.32,
-      "sharpe": 1.376,
-      "max_drawdown_pct": -24.04,
-      "alpha_vs_spy_pct": 7440.87,
-      "alpha_vs_qqq_pct": 6562.1,
-      "alpha_vs_blend_pct": 7089.36,
-      "turnover_pct": 5182.47,
-      "estimated_cost_pct": 10.3649,
+      "audit_selection_counts_json": "{\"FRC\": 0}",
+      "total_return_pct": 8044.2,
+      "cagr_pct": 30.21,
+      "sharpe": 1.388,
+      "max_drawdown_pct": -23.51,
+      "alpha_vs_spy_pct": 7252.66,
+      "alpha_vs_qqq_pct": 6393.19,
+      "alpha_vs_blend_pct": 6908.87,
+      "turnover_pct": 5233.86,
+      "estimated_cost_pct": 10.4677,
       "paper_ready": true
     },
     {
       "scenario": "watchlist_plus_failed_audit_tickers",
-      "universe_size": 67,
-      "audit_tickers": "FRC,BBBY,SHLD,HTZ,CRC",
-      "audit_rebalance_selections": 12,
-      "audit_selection_counts_json": "{\"BBBY\": 7, \"CRC\": 0, \"FRC\": 1, \"HTZ\": 2, \"SHLD\": 2}",
-      "total_return_pct": 7015.37,
-      "cagr_pct": 29.32,
-      "sharpe": 1.344,
-      "max_drawdown_pct": -24.83,
-      "alpha_vs_spy_pct": 6472.12,
-      "alpha_vs_qqq_pct": 5593.35,
-      "alpha_vs_blend_pct": 6120.61,
-      "turnover_pct": 5394.74,
-      "estimated_cost_pct": 10.7895,
+      "universe_size": 63,
+      "audit_tickers": "FRC",
+      "audit_rebalance_selections": 21,
+      "audit_selection_counts_json": "{\"FRC\": 21}",
+      "total_return_pct": 13599.39,
+      "cagr_pct": 34.34,
+      "sharpe": 1.445,
+      "max_drawdown_pct": -23.51,
+      "alpha_vs_spy_pct": 12807.85,
+      "alpha_vs_qqq_pct": 11948.38,
+      "alpha_vs_blend_pct": 12464.06,
+      "turnover_pct": 5230.71,
+      "estimated_cost_pct": 10.4614,
       "paper_ready": true
     },
     {
       "scenario": "delta_stressed_minus_base",
-      "total_return_pct": -968.75,
-      "cagr_pct": -1.0,
-      "sharpe": -0.032,
-      "max_drawdown_pct": -0.79,
-      "alpha_vs_spy_pct": -968.75,
-      "alpha_vs_qqq_pct": -968.75,
-      "alpha_vs_blend_pct": -968.75,
-      "turnover_pct": 212.27,
-      "estimated_cost_pct": 0.4246
+      "total_return_pct": 5555.19,
+      "cagr_pct": 4.13,
+      "sharpe": 0.057,
+      "max_drawdown_pct": 0.0,
+      "alpha_vs_spy_pct": 5555.19,
+      "alpha_vs_qqq_pct": 5555.19,
+      "alpha_vs_blend_pct": 5555.19,
+      "turnover_pct": -3.15,
+      "estimated_cost_pct": -0.0063
     }
   ],
   "profile_summary": [
     {
       "ticker": "SIVB",
       "status": "missing",
-      "path": "D:\\Stock Market AI Bot\\data\\SIVB.parquet"
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/SIVB.parquet"
     },
     {
       "ticker": "FRC",
       "alias_used": null,
       "status": "available",
-      "rows": 3866,
+      "rows": 3966,
       "start": "2010-12-09",
-      "end": "2026-04-24",
-      "final_close": 0.0006,
+      "end": "2026-09-17",
+      "final_close": 0.0018,
       "max_drawdown_pct": -100.0,
       "peak_to_final_pct": -100.0,
-      "final_252d_return_pct": -76.0,
-      "path": "D:\\Stock Market AI Bot\\data\\FRC.parquet"
+      "final_252d_return_pct": 80.0,
+      "failure_date": "2023-05-01",
+      "latest_valid_start": "2022-05-01",
+      "symbol_history_valid": true,
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/FRC.parquet"
     },
     {
       "ticker": "BBBY",
-      "alias_used": null,
-      "status": "available",
-      "rows": 4102,
-      "start": "2010-01-04",
-      "end": "2026-04-24",
-      "final_close": 5.61,
-      "max_drawdown_pct": -96.99,
-      "peak_to_final_pct": -95.41,
-      "final_252d_return_pct": 36.83,
-      "path": "D:\\Stock Market AI Bot\\data\\BBBY.parquet"
+      "status": "missing",
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/BBBY.parquet"
     },
     {
       "ticker": "WE",
       "status": "missing",
-      "path": "D:\\Stock Market AI Bot\\data\\WE.parquet"
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/WE.parquet"
     },
     {
       "ticker": "RIDE",
       "status": "missing",
-      "path": "D:\\Stock Market AI Bot\\data\\RIDE.parquet"
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/RIDE.parquet"
     },
     {
       "ticker": "SHLD",
       "alias_used": null,
-      "status": "available",
-      "rows": 660,
+      "status": "symbol_reuse",
+      "rows": 756,
       "start": "2023-09-14",
-      "end": "2026-05-01",
-      "final_close": 67.92,
-      "max_drawdown_pct": -15.06,
-      "peak_to_final_pct": -12.95,
-      "final_252d_return_pct": 31.73,
-      "path": "D:\\Stock Market AI Bot\\data\\SHLD.parquet"
+      "end": "2026-09-18",
+      "final_close": 62.68,
+      "max_drawdown_pct": -25.4,
+      "peak_to_final_pct": -19.4,
+      "final_252d_return_pct": -4.42,
+      "failure_date": "2018-10-15",
+      "latest_valid_start": "2017-10-15",
+      "symbol_history_valid": false,
+      "reason": "history_starts_after_failed_company_validation_window",
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/SHLD.parquet"
     },
     {
       "ticker": "JCP",
       "status": "missing",
-      "path": "D:\\Stock Market AI Bot\\data\\JCP.parquet"
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/JCP.parquet"
     },
     {
       "ticker": "HTZ",
       "alias_used": null,
-      "status": "available",
-      "rows": 1214,
+      "status": "symbol_reuse",
+      "rows": 1310,
       "start": "2021-07-01",
-      "end": "2026-05-01",
-      "final_close": 6.14,
-      "max_drawdown_pct": -92.53,
-      "peak_to_final_pct": -82.49,
-      "final_252d_return_pct": -9.97,
-      "path": "D:\\Stock Market AI Bot\\data\\HTZ.parquet"
+      "end": "2026-09-18",
+      "final_close": 1.82,
+      "max_drawdown_pct": -95.69,
+      "peak_to_final_pct": -94.81,
+      "final_252d_return_pct": -70.6,
+      "failure_date": "2020-05-22",
+      "latest_valid_start": "2019-05-22",
+      "symbol_history_valid": false,
+      "reason": "history_starts_after_failed_company_validation_window",
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/HTZ.parquet"
     },
     {
       "ticker": "CHK",
       "status": "missing",
-      "path": "D:\\Stock Market AI Bot\\data\\CHK.parquet"
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/CHK.parquet"
     },
     {
       "ticker": "WLL",
       "status": "missing",
-      "path": "D:\\Stock Market AI Bot\\data\\WLL.parquet"
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/WLL.parquet"
     },
     {
       "ticker": "CRC",
       "alias_used": null,
-      "status": "available",
-      "rows": 1383,
+      "status": "symbol_reuse",
+      "rows": 1479,
       "start": "2020-10-28",
-      "end": "2026-05-01",
-      "final_close": 68.37,
+      "end": "2026-09-18",
+      "final_close": 54.07,
       "max_drawdown_pct": -44.75,
-      "peak_to_final_pct": -1.23,
-      "final_252d_return_pct": 104.56,
-      "path": "D:\\Stock Market AI Bot\\data\\CRC.parquet"
+      "peak_to_final_pct": -21.79,
+      "final_252d_return_pct": -3.7,
+      "failure_date": "2020-07-15",
+      "latest_valid_start": "2019-07-15",
+      "symbol_history_valid": false,
+      "reason": "history_starts_after_failed_company_validation_window",
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/CRC.parquet"
     },
     {
       "ticker": "DO",
       "status": "missing",
-      "path": "D:\\Stock Market AI Bot\\data\\DO.parquet"
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/DO.parquet"
     },
     {
       "ticker": "MDR",
       "status": "missing",
-      "path": "D:\\Stock Market AI Bot\\data\\MDR.parquet"
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/MDR.parquet"
     },
     {
       "ticker": "FTR",
       "status": "missing",
-      "path": "D:\\Stock Market AI Bot\\data\\FTR.parquet"
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/FTR.parquet"
     },
     {
       "ticker": "WIN",
       "status": "missing",
-      "path": "D:\\Stock Market AI Bot\\data\\WIN.parquet"
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/WIN.parquet"
     },
     {
       "ticker": "WPG",
       "status": "missing",
-      "path": "D:\\Stock Market AI Bot\\data\\WPG.parquet"
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/WPG.parquet"
     },
     {
       "ticker": "TUP",
       "status": "missing",
-      "path": "D:\\Stock Market AI Bot\\data\\TUP.parquet"
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/data/TUP.parquet"
     }
   ],
   "validation_context": {
@@ -377,8 +384,8 @@
       "risk_control_mode": "off",
       "deployment_max_gross_exposure": 1.0
     },
-    "dataset_fingerprint": "bc823b73cc5d65060fa2bd87b1e9d229be905bdf7c4bef68f58eadb5b361c21c",
-    "research_manifest_path": "signals\\research_run_manifest.json",
-    "git_commit": "62359f820a641f32a991068ee988dc31ca7c9254"
+    "dataset_fingerprint": "3bfb2c82c3c106fb6e5f951d954dd7a4fa10f200b43e202fbe380a21fa21e9c3",
+    "research_manifest_path": "signals/research_run_manifest.json",
+    "git_commit": "6b6a621127548586f0249688a00428d82679da6c"
   }
 }
