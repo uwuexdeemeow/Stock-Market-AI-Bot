@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "epoch_id": "paper-v20260910T045130Z",
-  "evaluated_at": "2026-09-22T17:15:09+00:00",
+  "evaluated_at": "2026-09-22T21:16:20+00:00",
   "status": "collecting",
   "trading_days": 9,
   "rebalance_events": 5,
@@ -9,8 +9,8 @@
   "classified_sessions": 1,
   "duplicate_orders": 0,
   "unexplained_orders": 0,
-  "maximum_target_weight_gap": 0.016528,
-  "gross_exposure_gap": 0.010317,
+  "maximum_target_weight_gap": 0.018573,
+  "gross_exposure_gap": 0.010226,
   "alignment_status": "pass",
   "open_critical_incidents": 0,
   "fill_rate": 0.875,
@@ -26,13 +26,13 @@
   "child_attempts": 9,
   "unclassifiable_order_rows": 0,
   "unclassifiable_logical_orders": 0,
-  "average_slippage_bps": 9.02,
-  "bad_slippage_rate": 0.5,
+  "average_slippage_bps": 7.76,
+  "bad_slippage_rate": 0.42857142857142855,
   "stage_comparison": {
     "stage1": {
-      "measured_fills": 5,
-      "average_slippage_bps": 9.977999999999998,
-      "median_slippage_bps": 1.29
+      "measured_fills": 6,
+      "average_slippage_bps": 8.348333333333333,
+      "median_slippage_bps": 0.745
     },
     "stage2": {
       "measured_fills": 1,
@@ -40,7 +40,7 @@
       "median_slippage_bps": 4.23
     }
   },
-  "stage_comparison_measured_fills": 6,
+  "stage_comparison_measured_fills": 7,
   "stage_comparison_minimum_fills": 20,
   "stage_comparison_review_ready": false,
   "two_stage_design_improves_slippage": false,
@@ -69,13 +69,13 @@
   "manual_real_capital_review_eligible": false,
   "real_capital_approved": false,
   "run_context": {
-    "run_id": "github-35758721488",
-    "generated_at": "2026-09-22T17:15:09+00:00",
+    "run_id": "post-market-35785472962-1",
+    "generated_at": "2026-09-22T21:16:20+00:00",
     "signal_as_of": "2026-09-23T01:14+08:00",
     "git_commit": "6b6a621127548586f0249688a00428d82679da6c",
     "configuration_fingerprint": "997aba652a90c05d2c3b36e60f6d15f33d895148d33e549e7cee2f7407edc242",
     "paper_version_fingerprint": "c7381a7b96ac4bc411b3a91df889f0d6c5f2deeecc8eb6112860a26bf1f4d79a",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "github-35758721488"
+  "run_id": "post-market-35785472962-1"
 }

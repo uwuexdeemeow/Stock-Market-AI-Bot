@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-22T17:15:02+00:00",
+  "generated_at": "2026-09-22T21:16:17+00:00",
   "status": "pass",
   "score": 100.0,
   "summary": {
@@ -8,14 +8,14 @@
     "fail_count": 0,
     "warning_count": 0,
     "pass_count": 6,
-    "account_equity": 117519.72,
+    "account_equity": 118190.55,
     "account_cash": 1210.46,
     "live_open_orders_available": true,
     "live_open_orders_count": 4,
     "latest_log_date": "2026-09-22",
-    "signal_age_hours": 0.02,
+    "signal_age_hours": 4.04,
     "signal_freshness_status": "fresh",
-    "order_plan_age_hours": 0.01,
+    "order_plan_age_hours": 0.0,
     "order_plan_freshness_status": "fresh",
     "target_comparison_enabled": true,
     "order_plan_comparison_enabled": true,
@@ -29,34 +29,21 @@
       "TQQQ": 0.0
     },
     "target_gross_exposure": 1.0,
-    "broker_gross_exposure": 0.989683,
-    "maximum_target_weight_gap": 0.016528,
+    "broker_gross_exposure": 0.989774,
+    "maximum_target_weight_gap": 0.018573,
     "alignment": {
       "status": "pass",
       "passed": true,
       "reason": "ok",
       "comparable_tickers": 6,
-      "maximum_target_weight_gap": 0.016528,
-      "current_gross_exposure": 0.989683,
+      "maximum_target_weight_gap": 0.018573,
+      "current_gross_exposure": 0.989774,
       "target_gross_exposure": 1.0,
-      "gross_exposure_gap": 0.010317,
+      "gross_exposure_gap": 0.010226,
       "weight_tolerance": 0.02,
       "gross_exposure_tolerance": 0.05,
       "active_rebalance_order_count": 0,
       "waited_seconds": 0.0
-    },
-    "alignment_recovery_plan": {
-      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alignment_recovery_plan.csv",
-      "row_count": 0,
-      "review_required": false,
-      "orders_submitted": false
-    },
-    "alignment_incident_ledger": {
-      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alignment_incident_ledger.csv",
-      "total_incidents": 15,
-      "open_incidents": 0,
-      "current_incident_id": "",
-      "orders_submitted": false
     }
   },
   "inputs": {
@@ -65,11 +52,11 @@
       "exists": true,
       "rows": 1,
       "error": "",
-      "modified_at": "2026-09-22T17:14:33+00:00",
+      "modified_at": "2026-09-22T21:16:13+00:00",
       "as_of": "2026-09-23T01:14+08:00",
       "target_count": 6,
       "freshness_status": "fresh",
-      "age_hours": 0.02,
+      "age_hours": 4.04,
       "timestamp_used": "as_of",
       "timestamp_utc": "2026-09-22T17:14:00+00:00"
     },
@@ -78,18 +65,18 @@
       "exists": true,
       "rows": 1,
       "error": "",
-      "modified_at": "2026-09-22T17:14:36+00:00",
+      "modified_at": "2026-09-22T21:16:13+00:00",
       "freshness_status": "fresh",
-      "age_hours": 0.01,
+      "age_hours": 0.0,
       "timestamp_used": "modified_at",
-      "timestamp_utc": "2026-09-22T17:14:36+00:00"
+      "timestamp_utc": "2026-09-22T21:16:13+00:00"
     },
     "paper_log": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_paper_log.csv",
       "exists": true,
       "rows": 30,
       "error": "",
-      "modified_at": "2026-09-22T17:14:52+00:00",
+      "modified_at": "2026-09-22T21:16:13+00:00",
       "latest_submitted_date": "2026-09-22",
       "stale_vs_broker_status": false
     },
@@ -97,25 +84,25 @@
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_daily_status.json",
       "exists": true,
       "error": "",
-      "modified_at": "2026-09-22T17:14:57+00:00",
-      "generated_at": "2026-09-22T17:15:03+00:00",
-      "equity": 117519.72,
+      "modified_at": "2026-09-22T21:16:14+00:00",
+      "generated_at": "2026-09-22T21:16:17+00:00",
+      "equity": 118190.55,
       "cash": 1210.46,
       "position_count": 4,
       "available": true,
       "attempted": true,
       "source": "alpaca_api",
-      "file_generated_at": "2026-09-22T17:14:57"
+      "file_generated_at": "2026-09-22T21:16:14"
     },
     "live_positions": {
       "available": true,
       "attempted": true,
       "source": "alpaca_api",
       "error": "",
-      "equity": 117519.72,
+      "equity": 118190.55,
       "cash": 1210.46,
       "position_count": 4,
-      "generated_at": "2026-09-22T17:15:03+00:00"
+      "generated_at": "2026-09-22T21:16:17+00:00"
     },
     "open_orders": {
       "available": true,
@@ -133,8 +120,8 @@
       "ticker": "FCX",
       "target_weight": 0.023545,
       "broker_qty": 40.0,
-      "broker_value": 2963.6,
-      "broker_weight": 0.025218,
+      "broker_value": 2976.8,
+      "broker_weight": 0.025186,
       "planned_side": "",
       "planned_quantity": 0.0,
       "planned_buy_qty": 0.0,
@@ -165,8 +152,8 @@
       "ticker": "INTC",
       "target_weight": 0.196752,
       "broker_qty": 199.0,
-      "broker_value": 24238.2,
-      "broker_weight": 0.206248,
+      "broker_value": 24574.03,
+      "broker_weight": 0.207919,
       "planned_side": "",
       "planned_quantity": 0.0,
       "planned_buy_qty": 0.0,
@@ -197,8 +184,8 @@
       "ticker": "MU",
       "target_weight": 0.179703,
       "broker_qty": 19.0,
-      "broker_value": 20536.03,
-      "broker_weight": 0.174745,
+      "broker_value": 20711.9,
+      "broker_weight": 0.175242,
       "planned_side": "",
       "planned_quantity": 0.0,
       "planned_buy_qty": 0.0,
@@ -229,8 +216,8 @@
       "ticker": "QQQ",
       "target_weight": 0.6,
       "broker_qty": 92.0,
-      "broker_value": 68569.44,
-      "broker_weight": 0.583472,
+      "broker_value": 68719.2,
+      "broker_weight": 0.581427,
       "planned_side": "buy",
       "planned_quantity": 37.0,
       "planned_buy_qty": 37.0,
@@ -323,13 +310,13 @@
     }
   ],
   "run_context": {
-    "run_id": "github-35758721488",
-    "generated_at": "2026-09-22T17:15:02+00:00",
+    "run_id": "post-market-35785472962-1",
+    "generated_at": "2026-09-22T21:16:17+00:00",
     "signal_as_of": "2026-09-23T01:14+08:00",
     "git_commit": "6b6a621127548586f0249688a00428d82679da6c",
     "configuration_fingerprint": "997aba652a90c05d2c3b36e60f6d15f33d895148d33e549e7cee2f7407edc242",
     "paper_version_fingerprint": "c7381a7b96ac4bc411b3a91df889f0d6c5f2deeecc8eb6112860a26bf1f4d79a",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "github-35758721488"
+  "run_id": "post-market-35785472962-1"
 }
