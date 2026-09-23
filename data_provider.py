@@ -45,7 +45,7 @@ import logging
 import os
 import warnings
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Callable, Optional
 
 import pandas as pd
 import numpy as np
@@ -446,6 +446,7 @@ def download_prices(
     period: Optional[str] = None,
     auto_adjust: bool = True,
     progress: bool = False,
+    accept_frame: Callable[[pd.DataFrame], bool] | None = None,
 ) -> pd.DataFrame:
     """
     Download price data with automatic fallback across multiple providers.
@@ -462,6 +463,8 @@ def download_prices(
         period: yfinance-style period like "5d", "6mo", "max" (optional)
         auto_adjust: Whether to use adjusted prices (default: True)
         progress: Show download progress bar (default: False)
+        accept_frame: Optional check that rejects an incomplete result so the
+            next provider can be tried. Ordinary callers need not set it.
 
     Returns:
         DataFrame with OHLCV columns (or MultiIndex for multiple tickers)
@@ -500,6 +503,11 @@ def download_prices(
                 provider=provider,
                 auto_adjust=auto_adjust,
             )
+            # A source can return a nonempty table with an unusable final bar.
+            # Let callers reject that table and try the next source instead.
+            if accept_frame is not None and not accept_frame(result):
+                errors.append(f"{provider}: data failed caller validation")
+                continue
             if last_provider != provider:
                 print(f"  INFO: Using {provider} price data")
             last_provider = provider
@@ -523,6 +531,7 @@ def download_single(
     period: Optional[str] = None,
     auto_adjust: bool = True,
     progress: bool = False,
+    accept_frame: Callable[[pd.DataFrame], bool] | None = None,
 ) -> pd.DataFrame:
     """
     Download price data for a single ticker with automatic fallback.
@@ -537,6 +546,7 @@ def download_single(
     return download_prices(
         [ticker], start=start, end=end, period=period,
         auto_adjust=auto_adjust, progress=progress,
+        accept_frame=accept_frame,
     )
 
 

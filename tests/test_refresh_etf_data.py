@@ -6,6 +6,7 @@ import pytest
 import sys
 
 import refresh_etf_data
+import data_provider
 
 
 def _etf_frame(idx: pd.DatetimeIndex, start: float = 100.0, end: float = 125.0) -> pd.DataFrame:
@@ -55,6 +56,55 @@ def test_etf_validation_blocks_missing_ohlcv_columns(monkeypatch):
     assert "missing_high_column" in report["issues"]
     assert "missing_low_column" in report["issues"]
     assert "missing_volume_column" in report["issues"]
+
+
+def test_etf_validation_blocks_dated_row_with_blank_close(monkeypatch):
+    # A date alone does not prove that its closing price can be used.
+    idx = pd.bdate_range(end="2026-09-22", periods=260)
+    frame = _etf_frame(idx)
+    frame.loc[idx[-1], "Close"] = np.nan
+    monkeypatch.setattr(refresh_etf_data, "_completed_day", lambda: idx[-1])
+
+    report = refresh_etf_data._validate_etf_frame(frame, symbol="QQQ", max_age_business_days=0)
+
+    assert report["latest_date"] == "2026-09-22"
+    assert report["ok"] is False
+    assert "missing_or_nonfinite_close" in report["issues"]
+
+
+def test_etf_download_tries_next_provider_after_incomplete_price(monkeypatch):
+    # The first provider has yesterday's date but no usable close; use the
+    # second complete provider instead of saving the broken first result.
+    idx = pd.bdate_range(end="2026-09-22", periods=260)
+    incomplete = _etf_frame(idx)
+    incomplete.loc[idx[-1], "Close"] = np.nan
+    complete = _etf_frame(idx)
+    monkeypatch.setattr(refresh_etf_data, "_completed_day", lambda: idx[-1])
+    monkeypatch.setattr(data_provider, "_provider_order", lambda: ["yfinance", "yahooquery"])
+    monkeypatch.setattr(data_provider, "_try_yfinance", lambda *args, **kwargs: incomplete)
+    monkeypatch.setattr(data_provider, "_try_yahooquery", lambda *args, **kwargs: complete)
+
+    downloaded = refresh_etf_data._download("QQQ")
+
+    assert downloaded.loc[idx[-1], "Close"] == complete.loc[idx[-1], "Close"]
+    assert data_provider.provider_for_ticker["QQQ"] == "yahooquery"
+
+
+def test_etf_refresh_does_not_publish_incomplete_download(tmp_path, monkeypatch):
+    idx = pd.bdate_range(end="2026-09-22", periods=260)
+    local = _etf_frame(idx[:-1])
+    incomplete = _etf_frame(idx)
+    incomplete.loc[idx[-1], "Close"] = np.nan
+    local.to_parquet(tmp_path / "QQQ.parquet")
+    monkeypatch.setattr(refresh_etf_data, "DATA", tmp_path)
+    monkeypatch.setattr(refresh_etf_data, "_completed_day", lambda: idx[-1])
+    monkeypatch.setattr(refresh_etf_data, "_download", lambda symbol: incomplete)
+
+    report = refresh_etf_data.validate_etfs(["QQQ"], refresh=True, force=True)
+
+    assert report["ok"] is False
+    assert "missing_or_nonfinite_close" in report["results"][0]["download_issues"]
+    assert pd.read_parquet(tmp_path / "QQQ.parquet").index[-1] == idx[-2]
 
 
 def test_etf_refresh_force_replaces_healthy_local_data(tmp_path, monkeypatch):

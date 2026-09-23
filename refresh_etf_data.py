@@ -7,6 +7,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+import numpy as np
 
 from settings import DATA_DIR, LOG_DIR
 import data_provider
@@ -100,7 +101,12 @@ def _validate_etf_frame(frame: pd.DataFrame, *, symbol: str, max_age_business_da
     close_raw = frame.get("Close", pd.Series(dtype=float))
     if isinstance(close_raw, pd.DataFrame):
         close_raw = close_raw.iloc[:, 0] if close_raw.shape[1] else pd.Series(dtype=float)
-    close = pd.to_numeric(close_raw, errors="coerce").dropna()
+    # Keep missing values visible: dropping them here made a dated but blank
+    # QQQ bar look healthy even though the strategy cannot use that bar.
+    close_values = pd.to_numeric(close_raw, errors="coerce")
+    close = close_values.dropna()
+    if len(close_values) and bool((~np.isfinite(close_values)).any()):
+        issues.append("missing_or_nonfinite_close")
     if len(close) < MIN_ROWS:
         issues.append(f"rows_{len(close)}_lt_{MIN_ROWS}")
     if not close.empty and (close <= 0).any():
@@ -144,8 +150,18 @@ def _download(symbol: str) -> pd.DataFrame:
     This way the pipeline doesn't break when one provider is down.
     """
     try:
-        frame = download_single(symbol, period="max", auto_adjust=True)
-    except RuntimeError:
+        # Reject incomplete provider results before the provider layer settles
+        # on a source. A second provider can then supply a usable completed bar.
+        frame = download_single(
+            symbol, period="max", auto_adjust=True,
+            accept_frame=lambda candidate: _validate_etf_frame(
+                flatten_yf(candidate), symbol=symbol, max_age_business_days=0,
+            )["ok"],
+        )
+    except RuntimeError as exc:
+        # Show which sources were rejected so a future data outage is clear in
+        # the workflow log, even though the saved-file health check runs next.
+        print(f"  WARNING: No complete adjusted price history for {symbol}: {exc}")
         return pd.DataFrame()
     if frame.empty:
         return frame
@@ -159,11 +175,16 @@ def validate_etfs(symbols: list[str], *, refresh: bool = False, force: bool = Fa
     for symbol in symbols:
         symbol = symbol.upper().strip()
         frame = _read_local(symbol)
-        local = _validate_etf_frame(frame, symbol=symbol)
+        # A refresh before the US market opens must already contain the last
+        # completed session; older prices cannot stand in for yesterday's bar.
+        age_limit = 0 if refresh else MAX_AGE_BUSINESS_DAYS
+        local = _validate_etf_frame(frame, symbol=symbol, max_age_business_days=age_limit)
         refreshed = False
         if refresh and (force or not local["ok"]):
             downloaded = _download(symbol)
-            downloaded_check = _validate_etf_frame(downloaded, symbol=symbol)
+            downloaded_check = _validate_etf_frame(
+                downloaded, symbol=symbol, max_age_business_days=age_limit,
+            )
             if downloaded_check["ok"]:
                 parquet_path = DATA / f"{symbol}.parquet"
                 previous = read_parquet_manifest(parquet_path)

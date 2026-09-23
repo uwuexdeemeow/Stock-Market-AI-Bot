@@ -9,8 +9,9 @@ It validates that each ETF file:
 - has enough rows
 - has the required OHLCV columns: `Open`, `High`, `Low`, `Close`, `Volume`
 - has a valid positive `Close` column
+- has no blank or non-finite closing prices, including in the newest row
 - is not flat in recent history
-- is fresh enough for the latest completed NYSE session
+- includes a valid close for the latest completed NYSE session during refresh
 
 Freshness uses real NYSE trading sessions, so weekends and market holidays are
 not counted as missing ETF data.
@@ -36,6 +37,11 @@ mid-write.
 
 Use `--strict` in automation. It exits non-zero if any ETF remains missing,
 stale, partial, or otherwise unhealthy after validation.
+
+If one source returns a dated row with a blank close, the downloader tries
+another adjusted-price source. If none provides a complete bar, the refresh
+fails before research can use the bad file; it never guesses tomorrow's price
+or silently treats a prior session as yesterday's close.
 
 ## Key Concepts
 

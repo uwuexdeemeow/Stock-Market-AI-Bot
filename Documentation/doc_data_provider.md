@@ -11,6 +11,8 @@ cannot be silently mixed into adjusted training history.
 Other scripts import `download_history()` rather than normally running this
 file directly. `STOCKBOT_PRICE_PROVIDER_ORDER` controls the allowed source
 order. The returned table identifies which provider supplied it.
+Callers that need strict completeness can pass `accept_frame`, a check that
+rejects a partial table and tries the next provider instead.
 
 ## Key Terms
 
