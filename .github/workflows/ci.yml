@@ -114,4 +114,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
+      # v3 runs on current GitHub runners. Pass the built-in repository token
+      # so the scanner's account lookup does not hit anonymous API limits.
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
