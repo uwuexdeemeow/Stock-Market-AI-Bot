@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
   "legacy_returns_are_alpha": false,
-  "generated_at": "2026-09-22T17:10:54.628881",
+  "generated_at": "2026-09-23T15:55:41.605308",
   "purpose": "factor_decay_monitor",
   "as_of": "2026-08-18",
   "selected_score_source": "regime_adaptive",
@@ -12,7 +12,7 @@
   "rows": [
     {
       "lookback_days": 60,
-      "daily_ic_mean": 0.09921,
+      "daily_ic_mean": 0.10043,
       "daily_ic_positive_rate": 1.0,
       "daily_ic_newey_west_tstat": 0.0,
       "top_bucket_excess_return_pct": 0.0059,
@@ -25,13 +25,13 @@
         "3": -1.2067,
         "4": 0.6397,
         "5": 2.9272,
-        "6": 1.0752,
-        "7": 0.9644,
-        "8": 0.9426,
-        "9": -0.0476,
+        "6": 1.3484,
+        "7": 0.6912,
+        "8": 0.3668,
+        "9": 0.5282,
         "10": 0.2165
       },
-      "decile_monotonicity_spearman": 0.4424,
+      "decile_monotonicity_spearman": 0.3939,
       "overlay_periods": 3,
       "overlay_return_sum_pct": 12.4555,
       "overlay_hit_rate": 1.0,
@@ -46,7 +46,7 @@
     },
     {
       "lookback_days": 120,
-      "daily_ic_mean": 0.09698,
+      "daily_ic_mean": 0.09772,
       "daily_ic_positive_rate": 0.8,
       "daily_ic_newey_west_tstat": 0.0,
       "top_bucket_excess_return_pct": 4.3435,
@@ -59,13 +59,13 @@
         "3": -2.2538,
         "4": -0.3602,
         "5": 2.047,
-        "6": -0.2104,
-        "7": -0.3135,
-        "8": 0.7101,
-        "9": 0.9351,
+        "6": -0.0465,
+        "7": -0.9361,
+        "8": 0.8234,
+        "9": 1.2806,
         "10": 4.7184
       },
-      "decile_monotonicity_spearman": 0.2848,
+      "decile_monotonicity_spearman": 0.2485,
       "overlay_periods": 5,
       "overlay_return_sum_pct": 13.5964,
       "overlay_hit_rate": 0.8,
@@ -101,6 +101,6 @@
     },
     "dataset_fingerprint": "3bfb2c82c3c106fb6e5f951d954dd7a4fa10f200b43e202fbe380a21fa21e9c3",
     "research_manifest_path": "signals/research_run_manifest.json",
-    "git_commit": "6b6a621127548586f0249688a00428d82679da6c"
+    "git_commit": "225b20d2e290b5dbfcb72b3bab542aaf8b8806ae"
   }
 }

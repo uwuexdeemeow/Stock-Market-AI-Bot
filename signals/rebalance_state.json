@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
-  "run_id": "github-35758721488",
-  "signal_as_of": "2026-09-23T01:14+08:00",
+  "run_id": "github-35876592636",
+  "signal_as_of": "2026-09-23T23:59+08:00",
   "status": "aligned",
-  "updated_at": "2026-09-22T17:15:03+00:00",
+  "updated_at": "2026-09-23T15:59:49+00:00",
   "terminal": true,
   "history": [
     {
       "status": "planned",
-      "at": "2026-09-22T17:14:34+00:00",
+      "at": "2026-09-23T15:59:25+00:00",
       "details": {}
     },
     {
       "status": "filled",
-      "at": "2026-09-22T17:14:56+00:00",
+      "at": "2026-09-23T15:59:41+00:00",
       "details": {
         "outcome_status": "executed",
         "reason_code": "all_planned_orders_filled",
@@ -25,13 +25,13 @@
     },
     {
       "status": "aligned",
-      "at": "2026-09-22T17:15:03+00:00",
+      "at": "2026-09-23T15:59:49+00:00",
       "details": {
         "alignment_status": "pass",
         "reason": "ok",
         "active_rebalance_order_count": 0,
-        "maximum_target_weight_gap": 0.016528,
-        "gross_exposure_gap": 0.010317
+        "maximum_target_weight_gap": 0.01562,
+        "gross_exposure_gap": 0.020652
       }
     }
   ],

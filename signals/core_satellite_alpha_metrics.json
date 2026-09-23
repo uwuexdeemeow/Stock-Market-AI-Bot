@@ -63,18 +63,18 @@
   "vol_target": 0.0,
   "live_config_source": "nested_walkforward",
   "live_config_source_json": "signals\\core_satellite_nested_walkforward.json",
-  "total_return_pct": 5585.01,
-  "cagr_pct": 27.43,
-  "sharpe": 1.387,
+  "total_return_pct": 5120.29,
+  "cagr_pct": 26.78,
+  "sharpe": 1.361,
   "max_drawdown_pct": -21.32,
-  "turnover_pct": 4596.83,
-  "estimated_cost_pct": 9.1937,
+  "turnover_pct": 4585.78,
+  "estimated_cost_pct": 9.1716,
   "avg_gross_exposure": 0.946,
   "avg_overlay_positions": 3.0,
-  "avg_effective_overlay_names": 2.589,
+  "avg_effective_overlay_names": 2.584,
   "max_sector_overlay_weight": 0.4056,
   "top_ticker_overlay_contributor": "NVDA",
-  "top_ticker_overlay_contribution_share": 0.211,
+  "top_ticker_overlay_contribution_share": 0.219,
   "n_rebalances": 210,
   "boundary_mode": "full_history",
   "evaluation_trade_start": "2010-01-04",
@@ -91,18 +91,18 @@
   "benchmark_comparisons": {
     "SPY": {
       "benchmark_return_pct": 791.54,
-      "alpha_pct": 4793.47,
-      "nw_tstat_vs_benchmark": 4.703
+      "alpha_pct": 4328.75,
+      "nw_tstat_vs_benchmark": 4.501
     },
     "QQQ": {
       "benchmark_return_pct": 1651.01,
-      "alpha_pct": 3934.0,
-      "nw_tstat_vs_benchmark": 3.084
+      "alpha_pct": 3469.29,
+      "nw_tstat_vs_benchmark": 2.857
     },
     "BLEND": {
       "benchmark_return_pct": 1135.33,
-      "alpha_pct": 4449.68,
-      "nw_tstat_vs_benchmark": 4.241
+      "alpha_pct": 3984.97,
+      "nw_tstat_vs_benchmark": 4.006
     }
   },
   "benchmark_stats": {
@@ -146,26 +146,26 @@
     },
     "2023_2026": {
       "data_available": true,
-      "return_pct": 227.82,
+      "return_pct": 201.02,
       "benchmark_return_pct": 127.1,
-      "alpha_pct": 100.72
+      "alpha_pct": 73.93
     }
   },
   "holdout_2023_2026": {
     "data_available": true,
-    "strategy_return_pct": 227.82,
+    "strategy_return_pct": 201.02,
     "spy_return_pct": 97.89,
-    "alpha_vs_spy_pct": 129.93,
+    "alpha_vs_spy_pct": 103.13,
     "qqq_return_pct": 155.94,
-    "alpha_vs_qqq_pct": 71.88,
+    "alpha_vs_qqq_pct": 45.08,
     "blend_return_pct": 127.1,
-    "alpha_vs_blend_pct": 100.72
+    "alpha_vs_blend_pct": 73.93
   },
   "yearly_alpha_pct": {
     "2010": -0.79,
     "2011": -2.72,
     "2012": 13.4,
-    "2013": 8.93,
+    "2013": 8.92,
     "2014": 16.79,
     "2015": 3.5,
     "2016": 33.48,
@@ -178,7 +178,7 @@
     "2023": 7.74,
     "2024": 27.74,
     "2025": 1.84,
-    "2026": 14.81
+    "2026": 4.47
   },
   "cost_stress": 2.0,
   "core_satellite_gate_results": {
@@ -723,7 +723,7 @@
     "year_alpha_concentration_pass": true,
     "turnover_adjusted_alpha_pass": true,
     "drawdown_vs_qqq_pass": true,
-    "max_positive_year_alpha_share": 0.163,
+    "max_positive_year_alpha_share": 0.172,
     "holdout_2023_2026_vs_qqq_pass": true,
     "holdout_2023_2026_vs_blend_pass": true,
     "single_name_weight_cap_pass": true,
