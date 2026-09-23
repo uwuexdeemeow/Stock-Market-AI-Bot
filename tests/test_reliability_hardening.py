@@ -33,6 +33,76 @@ def test_validation_file_hash_ignores_cross_platform_line_endings(tmp_path):
     assert validation_bundle.file_sha256(windows_copy) == validation_bundle.file_sha256(linux_copy)
 
 
+def test_dataset_identity_tracks_etf_refresh_after_research_manifest(tmp_path):
+    """A refreshed QQQ bar invalidates reports stamped before that refresh."""
+    manifest = tmp_path / "research_run_manifest.json"
+    manifest.write_text(
+        json.dumps({"input_data": {"combined_sha256": "unchanged-research-inputs"}}),
+        encoding="utf-8",
+    )
+    prices = tmp_path / "data"
+    prices.mkdir()
+    for symbol in validation_bundle.DEFAULT_ETFS:
+        (prices / f"{symbol}.parquet").write_bytes(f"{symbol}-old-bar".encode())
+
+    before = validation_bundle.load_dataset_context(manifest, market_data_dir=prices)
+    (prices / "QQQ.parquet").write_bytes(b"QQQ-new-bar")
+    after = validation_bundle.load_dataset_context(manifest, market_data_dir=prices)
+    assert before["research_fingerprint"] == after["research_fingerprint"]
+    assert before["dataset_fingerprint"] != after["dataset_fingerprint"]
+    old_report = tmp_path / "old_stress.json"
+    old_report.write_text(
+        json.dumps({
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "validation_context": {
+                "config_fingerprint": "approved-config",
+                "dataset_fingerprint": before["dataset_fingerprint"],
+            },
+        }),
+        encoding="utf-8",
+    )
+    record = validation_bundle.report_validation_record(
+        "execution_stress",
+        old_report,
+        expected_config_fingerprint="approved-config",
+        expected_dataset_fingerprint=after["dataset_fingerprint"],
+    )
+    assert record["match"] is False
+    assert "dataset_fingerprint_mismatch" in record["reasons"]
+
+    (prices / "SPY.parquet").unlink()
+    incomplete = validation_bundle.load_dataset_context(manifest, market_data_dir=prices)
+    assert incomplete["dataset_fingerprint"] == ""
+    assert incomplete["reason"] == "market_reference_prices_missing:SPY"
+
+
+def test_execution_stress_row_explains_rejected_holdout():
+    """A failed stress scenario must name the gate that rejected it."""
+    metrics = {
+        "benchmark_comparisons": {
+            symbol: {"alpha_pct": 1.0} for symbol in ("SPY", "QQQ", "BLEND")
+        },
+        "core_satellite_gate_results": {
+            "all_pass": False,
+            "alpha_vs_qqq_pass": True,
+            "holdout_2023_2026_vs_qqq_pass": False,
+        },
+        "holdout_2023_2026": {
+            "alpha_vs_qqq_pct": -13.01,
+            "alpha_vs_blend_pct": 16.42,
+        },
+        "total_return_pct": 10.0,
+        "cagr_pct": 2.0,
+        "sharpe": 1.0,
+        "max_drawdown_pct": -25.0,
+        "turnover_pct": 10.0,
+        "estimated_cost_pct": 1.0,
+    }
+    row = execution_stress._row("delay_1d", metrics, {"entry_delay_days": 1})
+    assert row["paper_ready"] is False
+    assert row["failed_gates"] == ["holdout_2023_2026_vs_qqq_pass"]
+
+
 def _passing_walkforward_result() -> dict:
     """Return the smallest result that clears every reliability approval gate."""
     return {

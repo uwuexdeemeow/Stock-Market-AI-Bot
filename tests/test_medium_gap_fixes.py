@@ -296,6 +296,26 @@ def test_medium_risk_review_blocks_execution_drawdown_failure():
     assert "execution_stress_review_failed" in review["reasons"]
 
 
+def test_medium_risk_review_names_failed_delayed_entry_gate():
+    execution = _passing_execution()
+    execution["rows"][0].update({
+        "scenario": "delay_1d",
+        "paper_ready": False,
+        "failed_gates": ["holdout_2023_2026_vs_qqq_pass"],
+        "holdout_alpha_vs_qqq_pct": -13.01,
+    })
+    review = nwf.medium_risk_review_from_reports(
+        survivorship=_passing_survivorship(),
+        execution=execution,
+        factor_decay={"edge_health_status": "pass"},
+    )
+    assert review["execution_stress_review"]["failed_scenario_details"] == [{
+        "scenario": "delay_1d",
+        "failed_gates": ["holdout_2023_2026_vs_qqq_pass"],
+        "holdout_alpha_vs_qqq_pct": -13.01,
+    }]
+
+
 def test_apply_medium_risk_review_removes_approved_live_config_when_failed():
     summary = {
         "live_config_approval": {"approved": True, "reasons": []},

@@ -155,6 +155,16 @@ def evaluate_medium_risk_review(
         "execution_stress_review": {
             "pass": execution_pass,
             "failed_scenarios": len(exec_failed),
+            # PLAIN ENGLISH: keep the names and failed gates beside the count
+            # so the Actions log explains a real strategy rejection directly.
+            "failed_scenario_details": [
+                {
+                    "scenario": row.get("scenario"),
+                    "failed_gates": list(row.get("failed_gates") or []),
+                    "holdout_alpha_vs_qqq_pct": row.get("holdout_alpha_vs_qqq_pct"),
+                }
+                for row in exec_failed
+            ],
             "worst_stressed_drawdown_pct": round(worst_dd, 4),
         },
         "factor_decay_review": {

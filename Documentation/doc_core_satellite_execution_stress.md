@@ -44,6 +44,9 @@ The JSON report includes the exact strategy and dataset fingerprints. The
 validation bundle rejects a report from an older config or data snapshot.
 Volatility mode, leverage choice, and risk-control mode are included in that
 identity so a report cannot be mislabeled as a different strategy.
+Each scenario also lists `failed_gates`. For example, a delayed entry may
+trail QQQ during the 2023–2026 holdout even when its full-history return is
+positive. This is a strategy result, not a missing-price error.
 
 ## September 2026 submission and historical-data repair
 

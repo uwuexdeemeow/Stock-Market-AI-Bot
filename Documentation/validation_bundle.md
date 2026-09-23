@@ -6,6 +6,13 @@ Their checksums may change with new market sessions, but their configuration and
 dataset fingerprints, age, and health must all pass. Routine evidence refresh
 therefore does not rewrite strategy approval or weaken its gates.
 
+The dataset fingerprint combines the research manifest with the current SPY,
+QQQ, TQQQ, BIL, IEF, and GLD price files. These ETF files are checked when a
+report is made or read because the ETF refresh runs after research writes its
+manifest. If an ETF bar changes later, an older stress report no longer matches
+the data, even when the manifest itself has not changed. Missing ETF files
+leave the fingerprint empty and block paper approval.
+
 When `--run-robustness` is used, the bundle builder generates a research-only
 signal from the newly walk-forward-approved configuration before rerunning the
 execution, survivorship, and factor-decay reports. This breaks the safe

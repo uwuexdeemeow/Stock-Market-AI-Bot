@@ -19,7 +19,9 @@ from typing import Any
 
 import pandas as pd
 
+from refresh_etf_data import DEFAULT_ETFS
 from safe_io import atomic_write_csv, atomic_write_json, atomic_write_text
+from settings import DATA_DIR
 from universe_membership import membership_status
 from robustness_review import (
     DEFAULT_ROBUSTNESS_REPORT_PATHS,
@@ -118,8 +120,12 @@ def _git_commit() -> str:
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
-def load_dataset_context(path: Path = DEFAULT_RESEARCH_MANIFEST_PATH) -> dict:
-    """Read the research manifest that identifies the parquet input snapshot."""
+def load_dataset_context(
+    path: Path = DEFAULT_RESEARCH_MANIFEST_PATH,
+    *,
+    market_data_dir: Path | None = None,
+) -> dict:
+    """Identify both the research inputs and the ETF prices used for testing."""
     if not path.exists():
         return {
             "manifest_path": str(path),
@@ -137,15 +143,47 @@ def load_dataset_context(path: Path = DEFAULT_RESEARCH_MANIFEST_PATH) -> dict:
             "reason": f"research_manifest_invalid:{exc.__class__.__name__}",
         }
     input_data = payload.get("input_data", {}) or {}
+    research_fingerprint = str(input_data.get("combined_sha256", ""))
+    data_dir = Path(DATA_DIR) if market_data_dir is None else Path(market_data_dir)
+    market_fingerprints: dict[str, str] = {}
+    missing_market_prices: list[str] = []
+    for symbol in DEFAULT_ETFS:
+        etf_path = data_dir / f"{symbol}.parquet"
+        try:
+            # PLAIN ENGLISH: read the current ETF file, not the earlier copy
+            # described by the research manifest. The ETF refresh runs later.
+            digest = hashlib.sha256()
+            with etf_path.open("rb") as price_file:
+                for block in iter(lambda: price_file.read(1024 * 1024), b""):
+                    digest.update(block)
+            market_fingerprints[symbol] = digest.hexdigest()
+        except OSError:
+            missing_market_prices.append(symbol)
+    # PLAIN ENGLISH: changing even one ETF bar gives all new robustness reports
+    # a different ID. An old passing stress report cannot approve today's bars.
+    combined_fingerprint = (
+        sha256_value({"research": research_fingerprint, "etfs": market_fingerprints})
+        if research_fingerprint and not missing_market_prices
+        else ""
+    )
+    if not research_fingerprint:
+        reason = "research_fingerprint_missing"
+    elif missing_market_prices:
+        reason = "market_reference_prices_missing:" + ",".join(missing_market_prices)
+    else:
+        reason = ""
     return {
         "manifest_path": str(path),
         "manifest_exists": True,
         "manifest_sha256": file_sha256(path),
-        "dataset_fingerprint": str(input_data.get("combined_sha256", "")),
+        "dataset_fingerprint": combined_fingerprint,
+        "research_fingerprint": research_fingerprint,
+        "market_reference_fingerprints": market_fingerprints,
+        "missing_market_reference_prices": missing_market_prices,
         "file_count": int(input_data.get("file_count", 0) or 0),
         "fingerprinted_count": int(input_data.get("fingerprinted_count", 0) or 0),
         "generated_at": payload.get("generated_at_utc"),
-        "reason": "" if input_data.get("combined_sha256") else "dataset_fingerprint_missing",
+        "reason": reason,
     }
 
 

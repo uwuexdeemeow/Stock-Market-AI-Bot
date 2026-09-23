@@ -34,3 +34,8 @@ approval states at the top and selected-strategy levels. A rejected record
 cannot be overridden by another approval. Rebuilding copies the new bundle's
 actual decision to both levels; rejected evidence remains rejected. No lock,
 freeze, order submission or real-capital approval follows from this script.
+
+The current dataset identity includes the live SPY, QQQ, TQQQ, BIL, IEF, and
+GLD parquet files as well as the research manifest. An ETF refresh can happen
+after the manifest was written. When one of those prices changes, yesterday's
+execution-stress result no longer counts as evidence for today's trade.

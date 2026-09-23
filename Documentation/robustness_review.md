@@ -14,6 +14,8 @@ This shared module reads survivorship, execution-stress, and factor-decay JSON
 reports and gives one fail-closed answer. Factor status must be `pass` or
 `advisory`; `warning`, `block`, missing evidence, and material stress failures
 do not pass.
+The execution section lists failed scenarios and their gate names, so a failed
+Factor Refresh run shows the exact reason for the rejection.
 
 Survivorship has a separate, stricter capital gate. It requires all failed-name
 histories, a complete point-in-time universe, adjusted score of at least 0.85,

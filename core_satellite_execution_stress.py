@@ -82,6 +82,12 @@ def _row(name: str, metrics: dict, config: dict) -> dict:
         "turnover_pct": metrics["turnover_pct"],
         "estimated_cost_pct": metrics["estimated_cost_pct"],
         "paper_ready": bool(gates["all_pass"]),
+        # PLAIN ENGLISH: list the exact safety checks that rejected a stress
+        # case, so a failed workflow does not hide the reason behind False.
+        "failed_gates": [
+            key for key, passed in gates.items()
+            if key != "all_pass" and key.endswith("_pass") and not bool(passed)
+        ],
     }
 
 
@@ -156,6 +162,7 @@ def main() -> None:
         "alpha_vs_qqq_pct",
         "alpha_vs_blend_pct",
         "paper_ready",
+        "failed_gates",
     ]
     print(out[display_cols].to_string(index=False))
 

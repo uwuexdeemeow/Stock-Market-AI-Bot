@@ -102,7 +102,9 @@ are review-only, and no readiness result can approve real capital.
    relaxed fallbacks, compares selection with the frozen baseline, and measures
    turnover and cost separately.
 4. Execution-stress, factor-decay, and survivorship reports carry matching
-   strategy and dataset fingerprints.
+   strategy and dataset fingerprints. The dataset identity also hashes the
+   current ETF reference-price files after their refresh; a report made before
+   an ETF bar changed cannot authorize the new daily signal.
 5. `validation_bundle.py` combines config, Git commit, dataset, folds, analyzer,
    robustness reports, and approval into one checksummed source of truth.
 6. `core_satellite_alpha.py` verifies the bundle and creates paper signals.
