@@ -28,7 +28,10 @@ def test_shadow_validation_bundle_matches_shadow_config(tmp_path, monkeypatch):
     prices = tmp_path / "data"
     prices.mkdir()
     for symbol in validation_bundle.DEFAULT_ETFS:
-        (prices / f"{symbol}.parquet").write_bytes(f"{symbol}-test-prices".encode())
+        pd.DataFrame(
+            {column: [100.0] for column in ("Open", "High", "Low", "Close", "Volume")},
+            index=pd.to_datetime(["2026-09-01"]),
+        ).to_parquet(prices / f"{symbol}.parquet")
     monkeypatch.setattr(validation_bundle, "DATA_DIR", str(prices))
     payload = spj.build_shadow_live_payload({"approvals": {"core-alpha": {"thresholds": {}}}})
     bundle = spj.write_shadow_validation_bundle(

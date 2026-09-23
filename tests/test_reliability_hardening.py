@@ -42,14 +42,38 @@ def test_dataset_identity_tracks_etf_refresh_after_research_manifest(tmp_path):
     )
     prices = tmp_path / "data"
     prices.mkdir()
+    session_dates = pd.to_datetime(["2026-09-21", "2026-09-22", "2026-09-23"])
     for symbol in validation_bundle.DEFAULT_ETFS:
-        (prices / f"{symbol}.parquet").write_bytes(f"{symbol}-old-bar".encode())
+        pd.DataFrame(
+            {
+                "Open": [99.0, 100.0, 101.0],
+                "High": [101.0, 102.0, 103.0],
+                "Low": [98.0, 99.0, 100.0],
+                "Close": [100.0, 101.0, 102.0],
+                "Volume": [1000, 1100, 1200],
+            },
+            index=session_dates,
+        ).to_parquet(prices / f"{symbol}.parquet")
 
-    before = validation_bundle.load_dataset_context(manifest, market_data_dir=prices)
-    (prices / "QQQ.parquet").write_bytes(b"QQQ-new-bar")
-    after = validation_bundle.load_dataset_context(manifest, market_data_dir=prices)
+    before = validation_bundle.load_dataset_context(
+        manifest, market_data_dir=prices, as_of=pd.Timestamp("2026-09-22")
+    )
+    qqq_path = prices / "QQQ.parquet"
+    qqq = pd.read_parquet(qqq_path)
+    qqq.loc[pd.Timestamp("2026-09-22"), "Close"] = 103.0
+    qqq.to_parquet(qqq_path)
+    after = validation_bundle.load_dataset_context(
+        manifest, market_data_dir=prices, as_of=pd.Timestamp("2026-09-22")
+    )
     assert before["research_fingerprint"] == after["research_fingerprint"]
     assert before["dataset_fingerprint"] != after["dataset_fingerprint"]
+    # A partial bar from the next, unfinished session must not change the ID.
+    qqq.loc[pd.Timestamp("2026-09-23"), "Close"] = 104.0
+    qqq.to_parquet(qqq_path)
+    partial = validation_bundle.load_dataset_context(
+        manifest, market_data_dir=prices, as_of=pd.Timestamp("2026-09-22")
+    )
+    assert partial["dataset_fingerprint"] == after["dataset_fingerprint"]
     old_report = tmp_path / "old_stress.json"
     old_report.write_text(
         json.dumps({
@@ -71,7 +95,9 @@ def test_dataset_identity_tracks_etf_refresh_after_research_manifest(tmp_path):
     assert "dataset_fingerprint_mismatch" in record["reasons"]
 
     (prices / "SPY.parquet").unlink()
-    incomplete = validation_bundle.load_dataset_context(manifest, market_data_dir=prices)
+    incomplete = validation_bundle.load_dataset_context(
+        manifest, market_data_dir=prices, as_of=pd.Timestamp("2026-09-22")
+    )
     assert incomplete["dataset_fingerprint"] == ""
     assert incomplete["reason"] == "market_reference_prices_missing:SPY"
 

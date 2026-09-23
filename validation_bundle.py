@@ -22,6 +22,7 @@ import pandas as pd
 from refresh_etf_data import DEFAULT_ETFS
 from safe_io import atomic_write_csv, atomic_write_json, atomic_write_text
 from settings import DATA_DIR
+from signal_freshness import latest_completed_us_trading_day
 from universe_membership import membership_status
 from robustness_review import (
     DEFAULT_ROBUSTNESS_REPORT_PATHS,
@@ -124,6 +125,7 @@ def load_dataset_context(
     path: Path = DEFAULT_RESEARCH_MANIFEST_PATH,
     *,
     market_data_dir: Path | None = None,
+    as_of: pd.Timestamp | None = None,
 ) -> dict:
     """Identify both the research inputs and the ETF prices used for testing."""
     if not path.exists():
@@ -145,19 +147,35 @@ def load_dataset_context(
     input_data = payload.get("input_data", {}) or {}
     research_fingerprint = str(input_data.get("combined_sha256", ""))
     data_dir = Path(DATA_DIR) if market_data_dir is None else Path(market_data_dir)
+    completed_day = pd.Timestamp(
+        latest_completed_us_trading_day() if as_of is None else as_of
+    ).normalize()
     market_fingerprints: dict[str, str] = {}
     missing_market_prices: list[str] = []
     for symbol in DEFAULT_ETFS:
         etf_path = data_dir / f"{symbol}.parquet"
         try:
-            # PLAIN ENGLISH: read the current ETF file, not the earlier copy
-            # described by the research manifest. The ETF refresh runs later.
-            digest = hashlib.sha256()
-            with etf_path.open("rb") as price_file:
-                for block in iter(lambda: price_file.read(1024 * 1024), b""):
-                    digest.update(block)
-            market_fingerprints[symbol] = digest.hexdigest()
-        except OSError:
+            # PLAIN ENGLISH: a provider may add today's unfinished bar after
+            # market open. Backtests cannot use it, so fingerprint only fully
+            # completed sessions and the five price/volume fields they read.
+            prices = pd.read_parquet(etf_path)
+            required = ("Open", "High", "Low", "Close", "Volume")
+            if prices.empty or any(column not in prices for column in required):
+                raise ValueError("ETF prices missing required rows or columns")
+            dates = pd.DatetimeIndex(pd.to_datetime(prices.index, errors="coerce"))
+            if dates.tz is not None:
+                dates = dates.tz_localize(None)
+            completed = dates.notna() & (dates.normalize() <= completed_day)
+            prices = prices.loc[completed, list(required)].copy()
+            prices.index = dates[completed].normalize()
+            if prices.empty or not prices.index.is_unique:
+                raise ValueError("ETF completed sessions missing or duplicated")
+            prices = prices.sort_index().apply(pd.to_numeric, errors="coerce")
+            stable_prices = prices.to_json(
+                orient="split", date_format="iso", date_unit="ns", double_precision=15
+            )
+            market_fingerprints[symbol] = hashlib.sha256(stable_prices.encode("utf-8")).hexdigest()
+        except (OSError, ValueError, TypeError, KeyError, ImportError):
             missing_market_prices.append(symbol)
     # PLAIN ENGLISH: changing even one ETF bar gives all new robustness reports
     # a different ID. An old passing stress report cannot approve today's bars.
@@ -179,6 +197,7 @@ def load_dataset_context(
         "dataset_fingerprint": combined_fingerprint,
         "research_fingerprint": research_fingerprint,
         "market_reference_fingerprints": market_fingerprints,
+        "market_reference_completed_day": str(completed_day.date()),
         "missing_market_reference_prices": missing_market_prices,
         "file_count": int(input_data.get("file_count", 0) or 0),
         "fingerprinted_count": int(input_data.get("fingerprinted_count", 0) or 0),
