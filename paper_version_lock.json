@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "frozen_at": "2026-09-23T13:34:30+00:00",
+  "frozen_at": "2026-09-23T13:54:39+00:00",
   "epoch_id": "paper-v20260910T045130Z",
   "epoch_started_at": "2026-09-10T04:51:30+00:00",
-  "git_commit_at_freeze": "b1027deaa73be03fb0ea2dad6d82125f311a0fcc",
-  "logic_fingerprint": "fb11e48032e48771cf332f4ae1474845a9ec1d4d4440cd4ad5d0c0220d8a5327",
+  "git_commit_at_freeze": "a9f86054f5bac9fb329244289061ae397ade6780",
+  "logic_fingerprint": "35cc442d16f9106636584414c1111c94b2b59463ba6e732e4482783d15615539",
   "files": {
-    ".github/workflows/daily_paper_trading.yml": "fc8c6735e98172cdf27d967b48d508af9f3a610d0bea8a6b1922c55926d9a3fa",
+    ".github/workflows/daily_paper_trading.yml": "63d3a384bf17e319bfe4b4b1d601f05554ac65e674984efa3a4d74c8831a502f",
     ".github/workflows/factor_data_refresh.yml": "b54476a2aa7b4c6552fee1d1c517d4ba7e80ab4dd6d3dd66f1472069feb712ba",
     ".github/workflows/independent_workflow_watchdog.yml": "98bdabe0e58eaaad746a661da193dfe02147c3643755dcd6d8fb1caf310ddd4c",
     ".github/workflows/post_market_execution_quality.yml": "3eed7defcebb8feef822373fd2be8f3036cc89d162ae1877be92598ade6887a0",
