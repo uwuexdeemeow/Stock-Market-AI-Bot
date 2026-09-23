@@ -39,9 +39,15 @@ Use `--strict` in automation. It exits non-zero if any ETF remains missing,
 stale, partial, or otherwise unhealthy after validation.
 
 If one source returns a dated row with a blank close, the downloader tries
-another adjusted-price source. If none provides a complete bar, the refresh
-fails before research can use the bad file; it never guesses tomorrow's price
-or silently treats a prior session as yesterday's close.
+another adjusted-price source. If both Yahoo paths are incomplete, an optional
+Alpaca IEX backup can replace only the latest completed day's missing bar.
+The backup uses `adjustment=all` and must agree with the primary source on at
+least three recent overlapping closes within 0.5% each. Its single-exchange
+price is therefore a guarded fallback, not an exact consolidated close.
+Set `ALPACA_API_KEY` and `ALPACA_SECRET_KEY` for this backup; GitHub passes them
+only to the ETF refresh step. If no trustworthy backup exists, the refresh
+fails before research uses the bad file. It never guesses tomorrow's price or
+silently treats a prior session as yesterday's close.
 
 ## Key Concepts
 

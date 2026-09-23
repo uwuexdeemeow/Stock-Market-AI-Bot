@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pandas as pd
 import numpy as np
+import requests
 
 from settings import DATA_DIR, LOG_DIR
 import data_provider
@@ -142,6 +144,79 @@ def _read_local(symbol: str) -> pd.DataFrame:
         return pd.DataFrame()
 
 
+def _repair_recent_bar_from_alpaca(symbol: str, frame: pd.DataFrame) -> pd.DataFrame:
+    """Use a checked, adjusted Alpaca bar only for a missing completed session."""
+    key = os.environ.get("ALPACA_API_KEY", "").strip()
+    secret = os.environ.get("ALPACA_SECRET_KEY", "").strip()
+    if not key or not secret or frame.empty:
+        return pd.DataFrame()
+    target = _completed_day()
+    candidate = frame.copy()
+    candidate.index = pd.DatetimeIndex(candidate.index).tz_localize(None).normalize()
+    if not candidate.index.is_unique:
+        return pd.DataFrame()
+    # Repair only a missing latest bar. Earlier gaps need a full source refresh,
+    # not a one-day patch that could hide a broken history.
+    older = candidate.loc[candidate.index < target]
+    if not _validate_etf_frame(older, symbol=symbol, max_age_business_days=5)["ok"]:
+        return pd.DataFrame()
+    try:
+        response = requests.get(
+            f"https://data.alpaca.markets/v2/stocks/{symbol}/bars",
+            headers={"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret},
+            params={
+                "timeframe": "1Day",
+                "start": (target - pd.Timedelta(days=20)).strftime("%Y-%m-%d"),
+                "end": (target + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
+                "adjustment": "all",
+                "feed": "iex",
+            },
+            timeout=20,
+        )
+        response.raise_for_status()
+        bars = response.json().get("bars") or []
+    except (requests.RequestException, ValueError) as exc:
+        print(f"  WARNING: Alpaca ETF backup unavailable for {symbol}: {type(exc).__name__}")
+        return pd.DataFrame()
+    if not bars:
+        return pd.DataFrame()
+    backup = pd.DataFrame(bars)
+    backup.index = pd.to_datetime(backup["t"], utc=True).dt.tz_localize(None).dt.normalize()
+    backup = backup.loc[~backup.index.duplicated(keep="last")]
+    if target not in backup.index:
+        return pd.DataFrame()
+    # IEX is one exchange, so compare its adjusted closes with the primary
+    # source on several shared days before trusting its missing-day price.
+    primary_close = pd.to_numeric(older["Close"], errors="coerce")
+    backup_close = pd.to_numeric(backup["c"], errors="coerce")
+    common = primary_close.index.intersection(backup.index)
+    common = common[common < target][-5:]
+    if len(common) < 3:
+        return pd.DataFrame()
+    disagreement = (primary_close.loc[common] - backup_close.loc[common]).abs() / primary_close.loc[common]
+    if not bool(np.isfinite(disagreement).all()) or bool((disagreement > 0.005).any()):
+        print(f"  WARNING: Alpaca and primary ETF prices disagree for {symbol}; refusing backup")
+        return pd.DataFrame()
+    bar = backup.loc[target]
+    prices = pd.to_numeric(bar[["o", "h", "l", "c"]], errors="coerce")
+    if not bool(np.isfinite(prices).all()) or not (0 < prices["l"] <= min(prices["o"], prices["c"]) <= max(prices["o"], prices["c"]) <= prices["h"]):
+        return pd.DataFrame()
+    # Preserve the primary source's full-market volume when it is present;
+    # IEX volume represents only one exchange.
+    old_volume = pd.to_numeric(candidate.loc[target, "Volume"], errors="coerce") if target in candidate.index else np.nan
+    volume = old_volume if np.isfinite(old_volume) and old_volume > 0 else float(bar["v"])
+    if not np.isfinite(volume) or volume <= 0:
+        return pd.DataFrame()
+    candidate.loc[target, ["Open", "High", "Low", "Close", "Volume"]] = [
+        float(prices["o"]), float(prices["h"]), float(prices["l"]), float(prices["c"]), float(volume),
+    ]
+    candidate = candidate.sort_index()
+    if not _validate_etf_frame(candidate, symbol=symbol, max_age_business_days=0)["ok"]:
+        return pd.DataFrame()
+    print(f"  INFO: Restored {symbol} {target.date()} bar from cross-checked Alpaca IEX data")
+    return candidate
+
+
 def _download(symbol: str) -> pd.DataFrame:
     """
     Download ETF price data with automatic fallback across providers.
@@ -149,16 +224,30 @@ def _download(symbol: str) -> pd.DataFrame:
     PLAIN ENGLISH: Tries yfinance first, falls back to yahooquery, then Stooq.
     This way the pipeline doesn't break when one provider is down.
     """
+    incomplete: list[tuple[str, pd.DataFrame]] = []
+
+    def accept(candidate: pd.DataFrame) -> bool:
+        simple = flatten_yf(candidate.copy())
+        valid = _validate_etf_frame(simple, symbol=symbol, max_age_business_days=0)["ok"]
+        if not valid:
+            incomplete.append((str(candidate.attrs.get("price_provider", "unknown")), simple))
+        return valid
+
     try:
         # Reject incomplete provider results before the provider layer settles
         # on a source. A second provider can then supply a usable completed bar.
         frame = download_single(
             symbol, period="max", auto_adjust=True,
-            accept_frame=lambda candidate: _validate_etf_frame(
-                flatten_yf(candidate), symbol=symbol, max_age_business_days=0,
-            )["ok"],
+            accept_frame=accept,
         )
     except RuntimeError as exc:
+        # When both Yahoo paths lack the latest price, a checked Alpaca bar can
+        # complete the otherwise-good history without rewriting older prices.
+        for provider, partial in incomplete:
+            repaired = _repair_recent_bar_from_alpaca(symbol, partial)
+            if not repaired.empty:
+                data_provider.provider_for_ticker[symbol] = f"{provider}+alpaca_iex"
+                return repaired
         # Show which sources were rejected so a future data outage is clear in
         # the workflow log, even though the saved-file health check runs next.
         print(f"  WARNING: No complete adjusted price history for {symbol}: {exc}")

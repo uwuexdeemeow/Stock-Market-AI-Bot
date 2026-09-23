@@ -244,6 +244,10 @@ jobs:
         run: python3 refresh_etf_data.py --refresh --force --strict
         env:
           PYTHONUNBUFFERED: "1"
+          # Only this step sees broker-data credentials for a checked backup
+          # bar; research and factor-training steps do not need those secrets.
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
 
       # Keep each robustness program in its own named step. If one exits with
       # an error, GitHub's public job metadata now identifies the exact program

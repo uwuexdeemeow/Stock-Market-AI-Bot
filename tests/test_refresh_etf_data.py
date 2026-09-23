@@ -90,6 +90,64 @@ def test_etf_download_tries_next_provider_after_incomplete_price(monkeypatch):
     assert data_provider.provider_for_ticker["QQQ"] == "yahooquery"
 
 
+def test_etf_download_uses_checked_alpaca_bar_when_both_sources_incomplete(monkeypatch):
+    # A single missing completed bar may be recovered, but only after the
+    # ordinary adjusted-price providers have both failed their checks.
+    idx = pd.bdate_range(end="2026-09-22", periods=260)
+    incomplete = _etf_frame(idx)
+    incomplete.loc[idx[-1], "Close"] = np.nan
+    complete = _etf_frame(idx)
+    monkeypatch.setattr(refresh_etf_data, "_completed_day", lambda: idx[-1])
+    monkeypatch.setattr(data_provider, "_provider_order", lambda: ["yfinance", "yahooquery"])
+    monkeypatch.setattr(data_provider, "_try_yfinance", lambda *args, **kwargs: incomplete)
+    monkeypatch.setattr(data_provider, "_try_yahooquery", lambda *args, **kwargs: incomplete)
+    monkeypatch.setattr(refresh_etf_data, "_repair_recent_bar_from_alpaca", lambda symbol, frame: complete)
+
+    downloaded = refresh_etf_data._download("QQQ")
+
+    assert downloaded.loc[idx[-1], "Close"] == complete.loc[idx[-1], "Close"]
+    assert data_provider.provider_for_ticker["QQQ"] == "yfinance+alpaca_iex"
+
+
+def test_alpaca_backup_requires_matching_recent_adjusted_prices(monkeypatch):
+    idx = pd.bdate_range(end="2026-09-22", periods=260)
+    complete = _etf_frame(idx)
+    incomplete = complete.copy()
+    incomplete.loc[idx[-1], ["Open", "High", "Low", "Close"]] = np.nan
+    monkeypatch.setattr(refresh_etf_data, "_completed_day", lambda: idx[-1])
+    monkeypatch.setenv("ALPACA_API_KEY", "test-key")
+    monkeypatch.setenv("ALPACA_SECRET_KEY", "test-secret")
+
+    class FakeResponse:
+        def __init__(self, multiplier):
+            self.multiplier = multiplier
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"bars": [
+                {
+                    "t": f"{day.date()}T04:00:00Z",
+                    "o": float(complete.loc[day, "Open"] * self.multiplier),
+                    "h": float(complete.loc[day, "High"] * self.multiplier),
+                    "l": float(complete.loc[day, "Low"] * self.multiplier),
+                    "c": float(complete.loc[day, "Close"] * self.multiplier),
+                    "v": 1000,
+                }
+                for day in idx[-6:]
+            ]}
+
+    monkeypatch.setattr(refresh_etf_data.requests, "get", lambda *args, **kwargs: FakeResponse(1.0))
+    repaired = refresh_etf_data._repair_recent_bar_from_alpaca("QQQ", incomplete)
+    assert repaired.loc[idx[-1], "Close"] == complete.loc[idx[-1], "Close"]
+    assert repaired.loc[idx[-1], "Volume"] == incomplete.loc[idx[-1], "Volume"]
+
+    # A different price scale is not a fallback; it must block the refresh.
+    monkeypatch.setattr(refresh_etf_data.requests, "get", lambda *args, **kwargs: FakeResponse(1.02))
+    assert refresh_etf_data._repair_recent_bar_from_alpaca("QQQ", incomplete).empty
+
+
 def test_etf_refresh_does_not_publish_incomplete_download(tmp_path, monkeypatch):
     idx = pd.bdate_range(end="2026-09-22", periods=260)
     local = _etf_frame(idx[:-1])
