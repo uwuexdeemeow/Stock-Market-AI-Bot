@@ -7,8 +7,8 @@ Historical claims require corrected rebuilding. Shadow candidate is separate fro
 | Source | Complete | Measured fills | Sessions |
 | --- | --- | --- | --- |
 | local_snapshot | False | None | None |
-| signals/latest | True | 15 | 6 |
-| workflow_artifact:35734424806:10696884127:failure | False | 15 | 6 |
+| signals/latest | True | 16 | 7 |
+| workflow_artifact:35868327841:10755687071:cancelled | False | 16 | 7 |
 
 Replay evidence scope: unspecified_in_source.
 Replay certification concerns interval accounting only; it does not approve the strategy or prove trading performance.
@@ -25,7 +25,6 @@ Replay certification concerns interval accounting only; it does not approve the 
 - required evidence missing:broker truth.json (local_snapshot): Recover matching evidence and rerun existing validation; do not edit approval flags.
 - required evidence missing:paper validation epoch status.json (local_snapshot): Recover matching evidence and rerun existing validation; do not edit approval flags.
 - snapshot timestamp missing (local_snapshot): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- signal freshness failed (signals/latest): Recover matching evidence and rerun existing validation; do not edit approval flags.
 - execution observations insufficient or failed (signals/latest): Recover matching evidence and rerun existing validation; do not edit approval flags.
 - epoch check failed:trading days (signals/latest): Recover matching evidence and rerun existing validation; do not edit approval flags.
 - epoch check failed:accepted orders (signals/latest): Recover matching evidence and rerun existing validation; do not edit approval flags.
@@ -34,28 +33,35 @@ Replay certification concerns interval accounting only; it does not approve the 
 - epoch check failed:bad slippage rate (signals/latest): Recover matching evidence and rerun existing validation; do not edit approval flags.
 - epoch check failed:stage comparison ready (signals/latest): Recover matching evidence and rerun existing validation; do not edit approval flags.
 - epoch check failed:two stage design (signals/latest): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- complete run manifest missing (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- required evidence missing:core satellite alpha orders.csv (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- config fingerprint missing (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- configuration fingerprint mismatch (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- deployed configuration missing (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- deployment state missing (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- deployment status conflict (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- paper approval not unanimous (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- robustness review missing (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- strategy bundle reference mismatch (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- top bundle reference mismatch (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- validation bundle hash missing (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- validation bundle schema outdated (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- signal freshness failed (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- execution observations insufficient or failed (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- epoch check failed:trading days (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- epoch check failed:accepted orders (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- epoch check failed:classified sessions (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- epoch check failed:average slippage (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- epoch check failed:bad slippage rate (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- epoch check failed:stage comparison ready (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
-- epoch check failed:two stage design (workflow_artifact:35734424806:10696884127:failure): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- evidence checksum mismatch:alpaca execution scorecard.json (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- evidence checksum mismatch:alpaca paper health.json (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- evidence checksum mismatch:broker truth.json (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- evidence checksum mismatch:paper validation epoch status.json (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- evidence run mismatch:alpaca execution scorecard.json (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- evidence run mismatch:alpaca paper health.json (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- evidence run mismatch:broker truth.json (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- evidence run mismatch:paper validation epoch status.json (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- required evidence missing:core satellite alpha orders.csv (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- required evidence missing:core satellite alpha signal.csv (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- config fingerprint missing (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- configuration fingerprint mismatch (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- deployed configuration missing (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- deployment state missing (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- deployment status conflict (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- paper approval not unanimous (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- robustness review missing (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- strategy bundle reference mismatch (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- top bundle reference mismatch (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- validation bundle hash missing (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- validation bundle schema outdated (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- execution observations insufficient or failed (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- epoch check failed:trading days (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- epoch check failed:accepted orders (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- epoch check failed:classified sessions (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- epoch check failed:average slippage (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- epoch check failed:bad slippage rate (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- epoch check failed:stage comparison ready (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
+- epoch check failed:two stage design (workflow_artifact:35868327841:10755687071:cancelled): Recover matching evidence and rerun existing validation; do not edit approval flags.
 - membership table missing (data/replay): Supply attributed historical membership, raw bars, actions and dated context; rerun source checks.
 - required ticker membership missing (data/replay): Supply attributed historical membership, raw bars, actions and dated context; rerun source checks.
 - membership provenance columns missing (data/replay): Supply attributed historical membership, raw bars, actions and dated context; rerun source checks.
@@ -84,7 +90,6 @@ Replay certification concerns interval accounting only; it does not approve the 
 - corporate action coverage missing (data/replay): Supply attributed historical membership, raw bars, actions and dated context; rerun source checks.
 - corporate action file unverified (data/replay): Supply attributed historical membership, raw bars, actions and dated context; rerun source checks.
 - dated context missing or unverified (data/replay): Supply attributed historical membership, raw bars, actions and dated context; rerun source checks.
-- current robustness failed (local_runtime): Review current runtime evidence and version lock; preserve existing freeze.
 - recorded replay not certified (data/replay): Recover complete activities, fees and independently verified interval balances; replay to one-cent cash tolerance.
 - normal session activity reconciliation awaiting observations (data/replay): Reconcile a normal-session interval after broker activity and fee postings; never submit orders to manufacture samples.
 - full historical broker accounting uncertified (data/replay): Obtain independently sourced historical opening balances and all subsequent activity; interval arithmetic is insufficient.
