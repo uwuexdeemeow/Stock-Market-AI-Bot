@@ -277,6 +277,17 @@ def test_shadow_cache_restores_current_evidence_without_strategy_approval():
     assert "signals/core_satellite_validation_bundle.json" not in workflow
 
 
+def test_daily_workflow_repairs_etf_prices_before_factor_decay():
+    # The standalone decay step runs before daily_run.py. It needs its own
+    # ETF repair gate or a dated row with no close can crash first.
+    workflow = Path(".github/workflows/daily_paper_trading.yml").read_text(encoding="utf-8")
+    repair = workflow.index("Refresh ETF reference prices for daily factor-decay")
+    decay = workflow.index("run: python3 factor_decay_monitor.py")
+    daily = workflow.index("Run daily paper trading (Alpaca only)")
+    assert repair < decay < daily
+    assert "run: python3 refresh_etf_data.py --refresh --force --strict" in workflow[repair:decay]
+
+
 def test_factor_refresh_publishes_current_robustness_with_its_data():
     """A successful data refresh cannot leave the seven-day monitor stale."""
     workflow = Path(".github/workflows/factor_data_refresh.yml").read_text(encoding="utf-8")

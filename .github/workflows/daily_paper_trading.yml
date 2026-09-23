@@ -472,7 +472,17 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
 
-      # ── 6d. Refresh short-lived robustness evidence ───────────────
+      # ── 6d. Repair ETF bars before the standalone decay monitor ───
+      #    The main daily pipeline refreshes ETFs later, but this earlier
+      #    monitor also reads QQQ/SPY. Check yesterday's close first so an
+      #    incomplete provider row cannot crash the monitor or enter signals.
+      - name: Refresh ETF reference prices for daily factor-decay
+        if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        run: python3 refresh_etf_data.py --refresh --force --strict
+        env:
+          PYTHONUNBUFFERED: "1"
+
+      # ── 6e. Refresh short-lived robustness evidence ───────────────
       #    Factor-decay evidence expires faster than the parquet cache. A
       #    prior refresh failure can leave a usable price cache paired with a
       #    stale report, which correctly blocks signals. Rebuild this cheap

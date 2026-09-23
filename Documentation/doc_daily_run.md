@@ -11,6 +11,12 @@ This is the "one command that runs everything" for daily paper trading.
 Instead of running 14+ scripts in the right order, you run `daily_run.py`
 and it handles the orchestration.
 
+On GitHub Actions, the daily workflow checks ETF prices once before its
+standalone factor-decay report and again inside `daily_run.py`. The first check
+matters because that report runs before `daily_run.py`; it can use the guarded
+Alpaca backup for a missing completed-session bar, or stop safely if no sound
+price source is available.
+
 It runs the steps below in sequence.  If a CRITICAL step fails,
 downstream trading steps are skipped so you don't trade on stale data.  A few
 watchdog/housekeeping steps still run so their output files stay fresh.
