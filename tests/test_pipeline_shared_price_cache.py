@@ -147,3 +147,24 @@ def test_invalid_cached_bar_stays_blocked_when_backup_disagrees(tmp_path, monkey
 
     monkeypatch.setattr(pipeline_shared.requests, "get", lambda *args, **kwargs: Response())
     assert pipeline_shared.fetch_price_data("NEE", "2026-09-16", "2026-09-24").empty
+
+
+def test_corrected_primary_bar_replaces_invalid_cache_without_backup(tmp_path, monkeypatch):
+    bad = _bad_latest_bar_frame()
+    bad.to_parquet(tmp_path / "NEE.parquet")
+    corrected = bad.copy()
+    corrected.loc[pd.Timestamp("2026-09-23"), "High"] = 110
+    monkeypatch.setattr(pipeline_shared, "DATA_DIR", str(tmp_path))
+
+    def corrected_provider(ticker, start=None, end=None, accept_frame=None):
+        assert accept_frame(corrected)
+        return corrected
+
+    monkeypatch.setattr(pipeline_shared, "_dp_download_single", corrected_provider)
+    monkeypatch.setattr(
+        pipeline_shared.requests, "get",
+        lambda *args, **kwargs: pytest.fail("independent backup not needed for corrected provider data"),
+    )
+
+    out = pipeline_shared.fetch_price_data("NEE", "2026-09-16", "2026-09-24")
+    assert out.loc[pd.Timestamp("2026-09-23"), "High"] == 110

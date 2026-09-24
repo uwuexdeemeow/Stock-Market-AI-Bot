@@ -212,6 +212,7 @@ def fetch_price_data(ticker: str, start: str, end: str) -> pd.DataFrame:
             if not repaired.empty:
                 data_provider.provider_for_ticker[ticker.upper()] = f"{provider}+alpaca_iex"
                 return repaired[price_cols].copy()
+        print(f"  WARNING: {ticker} has no structurally valid price frame or cross-checked latest-bar repair")
         return pd.DataFrame()
     df = flatten_yf(df)
     if df.empty:
