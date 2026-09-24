@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 
 import pandas as pd
@@ -24,7 +25,8 @@ def test_shadow_payload_builds_expected_candidate_from_grid():
 
 def test_shadow_validation_bundle_matches_shadow_config(tmp_path, monkeypatch):
     # PLAIN ENGLISH: the shadow never submits an order, but its evidence still
-    # needs the same ETF data identity as a real runner. CI has no data cache.
+    # needs the same ETF and score-input identity as a real runner. Build a
+    # complete little research snapshot because CI has no production cache.
     prices = tmp_path / "data"
     prices.mkdir()
     for symbol in validation_bundle.DEFAULT_ETFS:
@@ -33,6 +35,26 @@ def test_shadow_validation_bundle_matches_shadow_config(tmp_path, monkeypatch):
             index=pd.to_datetime(["2026-09-01"]),
         ).to_parquet(prices / f"{symbol}.parquet")
     monkeypatch.setattr(validation_bundle, "DATA_DIR", str(prices))
+    output_rows = []
+    for relative_name in validation_bundle.SCORE_INPUT_OUTPUT_PATHS:
+        source = tmp_path / relative_name
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text('{"score": 1}\n', encoding="utf-8")
+        output_rows.append({
+            "path": relative_name,
+            "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+        })
+    manifest = tmp_path / "signals" / "research_run_manifest.json"
+    manifest.write_text(json.dumps({
+        "input_data": {"combined_sha256": "shadow-test-research-inputs"},
+        "outputs": {"files": output_rows},
+    }), encoding="utf-8")
+    read_context = validation_bundle.load_dataset_context
+    monkeypatch.setattr(
+        validation_bundle,
+        "load_dataset_context",
+        lambda: read_context(manifest, market_data_dir=prices),
+    )
     payload = spj.build_shadow_live_payload({"approvals": {"core-alpha": {"thresholds": {}}}})
     bundle = spj.write_shadow_validation_bundle(
         payload,
