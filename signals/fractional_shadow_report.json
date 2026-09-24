@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-23T14:47:39+00:00",
+  "generated_at": "2026-09-24T15:21:12+00:00",
   "status": "ok",
   "mode": "fractional_shadow_only",
   "capital": {
@@ -10,23 +10,23 @@
     "invested_value": 424.894288
   },
   "signal": {
-    "signal_key": "a3f7b321590667844fc4",
-    "predicted_at": "2026-09-23T01:14+08:00",
+    "signal_key": "2ff960180017fc841740",
+    "predicted_at": "2026-09-23T23:59+08:00",
     "valuation_date": "2026-09-21",
     "live_config_hash": "efc9620f12f77952",
     "repeated_signal": false
   },
   "execution": {
-    "orders_simulated": 6,
+    "orders_simulated": 0,
     "broker_orders_submitted": false,
     "minimum_order_notional": 1.0,
     "quantity_precision_decimals": 9,
     "order_type": "market",
     "time_in_force": "day",
     "slippage_bps": 10.0,
-    "slippage_cost_today": 0.36037822,
-    "regulatory_fees_today": 0.01,
-    "regulatory_fees_raw_today": 0.00381465,
+    "slippage_cost_today": 0.0,
+    "regulatory_fees_today": 0.0,
+    "regulatory_fees_raw_today": 0.0,
     "commission_today": 0.0,
     "fee_model": {
       "sec_sell_fee_bps": 0.206,
@@ -37,9 +37,9 @@
   },
   "allocation": {
     "target_weights": {
-      "FCX": 0.023545,
-      "INTC": 0.196752,
-      "MU": 0.179703,
+      "FCX": 0.023598,
+      "INTC": 0.194829,
+      "MU": 0.181573,
       "QQQ": 0.6
     },
     "actual_weights": {
@@ -49,12 +49,12 @@
       "QQQ": 0.5975178104
     },
     "target_weight_gaps": {
-      "FCX": -9.74053e-05,
-      "INTC": -0.001657896,
-      "MU": -0.000743428,
+      "FCX": -0.0001504053,
+      "INTC": 0.000265104,
+      "MU": -0.002613428,
       "QQQ": -0.0024821896
     },
-    "max_absolute_target_weight_gap": 0.0024821896,
+    "max_absolute_target_weight_gap": 0.002613428,
     "cash_weight": 0.0049809189,
     "positions": {
       "QQQ": {
@@ -78,11 +78,9 @@
   "data": {
     "price_dates": {
       "FCX": "2026-09-21",
-      "GS": "2026-09-21",
       "INTC": "2026-09-21",
       "MU": "2026-09-21",
-      "QQQ": "2026-09-21",
-      "SPY": "2026-09-21"
+      "QQQ": "2026-09-21"
     },
     "no_lookahead": true
   },
