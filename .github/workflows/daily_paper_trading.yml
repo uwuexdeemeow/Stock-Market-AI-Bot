@@ -152,6 +152,7 @@ jobs:
         with:
           path: |
             data/
+            signals/adaptive_factor_weights.json
             signals/core_satellite_alpha_metrics.json
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
@@ -167,9 +168,9 @@ jobs:
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json
-          key: validated-factor-snapshot-v1-${{ github.run_id }}
+          key: validated-factor-snapshot-v2-${{ github.run_id }}
           restore-keys: |
-            validated-factor-snapshot-v1-
+            validated-factor-snapshot-v2-
 
       - name: Require validated factor snapshot
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
@@ -178,7 +179,7 @@ jobs:
           MATCHED_KEY: ${{ steps.restore_validated_factor_snapshot.outputs.cache-matched-key }}
         run: |
           # Never trade from a failed research run's data-only cache.
-          if [[ "$MATCHED_KEY" != validated-factor-snapshot-v1-* ]]; then
+          if [[ "$MATCHED_KEY" != validated-factor-snapshot-v2-* ]]; then
             echo "::error::No validated factor snapshot is cached. Run Factor Data Refresh and inspect its robustness gate."
             exit 1
           fi

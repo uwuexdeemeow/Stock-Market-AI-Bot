@@ -39,6 +39,15 @@ DEFAULT_REPORT_PATHS = {
     **DEFAULT_ROBUSTNESS_REPORT_PATHS,
 }
 
+# These generated files can change which factors are scored or how much they
+# count. Treat them as research inputs when a manifest says they were used.
+SCORE_INPUT_OUTPUT_PATHS = (
+    "signals/adaptive_factor_weights.json",
+    "signals/feature_quality_report.json",
+    "signals/feature_research_summary.csv",
+    "logs/feature_ic_shortlist.csv",
+)
+
 # Factor decay describes a changing market edge, so it must be refreshed more
 # often than the expensive structural stress tests.
 REPORT_MAX_AGE_DAYS = {
@@ -146,6 +155,38 @@ def load_dataset_context(
         }
     input_data = payload.get("input_data", {}) or {}
     research_fingerprint = str(input_data.get("combined_sha256", ""))
+    output_rows = (payload.get("outputs", {}) or {}).get("files", []) or []
+    output_by_path = {
+        str(row.get("path", "")): row
+        for row in output_rows
+        if isinstance(row, dict)
+    }
+    derived_fingerprints: dict[str, str] = {}
+    missing_derived: list[str] = []
+    changed_derived: list[str] = []
+    # PLAIN ENGLISH: prices alone are not the whole experiment. The shortlist,
+    # quality grades, research summary, and adaptive weights shape the scores.
+    # If a modern manifest lists them, verify their bytes still match before
+    # calling any old stress report current. Minimal legacy manifests used by
+    # archived tests have no output list and retain their older identity.
+    if output_rows:
+        project_root = path.parent.parent
+        for relative_name in SCORE_INPUT_OUTPUT_PATHS:
+            listed = output_by_path.get(relative_name)
+            source = project_root / relative_name
+            # The shortlist is a tracked score input but older manifests do
+            # not list it as a generated output. Hash its actual bytes anyway.
+            if (not listed and relative_name != "logs/feature_ic_shortlist.csv") or not source.is_file():
+                missing_derived.append(relative_name)
+                continue
+            try:
+                actual_sha = hashlib.sha256(source.read_bytes()).hexdigest()
+            except OSError:
+                missing_derived.append(relative_name)
+                continue
+            if listed and actual_sha != str(listed.get("sha256", "")):
+                changed_derived.append(relative_name)
+            derived_fingerprints[relative_name] = actual_sha
     data_dir = Path(DATA_DIR) if market_data_dir is None else Path(market_data_dir)
     completed_day = pd.Timestamp(
         latest_completed_us_trading_day() if as_of is None else as_of
@@ -180,14 +221,22 @@ def load_dataset_context(
     # PLAIN ENGLISH: changing even one ETF bar gives all new robustness reports
     # a different ID. An old passing stress report cannot approve today's bars.
     combined_fingerprint = (
-        sha256_value({"research": research_fingerprint, "etfs": market_fingerprints})
-        if research_fingerprint and not missing_market_prices
+        sha256_value({
+            "research": research_fingerprint,
+            "etfs": market_fingerprints,
+            "score_inputs": derived_fingerprints,
+        })
+        if research_fingerprint and not missing_market_prices and not missing_derived and not changed_derived
         else ""
     )
     if not research_fingerprint:
         reason = "research_fingerprint_missing"
     elif missing_market_prices:
         reason = "market_reference_prices_missing:" + ",".join(missing_market_prices)
+    elif missing_derived:
+        reason = "score_inputs_missing:" + ",".join(missing_derived)
+    elif changed_derived:
+        reason = "score_inputs_changed_since_manifest:" + ",".join(changed_derived)
     else:
         reason = ""
     return {
@@ -197,6 +246,9 @@ def load_dataset_context(
         "dataset_fingerprint": combined_fingerprint,
         "research_fingerprint": research_fingerprint,
         "market_reference_fingerprints": market_fingerprints,
+        "score_input_fingerprints": derived_fingerprints,
+        "missing_score_inputs": missing_derived,
+        "changed_score_inputs": changed_derived,
         "market_reference_completed_day": str(completed_day.date()),
         "missing_market_reference_prices": missing_market_prices,
         "file_count": int(input_data.get("file_count", 0) or 0),

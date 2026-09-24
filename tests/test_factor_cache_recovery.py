@@ -27,10 +27,11 @@ def test_daily_restores_exactly_the_validated_factor_bundle():
     # If these differ, a successful refresh cannot warm the daily run.
     assert saved['with']['path'] == restored['with']['path']
     assert 'data/' in saved['with']['path']
+    assert 'signals/adaptive_factor_weights.json' in saved['with']['path']
     assert 'signals/research_run_manifest.json' in saved['with']['path']
     assert 'logs/core_satellite_execution_stress.json' in saved['with']['path']
     assert "steps.verify_robustness_evidence.outcome == 'success'" in saved['if']
-    assert 'validated-factor-snapshot-v1-' in restored['with']['key']
+    assert 'validated-factor-snapshot-v2-' in restored['with']['key']
     assert 'factor-data-parquets-' not in restored['with'].get('restore-keys', '')
     assert 'runtime-state-v4-' not in restored['with'].get('restore-keys', '')
     factor_names = [step.get('name') for step in factor]

@@ -381,6 +381,7 @@ jobs:
         with:
           path: |
             data/
+            signals/adaptive_factor_weights.json
             signals/core_satellite_alpha_metrics.json
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
@@ -396,7 +397,7 @@ jobs:
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json
-          key: validated-factor-snapshot-v1-${{ github.run_id }}
+          key: validated-factor-snapshot-v2-${{ github.run_id }}
 
       - name: Send consolidated Telegram summary
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}

@@ -37,6 +37,13 @@ freeze, order submission or real-capital approval follows from this script.
 
 The current dataset identity includes the live SPY, QQQ, TQQQ, BIL, IEF, and
 GLD parquet prices through the last completed market session, as well as the
-research manifest. An ETF refresh can happen
-after the manifest was written. When one of those prices changes, yesterday's
-execution-stress result no longer counts as evidence for today's trade.
+research manifest. It verifies the current factor weights, quality report,
+and research summary against the checksums in that manifest, and hashes the
+current feature shortlist directly. These files decide which stock features are scored and how strongly
+they count. A changed or missing score input invalidates the dataset identity
+until the manifest and robustness reports are refreshed together.
+
+An ETF refresh can change completed bars. The workflows now write the research
+manifest after the final ETF refresh, then run the robustness reports. If an
+ETF price changes afterward, yesterday's execution-stress result no longer
+counts as evidence for today's paper trade.

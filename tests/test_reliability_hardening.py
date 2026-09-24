@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from datetime import datetime, timezone
 
 import pandas as pd
@@ -35,9 +36,22 @@ def test_validation_file_hash_ignores_cross_platform_line_endings(tmp_path):
 
 def test_dataset_identity_tracks_etf_refresh_after_research_manifest(tmp_path):
     """A refreshed QQQ bar invalidates reports stamped before that refresh."""
-    manifest = tmp_path / "research_run_manifest.json"
+    (tmp_path / "signals").mkdir()
+    (tmp_path / "logs").mkdir()
+    output_rows = []
+    for relative_name in validation_bundle.SCORE_INPUT_OUTPUT_PATHS:
+        source = tmp_path / relative_name
+        source.write_text('{"score": 1}\n', encoding="utf-8")
+        output_rows.append({
+            "path": relative_name,
+            "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+        })
+    manifest = tmp_path / "signals" / "research_run_manifest.json"
     manifest.write_text(
-        json.dumps({"input_data": {"combined_sha256": "unchanged-research-inputs"}}),
+        json.dumps({
+            "input_data": {"combined_sha256": "unchanged-research-inputs"},
+            "outputs": {"files": output_rows},
+        }),
         encoding="utf-8",
     )
     prices = tmp_path / "data"
@@ -93,6 +107,17 @@ def test_dataset_identity_tracks_etf_refresh_after_research_manifest(tmp_path):
     )
     assert record["match"] is False
     assert "dataset_fingerprint_mismatch" in record["reasons"]
+
+    # PLAIN ENGLISH: keeping prices fixed while changing factor weights is
+    # still a different strategy input, so the old manifest must fail closed.
+    weights = tmp_path / "signals" / "adaptive_factor_weights.json"
+    weights.write_text('{"score": 2}\n', encoding="utf-8")
+    changed_scores = validation_bundle.load_dataset_context(
+        manifest, market_data_dir=prices, as_of=pd.Timestamp("2026-09-22")
+    )
+    assert changed_scores["dataset_fingerprint"] == ""
+    assert changed_scores["reason"].startswith("score_inputs_changed_since_manifest:")
+    weights.write_text('{"score": 1}\n', encoding="utf-8")
 
     (prices / "SPY.parquet").unlink()
     incomplete = validation_bundle.load_dataset_context(
