@@ -4,6 +4,15 @@
 
 `pipeline_shared.py` is the **feature factory** — the central library that knows how to turn raw price data into a rich table of signals. Both `research.py` (for training) and `predict.py` (for live predictions) call the same functions here, so the features are always computed the same way.
 
+Before building features, it now rejects cached or newly downloaded daily
+prices with impossible OHLC relationships. If the **latest completed day's**
+bar alone is bad, it can repair that one bar using adjusted Alpaca IEX data,
+but only when at least three prior adjusted closes agree with the primary
+history and the disputed day's close also agrees. It keeps valid full-market
+volume from the primary source. If credentials, comparison data, or price
+agreement are missing, it returns no usable frame and the normal safety gate
+blocks the run. Earlier bad history is never silently patched.
+
 This is important: if `research.py` computed features differently from `predict.py`, the model would be trained on different data than it predicts with, and performance would degrade silently.
 
 You don't run this script directly. Other scripts import from it.
@@ -21,6 +30,10 @@ df = build_research_feature_frame("AAPL", start="2015-01-01", end="2024-01-01")
 # Build today's live features for prediction
 df = build_live_features_with_latest_news("AAPL")
 ```
+
+The optional one-day repair uses the existing `ALPACA_API_KEY` and
+`ALPACA_SECRET_KEY` environment variables. The factor workflow supplies them
+only to its research step. The repair does not submit orders.
 
 ---
 

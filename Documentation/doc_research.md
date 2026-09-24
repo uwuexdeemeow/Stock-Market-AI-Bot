@@ -69,5 +69,10 @@ When a restored parquet is already current but its sidecar is missing or stale,
 incremental refresh repairs the sidecar without downloading prices again. An
 older file with no provable provider (including the old `unknown` label) is
 labeled `legacy_unknown` honestly.
+An impossible OHLC bar is **not** considered current merely because its date
+is recent. Incremental research rebuilds its recent window, using the narrow
+cross-checked latest-bar recovery described in `doc_pipeline_shared.md` when
+needed. If no trustworthy replacement exists, research fails without saving
+the bad rebuilt frame; strict factor health remains the final gate.
 Scheduled bulk refresh skips sentiment until an after-cost out-of-sample
 ablation proves that it adds value.

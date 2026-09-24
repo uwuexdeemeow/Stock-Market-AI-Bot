@@ -51,7 +51,7 @@ def test_fetch_price_data_refreshes_when_cache_missing_expected_bar(tmp_path, mo
 
     calls: list[tuple[str, str, str]] = []
 
-    def fake_download(ticker, start=None, end=None):
+    def fake_download(ticker, start=None, end=None, accept_frame=None):
         calls.append((ticker, start, end))
         return pd.DataFrame(
             {
@@ -71,3 +71,79 @@ def test_fetch_price_data_refreshes_when_cache_missing_expected_bar(tmp_path, mo
 
     assert calls == [("AAPL", "2024-01-01", "2024-01-06")]
     assert out.index.max() == pd.Timestamp("2024-01-05")
+
+
+def _bad_latest_bar_frame() -> pd.DataFrame:
+    # PLAIN ENGLISH: the final Open is higher than High, which no real daily
+    # price bar can have. Earlier days are good comparison points.
+    dates = pd.bdate_range("2026-09-16", "2026-09-23")
+    return pd.DataFrame(
+        {
+            "Open": [100, 101, 102, 103, 104, 110],
+            "High": [102, 103, 104, 105, 106, 109],
+            "Low": [99, 100, 101, 102, 103, 106],
+            "Close": [101, 102, 103, 104, 105, 108.5],
+            "Volume": [1_000_000] * 6,
+        },
+        index=dates,
+    )
+
+
+def test_invalid_cached_bar_repaired_only_with_matching_alpaca_history(tmp_path, monkeypatch):
+    frame = _bad_latest_bar_frame()
+    frame.to_parquet(tmp_path / "NEE.parquet")
+    monkeypatch.setattr(pipeline_shared, "DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("ALPACA_API_KEY", "test-key")
+    monkeypatch.setenv("ALPACA_SECRET_KEY", "test-secret")
+
+    def unavailable_provider(ticker, start=None, end=None, accept_frame=None):
+        raise RuntimeError("primary provider unavailable")
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            bars = [
+                {"t": f"{day.date()}T00:00:00Z", "o": close - 1,
+                 "h": close + 1, "l": close - 2, "c": close, "v": 1000}
+                for day, close in zip(frame.index[:-1], frame["Close"].iloc[:-1])
+            ]
+            bars.append({"t": "2026-09-23T00:00:00Z", "o": 108, "h": 109,
+                         "l": 106, "c": 108.5, "v": 1000})
+            return {"bars": bars}
+
+    monkeypatch.setattr(pipeline_shared, "_dp_download_single", unavailable_provider)
+    monkeypatch.setattr(pipeline_shared.requests, "get", lambda *args, **kwargs: Response())
+
+    out = pipeline_shared.fetch_price_data("NEE", "2026-09-16", "2026-09-24")
+
+    assert out.loc[pd.Timestamp("2026-09-23"), "Open"] == 108
+    assert out.loc[pd.Timestamp("2026-09-23"), "Volume"] == 1_000_000
+    assert pipeline_shared.data_provider.provider_for_ticker["NEE"] == "cached+alpaca_iex"
+
+
+def test_invalid_cached_bar_stays_blocked_when_backup_disagrees(tmp_path, monkeypatch):
+    frame = _bad_latest_bar_frame()
+    frame.to_parquet(tmp_path / "NEE.parquet")
+    monkeypatch.setattr(pipeline_shared, "DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("ALPACA_API_KEY", "test-key")
+    monkeypatch.setenv("ALPACA_SECRET_KEY", "test-secret")
+    monkeypatch.setattr(
+        pipeline_shared, "_dp_download_single",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("unavailable")),
+    )
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"bars": [
+                {"t": f"{day.date()}T00:00:00Z", "o": 50, "h": 52,
+                 "l": 49, "c": 51, "v": 1000}
+                for day in frame.index
+            ]}
+
+    monkeypatch.setattr(pipeline_shared.requests, "get", lambda *args, **kwargs: Response())
+    assert pipeline_shared.fetch_price_data("NEE", "2026-09-16", "2026-09-24").empty

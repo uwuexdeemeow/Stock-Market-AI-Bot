@@ -160,6 +160,10 @@ jobs:
           PYTHONUNBUFFERED: "1"
           STOCKBOT_SKIP_RESEARCH_SENTIMENT: "1"
           RESEARCH_INCREMENTAL_WORKERS: "4"
+          # Only the research step sees these keys for a cross-checked repair
+          # of one invalid latest stock bar; disagreement still fails closed.
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
 
       - name: Ensure survivorship audit inputs
         id: ensure_survivorship_inputs

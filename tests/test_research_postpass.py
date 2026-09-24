@@ -124,6 +124,46 @@ def test_incremental_repairs_stale_manifest_for_current_parquet(tmp_path, monkey
     assert research.read_parquet_manifest(path)["ticker"] == "AAA"
 
 
+def test_incremental_rebuilds_invalid_current_price_instead_of_skipping(tmp_path, monkeypatch):
+    """A recent date must not hide an impossible final OHLC bar."""
+    research = _load_research_module()
+    monkeypatch.setattr(research, "DATA_DIR", str(tmp_path))
+    dates = pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"])
+    existing = pd.DataFrame(
+        {
+            "Open": [10.0, 10.5, 11.0, 12.0],
+            "High": [11.0, 11.5, 12.0, 11.9],
+            "Low": [9.0, 9.5, 10.0, 11.0],
+            "Close": [10.5, 11.0, 11.5, 11.7],
+            "Volume": [100] * 4,
+        }, index=dates,
+    )
+    existing.to_parquet(tmp_path / "AAA.parquet", index=True)
+    repaired = existing.copy()
+    repaired.loc[pd.Timestamp("2024-01-05"), "Open"] = 11.5
+    monkeypatch.setattr(research, "build_research_feature_frame", lambda *args: repaired)
+
+    assert research.research_ticker_incremental("AAA", "2024-01-01", "2024-01-08") is True
+    saved = pd.read_parquet(tmp_path / "AAA.parquet")
+    assert saved.loc[pd.Timestamp("2024-01-05"), "Open"] == 11.5
+    assert research.read_parquet_manifest(tmp_path / "AAA.parquet")["quality_issues"] == []
+
+
+def test_incremental_cannot_call_bad_current_cache_successful(tmp_path, monkeypatch):
+    research = _load_research_module()
+    monkeypatch.setattr(research, "DATA_DIR", str(tmp_path))
+    bad = pd.DataFrame(
+        {"Open": [12.0], "High": [11.9], "Low": [11.0],
+         "Close": [11.7], "Volume": [100]},
+        index=pd.to_datetime(["2024-01-05"]),
+    )
+    bad.to_parquet(tmp_path / "AAA.parquet", index=True)
+    monkeypatch.setattr(research, "build_research_feature_frame", lambda *args: pd.DataFrame())
+
+    assert research.research_ticker_incremental("AAA", "2024-01-01", "2024-01-08") is False
+    assert pd.read_parquet(tmp_path / "AAA.parquet").equals(bad)
+
+
 def test_closed_market_noop_detects_all_tickers_current(tmp_path, monkeypatch):
     research = _load_research_module()
     monkeypatch.setattr(research, "DATA_DIR", str(tmp_path))

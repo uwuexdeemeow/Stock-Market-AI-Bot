@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 import sys
 import numpy as np
 import pandas as pd
+import requests
 
 # Add project root to path so we can import data_provider
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -17,6 +18,8 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from data_provider import download_single as _dp_download_single, download_prices as _dp_download_prices
+import data_provider
+from data_manifest import frame_quality_issues
 
 from settings import (
     DATA_DIR, MULTI_MARKET, SECTOR_MAP,
@@ -60,6 +63,81 @@ def _expected_price_bar_before_end(end: str) -> pd.Timestamp:
     return (pd.Timestamp(end).normalize() - pd.tseries.offsets.BDay(1)).normalize()
 
 
+def _repair_latest_price_bar_from_alpaca(ticker: str, frame: pd.DataFrame, end: str) -> pd.DataFrame:
+    """Replace one invalid latest bar only after independent price checks."""
+    # PLAIN ENGLISH: an impossible daily bar (Open above High, for example)
+    # must never enter features. Alpaca can repair that one day, but only when
+    # earlier adjusted closes and the disputed close agree with Yahoo.
+    key = os.environ.get("ALPACA_API_KEY", "").strip()
+    secret = os.environ.get("ALPACA_SECRET_KEY", "").strip()
+    if not key or not secret or frame.empty or not end or ticker.upper().endswith("-USD"):
+        return pd.DataFrame()
+    target = _expected_price_bar_before_end(end)
+    candidate = frame.copy()
+    candidate.index = pd.DatetimeIndex(candidate.index).tz_localize(None).normalize()
+    if not candidate.index.is_unique or target not in candidate.index or candidate.index.max() != target:
+        return pd.DataFrame()
+    older = candidate.loc[candidate.index < target]
+    if len(older) < 5 or frame_quality_issues(older):
+        return pd.DataFrame()
+    # Do not use backup data for a historical defect or an already-good bar.
+    latest_issues = frame_quality_issues(candidate.tail(1))
+    if not frame_quality_issues(candidate) or latest_issues != ["invalid_ohlc_relationship"]:
+        return pd.DataFrame()
+    try:
+        response = requests.get(
+            f"https://data.alpaca.markets/v2/stocks/{ticker.upper()}/bars",
+            headers={"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret},
+            params={
+                "timeframe": "1Day",
+                "start": (target - pd.Timedelta(days=20)).strftime("%Y-%m-%d"),
+                "end": (target + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
+                "adjustment": "all",
+                "feed": "iex",
+            },
+            timeout=20,
+        )
+        response.raise_for_status()
+        bars = response.json().get("bars") or []
+    except (requests.RequestException, ValueError):
+        return pd.DataFrame()
+    if not bars:
+        return pd.DataFrame()
+    backup = pd.DataFrame(bars)
+    backup.index = pd.to_datetime(backup["t"], utc=True).dt.tz_localize(None).dt.normalize()
+    backup = backup.loc[~backup.index.duplicated(keep="last")]
+    if target not in backup.index:
+        return pd.DataFrame()
+    common = older.index.intersection(backup.index)[-5:]
+    if len(common) < 3:
+        return pd.DataFrame()
+    original_close = pd.to_numeric(older.loc[common, "Close"], errors="coerce")
+    backup_close = pd.to_numeric(backup.loc[common, "c"], errors="coerce")
+    diff = (original_close - backup_close).abs() / original_close.abs()
+    if not bool(np.isfinite(diff).all()) or float(diff.median()) > 0.01 or bool((diff > 0.02).any()):
+        return pd.DataFrame()
+    bar = backup.loc[target]
+    prices = pd.to_numeric(bar[["o", "h", "l", "c"]], errors="coerce")
+    if not bool(np.isfinite(prices).all()) or not (0 < prices["l"] <= min(prices["o"], prices["c"]) <= max(prices["o"], prices["c"]) <= prices["h"]):
+        return pd.DataFrame()
+    disputed_close = pd.to_numeric(candidate.loc[target, "Close"], errors="coerce")
+    if not np.isfinite(disputed_close) or disputed_close <= 0 or abs(prices["c"] - disputed_close) / disputed_close > 0.02:
+        return pd.DataFrame()
+    # IEX sees only one exchange's volume. Retain the primary full-market
+    # volume when it is valid; refuse a bar without any trustworthy volume.
+    volume = pd.to_numeric(candidate.loc[target, "Volume"], errors="coerce")
+    if not np.isfinite(volume) or volume <= 0:
+        volume = pd.to_numeric(bar.get("v"), errors="coerce")
+    if not np.isfinite(volume) or volume <= 0:
+        return pd.DataFrame()
+    candidate.loc[target, ["Open", "High", "Low", "Close", "Volume"]] = [
+        float(prices["o"]), float(prices["h"]), float(prices["l"]), float(prices["c"]), float(volume)
+    ]
+    if frame_quality_issues(candidate):
+        return pd.DataFrame()
+    return candidate
+
+
 def fetch_price_data(ticker: str, start: str, end: str) -> pd.DataFrame:
     """Download price data with automatic fallback (yfinance → yahooquery → Stooq).
 
@@ -73,6 +151,7 @@ def fetch_price_data(ticker: str, start: str, end: str) -> pd.DataFrame:
     research refresh.  Fixed 2026-05-22.
     """
     price_cols = ["Open", "High", "Low", "Close", "Volume"]
+    rejected_frames: list[tuple[str, pd.DataFrame]] = []
     local_path = os.path.join(DATA_DIR, f"{ticker.upper()}.parquet")
     if os.path.exists(local_path):
         try:
@@ -104,24 +183,43 @@ def fetch_price_data(ticker: str, start: str, end: str) -> pd.DataFrame:
                         except _CacheStale:
                             pass  # fall through to remote
                         else:
-                            return out
+                            if not frame_quality_issues(out):
+                                return out
+                            # A fresh date does not make an impossible OHLC
+                            # bar safe; keep it only as a checked repair input.
+                            rejected_frames.append(("cached", out))
                     else:
-                        return out
+                        if not frame_quality_issues(out):
+                            return out
+                        rejected_frames.append(("cached", out))
         except _CacheStale:
             pass
         except Exception:
             pass
 
+    def accept_frame(value: pd.DataFrame) -> bool:
+        simple = flatten_yf(value.copy())
+        if not frame_quality_issues(simple):
+            return True
+        rejected_frames.append((str(value.attrs.get("price_provider", "unknown")), simple))
+        return False
+
     try:
-        df = _dp_download_single(ticker, start=start, end=end)
+        df = _dp_download_single(ticker, start=start, end=end, accept_frame=accept_frame)
     except RuntimeError:
+        for provider, partial in rejected_frames:
+            repaired = _repair_latest_price_bar_from_alpaca(ticker, partial, end)
+            if not repaired.empty:
+                data_provider.provider_for_ticker[ticker.upper()] = f"{provider}+alpaca_iex"
+                return repaired[price_cols].copy()
         return pd.DataFrame()
     df = flatten_yf(df)
     if df.empty:
         return pd.DataFrame()
     if not all(c in df.columns for c in price_cols):
         return pd.DataFrame()
-    return df[price_cols].dropna().copy()
+    df = df[price_cols].dropna().copy()
+    return df if not frame_quality_issues(df) else pd.DataFrame()
 
 
 class _CacheStale(Exception):

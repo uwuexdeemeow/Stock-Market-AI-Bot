@@ -28,6 +28,7 @@ from fundamental_features import apply_sector_fundamental_zscores
 from cross_sectional_features import apply_cross_sectional_rank_features
 from safe_io import atomic_write_parquet
 from data_manifest import (
+    frame_quality_issues,
     read_parquet_manifest,
     validate_provider_transition,
     write_parquet_manifest,
@@ -115,6 +116,11 @@ def research_ticker(ticker: str, start: str, end: str) -> bool:
     df = build_research_feature_frame(ticker, start, end)
     if df.empty:
         log.error("[%s] no data built", ticker)
+        return False
+
+    quality_issues = frame_quality_issues(df)
+    if quality_issues:
+        log.error("[%s] refusing full rebuild with bad prices: %s", ticker, quality_issues)
         return False
 
     # IMPORTANT: the current alpha_factor_backtest.load_factor_panel() expects
@@ -207,6 +213,11 @@ def _latest_existing_parquet_date(ticker: str) -> pd.Timestamp | None:
         df = pd.read_parquet(path)
         if df.empty:
             return None
+        # PLAIN ENGLISH: a bad latest price is not "current" just because
+        # its date is recent. Let the ticker-level refresh repair it instead.
+        if {"Open", "High", "Low", "Close", "Volume"}.issubset(df.columns):
+            if frame_quality_issues(df):
+                return None
         return _normalise_date(pd.DatetimeIndex(df.index).max())
     except Exception:
         return None
@@ -303,13 +314,20 @@ def research_ticker_incremental(
     staleness_days = max(0, int((target_session - last_date).days))
 
     # Already reaches the latest real trading session.
-    if last_date >= target_session:
+    stored_quality_issues = (
+        frame_quality_issues(existing)
+        if {"Open", "High", "Low", "Close", "Volume"}.issubset(existing.columns)
+        else []
+    )
+    if last_date >= target_session and not stored_quality_issues:
         log.info("[%s] already up-to-date (last=%s) — skipped", ticker, last_date.date())
         # Fresh data can come from an older cache whose sidecar is absent or no
         # longer matches. Backfill provenance even though prices need no fetch.
         if not _manifest_matches_frame(ticker, existing, out_path):
             _write_ticker_manifest(ticker, existing, out_path)
         return True
+    if stored_quality_issues:
+        log.warning("[%s] cached price quality failed (%s) — rebuilding recent bars", ticker, stored_quality_issues)
 
     # Too stale — full rebuild is safer (catches schema changes, delistings, etc.)
     if staleness_days > INCREMENTAL_MAX_STALENESS_DAYS:
@@ -338,7 +356,9 @@ def research_ticker_incremental(
     )
     if fresh.empty:
         log.error("[%s] incremental build returned empty — keeping existing", ticker)
-        return True  # Don't destroy existing data
+        # PLAIN ENGLISH: keeping a stale but valid cache is recoverable; an
+        # already-corrupt cache is not a successful refresh.
+        return not bool(stored_quality_issues)
 
     previous_manifest = read_parquet_manifest(out_path)
     previous_provider = str(previous_manifest.get("provider", ""))
@@ -410,6 +430,12 @@ def research_ticker_incremental(
     combined = pd.concat([old_rows, fresh], axis=0)
     combined = combined[~combined.index.duplicated(keep="last")]
     combined = combined.sort_index()
+
+    if {"Open", "High", "Low", "Close", "Volume"}.issubset(combined.columns):
+        combined_issues = frame_quality_issues(combined)
+        if combined_issues:
+            log.error("[%s] refusing incremental save with bad prices: %s", ticker, combined_issues)
+            return False
 
     atomic_write_parquet(combined, out_path, index=True)
     _write_ticker_manifest(
