@@ -67,6 +67,10 @@ logs/*
 # Jupyter
 .ipynb_checkpoints/
 
+# Local, reproducible failure investigations and test scratch space.
+/research_snapshots/
+/.pytest_tmp*/
+
 # IDEs
 .vscode/
 .idea/

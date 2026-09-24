@@ -33,6 +33,9 @@ def test_daily_restores_exactly_the_validated_factor_bundle():
     assert 'validated-factor-snapshot-v1-' in restored['with']['key']
     assert 'factor-data-parquets-' not in restored['with'].get('restore-keys', '')
     assert 'runtime-state-v4-' not in restored['with'].get('restore-keys', '')
+    factor_names = [step.get('name') for step in factor]
+    assert factor_names.index('Refresh ETF reference prices') < factor_names.index('Validate final research outputs and prices')
+    assert factor_names.index('Validate final research outputs and prices') < factor_names.index('Refresh execution-stress evidence')
 
 
 def test_daily_freezes_prices_before_rebuilding_safety_reports():
