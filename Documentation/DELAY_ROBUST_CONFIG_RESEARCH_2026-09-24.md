@@ -68,5 +68,11 @@ rejected candidate. The analyzer's older five-check summary incorrectly
 printed “Safe to deploy” for this run; its recommendation has been corrected
 to include the authoritative rejection and to never equate diagnostics with
 deployment authorization. No safety thresholds were changed. The live
-configuration remains the incumbent; current data health remains blocked on
-the unresolved NEE bar.
+configuration remains the incumbent. Later on September 24, Yahoo supplied
+a corrected NEE bar. After refreshing NEE, all 42 feature grades, the feature
+health profile, and the research manifest, local strict data health passed.
+A workflow-order rerun of the **incumbent** configuration's execution,
+survivorship, and factor-decay reviews also passed, with current report
+fingerprints matching the refreshed dataset. This later result does not
+approve the rejected `top5` candidate, identify the sole cause of the earlier
+GitHub failure, or guarantee that the next live workflow will pass.
