@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "frozen_at": "2026-09-24T15:35:41+00:00",
+  "frozen_at": "2026-09-24T15:47:02+00:00",
   "epoch_id": "paper-v20260910T045130Z",
   "epoch_started_at": "2026-09-10T04:51:30+00:00",
-  "git_commit_at_freeze": "632019071109c2bc2838470990eabb298ef339ae",
-  "logic_fingerprint": "e4d4a2fd0ea2816d0478fa36751d27a5b283b810715904444813ec85ebd08920",
+  "git_commit_at_freeze": "76d01e75be98e42390b94f690f83165feec4767c",
+  "logic_fingerprint": "39bb42d04c05245a4317f15b8c93b9d63c62717acbaa243a9a91b0279abdd68f",
   "files": {
-    ".github/workflows/daily_paper_trading.yml": "e1d1f7362ed573fa7dc186ae09e4abf8a6fc7d1131987b6a630d5a129fe8cb33",
-    ".github/workflows/factor_data_refresh.yml": "a8f1c05e6735b91b80897356820ed93ce60ffccc7fcbeaf6b333682f805ef02c",
+    ".github/workflows/daily_paper_trading.yml": "ef26d4c1b1bbd1fb09ece8f5e171518c063eb339845a3b19485ed5735de91152",
+    ".github/workflows/factor_data_refresh.yml": "7d50c0004b8de939ec873b13a85b88b527676c9e8f5e69d6b75ed33df2d02c2c",
     ".github/workflows/independent_workflow_watchdog.yml": "98bdabe0e58eaaad746a661da193dfe02147c3643755dcd6d8fb1caf310ddd4c",
     ".github/workflows/post_market_execution_quality.yml": "3eed7defcebb8feef822373fd2be8f3036cc89d162ae1877be92598ade6887a0",
     ".github/workflows/shadow_paper_journal.yml": "10c69ae1fc658cfd4474146176d5cd7247ea6049f360e21fff1646f2e2971e0d",
@@ -43,7 +43,7 @@
     "settings.py": "baad01852ad1cfe8173471e0bb4c97482f6487644d8c4467a8e7d9dbd7b9482d",
     "signal_freshness.py": "f177c6801b24ad117f71988a96f3b462c4f9e7e638ba703c0615d8a202b4a469",
     "trade_rules.py": "0a456248e7fbb20752a04bc980c1336d24371d5db54f32d04fb1f173bca06efc",
-    "validation_bundle.py": "8b47d64ccd4e19eabc858af87a02e75fc584b521c423be0932439056d982c1f2",
+    "validation_bundle.py": "ec00bf9f8346594b9b58f4fa2765336705cdcc278b1f0c26880fc85c98bce682",
     "workflow_watchdog.py": "0bc8911b222c4288b13098fab0da9036563d1c0c1369c0f768b8e9ba4ad7cc98",
     "signals/core_satellite_live_configs.json": "cf02ce4def81ba7cefb122e1084f0091891928a637276b11fb4327976865e9b2",
     "signals/core_satellite_validation_bundle.json": "c02a982cf74b789ee01ffa0a25f8f73751d55394490fe6f024ef445fcf0b2f17"
