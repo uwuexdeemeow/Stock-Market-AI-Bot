@@ -140,33 +140,18 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements-ci.txt
 
-      # ── 5. Cache data directory (parquet files persist between runs) ─
-      #    Restores the latest successful factor-data cache.  The daily trading
-      #    job refreshes ETF files only; research.py runs in factor_data_refresh.yml.
-      - name: Cache data directory
+      # ── 5. Restore one validated factor snapshot ───────────────────
+      # PLAIN ENGLISH: two independent prefix caches can pair today's prices
+      # with yesterday's stress reports. One cache key keeps all evidence from
+      # the same successful Factor Data Refresh run. Strategy approvals stay
+      # in main and are not restored from the cache.
+      - name: Restore validated factor snapshot
+        id: restore_validated_factor_snapshot
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        uses: actions/cache@v6
-        with:
-          path: data/
-          key: factor-data-parquets-daily-${{ github.run_id }}
-          restore-keys: |
-            factor-data-parquets-
-
-      # ── 5b. Cache signals & logs (gate state persists between runs) ─
-      #    Without this, walkforward approval, factor decay reports, and
-      #    feature quality reports are lost between runs — causing
-      #    paper_ready=False every time.
-      # Generated quality and rolling robustness reports travel with the
-      # parquets that produced them. This v4 cache is published only after all
-      # reports validate. Reviewed strategy approvals remain owned by main:
-      #   signals/core_satellite_live_configs.json
-      #   signals/core_satellite_nested_walkforward.json
-      #   signals/adaptive_factor_weights.json
-      - name: Cache signals and logs state
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         with:
           path: |
+            data/
             signals/core_satellite_alpha_metrics.json
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
@@ -178,13 +163,26 @@ jobs:
             signals/feature_research_summary.csv
             signals/research_run_manifest.json
             logs/feature_ic_shortlist.csv
+            logs/survivorship_audit.json
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json
-          # v4 binds current robustness evidence to the latest healthy data set.
-          key: runtime-state-v4-${{ github.run_id }}
+          key: validated-factor-snapshot-v1-${{ github.run_id }}
           restore-keys: |
-            runtime-state-v4-
+            validated-factor-snapshot-v1-
+
+      - name: Require validated factor snapshot
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        shell: bash
+        env:
+          MATCHED_KEY: ${{ steps.restore_validated_factor_snapshot.outputs.cache-matched-key }}
+        run: |
+          # Never trade from a failed research run's data-only cache.
+          if [[ "$MATCHED_KEY" != validated-factor-snapshot-v1-* ]]; then
+            echo "::error::No validated factor snapshot is cached. Run Factor Data Refresh and inspect its robustness gate."
+            exit 1
+          fi
+          echo "Restored validated snapshot: $MATCHED_KEY"
 
       # Restore the operational audit trail from the dedicated signal branch.
       # PLAIN ENGLISH: GitHub runners are new computers each day. These files
@@ -416,58 +414,16 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
 
-      # ── 6c. Repair missing/stale restored factor cache ─────────────
-      #    A fresh runner has no ignored data/signals files unless a previous
-      #    factor refresh cache restores them. If that cache is absent or stale,
-      #    rebuild it here before daily_run.py reaches the strict health gate.
-      #
-      #    SAFETY: feature_quality_report.json is now git-tracked.  If the
-      #    rebuild produces a worse report (e.g. research.py only partially
-      #    completed and the diagnostic graded < 20 features), restore the
-      #    git baseline so daily_run.py doesn't blow the cluster gate.
-      - name: Rebuild factor cache if restore is incomplete
+      # ── 6c. Check the restored research snapshot ───────────────────
+      # A partial rebuild during the trading job would have no matching stress
+      # reports and can take past the execution cutoff. The factor workflow
+      # owns that rebuild and must publish one validated snapshot first.
+      - name: Validate restored factor data
         if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         run: |
-          if python3 factor_data_health.py --strict --no-write; then
-            echo "Restored factor cache is trade-ready."
-          elif python3 - <<'PY'
-          from factor_data_health import build_factor_data_health
-          report = build_factor_data_health()
-          # Repair only derived health metadata when prices and quality already
-          # pass. A fresh cache must not trigger an hour-long research download.
-          raise SystemExit(0 if report['factor_data_fresh'] and report['feature_quality']['ready'] else 1)
-          PY
-          then
-            echo "Factor data and quality pass; refreshing only the derived feature-health profile."
-            python3 feature_health.py --max-specs 48
-            python3 factor_data_health.py --strict
-          else
-            echo "Restored factor cache is missing or stale; rebuilding factor data and feature quality."
-
-            # Snapshot the git-tracked baseline BEFORE the rebuild so we can
-            # roll back if the rebuild produces a worse report (e.g. research
-            # ran against a partial panel and diagnostic graded < 20 features).
-            cp signals/feature_quality_report.json signals/feature_quality_report.json.gitbase 2>/dev/null || true
-            cp signals/feature_quality_summary.csv signals/feature_quality_summary.csv.gitbase 2>/dev/null || true
-            cp signals/feature_health_profile.json signals/feature_health_profile.json.gitbase 2>/dev/null || true
-            cp signals/feature_health_profile.csv signals/feature_health_profile.csv.gitbase 2>/dev/null || true
-            cp logs/feature_ic_shortlist.csv logs/feature_ic_shortlist.csv.gitbase 2>/dev/null || true
-
-            python3 research.py --incremental
-            python3 feature_quality_diagnostic.py --top 48
-            python3 feature_health.py --max-specs 48
-
-            # Sanity check: restore baseline if rebuild produced too few features.
-            python3 ci_check_feature_report.py --min-features 20
-
-            # Clean up snapshots regardless of outcome
-            rm -f signals/feature_quality_report.json.gitbase \
-                  signals/feature_quality_summary.csv.gitbase \
-                  signals/feature_health_profile.json.gitbase \
-                  signals/feature_health_profile.csv.gitbase \
-                  logs/feature_ic_shortlist.csv.gitbase
-
-            python3 factor_data_health.py --strict
+          if ! python3 factor_data_health.py --strict --no-write; then
+            echo "::error::Validated factor snapshot is stale or unhealthy. Complete Factor Data Refresh before trading."
+            exit 1
           fi
         env:
           PYTHONUNBUFFERED: "1"
@@ -482,11 +438,42 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
 
-      # ── 6e. Refresh short-lived robustness evidence ───────────────
-      #    Factor-decay evidence expires faster than the parquet cache. A
-      #    prior refresh failure can leave a usable price cache paired with a
-      #    stale report, which correctly blocks signals. Rebuild this cheap
-      #    report from the restored, already-validated cache before trading.
+      - name: Record final daily price fingerprint
+        if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        run: |
+          # Update the input manifest after the ETF refresh. Otherwise its
+          # checksums still describe the earlier cached ETF files.
+          python3 research_output_guard.py \
+            --write-manifest \
+            --command "github-actions daily_paper_trading etf_preflight"
+        env:
+          PYTHONUNBUFFERED: "1"
+
+      # ── 6e. Recheck robustness against the final ETF prices ─────────
+      # ETF providers can revise even completed bars. Regenerate every report
+      # after the one strict ETF refresh so all fingerprints identify the same
+      # prices before daily_run.py generates a signal.
+      - name: Refresh approved-config validation for daily snapshot
+        if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        run: python3 core_satellite_alpha.py --validation-refresh
+        env:
+          PYTHONUNBUFFERED: "1"
+          STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
+
+      - name: Refresh execution stress for daily snapshot
+        if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        run: python3 core_satellite_execution_stress.py
+        env:
+          PYTHONUNBUFFERED: "1"
+          STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
+
+      - name: Refresh survivorship review for daily snapshot
+        if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        run: python3 core_satellite_survivorship_audit.py
+        env:
+          PYTHONUNBUFFERED: "1"
+          STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
+
       - name: Refresh factor-decay evidence for daily cache
         id: refresh_daily_factor_decay
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
@@ -495,6 +482,29 @@ jobs:
           PYTHONUNBUFFERED: "1"
           STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
 
+      - name: Verify daily robustness and matching data
+        if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        run: |
+          python3 robustness_review.py --strict
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from validation_bundle import current_robustness_evidence, load_dataset_context
+
+          # PLAIN ENGLISH: all three safety reports must describe the exact
+          # approved strategy and the exact price snapshot this job will use.
+          approved = json.loads(Path('signals/core_satellite_validation_bundle.json').read_text())
+          dataset = load_dataset_context()
+          review = current_robustness_evidence(
+              expected_config_fingerprint=str(approved.get('config_fingerprint', '')),
+              expected_dataset_fingerprint=str(dataset.get('dataset_fingerprint', '')),
+          )
+          print(json.dumps(review, indent=2))
+          raise SystemExit(0 if dataset.get('dataset_fingerprint') and review.get('pass') else 1)
+          PY
+        env:
+          PYTHONUNBUFFERED: "1"
+
       # ── 7. Run the daily pipeline ─────────────────────────────────
       #    Uses the latest restored factor data/report.  core_satellite_alpha.py
       #    still blocks orders if that data is too stale.
@@ -502,7 +512,9 @@ jobs:
         id: run_daily_paper
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
-          FLAGS="--alpaca --timeout 900 --skip-factor-refresh"
+          # The strict ETF preflight and matching robustness reports above
+          # already ran on this runner; another refresh would change their ID.
+          FLAGS="--alpaca --timeout 900 --skip-refresh"
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
             FLAGS="$FLAGS --force"
           fi

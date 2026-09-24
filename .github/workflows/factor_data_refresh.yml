@@ -232,16 +232,6 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
 
-      - name: Validate research outputs
-        id: validate_research_outputs
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        run: |
-          python3 research_output_guard.py \
-            --write-manifest \
-            --command "github-actions factor_data_refresh xs_only=${{ github.event.inputs.xs_only }}"
-        env:
-          PYTHONUNBUFFERED: "1"
-
       - name: Refresh ETF reference prices
         id: refresh_etf_prices
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
@@ -252,6 +242,17 @@ jobs:
           # bar; research and factor-training steps do not need those secrets.
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
           ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+
+      - name: Validate final research outputs and prices
+        id: validate_research_outputs
+        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        run: |
+          # The manifest must identify the ETF files after their final refresh.
+          python3 research_output_guard.py \
+            --write-manifest \
+            --command "github-actions factor_data_refresh xs_only=${{ github.event.inputs.xs_only }}"
+        env:
+          PYTHONUNBUFFERED: "1"
 
       # Keep each robustness program in its own named step. If one exits with
       # an error, GitHub's public job metadata now identifies the exact program
@@ -291,7 +292,24 @@ jobs:
       - name: Verify refreshed robustness evidence
         id: verify_robustness_evidence
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        run: python3 robustness_review.py --strict
+        run: |
+          python3 robustness_review.py --strict
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from validation_bundle import current_robustness_evidence, load_dataset_context
+
+          # PLAIN ENGLISH: a passing stress score only applies to the exact
+          # approved strategy and market data that produced its report.
+          approved = json.loads(Path('signals/core_satellite_validation_bundle.json').read_text())
+          dataset = load_dataset_context()
+          review = current_robustness_evidence(
+              expected_config_fingerprint=str(approved.get('config_fingerprint', '')),
+              expected_dataset_fingerprint=str(dataset.get('dataset_fingerprint', '')),
+          )
+          print(json.dumps(review, indent=2))
+          raise SystemExit(0 if dataset.get('dataset_fingerprint') and review.get('pass') else 1)
+          PY
         env:
           PYTHONUNBUFFERED: "1"
 
@@ -353,6 +371,32 @@ jobs:
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json
           key: runtime-state-v4-${{ github.run_id }}
+
+      # The daily job must restore prices and their checked reports from the
+      # same completed refresh. Separate prefix caches can select different
+      # runs after a failed refresh and trigger fingerprint mismatches.
+      - name: Save validated paper snapshot
+        if: ${{ always() && steps.validate_factor_data_health.outcome == 'success' && steps.validate_research_outputs.outcome == 'success' && steps.refresh_etf_prices.outcome == 'success' && steps.refresh_core_alpha_validation.outcome == 'success' && steps.refresh_execution_stress.outcome == 'success' && steps.ensure_survivorship_inputs.outcome == 'success' && steps.refresh_survivorship_audit.outcome == 'success' && steps.refresh_factor_decay.outcome == 'success' && steps.verify_robustness_evidence.outcome == 'success' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            data/
+            signals/core_satellite_alpha_metrics.json
+            signals/factor_data_health.json
+            signals/factor_decay_monitor.csv
+            signals/feature_quality_report.json
+            signals/feature_quality_summary.csv
+            signals/feature_health_profile.json
+            signals/feature_health_profile.csv
+            signals/feature_research_report.json
+            signals/feature_research_summary.csv
+            signals/research_run_manifest.json
+            logs/feature_ic_shortlist.csv
+            logs/survivorship_audit.json
+            logs/factor_decay_monitor.json
+            logs/core_satellite_execution_stress.json
+            logs/core_satellite_survivorship_audit.json
+          key: validated-factor-snapshot-v1-${{ github.run_id }}
 
       - name: Send consolidated Telegram summary
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
