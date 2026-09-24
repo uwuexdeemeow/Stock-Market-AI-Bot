@@ -22,9 +22,11 @@ healthy enough for further research:
   1. `research.py --incremental`           — pull new OHLC bars + factor
                                               features for the watchlist
   2. `feature_quality_diagnostic.py`       — re-grade per-feature live IC
-  3. `feature_research.py --top 24`        — refresh the quarantine IC
+  3. `feature_health.py --max-specs 48`   — bind the health profile to the
+                                              new quality report
+  4. `feature_research.py --top 24`        — refresh the quarantine IC
                                               CSV used by feature_health
-  4. `factor_data_health.py --strict`      — final pass/fail gate
+  5. `factor_data_health.py --strict`      — final pass/fail gate
 
 Each step runs in a fresh subprocess so any memory leak in one script
 doesn't carry into the next.  Output streams to your terminal exactly
@@ -214,6 +216,7 @@ def main() -> int:
     # same Python interpreter that's running this wrapper.
     research_argv = [sys.executable, "research.py", "--incremental"]
     fqd_argv = [sys.executable, "feature_quality_diagnostic.py", "--top", "48"]
+    feature_health_argv = [sys.executable, "feature_health.py", "--max-specs", "48"]
     fr_argv = [sys.executable, "feature_research.py", "--top", str(args.top)]
     if not args.pairs:
         fr_argv.append("--skip-pairs")
@@ -246,7 +249,19 @@ def main() -> int:
         "feature_quality", fqd_argv,
         "Re-grade per-feature live IC against the refreshed panel",
         critical=True,
-        timeout_seconds=900,  # 15 min cap
+        # PLAIN ENGLISH: the full 42-feature report recently took over 30
+        # minutes on GitHub Actions. A 15-minute limit killed healthy local
+        # refreshes just before the report could be saved.
+        timeout_seconds=3600,  # 1h cap, matching the current workload
+    ))
+    # PLAIN ENGLISH: the feature-health profile records a fingerprint of the
+    # quality report. Rebuild it immediately after grading; otherwise the
+    # strict health gate correctly rejects a mismatched old profile.
+    steps.append(Step(
+        "feature_health", feature_health_argv,
+        "Rebuild the health profile from the new quality report",
+        critical=True,
+        timeout_seconds=300,
     ))
     if not args.skip_feature_research:
         steps.append(Step(

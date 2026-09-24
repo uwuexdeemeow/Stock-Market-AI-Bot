@@ -27,6 +27,14 @@ For config stability, newer walkforward CSVs include a
 exists, because small knob changes inside the same behavior family should not
 count as totally unrelated strategy hopping.
 
+The analyzer also reads the matching walk-forward JSON file (same name as
+the CSV, ending in `.json`) for the authoritative `live_config_approval`.
+Its five diagnostic checks are **not** deployment approval. If that JSON
+rejects the configuration, the report says not to deploy and lists the
+rejection reasons. If the JSON is missing or unreadable, approval is
+unverified, never assumed. Even recorded walk-forward approval does not
+override current data-health, execution-stress, or live trading gates.
+
 ## How to run it
 
 Default results file:

@@ -416,6 +416,39 @@ def check_fold_completeness(df: pd.DataFrame) -> dict:
     }
 
 
+def load_walkforward_approval(csv_path: str) -> dict:
+    """Read the walk-forward's authoritative approval saved beside its CSV."""
+    # The five analyzer checks are only diagnostics. The walk-forward JSON
+    # contains additional safety gates, so never infer approval from the CSV.
+    report_path = Path(csv_path).with_suffix(".json")
+    if not report_path.exists():
+        return {"approved": None, "reasons": ["matching_walkforward_json_missing"]}
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return {"approved": None, "reasons": [f"matching_walkforward_json_unreadable:{exc}"]}
+    approval = report.get("live_config_approval")
+    if not isinstance(approval, dict) or not isinstance(approval.get("approved"), bool):
+        return {"approved": None, "reasons": ["live_config_approval_missing"]}
+    return {
+        "approved": approval["approved"],
+        "reasons": approval.get("reasons", []),
+    }
+
+
+def deployment_readiness_message(fail_count: int, warn_count: int, approval: dict) -> str:
+    """Keep the diagnostic summary subordinate to the real safety gates."""
+    if approval["approved"] is False:
+        return "Walk-forward approval REJECTED. Do not deploy this configuration."
+    if approval["approved"] is None:
+        return "Approval unverified. Diagnostic checks alone cannot authorize deployment."
+    if fail_count:
+        return "Walk-forward approval recorded, but analyzer found failures. Review before deployment."
+    if warn_count:
+        return "Walk-forward approval recorded with analyzer warnings. Other live gates still apply."
+    return "Walk-forward approval recorded. Current data, stress, and live gates still apply."
+
+
 def analyze(csv_path: str, qqq_path: str, spy_path: str, *, objective: str = DEFAULT_OBJECTIVE) -> dict:
     """Run all checks and return a results dict.  Also prints a report."""
     if not os.path.exists(csv_path):
@@ -522,12 +555,12 @@ def analyze(csv_path: str, qqq_path: str, spy_path: str, *, objective: str = DEF
     pass_count = sum(1 for v in verdicts if v == "PASS")
     print(f"  PASS={pass_count}  WARN={warn_count}  FAIL={fail_count}")
 
-    if fail_count == 0 and warn_count <= 1:
-        print("  → Strategy looks healthy.  Safe to deploy.")
-    elif fail_count == 0:
-        print("  → Mixed signal.  Worth deploying but monitor closely.")
-    else:
-        print("  → Critical failures detected.  Don't deploy yet — fix the FAIL checks first.")
+    approval = load_walkforward_approval(csv_path)
+    print(f"  Walk-forward approval: {approval['approved']}")
+    for reason in approval["reasons"]:
+        print(f"    • {reason}")
+    print(f"  → {deployment_readiness_message(fail_count, warn_count, approval)}")
+    if fail_count:
         for label, result in [
             ("fold completeness", completeness),
             ("score predictiveness", pred),
@@ -548,6 +581,7 @@ def analyze(csv_path: str, qqq_path: str, spy_path: str, *, objective: str = DEF
         "concentration_vulnerability": vuln,
         "config_stability": stab,
         "verdicts": verdicts,
+        "live_config_approval": approval,
     }
 
 

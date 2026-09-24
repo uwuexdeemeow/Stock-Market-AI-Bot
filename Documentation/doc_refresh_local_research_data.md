@@ -58,6 +58,7 @@ loads the data it needs from where the prior step wrote it:
 |------|-------|----------|
 | `research.py --incremental` | `data/*.parquet` (last bar dates), `signals/watchlist.json` | Updated `data/*.parquet` |
 | `feature_quality_diagnostic.py --top 48` | Updated parquets | `signals/feature_quality_report.json`, `signals/feature_quality_summary.csv` |
+| `feature_health.py --max-specs 48` | New quality report and feature specs | `signals/feature_health_profile.json`, `signals/feature_health_profile.csv` |
 | `feature_research.py --top 24 --skip-pairs` | Updated parquets, feature specs | `signals/feature_research_summary.csv`, `signals/feature_research_report.json` |
 | `factor_data_health.py --strict` | All of the above | `signals/factor_data_health.json` (pass/fail) |
 | `research_output_guard.py --write-manifest` | Generated JSON/CSV outputs + `data/*.parquet` | `signals/research_run_manifest.json` |
@@ -110,10 +111,12 @@ These steps MUST run in the listed order:
 2. `feature_quality_diagnostic.py` writes a fresh feature report.
    `factor_data_health.py --strict` (step 4) blocks if this report
    is too old, so step 2 must run before step 4.
-3. `feature_research.py` is independent of step 2 but must run
+3. `feature_health.py` must run after the new quality report. Its input
+   fingerprint otherwise points to the old report and strict health fails.
+4. `feature_research.py` is independent of step 2 but must run
    after step 1 (it needs fresh forward returns from the panel).
-4. `factor_data_health.py` checks panel freshness and required files.
-5. `research_output_guard.py` is the final gate.  Failure here means
+5. `factor_data_health.py` checks panel freshness and required files.
+6. `research_output_guard.py` is the final gate. Failure here means
    *something* upstream is off; don't run further research until
    you understand why.
 
@@ -125,6 +128,12 @@ These steps MUST run in the listed order:
 | Before quarterly retrain | `--pairs` | Adds slow pairwise analysis (~30 min) |
 | Already refreshed parquets today | `--skip-research` | ~3 min |
 | Already refreshed feature_research this quarter | `--skip-feature-research` | ~2 min |
+
+The full feature-quality grading step can take over 30 minutes on a current
+42-feature panel. The local wrapper gives it up to one hour before treating
+it as stuck. If it times out, its report is not considered refreshed; rerun
+the wrapper with `--skip-research` after checking that the ticker parquets
+are complete. The strict data-health step must still pass before research.
 
 ## Exit codes
 
