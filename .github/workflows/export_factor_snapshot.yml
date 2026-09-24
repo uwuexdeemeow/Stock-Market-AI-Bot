@@ -1,0 +1,58 @@
+# Manually export one existing factor-data cache for reproducible diagnosis.
+# This workflow never trades, changes strategy approval, or publishes a new cache.
+name: Export Factor Snapshot
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Factor Data Refresh run ID whose exact data cache to export"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  export-factor-snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Validate source run ID
+        shell: bash
+        env:
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          # An exact numeric key prevents a prefix match from exporting a
+          # different trading day by accident.
+          if [[ ! "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::source_run_id must contain only digits"
+            exit 1
+          fi
+
+      - name: Restore exact factor data cache
+        id: restore_data
+        uses: actions/cache/restore@v6
+        with:
+          path: data/
+          key: factor-data-parquets-${{ inputs.source_run_id }}
+
+      - name: Require exact cache hit
+        shell: bash
+        env:
+          CACHE_HIT: ${{ steps.restore_data.outputs.cache-hit }}
+        run: |
+          if [ "$CACHE_HIT" != "true" ]; then
+            echo "::error::No exact data cache exists for this run ID"
+            exit 1
+          fi
+          find data -maxdepth 1 -name '*.parquet' -type f | wc -l
+
+      - name: Upload research price snapshot
+        uses: actions/upload-artifact@v7
+        with:
+          name: factor-price-snapshot-${{ inputs.source_run_id }}
+          path: data/*.parquet
+          if-no-files-found: error
+          compression-level: 1
+          retention-days: 3
