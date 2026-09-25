@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "frozen_at": "2026-09-25T17:58:51+00:00",
+  "frozen_at": "2026-09-25T20:40:21+00:00",
   "epoch_id": "paper-v20260910T045130Z",
   "epoch_started_at": "2026-09-10T04:51:30+00:00",
-  "git_commit_at_freeze": "e8bdff761c2a29c272f968e1d9775397736e5c1c",
-  "logic_fingerprint": "dbfce40b35827ce61f2ff752f613999b15a07a15a8c9deb027b60d123681bc64",
+  "git_commit_at_freeze": "28a1bf22ae3d53496455d62e8c6ebb2ef095799b",
+  "logic_fingerprint": "0b5c020f8654e6e3a28a7d82c98a6f603e3ab786b1975850a499fcb1eda3e43a",
   "files": {
     ".github/workflows/daily_paper_trading.yml": "7f090053cd08fa47086d454c62675e0b3f8cbc31e3790f15de3466a0044c6338",
     ".github/workflows/factor_data_refresh.yml": "2a805a5751fa01cd1540257c629898a795230f7f0c300d18b8c411d55d8b6f3b",
@@ -36,19 +36,19 @@
     "pipeline_shared.py": "bb04ec683f8e8425077ae29ae8d3fcf4b6f5981bdfb09cd21549c101df8b55f5",
     "portfolio_manager.py": "2e28383678d853e0e11864e8ab0e99c53a6ab882caf683bc831ae513468c059a",
     "risk_sizing.py": "571b86040d68d8daf29c4544acc9b27b846732578267fa338be6a5f182205f82",
-    "robustness_review.py": "e84bd19121e5f8ca5e12ced8a1039d944b7e7ca27ad699bf7c0de6348b858c3e",
-    "robustness_snapshot_gate.py": "506121f927c2e29dc6af25f0580f93497722e80a80643f76950238284085b9cc",
+    "robustness_review.py": "7de8f70236ba13e02797bc67167436fc4e27970e078a3f02029260491c16a055",
+    "robustness_snapshot_gate.py": "05d9caeeb596b1f05963b414a5e267dc0fd93ab5bee9d2282651809a108bf760",
     "run_evidence.py": "bf0a92c678c28955f5bb7f4d31c7ccbd4780045cf191e00285288fad3967f7ba",
     "requirements-ci.txt": "d8960ade8616c3c3a003c30962625abd0fa12f48ff0f923165f2fa781052f750",
     "requirements.txt": "0ec2c545d92c8d547e0e93ba2cbc02c7dd305cefc046619453b185bbc380a8c7",
     "settings.py": "baad01852ad1cfe8173471e0bb4c97482f6487644d8c4467a8e7d9dbd7b9482d",
     "signal_freshness.py": "f177c6801b24ad117f71988a96f3b462c4f9e7e638ba703c0615d8a202b4a469",
     "trade_rules.py": "0a456248e7fbb20752a04bc980c1336d24371d5db54f32d04fb1f173bca06efc",
-    "validation_bundle.py": "7249b4c55061f2e4293cf6285a61a056a0c20c6d1069034a899786e403e27f4f",
+    "validation_bundle.py": "59b1ffe27ff6d0a618e8608ef0cb9d6591847f2ee64d3d2526eb237c9ec622cd",
     "workflow_watchdog.py": "0bc8911b222c4288b13098fab0da9036563d1c0c1369c0f768b8e9ba4ad7cc98",
     "signals/core_satellite_live_configs.json": "cf02ce4def81ba7cefb122e1084f0091891928a637276b11fb4327976865e9b2",
     "signals/core_satellite_validation_bundle.json": "c02a982cf74b789ee01ffa0a25f8f73751d55394490fe6f024ef445fcf0b2f17"
   },
   "policy": "block_paper_submission_on_locked_file_change",
   "real_capital_approved": false
-}
+}
