@@ -84,3 +84,5 @@ logs/*
 *.bak
 *.bak2
 *.bak3
+# Personal Claude Code settings (per-machine permissions)
+.claude/settings.local.json
