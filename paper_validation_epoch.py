@@ -65,6 +65,9 @@ PAPER_LOGIC_FILES = (
     "portfolio_manager.py",
     "risk_sizing.py",
     "robustness_review.py",
+    # This gate decides whether a checked snapshot may reach order submission.
+    # Lock it with the other fail-closed paper safety policy.
+    "robustness_snapshot_gate.py",
     "run_evidence.py",
     # Dependency changes can alter data, sentiment, and broker behavior even
     # when the Python source stays unchanged, so freeze them with the release.

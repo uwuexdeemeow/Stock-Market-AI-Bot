@@ -140,13 +140,13 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements-ci.txt
 
-      # ── 5. Restore one validated factor snapshot ───────────────────
+      # ── 5. Restore one checked factor snapshot ─────────────────────
       # PLAIN ENGLISH: two independent prefix caches can pair today's prices
       # with yesterday's stress reports. One cache key keeps all evidence from
       # the same successful Factor Data Refresh run. Strategy approvals stay
       # in main and are not restored from the cache.
-      - name: Restore validated factor snapshot
-        id: restore_validated_factor_snapshot
+      - name: Restore checked factor snapshot
+        id: restore_checked_factor_snapshot
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache/restore@v6
         with:
@@ -163,27 +163,28 @@ jobs:
             signals/feature_research_report.json
             signals/feature_research_summary.csv
             signals/research_run_manifest.json
+            signals/robustness_snapshot_status.json
             logs/feature_ic_shortlist.csv
             logs/survivorship_audit.json
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json
-          key: validated-factor-snapshot-v2-${{ github.run_id }}
+          key: checked-factor-snapshot-v1-${{ github.run_id }}
           restore-keys: |
-            validated-factor-snapshot-v2-
+            checked-factor-snapshot-v1-
 
-      - name: Require validated factor snapshot
+      - name: Require checked factor snapshot
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         shell: bash
         env:
-          MATCHED_KEY: ${{ steps.restore_validated_factor_snapshot.outputs.cache-matched-key }}
+          MATCHED_KEY: ${{ steps.restore_checked_factor_snapshot.outputs.cache-matched-key }}
         run: |
-          # Never trade from a failed research run's data-only cache.
-          if [[ "$MATCHED_KEY" != validated-factor-snapshot-v2-* ]]; then
-            echo "::error::No validated factor snapshot is cached. Run Factor Data Refresh and inspect its robustness gate."
+          # Never combine unrelated data and safety-report caches.
+          if [[ "$MATCHED_KEY" != checked-factor-snapshot-v1-* ]]; then
+            echo "::error::No checked factor snapshot is cached. Run Factor Data Refresh first."
             exit 1
           fi
-          echo "Restored validated snapshot: $MATCHED_KEY"
+          echo "Restored checked snapshot: $MATCHED_KEY"
 
       # Restore the operational audit trail from the dedicated signal branch.
       # PLAIN ENGLISH: GitHub runners are new computers each day. These files
@@ -484,26 +485,11 @@ jobs:
           STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
 
       - name: Verify daily robustness and matching data
+        id: verify_daily_robustness
         if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
-        run: |
-          python3 robustness_review.py --strict
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          from validation_bundle import current_robustness_evidence, load_dataset_context
-
-          # PLAIN ENGLISH: all three safety reports must describe the exact
-          # approved strategy and the exact price snapshot this job will use.
-          approved = json.loads(Path('signals/core_satellite_validation_bundle.json').read_text())
-          dataset = load_dataset_context()
-          review = current_robustness_evidence(
-              expected_config_fingerprint=str(approved.get('config_fingerprint', '')),
-              expected_dataset_fingerprint=str(dataset.get('dataset_fingerprint', '')),
-              expected_config=approved.get('config', {}),
-          )
-          print(json.dumps(review, indent=2))
-          raise SystemExit(0 if dataset.get('dataset_fingerprint') and review.get('pass') else 1)
-          PY
+        # Invalid or mismatched evidence still fails the job. A coherent safety
+        # rejection becomes an intentional no-order run instead of an outage.
+        run: python3 robustness_snapshot_gate.py --github-output
         env:
           PYTHONUNBUFFERED: "1"
 
@@ -512,7 +498,7 @@ jobs:
       #    still blocks orders if that data is too stale.
       - name: Run daily paper trading (Alpaca only)
         id: run_daily_paper
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && (github.event.inputs.dry_run == 'true' || steps.verify_daily_robustness.outputs.trading_allowed == 'true') }}
         run: |
           # The strict ETF preflight and matching robustness reports above
           # already ran on this runner; another refresh would change their ID.
@@ -544,6 +530,7 @@ jobs:
         env:
           WORKFLOW_STATUS: ${{ job.status }}
           MARKET_CLOSED: ${{ steps.run_daily_paper.outputs.market_closed }}
+          SAFETY_BLOCKED: ${{ steps.verify_daily_robustness.outputs.trading_allowed == 'false' }}
           SCHEDULE_CRON: ${{ github.event.schedule }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -565,15 +552,16 @@ jobs:
               "branch": os.environ.get("GITHUB_REF_NAME"),
               "status": os.environ.get("WORKFLOW_STATUS"),
               "market_closed": os.environ.get("MARKET_CLOSED") == "true",
+              "safety_blocked": os.environ.get("SAFETY_BLOCKED") == "true",
               "completed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
           }
           Path("signals/workflow_heartbeat_daily.json").write_text(json.dumps(payload, indent=2))
           PY
 
       - name: Record intentional skip
-        if: ${{ always() && (steps.ny_schedule_gate.outputs.should_run == 'false' || steps.run_daily_paper.outputs.market_closed == 'true') }}
+        if: ${{ always() && (steps.ny_schedule_gate.outputs.should_run == 'false' || steps.run_daily_paper.outputs.market_closed == 'true' || (github.event.inputs.dry_run != 'true' && steps.verify_daily_robustness.outputs.trading_allowed == 'false')) }}
         env:
-          SKIP_REASON: ${{ steps.ny_schedule_gate.outputs.should_run == 'false' && 'schedule_guard' || 'market_closed' }}
+          SKIP_REASON: ${{ steps.ny_schedule_gate.outputs.should_run == 'false' && 'schedule_guard' || steps.run_daily_paper.outputs.market_closed == 'true' && 'market_closed' || 'robustness_gate' }}
         run: |
           # Runner Python is available even when the schedule skips checkout.
           python3 - <<'PY_SKIP'
@@ -588,7 +576,7 @@ jobs:
           PY_SKIP
 
       - name: Upload skip evidence
-        if: ${{ always() && (steps.ny_schedule_gate.outputs.should_run == 'false' || steps.run_daily_paper.outputs.market_closed == 'true') }}
+        if: ${{ always() && (steps.ny_schedule_gate.outputs.should_run == 'false' || steps.run_daily_paper.outputs.market_closed == 'true' || (github.event.inputs.dry_run != 'true' && steps.verify_daily_robustness.outputs.trading_allowed == 'false')) }}
         uses: actions/upload-artifact@v7
         with:
           name: intentional-skip-${{ github.run_id }}
@@ -628,6 +616,7 @@ jobs:
             signals/feature_health_profile.csv
             signals/factor_data_health.json
             signals/factor_decay_monitor.csv
+            signals/robustness_snapshot_status.json
             signals/fill_monitor.json
             signals/broker_health.json
             signals/alpaca_paper_health.json
@@ -796,8 +785,8 @@ jobs:
           key: factor-data-parquets-daily-${{ github.run_id }}
 
       # ── 10. Save updated state files ──────────────────────────────
-      #    Preserve the validated factor/report set under a new immutable cache
-      #    key. Strategy approval files remain owned by main.
+      #    Preserve the checked factor/report set under a new immutable cache.
+      #    A blocked status remains blocked; strategy approval stays on main.
       - name: Save state files cache
         if: ${{ steps.run_daily_paper.outputs.market_closed != 'true' && success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v6
@@ -813,6 +802,7 @@ jobs:
             signals/feature_research_report.json
             signals/feature_research_summary.csv
             signals/research_run_manifest.json
+            signals/robustness_snapshot_status.json
             logs/feature_ic_shortlist.csv
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
@@ -833,6 +823,7 @@ jobs:
           RUN_NUMBER: ${{ github.run_number }}
           DRY_RUN_INPUT: ${{ github.event.inputs.dry_run }}
           MARKET_CLOSED: ${{ steps.run_daily_paper.outputs.market_closed }}
+          SAFETY_BLOCKED: ${{ steps.verify_daily_robustness.outputs.trading_allowed == 'false' }}
         run: |
           if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
             echo "Telegram secrets not set — skipping notification"
@@ -865,6 +856,20 @@ jobs:
           if os.environ.get("MARKET_CLOSED") == "true":
               lines[0] = "Daily Paper Trading MARKET CLOSED" if status == "success" else lines[0]
               lines.append("NYSE closed: trading skipped; no orders submitted by this run.")
+              print("\n".join(lines))
+              raise SystemExit(0)
+
+          if os.environ.get("SAFETY_BLOCKED") == "true":
+              lines[0] = "Daily Paper Trading SAFETY BLOCKED"
+              lines.append("Trading skipped; no order step ran.")
+              snapshot_path = Path("signals/robustness_snapshot_status.json")
+              try:
+                  snapshot = json.loads(snapshot_path.read_text())
+                  reasons = snapshot.get("reasons") or []
+                  if reasons:
+                      lines.append("Reasons: " + ", ".join(str(x) for x in reasons[:5]))
+              except Exception as exc:
+                  lines.append(f"Snapshot status unreadable: {exc}")
               print("\n".join(lines))
               raise SystemExit(0)
 

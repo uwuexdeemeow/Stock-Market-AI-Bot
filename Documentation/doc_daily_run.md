@@ -108,9 +108,12 @@ The workflow file `.github/workflows/daily_paper_trading.yml` invokes
 `python3 daily_run.py --alpaca --timeout 600`.
 
 Factor Data Refresh now regenerates signal metrics, execution stress,
-survivorship, and factor-decay evidence as one set. It saves them in the same
-`runtime-state-v4` cache as the factor parquets. Daily Run restores that set, so
-a successful data refresh cannot leave the seven-day decay monitor stale. The
+survivorship, and factor-decay evidence as one set. It saves one checked
+snapshot containing both the factor parquets and their reports. Daily Run
+restores that exact set, so separate caches cannot mix data from different
+runs. A coherent snapshot may still say `trading_blocked`; in that case the
+daily workflow records an intentional no-order run and leaves the signal at
+zero exposure. Missing or mismatched evidence still fails the workflow. The
 approved strategy configuration and validation bundle remain owned by `main`.
 
 ## Safety features

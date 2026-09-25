@@ -1,9 +1,10 @@
 # factor_decay_monitor.py - Factor Decay Monitor
 
 Factor Data Refresh runs this after refreshing factor parquets and the other
-rolling robustness reports. Its JSON and CSV travel in `runtime-state-v4` with
-the dataset they measured. Daily and shadow workflows restore that validated
-set before generating signals.
+rolling robustness reports. Its JSON and CSV travel with the dataset they
+measured. A matching but safety-blocked set is preserved for diagnosis, while
+the daily workflow skips every order step. Missing or mismatched evidence still
+fails closed before signal generation.
 
 The report identity includes the deployment gross-exposure ceiling so the
 validation bundle cannot combine decay evidence with a different portfolio

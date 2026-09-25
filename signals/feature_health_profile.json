@@ -1,7 +1,7 @@
 {
   "purpose": "feature_health_profile",
   "source_fingerprints": {
-    "feature_quality_report.json": "a8acdb8b59ceb6811e2be59dac8a1a676751cf030a74fc94b8293488700f09e9",
+    "feature_quality_report.json": "f2f1ef240ae6ca979f36a14a52c496969ffeb8e287780a0367314ce94270e8fa",
     "feature_research_summary.csv": "596c3043ebb2345f6c889b12c5d2e9899710d8d50356ac7119f632b4acaec96a"
   },
   "correlation_cluster_threshold": 0.7,

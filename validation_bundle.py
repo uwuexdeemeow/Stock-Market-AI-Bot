@@ -20,16 +20,15 @@ from typing import Any
 import pandas as pd
 
 from refresh_etf_data import DEFAULT_ETFS
-from safe_io import atomic_write_csv, atomic_write_json, atomic_write_text
-from settings import DATA_DIR
-from signal_freshness import latest_completed_us_trading_day
-from universe_membership import membership_status
 from robustness_review import (
     DEFAULT_ROBUSTNESS_REPORT_PATHS,
     evaluate_medium_risk_review,
     read_report,
 )
-
+from safe_io import atomic_write_csv, atomic_write_json, atomic_write_text
+from settings import DATA_DIR
+from signal_freshness import latest_completed_us_trading_day
+from universe_membership import membership_status
 
 DEFAULT_BUNDLE_PATH = Path("signals/core_satellite_validation_bundle.json")
 DEFAULT_LIVE_CONFIG_PATH = Path("signals/core_satellite_live_configs.json")
@@ -411,19 +410,32 @@ def current_robustness_evidence(
     for name, record in records.items():
         record["health"] = dict(review.get(health_keys.get(name, ""), {}) or {})
 
-    reasons = [
+    # PLAIN ENGLISH: report identity and report health answer different
+    # questions.  A report can be a complete, trustworthy description of the
+    # current snapshot while honestly saying "do not trade".  Keep those
+    # outcomes separate so workflows can preserve the evidence without ever
+    # treating a failed safety review as approval.
+    identity_reasons = [
         f"{name}:{reason}"
         for name, record in records.items()
         for reason in record.get("reasons", [])
     ]
-    reasons.extend(str(reason) for reason in review.get("reasons", []))
     if require_reports:
         for required in DEFAULT_REPORT_PATHS:
             if required not in records:
-                reasons.append(f"{required}:missing_report_record")
+                identity_reasons.append(f"{required}:missing_report_record")
+    identity_reasons = sorted(set(identity_reasons))
+    health_reasons = sorted({str(reason) for reason in review.get("reasons", [])})
+    reasons = sorted(set(identity_reasons + health_reasons))
+    identity_pass = not identity_reasons
+    health_pass = bool(review.get("pass", False))
     return {
-        "pass": not reasons and bool(review.get("pass", False)),
-        "reasons": sorted(set(reasons)),
+        "pass": identity_pass and health_pass,
+        "reasons": reasons,
+        "identity_pass": identity_pass,
+        "identity_reasons": identity_reasons,
+        "health_pass": health_pass,
+        "health_reasons": health_reasons,
         "reports": records,
         "medium_risk_review": review,
     }

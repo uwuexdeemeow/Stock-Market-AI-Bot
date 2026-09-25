@@ -85,9 +85,14 @@ replace the `signals/latest` branch.
 
 Factor Data Refresh also owns the rolling robustness set. After refreshing its
 parquets, it regenerates validation signal metrics, execution stress,
-survivorship, and factor decay, then saves all of them under `runtime-state-v4`.
-Daily and shadow workflows restore that exact set. The strategy approval files
-remain on `main`; only current evidence moves through the cache.
+survivorship, and factor decay, then saves the matched data and reports as one
+checked snapshot. `robustness_snapshot_gate.py` keeps evidence integrity
+separate from trading approval. Missing or mismatched evidence fails the
+workflow; a coherent safety rejection is preserved as `trading_blocked`, zeros
+the signal, and makes Daily Paper Trading record an intentional no-order run.
+Daily and shadow workflows therefore inspect current evidence without silently
+turning a rejected stress test into approval. The strategy approval files remain
+on `main`; only current evidence moves through the cache.
 
 The workflow stays paper-only. Alignment recovery and execution calibration
 are review-only, and no readiness result can approve real capital.

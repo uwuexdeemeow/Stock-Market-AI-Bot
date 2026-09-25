@@ -48,6 +48,11 @@ def test_shadow_evidence_scripts_are_part_of_paper_version_lock():
     assert "fractional_shadow_paper.py" in epoch_module.PAPER_LOGIC_FILES
 
 
+def test_snapshot_gate_is_part_of_paper_version_lock():
+    """The no-order decision cannot change silently during an active epoch."""
+    assert "robustness_snapshot_gate.py" in epoch_module.PAPER_LOGIC_FILES
+
+
 def test_rolling_reports_are_not_locked_as_executable_policy():
     """A validated market-data refresh may replace evidence without a refreeze."""
     for report in (

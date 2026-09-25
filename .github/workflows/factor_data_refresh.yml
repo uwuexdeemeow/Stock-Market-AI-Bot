@@ -292,25 +292,9 @@ jobs:
       - name: Verify refreshed robustness evidence
         id: verify_robustness_evidence
         if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
-        run: |
-          python3 robustness_review.py --strict
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          from validation_bundle import current_robustness_evidence, load_dataset_context
-
-          # PLAIN ENGLISH: a passing stress score only applies to the exact
-          # approved strategy and market data that produced its report.
-          approved = json.loads(Path('signals/core_satellite_validation_bundle.json').read_text())
-          dataset = load_dataset_context()
-          review = current_robustness_evidence(
-              expected_config_fingerprint=str(approved.get('config_fingerprint', '')),
-              expected_dataset_fingerprint=str(dataset.get('dataset_fingerprint', '')),
-              expected_config=approved.get('config', {}),
-          )
-          print(json.dumps(review, indent=2))
-          raise SystemExit(0 if dataset.get('dataset_fingerprint') and review.get('pass') else 1)
-          PY
+        # A coherent report set may truthfully reject trading. Preserve that
+        # evidence for the daily job, but never turn the rejection into approval.
+        run: python3 robustness_snapshot_gate.py --github-output
         env:
           PYTHONUNBUFFERED: "1"
 
@@ -331,6 +315,7 @@ jobs:
             signals/factor_data_health.json
             signals/research_run_manifest.json
             signals/factor_decay_monitor.csv
+            signals/robustness_snapshot_status.json
             logs/survivorship_audit.json
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
@@ -347,11 +332,10 @@ jobs:
           path: data/
           key: factor-data-parquets-${{ github.run_id }}
 
-      # Publish one validated report set for readers of this factor snapshot.
+      # Publish one internally consistent report set for research readers.
       - name: Save state cache
-        # Only publish state after its strict health check passes.  A failed
-        # report stays in the run artifact, while later runs keep using the
-        # last known-good state rather than inheriting a broken one.
+        # A safety rejection is preserved as data, not approval. Consumers
+        # still read robustness_snapshot_status.json and fail closed.
         if: ${{ always() && steps.validate_factor_data_health.outcome == 'success' && steps.validate_research_outputs.outcome == 'success' && steps.refresh_etf_prices.outcome == 'success' && steps.refresh_core_alpha_validation.outcome == 'success' && steps.refresh_execution_stress.outcome == 'success' && steps.ensure_survivorship_inputs.outcome == 'success' && steps.refresh_survivorship_audit.outcome == 'success' && steps.refresh_factor_decay.outcome == 'success' && steps.verify_robustness_evidence.outcome == 'success' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v6
         with:
@@ -366,6 +350,7 @@ jobs:
             signals/feature_research_report.json
             signals/feature_research_summary.csv
             signals/research_run_manifest.json
+            signals/robustness_snapshot_status.json
             logs/feature_ic_shortlist.csv
             logs/survivorship_audit.json
             logs/factor_decay_monitor.json
@@ -374,9 +359,9 @@ jobs:
           key: runtime-state-v4-${{ github.run_id }}
 
       # The daily job must restore prices and their checked reports from the
-      # same completed refresh. Separate prefix caches can select different
-      # runs after a failed refresh and trigger fingerprint mismatches.
-      - name: Save validated paper snapshot
+      # same completed refresh. A checked snapshot can be approved or explicitly
+      # trading-blocked; an invalid/mismatched snapshot is never saved here.
+      - name: Save checked paper snapshot
         if: ${{ always() && steps.validate_factor_data_health.outcome == 'success' && steps.validate_research_outputs.outcome == 'success' && steps.refresh_etf_prices.outcome == 'success' && steps.refresh_core_alpha_validation.outcome == 'success' && steps.refresh_execution_stress.outcome == 'success' && steps.ensure_survivorship_inputs.outcome == 'success' && steps.refresh_survivorship_audit.outcome == 'success' && steps.refresh_factor_decay.outcome == 'success' && steps.verify_robustness_evidence.outcome == 'success' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v6
         with:
@@ -393,12 +378,13 @@ jobs:
             signals/feature_research_report.json
             signals/feature_research_summary.csv
             signals/research_run_manifest.json
+            signals/robustness_snapshot_status.json
             logs/feature_ic_shortlist.csv
             logs/survivorship_audit.json
             logs/factor_decay_monitor.json
             logs/core_satellite_execution_stress.json
             logs/core_satellite_survivorship_audit.json
-          key: validated-factor-snapshot-v2-${{ github.run_id }}
+          key: checked-factor-snapshot-v1-${{ github.run_id }}
 
       - name: Send consolidated Telegram summary
         if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
@@ -409,6 +395,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RUN_NUMBER: ${{ github.run_number }}
           XS_ONLY_INPUT: ${{ github.event.inputs.xs_only }}
+          TRADING_ALLOWED: ${{ steps.verify_robustness_evidence.outputs.trading_allowed }}
         run: |
           if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
             echo "Telegram secrets not set - skipping notification"
@@ -437,6 +424,20 @@ jobs:
           ]
           if os.environ.get("XS_ONLY_INPUT") == "true":
               lines.append("Mode: xs-only")
+
+          snapshot_path = Path("signals/robustness_snapshot_status.json")
+          if snapshot_path.exists():
+              try:
+                  snapshot = json.loads(snapshot_path.read_text())
+                  lines.append(
+                      "Trading gate: "
+                      + ("APPROVED" if snapshot.get("trading_allowed") else "BLOCKED - no orders allowed")
+                  )
+                  reasons = snapshot.get("reasons") or []
+                  if reasons:
+                      lines.append("Safety reasons: " + ", ".join(str(x) for x in reasons[:5]))
+              except Exception as exc:
+                  lines.append(f"Snapshot status unreadable: {exc}")
 
           health_path = Path("signals/factor_data_health.json")
           if health_path.exists():
