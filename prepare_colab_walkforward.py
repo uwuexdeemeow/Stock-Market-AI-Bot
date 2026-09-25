@@ -25,6 +25,8 @@ SAFE_SIGNAL_INPUTS = (
     "feature_health_profile.json",
     "feature_health_profile.csv",
     "adaptive_factor_weights.json",
+    "feature_research_report.json",
+    "feature_research_summary.csv",
     "core_satellite_live_configs.json",
     "core_satellite_validation_bundle.json",
 )
@@ -34,6 +36,28 @@ SAFE_LOG_INPUTS = (
     "core_satellite_execution_stress.json",
     "factor_decay_monitor.json",
 )
+
+
+def _manifest_listed_inputs(manifest_path: Path = Path("signals/research_run_manifest.json")) -> list[Path]:
+    """Return every signals/logs file the research manifest fingerprints.
+
+    PLAIN ENGLISH: some files carry a fingerprint of the exact bytes of other
+    files.  Windows saves text with CRLF line endings, but a Git clone on Colab
+    gets LF endings, so any listed file left out of the snapshot would come
+    from Git with different bytes and fail its fingerprint check.  Packaging
+    every listed file keeps Colab byte-identical to this computer.
+    """
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    listed: set[str] = set()
+    for section in ("validation", "outputs"):
+        for row in (manifest.get(section, {}) or {}).get("files", []) or []:
+            path = str((row or {}).get("path", "")).replace("\\", "/")
+            if path.startswith(("signals/", "logs/")) and "/" not in path.split("/", 1)[1]:
+                listed.add(path)
+    return [Path(path) for path in sorted(listed)]
 
 
 def _sha256(path: Path) -> str:
@@ -91,6 +115,11 @@ def build_snapshot(
     inputs += sorted(Path("data/manifests").glob("*.json"))
     inputs += [Path("signals") / name for name in SAFE_SIGNAL_INPUTS if (Path("signals") / name).exists()]
     inputs += [Path("logs") / name for name in SAFE_LOG_INPUTS if (Path("logs") / name).exists()]
+    already = {path.as_posix() for path in inputs}
+    for path in _manifest_listed_inputs():
+        if path.exists() and path.as_posix() not in already:
+            inputs.append(path)
+            already.add(path.as_posix())
     with tarfile.open(temporary, "w:gz") as handle:
         for path in inputs:
             handle.add(path, arcname=path.as_posix(), recursive=False)
