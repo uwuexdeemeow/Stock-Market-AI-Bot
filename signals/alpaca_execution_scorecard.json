@@ -1,71 +1,71 @@
 {
   "schema_version": 3,
-  "generated_at": "2026-09-24T21:16:24+00:00",
-  "measurement_cutoff_60m": "2026-09-24T20:16:24.170745+00:00",
+  "generated_at": "2026-09-25T21:16:16+00:00",
+  "measurement_cutoff_60m": "2026-09-25T20:16:16.291932+00:00",
   "status": "collecting",
   "score": 75.0,
   "decision_eligible": false,
   "decision_blockers": [
-    "slippage_sample_17_below_20",
-    "adverse_15m_sample_17_below_20",
-    "adverse_60m_sample_16_below_20"
+    "slippage_sample_11_below_20",
+    "adverse_15m_sample_11_below_20",
+    "adverse_60m_sample_11_below_20"
   ],
   "lookback_days": 30,
   "summary": {
-    "paper_log_rows": 31,
+    "paper_log_rows": 25,
     "unmatched_broker_fill_count": 0,
     "unmatched_broker_fill_ids": [],
-    "accepted_orders": 17,
-    "filled_orders": 16,
-    "any_filled_orders": 16,
+    "accepted_orders": 11,
+    "filled_orders": 10,
+    "any_filled_orders": 10,
     "skipped_orders": 13,
-    "fill_rate": 0.9412,
-    "complete_fill_rate": 0.9412,
-    "any_fill_rate": 0.9412,
+    "fill_rate": 0.9091,
+    "complete_fill_rate": 0.9091,
+    "any_fill_rate": 0.9091,
     "partially_filled_orders": 0,
     "open_orders": 0,
     "canceled_unfilled_orders": 1,
     "duplicate_logical_orders": 0,
     "duplicate_child_attempts": 0,
-    "child_attempts": 20,
+    "child_attempts": 14,
     "unclassifiable_order_rows": 0,
     "unclassifiable_logical_orders": 0,
-    "skipped_rate": 0.4194,
-    "orders_seen": 17,
-    "eligible_orders": 17,
-    "measured_slippage_count": 17,
-    "slippage_eligible_orders": 17,
-    "slippage_measured_orders": 17,
+    "skipped_rate": 0.52,
+    "orders_seen": 11,
+    "eligible_orders": 11,
+    "measured_slippage_count": 11,
+    "slippage_eligible_orders": 11,
+    "slippage_measured_orders": 11,
     "slippage_coverage_rate": 1.0,
-    "trading_sessions": 8,
-    "avg_slippage_bps": 3.887,
+    "trading_sessions": 7,
+    "avg_slippage_bps": 5.338,
     "median_slippage_bps": 1.29,
-    "p75_slippage_bps": 2.52,
+    "p75_slippage_bps": 5.015,
     "worst_slippage_bps": 42.79,
     "mean_slippage_95ci_bps": [
-      -1.039,
-      8.813
+      -2.243,
+      12.919
     ],
-    "bad_slippage_count": 6,
-    "bad_slippage_rate": 0.3529,
+    "bad_slippage_count": 4,
+    "bad_slippage_rate": 0.3636,
     "bad_slippage_threshold_bps": 2.0,
-    "raw_bad_slippage_count": 13,
-    "raw_bad_slippage_rate": 0.7647,
-    "minor_bad_slippage_count": 7,
-    "adverse_15m_count": 6,
-    "adverse_15m_observations": 17,
-    "adverse_15m_eligible_orders": 17,
-    "adverse_15m_measured_orders": 17,
+    "raw_bad_slippage_count": 8,
+    "raw_bad_slippage_rate": 0.7273,
+    "minor_bad_slippage_count": 4,
+    "adverse_15m_count": 3,
+    "adverse_15m_observations": 11,
+    "adverse_15m_eligible_orders": 11,
+    "adverse_15m_measured_orders": 11,
     "adverse_15m_coverage_rate": 1.0,
-    "adverse_15m_rate": 0.3529,
+    "adverse_15m_rate": 0.2727,
     "adverse_60m_count": 3,
-    "adverse_60m_observations": 16,
-    "adverse_60m_eligible_orders": 17,
-    "adverse_60m_measured_orders": 16,
-    "adverse_60m_coverage_rate": 0.9412,
-    "adverse_60m_rate": 0.1875,
-    "orders_analyzed": 17,
-    "limit_avg_slippage_bps": 3.887,
+    "adverse_60m_observations": 11,
+    "adverse_60m_eligible_orders": 11,
+    "adverse_60m_measured_orders": 11,
+    "adverse_60m_coverage_rate": 1.0,
+    "adverse_60m_rate": 0.2727,
+    "orders_analyzed": 11,
+    "limit_avg_slippage_bps": 5.338,
     "market_avg_slippage_bps": null,
     "limit_vs_market_delta_bps": null,
     "source": "alpaca_api",
@@ -76,14 +76,14 @@
       "adverse_15m_measured_orders": 1,
       "adverse_60m_measured_orders": 1
     },
-    "slippage_delta_vs_prior_scorecard_bps": 0.0
+    "slippage_delta_vs_prior_scorecard_bps": 1.451
   },
   "sample_gate": {
     "ready": false,
-    "measured_rebalance_fills": 17,
+    "measured_rebalance_fills": 11,
     "minimum_rebalance_fills": 20,
     "minimum_definitive_fills": 20,
-    "rebalance_sessions": 8,
+    "rebalance_sessions": 7,
     "minimum_rebalance_sessions": 3
   },
   "protective_stops": {
@@ -123,91 +123,67 @@
   },
   "entry_timing": {
     "status": "advisory",
-    "adverse_15m_rate": 0.3529,
-    "adverse_15m_observations": 17,
-    "adverse_60m_rate": 0.1875,
-    "adverse_60m_observations": 16,
+    "adverse_15m_rate": 0.2727,
+    "adverse_15m_observations": 11,
+    "adverse_60m_rate": 0.2727,
+    "adverse_60m_observations": 11,
     "note": "Post-fill movement measures entry timing, not fill quality."
   },
   "diagnostics": {
     "status": "advisory",
     "by_symbol": [
       {
-        "group": "COP",
-        "samples": 1,
-        "mean_bps": 0.55,
-        "median_bps": 0.55,
-        "p75_bps": 0.55,
-        "worst_bps": 0.55
-      },
-      {
         "group": "FCX",
-        "samples": 3,
-        "mean_bps": 2.18,
-        "median_bps": 2.52,
-        "p75_bps": 4.16,
+        "samples": 2,
+        "mean_bps": 2.01,
+        "median_bps": 2.01,
+        "p75_bps": 3.905,
         "worst_bps": 5.8
       },
       {
         "group": "INTC",
-        "samples": 7,
-        "mean_bps": 7.333,
-        "median_bps": 1.31,
-        "p75_bps": 4.985,
+        "samples": 6,
+        "mean_bps": 8.163,
+        "median_bps": 0.995,
+        "p75_bps": 6.043,
         "worst_bps": 42.79
       },
       {
         "group": "MU",
-        "samples": 2,
-        "mean_bps": 3.01,
-        "median_bps": 3.01,
-        "p75_bps": 3.62,
+        "samples": 1,
+        "mean_bps": 4.23,
+        "median_bps": 4.23,
+        "p75_bps": 4.23,
         "worst_bps": 4.23
       },
       {
         "group": "QQQ",
-        "samples": 3,
-        "mean_bps": 0.703,
-        "median_bps": 0.62,
-        "p75_bps": 0.955,
+        "samples": 2,
+        "mean_bps": 0.745,
+        "median_bps": 0.745,
+        "p75_bps": 1.018,
         "worst_bps": 1.29
-      },
-      {
-        "group": "SPY",
-        "samples": 1,
-        "mean_bps": -0.47,
-        "median_bps": -0.47,
-        "p75_bps": -0.47,
-        "worst_bps": -0.47
       }
     ],
     "by_side": [
       {
         "group": "buy",
-        "samples": 12,
-        "mean_bps": 1.718,
-        "median_bps": 1.235,
-        "p75_bps": 2.948,
+        "samples": 8,
+        "mean_bps": 1.666,
+        "median_bps": 0.44,
+        "p75_bps": 4.623,
         "worst_bps": 7.62
       },
       {
         "group": "sell",
-        "samples": 5,
-        "mean_bps": 9.094,
-        "median_bps": 1.29,
-        "p75_bps": 1.31,
+        "samples": 3,
+        "mean_bps": 15.13,
+        "median_bps": 1.31,
+        "p75_bps": 22.05,
         "worst_bps": 42.79
       }
     ],
     "by_order_stage": [
-      {
-        "group": "legacy",
-        "samples": 6,
-        "mean_bps": 1.227,
-        "median_bps": 1.205,
-        "p75_bps": 2.21,
-        "worst_bps": 2.52
-      },
       {
         "group": "stage1",
         "samples": 8,
@@ -228,20 +204,20 @@
     "by_order_type": [
       {
         "group": "limit",
-        "samples": 17,
-        "mean_bps": 3.887,
+        "samples": 11,
+        "mean_bps": 5.338,
         "median_bps": 1.29,
-        "p75_bps": 2.52,
+        "p75_bps": 5.015,
         "worst_bps": 42.79
       }
     ],
     "by_spread_band": [
       {
         "group": "unknown",
-        "samples": 17,
-        "mean_bps": 3.887,
+        "samples": 11,
+        "mean_bps": 5.338,
         "median_bps": 1.29,
-        "p75_bps": 2.52,
+        "p75_bps": 5.015,
         "worst_bps": 42.79
       }
     ],
@@ -264,31 +240,29 @@
       },
       {
         "group": "unknown",
-        "samples": 9,
-        "mean_bps": 1.161,
+        "samples": 3,
+        "mean_bps": 1.03,
         "median_bps": 0.68,
-        "p75_bps": 2.35,
+        "p75_bps": 3.24,
         "worst_bps": 5.8
       }
     ],
     "by_fill_latency_band": [
       {
         "group": "<= 30s",
-        "samples": 17,
-        "mean_bps": 3.887,
+        "samples": 11,
+        "mean_bps": 5.338,
         "median_bps": 1.29,
-        "p75_bps": 2.52,
+        "p75_bps": 5.015,
         "worst_bps": 42.79
       }
     ],
-    "missing_measurement_reasons": {
-      "adverse_60m_bps_not_observed": 1
-    },
+    "missing_measurement_reasons": {},
     "note": "Diagnostics are observation-only and do not tune live order parameters."
   },
   "calibration_advisory": {
     "status": "collecting",
-    "measured_rebalance_fills": 17,
+    "measured_rebalance_fills": 11,
     "minimum_samples": 20,
     "may_change_live_parameters": false,
     "requires_new_epoch_if_applied": true
@@ -308,8 +282,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 0.7272727272727273,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-08-25T21:16:21.765170+00:00",
-      "denominator_end": "2026-09-24T21:16:21.619725+00:00"
+      "denominator_start": "2026-08-26T21:16:13.381644+00:00",
+      "denominator_end": "2026-09-25T21:16:13.230610+00:00"
     },
     "stage2": {
       "orders": 3,
@@ -325,8 +299,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 1.0,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-08-25T21:16:21.765170+00:00",
-      "denominator_end": "2026-09-24T21:16:21.619725+00:00"
+      "denominator_start": "2026-08-26T21:16:13.381644+00:00",
+      "denominator_end": "2026-09-25T21:16:13.230610+00:00"
     }
   },
   "throttle": {
@@ -343,7 +317,7 @@
     {
       "name": "avg_slippage_bps",
       "status": "pass",
-      "value": 3.887,
+      "value": 5.338,
       "threshold": 10.0,
       "operator": "<=",
       "reason": "ok"
@@ -351,7 +325,7 @@
     {
       "name": "bad_slippage_rate",
       "status": "pass",
-      "value": 0.3529,
+      "value": 0.3636,
       "threshold": 0.6,
       "operator": "<=",
       "reason": "ok"
@@ -359,7 +333,7 @@
     {
       "name": "fill_rate",
       "status": "pass",
-      "value": 0.9412,
+      "value": 0.9091,
       "threshold": 0.8,
       "operator": ">=",
       "reason": "ok"
@@ -367,10 +341,10 @@
     {
       "name": "skipped_rate",
       "status": "fail",
-      "value": 0.4194,
+      "value": 0.52,
       "threshold": 0.35,
       "operator": "<=",
-      "reason": "0.4194 <= 0.35 failed"
+      "reason": "0.5200 <= 0.35 failed"
     }
   ],
   "thresholds": {
@@ -398,13 +372,13 @@
     "previous_scorecard": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json"
   },
   "run_context": {
-    "run_id": "post-market-36060249568-1",
-    "generated_at": "2026-09-24T21:16:24+00:00",
+    "run_id": "post-market-36190501856-1",
+    "generated_at": "2026-09-25T21:16:16+00:00",
     "signal_as_of": "",
-    "git_commit": "cfb6e620f4aed3cb3c11b71fb488a2c8475cfcf3",
+    "git_commit": "ed91572a866d4cef527e5af1788191c0aed97b28",
     "configuration_fingerprint": "997aba652a90c05d2c3b36e60f6d15f33d895148d33e549e7cee2f7407edc242",
-    "paper_version_fingerprint": "39bb42d04c05245a4317f15b8c93b9d63c62717acbaa243a9a91b0279abdd68f",
+    "paper_version_fingerprint": "0b5c020f8654e6e3a28a7d82c98a6f603e3ab786b1975850a499fcb1eda3e43a",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-36060249568-1"
+  "run_id": "post-market-36190501856-1"
 }

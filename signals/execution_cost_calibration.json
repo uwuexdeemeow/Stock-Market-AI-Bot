@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-24T21:16:24+00:00",
-  "source_generated_at": "2026-09-24T21:16:21+00:00",
-  "status": "ready",
-  "sample_count": 22,
+  "generated_at": "2026-09-25T21:16:16+00:00",
+  "source_generated_at": "2026-09-25T21:16:13+00:00",
+  "status": "collecting",
+  "sample_count": 16,
   "minimum_sample_count": 20,
   "recommended_one_way_slippage_bps": 10.0,
   "configured_floor_bps": 10.0,
@@ -12,41 +12,41 @@
       "side": "buy",
       "order_type": "limit",
       "liquidity_bucket": "low",
-      "median_notional": 9100.49,
-      "samples": 10,
-      "median_slippage_bps": 2.07,
-      "p75_slippage_bps": 3.8025,
-      "mean_slippage_bps": 2.499
+      "median_notional": 4437.9,
+      "samples": 7,
+      "median_slippage_bps": 0.68,
+      "p75_slippage_bps": 5.015,
+      "mean_slippage_bps": 2.6186
     },
     {
       "side": "buy",
       "order_type": "limit",
       "liquidity_bucket": "unknown",
-      "median_notional": 44711.17,
-      "samples": 2,
-      "median_slippage_bps": 0.41,
-      "p75_slippage_bps": 0.515,
-      "mean_slippage_bps": 0.41
+      "median_notional": 25340.54,
+      "samples": 1,
+      "median_slippage_bps": 0.2,
+      "p75_slippage_bps": 0.2,
+      "mean_slippage_bps": 0.2
     },
     {
       "side": "sell",
       "order_type": "limit",
       "liquidity_bucket": "low",
-      "median_notional": 1849.2,
-      "samples": 3,
-      "median_slippage_bps": 1.31,
-      "p75_slippage_bps": 22.05,
-      "mean_slippage_bps": 14.8833
+      "median_notional": 1525.75,
+      "samples": 2,
+      "median_slippage_bps": 22.05,
+      "p75_slippage_bps": 32.42,
+      "mean_slippage_bps": 22.05
     },
     {
       "side": "sell",
       "order_type": "limit",
       "liquidity_bucket": "unknown",
-      "median_notional": 29049.36,
-      "samples": 2,
-      "median_slippage_bps": 0.645,
-      "p75_slippage_bps": 0.9675,
-      "mean_slippage_bps": 0.645
+      "median_notional": 22831.9,
+      "samples": 1,
+      "median_slippage_bps": 1.29,
+      "p75_slippage_bps": 1.29,
+      "mean_slippage_bps": 1.29
     },
     {
       "side": "sell",
