@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
   "legacy_returns_are_alpha": false,
-  "generated_at": "2026-09-23T15:55:41.605308",
+  "generated_at": "2026-09-25T19:28:09.130853",
   "purpose": "factor_decay_monitor",
   "as_of": "2026-08-18",
   "selected_score_source": "regime_adaptive",
@@ -33,10 +33,10 @@
       },
       "decile_monotonicity_spearman": 0.3939,
       "overlay_periods": 3,
-      "overlay_return_sum_pct": 12.4555,
+      "overlay_return_sum_pct": 15.5284,
       "overlay_hit_rate": 1.0,
-      "legacy_overlay_raw_return_sum_pct": 12.4555,
-      "top_selected_ticker": "FCX",
+      "legacy_overlay_raw_return_sum_pct": 15.5284,
+      "top_selected_ticker": "HSY",
       "top_selected_count": 2,
       "as_of": "2026-08-18",
       "rank_ic_warning": false,
@@ -67,11 +67,11 @@
       },
       "decile_monotonicity_spearman": 0.2485,
       "overlay_periods": 5,
-      "overlay_return_sum_pct": 13.5964,
+      "overlay_return_sum_pct": 16.6692,
       "overlay_hit_rate": 0.8,
-      "legacy_overlay_raw_return_sum_pct": 13.5964,
-      "top_selected_ticker": "PEP",
-      "top_selected_count": 2,
+      "legacy_overlay_raw_return_sum_pct": 16.6692,
+      "top_selected_ticker": "EOG",
+      "top_selected_count": 3,
       "as_of": "2026-08-18",
       "rank_ic_warning": false,
       "legacy_overlay_raw_return_warning": false,
@@ -99,8 +99,8 @@
       "risk_control_mode": "off",
       "deployment_max_gross_exposure": 1.0
     },
-    "dataset_fingerprint": "3bfb2c82c3c106fb6e5f951d954dd7a4fa10f200b43e202fbe380a21fa21e9c3",
+    "dataset_fingerprint": "4fcb32dfe85441e537781602714bdb3626aa8689351cefc86b7075b5a2d0b37c",
     "research_manifest_path": "signals/research_run_manifest.json",
-    "git_commit": "225b20d2e290b5dbfcb72b3bab542aaf8b8806ae"
+    "git_commit": "6d9f8062d40cb009316c78c6f23ddfbcb462b91b"
   }
 }

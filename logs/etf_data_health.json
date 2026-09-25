@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-23T15:55:52+00:00",
+  "generated_at": "2026-09-25T19:18:41+00:00",
   "ok": true,
   "refresh": true,
   "force": true,
@@ -8,8 +8,8 @@
       "symbol": "SPY",
       "ok": true,
       "issues": [],
-      "rows": 6885,
-      "latest_date": "2026-09-22",
+      "rows": 6887,
+      "latest_date": "2026-09-24",
       "age_business_days": 0,
       "refreshed": true
     },
@@ -17,8 +17,8 @@
       "symbol": "QQQ",
       "ok": true,
       "issues": [],
-      "rows": 6885,
-      "latest_date": "2026-09-22",
+      "rows": 6887,
+      "latest_date": "2026-09-24",
       "age_business_days": 0,
       "refreshed": true
     },
@@ -26,8 +26,8 @@
       "symbol": "TQQQ",
       "ok": true,
       "issues": [],
-      "rows": 4178,
-      "latest_date": "2026-09-22",
+      "rows": 4180,
+      "latest_date": "2026-09-24",
       "age_business_days": 0,
       "refreshed": true
     },
@@ -35,8 +35,8 @@
       "symbol": "BIL",
       "ok": true,
       "issues": [],
-      "rows": 4860,
-      "latest_date": "2026-09-22",
+      "rows": 4862,
+      "latest_date": "2026-09-24",
       "age_business_days": 0,
       "refreshed": true
     },
@@ -44,8 +44,8 @@
       "symbol": "IEF",
       "ok": true,
       "issues": [],
-      "rows": 6076,
-      "latest_date": "2026-09-22",
+      "rows": 6078,
+      "latest_date": "2026-09-24",
       "age_business_days": 0,
       "refreshed": true
     },
@@ -53,8 +53,8 @@
       "symbol": "GLD",
       "ok": true,
       "issues": [],
-      "rows": 5494,
-      "latest_date": "2026-09-22",
+      "rows": 5496,
+      "latest_date": "2026-09-24",
       "age_business_days": 0,
       "refreshed": true
     }

@@ -91,7 +91,7 @@
   "benchmark_comparisons": {
     "SPY": {
       "benchmark_return_pct": 791.54,
-      "alpha_pct": 4328.75,
+      "alpha_pct": 4328.76,
       "nw_tstat_vs_benchmark": 4.501
     },
     "QQQ": {
@@ -165,7 +165,7 @@
     "2010": -0.79,
     "2011": -2.72,
     "2012": 13.4,
-    "2013": 8.92,
+    "2013": 8.93,
     "2014": 16.79,
     "2015": 3.5,
     "2016": 33.48,
@@ -741,28 +741,28 @@
   "survivorship_review": {
     "pass": true,
     "capital_approval_pass": false,
-    "survivorship_adjusted_score": 1.6906,
-    "audit_rebalance_selections": 21,
-    "generic_stressed_paper_ready": true,
-    "total_return_delta_pct": 5555.19,
-    "max_drawdown_delta_pct": 0.0,
-    "failed_name_coverage_rate": 0.0588,
+    "survivorship_adjusted_score": 0.8914,
+    "audit_rebalance_selections": 25,
+    "total_return_delta_pct": -1406.84,
+    "max_drawdown_delta_pct": -1.28,
+    "failed_name_coverage_rate": 0.2941,
     "minimum_failed_name_coverage_for_capital": 1.0,
     "point_in_time_universe_complete": false,
     "capital_blockers": [
       "failed_name_coverage_incomplete",
-      "point_in_time_universe_incomplete"
+      "point_in_time_universe_incomplete",
+      "survivorship_return_delta_below_capital_floor"
     ]
   },
   "execution_stress_review": {
     "pass": true,
     "failed_scenarios": 0,
-    "worst_stressed_drawdown_pct": -25.39
+    "worst_stressed_drawdown_pct": -29.93
   },
   "factor_decay_review": {
     "pass": true,
-    "edge_health_status": "advisory",
-    "reason": "corrected paired-ledger evidence is missing, sparse, or inconclusive"
+    "edge_health_status": "pass",
+    "reason": "factor decay monitor has no real-capital blocking warning"
   },
   "robust_cost_stress_pass": true,
   "live_gate_reasons": []
