@@ -2768,6 +2768,20 @@ def _write_rejection_signal(reasons: list[str]) -> None:
     )
 
 
+def _current_robustness_reviews() -> dict:
+    """Review today's robustness reports on disk; empty dict if unreadable.
+
+    PLAIN ENGLISH: used only to DISPLAY fresh stress results in the signal
+    file.  Any error returns {} so the old (published) values are kept.
+    """
+    try:
+        from robustness_review import medium_risk_review_from_reports
+        review = medium_risk_review_from_reports()
+    except Exception:
+        return {}
+    return review if isinstance(review, dict) else {}
+
+
 def _apply_nested_live_approval_gates(metrics: dict, live: dict, freshness: dict) -> dict:
     """Use nested approval as the live gate while preserving full-sample diagnostics."""
     full_sample_gates = dict(metrics.get("core_satellite_gate_results", {}) or {})
@@ -2810,6 +2824,21 @@ def _apply_nested_live_approval_gates(metrics: dict, live: dict, freshness: dict
     metrics["survivorship_review"] = medium_review.get("survivorship_review", {})
     metrics["execution_stress_review"] = medium_review.get("execution_stress_review", {})
     metrics["factor_decay_review"] = medium_review.get("factor_decay_review", {})
+    # PLAIN ENGLISH: the three reviews above were copied from the published
+    # live config, i.e. from BEFORE today's workflow refreshed the stress,
+    # survivorship and factor-decay reports.  For the signal file we show
+    # today's reports instead, and keep the published copy next to it.  This
+    # only changes what is displayed; the pass/fail gate above still uses the
+    # published review, and robustness_snapshot_gate.py checks today's files.
+    metrics["robustness_review_source"] = "published_live_config"
+    current = _current_robustness_reviews()
+    if current:
+        for key in ("survivorship_review", "execution_stress_review", "factor_decay_review"):
+            fresh = current.get(key)
+            if isinstance(fresh, dict) and fresh:
+                metrics[f"{key}_published"] = metrics.get(key, {})
+                metrics[key] = fresh
+                metrics["robustness_review_source"] = "current_reports"
     metrics["robust_cost_stress_pass"] = cost_pass
     metrics["live_gate_reasons"] = reasons
     metrics["paper_ready"] = live_ready

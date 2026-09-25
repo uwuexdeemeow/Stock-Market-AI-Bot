@@ -171,3 +171,19 @@ The live loader uses the same approval-identity checks as the evidence audit.
 A nested rejection or mismatched nested bundle hash blocks daily signals even
 if top-level flags say approved. Research-only validation refresh remains
 separately labeled and does not grant trading permission.
+
+## September 2026 fix: signal shows today's stress results
+
+The signal file used to embed the survivorship, execution-stress and
+factor-decay reviews copied from the published live config. The daily
+workflow refreshes those reports just before the signal is written, so the
+embedded values were one refresh old. The signal now shows today's reviews
+(read from `logs/`) and keeps the published copy in `*_review_published`.
+`robustness_review_source` says which one is shown (`current_reports` or
+`published_live_config`).
+
+This only changes what is displayed. The pass/fail gate still uses the
+published approval, and `robustness_snapshot_gate.py` still checks today's
+reports before any order.
+
+Test: `python -m pytest tests/test_locked_audit_fixes.py -q`.

@@ -2959,7 +2959,10 @@ def snapshot_equity(broker: AlpacaBroker) -> None:
         print(f"    ⚠ Could not snapshot equity: {e}")
         return
 
-    now = datetime.now()
+    # PLAIN ENGLISH: stamp the row with New York market time, not the
+    # computer's clock.  GitHub runners use UTC, so after 8 PM New York time
+    # a plain datetime.now() would label today's equity as tomorrow's.
+    now = datetime.now(EXECUTION_TIMEZONE).replace(tzinfo=None)
     row = {
         "date": now.strftime("%Y-%m-%d"),
         "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),

@@ -106,7 +106,14 @@ skipped; 15 of those skips were the deleted legacy tests).
 | Missing docs | Added `doc_feature_research.md`. Every root script now has a doc. |
 | Broader static re-scan | `ruff` (undefined names, loop closures, unused variables): no undefined names; every loop-closure warning is a lambda that runs inside the loop, so it is safe. Remaining unused variables are cosmetic. |
 
-Still waiting on the owner (locked files, not touched): handoff tasks 2
-(`snapshot_equity` timezone, `paper_health` years off-by-one) and 3 (stale
-embedded stress result in `core_satellite_alpha.py`), and the
-`pipeline_shared.py` `target` note above.
+## Locked-file fixes (owner approved, release re-frozen)
+
+| File | Fix |
+|---|---|
+| `alpaca_paper_trading.py` `snapshot_equity` | Row date/timestamp now in New York time, so late UTC runs no longer label today's equity as tomorrow's. |
+| `paper_health.py` drift check | Live CAGR uses `(live_days - 1) / 252` years. |
+| `core_satellite_alpha.py` | Signal shows today's survivorship/execution-stress/factor-decay reviews from `logs/`; the published copy is kept in `*_review_published`. Display only; the gate is unchanged. |
+| `pipeline_shared.py` `target` | Not changed in behavior: a real fix would rewrite all stored data and research fingerprints for an unused column. Warning comment added. |
+
+Tests: `tests/test_locked_audit_fixes.py`. Full suite 838 passed, 9 skipped.
+Then `paper_validation_epoch.py --freeze-current` (epoch start kept).

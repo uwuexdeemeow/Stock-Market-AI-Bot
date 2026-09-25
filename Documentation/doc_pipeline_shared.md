@@ -78,3 +78,11 @@ only to its research step. The repair does not submit orders.
 | **EWM (Exponential Weighted Mean)** | Like a rolling average but recent days count more than old ones |
 | **ffill** | "Forward fill" — if a data point is missing, use the last known value. Can introduce leakage if not done carefully |
 | **Multi-market features** | SPY, QQQ, VIX, GLD etc. give context about the broad market environment |
+
+## Audit note: the `target` column
+
+`add_technical_features` labels the last few rows (those with no future
+price yet) as 0, meaning "down". Nothing trains on this column today, so it
+was left as is and a warning comment was added in the code. Fixing it would
+rewrite every stored data file and change the research dataset fingerprints.
+Fix it first if you ever want to train on `target`.

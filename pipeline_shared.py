@@ -285,6 +285,13 @@ def add_technical_features(df: pd.DataFrame) -> pd.DataFrame:
     df["volume_chg_1d"] = v.pct_change(1)
     df["volume_chg_5d"] = v.pct_change(5)
     # FIX: align direction target with return horizon
+    # WARNING (audit 2026-09-26): the last RETURN_HORIZON_DAYS rows have no
+    # future price yet, but this line still labels them 0 ("down"), and the
+    # later fillna(0.0) hides that.  Nothing trains on this column today
+    # (training labels come from labels.py and every feature list drops
+    # "target").  Do NOT start using it as a label without first making those
+    # rows NaN; changing it now would rewrite every stored data file and
+    # invalidate the research dataset fingerprints for no benefit.
     df["target"] = (c.shift(-RETURN_HORIZON_DAYS) > c).astype(int)
     return df
 

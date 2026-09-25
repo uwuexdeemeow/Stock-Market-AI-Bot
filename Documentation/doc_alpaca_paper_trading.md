@@ -341,3 +341,16 @@ Before submitting a rebalance, Alpaca order history remains the primary
 duplicate check. If that request fails and the local order journal is also
 missing or unreadable, submission is blocked as uncertain instead of assuming
 that no prior order exists.
+
+## September 2026 fix: equity snapshot date uses New York time
+
+`snapshot_equity` used the computer's clock to date each row of
+`logs/alpaca_paper_equity.csv`. GitHub runners run on UTC, so a run after
+8 PM New York time labelled today's equity as tomorrow's. The row date and
+timestamp now use New York market time (`EXECUTION_TIMEZONE`).
+
+Key term: **timezone**. The same moment has different clock times in
+different places. 01:30 UTC on 26 September is 21:30 on 25 September in New
+York, and the market day is the New York one.
+
+Test: `python -m pytest tests/test_locked_audit_fixes.py -q`.

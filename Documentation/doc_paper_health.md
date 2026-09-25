@@ -165,3 +165,16 @@ the comparison is meaningless noise.
 ## Evidence closure update
 
 Open-position profit uses the attributed Alpaca position snapshot remaining average entry price, preserving partial holdings and the broker basis after sales. An incomplete journal cannot establish this basis. Missing, duplicate or inconsistent position details make attribution unavailable. This snapshot is not certified historical accounting. Readiness dimensions separately report signal gates, freshness, version lock, execution evidence and capital eligibility; overall_ready requires every dimension and canonical readiness. Existing signal-gate fields remain labeled in signal_gate_snapshot. Calendar-age thresholds remain enforced on holidays.
+
+## September 2026 fix: live CAGR year count
+
+The live-vs-backtest drift check turned the equity history into an annual
+growth rate (CAGR) using `years = snapshots / 252`. N daily snapshots only
+cover N-1 days of returns (the first one is the starting point), so the year
+count was one day too long and live CAGR came out a little too low. It now
+uses `(snapshots - 1) / 252`.
+
+Key term: **CAGR** (compound annual growth rate): the steady yearly growth
+that would turn the starting value into the ending value.
+
+Test: `python -m pytest tests/test_locked_audit_fixes.py -q`.

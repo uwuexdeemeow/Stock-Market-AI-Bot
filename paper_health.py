@@ -1127,8 +1127,10 @@ def _backtest_vs_live_drift(equity: pd.DataFrame) -> dict:
         return result
 
     total_return = (end_equity / start_equity) - 1.0
-    # Approximate trading days per year = 252
-    years = live_days / 252.0
+    # Approximate trading days per year = 252.  N daily snapshots cover only
+    # N-1 days of returns (the first snapshot is the starting point), so
+    # count the gaps between snapshots, not the snapshots themselves.
+    years = (live_days - 1) / 252.0
     if years > 0:
         live_cagr = ((1.0 + total_return) ** (1.0 / years) - 1.0) * 100.0
     else:
