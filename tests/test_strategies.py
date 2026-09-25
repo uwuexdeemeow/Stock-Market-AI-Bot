@@ -1,7 +1,8 @@
 """
 test_strategies.py — Tests for core strategy logic: regime switching,
-allocation resolution, overlay weights, drawdown throttle, freshness gate,
-order building, and sell-wait-buy phasing.
+allocation resolution, overlay weights, drawdown throttle, and freshness gate.
+(Order building is tested with the live Alpaca path in test_brokers.py
+and test_submission_history_guards.py.)
 
 PLAIN ENGLISH:
 These tests check the decision-making brain of the trading system.
@@ -14,9 +15,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-import numpy as np
 import pandas as pd
-import pytest
 
 # ── Strategy imports ──────────────────────────────────────────────────────────
 from core_satellite_alpha import (
@@ -25,7 +24,6 @@ from core_satellite_alpha import (
     _overlay_weights,
     _cap_and_rescale,
     _exit_floor_for_regime,
-    _score_col,
     _score_col_for_regime,
     _top_count,
     check_factor_freshness,
@@ -340,208 +338,3 @@ class TestFactorFreshness:
         assert result["blocked"] is False
         assert "OVERRIDE" in result["message"]
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 6. ORDER BUILDING — converting target weights into buy/sell orders
-# ═══════════════════════════════════════════════════════════════════════════════
-
-@pytest.mark.skip(reason="Legacy broker order-builder tests removed from the Alpaca-only path")
-class TestOrderBuilding:
-    """
-    PLAIN ENGLISH: Given target portfolio weights and current positions,
-    the system figures out what shares to buy/sell. These tests check
-    that math is correct and edge cases are handled.
-    """
-
-    def test_buy_from_zero(self):
-        """Starting with no shares, should generate BUY orders"""
-        orders = build_core_satellite_orders(
-            equity=100_000,
-            target_weights={"SPY": 0.50, "QQQ": 0.50},
-            current_positions={},
-            prices={"SPY": 500.0, "QQQ": 400.0},
-            min_trade_value=100,
-            limit_offset_bps=5,
-        )
-        buys = orders[orders["action"] == "BUY"]
-        assert len(buys) == 2
-        # SPY: 50000/500 = 100 shares, QQQ: 50000/400 = 125 shares
-        spy = orders[orders["ticker"] == "SPY"].iloc[0]
-        assert spy["target_shares"] == 100
-        assert spy["delta_shares"] == 100
-
-    def test_sell_to_exit(self):
-        """Holding shares with zero target weight → SELL"""
-        orders = build_core_satellite_orders(
-            equity=100_000,
-            target_weights={"SPY": 1.00},
-            current_positions={"SPY": 100, "OLD_STOCK": 50},
-            prices={"SPY": 500.0, "OLD_STOCK": 200.0},
-            min_trade_value=100,
-            limit_offset_bps=5,
-        )
-        old = orders[orders["ticker"] == "OLD_STOCK"].iloc[0]
-        assert old["action"] == "SELL"
-        assert old["delta_shares"] == -50
-
-    def test_hold_when_at_target(self):
-        """If current shares match target, action should be HOLD"""
-        orders = build_core_satellite_orders(
-            equity=100_000,
-            target_weights={"SPY": 0.50},
-            current_positions={"SPY": 100},
-            prices={"SPY": 500.0},
-            min_trade_value=100,
-            limit_offset_bps=5,
-        )
-        spy = orders[orders["ticker"] == "SPY"].iloc[0]
-        assert spy["action"] == "HOLD"
-
-    def test_skip_below_min_trade_value(self):
-        """Small rebalances below min_trade_value → SKIP"""
-        orders = build_core_satellite_orders(
-            equity=100_000,
-            target_weights={"SPY": 0.50},
-            current_positions={"SPY": 99},  # off by 1 share = $500
-            prices={"SPY": 500.0},
-            min_trade_value=1000,  # threshold higher than $500
-            limit_offset_bps=5,
-        )
-        spy = orders[orders["ticker"] == "SPY"].iloc[0]
-        assert spy["action"] == "SKIP"
-        assert spy["reason"] == "below_min_trade_value"
-
-    def test_skip_missing_price(self):
-        """If we can't get a price, skip the ticker"""
-        orders = build_core_satellite_orders(
-            equity=100_000,
-            target_weights={"MYSTERY": 0.10},
-            current_positions={},
-            prices={"MYSTERY": 0.0},
-            min_trade_value=100,
-            limit_offset_bps=5,
-        )
-        assert orders.iloc[0]["action"] == "SKIP"
-        assert orders.iloc[0]["reason"] == "missing_price"
-
-    def test_buy_limit_above_market(self):
-        """BUY limit price should be slightly above market (willing to pay a bit more)"""
-        orders = build_core_satellite_orders(
-            equity=100_000,
-            target_weights={"SPY": 0.50},
-            current_positions={},
-            prices={"SPY": 500.0},
-            min_trade_value=100,
-            limit_offset_bps=10,  # 10 bps above
-        )
-        spy = orders[orders["ticker"] == "SPY"].iloc[0]
-        assert spy["limit_price"] > 500.0
-
-    def test_sell_limit_below_market(self):
-        """SELL limit price should be slightly below market (willing to take a bit less)"""
-        orders = build_core_satellite_orders(
-            equity=100_000,
-            target_weights={},
-            current_positions={"SPY": 100},
-            prices={"SPY": 500.0},
-            min_trade_value=100,
-            limit_offset_bps=10,
-        )
-        spy = orders[orders["ticker"] == "SPY"].iloc[0]
-        assert spy["limit_price"] < 500.0
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 7. LIMIT PRICE ROUNDING — US stock rules
-# ═══════════════════════════════════════════════════════════════════════════════
-
-@pytest.mark.skip(reason="Legacy broker limit-price tests removed from the Alpaca-only path")
-class TestLimitPriceRounding:
-    """
-    PLAIN ENGLISH: US stocks above $1 must be priced in pennies.
-    BUY prices round up (willing to pay more), SELL prices round down
-    (willing to accept less).
-    """
-
-    def test_buy_rounds_up(self):
-        """BUY limit should round up to next penny"""
-        price = _round_us_limit_price(100.123, "BUY")
-        assert price == 100.13
-
-    def test_sell_rounds_down(self):
-        """SELL limit should round down to nearest penny"""
-        price = _round_us_limit_price(100.127, "SELL")
-        assert price == 100.12
-
-    def test_exact_penny_unchanged(self):
-        """Already-round prices stay the same"""
-        assert _round_us_limit_price(50.00, "BUY") == 50.00
-        assert _round_us_limit_price(50.00, "SELL") == 50.00
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 8. TARGET WEIGHT EXTRACTION — parsing signal into weights dict
-# ═══════════════════════════════════════════════════════════════════════════════
-
-@pytest.mark.skip(reason="Legacy broker signal-parser tests removed from the Alpaca-only path")
-class TestTargetWeights:
-    """
-    PLAIN ENGLISH: The signal CSV has core ETF weights and overlay stock
-    weights stored in specific columns. This test checks that parsing
-    produces the right target portfolio.
-    """
-
-    def test_core_plus_overlay(self):
-        """Signal with core SPY/QQQ + overlay stocks should merge correctly"""
-        signal = pd.Series({
-            "target_spy_weight": 0.1375,
-            "target_qqq_weight": 0.4125,
-            "overlay_weights_json": '{"AAPL": 0.15, "MSFT": 0.10}',
-        })
-        weights = core_satellite_target_weights(signal)
-        # Should have SPY, QQQ, AAPL, MSFT
-        assert "SPY" in weights
-        assert "QQQ" in weights
-        assert "AAPL" in weights
-        assert "MSFT" in weights
-        assert abs(weights["SPY"] - 0.1375) < 1e-6
-        assert abs(weights["QQQ"] - 0.4125) < 1e-6
-
-    def test_no_overlay_just_core(self):
-        """Signal with no overlay stocks should only have core ETFs"""
-        signal = pd.Series({
-            "target_spy_weight": 0.50,
-            "target_qqq_weight": 0.50,
-            "overlay_weights_json": "{}",
-        })
-        weights = core_satellite_target_weights(signal)
-        assert len(weights) == 2
-        assert abs(weights["SPY"] - 0.50) < 1e-6
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 9. ORDER STATUS BUCKETING — classify broker order states
-# ═══════════════════════════════════════════════════════════════════════════════
-
-@pytest.mark.skip(reason="Legacy broker order-status tests removed from the Alpaca-only path")
-class TestOrderStatusBucket:
-    """
-    PLAIN ENGLISH: Legacy paper execution reported order status strings here.
-    We bucket them into simple categories: filled, partial, cancelled,
-    pending, etc.
-    """
-
-    def test_filled_variants(self):
-        """All filled-like statuses map to 'filled'"""
-        for status in ["FILLED_ALL", "FILLED_PART", "FILLED", "DEALT"]:
-            bucket = _order_status_bucket(status, dealt_qty=100, qty=100)
-            assert bucket in ("filled", "partial"), f"{status} → {bucket}"
-
-    def test_cancelled(self):
-        bucket = _order_status_bucket("CANCELLED_ALL", dealt_qty=0, qty=100)
-        assert bucket == "cancelled"
-
-    def test_pending(self):
-        """Submitting/waiting statuses map to 'open'"""
-        bucket = _order_status_bucket("SUBMITTING", dealt_qty=0, qty=100)
-        assert bucket == "open"

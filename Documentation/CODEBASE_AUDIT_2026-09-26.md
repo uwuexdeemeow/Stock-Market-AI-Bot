@@ -89,3 +89,24 @@ because you can't get them back afterwards:
 - `research_snapshots/` (~303 MB), `logs/` (~271 MB, includes `logs/pytest_*`)
 - `autoresearch-results/` (~0.6 MB)
 - 10 `.pytest_tmp*` folders in the project root (Windows denies access to them)
+
+## Follow-up pass (cloud session, 2026-09-26)
+
+Finished every open item from `HANDOFF_2026-09-26.md` that does **not** need a
+locked file. Full test suite: 834 passed, 9 skipped (before: 827 passed, 24
+skipped; 15 of those skips were the deleted legacy tests).
+`paper_validation_epoch.py --check-lock` still passes.
+
+| Item | What changed |
+|---|---|
+| Handoff task 1: stress a research candidate without publishing it | `core_satellite_execution_stress.py` and `core_satellite_survivorship_audit.py` take `--candidate-json PATH` (walk-forward result or plain config) and optional `--candidate-name`. Output goes only to `logs/research_candidate_execution_stress_<name>.*` / `logs/research_candidate_survivorship_audit_<name>.*`, stamped `research_candidate: true`, `approves_trading: false`. No flag = old behavior. Tests: `tests/test_research_candidate_stress.py`. |
+| Bug caught while writing those tests | The execution-stress scenario loop reuses the variable `name`, so a first draft marked official reports as candidates. The candidate variable is now `cand_name`, and a test covers the default path. |
+| Handoff task 4: legacy skipped tests | Deleted the four `@pytest.mark.skip` classes in `tests/test_strategies.py` (they called functions that no longer exist) and their unused imports. |
+| Handoff task 4: `predict.py` unused calibrated `p_up` | Removed the dead calibrator load (predictions unchanged). Reason: the calibrator was fitted on the 20-day model only, but the live number is the 20-day + 5-day blend. Still open: `train.py` builds per-ticker confidence buckets from **calibrated** probabilities while `predict.py` scores the raw blend. `predict.py` is not in the daily paper workflow. |
+| Missing docs | Added `doc_feature_research.md`. Every root script now has a doc. |
+| Broader static re-scan | `ruff` (undefined names, loop closures, unused variables): no undefined names; every loop-closure warning is a lambda that runs inside the loop, so it is safe. Remaining unused variables are cosmetic. |
+
+Still waiting on the owner (locked files, not touched): handoff tasks 2
+(`snapshot_equity` timezone, `paper_health` years off-by-one) and 3 (stale
+embedded stress result in `core_satellite_alpha.py`), and the
+`pipeline_shared.py` `target` note above.

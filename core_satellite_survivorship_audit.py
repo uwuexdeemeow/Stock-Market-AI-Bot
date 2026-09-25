@@ -9,6 +9,7 @@ names are allowed into the historical ranking pool.
 """
 from __future__ import annotations
 
+import argparse
 import json
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +21,7 @@ import pandas as pd
 import alpha_factor_backtest as alpha
 import core_satellite_alpha as core
 from settings import LOG_DIR, SIGNAL_DIR, SURVIVORSHIP_AUDIT_TICKERS, WATCHLIST
+from core_satellite_execution_stress import candidate_name, load_candidate_config, mark_research_candidate
 from safe_io import atomic_write_csv, atomic_write_json
 from survivorship_audit import available_audit_tickers, existing_audit_profiles
 from validation_bundle import add_validation_context, load_approved_research_config
@@ -28,6 +30,9 @@ from universe_membership import membership_status
 
 OUT_JSON = Path(LOG_DIR) / "core_satellite_survivorship_audit.json"
 OUT_CSV = Path(SIGNAL_DIR) / "core_satellite_survivorship_audit.csv"
+# PLAIN ENGLISH: research candidates write to their own files in logs/ and
+# never replace the official audit above, which the paper gate reads.
+CANDIDATE_PREFIX = "research_candidate_survivorship_audit"
 
 
 def _load_selected_config() -> dict:
@@ -104,10 +109,37 @@ def _delta_row(base: dict, stressed: dict) -> dict:
     return row
 
 
-def main() -> None:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument(
+        "--candidate-json",
+        default=None,
+        help="Audit a research candidate config from this JSON file instead of the approved live config. "
+             "Writes only to logs/research_candidate_survivorship_audit_<name>.* and never approves trading.",
+    )
+    parser.add_argument(
+        "--candidate-name",
+        default=None,
+        help="Optional short name for the candidate output files (default: the JSON file name).",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = _parse_args(argv)
+    out_csv, out_json = OUT_CSV, OUT_JSON
+    cand_name = None
+    if args.candidate_json:
+        # PLAIN ENGLISH: research mode reads the candidate's settings and
+        # sends the results to separate candidate files.
+        config = load_candidate_config(args.candidate_json)
+        cand_name = candidate_name(args.candidate_json, args.candidate_name)
+        out_csv = Path(LOG_DIR) / f"{CANDIDATE_PREFIX}_{cand_name}.csv"
+        out_json = Path(LOG_DIR) / f"{CANDIDATE_PREFIX}_{cand_name}.json"
     Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
     Path(SIGNAL_DIR).mkdir(parents=True, exist_ok=True)
-    config = _load_selected_config()
+    if not args.candidate_json:
+        config = _load_selected_config()
     profiles = existing_audit_profiles()
     audit_tickers = available_audit_tickers(profiles)
     known_audit_tickers = sorted(SURVIVORSHIP_AUDIT_TICKERS)
@@ -130,7 +162,7 @@ def main() -> None:
     stressed_return = float(stressed_row.get("total_return_pct", 0.0) or 0.0)
     survivorship_adjusted_score = stressed_return / max(base_return, 1e-9)
     out = pd.DataFrame(rows)
-    atomic_write_csv(out, OUT_CSV, index=False)
+    atomic_write_csv(out, out_csv, index=False)
 
     payload = {
         "generated_at": datetime.now().isoformat(),
@@ -163,10 +195,14 @@ def main() -> None:
         "rows": rows,
         "profile_summary": profiles,
     }
-    atomic_write_json(add_validation_context(payload, config=config), OUT_JSON)
+    if cand_name is not None:
+        payload = mark_research_candidate(payload, candidate_path=args.candidate_json, name=cand_name)
+    atomic_write_json(add_validation_context(payload, config=config), out_json)
 
-    print(f"Core-satellite survivorship audit written -> {OUT_CSV}")
-    print(f"Detailed report -> {OUT_JSON}")
+    print(f"Core-satellite survivorship audit written -> {out_csv}")
+    print(f"Detailed report -> {out_json}")
+    if cand_name is not None:
+        print("Research candidate only: this report does not approve trading.")
     display_cols = [
         "scenario",
         "universe_size",

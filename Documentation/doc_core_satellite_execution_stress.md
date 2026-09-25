@@ -57,3 +57,51 @@ positive. This is a strategy result, not a missing-price error.
 This evaluator now loads the complete core/satellite candidate panel with `require_forward_returns=False`. Stocks with missing future returns stay eligible for ranking; the shared core/satellite engine validates the selected holdings after selection and stops with a ticker/date error if a required outcome cannot be measured. It excludes incomplete evaluation periods as whole periods. This prevents future data availability from choosing today's holdings.
 
 Use the run command and inputs described above as before. Expected output is the usual evaluation report, or a clear missing-price error to resolve before reporting performance. A candidate is a stock considered for selection; a forward return is its later gain or loss. Historical reports made before this repair must be regenerated before comparison with corrected results. Run `python -m pytest tests/test_submission_history_guards.py -q` for offline regressions.
+
+## Testing a research candidate without publishing it (`--candidate-json`)
+
+Normally this script can only test the **approved live config**. That is a
+problem for research: a new walk-forward winner (for example from Colab)
+would have to be published before it could be stress-tested, and publishing
+is forbidden until it passes. The `--candidate-json` option fixes that.
+
+```bash
+# A walk-forward result (settings are read from approved_live_config.config)
+python core_satellite_execution_stress.py --candidate-json logs/wf_delay_robust_lowturnover_20260926.json
+
+# A plain JSON file that holds only the settings, with a custom short name
+python core_satellite_execution_stress.py --candidate-json my_config.json --candidate-name lowturn_v1
+```
+
+Inputs:
+
+- A JSON file in one of two shapes: a walk-forward result with
+  `approved_live_config.config`, or a plain settings object. A walk-forward
+  result that selected **no** config stops with an error, because there is
+  nothing to test.
+- The same factor and ETF data as a normal run.
+
+Expected outputs (research only):
+
+- `logs/research_candidate_execution_stress_<name>.csv`
+- `logs/research_candidate_execution_stress_<name>.json`
+
+`<name>` is the JSON file name without `.json`, or `--candidate-name`.
+
+Safety rules:
+
+- The official files `signals/core_satellite_execution_stress.csv` and
+  `logs/core_satellite_execution_stress.json` are **never** touched in this
+  mode. The daily paper-trading gate reads those, so a candidate run cannot
+  change what the gate sees.
+- The JSON report is stamped `"research_candidate": true` and
+  `"approves_trading": false`.
+- Without the flag, the script behaves exactly as before.
+
+Key terms:
+
+- **Research candidate**: a strategy setting being studied, not yet approved.
+- **Publish**: make a config the one the paper-trading bot actually uses. This
+  option never publishes.
+
+Offline tests: `python -m pytest tests/test_research_candidate_stress.py -q`.

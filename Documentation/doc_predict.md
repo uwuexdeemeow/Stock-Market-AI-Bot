@@ -38,7 +38,7 @@ python predict.py --verbose
 | Term | Plain-English Meaning |
 |---|---|
 | **Signal** | The model's recommendation: LONG (buy) or SKIP (do nothing). SHORT is disabled by default for safety. |
-| **Confidence** | How sure the model is, after calibration. 58% = "slightly above coin flip". 75%+ = strong conviction. |
+| **Confidence** | How sure the model is, taken from the raw blended 20-day + 5-day probability (no calibration step is applied at prediction time). 58% = "slightly above coin flip". 75%+ = strong conviction. |
 | **Confidence threshold** | The minimum confidence required to call a signal "actionable". Derived from calibration data (see `confidence_calibration.py`). |
 | **Signal quality** | A grade (HIGH / MEDIUM / LOW) based on which confidence bucket the prediction falls into. |
 | **Actionable** | True if confidence ≥ threshold AND signal quality is acceptable. Only actionable signals go to paper trading. |
@@ -56,3 +56,17 @@ train.py → models/
                               ↓
                     alpaca_paper_trading.py
 ```
+
+## September 2026 cleanup: calibrator no longer loaded
+
+Older code loaded the saved probability calibrator, computed a "calibrated"
+up-probability from the 20-day model, and then never used it. That dead step
+was removed. Predictions are unchanged: direction and confidence still come
+from the raw blend of the 20-day and 5-day models. The calibrator is not
+applied because it was fitted on the 20-day model alone, so it does not
+describe the blended number.
+
+Known gap for a future change: `train.py` builds the per-ticker confidence
+buckets from calibrated probabilities, while this script scores with the raw
+blend. `predict.py` is not part of the daily paper-trading workflow, so this
+does not affect paper trades today.

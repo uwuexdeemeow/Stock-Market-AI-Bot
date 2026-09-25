@@ -49,7 +49,6 @@ from settings import (
     ETF_ROTATION_MAX_GROSS_EXPOSURE,
     SOCIAL_SENTIMENT_SAFETY_ENABLED,
 )
-from confidence_calibration import load_direction_calibrator, calibrate_p_up
 from model_quality import read_quality_report
 from model_self_check import validate_ticker, is_optional_feature
 from pipeline_shared import build_live_features_with_latest_news
@@ -597,7 +596,7 @@ def predict_ticker(ticker: str, verbose: bool = False) -> dict:
     # ── Multi-horizon ensemble blend ─────────────────────────────────────────
     # Try to load the 5-day secondary model trained alongside the primary h20
     # model.  Blending them gives p_up_raw — used for direction_vote and
-    # confidence.  Calibration is applied to the h20 component only.
+    # confidence.
     p_up_h20 = float(raw_dir[1])
     h5_model  = load_h5_model(saved)
     if h5_model is not None:
@@ -607,9 +606,13 @@ def predict_ticker(ticker: str, verbose: bool = False) -> dict:
         # h5 artifact not yet built — degrade gracefully to h20-only.
         p_up_raw = p_up_h20
 
-    calibrator = load_direction_calibrator(saved.get("confidence_calibrator"))
-    # Calibrate only h20; p_up_raw (blended) is used for direction + confidence.
-    p_up = float(calibrate_p_up(calibrator, p_up_h20)) if calibrator is not None else p_up_h20
+    # PLAIN ENGLISH: the saved probability calibrator is deliberately NOT
+    # applied here.  It was fitted on the 20-day model alone, but the number
+    # we use is a blend of the 20-day and 5-day models, so the calibrator
+    # does not describe it.  Calibrating the 20-day number alone could also
+    # tip every vote to SHORT when the training labels are lopsided.  (An
+    # older version computed a calibrated value here and then never used it,
+    # so removing it does not change any prediction.)
     # direction_vote and confidence come from the blended p_up_raw so both paths
     # (backtest walk-forward and live predict) are consistent.
     p_down = 1.0 - p_up_raw
