@@ -97,13 +97,21 @@ can't steer the search:
 - **If nothing passes:** record the rejection and keep the incumbent on the
   paper advisory. Don't widen the grid in response to results.
 
+- **Delay-aware selection (added 2026-09-26):** every inner fold is also
+  replayed with fills one trading day late, and the candidate keeps the
+  **worse** of its two scores (lower alpha, higher turnover). Candidates that
+  need perfect timing lose inside the selector, before the final stress
+  test ever sees them. TQQQ candidates are rejected in this mode, because
+  the TQQQ engine can't replay late fills.
+
 ```bash
-python run_walkforward_batched.py --help   # memory-safe driver
 python core_satellite_nested_walkforward.py --low-turnover-grid --end-year 2022 \
+    --selection-entry-delay-days 1 --no-publish-live-config \
     --output-prefix wf_delay_robust_lowturnover_20260926
 ```
 
-A stronger follow-up: add a delay-aware inner selection option, so that
-walk-forward scores each candidate on its one-day-late results and
-delay-robustness becomes part of how a candidate gets picked, not only a
-final check.
+The Colab notebook (`Colab/stockbot_walkforward.ipynb`) already uses these
+settings. The notebook checks out the exact commit recorded in the data
+snapshot. Make the snapshot with `python prepare_colab_walkforward.py`
+**after** this change is pushed, otherwise Colab runs the old code without
+the flag.

@@ -248,6 +248,30 @@ def family_consensus_bonus_from_env() -> float:
     return bonus
 
 
+def selection_entry_delay_days_from_env() -> int:
+    """Return how many sessions late the selector should also test fills.
+
+    PLAIN ENGLISH: the normal selector only scores a candidate when every
+    order fills on the planned day.  With WALKFORWARD_SELECTION_ENTRY_DELAY_DAYS
+    set to 1, each inner fold is ALSO replayed with every fill one trading day
+    late, and the candidate keeps only its worse result.  Candidates that need
+    perfect timing then lose to candidates that survive a late fill.  The
+    default 0 keeps the old behavior.  An environment variable is used (like
+    WALKFORWARD_INNER_AGG) so spawned worker processes see the same setting.
+    """
+    raw = str(os.getenv("WALKFORWARD_SELECTION_ENTRY_DELAY_DAYS", "0")).strip()
+    try:
+        days = int(raw)
+    except ValueError as exc:
+        raise ValueError(
+            f"WALKFORWARD_SELECTION_ENTRY_DELAY_DAYS={raw!r} must be a whole number"
+        ) from exc
+    # The factor panel only builds one-day-late return labels.
+    if days not in (0, 1):
+        raise ValueError("WALKFORWARD_SELECTION_ENTRY_DELAY_DAYS must be 0 or 1")
+    return days
+
+
 def _walkforward_env_float(name: str, default: float, *, min_value: float | None = None) -> float:
     """Read a numeric walkforward env var while keeping defaults explicit."""
     raw = str(os.getenv(name, str(default))).strip()
@@ -511,6 +535,10 @@ def _ckpt_key_blob(strategy: str, min_train_years: int, configs: list, *, includ
         "inner_score_aggregation": inner_score_aggregation_from_env(),
         "family_consensus_bonus": family_consensus_bonus_from_env(),
     }
+    # Added only when enabled so existing default checkpoints keep their key.
+    selection_delay = selection_entry_delay_days_from_env()
+    if selection_delay:
+        payload["selection_entry_delay_days"] = selection_delay
     if include_year_slice:
         payload["start_year"] = start_year
         payload["end_year"] = end_year
@@ -1213,6 +1241,49 @@ def inner_selection_score(metrics: dict) -> float:
     return float(robustness_score_components(metrics)["robustness_score"])
 
 
+def _config_uses_tqqq(config: dict) -> bool:
+    params = config.get("nested_params", {})
+    return float(params.get("tqqq_weight", config.get("tqqq_weight", 0.0)) or 0.0) > 0.0
+
+
+def delayed_entry_config(config: dict, delay_days: int) -> dict:
+    """Copy a candidate so every entry and exit happens ``delay_days`` late."""
+    out = dict(config)
+    out["nested_params"] = dict(config.get("nested_params", {}))
+    out["entry_delay_days"] = int(delay_days)
+    return out
+
+
+def worst_case_timing_metrics(on_time: dict, delayed: dict) -> dict:
+    """Keep the worse of on-time and late-fill results for selection.
+
+    PLAIN ENGLISH: the selector should reward a candidate only for what it
+    still earns when fills slip by a day.  Alphas take the lower value and
+    turnover the higher value; the on-time and late numbers are both kept
+    for the report.
+    """
+    merged = dict(on_time)
+    for key in ("alpha_vs_spy_pct", "alpha_vs_qqq_pct", "alpha_vs_blend_pct"):
+        values = [m.get(key) for m in (on_time, delayed) if m.get(key) is not None]
+        if values:
+            merged[key] = min(float(v) for v in values)
+    turnovers = [m.get("turnover_pct") for m in (on_time, delayed) if m.get("turnover_pct") is not None]
+    if turnovers:
+        merged["turnover_pct"] = max(float(v) for v in turnovers)
+    for key in ("sharpe", "total_return_pct", "max_drawdown_pct", "alpha_vs_qqq_pct", "alpha_vs_blend_pct"):
+        merged[f"on_time_{key}"] = on_time.get(key)
+        merged[f"delayed_{key}"] = delayed.get(key)
+    return merged
+
+
+def timing_robust_fold_score(on_time: dict, delayed: dict | None) -> float:
+    """Selector score for one fold: the lower of on-time and late-fill scores."""
+    score = inner_selection_score(on_time)
+    if delayed is None:
+        return score
+    return min(score, inner_selection_score(delayed))
+
+
 def config_with_cost_stress(config: dict, cost_stress: float) -> dict:
     """Return a shallow config copy with validation cost attached."""
     out = dict(config)
@@ -1661,7 +1732,17 @@ def _screen_one_config(config: dict, panel: pd.DataFrame, screen_fold,
         metrics = evaluate_window(panel, base_config,
                                   screen_fold.validation_start,
                                   screen_fold.validation_end)
-        score = inner_selection_score(metrics)
+        delayed = None
+        delay_days = selection_entry_delay_days_from_env()
+        if delay_days:
+            if _config_uses_tqqq(config):
+                # The TQQQ engine cannot replay late fills; never let it
+                # pass a delay-aware screen on on-time results alone.
+                return None
+            delayed = evaluate_window(panel, delayed_entry_config(base_config, delay_days),
+                                      screen_fold.validation_start,
+                                      screen_fold.validation_end)
+        score = timing_robust_fold_score(metrics, delayed)
         return {"config": config, "screen_score": float(score)}
     except (ValueError, KeyError, RuntimeError, ZeroDivisionError):
         return None
@@ -1780,6 +1861,11 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
     stress_passed = 0
     stress_tested = 0
     n_total_folds = len(inner_folds)
+    delay_days = selection_entry_delay_days_from_env()
+    if delay_days and _config_uses_tqqq(config):
+        # PLAIN ENGLISH: the TQQQ backtest always fills on time, so a
+        # late-fill score cannot be measured.  Reject rather than guess.
+        return _rejected_inner_config("delay_selection_unsupported_tqqq")
 
     for fold_idx, fold in enumerate(inner_folds):
         # ── Early termination check ───────────────────────────────
@@ -1819,9 +1905,21 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
             stress_result = nested_cost_stress_approval(
                 panel, config, fold, eval_cache, base_metrics=metrics,
             )
+            # Late fills are replayed directly (not cached) because the cache
+            # key does not include the entry delay.
+            delayed_metrics = (
+                evaluate_window(
+                    panel, delayed_entry_config(base_config, delay_days),
+                    fold.validation_start, fold.validation_end,
+                )
+                if delay_days else None
+            )
         except (ValueError, KeyError, RuntimeError, ZeroDivisionError):
             failed += 1
             continue
+        on_time_score = inner_selection_score(metrics)
+        if delayed_metrics is not None:
+            metrics = worst_case_timing_metrics(metrics, delayed_metrics)
 
         # Track stress pass/fail but don't reject the config yet.
         # We allow a minority of inner folds to fail stress — no
@@ -1831,7 +1929,11 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
         if fold_stress_pass:
             stress_passed += 1
 
-        score = inner_selection_score(metrics)
+        # Worst case of on-time and late fills when delay-aware selection is on.
+        score = (
+            min(on_time_score, inner_selection_score(delayed_metrics))
+            if delayed_metrics is not None else on_time_score
+        )
         score_components = robustness_score_components(metrics)
         fold_scores.append(score)
         fold_metrics.append(
@@ -1851,6 +1953,16 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
                 "alpha_vs_blend_pct": metrics.get("alpha_vs_blend_pct"),
                 "cost_stress_approval_pass": fold_stress_pass,
                 "cost_stress_summary": stress_result["cost_stress_summary"],
+                **(
+                    {
+                        "selection_entry_delay_days": int(delay_days),
+                        "on_time_score": round(float(on_time_score), 4),
+                        "delayed_score": round(float(inner_selection_score(delayed_metrics)), 4),
+                        "on_time_alpha_vs_qqq_pct": metrics.get("on_time_alpha_vs_qqq_pct"),
+                        "delayed_alpha_vs_qqq_pct": metrics.get("delayed_alpha_vs_qqq_pct"),
+                    }
+                    if delayed_metrics is not None else {}
+                ),
             }
         )
 
@@ -1998,6 +2110,7 @@ def _evaluate_one_config(config: dict, panel: pd.DataFrame, inner_folds: list,
             "inner_mean_score": round(mean_score, 4),
             "inner_median_score": round(median_score, 4),
             "inner_score_aggregation": aggregation,
+            "selection_entry_delay_days": int(delay_days),
             "inner_score_std": round(score_std, 4),
             "inner_stability_adjusted_score": round(stable_score, 4),
             "inner_fold_count": int(len(fold_scores)),
@@ -2759,6 +2872,7 @@ def run_nested_walkforward(
             "inner_mean_score": inner_metrics["inner_mean_score"],
             "inner_median_score": inner_metrics["inner_median_score"],
             "inner_score_aggregation": inner_metrics["inner_score_aggregation"],
+            "selection_entry_delay_days": int(inner_metrics.get("selection_entry_delay_days", 0)),
             "inner_score_std": inner_metrics["inner_score_std"],
             "failed_evaluations": int(selected.get("failed_evaluations", 0)),
             "candidate_configs": int(len(configs)),
@@ -3419,8 +3533,24 @@ def main() -> None:
             f"copy-on-write.  Set to 1 to disable parallelism."
         ),
     )
+    parser.add_argument(
+        "--selection-entry-delay-days",
+        type=int,
+        choices=(0, 1),
+        default=None,
+        help=(
+            "Also score every inner fold with fills this many sessions late and "
+            "keep the worse score, so the selector prefers timing-robust configs. "
+            "Sets WALKFORWARD_SELECTION_ENTRY_DELAY_DAYS for worker processes. "
+            "TQQQ candidates are rejected in this mode because their engine "
+            "cannot replay late fills."
+        ),
+    )
     parser.add_argument("--corrected-shadow-spec", help="Run versioned fold-local daily-ledger research from a JSON specification")
     args = parser.parse_args()
+    if args.selection_entry_delay_days is not None:
+        os.environ["WALKFORWARD_SELECTION_ENTRY_DELAY_DAYS"] = str(int(args.selection_entry_delay_days))
+    selection_entry_delay_days_from_env()  # fail fast on a bad value
     if args.corrected_shadow_spec:
         from corrected_audit import main as corrected_main
         corrected_main(["--spec", args.corrected_shadow_spec])

@@ -83,7 +83,35 @@ python3 core_satellite_nested_walkforward.py --low-turnover-grid --output-prefix
 
 # Adaptive-sizing research: compare fixed sizing with defensive drawdown/vol sizing
 python3 core_satellite_nested_walkforward.py --adaptive-sizing-grid --output-prefix wf_adaptive_sizing --no-publish-live-config
+
+# Delay-aware selection: also score each inner fold with fills one trading
+# day late and keep the worse score (same as WALKFORWARD_SELECTION_ENTRY_DELAY_DAYS=1)
+python3 core_satellite_nested_walkforward.py --low-turnover-grid --end-year 2022 \
+    --selection-entry-delay-days 1 --output-prefix wf_delay_robust --no-publish-live-config
 ```
+
+### Delay-aware selection (plain English)
+
+By default the selector assumes every order fills on the planned day. With
+`--selection-entry-delay-days 1`, each inner validation year is run twice:
+once on time and once with every entry and exit one trading day late. The
+candidate keeps only the **worse** of the two scores (its lower alpha and
+higher turnover also feed the QQQ and turnover penalties). A strategy whose
+edge disappears when a fill slips by a day therefore loses to a slightly
+weaker but timing-robust one.
+
+- **Late fill / entry delay:** the order executes one session after the
+  planned day, e.g. because of a missed run or a halted workflow.
+- Each fold row records `on_time_score`, `delayed_score` and both QQQ
+  alphas, so you can see how much each year depended on timing.
+- TQQQ candidates are rejected in this mode
+  (`delay_selection_unsupported_tqqq`), because the TQQQ engine always
+  fills on time.
+- The setting is part of the checkpoint fingerprint, so a delay-aware run
+  never resumes from an ordinary run's checkpoint.
+- This only improves **selection**. The final
+  `core_satellite_execution_stress.py` delay scenarios are still required.
+  See `Documentation/DELAY_STRESS_PAPER_ADVISORY.md`.
 
 ## Inputs
 
