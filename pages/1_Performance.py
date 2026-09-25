@@ -209,9 +209,12 @@ def _compute_metrics(equity_series: np.ndarray, dates: pd.Series) -> dict:
     days_elapsed = max(1, (dates.iloc[-1] - dates.iloc[0]).days)
     cagr = ((equity_series[-1] / equity_series[0]) ** (365 / days_elapsed) - 1) * 100
     sharpe = (rets.mean() / rets.std() * np.sqrt(252)) if rets.std() > 0 else 0
+    # Downside deviation = RMS of the below-zero part of every return
+    # (up days count as zero), not the std of the losing days alone.
+    downside_dev = float(np.sqrt(np.mean(np.minimum(rets, 0.0) ** 2)))
     sortino = (
-        rets.mean() / rets[rets < 0].std() * np.sqrt(252)
-        if (rets < 0).any() and rets[rets < 0].std() > 0 else 0
+        rets.mean() / downside_dev * np.sqrt(252)
+        if (rets < 0).any() and downside_dev > 0 else 0
     )
     peak = pd.Series(equity_series).cummax().values
     drawdowns = (equity_series - peak) / peak

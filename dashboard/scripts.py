@@ -27,8 +27,8 @@ SCRIPT_CATEGORIES: dict[str, set[str]] = {
     "Strategy & research": {
         "backtest", "confidence_calibration", "core_satellite_alpha",
         "core_satellite_nested_walkforward", "core_satellite_tqqq",
-        "diagnostics", "feature_quality_diagnostic", "fundamental_features",
-        "labels", "leakage_audit", "model", "model_quality",
+        "feature_quality_diagnostic", "fundamental_features",
+        "labels", "leakage_audit", "model_quality",
         "model_self_check", "pipeline_shared", "portfolio_manager",
         "predict", "research", "sentiment_engine", "settings",
         "social_sentiment", "train", "xgb_feature_engineering",

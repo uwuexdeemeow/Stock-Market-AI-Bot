@@ -201,7 +201,6 @@ cache. If the cache is missing or stale, the workflow first rebuilds it with:
 ```bash
 python research.py --incremental
 python feature_quality_diagnostic.py --top 48
-python ci_check_feature_report.py --min-features 20
 python factor_data_health.py --strict
 ```
 
@@ -402,14 +401,12 @@ paper workflows after their New York deadlines.
 | `core_satellite_nested_walkforward.py` | Strategy validation via nested walk-forward | monthly |
 | `core_satellite_tqqq.py` | TQQQ overlay variant backtest | research |
 | `cross_sectional_features.py` | Cross-sectional rank features | library |
-| `diagnostics.py` | Investigate model / signal failures | ad-hoc |
 | `feature_quality_diagnostic.py` | Re-grade per-feature live IC | daily (CI: `--top 48`) + before walkforward |
 | `feature_research.py` | Per-feature analysis (IC trend, sector, decay, pairs) | quarterly (`--top 24 --skip-pairs`, or `--pairs`) |
 | `fundamental_features.py` | Sector-relative fundamental z-scores | library |
 | `intraday_features.py` | Intraday signal features | library |
 | `labels.py` | Forward returns + label engineering | library |
 | `leakage_audit.py` | Look-ahead bias check | before any model deploy |
-| `model.py` | ML model definitions | library |
 | `model_quality.py` | OOS model verification | after retrain |
 | `model_self_check.py` | Detect overfit between train and OOS | after retrain |
 | `pipeline_shared.py` | Feature-build pipeline (shared helpers) | library |
@@ -454,7 +451,6 @@ paper workflows after their New York deadlines.
 | Script | What it does |
 |---|---|
 | `config_health.py` | Validate env / settings / required keys |
-| `ci_check_feature_report.py` | CI guard that rejects partial feature-quality rebuilds |
 | `dashboard.py` + `dashboard/` + `pages/` | Streamlit dashboard |
 | `data_provider.py` | Multi-source price downloader (yfinance / yahooquery / stooq) |
 | `data_validation.py` | Reject malformed price frames |

@@ -304,7 +304,9 @@ def _newey_west_tstat(excess: pd.Series, lag: int = 5) -> float:
     # add weighted autocovariance terms up to `lag` lags
     for k in range(1, min(lag, n - 1) + 1):
         w = 1 - k / (lag + 1)          # Bartlett (triangular) weight
-        gk = float(np.mean(centered[k:] * centered[:-k]))
+        # Standard Newey-West divides the lag-k sum by n (not n-k), which keeps
+        # the long-run variance estimate positive semi-definite.
+        gk = float(np.sum(centered[k:] * centered[:-k]) / n)
         lrv += 2 * w * gk
     se = float(np.sqrt(max(lrv, 0.0) / n))
     if se == 0:
@@ -3068,18 +3070,22 @@ def run_portfolio_backtest(
                     str(row.get("exit_reason", "time_exit")),
                 )
             )
-            adv_entry = float(hist["Volume"].loc[:pd.Timestamp(row["entry_date"])].tail(20).mean()) if "Volume" in hist.columns else 0.0
+            # Average daily volume known BEFORE the entry session opens.  The
+            # order fills at the open, so that day's full volume is not yet known.
+            adv_entry = float(hist["Volume"].loc[hist.index < pd.Timestamp(row["entry_date"])].tail(20).mean()) if "Volume" in hist.columns else 0.0
             adv_exit = float(hist["Volume"].loc[:pd.Timestamp(exit_date)].tail(20).mean()) if "Volume" in hist.columns else adv_entry
-            # Realized vol used to scale bid-ask spread, known only at entry.
-            fill_vol = historical_annual_vol(price_history, tr.ticker, row["entry_date"])
+            # Realized vol used to scale bid-ask spread.  Measure it at the
+            # signal date (last close before the entry open) so the entry-day
+            # close, which is not known when the open fill happens, is excluded.
+            fill_vol = historical_annual_vol(price_history, tr.ticker, dt)
             trade_value = current_equity * tr.requested_position_pct
             shares = trade_value / max(entry, 1e-9)
             if tr.signal == "LONG":
-                entry = realistic_fill_price(entry, shares, adv_entry, side="buy", base_slippage_pct=SLIPPAGE_BASE_PCT * stress, asset_vol=fill_vol)
-                exit_px = realistic_fill_price(exit_px, shares, adv_exit, side="sell", base_slippage_pct=SLIPPAGE_BASE_PCT * stress, asset_vol=fill_vol)
+                entry = realistic_fill_price(entry, shares, adv_entry, side="buy", base_slippage_pct=eff_slip, asset_vol=fill_vol)
+                exit_px = realistic_fill_price(exit_px, shares, adv_exit, side="sell", base_slippage_pct=eff_slip, asset_vol=fill_vol)
             else:
-                entry = realistic_fill_price(entry, shares, adv_entry, side="sell", base_slippage_pct=SLIPPAGE_BASE_PCT * stress, asset_vol=fill_vol)
-                exit_px = realistic_fill_price(exit_px, shares, adv_exit, side="buy", base_slippage_pct=SLIPPAGE_BASE_PCT * stress, asset_vol=fill_vol)
+                entry = realistic_fill_price(entry, shares, adv_entry, side="sell", base_slippage_pct=eff_slip, asset_vol=fill_vol)
+                exit_px = realistic_fill_price(exit_px, shares, adv_exit, side="buy", base_slippage_pct=eff_slip, asset_vol=fill_vol)
             commission_entry = calc_commission(int(round(shares)))
             commission_exit = calc_commission(int(round(shares)))
             # Borrow cost charged upfront for shorts: annual rate × holding period.
@@ -3502,8 +3508,13 @@ def run_spy_timing_backtest(
 
     daily_rets = eq_df["equity"].pct_change().dropna()
     sharpe = float(daily_rets.mean() / (daily_rets.std() + 1e-9) * np.sqrt(252))
+    # Sortino divides by DOWNSIDE DEVIATION: the root-mean-square of the
+    # below-zero part of EVERY daily return (up days count as 0).  Taking the
+    # plain std of only the losing days would measure how uneven the losses
+    # are, not how big they are, and mis-states the ratio.
     downside = daily_rets[daily_rets < 0]
-    sortino = float(daily_rets.mean() / (downside.std() + 1e-9) * np.sqrt(252)) if len(downside) else 0.0
+    downside_dev = float(np.sqrt(np.mean(np.minimum(daily_rets.to_numpy(), 0.0) ** 2))) if len(daily_rets) else 0.0
+    sortino = float(daily_rets.mean() / (downside_dev + 1e-9) * np.sqrt(252)) if len(downside) else 0.0
     nw_tstat = _newey_west_tstat(eq_df["equity"].pct_change().fillna(0.0))
 
     # Max drawdown
@@ -3773,12 +3784,15 @@ def _portfolio_stats_from_equity(equity: pd.Series) -> dict:
     if equity.empty:
         return {"total_return_pct": 0.0, "cagr_pct": 0.0, "sharpe": 0.0, "sortino": 0.0, "max_drawdown_pct": 0.0}
     daily = equity.pct_change().dropna()
-    years = max(len(equity) / 252.0, 0.01)
+    # N equity points cover N-1 daily returns; annualize over the gaps.
+    years = max((len(equity) - 1) / 252.0, 0.01)
     total_ret = float(equity.iloc[-1] / equity.iloc[0] - 1.0)
     cagr = (float(equity.iloc[-1] / equity.iloc[0]) ** (1.0 / years) - 1.0) if equity.iloc[0] else 0.0
     sharpe = float(daily.mean() / (daily.std() + 1e-9) * np.sqrt(252)) if len(daily) else 0.0
     downside = daily[daily < 0]
-    sortino = float(daily.mean() / (downside.std() + 1e-9) * np.sqrt(252)) if len(downside) else 0.0
+    # Downside deviation: RMS of the negative part of all daily returns.
+    downside_dev = float(np.sqrt(np.mean(np.minimum(daily.to_numpy(), 0.0) ** 2))) if len(daily) else 0.0
+    sortino = float(daily.mean() / (downside_dev + 1e-9) * np.sqrt(252)) if len(downside) else 0.0
     dd = equity / equity.cummax() - 1.0
     return {
         "total_return_pct": round(total_ret * 100.0, 2),

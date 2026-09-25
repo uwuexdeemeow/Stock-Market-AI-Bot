@@ -18,8 +18,8 @@ beginner can see how the pieces fit together:
 **Strategy / research / training**
 backtest.py, confidence_calibration.py, core_satellite_alpha.py,
 core_satellite_nested_walkforward.py, core_satellite_tqqq.py,
-diagnostics.py, feature_quality_diagnostic.py, fundamental_features.py,
-labels.py, leakage_audit.py, model.py, model_quality.py,
+feature_quality_diagnostic.py, fundamental_features.py,
+labels.py, leakage_audit.py, model_quality.py,
 model_self_check.py, pipeline_shared.py, portfolio_manager.py,
 predict.py, research.py, sentiment_engine.py, settings.py,
 social_sentiment.py, train.py, xgb_feature_engineering.py,
