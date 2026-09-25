@@ -32,6 +32,14 @@ SURVIVORSHIP_CAPITAL_MIN_ADJUSTED_SCORE = 0.85
 SURVIVORSHIP_CAPITAL_MIN_RETURN_DELTA_PCT = -5.0
 SURVIVORSHIP_CAPITAL_MIN_DRAWDOWN_DELTA_PCT = -2.5
 EXECUTION_STRESS_MIN_WORST_DRAWDOWN_PCT = -35.0
+# PLAIN ENGLISH: the approved strategy loses its 2023-2026 edge over QQQ when
+# every fill is one day late (see Documentation/DELAY_STRESS_PAPER_ADVISORY.md).
+# For PAPER trading only, that one known weakness is logged as a warning so the
+# bot keeps gathering forward evidence while a delay-robust replacement is
+# researched.  It still blocks real-capital approval.  Every other stress
+# failure (base or cost scenarios, drawdown, full-period alpha, any other gate)
+# still blocks paper orders.
+DELAY_HOLDOUT_PAPER_ADVISORY_GATES = frozenset({"holdout_2023_2026_vs_qqq_pass"})
 
 
 def read_report(path: Path) -> dict:
@@ -108,8 +116,29 @@ def evaluate_medium_risk_review(
         or float(row.get("alpha_vs_qqq_pct", -999.0) or -999.0) <= 0.0
         or float(row.get("alpha_vs_blend_pct", -999.0) or -999.0) <= 0.0
     ]
+
+    def _is_delay_holdout_advisory(row: dict) -> bool:
+        """True only for a late-fill row whose sole problem is the recent holdout.
+
+        PLAIN ENGLISH: the row must be a delayed-entry scenario, keep positive
+        full-history alpha versus QQQ and the blend, and have failed nothing
+        except the 2023-2026 QQQ comparison.  Anything else stays a hard block.
+        """
+        failed_gates = {str(gate) for gate in (row.get("failed_gates") or [])}
+        return bool(
+            int(float(row.get("entry_delay_days", 0) or 0)) > 0
+            and failed_gates
+            and failed_gates <= DELAY_HOLDOUT_PAPER_ADVISORY_GATES
+            and float(row.get("alpha_vs_qqq_pct", -999.0) or -999.0) > 0.0
+            and float(row.get("alpha_vs_blend_pct", -999.0) or -999.0) > 0.0
+        )
+
+    exec_advisory = [row for row in exec_failed if _is_delay_holdout_advisory(row)]
+    exec_blocking = [row for row in exec_failed if not _is_delay_holdout_advisory(row)]
     worst_dd = min((float(row.get("max_drawdown_pct", 0.0) or 0.0) for row in exec_rows), default=0.0)
-    execution_pass = bool(exec_rows and not exec_failed and worst_dd >= EXECUTION_STRESS_MIN_WORST_DRAWDOWN_PCT)
+    execution_pass = bool(exec_rows and not exec_blocking and worst_dd >= EXECUTION_STRESS_MIN_WORST_DRAWDOWN_PCT)
+    # Real money needs every stress scenario to pass outright; no advisories.
+    execution_capital_pass = bool(execution_pass and not exec_advisory)
     if not execution:
         reasons.append("execution_stress_review_missing")
     elif not execution_pass:
@@ -154,7 +183,18 @@ def evaluate_medium_risk_review(
         },
         "execution_stress_review": {
             "pass": execution_pass,
-            "failed_scenarios": len(exec_failed),
+            "capital_approval_pass": execution_capital_pass,
+            "failed_scenarios": len(exec_blocking),
+            # Delay scenarios that failed only the 2023-2026 QQQ holdout.  They
+            # do not stop paper orders but always block real capital.
+            "paper_advisory_scenarios": [
+                {
+                    "scenario": row.get("scenario"),
+                    "failed_gates": list(row.get("failed_gates") or []),
+                    "holdout_alpha_vs_qqq_pct": row.get("holdout_alpha_vs_qqq_pct"),
+                }
+                for row in exec_advisory
+            ],
             # PLAIN ENGLISH: keep the names and failed gates beside the count
             # so the Actions log explains a real strategy rejection directly.
             "failed_scenario_details": [
@@ -163,7 +203,7 @@ def evaluate_medium_risk_review(
                     "failed_gates": list(row.get("failed_gates") or []),
                     "holdout_alpha_vs_qqq_pct": row.get("holdout_alpha_vs_qqq_pct"),
                 }
-                for row in exec_failed
+                for row in exec_blocking
             ],
             "worst_stressed_drawdown_pct": round(worst_dd, 4),
         },

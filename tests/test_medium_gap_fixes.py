@@ -316,6 +316,65 @@ def test_medium_risk_review_names_failed_delayed_entry_gate():
     }]
 
 
+def _delay_holdout_only_failure(execution: dict) -> dict:
+    execution["rows"][0].update({
+        "scenario": "delay_1d",
+        "entry_delay_days": 1,
+        "paper_ready": False,
+        "failed_gates": ["holdout_2023_2026_vs_qqq_pass"],
+        "holdout_alpha_vs_qqq_pct": -8.16,
+    })
+    return execution
+
+
+def test_delay_holdout_only_failure_is_paper_advisory_but_blocks_capital():
+    review = nwf.medium_risk_review_from_reports(
+        survivorship=_passing_survivorship(),
+        execution=_delay_holdout_only_failure(_passing_execution()),
+        factor_decay={"edge_health_status": "pass"},
+    )
+    stress = review["execution_stress_review"]
+    assert review["pass"] is True
+    assert stress["pass"] is True
+    assert stress["capital_approval_pass"] is False
+    assert stress["failed_scenario_details"] == []
+    assert [row["scenario"] for row in stress["paper_advisory_scenarios"]] == ["delay_1d"]
+
+
+def test_delay_row_with_any_other_failed_gate_still_blocks_paper():
+    execution = _delay_holdout_only_failure(_passing_execution())
+    execution["rows"][0]["failed_gates"].append("sharpe_pass")
+    review = nwf.medium_risk_review_from_reports(
+        survivorship=_passing_survivorship(),
+        execution=execution,
+        factor_decay={"edge_health_status": "pass"},
+    )
+    assert review["pass"] is False
+    assert "execution_stress_review_failed" in review["reasons"]
+
+
+def test_delay_row_with_negative_full_period_alpha_still_blocks_paper():
+    execution = _delay_holdout_only_failure(_passing_execution())
+    execution["rows"][0]["alpha_vs_qqq_pct"] = -1.0
+    review = nwf.medium_risk_review_from_reports(
+        survivorship=_passing_survivorship(),
+        execution=execution,
+        factor_decay={"edge_health_status": "pass"},
+    )
+    assert review["pass"] is False
+
+
+def test_undelayed_holdout_failure_still_blocks_paper():
+    execution = _delay_holdout_only_failure(_passing_execution())
+    execution["rows"][0].update({"scenario": "extra_10bps", "entry_delay_days": 0})
+    review = nwf.medium_risk_review_from_reports(
+        survivorship=_passing_survivorship(),
+        execution=execution,
+        factor_decay={"edge_health_status": "pass"},
+    )
+    assert review["pass"] is False
+
+
 def test_apply_medium_risk_review_removes_approved_live_config_when_failed():
     summary = {
         "live_config_approval": {"approved": True, "reasons": []},

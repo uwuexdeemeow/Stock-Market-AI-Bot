@@ -149,6 +149,20 @@ def main() -> int:
         return 1
     if not status["trading_allowed"]:
         print("::warning::Snapshot evidence is coherent, but safety review blocked trading. No orders are allowed.")
+    # PLAIN ENGLISH: paper trading may continue past the known one-day-delay
+    # weakness, but every run must say so loudly.  It is never capital approval.
+    advisories = (
+        (status.get("medium_risk_review", {}) or {}).get("execution_stress_review", {}) or {}
+    ).get("paper_advisory_scenarios", []) or []
+    if advisories:
+        names = ", ".join(
+            f"{row.get('scenario')} (2023-2026 vs QQQ {row.get('holdout_alpha_vs_qqq_pct')}%)"
+            for row in advisories
+        )
+        print(
+            "::warning::PAPER-ONLY advisory: the strategy fails one-day-delay stress "
+            f"[{names}]. Paper orders continue; real capital stays blocked."
+        )
     return 0
 
 

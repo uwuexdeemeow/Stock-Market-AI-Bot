@@ -512,6 +512,15 @@ def build_validation_bundle(
     )
     if not survivorship_capital_pass:
         provisional_reasons.append("survivorship_capital_evidence_incomplete")
+    # A paper-only delay-stress advisory keeps the bundle provisional, so it
+    # can never become real-capital evidence.
+    execution_capital_pass = bool(
+        ((robustness.get("medium_risk_review", {}) or {}).get("execution_stress_review", {}) or {}).get(
+            "capital_approval_pass", False
+        )
+    )
+    if not execution_capital_pass:
+        provisional_reasons.append("execution_stress_capital_evidence_incomplete")
 
     # PLAIN ENGLISH: A profitable fold summary is not enough to authorize
     # paper orders.  The exact walk-forward file, dataset fingerprint, folds,
@@ -560,7 +569,10 @@ def build_validation_bundle(
             "paper_approved": paper_approved,
             "real_capital_approved": False,
             "capital_approval_eligible": bool(
-                paper_approved and survivorship_capital_pass and universe.get("complete", False)
+                paper_approved
+                and survivorship_capital_pass
+                and execution_capital_pass
+                and universe.get("complete", False)
             ),
             "integrity_status": (
                 "verified"
