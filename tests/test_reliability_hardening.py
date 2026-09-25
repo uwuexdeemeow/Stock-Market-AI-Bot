@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import hashlib
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -352,20 +353,11 @@ def test_validation_bundle_rebuild_refuses_different_live_config(tmp_path):
 
 
 def test_robustness_reports_preserve_full_live_config_identity(tmp_path, monkeypatch):
-    """Every report must fingerprint the same behavior-changing live fields."""
+    """Stress reports must evaluate the entire approved allocation."""
     metrics_path = tmp_path / "core_satellite_alpha_metrics.json"
-    expected = {
-        "score_source": "regime_adaptive",
-        "shape": "top3",
-        "weighting": "sticky_score",
-        "holding_days": 20,
-        "overlay_gross": 0.5,
-        "regime_ma_window": 100,
-        "regime_high_vol": 0.3,
-        "high_vol_mode": "percentile",
-        "risk_control_mode": "off",
-    }
-    metrics_path.write_text(json.dumps(expected), encoding="utf-8")
+    approved = json.loads(Path("signals/core_satellite_validation_bundle.json").read_text())
+    expected = approved["config"]
+    metrics_path.write_text(json.dumps({**expected, "cost_stress": 2.0}), encoding="utf-8")
     monkeypatch.setattr(execution_stress, "SIGNAL_DIR", str(tmp_path))
     monkeypatch.setattr(survivorship_stress, "SIGNAL_DIR", str(tmp_path))
     monkeypatch.setattr(factor_decay_monitor, "METRICS_PATH", metrics_path)
@@ -380,6 +372,43 @@ def test_robustness_reports_preserve_full_live_config_identity(tmp_path, monkeyp
         validation_bundle.strategy_config_fingerprint(config) == expected_fingerprint
         for config in configs
     )
+    # The old short key list silently omitted these risk-on weights and ran
+    # stress on a different strategy. Both reports now carry the full preset.
+    assert configs[0]["regime_preset"] == expected["regime_preset"]
+    assert configs[1]["regime_preset"] == expected["regime_preset"]
+
+
+def test_stress_reports_reject_changed_regime_allocation(tmp_path):
+    """A changed allocation cannot borrow the approved strategy's reports."""
+    approved = json.loads(Path("signals/core_satellite_validation_bundle.json").read_text())
+    metrics = dict(approved["config"])
+    metrics["regime_preset"] = json.loads(json.dumps(metrics["regime_preset"]))
+    metrics["regime_preset"]["risk_on"]["overlay_gross"] = 0.7
+    metrics_path = tmp_path / "metrics.json"
+    metrics_path.write_text(json.dumps(metrics), encoding="utf-8")
+    with pytest.raises(ValueError, match="regime_preset"):
+        validation_bundle.load_approved_research_config(metrics_path)
+
+
+def test_current_stress_report_rejects_omitted_approved_regime_preset(tmp_path):
+    """Matching short hashes cannot hide a different allocation in a report."""
+    report = tmp_path / "execution.json"
+    report.write_text(json.dumps({
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "selected_config": {"shape": "top3"},
+        "validation_context": {
+            "config_fingerprint": "approved",
+            "dataset_fingerprint": "market-data",
+        },
+    }), encoding="utf-8")
+    checked = validation_bundle.report_validation_record(
+        "execution_stress", report,
+        expected_config_fingerprint="approved",
+        expected_dataset_fingerprint="market-data",
+        expected_config={"shape": "top3", "regime_preset": {"risk_on": {"core_gross": 0.75}}},
+    )
+    assert checked["match"] is False
+    assert "selected_config_mismatch" in checked["reasons"]
 
 
 def test_provider_overlap_accepts_adjusted_match_and_rejects_price_scale_change():

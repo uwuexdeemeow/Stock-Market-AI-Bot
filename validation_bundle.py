@@ -39,6 +39,38 @@ DEFAULT_REPORT_PATHS = {
     **DEFAULT_ROBUSTNESS_REPORT_PATHS,
 }
 
+
+def load_approved_research_config(
+    metrics_path: Path = Path("signals/core_satellite_alpha_metrics.json"),
+    bundle_path: Path = DEFAULT_BUNDLE_PATH,
+) -> dict:
+    """Give stress tests the complete approved configuration or stop them.
+
+    PLAIN ENGLISH: a short list of settings can forget something important,
+    such as the different QQQ/stock weights in each market regime. Compare
+    today's metrics with the approved bundle, then copy every approved setting.
+    """
+    metrics = json.loads(Path(metrics_path).read_text(encoding="utf-8"))
+    bundle = json.loads(Path(bundle_path).read_text(encoding="utf-8"))
+    approved = bundle.get("config")
+    if not isinstance(approved, dict) or not approved:
+        raise ValueError("Approved strategy configuration is missing")
+    bundle_ok, bundle_issues = validate_validation_bundle(bundle)
+    if not bundle_ok:
+        raise ValueError(f"Approved strategy bundle is invalid: {bundle_issues}")
+    mismatched = [
+        key for key, value in approved.items()
+        if key not in metrics or _canonical_json(metrics[key]) != _canonical_json(value)
+    ]
+    if mismatched:
+        raise ValueError(f"Current strategy metrics differ from approved configuration: {mismatched}")
+    config = dict(approved)
+    # This research cost multiplier is added during evaluation rather than
+    # stored in the approval record. Keep the value the signal used.
+    if "cost_stress" in metrics:
+        config["cost_stress"] = float(metrics["cost_stress"])
+    return config
+
 # These generated files can change which factors are scored or how much they
 # count. Treat them as research inputs when a manifest says they were used.
 SCORE_INPUT_OUTPUT_PATHS = (
@@ -264,6 +296,7 @@ def report_validation_record(
     *,
     expected_config_fingerprint: str,
     expected_dataset_fingerprint: str,
+    expected_config: dict | None = None,
     now: datetime | None = None,
 ) -> dict:
     """Explain whether one robustness report belongs to this validation run."""
@@ -301,6 +334,18 @@ def report_validation_record(
         record["reasons"].append("config_fingerprint_missing")
     elif observed_config != expected_config_fingerprint:
         record["reasons"].append("config_fingerprint_mismatch")
+    # PLAIN ENGLISH: the short historical fingerprint does not include every
+    # regime weight. Check the actual approved weights for the two portfolio
+    # stress tests so an old report cannot pass under the same short hash.
+    if expected_config is not None and name in {"execution_stress", "survivorship"}:
+        if not isinstance(selected_config, dict):
+            record["reasons"].append("selected_config_missing")
+        elif any(
+            key not in selected_config
+            or _canonical_json(selected_config[key]) != _canonical_json(value)
+            for key, value in expected_config.items()
+        ):
+            record["reasons"].append("selected_config_mismatch")
     if not observed_dataset:
         record["reasons"].append("dataset_fingerprint_missing")
     elif observed_dataset != expected_dataset_fingerprint:
@@ -326,6 +371,7 @@ def current_robustness_evidence(
     *,
     expected_config_fingerprint: str,
     expected_dataset_fingerprint: str,
+    expected_config: dict | None = None,
     report_paths: dict[str, Path] | None = None,
     require_reports: bool = True,
     now: datetime | None = None,
@@ -346,6 +392,7 @@ def current_robustness_evidence(
             Path(path),
             expected_config_fingerprint=expected_config_fingerprint,
             expected_dataset_fingerprint=expected_dataset_fingerprint,
+            expected_config=expected_config,
             now=now,
         )
         for name, path in paths.items()
@@ -551,6 +598,8 @@ def validate_live_approval_identity(live: dict, bundle: dict, strategy="core-alp
         issues.append("deployed_configuration_missing")
     if strategy_config_fingerprint(config) != bundle.get("config_fingerprint"):
         issues.append("configuration_fingerprint_mismatch")
+    if _canonical_json(config) != _canonical_json(bundle.get("config", {})):
+        issues.append("configuration_payload_mismatch")
     expected = bundle.get("validation_bundle_hash")
     for label, record in (("top", live), ("strategy", entry)):
         if not expected or record.get("validation_bundle_hash") != expected:
@@ -585,7 +634,7 @@ def _matching_approved_config(result: dict, live: dict) -> tuple[bool, str]:
         return False, "walkforward_approved_config_missing"
     if not live_config:
         return False, "live_approved_config_missing"
-    if strategy_config_fingerprint(evidence_config) != strategy_config_fingerprint(live_config):
+    if _canonical_json(evidence_config) != _canonical_json(live_config):
         return False, "walkforward_live_config_mismatch"
     return True, ""
 

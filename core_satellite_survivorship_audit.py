@@ -22,7 +22,7 @@ import core_satellite_alpha as core
 from settings import LOG_DIR, SIGNAL_DIR, SURVIVORSHIP_AUDIT_TICKERS, WATCHLIST
 from safe_io import atomic_write_csv, atomic_write_json
 from survivorship_audit import available_audit_tickers, existing_audit_profiles
-from validation_bundle import add_validation_context
+from validation_bundle import add_validation_context, load_approved_research_config
 from universe_membership import membership_status
 
 
@@ -30,39 +30,11 @@ OUT_JSON = Path(LOG_DIR) / "core_satellite_survivorship_audit.json"
 OUT_CSV = Path(SIGNAL_DIR) / "core_satellite_survivorship_audit.csv"
 
 
-CONFIG_KEYS = (
-    "core_preset",
-    "regime_mode",
-    "core_weights",
-    "score_source",
-    "shape",
-    "weighting",
-    "exit_rank_floor",
-    "adaptive_exit_mode",
-    "max_per_sector",
-    "earnings_blackout_days",
-    "core_gross",
-    "overlay_gross",
-    "max_gross_exposure",
-    "deployment_max_gross_exposure",
-    "max_single_name_weight",
-    "cost_stress",
-    "holding_days",
-    "regime_ma_window",
-    "regime_high_vol",
-    # Keep report identity aligned with the approved live configuration.
-    "high_vol_mode",
-    "tqqq_weight",
-    "risk_control_mode",
-)
-
-
 def _load_selected_config() -> dict:
     metrics_path = Path(SIGNAL_DIR) / "core_satellite_alpha_metrics.json"
     if not metrics_path.exists():
         raise SystemExit("Missing signals/core_satellite_alpha_metrics.json. Run core_satellite_alpha.py first.")
-    metrics = json.loads(metrics_path.read_text(encoding="utf-8", errors="replace"))
-    return {key: metrics[key] for key in CONFIG_KEYS if key in metrics}
+    return load_approved_research_config(metrics_path)
 
 
 def _with_alpha_watchlist(tickers: Iterable[str], fn):

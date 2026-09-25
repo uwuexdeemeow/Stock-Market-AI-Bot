@@ -12,7 +12,7 @@ from validation_bundle import sha256_value, strategy_config_fingerprint
 
 def identity_fixture():
     config = {'score_source': 'regime_adaptive', 'max_gross_exposure': 1.25, 'deployment_max_gross_exposure': 1.0}
-    bundle = {'schema_version': 2, 'config_fingerprint': strategy_config_fingerprint(config),
+    bundle = {'schema_version': 2, 'config': dict(config), 'config_fingerprint': strategy_config_fingerprint(config),
               'deployment': {'status': 'paper_provisional', 'paper_approved': True}, 'robustness_review': {'pass': True}}
     bundle['validation_bundle_hash'] = sha256_value(bundle)
     live = {'deployment_status': 'paper_provisional', 'paper_approved': True,
@@ -40,6 +40,18 @@ def test_deployment_exposure_and_bundle_identity_are_checked():
     assert 'top_bundle_reference_mismatch' in approval_summary(live, bundle)['issues']
     bundle['robustness_review']['pass'] = False
     assert 'validation_bundle_hash_mismatch' in approval_summary(live, bundle)['issues']
+
+
+def test_live_approval_rejects_changed_regime_weights_with_same_short_fingerprint():
+    live, bundle = identity_fixture()
+    bundle['config']['regime_preset'] = {'risk_on': {'core_gross': 0.75}}
+    live['approved_live_configs']['core-alpha']['config']['regime_preset'] = {'risk_on': {'core_gross': 0.55}}
+    bundle.pop('validation_bundle_hash')
+    bundle['validation_bundle_hash'] = sha256_value(bundle)
+    live['validation_bundle_hash'] = bundle['validation_bundle_hash']
+    live['approved_live_configs']['core-alpha']['validation_bundle_hash'] = bundle['validation_bundle_hash']
+    report = approval_summary(live, bundle)
+    assert 'configuration_payload_mismatch' in report['issues']
 
 
 def complete_snapshot():

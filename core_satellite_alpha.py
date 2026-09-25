@@ -2702,6 +2702,7 @@ def _load_approved_live_config(
     current_robustness = current_robustness_evidence(
         expected_config_fingerprint=str(bundle.get("config_fingerprint", "")),
         expected_dataset_fingerprint=str(current_dataset.get("dataset_fingerprint", "")),
+        expected_config=bundle.get("config", {}),
     )
     if not current_dataset.get("dataset_fingerprint"):
         bundle_issues.append("current_dataset_fingerprint_missing")

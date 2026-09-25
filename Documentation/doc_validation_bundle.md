@@ -35,6 +35,15 @@ cannot be overridden by another approval. Rebuilding copies the new bundle's
 actual decision to both levels; rejected evidence remains rejected. No lock,
 freeze, order submission or real-capital approval follows from this script.
 
+Execution and survivorship stress use `load_approved_research_config` to read
+the complete approved strategy. It rejects a missing or changed setting in
+the current metrics. This keeps an omitted allocation field from quietly
+falling back to the program's built-in strategy during a safety review.
+Daily approval also compares the complete live configuration with the bundle,
+and checks that execution and survivorship reports contain the same approved
+settings. The older short fingerprint alone did not distinguish different
+regime allocations.
+
 The current dataset identity includes the live SPY, QQQ, TQQQ, BIL, IEF, and
 GLD parquet prices through the last completed market session, as well as the
 research manifest. It verifies the current factor weights, quality report,

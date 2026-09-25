@@ -306,6 +306,7 @@ jobs:
           review = current_robustness_evidence(
               expected_config_fingerprint=str(approved.get('config_fingerprint', '')),
               expected_dataset_fingerprint=str(dataset.get('dataset_fingerprint', '')),
+              expected_config=approved.get('config', {}),
           )
           print(json.dumps(review, indent=2))
           raise SystemExit(0 if dataset.get('dataset_fingerprint') and review.get('pass') else 1)

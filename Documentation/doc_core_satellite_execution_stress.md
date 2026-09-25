@@ -44,6 +44,10 @@ The JSON report includes the exact strategy and dataset fingerprints. The
 validation bundle rejects a report from an older config or data snapshot.
 Volatility mode, leverage choice, and risk-control mode are included in that
 identity so a report cannot be mislabeled as a different strategy.
+The runner now copies every setting from the approved validation bundle and
+checks that today's metrics agree. This includes each market regime's QQQ and
+stock weights. Previously, omitting that preset made the stress test use a
+different built-in allocation.
 Each scenario also lists `failed_gates`. For example, a delayed entry may
 trail QQQ during the 2023–2026 holdout even when its full-history return is
 positive. This is a strategy result, not a missing-price error.

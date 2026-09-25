@@ -53,6 +53,8 @@ until date-effective membership and delisted-name data are complete, so it
 cannot authorize real capital.
 The fingerprint includes volatility and risk-control modes, preventing results
 for one strategy variant from being attached to another.
+The runner copies the full approved configuration, including each market
+regime's allocation, and refuses metrics that disagree with the approval.
 
 ## September 2026 submission and historical-data repair
 
