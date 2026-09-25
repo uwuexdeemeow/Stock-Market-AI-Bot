@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-24T15:21:24.380677+00:00",
-  "source_commit": "3ac6dc39f5958d05e6f13bea610c46fe224d2ca4",
+  "generated_at": "2026-09-25T14:19:28.234384+00:00",
+  "source_commit": "cfb6e620f4aed3cb3c11b71fb488a2c8475cfcf3",
   "baseline_count": 92,
   "baseline_sha256": "a7a2efce2ae1f75b3ade6fb8798eb754f635d5f7797a668b3088f3bac09a00d3",
   "findings": [
@@ -21,7 +21,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "completed_run_has_no_artifact"
     },
@@ -42,7 +42,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "complete_run_manifest_missing"
     },
@@ -63,7 +63,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_run_mismatch"
     },
@@ -84,7 +84,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_run_mismatch"
     },
@@ -105,7 +105,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_run_mismatch"
     },
@@ -126,7 +126,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_run_mismatch"
     },
@@ -147,7 +147,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -168,7 +168,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -189,7 +189,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -210,7 +210,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -231,7 +231,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "snapshot_timestamp_missing"
     },
@@ -252,7 +252,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_status_conflict"
     },
@@ -273,7 +273,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -294,7 +294,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -315,7 +315,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "complete_run_manifest_missing"
     },
@@ -336,7 +336,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_run_mismatch"
     },
@@ -357,7 +357,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_run_mismatch"
     },
@@ -378,7 +378,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_run_mismatch"
     },
@@ -399,7 +399,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_run_mismatch"
     },
@@ -420,7 +420,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -441,7 +441,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -462,7 +462,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -483,7 +483,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -504,7 +504,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_status_conflict"
     },
@@ -525,7 +525,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -546,7 +546,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -567,7 +567,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "complete_run_manifest_missing"
     },
@@ -588,7 +588,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_run_mismatch"
     },
@@ -609,7 +609,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_run_mismatch"
     },
@@ -630,7 +630,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_run_mismatch"
     },
@@ -651,7 +651,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_run_mismatch"
     },
@@ -672,7 +672,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -693,7 +693,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -714,7 +714,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -735,7 +735,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -756,7 +756,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "config_fingerprint_missing"
     },
@@ -777,7 +777,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "configuration_fingerprint_mismatch"
     },
@@ -798,7 +798,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployed_configuration_missing"
     },
@@ -819,7 +819,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_state_missing"
     },
@@ -840,7 +840,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -861,7 +861,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "robustness_review_missing"
     },
@@ -882,7 +882,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -903,7 +903,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "top_bundle_reference_mismatch"
     },
@@ -924,7 +924,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_hash_missing"
     },
@@ -945,7 +945,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_schema_outdated"
     },
@@ -966,7 +966,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "config_fingerprint_missing"
     },
@@ -987,7 +987,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "configuration_fingerprint_mismatch"
     },
@@ -1008,7 +1008,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployed_configuration_missing"
     },
@@ -1029,7 +1029,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_state_missing"
     },
@@ -1050,7 +1050,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -1071,7 +1071,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "robustness_review_missing"
     },
@@ -1092,7 +1092,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -1113,7 +1113,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "top_bundle_reference_mismatch"
     },
@@ -1134,7 +1134,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_hash_missing"
     },
@@ -1155,7 +1155,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_schema_outdated"
     },
@@ -1175,7 +1175,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "membership_table_missing"
     },
@@ -1195,7 +1195,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_ticker_membership_missing"
     },
@@ -1215,7 +1215,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "membership_provenance_columns_missing"
     },
@@ -1235,7 +1235,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "historical_universe_too_small"
     },
@@ -1255,7 +1255,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "inactive_membership_coverage_too_small"
     },
@@ -1275,7 +1275,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "historical_price_coverage_incomplete"
     },
@@ -1295,7 +1295,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "historical_membership_missing"
     },
@@ -1315,7 +1315,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "membership_coverage_unverified"
     },
@@ -1336,7 +1336,7 @@
       "affected_security": "QQQ",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "raw_price_file_missing"
     },
@@ -1357,7 +1357,7 @@
       "affected_security": "QQQ",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "source_url_missing"
     },
@@ -1378,7 +1378,7 @@
       "affected_security": "QQQ",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "retrieved_at_missing"
     },
@@ -1399,7 +1399,7 @@
       "affected_security": "QQQ",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "license_missing"
     },
@@ -1420,7 +1420,7 @@
       "affected_security": "QQQ",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "free_raw_source_unverified"
     },
@@ -1441,7 +1441,7 @@
       "affected_security": "QQQ",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "raw_price_provenance_invalid"
     },
@@ -1462,7 +1462,7 @@
       "affected_security": "QQQ",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "raw_price_feed_or_symbol_mapping_missing"
     },
@@ -1483,7 +1483,7 @@
       "affected_security": "QQQ",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "raw_price_security_identity_unverified"
     },
@@ -1504,7 +1504,7 @@
       "affected_security": "QQQ",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "corporate_action_coverage_missing"
     },
@@ -1525,7 +1525,7 @@
       "affected_security": "SPY",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "raw_price_file_missing"
     },
@@ -1546,7 +1546,7 @@
       "affected_security": "SPY",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "source_url_missing"
     },
@@ -1567,7 +1567,7 @@
       "affected_security": "SPY",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "retrieved_at_missing"
     },
@@ -1588,7 +1588,7 @@
       "affected_security": "SPY",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "license_missing"
     },
@@ -1609,7 +1609,7 @@
       "affected_security": "SPY",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "free_raw_source_unverified"
     },
@@ -1630,7 +1630,7 @@
       "affected_security": "SPY",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "raw_price_provenance_invalid"
     },
@@ -1651,7 +1651,7 @@
       "affected_security": "SPY",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "raw_price_feed_or_symbol_mapping_missing"
     },
@@ -1672,7 +1672,7 @@
       "affected_security": "SPY",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "raw_price_security_identity_unverified"
     },
@@ -1693,7 +1693,7 @@
       "affected_security": "SPY",
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "corporate_action_coverage_missing"
     },
@@ -1713,7 +1713,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "corporate_action_file_unverified"
     },
@@ -1733,7 +1733,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "dated_context_missing_or_unverified"
     },
@@ -1754,7 +1754,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -1775,7 +1775,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -1796,7 +1796,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -1817,7 +1817,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -1838,7 +1838,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -1859,7 +1859,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -1880,7 +1880,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -1901,7 +1901,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -1922,7 +1922,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_logic_fingerprint_mismatch"
     },
@@ -1943,7 +1943,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "snapshot_stale_or_future"
     },
@@ -1958,13 +1958,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": false,
+      "observed_in_current_audit": true,
       "dependency": "signals/latest",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "signal_freshness_failed"
     },
@@ -1985,7 +1985,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "execution_observations_insufficient_or_failed"
     },
@@ -2006,7 +2006,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "reported_paper_version_lock_invalid"
     },
@@ -2027,7 +2027,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -2048,7 +2048,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -2069,7 +2069,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -2090,7 +2090,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -2111,7 +2111,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -2132,7 +2132,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -2153,7 +2153,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -2174,7 +2174,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -2195,7 +2195,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "complete_run_manifest_missing"
     },
@@ -2216,7 +2216,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -2237,7 +2237,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "config_fingerprint_missing"
     },
@@ -2258,7 +2258,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "configuration_fingerprint_mismatch"
     },
@@ -2279,7 +2279,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployed_configuration_missing"
     },
@@ -2300,7 +2300,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_state_missing"
     },
@@ -2321,7 +2321,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -2342,7 +2342,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "robustness_review_missing"
     },
@@ -2363,7 +2363,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -2384,7 +2384,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "top_bundle_reference_mismatch"
     },
@@ -2405,7 +2405,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_hash_missing"
     },
@@ -2426,7 +2426,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_schema_outdated"
     },
@@ -2447,7 +2447,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "execution_observations_insufficient_or_failed"
     },
@@ -2468,7 +2468,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "reported_paper_version_lock_invalid"
     },
@@ -2489,7 +2489,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -2510,7 +2510,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -2531,7 +2531,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -2552,7 +2552,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -2573,7 +2573,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -2594,7 +2594,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -2615,7 +2615,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -2636,7 +2636,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -2658,7 +2658,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -2680,7 +2680,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -2702,7 +2702,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -2724,7 +2724,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -2746,7 +2746,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -2768,7 +2768,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -2790,7 +2790,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -2812,7 +2812,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -2834,7 +2834,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -2856,7 +2856,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -2878,7 +2878,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -2900,7 +2900,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "locked_file_changed"
     },
@@ -2920,7 +2920,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "recorded_replay_not_certified"
     },
@@ -2940,7 +2940,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "normal_session_activity_reconciliation_awaiting_observations"
     },
@@ -2960,7 +2960,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "full_historical_broker_accounting_uncertified"
     },
@@ -2980,7 +2980,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "corrected_prospective_validation_requires_explicit_freeze_and_new_observations"
     },
@@ -3001,7 +3001,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "review_report_missing"
     },
@@ -3022,7 +3022,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "review_source_identity_incomplete"
     },
@@ -3043,7 +3043,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "review_not_fully_verified"
     },
@@ -3064,7 +3064,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "review_report_missing"
     },
@@ -3085,7 +3085,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "review_source_identity_incomplete"
     },
@@ -3106,7 +3106,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "review_not_fully_verified"
     },
@@ -3127,7 +3127,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "review_report_missing"
     },
@@ -3148,7 +3148,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "review_source_identity_incomplete"
     },
@@ -3169,7 +3169,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "review_not_fully_verified"
     },
@@ -3190,7 +3190,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "complete_run_manifest_missing"
     },
@@ -3211,7 +3211,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -3232,7 +3232,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -3253,7 +3253,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "config_fingerprint_missing"
     },
@@ -3274,7 +3274,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "configuration_fingerprint_mismatch"
     },
@@ -3295,7 +3295,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployed_configuration_missing"
     },
@@ -3316,7 +3316,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_state_missing"
     },
@@ -3337,7 +3337,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_status_conflict"
     },
@@ -3358,7 +3358,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -3379,7 +3379,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "robustness_review_missing"
     },
@@ -3400,7 +3400,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -3421,7 +3421,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "top_bundle_reference_mismatch"
     },
@@ -3442,7 +3442,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_hash_missing"
     },
@@ -3463,7 +3463,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_schema_outdated"
     },
@@ -3484,7 +3484,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "signal_freshness_failed"
     },
@@ -3505,7 +3505,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "execution_observations_insufficient_or_failed"
     },
@@ -3526,7 +3526,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -3547,7 +3547,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -3568,7 +3568,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -3589,7 +3589,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -3610,7 +3610,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -3631,7 +3631,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -3652,7 +3652,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -3673,7 +3673,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -3694,7 +3694,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "complete_run_manifest_missing"
     },
@@ -3715,7 +3715,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -3736,7 +3736,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "config_fingerprint_missing"
     },
@@ -3757,7 +3757,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "configuration_fingerprint_mismatch"
     },
@@ -3778,7 +3778,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployed_configuration_missing"
     },
@@ -3799,7 +3799,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_state_missing"
     },
@@ -3820,7 +3820,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_status_conflict"
     },
@@ -3841,7 +3841,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -3862,7 +3862,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "robustness_review_missing"
     },
@@ -3883,7 +3883,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -3904,7 +3904,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "top_bundle_reference_mismatch"
     },
@@ -3925,7 +3925,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_hash_missing"
     },
@@ -3946,7 +3946,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_schema_outdated"
     },
@@ -3967,7 +3967,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "signal_freshness_failed"
     },
@@ -3988,7 +3988,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "execution_observations_insufficient_or_failed"
     },
@@ -4009,7 +4009,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4030,7 +4030,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4051,7 +4051,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4072,7 +4072,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4093,7 +4093,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4114,7 +4114,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4135,7 +4135,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4156,7 +4156,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4177,7 +4177,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "current_robustness_failed"
     },
@@ -4198,7 +4198,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "config_fingerprint_missing"
     },
@@ -4219,7 +4219,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "configuration_fingerprint_mismatch"
     },
@@ -4240,7 +4240,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployed_configuration_missing"
     },
@@ -4261,7 +4261,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_state_missing"
     },
@@ -4282,7 +4282,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_status_conflict"
     },
@@ -4303,7 +4303,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -4324,7 +4324,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "robustness_review_missing"
     },
@@ -4345,7 +4345,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -4366,7 +4366,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "top_bundle_reference_mismatch"
     },
@@ -4387,7 +4387,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_hash_missing"
     },
@@ -4408,7 +4408,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_schema_outdated"
     },
@@ -4429,7 +4429,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "execution_observations_insufficient_or_failed"
     },
@@ -4450,7 +4450,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4471,7 +4471,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4492,7 +4492,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4513,7 +4513,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4534,7 +4534,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4555,7 +4555,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4576,7 +4576,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4597,7 +4597,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4618,7 +4618,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "config_fingerprint_missing"
     },
@@ -4639,7 +4639,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "configuration_fingerprint_mismatch"
     },
@@ -4660,7 +4660,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployed_configuration_missing"
     },
@@ -4681,7 +4681,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_state_missing"
     },
@@ -4702,7 +4702,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_status_conflict"
     },
@@ -4723,7 +4723,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -4744,7 +4744,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "robustness_review_missing"
     },
@@ -4765,7 +4765,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -4786,7 +4786,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "top_bundle_reference_mismatch"
     },
@@ -4807,7 +4807,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_hash_missing"
     },
@@ -4828,7 +4828,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_schema_outdated"
     },
@@ -4849,7 +4849,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "execution_observations_insufficient_or_failed"
     },
@@ -4870,7 +4870,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4891,7 +4891,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4912,7 +4912,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4933,7 +4933,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4954,7 +4954,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4975,7 +4975,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -4996,7 +4996,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5017,7 +5017,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5038,7 +5038,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "config_fingerprint_missing"
     },
@@ -5059,7 +5059,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "configuration_fingerprint_mismatch"
     },
@@ -5080,7 +5080,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployed_configuration_missing"
     },
@@ -5101,7 +5101,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_state_missing"
     },
@@ -5122,7 +5122,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_status_conflict"
     },
@@ -5143,7 +5143,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -5164,7 +5164,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "robustness_review_missing"
     },
@@ -5185,7 +5185,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -5206,7 +5206,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "top_bundle_reference_mismatch"
     },
@@ -5227,7 +5227,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_hash_missing"
     },
@@ -5248,7 +5248,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_schema_outdated"
     },
@@ -5269,7 +5269,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "execution_observations_insufficient_or_failed"
     },
@@ -5290,7 +5290,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5311,7 +5311,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5332,7 +5332,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5353,7 +5353,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5374,7 +5374,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5395,7 +5395,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5416,7 +5416,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5437,7 +5437,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5458,7 +5458,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "config_fingerprint_missing"
     },
@@ -5479,7 +5479,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "configuration_fingerprint_mismatch"
     },
@@ -5500,7 +5500,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployed_configuration_missing"
     },
@@ -5521,7 +5521,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_state_missing"
     },
@@ -5542,7 +5542,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_status_conflict"
     },
@@ -5563,7 +5563,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -5584,7 +5584,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "robustness_review_missing"
     },
@@ -5605,7 +5605,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -5626,7 +5626,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "top_bundle_reference_mismatch"
     },
@@ -5647,7 +5647,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_hash_missing"
     },
@@ -5668,7 +5668,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_schema_outdated"
     },
@@ -5689,7 +5689,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "execution_observations_insufficient_or_failed"
     },
@@ -5710,7 +5710,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5731,7 +5731,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5752,7 +5752,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5773,7 +5773,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5794,7 +5794,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5815,7 +5815,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5836,7 +5836,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -5857,7 +5857,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "config_fingerprint_missing"
     },
@@ -5878,7 +5878,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "configuration_fingerprint_mismatch"
     },
@@ -5899,7 +5899,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployed_configuration_missing"
     },
@@ -5920,7 +5920,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_state_missing"
     },
@@ -5941,7 +5941,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_status_conflict"
     },
@@ -5962,7 +5962,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -5983,7 +5983,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "robustness_review_missing"
     },
@@ -6004,7 +6004,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -6025,7 +6025,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "top_bundle_reference_mismatch"
     },
@@ -6046,7 +6046,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_hash_missing"
     },
@@ -6067,7 +6067,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_schema_outdated"
     },
@@ -6088,7 +6088,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "execution_observations_insufficient_or_failed"
     },
@@ -6109,7 +6109,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -6130,7 +6130,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -6151,7 +6151,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -6172,7 +6172,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -6193,7 +6193,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -6214,7 +6214,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -6235,7 +6235,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -6256,7 +6256,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "complete_run_manifest_missing"
     },
@@ -6277,7 +6277,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -6298,7 +6298,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "config_fingerprint_missing"
     },
@@ -6319,7 +6319,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "configuration_fingerprint_mismatch"
     },
@@ -6340,7 +6340,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployed_configuration_missing"
     },
@@ -6361,7 +6361,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_state_missing"
     },
@@ -6382,7 +6382,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_status_conflict"
     },
@@ -6403,7 +6403,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -6424,7 +6424,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "robustness_review_missing"
     },
@@ -6445,7 +6445,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -6466,7 +6466,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "top_bundle_reference_mismatch"
     },
@@ -6487,7 +6487,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_hash_missing"
     },
@@ -6508,7 +6508,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_schema_outdated"
     },
@@ -6529,7 +6529,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "signal_freshness_failed"
     },
@@ -6550,7 +6550,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "execution_observations_insufficient_or_failed"
     },
@@ -6571,7 +6571,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -6592,7 +6592,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -6613,7 +6613,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -6634,7 +6634,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -6655,7 +6655,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -6676,7 +6676,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -6697,7 +6697,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -6711,13 +6711,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "historical_data_or_broker_replay",
       "next_action": "Restore read-only access and retrieve the latest completed run.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "completed_run_has_no_artifact"
     },
@@ -6732,13 +6732,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "complete_run_manifest_missing"
     },
@@ -6753,13 +6753,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -6774,13 +6774,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "config_fingerprint_missing"
     },
@@ -6795,13 +6795,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "configuration_fingerprint_mismatch"
     },
@@ -6816,13 +6816,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployed_configuration_missing"
     },
@@ -6837,13 +6837,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_state_missing"
     },
@@ -6858,13 +6858,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_status_conflict"
     },
@@ -6879,13 +6879,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -6900,13 +6900,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "robustness_review_missing"
     },
@@ -6921,13 +6921,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -6942,13 +6942,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "top_bundle_reference_mismatch"
     },
@@ -6963,13 +6963,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_hash_missing"
     },
@@ -6984,13 +6984,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_schema_outdated"
     },
@@ -7005,13 +7005,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "signal_freshness_failed"
     },
@@ -7026,13 +7026,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "execution_observations_insufficient_or_failed"
     },
@@ -7047,13 +7047,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -7068,13 +7068,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -7089,13 +7089,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -7110,13 +7110,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -7131,13 +7131,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -7152,13 +7152,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -7173,13 +7173,13 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -7200,7 +7200,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "complete_run_manifest_missing"
     },
@@ -7221,7 +7221,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -7242,7 +7242,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "config_fingerprint_missing"
     },
@@ -7263,7 +7263,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "configuration_fingerprint_mismatch"
     },
@@ -7284,7 +7284,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployed_configuration_missing"
     },
@@ -7305,7 +7305,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_state_missing"
     },
@@ -7326,7 +7326,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_status_conflict"
     },
@@ -7347,7 +7347,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -7368,7 +7368,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "robustness_review_missing"
     },
@@ -7389,7 +7389,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -7410,7 +7410,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "top_bundle_reference_mismatch"
     },
@@ -7431,7 +7431,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_hash_missing"
     },
@@ -7452,7 +7452,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_schema_outdated"
     },
@@ -7473,7 +7473,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "signal_freshness_failed"
     },
@@ -7494,7 +7494,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "execution_observations_insufficient_or_failed"
     },
@@ -7515,7 +7515,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -7536,7 +7536,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -7557,7 +7557,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -7578,7 +7578,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -7599,7 +7599,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -7620,7 +7620,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -7641,7 +7641,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -7662,7 +7662,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "complete_run_manifest_missing"
     },
@@ -7683,7 +7683,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -7704,7 +7704,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "config_fingerprint_missing"
     },
@@ -7725,7 +7725,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "configuration_fingerprint_mismatch"
     },
@@ -7746,7 +7746,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployed_configuration_missing"
     },
@@ -7767,7 +7767,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_state_missing"
     },
@@ -7788,7 +7788,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_status_conflict"
     },
@@ -7809,7 +7809,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -7830,7 +7830,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "robustness_review_missing"
     },
@@ -7851,7 +7851,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -7872,7 +7872,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "top_bundle_reference_mismatch"
     },
@@ -7893,7 +7893,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_hash_missing"
     },
@@ -7914,7 +7914,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_schema_outdated"
     },
@@ -7935,7 +7935,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "signal_freshness_failed"
     },
@@ -7956,7 +7956,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "execution_observations_insufficient_or_failed"
     },
@@ -7977,7 +7977,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -7998,7 +7998,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -8019,7 +8019,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -8040,7 +8040,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -8061,7 +8061,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -8082,7 +8082,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -8103,7 +8103,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -8124,7 +8124,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_checksum_mismatch"
     },
@@ -8145,7 +8145,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_checksum_mismatch"
     },
@@ -8166,7 +8166,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_checksum_mismatch"
     },
@@ -8187,7 +8187,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_checksum_mismatch"
     },
@@ -8208,7 +8208,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_run_mismatch"
     },
@@ -8229,7 +8229,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_run_mismatch"
     },
@@ -8250,7 +8250,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_run_mismatch"
     },
@@ -8271,7 +8271,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "evidence_run_mismatch"
     },
@@ -8292,7 +8292,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -8313,7 +8313,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "required_evidence_missing"
     },
@@ -8334,7 +8334,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "config_fingerprint_missing"
     },
@@ -8355,7 +8355,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "configuration_fingerprint_mismatch"
     },
@@ -8376,7 +8376,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployed_configuration_missing"
     },
@@ -8397,7 +8397,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_state_missing"
     },
@@ -8418,7 +8418,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "deployment_status_conflict"
     },
@@ -8439,7 +8439,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "paper_approval_not_unanimous"
     },
@@ -8460,7 +8460,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "robustness_review_missing"
     },
@@ -8481,7 +8481,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "strategy_bundle_reference_mismatch"
     },
@@ -8502,7 +8502,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "top_bundle_reference_mismatch"
     },
@@ -8523,7 +8523,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_hash_missing"
     },
@@ -8544,7 +8544,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "validation_bundle_schema_outdated"
     },
@@ -8565,7 +8565,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "execution_observations_insufficient_or_failed"
     },
@@ -8586,7 +8586,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -8607,7 +8607,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -8628,7 +8628,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -8649,7 +8649,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -8670,7 +8670,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -8691,7 +8691,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -8712,7 +8712,7 @@
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "epoch_check_failed"
     },
@@ -8727,15 +8727,498 @@
       "status": "blocked",
       "closure_evidence": [],
       "verification_result": "not_verified_fixed",
-      "observed_in_current_audit": true,
+      "observed_in_current_audit": false,
       "dependency": "workflow_artifact:35372565754:10558861344:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
       "affected_security": null,
       "period": {
         "start": "2012-01-01",
-        "end": "2026-09-24"
+        "end": "2026-09-25"
       },
       "group": "snapshot_stale_or_future"
+    },
+    {
+      "id": "gap-ca91234503a4824a6b17",
+      "finding": {
+        "reason": "complete_run_manifest_missing",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "complete_run_manifest_missing"
+    },
+    {
+      "id": "gap-20bf533727a6ac02f4ed",
+      "finding": {
+        "reason": "required_evidence_missing:core_satellite_alpha_orders.csv",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "required_evidence_missing"
+    },
+    {
+      "id": "gap-9fb4e75745aa1c0faa04",
+      "finding": {
+        "reason": "config_fingerprint_missing",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "config_fingerprint_missing"
+    },
+    {
+      "id": "gap-88f4359a71656088fa58",
+      "finding": {
+        "reason": "configuration_fingerprint_mismatch",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "configuration_fingerprint_mismatch"
+    },
+    {
+      "id": "gap-5cc255b0716d44a903f0",
+      "finding": {
+        "reason": "deployed_configuration_missing",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "deployed_configuration_missing"
+    },
+    {
+      "id": "gap-73d1cd18c6d519be7027",
+      "finding": {
+        "reason": "deployment_state_missing",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "deployment_state_missing"
+    },
+    {
+      "id": "gap-f84c6d11e6e37c7bdfba",
+      "finding": {
+        "reason": "deployment_status_conflict",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "deployment_status_conflict"
+    },
+    {
+      "id": "gap-dd03065f9e8f130f948d",
+      "finding": {
+        "reason": "paper_approval_not_unanimous",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "paper_approval_not_unanimous"
+    },
+    {
+      "id": "gap-87a69673413180242054",
+      "finding": {
+        "reason": "robustness_review_missing",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "robustness_review_missing"
+    },
+    {
+      "id": "gap-1a99c302b78cc9805f68",
+      "finding": {
+        "reason": "strategy_bundle_reference_mismatch",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "strategy_bundle_reference_mismatch"
+    },
+    {
+      "id": "gap-9691fc20f16fd2ad85f0",
+      "finding": {
+        "reason": "top_bundle_reference_mismatch",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "top_bundle_reference_mismatch"
+    },
+    {
+      "id": "gap-622ed8bc5838780ea54b",
+      "finding": {
+        "reason": "validation_bundle_hash_missing",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "validation_bundle_hash_missing"
+    },
+    {
+      "id": "gap-89defff62576017c1a10",
+      "finding": {
+        "reason": "validation_bundle_schema_outdated",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "validation_bundle_schema_outdated"
+    },
+    {
+      "id": "gap-d7e4f412c1d622dbbe6f",
+      "finding": {
+        "reason": "signal_freshness_failed",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "signal_freshness_failed"
+    },
+    {
+      "id": "gap-892764b11556ff21d89b",
+      "finding": {
+        "reason": "execution_observations_insufficient_or_failed",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "execution_observations_insufficient_or_failed"
+    },
+    {
+      "id": "gap-d9077cae9d1e2965ee9a",
+      "finding": {
+        "reason": "epoch_check_failed:trading_days",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "epoch_check_failed"
+    },
+    {
+      "id": "gap-229518bfc8294c1d3830",
+      "finding": {
+        "reason": "epoch_check_failed:accepted_orders",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "epoch_check_failed"
+    },
+    {
+      "id": "gap-2ecacb1930d2528f5bba",
+      "finding": {
+        "reason": "epoch_check_failed:classified_sessions",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "epoch_check_failed"
+    },
+    {
+      "id": "gap-5dd3f8daaca01defc2be",
+      "finding": {
+        "reason": "epoch_check_failed:average_slippage",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "epoch_check_failed"
+    },
+    {
+      "id": "gap-e85c9534ad799614e3f4",
+      "finding": {
+        "reason": "epoch_check_failed:bad_slippage_rate",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "epoch_check_failed"
+    },
+    {
+      "id": "gap-e9a3e8b5be855035ffbf",
+      "finding": {
+        "reason": "epoch_check_failed:stage_comparison_ready",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "epoch_check_failed"
+    },
+    {
+      "id": "gap-916b0dda2c8de4aee530",
+      "finding": {
+        "reason": "epoch_check_failed:two_stage_design",
+        "source": "workflow_artifact:36006649752:10814136797:failure",
+        "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "workflow_artifact:36006649752:10814136797:failure",
+      "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "epoch_check_failed"
+    },
+    {
+      "id": "gap-1505807ed2f860a77d14",
+      "finding": {
+        "reason": "current_dataset_fingerprint_missing",
+        "source": "local_runtime",
+        "next_action": "Review current runtime evidence and version lock; preserve existing freeze."
+      },
+      "first_seen": "2026-09-25T14:19:28.234384+00:00",
+      "status": "blocked",
+      "closure_evidence": [],
+      "verification_result": "not_verified_fixed",
+      "observed_in_current_audit": true,
+      "dependency": "local_runtime",
+      "next_action": "Review current runtime evidence and version lock; preserve existing freeze.",
+      "affected_security": null,
+      "period": {
+        "start": "2012-01-01",
+        "end": "2026-09-25"
+      },
+      "group": "current_dataset_fingerprint_missing"
     }
   ],
   "complete": false,

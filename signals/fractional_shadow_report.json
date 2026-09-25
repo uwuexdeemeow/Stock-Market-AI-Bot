@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-24T15:21:12+00:00",
+  "generated_at": "2026-09-25T14:19:17+00:00",
   "status": "ok",
   "mode": "fractional_shadow_only",
   "capital": {
@@ -14,7 +14,7 @@
     "predicted_at": "2026-09-23T23:59+08:00",
     "valuation_date": "2026-09-21",
     "live_config_hash": "efc9620f12f77952",
-    "repeated_signal": false
+    "repeated_signal": true
   },
   "execution": {
     "orders_simulated": 0,
