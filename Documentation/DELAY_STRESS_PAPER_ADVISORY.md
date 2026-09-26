@@ -385,3 +385,61 @@ incumbent. The bigger question is whether the incumbent's concentrated
 top-3 edge is real or mostly timing luck plus survivorship: 24% of its
 holdings were in stocks that joined the index after 2010 (see
 `SURVIVORSHIP_WATCHLIST_CHECK_2026-09-26.md`).
+
+## Hypothesis H-edge (pre-registered 2026-09-26, before any run)
+
+**Owner request:** check whether the incumbent's edge is real before fixing
+H1 (paper trading follows different rules from the backtest). Script:
+`research_evidence/edge_check_20260926/edge_check.py`.
+
+**Question:** is the incumbent's 2013–2022 edge over QQQ real, or mostly
+(1) hindsight in the stock list and (2) luck? And does the live-only 8%
+trailing stop help?
+
+**What stays fixed:** the incumbent config, unchanged. The measure is the same
+as H-bakeoff: alpha vs QQQ in % points, added up over the decision window
+2013–2022. 2023–2026 is printed as a diagnostic only. Every run ends on the
+same date (30 sessions before the data ends).
+
+**Point-in-time list:** a stock may be picked on a date only if it (or its
+known earlier ticker: META←FB, RTX←UTX, LIN←PX) was in the S&P 500 on that
+date. Membership comes from the free community history (fja05680/sp500, MIT
+licence, the same source as `SURVIVORSHIP_WATCHLIST_CHECK_2026-09-26.md`),
+using the latest snapshot on or before the date. **Limit:** this removes
+"picked before it joined the index" hindsight, but it cannot add companies
+that later left the index (there is no price data for them). So it is a
+partial survivorship test that still leans in the strategy's favour.
+
+**Runs:**
+
+| Set | What | Runs |
+|---|---|---|
+| R0 | incumbent, current list | 20 start days × on time/late = 40 |
+| S | incumbent, point-in-time list | 40 |
+| M | "random picks": S with its three score columns replaced by random numbers (seed 0–99), only where a real score exists, start day = seed mod 20, on time | 100 |
+| T | S on-time runs with a simulated 8% trailing stop | 20 (no extra engine runs) |
+
+**How T simulates the stop:** each stock trade is bought at the next day's
+Open, as in the engine. The highest price since entry is tracked from daily
+Highs. If a day's Low touches 92% of that high, the stock is sold at that
+level, or at the Open if it gapped below. Its money then stays in cash until
+the next 20-day date. Each stop exit is charged one extra stock trade at the
+engine's calibrated cost. Drawdowns for T and its comparison are measured on
+20-day period ends.
+
+**Gates:**
+
+- **S1, survivorship:** the median one-day-late alpha of S is above 0 **and**
+  at least 50% of R0's median one-day-late alpha.
+- **L1, luck:** the median on-time alpha of S is above the 95th percentile of
+  the 100 M runs.
+- **Edge verdict:** "edge shown" only if S1 and L1 both pass. Otherwise
+  "edge not shown".
+- **Stop verdict:** keep the 8% stop only if, over the 20 on-time S runs,
+  (a) the median alpha with the stop is at least the median without it minus
+  10% of the absolute value of the median without it, **and** (b) the median
+  max drawdown with the stop is at least 1.0 point shallower. Otherwise the
+  recommendation is to drop the stop.
+
+**What the verdict means:** it is evidence for the owner's H1 decision, not
+approval. No gate, threshold or live config changes because of it.
