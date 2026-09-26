@@ -2,7 +2,7 @@
   "schema_version": 2,
   "epoch_id": "paper-v20260910T045130Z",
   "started_at": "2026-09-10T04:51:30+00:00",
-  "status": "collecting",
+  "status": "invalidated",
   "archive_dir": "archive/paper_epochs/paper-v20260910T045130Z",
   "archived_files": [
     "archive/paper_epochs/paper-v20260910T045130Z/alpaca_paper_equity.csv"
@@ -27,5 +27,9 @@
   "supersedes_epoch_id": "paper-v20260909T152459Z",
   "release_scope": "operational_provisional_paper_only",
   "corrected_prospective_freeze_started": false,
-  "release_reason": "Reviewed isolation of regime monitoring from broker submission failures"
+  "release_reason": "Reviewed isolation of regime monitoring from broker submission failures",
+  "invalidated_at": "2026-09-26T13:25:48+00:00",
+  "invalidation_reasons": [
+    "h1_tested_calendar_no_stops"
+  ]
 }
