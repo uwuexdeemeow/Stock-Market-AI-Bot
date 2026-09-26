@@ -1,0 +1,88 @@
+{
+  "summary": {
+    "valid_folds": 10,
+    "failed_folds": 0,
+    "compound_return_pct": 714.84,
+    "cagr_pct": 23.34,
+    "mean_oos_return_pct": 24.65,
+    "mean_oos_sharpe": 1.413,
+    "mean_alpha_vs_qqq_pct": 7.34,
+    "mean_alpha_vs_spy_pct": 12.52,
+    "worst_drawdown_pct": -16.56,
+    "beat_qqq_count": 9
+  },
+  "fold_completeness": {
+    "valid": true,
+    "failed_folds": 0,
+    "failed_years": [],
+    "reason_counts": {},
+    "verdict": "PASS"
+  },
+  "score_predictiveness": {
+    "valid": true,
+    "objective": "alpha_vs_qqq",
+    "corr_inner_score_vs_oos_objective": -0.531,
+    "corr_inner_mean_vs_oos_objective": -0.665,
+    "corr_inner_score_vs_oos_sharpe": 0.101,
+    "corr_inner_mean_vs_oos_sharpe": 0.215,
+    "corr_inner_score_vs_oos_alpha_vs_qqq": -0.531,
+    "calibration_direction_accuracy_pct": 90.0,
+    "oos_positive_alpha_rate_pct": 90.0,
+    "verdict": "WARN",
+    "interpretation": "Cross-year inner score correlation is negative, but sign calibration is healthy; treat this as noisy and confirm with selector replay."
+  },
+  "calibration": {
+    "valid": true,
+    "inner_predicts_beat_qqq_pct": 100.0,
+    "oos_actually_beat_qqq_pct": 90.0,
+    "overconfidence_gap_pct": 10.0,
+    "direction_accuracy_pct": 90.0,
+    "verdict": "PASS"
+  },
+  "concentration_vulnerability": {
+    "valid": true,
+    "correlation_conc_vs_oos_alpha": -0.604,
+    "high_concentration_years": [
+      2014,
+      2015,
+      2017,
+      2019,
+      2020
+    ],
+    "high_conc_mean_oos_alpha_pct": 2.32,
+    "low_concentration_years": [
+      2013,
+      2016,
+      2018,
+      2021,
+      2022
+    ],
+    "low_conc_mean_oos_alpha_pct": 12.37,
+    "delta_pct": -10.05,
+    "verdict": "FAIL"
+  },
+  "config_stability": {
+    "valid": true,
+    "unique_configs": 3,
+    "total_folds": 10,
+    "uniqueness_ratio": 0.3,
+    "top_config": "score=regime_adaptive,shape=top3,weighting=sticky_score,risk=off,tqqq=0.0",
+    "top_config_frequency": 0.6,
+    "stability_column": "stable_family_signature",
+    "verdict": "PASS"
+  },
+  "verdicts": [
+    "PASS",
+    "WARN",
+    "PASS",
+    "FAIL",
+    "PASS"
+  ],
+  "live_config_approval": {
+    "approved": false,
+    "reasons": [
+      "selector_alpha_correlation=-0.531<=0.0",
+      "selector_sharpe_uplift=-0.258<0"
+    ]
+  }
+}
