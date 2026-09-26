@@ -150,3 +150,78 @@ candidate, so it is not evidence for this candidate.
 
 **Decision:** rejected. The incumbent stays on the paper advisory. Per the
 fixed plan, the grid will not be widened in response to this result.
+
+## Diagnostic: rebalance-day ("timing") luck (2026-09-26)
+
+**Question:** is the one-day-delay failure really about late fills, or about
+*which day* the 20-day rebalance calendar happens to fall on?
+
+**Method:** the incumbent config was run 40 times on the current local data:
+the 20-day calendar started on each of the 20 possible first days (offsets
+0–19), each with on-time fills and with fills one day late. Every run ended on
+the same date (30 sessions before the data ends, so all labels are complete).
+Nothing was selected or tuned. Script and raw output:
+`research_evidence/phase_luck_20260926/`.
+
+| 2023–2026 alpha vs QQQ | min | median | mean | max | negative |
+|---|---|---|---|---|---|
+| on-time fills | −72.2 | +26.5 | +21.4 | +74.2 | 5 of 20 |
+| one day late | −63.0 | +27.6 | +19.4 | +68.4 | 6 of 20 |
+
+- The **start day** moves the 2023–2026 result by about 146 points.
+- A one-day **delay** costs only about 2 points on average at the same start
+  day.
+- Offset 0 is +57.7 on time and +8.1 late. It is ranked 6th of 20, so the
+  official stress row compares a lucky day with a less lucky one.
+
+**Key term — "timing luck":** with only 3 stocks held for 20 days and traded
+on one fixed calendar, the result depends heavily on which days you happen to
+trade. The late-fill stress test mostly measures that luck, not a real
+weakness in fill timing.
+
+## Hypothesis H-tranche (pre-registered 2026-09-26, before any tranche run)
+
+**Hypothesis:** splitting the incumbent into 4 *tranches* removes most of the
+timing luck, and the resulting book passes the one-day-delay stress on merit.
+Each tranche holds 25% of capital with the unchanged incumbent config, and the
+tranches rebalance 5 sessions apart.
+
+**Key term — "tranche":** a slice of the portfolio. Four slices each
+rebalance every 20 days, but on different days (day 0, 5, 10, 15), so no single
+day decides the result. The signal, shape and costs don't change. Only the
+calendar is spread out. This also spreads the book over up to 12 names
+instead of 3, which addresses the concentration FAIL above.
+
+**Nothing else changes:** no new grid, no selector, no threshold changes. The
+config is the incumbent's, fixed in advance.
+
+### Step 1 — preview (research only, no locked file touched)
+
+A 4-tranche book is approximated by averaging the equity of single-calendar
+runs at offsets {k, k+5, k+10, k+15}. Each slice starts at 25% and drifts;
+there is no netting between slices, so costs are slightly overstated
+(conservative). This is done for k = 0–4 (the 5 distinct tranche calendars),
+on time and one day late: 10 books.
+
+**Preview passes only if both are true:**
+
+1. all 10 books have positive 2023–2026 alpha vs QQQ, **and**
+2. the spread (max − min) of 2023–2026 alpha vs QQQ across the 5 on-time
+   books is under 73 points (half the single-calendar spread of 146).
+
+2023–2026 has been seen before, so this is a diagnostic, not a clean holdout.
+
+### Step 2 — only if the preview passes (owner decision needed)
+
+Tranche support must be added to `core_satellite_alpha.py`, which is a
+**locked** file, so the owner must agree before it is built. After that, the
+tranche config goes through the unchanged gates: nested walk-forward in fixed
+mode (outer years to 2022), `core_satellite_execution_stress.py
+--candidate-json`, and the survivorship audit. Acceptance is as before: every
+stress scenario must pass outright, with no advisory.
+
+### If the preview fails
+
+Record the rejection here. Conclusion: the incumbent's 2023–2026 edge can't
+be separated from timing luck. The incumbent stays on the paper advisory, and
+the next research step is a new signal, not a new grid.
