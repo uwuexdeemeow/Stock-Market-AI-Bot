@@ -115,3 +115,38 @@ settings. The notebook checks out the exact commit recorded in the data
 snapshot. Make the snapshot with `python prepare_colab_walkforward.py`
 **after** this change is pushed, otherwise Colab runs the old code without
 the flag.
+
+## Result: delay-aware low-turnover run (2026-09-26) — REJECTED
+
+Run `wf_delay_robust_lowturnover_20260926` finished on Colab. The result
+was unpacked into `Colab/result_20260926/signals/`. The delay flag was active:
+every fold has `selection_entry_delay_days = 1`.
+
+- **Folds:** 10 of 10 valid (outer years 2013–2022), no fallback folds.
+- **Out-of-sample (OOS) performance:** 714.8% compound return, mean Sharpe
+  1.41, beat QQQ in 9 of 10 years, mean alpha vs QQQ +7.3%, worst drawdown
+  -16.6%.
+- **Leading family:** `score=regime_adaptive, shape=top3,
+  weighting=sticky_score, risk=off, tqqq=0` (chosen in 6 of 10 folds).
+- **Inside the selector:** in each fold, 32 of the 64 candidates were
+  TQQQ-based and were dropped because TQQQ can't replay late fills. Another
+  20 failed the cost-stress gate, which left 12 valid configs.
+
+**Approval: NOT approved** by the unchanged walk-forward approval rules:
+
+1. `selector_alpha_correlation = -0.531` (must be > 0). A higher inner
+   score went with *lower* OOS alpha vs QQQ, so the selector's ranking
+   doesn't predict results.
+2. `selector_sharpe_uplift = -0.258` (must be >= 0). The selector did worse
+   than the frozen baseline (mean OOS Sharpe 1.41 vs 1.67).
+
+The analyzer also flagged concentration vulnerability (FAIL): years with a
+more concentrated portfolio had mean alpha of +2.3%, versus +12.4% in years
+with a less concentrated one.
+
+The `medium_risk_review` block inside the result JSON was copied from the
+snapshot's existing logs. It describes the **incumbent**, not this
+candidate, so it is not evidence for this candidate.
+
+**Decision:** rejected. The incumbent stays on the paper advisory. Per the
+fixed plan, the grid will not be widened in response to this result.
