@@ -6,6 +6,8 @@ answer, so an old copied ``pass`` flag cannot overrule a current warning.
 """
 from __future__ import annotations
 
+import math
+
 import argparse
 import json
 from pathlib import Path
@@ -53,6 +55,15 @@ def read_report(path: Path) -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
+def _finite_or_none(value) -> float | None:
+    """A finite number, or None when missing or not a number."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
 def evaluate_medium_risk_review(
     *,
     survivorship: dict | None,
@@ -71,8 +82,13 @@ def evaluate_medium_risk_review(
     delta = by_scenario.get("delta_stressed_minus_base", {})
     surv_score = float(survivorship.get("survivorship_adjusted_score", 0.0) or 0.0)
     audit_picks = int(float(stressed.get("audit_rebalance_selections", 0) or 0)) if stressed else 0
-    return_delta = float(delta.get("total_return_pct", 0.0) or 0.0) if delta else 0.0
-    dd_delta = float(delta.get("max_drawdown_pct", 0.0) or 0.0) if delta else 0.0
+    # PLAIN ENGLISH: missing numbers must fail.  They used to become 0.0,
+    # which passed the "no worse than" checks below.
+    return_delta = _finite_or_none(delta.get("total_return_pct")) if delta else None
+    dd_delta = _finite_or_none(delta.get("max_drawdown_pct")) if delta else None
+    survivorship_numbers_present = return_delta is not None and dd_delta is not None
+    return_delta = return_delta if return_delta is not None else 0.0
+    dd_delta = dd_delta if dd_delta is not None else 0.0
     known_failed = survivorship.get("known_audit_tickers", []) or []
     available_failed = survivorship.get("available_audit_tickers", []) or []
     failed_name_coverage = float(
@@ -85,6 +101,7 @@ def evaluate_medium_risk_review(
     survivorship_pass = bool(
         survivorship
         and stressed
+        and survivorship_numbers_present
         and surv_score > SURVIVORSHIP_MIN_ADJUSTED_SCORE
         and audit_picks <= SURVIVORSHIP_MAX_AUDIT_SELECTIONS
         and return_delta >= SURVIVORSHIP_MIN_RETURN_DELTA_PCT
@@ -135,8 +152,13 @@ def evaluate_medium_risk_review(
 
     exec_advisory = [row for row in exec_failed if _is_delay_holdout_advisory(row)]
     exec_blocking = [row for row in exec_failed if not _is_delay_holdout_advisory(row)]
-    worst_dd = min((float(row.get("max_drawdown_pct", 0.0) or 0.0) for row in exec_rows), default=0.0)
-    execution_pass = bool(exec_rows and not exec_blocking and worst_dd >= EXECUTION_STRESS_MIN_WORST_DRAWDOWN_PCT)
+    stress_drawdowns = [_finite_or_none(row.get("max_drawdown_pct")) for row in exec_rows]
+    drawdowns_present = bool(stress_drawdowns) and all(dd is not None for dd in stress_drawdowns)
+    worst_dd = min((dd for dd in stress_drawdowns if dd is not None), default=0.0)
+    execution_pass = bool(
+        exec_rows and not exec_blocking and drawdowns_present
+        and worst_dd >= EXECUTION_STRESS_MIN_WORST_DRAWDOWN_PCT
+    )
     # Real money needs every stress scenario to pass outright; no advisories.
     execution_capital_pass = bool(execution_pass and not exec_advisory)
     if not execution:

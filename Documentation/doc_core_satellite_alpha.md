@@ -220,3 +220,61 @@ rule change.
 **Key term — "earnings blackout":** a rule that avoids buying a stock just
 before the company reports its quarterly results, when the price can jump a
 lot in either direction.
+
+## September 2026 fix: no buy-back after a stop-loss
+
+Every stock gets an 8% trailing stop in paper trading. Before this fix, a stock
+sold by its stop was often bought right back the next morning, because it
+still ranked near the top. That paid trading costs twice and undid the stop.
+
+Now the signal reads `recent_protective_exits` from Alpaca's status file. A
+stock sold by a stop sits out for one holding period (`holding_days`, 20
+trading days). The next-ranked stock takes its slot. Stocks still held are
+never affected, so this rule can block a re-entry but never forces a sale.
+The signal records `stop_cooldown_tickers`, `stop_cooldown_source` and
+`stop_cooldown_json`. If the exit list is missing, the rule is skipped and
+`stop_cooldown_source` says why.
+
+`daily_run.py` refreshes the status file right before the signal, so stops
+that fired after yesterday's run are seen.
+
+The backtest still has no stops at all (audit finding H1, left for later).
+
+Test: `python -m pytest tests/test_core_satellite_live_signal.py -k stop -q`.
+
+**Key term — cooldown:** a waiting period before the same stock can be bought again.
+
+## September 2026 audit fixes (M1, M3, M4)
+
+- **News veto checks replacements (M1).** When a picked stock is vetoed for bad
+  news, the stock that replaces it is now checked too, for up to 5 rounds.
+  A name that can't pass is left out. Before, backup scores were downloaded
+  but never used. The veto is still live-only: it has never been backtested.
+  Set `CORE_ALPHA_SENTIMENT_VETO=0` to turn it off.
+- **Real trading costs (M3).** Each rebalance now costs the trades needed to
+  move from what the account actually holds (after prices moved) to the
+  new targets, for stocks **and** ETFs. The first rebalance pays for buying
+  everything from cash. ETFs cost `ETF_TURNOVER_COST_PCT` (2 bps one way);
+  stocks keep the calibrated cost. Both are multiplied by the cost-stress
+  factor, and the extra-bps stress now applies to all trades.
+  - `turnover_pct` keeps its old meaning (change in stock targets), because
+    walk-forward turnover gates read it.
+  - New `portfolio_turnover_pct` and `etf_turnover_pct` report the real
+    trading.
+- **Daily drawdown (M4).** Inside each 20-day period, the account is now
+  marked at every trading-day close (stocks from their entry open, ETFs from
+  their entry close). `max_drawdown_pct` is the worse of the daily and the
+  period drawdown. The old number is kept as `period_max_drawdown_pct`, and
+  `daily_max_drawdown_pct` is also reported. The walk-forward folds use the
+  same rule. Booked period returns are unchanged.
+- **Faster calendar.** Trading-day lookups reuse one exchange calendar
+  instead of rebuilding it for each new pair of years. About twice as fast.
+
+These change backtest numbers: slightly more cost, and deeper drawdowns.
+Re-run the stress reports before relying on old values.
+
+Tests: `python -m pytest tests/test_audit_medium_fixes.py -q`.
+
+**Key term — drift:** holdings move away from their target weights as
+prices change, so getting back to target costs trades even when the target
+stays the same.

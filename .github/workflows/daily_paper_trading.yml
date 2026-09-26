@@ -218,7 +218,9 @@ jobs:
               signals/paper_run_manifest.json \
               signals/guard_intraday_state.json \
               signals/regime_history.json \
-              signals/regime_changes_log.csv ; do
+              signals/regime_changes_log.csv \
+              signals/alpaca_halt_active.txt \
+              signals/alpaca_drawdown_peak_reset.json ; do
             mkdir -p "$(dirname "$f")"
             if git show "origin/signals/latest:${f}" > "${f}.restore" 2>/dev/null; then
               mv "${f}.restore" "$f"
@@ -737,6 +739,21 @@ jobs:
               added=$((added + 1))
             else
               echo "  skipping missing file: $f"
+            fi
+          done
+          # PLAIN ENGLISH: the emergency-halt lock and the drawdown restart
+          # point must survive to the next run (each run is a fresh machine).
+          # When the halt clears, its file is deleted, so remove it from the
+          # branch too; otherwise tomorrow would restore a stale halt.
+          for f in signals/alpaca_halt_active.txt signals/alpaca_drawdown_peak_reset.json; do
+            if [ -f "$generated_dir/$f" ]; then
+              mkdir -p "$(dirname "$f")"
+              cp "$generated_dir/$f" "$f"
+              git add -f "$f"
+              added=$((added + 1))
+            elif git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+              git rm -q -f "$f"
+              added=$((added + 1))
             fi
           done
           # daily_run_*.json logs use a glob — only add what's there

@@ -22,6 +22,8 @@ from settings import DATA_DIR, SIGNAL_DIR, SLIPPAGE_BASE_PCT
 DEFAULT_INPUT = Path(SIGNAL_DIR) / "alpaca_slippage_reversal_report.json"
 DEFAULT_OUTPUT = Path(SIGNAL_DIR) / "execution_cost_calibration.json"
 MIN_SAMPLE_COUNT = 20
+# Stop-loss exits are risk exits, not planned rebalances.
+PROTECTIVE_ORDER_TYPES = {"trailing_stop", "stop", "stop_limit"}
 
 
 def _liquidity_bucket(symbol: str, data_dir: Path) -> tuple[str, float | None]:
@@ -35,6 +37,11 @@ def _liquidity_bucket(symbol: str, data_dir: Path) -> tuple[str, float | None]:
         ]
         column = next(column for column in candidates if column in frame.columns)
         value = float(pd.to_numeric(frame[column], errors="coerce").dropna().iloc[-1])
+        # PLAIN ENGLISH: pipeline_shared.py stores this feature as
+        # log(1 + dollars), about 20.7 for $1B a day.  Undo the log before
+        # comparing with dollar amounts, or every stock looks "low".
+        if column == "factor_liquidity_dollar_vol_20d":
+            value = float(np.expm1(value))
     except Exception:
         return "unknown", None
     if value >= 1_000_000_000:
@@ -100,14 +107,24 @@ def build_execution_cost_calibration(
 
     # Use normal rebalance fills for strategy costs. Trailing stops are risk
     # exits and would otherwise overstate every planned rebalance.
-    normal = rows[rows["order_type"].astype(str) != "trailing_stop"]
+    normal = rows[~rows["order_type"].astype(str).isin(PROTECTIVE_ORDER_TYPES)]
     if normal.empty:
         normal = rows
-    normal_slippage = pd.to_numeric(normal["slippage_bps"], errors="coerce").dropna().clip(lower=0.0)
-    measured = float(normal_slippage.quantile(0.75)) if len(normal_slippage) else 0.0
+    # PLAIN ENGLISH: the cost of a fill is how much worse it was than the
+    # quote midpoint when the order was sent ("arrival shortfall"; it
+    # includes half the bid-ask spread).  The older `slippage_bps` compares
+    # with the average price of the same minute the order filled, which the
+    # fill itself is part of, so it is close to zero by design.  It is used
+    # only for fills recorded before arrival quotes were saved.
+    arrival = (pd.to_numeric(normal["arrival_shortfall_bps"], errors="coerce")
+               if "arrival_shortfall_bps" in normal.columns else pd.Series(np.nan, index=normal.index))
+    minute = pd.to_numeric(normal["slippage_bps"], errors="coerce")
+    fill_cost = arrival.where(arrival.notna(), minute).dropna().clip(lower=0.0)
+    measured = float(fill_cost.quantile(0.75)) if len(fill_cost) else 0.0
     configured = float(SLIPPAGE_BASE_PCT) * 10_000
     recommendation = max(configured, measured)
-    sample_count = int(len(rows))
+    # Readiness counts the same fills the recommendation uses.
+    sample_count = int(len(fill_cost))
     return {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -117,6 +134,10 @@ def build_execution_cost_calibration(
         "minimum_sample_count": MIN_SAMPLE_COUNT,
         "recommended_one_way_slippage_bps": round(recommendation, 4),
         "configured_floor_bps": round(configured, 4),
+        "cost_measure": "arrival_shortfall_bps_with_fill_minute_fallback",
+        "arrival_shortfall_samples": int(arrival.notna().sum()),
+        "fill_minute_fallback_samples": int((arrival.isna() & minute.notna()).sum()),
+        "all_fill_count": int(len(rows)),
         "segments": segments,
     }
 

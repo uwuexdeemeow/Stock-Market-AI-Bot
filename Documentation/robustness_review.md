@@ -49,3 +49,9 @@ the overall result, reasons, and one result per report.
 - **Factor decay:** weakening of a signal's predictive relationship over time.
 - **Symbol reuse:** an exchange ticker being assigned to a different security
   after the original company disappears.
+
+## September 2026 fix: missing numbers fail (audit M6)
+
+A stress row without a drawdown, or a survivorship report without its
+return and drawdown deltas, now fails the review. Before, a missing value
+was read as 0, which passed.
