@@ -35,6 +35,11 @@ def _liquidity_bucket(symbol: str, data_dir: Path) -> tuple[str, float | None]:
         ]
         column = next(column for column in candidates if column in frame.columns)
         value = float(pd.to_numeric(frame[column], errors="coerce").dropna().iloc[-1])
+        # PLAIN ENGLISH: pipeline_shared.py stores this feature as
+        # log(1 + dollars), about 20.7 for $1B a day.  Undo the log before
+        # comparing with dollar amounts, or every stock looks "low".
+        if column == "factor_liquidity_dollar_vol_20d":
+            value = float(np.expm1(value))
     except Exception:
         return "unknown", None
     if value >= 1_000_000_000:
