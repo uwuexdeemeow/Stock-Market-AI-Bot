@@ -92,3 +92,21 @@ def test_notebook_phase_luck_cell_is_opt_in_and_saves_separately():
     for script in ("phase_luck.py", "tranche_preview.py"):
         assert script in phase_cell
         assert Path("research_evidence/phase_luck_20260926", script).exists()
+
+
+def test_notebook_bakeoff_cell_is_opt_in_and_saves_separately():
+    # The bake-off cell must be off by default, check for the sector ETF
+    # files first, and save to its own archive name.
+    import ast
+
+    notebook = json.loads(Path("Colab/stockbot_walkforward.ipynb").read_text(encoding="utf-8"))
+    sources = ["".join(cell["source"]) for cell in notebook["cells"] if cell["cell_type"] == "code"]
+    settings = next(src for src in sources if "SNAPSHOT_NAME =" in src)
+    assert "RUN_BAKEOFF = False" in settings
+    cell = next(src for src in sources if "if RUN_BAKEOFF:" in src)
+    ast.parse(cell)
+    assert "stockbot_bakeoff_result.tar.gz" in cell
+    for other in ("stockbot_colab_result.tar.gz", "stockbot_phase_luck_result.tar.gz"):
+        assert other not in cell
+    assert "XLRE" in cell and "assert not missing" in cell
+    assert Path("research_evidence/signal_bakeoff_20260926/signal_bakeoff.py").exists()

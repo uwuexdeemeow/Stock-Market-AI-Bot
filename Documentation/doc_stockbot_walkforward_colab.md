@@ -30,8 +30,17 @@ The settings cell has two switches:
   from `research_evidence/phase_luck_20260926/` (about 6 minutes each). To
   run only the research, set `RUN_WALKFORWARD = False`.
 
+- `RUN_BAKEOFF = False` controls the signal bake-off cell (Hypothesis
+  H-bakeoff in `DELAY_STRESS_PAPER_ADVISORY.md`). Set it to `True` to run
+  `research_evidence/signal_bakeoff_20260926/signal_bakeoff.py` (240 engine
+  runs, about 20–30 minutes). Its idea C needs the 11 sector ETF files, so
+  **before making the snapshot** run on the project computer:
+  `python refresh_etf_data.py --symbols XLK XLY XLF XLV XLE XLI XLP XLU XLRE XLB XLC --refresh`.
+  The cell stops with a clear message if any of them is missing.
+
 The snapshot must be made from a commit that contains those scripts;
-otherwise Colab checks out code without them.
+otherwise Colab checks out code without them. Merge the work into `main`
+first, then run `python3 prepare_colab_walkforward.py`.
 
 ## Outputs
 
@@ -40,8 +49,10 @@ compressed validation result bundle (`stockbot_colab_result.tar.gz`) in
 `StockBotWalkforward/`.
 
 The research cell saves its own bundle, `stockbot_phase_luck_result.tar.gz`,
-holding `phase_luck.json` and `tranche_preview.json`. It never overwrites the
-walk-forward bundle. Both are research only and approve nothing.
+holding `phase_luck.json` and `tranche_preview.json`. The bake-off cell saves
+`stockbot_bakeoff_result.tar.gz`, holding `signal_bakeoff.json`, and prints the
+winner (or "no winner") and the reason. None of them overwrites the
+walk-forward bundle. All are research only and approve nothing.
 
 ## Key Terms
 
@@ -49,3 +60,5 @@ walk-forward bundle. Both are research only and approve nothing.
 - **Out of sample:** a period not used by the selector.
 - **Worker:** one CPU process evaluating candidates.
 - **Resume:** continue from the last saved checkpoint after interruption.
+- **Bake-off:** a fixed comparison of several signal ideas under one rule
+  written down before the run.
