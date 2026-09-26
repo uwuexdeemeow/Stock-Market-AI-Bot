@@ -187,3 +187,36 @@ published approval, and `robustness_snapshot_gate.py` still checks today's
 reports before any order.
 
 Test: `python -m pytest tests/test_locked_audit_fixes.py -q`.
+
+## Known limit: the earnings blackout is currently inactive (2026-09-26)
+
+The approved config sets `earnings_blackout_days = 5` ("don't buy a stock
+within 5 days of its earnings report"). In practice the rule never triggers.
+`settings.py` has `USE_EARNINGS_DATA = False`, so
+`pipeline_shared.build_earnings_features_context` gives every stock a
+placeholder `days_to_next_earnings = 60` on every date. That value is never
+between 0 and 5, so nothing is skipped, in backtests or in the paper signal.
+
+**Decision: leave it as is for now, and don't count it as protection.**
+
+- Every backtest, walk-forward and stress result was produced with the rule
+  inactive. Switching it on only for live trading would make paper trades
+  differ from the strategy that was tested, and paper evidence would stop
+  measuring the tested strategy.
+- It can't be switched on in backtests honestly: the free earnings-date
+  history (`fundamental_features.build_pead_features`, about 40 reports) does
+  not reach back to the 2010 start.
+- It only checks on the buy day. With 20-day holds, most reports that fall
+  inside a hold (days 6–20) would still be held through.
+- Research finds stocks earn slightly more, on average, around earnings
+  ("earnings announcement premium"), so skipping them is not a free gain.
+- The code involved is locked (`paper_version_lock.json`), and the incumbent
+  is already on the paper advisory while a replacement is researched.
+
+If a future strategy needs a real earnings filter, add it with earnings
+history that covers the whole test period, and validate it like any other
+rule change.
+
+**Key term — "earnings blackout":** a rule that avoids buying a stock just
+before the company reports its quarterly results, when the price can jump a
+lot in either direction.
