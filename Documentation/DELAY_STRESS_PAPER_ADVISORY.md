@@ -260,3 +260,70 @@ stays on the paper advisory. Tranche support will **not** be added to the
 locked engine for this hypothesis. Next research step: a new signal, or
 refreshing the existing one for the recent regime, pre-registered here
 before any run. Not a wider grid.
+
+## Hypothesis H-bakeoff (pre-registered 2026-09-26, before any run)
+
+**Owner request:** "find which is the best" of the ideas in
+`Documentation/SIGNAL_IDEAS_2026-09-26.md`. This section fixes the test and
+the rule for "best" **before** anything is run. Script:
+`research_evidence/signal_bakeoff_20260926/signal_bakeoff.py` (tests:
+`tests/test_signal_bakeoff.py`, fake data only).
+
+**Question:** which new stock-overlay signal best survives timing luck and
+one-day-late fills?
+
+**What stays fixed for every idea:** the incumbent's ETF core, regime switch,
+overlay size per regime, 20-day holding, exit-rank floor, costs and cost
+stress. Only the overlay's score, and the basket, change.
+
+| Idea | Role | Score | Basket |
+|---|---|---|---|
+| A | candidate | average daily rank of `factor_mom_12_1` and `factor_resid_mom_sector_12_1` | top 10, equal weight, max 2 per sector |
+| B | candidate | each year, features re-chosen from a fixed pool of 28 using only data whose one-day-late 20-day label ended before that year: late IC \|t\| ≥ 2, same sign as on-time IC, keeps ≥ half of it, max 8 | top 10, equal weight, max 2 per sector |
+| C | candidate | 11 sector ETFs: average rank of 6-month and 12-1 month return; ETFs below their 200-day average can't be picked | top 3 ETFs, equal weight |
+| R0 | control | incumbent, unchanged | top 3, sticky score |
+| R1 | control | incumbent score | top 10, equal weight |
+| E | control | no overlay (overlay gross 0 in every regime) | none |
+
+**Idea D (earnings drift) is excluded before running:** `settings.py` has
+`USE_EARNINGS_DATA = False`, so the local feature files hold placeholder
+earnings values, not history. It can't be tested honestly.
+
+**Runs:** each idea 40 times: calendar start offsets 0–19, each on time and
+one day late. Same end date for every run (30 sessions before the data ends).
+
+**Decision window:** 2013–2022 alpha vs QQQ. 2023–2026 is printed as a
+diagnostic only and decides nothing.
+
+**A candidate is eligible only if all are true:**
+
+- G0: all 40 runs finished with data;
+- G1: every one of the 40 runs beats QQQ over 2013–2022;
+- G2: on-time spread (max − min over the 20 start days) is under 73 points;
+- G3: mean delay cost (on-time minus late at the same start day) is at most 5 points;
+- G4: median late alpha is above control E's (stock picks must add value).
+
+**Best:** the eligible candidate with the highest median one-day-late alpha.
+**Survivorship tie rule:** if C is eligible and its median late alpha is at
+least half of the best eligible stock idea's (A or B), C is chosen instead,
+because its history has no survivorship bias and A/B's does.
+
+**If no candidate is eligible:** record "no winner"; the incumbent stays on
+the paper advisory.
+
+**What "best" does NOT mean:** it is not approval. The winner still has to go
+through the unchanged gates (fixed-mode nested walk-forward to 2022,
+`core_satellite_execution_stress.py --candidate-json`, survivorship audit),
+and adding its score to the locked engine needs the owner's agreement first.
+
+**How to run (project computer, which has `data/`):**
+
+```bash
+python refresh_etf_data.py --symbols XLK XLY XLF XLV XLE XLI XLP XLU XLRE XLB XLC --refresh
+python research_evidence/signal_bakeoff_20260926/signal_bakeoff.py
+```
+
+It makes 240 engine runs (about 8 seconds each, so about 30–40 minutes) and
+writes `research_evidence/signal_bakeoff_20260926/signal_bakeoff.json`.
+`--offsets 2` is a quick smoke test only; its output says
+`valid_full_test: false` and must not be judged.

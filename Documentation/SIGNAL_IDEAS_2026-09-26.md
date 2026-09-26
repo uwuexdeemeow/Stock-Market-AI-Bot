@@ -1,5 +1,13 @@
 # Signal Ideas for the Owner — 2026-09-26
 
+> **Update (same day):** the owner asked which idea is best. The comparison
+> is pre-registered as **Hypothesis H-bakeoff** in
+> `DELAY_STRESS_PAPER_ADVISORY.md` and runs with
+> `research_evidence/signal_bakeoff_20260926/signal_bakeoff.py` on the
+> project computer. Idea D was dropped before running: earnings data is
+> switched off (`USE_EARNINGS_DATA = False`), so there is no earnings history
+> to test.
+
 This is a **menu**, not a decision. The handoff note says the owner picks the
 next signal hypothesis. Nothing here has been run, and nothing here has been
 pre-registered in `DELAY_STRESS_PAPER_ADVISORY.md`. After the owner picks one,
