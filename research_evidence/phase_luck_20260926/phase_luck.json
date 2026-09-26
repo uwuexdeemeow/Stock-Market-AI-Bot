@@ -1,0 +1,392 @@
+{
+ "config": {
+  "strategy": "core-alpha",
+  "core_preset": "nested_qqq_trend_switch_overlay70_core55_cashbuffer_h20_ov0.50_ma100_volpercentile0.30_tqqq0.00_riskoff",
+  "regime_mode": "qqq_trend_switch_overlay70_core55_cashbuffer",
+  "regime_ma_window": 100,
+  "regime_high_vol": 0.3,
+  "high_vol_mode": "percentile",
+  "score_blend": false,
+  "early_rebalance_on_regime_change": false,
+  "tqqq_preset": "tqqq_enhanced_cashbuffer",
+  "score_source": "regime_adaptive",
+  "shape": "top3",
+  "weighting": "sticky_score",
+  "exit_rank_floor": 0.8,
+  "adaptive_exit_mode": "fixed",
+  "max_per_sector": 2,
+  "earnings_blackout_days": 5,
+  "core_gross": 0.75,
+  "overlay_gross": 0.5,
+  "max_gross_exposure": 1.25,
+  "deployment_max_gross_exposure": 1.0,
+  "max_single_name_weight": 0.25,
+  "holding_days": 20,
+  "risk_control_mode": "off",
+  "drawdown_circuit_breaker": 0.0,
+  "vol_target": 0.0,
+  "cost_stress": 2.0
+ },
+ "rows": [
+  {
+   "delay": 0,
+   "offset": 0,
+   "start": "2010-01-04",
+   "holdout_alpha_vs_qqq_pct": 57.72,
+   "holdout_return_pct": 215.2,
+   "pre_alpha_vs_qqq_pct": 524.6,
+   "secs": 9.8
+  },
+  {
+   "delay": 0,
+   "offset": 1,
+   "start": "2010-01-05",
+   "holdout_alpha_vs_qqq_pct": -13.0,
+   "holdout_return_pct": 142.65,
+   "pre_alpha_vs_qqq_pct": 597.75,
+   "secs": 7.6
+  },
+  {
+   "delay": 0,
+   "offset": 2,
+   "start": "2010-01-06",
+   "holdout_alpha_vs_qqq_pct": 36.74,
+   "holdout_return_pct": 190.84,
+   "pre_alpha_vs_qqq_pct": 786.59,
+   "secs": 7.6
+  },
+  {
+   "delay": 0,
+   "offset": 3,
+   "start": "2010-01-07",
+   "holdout_alpha_vs_qqq_pct": 31.52,
+   "holdout_return_pct": 185.27,
+   "pre_alpha_vs_qqq_pct": 737.5,
+   "secs": 7.5
+  },
+  {
+   "delay": 0,
+   "offset": 4,
+   "start": "2010-01-08",
+   "holdout_alpha_vs_qqq_pct": 15.56,
+   "holdout_return_pct": 161.8,
+   "pre_alpha_vs_qqq_pct": 557.23,
+   "secs": 7.6
+  },
+  {
+   "delay": 0,
+   "offset": 5,
+   "start": "2010-01-11",
+   "holdout_alpha_vs_qqq_pct": 21.39,
+   "holdout_return_pct": 159.93,
+   "pre_alpha_vs_qqq_pct": 560.14,
+   "secs": 7.5
+  },
+  {
+   "delay": 0,
+   "offset": 6,
+   "start": "2010-01-12",
+   "holdout_alpha_vs_qqq_pct": 65.54,
+   "holdout_return_pct": 199.7,
+   "pre_alpha_vs_qqq_pct": 305.26,
+   "secs": 7.6
+  },
+  {
+   "delay": 0,
+   "offset": 7,
+   "start": "2010-01-13",
+   "holdout_alpha_vs_qqq_pct": 64.34,
+   "holdout_return_pct": 206.76,
+   "pre_alpha_vs_qqq_pct": 690.93,
+   "secs": 7.6
+  },
+  {
+   "delay": 0,
+   "offset": 8,
+   "start": "2010-01-14",
+   "holdout_alpha_vs_qqq_pct": 33.95,
+   "holdout_return_pct": 173.28,
+   "pre_alpha_vs_qqq_pct": 382.36,
+   "secs": 7.5
+  },
+  {
+   "delay": 0,
+   "offset": 9,
+   "start": "2010-01-15",
+   "holdout_alpha_vs_qqq_pct": 7.77,
+   "holdout_return_pct": 148.9,
+   "pre_alpha_vs_qqq_pct": 307.69,
+   "secs": 7.6
+  },
+  {
+   "delay": 0,
+   "offset": 10,
+   "start": "2010-01-19",
+   "holdout_alpha_vs_qqq_pct": -32.45,
+   "holdout_return_pct": 122.01,
+   "pre_alpha_vs_qqq_pct": 477.37,
+   "secs": 7.5
+  },
+  {
+   "delay": 0,
+   "offset": 11,
+   "start": "2010-01-20",
+   "holdout_alpha_vs_qqq_pct": -46.26,
+   "holdout_return_pct": 102.18,
+   "pre_alpha_vs_qqq_pct": 490.06,
+   "secs": 7.6
+  },
+  {
+   "delay": 0,
+   "offset": 12,
+   "start": "2010-01-21",
+   "holdout_alpha_vs_qqq_pct": -72.16,
+   "holdout_return_pct": 103.57,
+   "pre_alpha_vs_qqq_pct": 489.16,
+   "secs": 7.7
+  },
+  {
+   "delay": 0,
+   "offset": 13,
+   "start": "2010-01-22",
+   "holdout_alpha_vs_qqq_pct": -4.68,
+   "holdout_return_pct": 172.96,
+   "pre_alpha_vs_qqq_pct": 498.87,
+   "secs": 7.5
+  },
+  {
+   "delay": 0,
+   "offset": 14,
+   "start": "2010-01-25",
+   "holdout_alpha_vs_qqq_pct": 9.47,
+   "holdout_return_pct": 190.68,
+   "pre_alpha_vs_qqq_pct": 602.41,
+   "secs": 7.6
+  },
+  {
+   "delay": 0,
+   "offset": 15,
+   "start": "2010-01-26",
+   "holdout_alpha_vs_qqq_pct": 74.23,
+   "holdout_return_pct": 246.97,
+   "pre_alpha_vs_qqq_pct": 806.14,
+   "secs": 7.7
+  },
+  {
+   "delay": 0,
+   "offset": 16,
+   "start": "2010-01-27",
+   "holdout_alpha_vs_qqq_pct": 60.21,
+   "holdout_return_pct": 233.18,
+   "pre_alpha_vs_qqq_pct": 889.64,
+   "secs": 7.6
+  },
+  {
+   "delay": 0,
+   "offset": 17,
+   "start": "2010-01-28",
+   "holdout_alpha_vs_qqq_pct": 61.23,
+   "holdout_return_pct": 225.27,
+   "pre_alpha_vs_qqq_pct": 878.59,
+   "secs": 7.5
+  },
+  {
+   "delay": 0,
+   "offset": 18,
+   "start": "2010-01-29",
+   "holdout_alpha_vs_qqq_pct": 46.22,
+   "holdout_return_pct": 201.86,
+   "pre_alpha_vs_qqq_pct": 968.33,
+   "secs": 7.6
+  },
+  {
+   "delay": 0,
+   "offset": 19,
+   "start": "2010-02-01",
+   "holdout_alpha_vs_qqq_pct": 10.44,
+   "holdout_return_pct": 164.98,
+   "pre_alpha_vs_qqq_pct": 641.64,
+   "secs": 7.6
+  },
+  {
+   "delay": 1,
+   "offset": 0,
+   "start": "2010-01-04",
+   "holdout_alpha_vs_qqq_pct": 8.06,
+   "holdout_return_pct": 163.71,
+   "pre_alpha_vs_qqq_pct": 566.19,
+   "secs": 7.5
+  },
+  {
+   "delay": 1,
+   "offset": 1,
+   "start": "2010-01-05",
+   "holdout_alpha_vs_qqq_pct": -0.62,
+   "holdout_return_pct": 153.48,
+   "pre_alpha_vs_qqq_pct": 696.86,
+   "secs": 7.6
+  },
+  {
+   "delay": 1,
+   "offset": 2,
+   "start": "2010-01-06",
+   "holdout_alpha_vs_qqq_pct": 27.38,
+   "holdout_return_pct": 181.14,
+   "pre_alpha_vs_qqq_pct": 825.42,
+   "secs": 7.5
+  },
+  {
+   "delay": 1,
+   "offset": 3,
+   "start": "2010-01-07",
+   "holdout_alpha_vs_qqq_pct": 14.18,
+   "holdout_return_pct": 160.42,
+   "pre_alpha_vs_qqq_pct": 588.12,
+   "secs": 7.6
+  },
+  {
+   "delay": 1,
+   "offset": 4,
+   "start": "2010-01-08",
+   "holdout_alpha_vs_qqq_pct": 41.74,
+   "holdout_return_pct": 180.29,
+   "pre_alpha_vs_qqq_pct": 515.59,
+   "secs": 7.6
+  },
+  {
+   "delay": 1,
+   "offset": 5,
+   "start": "2010-01-11",
+   "holdout_alpha_vs_qqq_pct": 29.41,
+   "holdout_return_pct": 163.58,
+   "pre_alpha_vs_qqq_pct": 451.84,
+   "secs": 7.6
+  },
+  {
+   "delay": 1,
+   "offset": 6,
+   "start": "2010-01-12",
+   "holdout_alpha_vs_qqq_pct": 67.02,
+   "holdout_return_pct": 209.44,
+   "pre_alpha_vs_qqq_pct": 341.62,
+   "secs": 8.0
+  },
+  {
+   "delay": 1,
+   "offset": 7,
+   "start": "2010-01-13",
+   "holdout_alpha_vs_qqq_pct": 64.95,
+   "holdout_return_pct": 204.28,
+   "pre_alpha_vs_qqq_pct": 651.04,
+   "secs": 7.7
+  },
+  {
+   "delay": 1,
+   "offset": 8,
+   "start": "2010-01-14",
+   "holdout_alpha_vs_qqq_pct": 23.73,
+   "holdout_return_pct": 164.86,
+   "pre_alpha_vs_qqq_pct": 369.36,
+   "secs": 7.8
+  },
+  {
+   "delay": 1,
+   "offset": 9,
+   "start": "2010-01-15",
+   "holdout_alpha_vs_qqq_pct": -30.81,
+   "holdout_return_pct": 123.65,
+   "pre_alpha_vs_qqq_pct": 459.54,
+   "secs": 7.6
+  },
+  {
+   "delay": 1,
+   "offset": 10,
+   "start": "2010-01-19",
+   "holdout_alpha_vs_qqq_pct": -34.1,
+   "holdout_return_pct": 114.34,
+   "pre_alpha_vs_qqq_pct": 410.43,
+   "secs": 7.8
+  },
+  {
+   "delay": 1,
+   "offset": 11,
+   "start": "2010-01-20",
+   "holdout_alpha_vs_qqq_pct": -62.3,
+   "holdout_return_pct": 113.43,
+   "pre_alpha_vs_qqq_pct": 540.98,
+   "secs": 7.8
+  },
+  {
+   "delay": 1,
+   "offset": 12,
+   "start": "2010-01-21",
+   "holdout_alpha_vs_qqq_pct": -63.04,
+   "holdout_return_pct": 114.6,
+   "pre_alpha_vs_qqq_pct": 535.04,
+   "secs": 7.9
+  },
+  {
+   "delay": 1,
+   "offset": 13,
+   "start": "2010-01-22",
+   "holdout_alpha_vs_qqq_pct": -5.57,
+   "holdout_return_pct": 175.65,
+   "pre_alpha_vs_qqq_pct": 398.82,
+   "secs": 7.6
+  },
+  {
+   "delay": 1,
+   "offset": 14,
+   "start": "2010-01-25",
+   "holdout_alpha_vs_qqq_pct": 27.79,
+   "holdout_return_pct": 200.53,
+   "pre_alpha_vs_qqq_pct": 701.04,
+   "secs": 7.6
+  },
+  {
+   "delay": 1,
+   "offset": 15,
+   "start": "2010-01-26",
+   "holdout_alpha_vs_qqq_pct": 50.69,
+   "holdout_return_pct": 223.65,
+   "pre_alpha_vs_qqq_pct": 868.77,
+   "secs": 7.6
+  },
+  {
+   "delay": 1,
+   "offset": 16,
+   "start": "2010-01-27",
+   "holdout_alpha_vs_qqq_pct": 65.74,
+   "holdout_return_pct": 229.77,
+   "pre_alpha_vs_qqq_pct": 840.08,
+   "secs": 7.6
+  },
+  {
+   "delay": 1,
+   "offset": 17,
+   "start": "2010-01-28",
+   "holdout_alpha_vs_qqq_pct": 68.36,
+   "holdout_return_pct": 224.0,
+   "pre_alpha_vs_qqq_pct": 911.41,
+   "secs": 7.5
+  },
+  {
+   "delay": 1,
+   "offset": 18,
+   "start": "2010-01-29",
+   "holdout_alpha_vs_qqq_pct": 42.33,
+   "holdout_return_pct": 196.87,
+   "pre_alpha_vs_qqq_pct": 741.05,
+   "secs": 7.6
+  },
+  {
+   "delay": 1,
+   "offset": 19,
+   "start": "2010-02-01",
+   "holdout_alpha_vs_qqq_pct": 52.64,
+   "holdout_return_pct": 210.13,
+   "pre_alpha_vs_qqq_pct": 632.68,
+   "secs": 7.5
+  }
+ ]
+}

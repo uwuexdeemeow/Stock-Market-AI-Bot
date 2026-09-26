@@ -225,3 +225,38 @@ stress scenario must pass outright, with no advisory.
 Record the rejection here. Conclusion: the incumbent's 2023–2026 edge can't
 be separated from timing luck. The incumbent stays on the paper advisory, and
 the next research step is a new signal, not a new grid.
+
+### Result: H-tranche preview (2026-09-26) — REJECTED
+
+Run with `research_evidence/phase_luck_20260926/tranche_preview.py`; the raw
+output is in `tranche_preview.json` in the same folder. Data ends 2026-08-12.
+
+| Tranche calendar k | 2023–2026 alpha vs QQQ, on time | one day late | 2013–2022 alpha vs QQQ, on time |
+|---|---|---|---|
+| 0 (offsets 0/5/10/15) | +12.1 | −2.7 | +647 |
+| 1 (1/6/11/16) | +2.7 | +4.8 | +635 |
+| 2 (2/7/12/17) | +10.2 | +7.8 | +790 |
+| 3 (3/8/13/18) | +4.9 | −3.1 | +712 |
+| 4 (4/9/14/19) | −12.4 | +3.7 | +569 |
+
+- Rule 2 (spread under 73 points): **passed**, 24.6 points. Tranches do
+  remove most of the timing luck.
+- Rule 1 (all 10 books beat QQQ over 2023–2026): **failed**. 3 of 10 are
+  negative.
+
+**What this means:** with the timing luck averaged out, the incumbent's
+2023–2026 edge over QQQ is small, about +3 points in the median book over
+roughly 3.6 years, and not reliably positive. 2013–2022 alpha stays large in
+every book, so the edge has faded recently. The failing delay row was mostly
+timing luck on top of a thin recent edge.
+
+**Known limit (not a reason to re-run):** the preview slices drift from 2010
+without re-balancing between them. By 2023 the book leans toward whichever
+slice had grown most. A real tranche engine would behave the same way unless
+it re-balanced slices, which is a different design.
+
+**Decision:** H-tranche rejected by its pre-registered rule. The incumbent
+stays on the paper advisory. Tranche support will **not** be added to the
+locked engine for this hypothesis. Next research step: a new signal, or
+refreshing the existing one for the recent regime, pre-registered here
+before any run. Not a wider grid.

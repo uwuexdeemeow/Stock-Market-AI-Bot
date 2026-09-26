@@ -1,0 +1,132 @@
+{
+ "hypothesis": "H-tranche",
+ "research_only": true,
+ "approves_trading": false,
+ "end_date": "2026-08-12",
+ "books": [
+  {
+   "delay": 0,
+   "calendar_k": 0,
+   "offsets": [
+    0,
+    5,
+    10,
+    15
+   ],
+   "holdout_alpha_vs_qqq_pct": 12.14,
+   "pre_2013_2022_alpha_vs_qqq_pct": 647.1
+  },
+  {
+   "delay": 0,
+   "calendar_k": 1,
+   "offsets": [
+    1,
+    6,
+    11,
+    16
+   ],
+   "holdout_alpha_vs_qqq_pct": 2.74,
+   "pre_2013_2022_alpha_vs_qqq_pct": 634.95
+  },
+  {
+   "delay": 0,
+   "calendar_k": 2,
+   "offsets": [
+    2,
+    7,
+    12,
+    17
+   ],
+   "holdout_alpha_vs_qqq_pct": 10.16,
+   "pre_2013_2022_alpha_vs_qqq_pct": 789.81
+  },
+  {
+   "delay": 0,
+   "calendar_k": 3,
+   "offsets": [
+    3,
+    8,
+    13,
+    18
+   ],
+   "holdout_alpha_vs_qqq_pct": 4.87,
+   "pre_2013_2022_alpha_vs_qqq_pct": 712.37
+  },
+  {
+   "delay": 0,
+   "calendar_k": 4,
+   "offsets": [
+    4,
+    9,
+    14,
+    19
+   ],
+   "holdout_alpha_vs_qqq_pct": -12.42,
+   "pre_2013_2022_alpha_vs_qqq_pct": 569.01
+  },
+  {
+   "delay": 1,
+   "calendar_k": 0,
+   "offsets": [
+    0,
+    5,
+    10,
+    15
+   ],
+   "holdout_alpha_vs_qqq_pct": -2.72,
+   "pre_2013_2022_alpha_vs_qqq_pct": 628.19
+  },
+  {
+   "delay": 1,
+   "calendar_k": 1,
+   "offsets": [
+    1,
+    6,
+    11,
+    16
+   ],
+   "holdout_alpha_vs_qqq_pct": 4.76,
+   "pre_2013_2022_alpha_vs_qqq_pct": 670.21
+  },
+  {
+   "delay": 1,
+   "calendar_k": 2,
+   "offsets": [
+    2,
+    7,
+    12,
+    17
+   ],
+   "holdout_alpha_vs_qqq_pct": 7.8,
+   "pre_2013_2022_alpha_vs_qqq_pct": 800.28
+  },
+  {
+   "delay": 1,
+   "calendar_k": 3,
+   "offsets": [
+    3,
+    8,
+    13,
+    18
+   ],
+   "holdout_alpha_vs_qqq_pct": -3.1,
+   "pre_2013_2022_alpha_vs_qqq_pct": 572.04
+  },
+  {
+   "delay": 1,
+   "calendar_k": 4,
+   "offsets": [
+    4,
+    9,
+    14,
+    19
+   ],
+   "holdout_alpha_vs_qqq_pct": 3.68,
+   "pre_2013_2022_alpha_vs_qqq_pct": 632.8
+  }
+ ],
+ "all_books_positive_holdout_alpha": false,
+ "on_time_holdout_alpha_spread_pts": 24.56,
+ "max_allowed_spread_pts": 73.0,
+ "preview_pass": false
+}
