@@ -222,3 +222,23 @@ def test_run_one_reports_both_windows(monkeypatch):
     assert row["offset"] == 3 and row["delay"] == 1
     assert row["decision_alpha_vs_qqq_pct"] > 0 and row["diagnostic_alpha_vs_qqq_pct"] > 0
     assert row["turnover_pct"] == 123.0
+
+
+def test_etf_dates_with_a_time_zone_are_accepted():
+    frame = _etf_frame("2009-01-02", 400, 0.001, 5)
+    frame.index = frame.index.tz_localize("America/New_York")
+    panel = bakeoff.etf_rotation_panel({"TZZ": frame}, "2010-01-01", "2010-06-30")
+    assert panel["date"].dt.tz is None and not panel.empty
+
+
+def test_dry_run_output_check_catches_missing_runs_and_bad_flags():
+    spec = importlib.util.spec_from_file_location(
+        "dry_run", ROOT / "research_evidence" / "signal_bakeoff_20260926" / "dry_run_fake_data.py")
+    dry_run = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(dry_run)
+    rows = [{"idea": idea} for idea in ("R0", "R1", "E", "A", "B", "C") for _ in range(4)]
+    good = {"rows": rows, "valid_full_test": False, "approves_trading": False,
+            "result": {"summary": {idea: {"gates": {}} for idea in ("A", "B", "C")}}}
+    assert dry_run.check_output(good, 2) == []
+    bad = {**good, "rows": rows[:-1], "approves_trading": True}
+    assert len(dry_run.check_output(bad, 2)) == 2

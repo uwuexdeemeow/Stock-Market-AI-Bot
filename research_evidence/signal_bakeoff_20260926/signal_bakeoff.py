@@ -215,6 +215,9 @@ def etf_rotation_panel(etf_frames: dict[str, pd.DataFrame], start, end) -> pd.Da
     for ticker, raw in etf_frames.items():
         df = raw.copy()
         df.index = pd.to_datetime(df.index, errors="coerce")
+        if getattr(df.index, "tz", None) is not None:
+            # Some downloads carry a time zone; the stock rows don't.
+            df.index = df.index.tz_localize(None)
         df = df.loc[df.index.notna()].sort_index()
         df = df[~df.index.duplicated(keep="last")]
         close = pd.to_numeric(df["Close"], errors="coerce")

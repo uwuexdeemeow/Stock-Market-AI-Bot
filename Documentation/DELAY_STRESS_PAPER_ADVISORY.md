@@ -323,7 +323,14 @@ python refresh_etf_data.py --symbols XLK XLY XLF XLV XLE XLI XLP XLU XLRE XLB XL
 python research_evidence/signal_bakeoff_20260926/signal_bakeoff.py
 ```
 
-It makes 240 engine runs (about 8 seconds each, so about 30–40 minutes) and
-writes `research_evidence/signal_bakeoff_20260926/signal_bakeoff.json`.
+It makes 240 engine runs (about 20 minutes on a cloud machine) and writes
+`research_evidence/signal_bakeoff_20260926/signal_bakeoff.json`.
+
+**Dry run (2026-09-26, fake data, no result):**
+`python research_evidence/signal_bakeoff_20260926/dry_run_fake_data.py` copies
+the project to a temporary folder, fills it with random prices, and runs the
+bake-off with `--offsets 2`. It passed: all 24 engine runs finished and every
+candidate was judged. It only proves the pipeline runs; random prices say
+nothing about which idea is best. The real `data/` folder is never touched.
 `--offsets 2` is a quick smoke test only; its output says
 `valid_full_test: false` and must not be judged.
