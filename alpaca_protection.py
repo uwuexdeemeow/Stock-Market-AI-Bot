@@ -31,10 +31,14 @@ def _env_tickers(name: str, default: str) -> set[str]:
     return {part.strip().upper() for part in raw.split(",") if part.strip()}
 
 
-# PLAIN ENGLISH: These are the core ETF positions that should have durable
+# PLAIN ENGLISH: These are the core ETF positions that can have durable
 # broker-side trailing stops. TQQQ gets its own wider trail because it moves
 # much more than SPY or QQQ.
-CORE_PROTECTION_ENABLED = _env_bool("GUARD_CORE_STOP", True)
+# OFF by default since 2026-09-26: the backtest never had these stops, and the
+# pre-registered test H-edge-core-stop (Documentation/DELAY_STRESS_PAPER_
+# ADVISORY.md) found that 5% stops on SPY/QQQ fire in about 44% of 20-day
+# periods and cut 2013-2022 alpha vs QQQ from +468 to +198 points.
+CORE_PROTECTION_ENABLED = _env_bool("GUARD_CORE_STOP", False)
 CORE_PROTECTION_TICKERS = _env_tickers("GUARD_CORE_TICKERS", "SPY,QQQ,TQQQ")
 CORE_PROTECTION_TRAIL_PCT = float(os.environ.get("GUARD_CORE_TRAIL_PCT", "0.05"))
 TQQQ_PROTECTION_TRAIL_PCT = float(os.environ.get("GUARD_TQQQ_TRAIL_PCT", "0.10"))

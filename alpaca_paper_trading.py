@@ -4628,6 +4628,90 @@ def _emergency_liquidate(broker: AlpacaBroker) -> dict:
     }
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# TESTED REBALANCE CALENDAR (audit fix H1)
+# ─────────────────────────────────────────────────────────────────────────────
+# PLAIN ENGLISH: the backtest trades the strategy only once every 20 trading
+# days.  The signal publishes that calendar (last_scheduled_rebalance_date).
+# This small file remembers which 20-day period the account has already been
+# rebalanced for, so every other day of the period is a "hold" day: no
+# strategy trades, only the safety checks.  The daily workflow keeps the file
+# between runs (each run is a fresh machine).
+PAPER_REBALANCE_PERIOD_FILE = Path(SIGNAL_DIR) / "paper_rebalance_period.json"
+
+
+def _paper_rebalance_decision(signal, *, path: Path | None = None) -> tuple[str, str]:
+    """Return ("rebalance" | "hold", reason) for today's run.
+
+    PLAIN ENGLISH:
+      * hold      — this 20-day period was already rebalanced;
+      * rebalance — today is the scheduled day, or the scheduled day was
+                    missed (a failed run, a halt) and this is the catch-up.
+    A signal without the calendar, or a missing/damaged period file, means
+    "rebalance": trading once more is safer than never trading again.
+    """
+    period = str(signal.get("last_scheduled_rebalance_date", "") or "").strip()
+    if not period or period.lower() == "nan":
+        return "rebalance", "signal_has_no_rebalance_calendar"
+    target = path or PAPER_REBALANCE_PERIOD_FILE
+    if not target.exists():
+        return "rebalance", "no_rebalance_recorded_yet"
+    try:
+        done = str(json.loads(target.read_text(encoding="utf-8"))["period"])
+    except Exception:
+        return "rebalance", "rebalance_period_file_unreadable"
+    # ISO dates compare correctly as text.
+    if done >= period:
+        return "hold", f"already_rebalanced_for_period_{period}"
+    if _truthy(signal.get("scheduled_rebalance_today", False)):
+        return "rebalance", f"scheduled_rebalance_{period}"
+    return "rebalance", f"catch_up_missed_rebalance_{period}"
+
+
+def _record_paper_rebalance(signal, *, path: Path | None = None, now: datetime | None = None) -> None:
+    """Remember that the current 20-day period has been rebalanced."""
+    period = str(signal.get("last_scheduled_rebalance_date", "") or "").strip()
+    if not period or period.lower() == "nan":
+        return
+    clock = now or datetime.now(timezone.utc)
+    atomic_write_json(
+        {
+            "period": period,
+            "next_scheduled_rebalance_date": str(signal.get("next_scheduled_rebalance_date", "")),
+            "policy": str(signal.get("rebalance_policy", "")),
+            "recorded_at": clock.isoformat(timespec="seconds"),
+            "run_id": current_run_id(),
+        },
+        path or PAPER_REBALANCE_PERIOD_FILE,
+    )
+
+
+def _no_order_day_drawdown_check(broker: AlpacaBroker, *, force: bool = False) -> int | None:
+    """Run the drawdown halt on days with no strategy orders.
+
+    PLAIN ENGLISH: the -12% drawdown halt used to be checked only when there
+    were orders to send.  With the tested calendar most days have none, so
+    without this the halt would be checked only once every 20 days.
+    Returns an exit code when the halt fired, otherwise None.
+    """
+    halt_cleared = _maybe_auto_clear_halt(broker)
+    halted, current_dd = check_portfolio_drawdown(broker)
+    if halted and not force:
+        print(f"  🛑 PORTFOLIO DRAWDOWN HALT: account is {current_dd*100:.1f}% below peak")
+        liquidation = _emergency_liquidate(broker)
+        _set_submit_outcome(
+            "blocked",
+            "portfolio_drawdown_halt",
+            market_open=bool(broker.is_market_open()),
+            planned_orders=0,
+            liquidation=liquidation,
+        )
+        return 2
+    if _HALT_SENTINEL_FILE.exists() and not halt_cleared:
+        print("  🛑 RECOVERY HALT ACTIVE: holding cash until the halt clears")
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Alpaca paper trading for unified core-satellite strategy"
@@ -4785,9 +4869,33 @@ def main():
     print(f"  {'─'*40}")
     print(f"  Gross exposure: {scaled_gross:.2%}")
 
-    # ── Generate orders ─────────────────────────────────────────────────
-    print("\n  Comparing to current positions...")
-    orders = generate_orders(broker, target_weights, force=args.force)
+    # ── Retired core ETF stops ──────────────────────────────────────────
+    # PLAIN ENGLISH: core ETF trailing stops are off (see alpaca_protection).
+    # Stops placed before that change may still sit on the account; cancel
+    # them so they can't sell SPY/QQQ mid-period or block a rebalance sell.
+    if args.submit and not CORE_PROTECTION_ENABLED:
+        retired = cancel_core_etf_protective_stops(
+            broker,
+            tickers=CORE_PROTECTION_TICKERS,
+            logger=lambda msg: print(f"    {msg}"),
+        )
+        if retired:
+            print(f"  Cancelled {len(retired)} retired core ETF stop order(s)")
+
+    # ── Tested rebalance calendar (audit fix H1) ────────────────────────
+    # PLAIN ENGLISH: trade the strategy only on the backtest's 20-day dates.
+    # Every other day of the period is a hold day: no strategy orders, but
+    # the drawdown halt and the other safety checks still run below.
+    rebalance_action, rebalance_reason = _paper_rebalance_decision(signal)
+    if rebalance_action == "hold" and not args.force:
+        print(f"\n  HOLD: {rebalance_reason}; next scheduled rebalance "
+              f"{signal.get('next_scheduled_rebalance_date', 'unknown')}")
+        orders = []
+    else:
+        print(f"\n  REBALANCE: {rebalance_reason}")
+        # ── Generate orders ─────────────────────────────────────────────
+        print("\n  Comparing to current positions...")
+        orders = generate_orders(broker, target_weights, force=args.force)
     print_order_plan(orders)
 
     # ── Persist the order plan ──────────────────────────────────────────
@@ -4814,6 +4922,11 @@ def main():
 
     if not orders:
         protection_errors: list[str] = []
+        if args.submit:
+            # Hold days have no orders, so the drawdown halt must run here too.
+            halt_code = _no_order_day_drawdown_check(broker, force=bool(args.force))
+            if halt_code is not None:
+                return halt_code
         if args.submit and CORE_PROTECTION_ENABLED:
             print("  Checking core ETF protective stops...")
             core_result = repair_core_etf_protective_stops(
@@ -4836,9 +4949,14 @@ def main():
                     errors=protection_errors,
                 )
                 return 1
+            if rebalance_action == "rebalance":
+                # A scheduled day that needs no trades still counts as done.
+                _record_paper_rebalance(signal)
             _set_submit_outcome(
                 "no_action",
-                "portfolio_within_rebalance_thresholds",
+                ("holding_until_next_scheduled_rebalance"
+                 if rebalance_action == "hold" and not args.force
+                 else "portfolio_within_rebalance_thresholds"),
                 market_open=bool(broker.is_market_open()),
                 planned_orders=0,
             )
@@ -5208,6 +5326,11 @@ def main():
         orders=logged_orders,
         post_trade_errors=post_trade_errors,
     )
+    # PLAIN ENGLISH: once orders were accepted, this 20-day period counts as
+    # rebalanced; open orders are followed up by --reconcile and the guard.
+    # A failed or blocked run is retried on the next run (catch-up).
+    if outcome.get("status") in {"executed", "partial_execution"}:
+        _record_paper_rebalance(signal)
     if outcome.get("status") == "failed":
         return 1
     if outcome.get("status") == "blocked":

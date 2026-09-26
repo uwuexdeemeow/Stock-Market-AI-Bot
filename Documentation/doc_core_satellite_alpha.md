@@ -278,3 +278,30 @@ Tests: `python -m pytest tests/test_audit_medium_fixes.py -q`.
 **Key term — drift:** holdings move away from their target weights as
 prices change, so getting back to target costs trades even when the target
 stays the same.
+
+## September 2026 fix H1: the signal publishes the tested rebalance calendar
+
+The backtest changes its market regime and stock picks only every
+`holding_days` (20) trading sessions, on a calendar that starts on the first
+day of the data. The paper account used to re-decide and re-trade every day,
+so it was running a different strategy from the one that was tested.
+
+`write_paper_signal` now adds the backtest's calendar to the signal:
+
+| Column | Meaning |
+|---|---|
+| `rebalance_policy` | `tested_calendar_v1` |
+| `rebalance_anchor_date` | first session of the data; the calendar counts from here |
+| `last_scheduled_rebalance_date` | the latest scheduled rebalance on or before the factor date |
+| `next_scheduled_rebalance_date` | the next one |
+| `scheduled_rebalance_today` | true when the factor date is a scheduled day |
+
+`paper_rebalance_schedule(first_date, as_of, holding_days)` computes these
+with the same rule as `run_core_satellite` (every 20th NYSE session). The
+signal is still computed every day, for monitoring. `alpaca_paper_trading.py`
+decides whether to trade (see that script's doc).
+
+Tests: `python -m pytest tests/test_paper_rebalance_calendar.py -q`.
+
+**Key term — rebalance calendar:** the fixed list of days on which the
+strategy is allowed to change what it holds.

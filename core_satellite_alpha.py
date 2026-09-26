@@ -2207,6 +2207,42 @@ def _scale_research_allocation_to_deployment(
     return float(core_gross) * scale, overlay * scale, raw_gross, scale
 
 
+# PLAIN ENGLISH (audit fix H1): the backtest changes its market regime and
+# its stock picks only every `holding_days` trading sessions, on a fixed
+# calendar that starts on the first day of the data.  The paper account used
+# to re-decide and re-trade every day, so it was running a different strategy
+# from the one that was tested.  The signal now publishes that same calendar;
+# alpaca_paper_trading.py trades the strategy only once per 20-day period.
+PAPER_REBALANCE_POLICY = "tested_calendar_v1"
+
+
+def paper_rebalance_schedule(first_date, as_of, holding_days: int) -> dict:
+    """Where `as_of` sits on the backtest's fixed rebalance calendar.
+
+    PLAIN ENGLISH: the backtest's calendar is every `holding_days`-th NYSE
+    session counted from the first session of the data (the same rule as
+    run_core_satellite without an evaluation start).  Returns the calendar's
+    first day ("anchor"), the latest scheduled rebalance on or before
+    `as_of`, the next one, and whether `as_of` itself is a scheduled day.
+    """
+    holding_days = int(holding_days)
+    if holding_days <= 0:
+        raise ValueError("holding_days must be positive")
+    as_of = pd.Timestamp(as_of).normalize()
+    sessions = _nyse_sessions(pd.Timestamp(first_date), as_of)
+    if sessions.empty:
+        raise ValueError(f"No NYSE sessions between {first_date} and {as_of.date()}")
+    scheduled = sessions[::holding_days]
+    last = pd.Timestamp(scheduled[-1])
+    return {
+        "policy": PAPER_REBALANCE_POLICY,
+        "anchor": pd.Timestamp(sessions[0]),
+        "last": last,
+        "next": _session_offset(last, holding_days),
+        "scheduled_today": bool(last == as_of),
+    }
+
+
 def _paper_signal_timestamp() -> str:
     try:
         tz = ZoneInfo(str(PAPER_SIGNAL_TIMEZONE))
@@ -2417,6 +2453,8 @@ def _mark_live_regime_failure(metrics: dict, exc: Exception) -> dict:
 def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
     holding_days = int(metrics.get("holding_days", HORIZON_DAYS))
     latest_date = pd.Timestamp(panel["date"].max())
+    # The tested 20-day calendar (audit fix H1); the order step reads it.
+    schedule = paper_rebalance_schedule(pd.Timestamp(panel["date"].min()), latest_date, holding_days)
     regime_indicators = None
     regime_refresh_failed = False
     current_regime = str(metrics.get("current_regime", "static"))
@@ -2581,6 +2619,13 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         "earnings_blackout_skipped_tickers": str(metrics.get("earnings_blackout_skipped_tickers", "")),
         "earnings_blackout_skipped_json": str(metrics.get("earnings_blackout_skipped_json", "[]")),
         "holding_days": holding_days,
+        # Audit fix H1: the backtest's rebalance calendar.  On days that are
+        # not a scheduled rebalance, the order step holds instead of trading.
+        "rebalance_policy": schedule["policy"],
+        "rebalance_anchor_date": str(schedule["anchor"].date()),
+        "last_scheduled_rebalance_date": str(schedule["last"].date()),
+        "next_scheduled_rebalance_date": str(schedule["next"].date()),
+        "scheduled_rebalance_today": bool(schedule["scheduled_today"]),
         "overlay_tickers": ",".join(paper_overlay.index.astype(str).tolist()),
         "overlay_weights_json": json.dumps({str(k): round(float(v), 6) for k, v in paper_overlay.items()}, sort_keys=True),
         "raw_overlay_weights_json": json.dumps({str(k): round(float(v), 6) for k, v in overlay.items()}, sort_keys=True),

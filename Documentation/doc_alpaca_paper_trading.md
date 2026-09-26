@@ -405,3 +405,42 @@ Tests: `python -m pytest tests/test_halt_and_stop_cooldown.py -q`.
 
 **Key term — restart point:** the account value when trading resumed after a
 halt. Drawdown is measured from here, not from an old peak.
+
+## September 2026 fix H1: trade only on the tested 20-day calendar
+
+**What changed:** the account now trades the strategy only once per 20-day
+period, on the same calendar as the backtest.
+
+- The signal publishes `last_scheduled_rebalance_date` (see
+  `doc_core_satellite_alpha.md`).
+- `signals/paper_rebalance_period.json` remembers which period has already
+  been rebalanced. The daily workflow keeps it between runs.
+- **Rebalance day:** the period in the file is older than the signal's
+  period. Orders are made as before. When they are accepted (`executed` or
+  `partial_execution`), or nothing needed trading, the period is recorded.
+- **Catch-up:** if the scheduled day's run failed or a halt blocked it, the
+  next run still sees an older period and rebalances once.
+- **Hold day:** the period is already recorded. No strategy orders are made;
+  the outcome reason is `holding_until_next_scheduled_rebalance`.
+  `--force` still trades.
+- A missing or damaged period file, or a signal without the calendar, means
+  "rebalance". Trading once more is safer than never trading again.
+
+**Safety that still runs every day:**
+
+- The −12% drawdown halt used to be checked only when there were orders.
+  `_no_order_day_drawdown_check` now also runs it on days without orders,
+  otherwise it would be checked only every 20 days.
+- The execution guard's −8% one-day halt and stale-sell handling are
+  unchanged.
+
+**Core ETF stops retired:** the pre-registered test H-edge-core-stop found
+that the 5% SPY/QQQ trailing stops cut 2013–2022 alpha vs QQQ from +468 to
++198 points. They are now off (`GUARD_CORE_STOP=0`), and each `--submit`
+run cancels any core ETF stop still open on the account, so an old stop can't
+sell mid-period or block a rebalance sell.
+
+Tests: `python -m pytest tests/test_paper_rebalance_calendar.py -q`.
+
+**Key term — hold day:** a day inside a 20-day period after the rebalance.
+The account keeps what it bought, exactly like the backtest.

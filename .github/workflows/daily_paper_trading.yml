@@ -219,6 +219,7 @@ jobs:
               signals/guard_intraday_state.json \
               signals/regime_history.json \
               signals/regime_changes_log.csv \
+              signals/paper_rebalance_period.json \
               signals/alpaca_halt_active.txt \
               signals/alpaca_drawdown_peak_reset.json ; do
             mkdir -p "$(dirname "$f")"
@@ -361,7 +362,10 @@ jobs:
           PAPER_HEALTH_MAX_SECTOR_WEIGHT=0.50
           PAPER_HEALTH_STALE_OPEN_ORDER_MINUTES=60
           PAPER_HEALTH_MAX_EQUITY_DAILY_MOVE_WARN_PCT=25
-          GUARD_CORE_STOP=1
+          # Core ETF trailing stops are OFF: the pre-registered test
+          # H-edge-core-stop (DELAY_STRESS_PAPER_ADVISORY.md) found they cut
+          # 2013-2022 alpha by more than half.  Leftover stops are cancelled.
+          GUARD_CORE_STOP=0
           GUARD_CORE_TICKERS=SPY,QQQ,TQQQ
           GUARD_CORE_TRAIL_PCT=0.05
           GUARD_TQQQ_TRAIL_PCT=0.10
@@ -638,6 +642,7 @@ jobs:
             signals/guard_intraday_state.json
             signals/regime_history.json
             signals/regime_changes_log.csv
+            signals/paper_rebalance_period.json
             signals/monitor_heartbeat.json
             signals/shadow_paper_journal.csv
             signals/shadow_paper_equity.csv
@@ -730,6 +735,7 @@ jobs:
               signals/guard_intraday_state.json \
               signals/regime_history.json \
               signals/regime_changes_log.csv \
+              signals/paper_rebalance_period.json \
               signals/monitor_heartbeat.json \
               signals/workflow_heartbeat_daily.json ; do
             if [ -f "$generated_dir/$f" ]; then

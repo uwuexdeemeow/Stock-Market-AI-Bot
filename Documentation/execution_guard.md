@@ -61,7 +61,7 @@ ALPACA_SECRET_KEY=
 Optional guard settings:
 
 ```bash
-GUARD_CORE_STOP=1
+GUARD_CORE_STOP=0          # off since 2026-09-26 (see below)
 GUARD_CORE_TICKERS=SPY,QQQ,TQQQ
 GUARD_CORE_TRAIL_PCT=0.05
 GUARD_TQQQ_TRAIL_PCT=0.10
@@ -99,6 +99,12 @@ alpaca_gauntlet
 `alpaca_paper_trading.py --submit` also clears old core ETF protective stops
 before a core ETF rebalance and repairs them afterward. This prevents old sell
 stops from reserving shares and blocking rebalance sell orders.
+
+**Since 2026-09-26 the core ETF stops are off** (`GUARD_CORE_STOP=0`). The
+pre-registered test H-edge-core-stop found that 5% SPY/QQQ stops cut
+2013–2022 alpha vs QQQ by more than half. So the guard no longer repairs
+them, and `alpaca_paper_trading.py --submit` cancels any that are left. The
+guard's −8% one-day halt and stale-sell handling are unchanged.
 
 ## Key Concepts
 
