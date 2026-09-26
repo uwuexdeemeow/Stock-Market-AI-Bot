@@ -334,3 +334,191 @@ candidate was judged. It only proves the pipeline runs; random prices say
 nothing about which idea is best. The real `data/` folder is never touched.
 `--offsets 2` is a quick smoke test only; its output says
 `valid_full_test: false` and must not be judged.
+
+### Result: H-bakeoff (2026-09-26) — NO WINNER
+
+Run on the project computer after refreshing the 11 sector ETFs, with the
+engine as of `main` 4e4661f (includes the M3/M4 cost and daily-drawdown
+changes). Full test: 20 start days × on time/late, 240 runs, data to
+2026-08-12. Raw output: `research_evidence/signal_bakeoff_20260926/signal_bakeoff.json`.
+
+Alpha vs QQQ in % points, added up over the decision window 2013–2022.
+2023–2026 is a diagnostic only.
+
+| Idea | Median late | Worst run | Start-day spread | Mean delay cost | 2023–26 median | Gates failed |
+|---|---|---|---|---|---|---|
+| A slow momentum | +70.7 | +14.4 | 168.1 | 3.1 | −44.9 (40 of 40 negative) | G2 |
+| B yearly re-picked features | −63.4 | −119.3 | 104.7 | 1.8 | −80.3 | G1, G2 |
+| C sector ETFs | −122.1 | −160.2 | 58.0 | 1.9 | −71.8 | G1 |
+| R0 incumbent (control) | +567.4 | +298.5 | 655.3 | 7.2 | +26.3 (11 of 40 negative) | — |
+| R1 incumbent score, top 10 (control) | +85.9 | +23.1 | 186.1 | 6.4 | −41.1 | — |
+| E no stock overlay (control) | −146.1 | −177.1 | 44.6 | 0.1 | −75.3 | — |
+
+**Decision (by the pre-registered rule):** no candidate passed every gate,
+so there is no winner. The incumbent stays on the paper advisory.
+
+**What the numbers say:**
+
+- **Beating QQQ is a high bar for this design.** With no stock picks
+  (control E), the core loses 146 points to QQQ over 2013–2022, because it is
+  only partly invested (core gross 0.50–0.75) and holds SPY in weaker regimes.
+  Any stock overlay has to earn all of that back first.
+- **The incumbent's score is far stronger than every new idea** over
+  2013–2022, and it is the only one whose median is still positive in
+  2023–2026. But its start-day spread is huge (655 points), so its result
+  depends heavily on timing luck.
+- **Its edge sits in the top 3 names.** R1 uses the same score with 10 names:
+  the spread drops to 186, but alpha falls to +86 and 2023–2026 turns
+  negative.
+- **Idea A came closest.** It failed only G2. Even so, it lost to QQQ in all
+  40 runs over 2023–2026, so it would not be a useful replacement.
+
+**Lesson for the next pre-registration (not a reason to re-judge this run):**
+the G2 limit of 73 points was copied from the timing-luck study, which
+measured 2023–2026 (about 3.6 years). This bake-off judges 10-year totals,
+where spreads are naturally several times larger. A future spread limit
+should be set relative to the window length, for example as a share of the
+median alpha. It must be written down before that run.
+
+**Open question for the owner:** none of the three new ideas beats the
+incumbent. The bigger question is whether the incumbent's concentrated
+top-3 edge is real or mostly timing luck plus survivorship: 24% of its
+holdings were in stocks that joined the index after 2010 (see
+`SURVIVORSHIP_WATCHLIST_CHECK_2026-09-26.md`).
+
+## Hypothesis H-edge (pre-registered 2026-09-26, before any run)
+
+**Owner request:** check whether the incumbent's edge is real before fixing
+H1 (paper trading follows different rules from the backtest). Script:
+`research_evidence/edge_check_20260926/edge_check.py`.
+
+**Question:** is the incumbent's 2013–2022 edge over QQQ real, or mostly
+(1) hindsight in the stock list and (2) luck? And does the live-only 8%
+trailing stop help?
+
+**What stays fixed:** the incumbent config, unchanged. The measure is the same
+as H-bakeoff: alpha vs QQQ in % points, added up over the decision window
+2013–2022. 2023–2026 is printed as a diagnostic only. Every run ends on the
+same date (30 sessions before the data ends).
+
+**Point-in-time list:** a stock may be picked on a date only if it (or its
+known earlier ticker: META←FB, RTX←UTX, LIN←PX) was in the S&P 500 on that
+date. Membership comes from the free community history (fja05680/sp500, MIT
+licence, the same source as `SURVIVORSHIP_WATCHLIST_CHECK_2026-09-26.md`),
+using the latest snapshot on or before the date. **Limit:** this removes
+"picked before it joined the index" hindsight, but it cannot add companies
+that later left the index (there is no price data for them). So it is a
+partial survivorship test that still leans in the strategy's favour.
+
+**Runs:**
+
+| Set | What | Runs |
+|---|---|---|
+| R0 | incumbent, current list | 20 start days × on time/late = 40 |
+| S | incumbent, point-in-time list | 40 |
+| M | "random picks": S with its three score columns replaced by random numbers (seed 0–99), only where a real score exists, start day = seed mod 20, on time | 100 |
+| T | S on-time runs with a simulated 8% trailing stop | 20 (no extra engine runs) |
+
+**How T simulates the stop:** each stock trade is bought at the next day's
+Open, as in the engine. The highest price since entry is tracked from daily
+Highs. If a day's Low touches 92% of that high, the stock is sold at that
+level, or at the Open if it gapped below. Its money then stays in cash until
+the next 20-day date. Each stop exit is charged one extra stock trade at the
+engine's calibrated cost. Drawdowns for T and its comparison are measured on
+20-day period ends.
+
+**Gates:**
+
+- **S1, survivorship:** the median one-day-late alpha of S is above 0 **and**
+  at least 50% of R0's median one-day-late alpha.
+- **L1, luck:** the median on-time alpha of S is above the 95th percentile of
+  the 100 M runs.
+- **Edge verdict:** "edge shown" only if S1 and L1 both pass. Otherwise
+  "edge not shown".
+- **Stop verdict:** keep the 8% stop only if, over the 20 on-time S runs,
+  (a) the median alpha with the stop is at least the median without it minus
+  10% of the absolute value of the median without it, **and** (b) the median
+  max drawdown with the stop is at least 1.0 point shallower. Otherwise the
+  recommendation is to drop the stop.
+
+**What the verdict means:** it is evidence for the owner's H1 decision, not
+approval. No gate, threshold or live config changes because of it.
+
+### Add-on H-edge-core-stop (pre-registered 2026-09-26, before any run)
+
+**Why:** while planning the H1 fix, it turned out the live account also puts
+**5% trailing stops on the core ETFs** (SPY, QQQ; TQQQ 10%), set by
+`GUARD_CORE_STOP` in `alpaca_protection.py`. H-edge above only tests the 8%
+stock stop. The core is most of the portfolio (gross 0.50–0.75), so the H1
+design needs the same evidence for the core stop.
+
+**Test (script `research_evidence/edge_check_20260926/edge_core_stop.py`):**
+the same 20 on-time S runs (point-in-time list). The core ETF holding of each
+20-day period is replayed on daily bars with the live trail (5% SPY/QQQ, 10%
+TQQQ). The engine buys core ETFs at the Close of the entry day, so the
+replay starts from that Close and checks the stop from the next day on, with
+the same gap and high-water rules as the stock stop. Stopped ETF money stays
+in cash until the next 20-day date. Each stop exit pays one extra ETF trade
+at the engine's ETF cost. Stock stops are **off** in this test, so the core
+stop is judged on its own.
+
+**Rule (same as the stock stop):** keep the core stop only if the median
+2013–2022 alpha with it is at least the median without it minus 10% of that
+median's absolute value, **and** the median period max drawdown is at least
+1.0 point shallower. Otherwise the recommendation is to drop the core stop.
+
+### Result: H-edge (2026-09-26) — EDGE SHOWN; DROP THE 8% STOCK STOP
+
+Full test (20 start days, 100 random-pick runs), data to 2026-08-12. Raw
+output: `research_evidence/edge_check_20260926/edge_check.json` (membership
+source SHA-256 recorded there). The point-in-time list removed 4.4% of the
+panel rows.
+
+Alpha vs QQQ in % points, added up over 2013–2022:
+
+| Set | Runs | Worst | Median | Best |
+|---|---|---|---|---|
+| R0 incumbent, current list, on time | 20 | +298 | +570 | +954 |
+| R0 incumbent, current list, one day late | 20 | +335 | +567 | +897 |
+| S point-in-time list, on time | 20 | +279 | +468 | +671 |
+| S point-in-time list, one day late | 20 | +343 | +445 | +642 |
+| M random picks (point-in-time list, on time) | 100 | −220 | −76 | +163 |
+| T = S on time + simulated 8% stock stop | 20 | −53 | +9 | +159 |
+
+**Gates:**
+
+- **S1 survivorship: PASS.** S keeps 78% of R0's median late alpha
+  (+445 vs +567; at least 50% needed).
+- **L1 luck: PASS.** S's median (+468) beats all 100 random-pick runs
+  (95th percentile +26). S's *worst* run beats the *best* random run.
+- **Stock stop: DROP.** The stop makes drawdowns shallower (median −21.6% →
+  −17.6%) but cuts alpha from +468 to +9. It fired on about 49% of stock
+  positions.
+
+**Edge verdict: edge shown.** 2023–2026 diagnostic medians: incumbent +25,
+random picks −55, with the stock stop −31.
+
+**Caveats (recorded, not re-judged):**
+
+- **The survivorship test is partial.** It can't add companies that left the
+  index, because there is no price data for them, so the true edge is lower
+  than S shows.
+- **Random picks pay more costs.** New random scores every period mean about
+  2.7× the incumbent's turnover. That costs tens of points over 10 years,
+  far smaller than the gap measured here.
+- **Timing luck is still large.** S's on-time runs range from +279 to +671
+  depending on the start day.
+
+### Result: H-edge-core-stop (2026-09-26) — DROP THE CORE ETF STOPS
+
+Raw output: `research_evidence/edge_check_20260926/edge_core_stop.json`.
+Over the 20 on-time S runs, the 5% SPY/QQQ stops cut the median alpha from
++468 to +198 (the rule allowed at most a 10% giveback). They made the median
+drawdown shallower (−21.6% → −16.8%). They fired in about 44% of 20-day core
+holding periods. 2023–2026 diagnostic: +25 without them, −8 with them.
+
+**What this means for H1:** the tested strategy is the 20-day calendar with
+**no** trailing stops, on the stocks or on the ETFs. Both stops cost far more
+return than the drawdown they save. The emergency brakes (the −12% drawdown
+halt and the −8% one-day halt) are different: they rarely fire, and they
+stay.
