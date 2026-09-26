@@ -334,3 +334,54 @@ candidate was judged. It only proves the pipeline runs; random prices say
 nothing about which idea is best. The real `data/` folder is never touched.
 `--offsets 2` is a quick smoke test only; its output says
 `valid_full_test: false` and must not be judged.
+
+### Result: H-bakeoff (2026-09-26) — NO WINNER
+
+Run on the project computer after refreshing the 11 sector ETFs, with the
+engine as of `main` 4e4661f (includes the M3/M4 cost and daily-drawdown
+changes). Full test: 20 start days × on time/late, 240 runs, data to
+2026-08-12. Raw output: `research_evidence/signal_bakeoff_20260926/signal_bakeoff.json`.
+
+Alpha vs QQQ in % points, added up over the decision window 2013–2022.
+2023–2026 is a diagnostic only.
+
+| Idea | Median late | Worst run | Start-day spread | Mean delay cost | 2023–26 median | Gates failed |
+|---|---|---|---|---|---|---|
+| A slow momentum | +70.7 | +14.4 | 168.1 | 3.1 | −44.9 (40 of 40 negative) | G2 |
+| B yearly re-picked features | −63.4 | −119.3 | 104.7 | 1.8 | −80.3 | G1, G2 |
+| C sector ETFs | −122.1 | −160.2 | 58.0 | 1.9 | −71.8 | G1 |
+| R0 incumbent (control) | +567.4 | +298.5 | 655.3 | 7.2 | +26.3 (11 of 40 negative) | — |
+| R1 incumbent score, top 10 (control) | +85.9 | +23.1 | 186.1 | 6.4 | −41.1 | — |
+| E no stock overlay (control) | −146.1 | −177.1 | 44.6 | 0.1 | −75.3 | — |
+
+**Decision (by the pre-registered rule):** no candidate passed every gate,
+so there is no winner. The incumbent stays on the paper advisory.
+
+**What the numbers say:**
+
+- **Beating QQQ is a high bar for this design.** With no stock picks
+  (control E), the core loses 146 points to QQQ over 2013–2022, because it is
+  only partly invested (core gross 0.50–0.75) and holds SPY in weaker regimes.
+  Any stock overlay has to earn all of that back first.
+- **The incumbent's score is far stronger than every new idea** over
+  2013–2022, and it is the only one whose median is still positive in
+  2023–2026. But its start-day spread is huge (655 points), so its result
+  depends heavily on timing luck.
+- **Its edge sits in the top 3 names.** R1 uses the same score with 10 names:
+  the spread drops to 186, but alpha falls to +86 and 2023–2026 turns
+  negative.
+- **Idea A came closest.** It failed only G2. Even so, it lost to QQQ in all
+  40 runs over 2023–2026, so it would not be a useful replacement.
+
+**Lesson for the next pre-registration (not a reason to re-judge this run):**
+the G2 limit of 73 points was copied from the timing-luck study, which
+measured 2023–2026 (about 3.6 years). This bake-off judges 10-year totals,
+where spreads are naturally several times larger. A future spread limit
+should be set relative to the window length, for example as a share of the
+median alpha. It must be written down before that run.
+
+**Open question for the owner:** none of the three new ideas beats the
+incumbent. The bigger question is whether the incumbent's concentrated
+top-3 edge is real or mostly timing luck plus survivorship: 24% of its
+holdings were in stocks that joined the index after 2010 (see
+`SURVIVORSHIP_WATCHLIST_CHECK_2026-09-26.md`).
