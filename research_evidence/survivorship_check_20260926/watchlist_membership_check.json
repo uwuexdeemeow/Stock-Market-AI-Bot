@@ -1,0 +1,109 @@
+{
+ "research_only": true,
+ "approves_trading": false,
+ "verified_membership": false,
+ "source_url": "https://raw.githubusercontent.com/fja05680/sp500/master/S%26P%20500%20Historical%20Components%20%26%20Changes%20(Updated).csv",
+ "source_license": "MIT (https://github.com/fja05680/sp500/blob/master/LICENSE)",
+ "access_cost": "free",
+ "source_sha256": "36326709d46d6cd25834de5df457b16f5f96fad3a06b9beac28f7b88aa0b0d54",
+ "retrieved_at": "2026-09-26T08:02:49.370283+00:00",
+ "source_cutoff": "2026-08-18",
+ "watchlist_size": 62,
+ "by_date": {
+  "2010-01-04": {
+   "index_members": 499,
+   "members_no_longer_in_index_at_cutoff": 226,
+   "share_no_longer_in_index_pct": 45.3,
+   "watchlist_names_that_later_left_index": [],
+   "watchlist_not_in_index_then": [
+    {
+     "ticker": "META",
+     "first_in_index": "2013-12-23"
+    },
+    {
+     "ticker": "AVGO",
+     "first_in_index": "2014-05-08"
+    },
+    {
+     "ticker": "TSLA",
+     "first_in_index": "2020-12-21"
+    },
+    {
+     "ticker": "ABBV",
+     "first_in_index": "2013-01-02"
+    },
+    {
+     "ticker": "EQIX",
+     "first_in_index": "2015-03-23"
+    },
+    {
+     "ticker": "CCI",
+     "first_in_index": "2012-03-13"
+    },
+    {
+     "ticker": "NFLX",
+     "first_in_index": "2010-12-20"
+    },
+    {
+     "ticker": "CHTR",
+     "first_in_index": "2016-09-08"
+    },
+    {
+     "ticker": "LYV",
+     "first_in_index": "2019-12-23"
+    }
+   ],
+   "watchlist_in_index_under_older_ticker": [
+    "RTX",
+    "LIN"
+   ]
+  },
+  "2013-01-02": {
+   "index_members": 497,
+   "members_no_longer_in_index_at_cutoff": 199,
+   "share_no_longer_in_index_pct": 40.0,
+   "watchlist_names_that_later_left_index": [],
+   "watchlist_not_in_index_then": [
+    {
+     "ticker": "META",
+     "first_in_index": "2013-12-23"
+    },
+    {
+     "ticker": "AVGO",
+     "first_in_index": "2014-05-08"
+    },
+    {
+     "ticker": "TSLA",
+     "first_in_index": "2020-12-21"
+    },
+    {
+     "ticker": "EQIX",
+     "first_in_index": "2015-03-23"
+    },
+    {
+     "ticker": "CHTR",
+     "first_in_index": "2016-09-08"
+    },
+    {
+     "ticker": "LYV",
+     "first_in_index": "2019-12-23"
+    }
+   ],
+   "watchlist_in_index_under_older_ticker": [
+    "RTX",
+    "LIN"
+   ]
+  }
+ },
+ "incumbent_holdings": {
+  "overlay_holdings": 630,
+  "holdings_of_names_not_in_index_at_start": 152,
+  "holdings_before_name_joined_index": 53,
+  "before_joining_by_ticker": {
+   "TSLA": 23,
+   "EQIX": 17,
+   "LYV": 7,
+   "CHTR": 6
+  }
+ }
+}
