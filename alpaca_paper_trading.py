@@ -2983,6 +2983,50 @@ def snapshot_equity(broker: AlpacaBroker) -> None:
     print(f"    ✓ Equity snapshot: ${equity:,.2f} → {EQUITY_FILE.name}")
 
 
+PROTECTIVE_STOP_ORDER_TYPES = {"trailing_stop", "stop", "stop_limit"}
+PROTECTIVE_EXIT_LOOKBACK_DAYS = 45
+
+
+def _recent_protective_exits(
+    broker: AlpacaBroker,
+    *,
+    lookback_days: int = PROTECTIVE_EXIT_LOOKBACK_DAYS,
+    now: datetime | None = None,
+) -> tuple[bool, list[dict]]:
+    """List stop-loss sells that filled recently, newest first.
+
+    PLAIN ENGLISH: the signal generator uses this to avoid buying a stock
+    straight back the morning after its protective stop sold it.  Returns
+    (available, exits); available is False when Alpaca could not be read.
+    """
+    clock = now or datetime.now(timezone.utc)
+    cutoff = clock - timedelta(days=lookback_days)
+    try:
+        orders = _list_recent_alpaca_orders(broker)
+    except Exception as exc:
+        print(f"    ⚠ Could not list recent orders for stop cooldown: {exc}")
+        return False, []
+    exits: list[dict] = []
+    for order in orders:
+        order_type = str(_obj_value(order, "type", _obj_value(order, "order_type", "")) or "").lower()
+        order_type = order_type.split(".")[-1]  # enum text such as "OrderType.TRAILING_STOP"
+        side = str(_obj_value(order, "side", "") or "").lower().split(".")[-1]
+        if order_type not in PROTECTIVE_STOP_ORDER_TYPES or side != "sell":
+            continue
+        filled_qty = _float_or_none(_obj_value(order, "filled_qty", 0)) or 0.0
+        filled_at = _parse_broker_datetime(_obj_value(order, "filled_at"))
+        if filled_qty <= 0 or filled_at is None or filled_at < cutoff:
+            continue
+        exits.append({
+            "ticker": str(_obj_value(order, "symbol", "")).upper(),
+            "filled_at": filled_at.isoformat(timespec="seconds"),
+            "order_type": order_type,
+            "filled_qty": filled_qty,
+        })
+    exits.sort(key=lambda row: row["filled_at"], reverse=True)
+    return True, exits
+
+
 def snapshot_status(broker: AlpacaBroker) -> None:
     """
     Write a JSON status file for Alpaca paper account state.
@@ -3048,6 +3092,9 @@ def snapshot_status(broker: AlpacaBroker) -> None:
         "position_values": position_values,
         "position_details": position_details,
     }
+    exits_available, exits = _recent_protective_exits(broker)
+    status["recent_protective_exits_available"] = exits_available
+    status["recent_protective_exits"] = exits
     atomic_write_json(status, STATUS_FILE)
     print(f"    ✓ Status snapshot: {len(position_details)} positions → {STATUS_FILE.name}")
 
@@ -4116,7 +4163,16 @@ def check_portfolio_drawdown(broker: AlpacaBroker) -> tuple[bool, float]:
         if eq.empty or "equity" not in eq.columns:
             return False, 0.0
 
-        peak = float(eq["equity"].max())
+        # PLAIN ENGLISH: after a halt clears, the old peak is "forgotten" and
+        # drawdown is measured from the restart point.  An all-cash account
+        # cannot climb back to an old peak, so without this reset the same
+        # old loss would trip the halt again on the first small dip.
+        reset = _read_drawdown_peak_reset()
+        if reset is not None:
+            eq = eq[eq["date"].astype(str) >= reset["date"]] if "date" in eq.columns else eq.iloc[0:0]
+            peak = max([float(reset["equity"])] + [float(v) for v in eq["equity"]])
+        else:
+            peak = float(eq["equity"].max())
         current = broker.get_equity()
 
         if peak <= 0:
@@ -4223,6 +4279,64 @@ def _tqqq_pre_trade_check(broker: AlpacaBroker) -> tuple[bool, float]:
 # past half the halt threshold (e.g. from -12% back to -6%).
 _HALT_SENTINEL_FILE = Path(SIGNAL_DIR) / "alpaca_halt_active.txt"
 
+# PLAIN ENGLISH: written when a halt clears.  Drawdown is then measured from
+# this restart point instead of the old all-time high (see
+# check_portfolio_drawdown).  The daily workflow keeps it between runs.
+_DRAWDOWN_PEAK_RESET_FILE = Path(SIGNAL_DIR) / "alpaca_drawdown_peak_reset.json"
+
+
+def _read_drawdown_peak_reset(path: Path | None = None) -> dict | None:
+    """Return {"date", "equity"} of the last halt restart, or None."""
+    target = path or _DRAWDOWN_PEAK_RESET_FILE
+    if not target.exists():
+        return None
+    # A damaged file raises: check_portfolio_drawdown then fails closed.
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    equity = float(payload["equity"])
+    if not math.isfinite(equity) or equity <= 0:
+        raise ValueError("invalid drawdown peak reset equity")
+    return {"date": str(pd.Timestamp(payload["date"]).date()), "equity": equity}
+
+
+def _write_drawdown_peak_reset(equity: float, *, path: Path | None = None, now: datetime | None = None) -> None:
+    """Record today's equity as the new drawdown reference point."""
+    clock = (now or datetime.now(timezone.utc)).astimezone(EXECUTION_TIMEZONE)
+    atomic_write_json(
+        {"date": clock.date().isoformat(), "equity": round(float(equity), 2),
+         "written_at": clock.isoformat(timespec="seconds")},
+        path or _DRAWDOWN_PEAK_RESET_FILE,
+    )
+
+
+def _market_recovered_for_halt(signal_path: Path | None = None) -> tuple[bool, str]:
+    """True when today's fresh signal says the market is back to risk-on.
+
+    PLAIN ENGLISH: after an emergency sell-off the account is all cash, and
+    cash does not grow, so waiting for the account itself to recover would
+    wait forever.  The research engine's circuit breaker instead re-enters
+    when the market regime turns risk-on again; this uses the same rule.
+    """
+    path = signal_path or SIGNAL_FILE
+    try:
+        frame = pd.read_csv(path)
+        signal = frame.iloc[0]
+    except Exception as exc:
+        return False, f"signal_unreadable:{type(exc).__name__}"
+    fresh, issues = validate_signal_freshness(
+        signal,
+        max_signal_age_hours=DEFAULT_MAX_SIGNAL_AGE_HOURS,
+        max_factor_age_trading_days=DEFAULT_MAX_FACTOR_AGE_TRADING_DAYS,
+    )
+    if not fresh:
+        return False, "signal_not_fresh:" + ",".join(issues)
+    if _truthy(signal.get("live_regime_refresh_failed", False)):
+        return False, "live_regime_refresh_failed"
+    regime = str(signal.get("current_regime", "")).strip().lower()
+    if regime != "risk_on":
+        return False, f"regime_{regime or 'unknown'}"
+    return True, "regime_risk_on"
+
+
 # Recovery threshold: auto-clear the halt sentinel when drawdown improves
 # past this fraction of the halt threshold.  0.5 = recover to half the
 # halt level (e.g. if halt is -12%, auto-clear at -6%).
@@ -4285,13 +4399,15 @@ def _maybe_auto_clear_halt(broker: AlpacaBroker) -> bool:
     """Auto-clear the halt sentinel if drawdown has recovered sufficiently.
 
     PLAIN ENGLISH: After an emergency liquidation, trading is halted by a
-    sentinel file.  Previously you had to manually delete this file.  Now
-    we auto-clear it the NEXT DAY if the account's drawdown has improved
-    to less than half the halt threshold.
+    sentinel file.  From the NEXT DAY on, it clears when the account is flat,
+    no orders are open, and either:
+      * the drawdown improved to less than half the halt threshold, or
+      * today's fresh signal says the market regime is risk-on again.
 
-    Example: halt threshold = -12%.  Emergency liquidation fires at -13%.
-    Next day, account is at -5% drawdown (recovered).  Since -5% is better
-    than -6% (= 12% × 0.5), the sentinel is auto-cleared and trading resumes.
+    The second rule matters because the account is all cash after the
+    sell-off: cash cannot grow back to the old peak, so the first rule alone
+    would keep trading blocked forever.  When the halt clears, drawdown is
+    measured from today's equity from then on (_DRAWDOWN_PEAK_RESET_FILE).
 
     Returns True if the sentinel was cleared, False otherwise.
     """
@@ -4335,16 +4451,28 @@ def _maybe_auto_clear_halt(broker: AlpacaBroker) -> bool:
     # Check current drawdown only after broker liquidation is verified.
     _, current_dd = check_portfolio_drawdown(broker)
     recovery_threshold = -PORTFOLIO_DRAWDOWN_HALT_PCT * _HALT_RECOVERY_RATIO
+    market_ok, market_reason = _market_recovered_for_halt()
 
-    if current_dd > recovery_threshold:
-        # Drawdown has recovered past half the halt level — safe to resume
+    if current_dd > recovery_threshold or market_ok:
+        # PLAIN ENGLISH: resume when the account recovered OR the market is
+        # back to risk-on.  Then restart drawdown counting from today's
+        # equity, so the old loss does not immediately re-trigger the halt.
+        try:
+            restart_equity = float(broker.get_equity())
+            if not math.isfinite(restart_equity) or restart_equity <= 0:
+                raise ValueError("invalid equity")
+            _write_drawdown_peak_reset(restart_equity)
+        except Exception as exc:
+            print(f"  ⚠ Halt still active: could not record the restart point: {exc}")
+            return False
         _HALT_SENTINEL_FILE.unlink(missing_ok=True)
-        print(f"  ✓ Halt auto-cleared: drawdown recovered to {current_dd*100:.1f}% "
-              f"(threshold: {recovery_threshold*100:.1f}%)")
+        why = (f"drawdown recovered to {current_dd*100:.1f}%"
+               if current_dd > recovery_threshold else f"market recovered ({market_reason})")
+        print(f"  ✓ Halt auto-cleared: {why}; drawdown now measured from ${restart_equity:,.2f}")
         return True
     else:
         print(f"  ⚠ Halt still active: drawdown at {current_dd*100:.1f}% "
-              f"(need better than {recovery_threshold*100:.1f}% to auto-clear)")
+              f"(need better than {recovery_threshold*100:.1f}%) and {market_reason}")
         return False
 
 

@@ -220,3 +220,26 @@ rule change.
 **Key term — "earnings blackout":** a rule that avoids buying a stock just
 before the company reports its quarterly results, when the price can jump a
 lot in either direction.
+
+## September 2026 fix: no buy-back after a stop-loss
+
+Every stock gets an 8% trailing stop in paper trading. Before this fix, a stock
+sold by its stop was often bought right back the next morning, because it
+still ranked near the top. That paid trading costs twice and undid the stop.
+
+Now the signal reads `recent_protective_exits` from Alpaca's status file. A
+stock sold by a stop sits out for one holding period (`holding_days`, 20
+trading days). The next-ranked stock takes its slot. Stocks still held are
+never affected, so this rule can block a re-entry but never forces a sale.
+The signal records `stop_cooldown_tickers`, `stop_cooldown_source` and
+`stop_cooldown_json`. If the exit list is missing, the rule is skipped and
+`stop_cooldown_source` says why.
+
+`daily_run.py` refreshes the status file right before the signal, so stops
+that fired after yesterday's run are seen.
+
+The backtest still has no stops at all (audit finding H1, left for later).
+
+Test: `python -m pytest tests/test_core_satellite_live_signal.py -k stop -q`.
+
+**Key term — cooldown:** a waiting period before the same stock can be bought again.

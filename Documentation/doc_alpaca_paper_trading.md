@@ -354,3 +354,31 @@ different places. 01:30 UTC on 26 September is 21:30 on 25 September in New
 York, and the market day is the New York one.
 
 Test: `python -m pytest tests/test_locked_audit_fixes.py -q`.
+
+## September 2026 fix: emergency halt can restart
+
+An emergency sell-off (account 12% below peak, or the guard's −8% day) sells
+everything and writes `signals/alpaca_halt_active.txt`. Before this fix the
+lock only cleared when the account was back within 6% of its old peak. An
+all-cash account can never get there, so trading stayed blocked forever.
+
+From the next day on, the lock now clears when the account is flat, no
+orders are open, and **either** the drawdown recovered **or** today's fresh
+signal says the market regime is `risk_on` again (the same rule the
+research circuit breaker uses). When it clears, today's equity is saved in
+`signals/alpaca_drawdown_peak_reset.json`, and drawdown is measured from that
+restart point instead of the old all-time high. The daily workflow now keeps
+both files between runs. Before this, the halt file was lost every day on a
+fresh GitHub runner.
+
+## September 2026 fix: recent stop-loss exits in the status file
+
+`--status` (and every status snapshot) now adds
+`recent_protective_exits`: stop-loss sells that filled in the last 45 days.
+`core_satellite_alpha.py` uses it so a stock sold by its trailing stop is not
+bought straight back the next morning (see that script's doc).
+
+Tests: `python -m pytest tests/test_halt_and_stop_cooldown.py -q`.
+
+**Key term — restart point:** the account value when trading resumed after a
+halt. Drawdown is measured from here, not from an old peak.

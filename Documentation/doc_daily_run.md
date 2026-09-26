@@ -245,3 +245,14 @@ workflow restores, so validated data from one run can warm the next run.
 CI also runs a small static bug gate against the daily trading path. It checks
 undefined names, accidental redefinitions, and loop-closure mistakes without
 mixing a large style-only rewrite into operational code.
+
+## September 2026: account status refresh before the signal
+
+The trading run now calls `alpaca_paper_trading.py --status` (step
+`alpaca_pre_signal_status`) just before `core_satellite_alpha.py`. The signal
+then sees today's positions and any stop-loss exits since yesterday's run. The
+step is not critical: if it fails, the signal uses the older status file.
+
+The local sync list also includes the halt lock
+(`signals/alpaca_halt_active.txt`) and the drawdown restart point
+(`signals/alpaca_drawdown_peak_reset.json`).

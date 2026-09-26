@@ -397,3 +397,26 @@ def test_daily_loader_uses_same_conflict_gate_as_audit(tmp_path, monkeypatch):
     assert 'strategy_bundle_reference_mismatch' in csa._load_approved_live_config()['reasons']
     # Refresh mode only exposes research inputs; it is never deployment approval.
     assert csa._load_approved_live_config(allow_provisional_bundle=True)['deployment_status'] == 'validation_refresh_only'
+
+
+def test_write_paper_signal_skips_stock_sold_by_stop_yesterday(tmp_path, monkeypatch):
+    """Audit H3: a stopped-out stock is not bought back; the next name takes its slot."""
+    monkeypatch.setattr(csa, "SIGNAL_DIR", str(tmp_path))
+    monkeypatch.setattr(csa, "SENTIMENT_VETO_ENABLED", False)
+    monkeypatch.setattr(csa, "_paper_signal_timestamp", lambda: "2026-05-13T22:00+08:00")
+    status = tmp_path / "alpaca_daily_status.json"
+    _write_status(status, equity=1000.0, position_values={"QQQ": 500.0})
+    payload = json.loads(status.read_text())
+    payload["recent_protective_exits_available"] = True
+    payload["recent_protective_exits"] = [{"ticker": "AAA", "filled_at": "2026-05-12T18:00:00+00:00"}]
+    status.write_text(json.dumps(payload))
+
+    row = pd.read_csv(csa.write_paper_signal(_live_panel(), _base_live_metrics())).iloc[0]
+    overlay = json.loads(str(row["overlay_weights_json"]))
+
+    assert "AAA" not in overlay                      # top-ranked, but stopped out yesterday
+    assert {"BBB", "CCC"} <= set(overlay)
+    assert row["stop_cooldown_tickers"] == "AAA"
+    assert row["stop_cooldown_source"] == "alpaca_daily_status"
+    # The evidence snapshot still records every input row.
+    assert len(pd.read_csv(tmp_path / "core_satellite_alpha_input_snapshot.csv")) == len(_live_panel())

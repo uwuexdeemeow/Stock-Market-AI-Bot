@@ -82,7 +82,7 @@ policy.
   `accounting_mode="daily-ledger-v1"` adapter in `corrected_audit.py`
   already simulates daily cash and shares, so it is the natural base.
 
-### H2. After an emergency sell-off, trading can never resume on its own
+### H2. After an emergency sell-off, trading can never resume on its own — FIXED (see below)
 
 - **What fires:** when the account is 12% below its peak
   (`alpaca_paper_trading.py:4715`), or down 8% in one day
@@ -100,7 +100,7 @@ policy.
   back to risk-on, as in research), or reset the peak at the sell-off. Then
   backtest the rule, or drop it.
 
-### H3. Trailing stop → buy back the next morning
+### H3. Trailing stop → buy back the next morning — FIXED (see below)
 
 - **What happens:** every stock gets an 8% trailing stop
   (`alpaca_paper_trading.py:3807`). When a stop sells a stock, the next day's
@@ -261,3 +261,41 @@ All of these are owner decisions.
 - **Fail-closed:** when evidence is missing, block rather than allow.
 - **Arrival shortfall:** how much worse the fill was than the price when the order was sent.
 - **Locked file:** a file fingerprinted by the paper release; changing it pauses paper trading until re-frozen.
+
+## Follow-up: H2 and H3 fixed (owner request, same day)
+
+The owner chose to fix H2 and H3 now and leave H1 for later.
+
+**H2, extra finding while fixing it:** the halt file
+`signals/alpaca_halt_active.txt` was never restored or published by the daily
+workflow. Each GitHub run starts on a fresh machine, so:
+
+- after a −8% one-day sell-off, the next run had no halt file and bought
+  everything back;
+- after a −12% halt, the all-time-high check blocked trading every day with
+  no way out.
+
+**H2 fix:**
+
+- The halt clears (next day, account flat, no open orders) when the drawdown
+  recovered **or** a fresh signal says the regime is `risk_on`.
+- Drawdown is then measured from the restart point
+  (`alpaca_drawdown_peak_reset.json`).
+- The workflow restores and publishes both files, and removes the halt file
+  from `signals/latest` once it clears.
+
+**H3 fix:**
+
+- The status snapshot lists stop-loss sells from the last 45 days.
+- `daily_run.py` refreshes it right before the signal.
+- The signal keeps a stopped-out stock out for one holding period (20
+  sessions). It never forces a sale of a stock still held.
+
+**Files changed (locked, so the release must be re-frozen):**
+`alpaca_paper_trading.py`, `core_satellite_alpha.py`, `daily_run.py` and
+`.github/workflows/daily_paper_trading.yml`.
+
+**Tests:** `tests/test_halt_and_stop_cooldown.py` (new) and
+`tests/test_core_satellite_live_signal.py` (end-to-end signal test, which fails
+on the old code). Two halt tests in `tests/test_brokers.py` now also pin the
+market check and give the fake broker an equity value.

@@ -95,6 +95,8 @@ GITHUB_SIGNAL_SYNC_FILES = (
     "signals/regime_history.json",
     "signals/regime_changes_log.csv",
     "signals/monitor_heartbeat.json",
+    "signals/alpaca_halt_active.txt",
+    "signals/alpaca_drawdown_peak_reset.json",
 )
 GITHUB_SIGNAL_SYNC_PREFIXES = (
     "logs/daily_run_",
@@ -270,6 +272,12 @@ ALPACA_STATUS_STEP = Step(
     "alpaca_status",
     [sys.executable, "alpaca_paper_trading.py", "--status"],
     "Sync Alpaca paper account status/equity without submitting orders",
+)
+
+PRE_SIGNAL_ALPACA_STATUS_STEP = replace(
+    ALPACA_STATUS_STEP,
+    name="alpaca_pre_signal_status",
+    description="Refresh Alpaca positions and recent stop exits before the signal",
 )
 
 # PLAIN ENGLISH: the trading run enforces settled alignment, while local
@@ -724,6 +732,12 @@ def build_steps(
         steps.append(BROKER_HEALTH_STEP)
     steps.append(FACTOR_DATA_HEALTH_STEP)
     steps.append(DRIFT_MONITOR_STEP)
+    if run_alpaca:
+        # PLAIN ENGLISH: refresh the account snapshot right before the signal,
+        # so it sees positions and stop-loss exits since yesterday's run (the
+        # stop cooldown in core_satellite_alpha.py reads them).  Not critical:
+        # if it fails, the signal uses the older snapshot and says so.
+        steps.append(PRE_SIGNAL_ALPACA_STATUS_STEP)
     steps.append(CORE_SATELLITE_SIGNAL_STEP)
     # Record the generated market regime before submitting orders. A broker
     # refusal must not hide a valid signal; failed signal generation still

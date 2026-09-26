@@ -138,6 +138,7 @@ def test_recovery_halt_stays_active_until_stronger_threshold(monkeypatch, tmp_pa
     monkeypatch.setattr(apt, "_HALT_SENTINEL_FILE", sentinel)
     monkeypatch.setattr(apt, "PORTFOLIO_DRAWDOWN_HALT_PCT", 0.12)
     monkeypatch.setattr(apt, "check_portfolio_drawdown", lambda _broker: (False, -0.10))
+    monkeypatch.setattr(apt, "_market_recovered_for_halt", lambda: (False, "regime_risk_off"))
 
     broker = SimpleNamespace(
         get_positions=lambda: [],
@@ -160,13 +161,17 @@ def test_recovery_halt_clears_after_verified_recovery(monkeypatch, tmp_path):
     monkeypatch.setattr(apt, "_HALT_SENTINEL_FILE", sentinel)
     monkeypatch.setattr(apt, "PORTFOLIO_DRAWDOWN_HALT_PCT", 0.12)
     monkeypatch.setattr(apt, "check_portfolio_drawdown", lambda _broker: (False, -0.05))
+    monkeypatch.setattr(apt, "_market_recovered_for_halt", lambda: (False, "regime_risk_off"))
+    monkeypatch.setattr(apt, "_DRAWDOWN_PEAK_RESET_FILE", tmp_path / "peak_reset.json")
 
     broker = SimpleNamespace(
         get_positions=lambda: [],
+        get_equity=lambda: 95_000.0,
         _api=SimpleNamespace(list_orders=lambda **_kwargs: []),
     )
     assert apt._maybe_auto_clear_halt(broker) is True
     assert not sentinel.exists()
+    assert apt._read_drawdown_peak_reset(tmp_path / "peak_reset.json")["equity"] == 95_000.0
 
 
 def test_recovery_halt_does_not_clear_while_positions_remain(monkeypatch, tmp_path):

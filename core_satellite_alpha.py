@@ -2144,6 +2144,52 @@ def _load_live_sticky_overlay_state(
     return _empty_live_sticky_state("no_live_or_prior_overlay_state")
 
 
+def _stop_cooldown_state(
+    *,
+    as_of: pd.Timestamp,
+    cooldown_sessions: int,
+    held_tickers: set[str],
+    status_path: Path | None = None,
+) -> dict:
+    """Stocks recently sold by a protective stop that must not be re-bought yet.
+
+    PLAIN ENGLISH: an 8% trailing stop sells a stock that dropped.  If the
+    stock still ranks near the top, the next morning's signal would simply
+    buy it back, paying trading costs twice and undoing the stop.  A stock
+    sold by a stop therefore sits out for `cooldown_sessions` trading days
+    (one holding period).  Stocks still held are never listed, so this rule
+    can block a re-entry but never forces a sale.
+    """
+    if status_path is None:
+        status_path, _reason = _select_live_status_path()
+    state = {"tickers": [], "source": "none", "details": []}
+    try:
+        status = json.loads(Path(status_path).read_text(encoding="utf-8", errors="replace"))
+    except Exception:
+        state["source"] = "status_unreadable"
+        return state
+    if not isinstance(status, dict) or not status.get("recent_protective_exits_available", False):
+        state["source"] = "exits_unavailable"
+        return state
+    state["source"] = "alpaca_daily_status"
+    newest: dict[str, pd.Timestamp] = {}
+    for row in status.get("recent_protective_exits", []) or []:
+        ticker = _normalise_sticky_ticker(row.get("ticker", ""))
+        filled = pd.to_datetime(row.get("filled_at"), utc=True, errors="coerce")
+        if not ticker or pd.isna(filled) or ticker in held_tickers:
+            continue
+        exit_day = pd.Timestamp(filled.tz_convert("America/New_York").date())
+        newest[ticker] = max(exit_day, newest.get(ticker, exit_day))
+    for ticker, exit_day in sorted(newest.items()):
+        # Trading sessions after the exit day, up to the decision date.
+        elapsed = _count_nyse_sessions(exit_day + pd.Timedelta(days=1), as_of)
+        if elapsed < int(cooldown_sessions):
+            state["tickers"].append(ticker)
+            state["details"].append({"ticker": ticker, "exit_date": str(exit_day.date()),
+                                     "sessions_since_exit": int(elapsed)})
+    return state
+
+
 def _mark_live_regime_failure(metrics: dict, exc: Exception) -> dict:
     error = str(exc).strip() or exc.__class__.__name__
     if len(error) > 300:
@@ -2218,9 +2264,23 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         {str(k): round(float(v), 6) for k, v in prev_overlay.items()}, sort_keys=True
     )
     metrics["sticky_holdings_reason"] = str(sticky_state["reason"])
+    # Stocks sold by a protective stop sit out one holding period (see
+    # _stop_cooldown_state).  `day` itself stays whole for the evidence file.
+    cooldown = _stop_cooldown_state(
+        as_of=latest_date,
+        cooldown_sessions=holding_days,
+        held_tickers=held_tickers,
+    )
+    metrics["stop_cooldown_tickers"] = list(cooldown["tickers"])
+    metrics["stop_cooldown_source"] = str(cooldown["source"])
+    selection_day = day[~day["ticker"].astype(str).str.upper().isin(cooldown["tickers"])]
+    if cooldown["tickers"]:
+        print(f"  Stop cooldown: not re-buying {', '.join(cooldown['tickers'])}")
+    elif cooldown["source"] != "alpaca_daily_status":
+        print(f"  ⚠ Stop cooldown inactive: {cooldown['source']}")
     selection_diagnostics: dict = {}
     selected = _select_sticky_holdings(
-        day,
+        selection_day,
         held_tickers,
         score_col=score_col,
         return_col=None,
@@ -2248,7 +2308,7 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
     if SENTIMENT_VETO_ENABLED and not selected.empty:
         try:
             selected, sentiment_scores = _apply_sentiment_veto(
-                selected, day,
+                selected, selection_day,
                 score_col=score_col,
                 shape=str(metrics["shape"]),
                 exit_rank_floor=float(metrics["exit_rank_floor"]),
@@ -2356,6 +2416,10 @@ def write_paper_signal(panel: pd.DataFrame, metrics: dict) -> Path:
         "sticky_held_tickers": ",".join(sorted(held_tickers)),
         "sticky_prev_overlay_json": metrics["sticky_prev_overlay_json"],
         "sticky_holdings_reason": str(sticky_state["reason"]),
+        "stop_cooldown_tickers": ",".join(cooldown["tickers"]),
+        "stop_cooldown_sessions": int(holding_days),
+        "stop_cooldown_source": str(cooldown["source"]),
+        "stop_cooldown_json": json.dumps(cooldown["details"], sort_keys=True),
         "sentiment_veto_enabled": SENTIMENT_VETO_ENABLED,
         "sentiment_scores_json": json.dumps(
             {k: round(v, 4) for k, v in sentiment_scores.items()}, sort_keys=True
