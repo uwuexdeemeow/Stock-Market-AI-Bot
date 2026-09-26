@@ -443,3 +443,26 @@ engine's calibrated cost. Drawdowns for T and its comparison are measured on
 
 **What the verdict means:** it is evidence for the owner's H1 decision, not
 approval. No gate, threshold or live config changes because of it.
+
+### Add-on H-edge-core-stop (pre-registered 2026-09-26, before any run)
+
+**Why:** while planning the H1 fix, it turned out the live account also puts
+**5% trailing stops on the core ETFs** (SPY, QQQ; TQQQ 10%), set by
+`GUARD_CORE_STOP` in `alpaca_protection.py`. H-edge above only tests the 8%
+stock stop. The core is most of the portfolio (gross 0.50–0.75), so the H1
+design needs the same evidence for the core stop.
+
+**Test (script `research_evidence/edge_check_20260926/edge_core_stop.py`):**
+the same 20 on-time S runs (point-in-time list). The core ETF holding of each
+20-day period is replayed on daily bars with the live trail (5% SPY/QQQ, 10%
+TQQQ). The engine buys core ETFs at the Close of the entry day, so the
+replay starts from that Close and checks the stop from the next day on, with
+the same gap and high-water rules as the stock stop. Stopped ETF money stays
+in cash until the next 20-day date. Each stop exit pays one extra ETF trade
+at the engine's ETF cost. Stock stops are **off** in this test, so the core
+stop is judged on its own.
+
+**Rule (same as the stock stop):** keep the core stop only if the median
+2013–2022 alpha with it is at least the median without it minus 10% of that
+median's absolute value, **and** the median period max drawdown is at least
+1.0 point shallower. Otherwise the recommendation is to drop the core stop.
