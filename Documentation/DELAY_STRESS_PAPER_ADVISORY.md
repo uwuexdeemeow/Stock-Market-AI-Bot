@@ -466,3 +466,59 @@ stop is judged on its own.
 2013–2022 alpha with it is at least the median without it minus 10% of that
 median's absolute value, **and** the median period max drawdown is at least
 1.0 point shallower. Otherwise the recommendation is to drop the core stop.
+
+### Result: H-edge (2026-09-26) — EDGE SHOWN; DROP THE 8% STOCK STOP
+
+Full test (20 start days, 100 random-pick runs), data to 2026-08-12. Raw
+output: `research_evidence/edge_check_20260926/edge_check.json` (membership
+source SHA-256 recorded there). The point-in-time list removed 4.4% of the
+panel rows.
+
+Alpha vs QQQ in % points, added up over 2013–2022:
+
+| Set | Runs | Worst | Median | Best |
+|---|---|---|---|---|
+| R0 incumbent, current list, on time | 20 | +298 | +570 | +954 |
+| R0 incumbent, current list, one day late | 20 | +335 | +567 | +897 |
+| S point-in-time list, on time | 20 | +279 | +468 | +671 |
+| S point-in-time list, one day late | 20 | +343 | +445 | +642 |
+| M random picks (point-in-time list, on time) | 100 | −220 | −76 | +163 |
+| T = S on time + simulated 8% stock stop | 20 | −53 | +9 | +159 |
+
+**Gates:**
+
+- **S1 survivorship: PASS.** S keeps 78% of R0's median late alpha
+  (+445 vs +567; at least 50% needed).
+- **L1 luck: PASS.** S's median (+468) beats all 100 random-pick runs
+  (95th percentile +26). S's *worst* run beats the *best* random run.
+- **Stock stop: DROP.** The stop makes drawdowns shallower (median −21.6% →
+  −17.6%) but cuts alpha from +468 to +9. It fired on about 49% of stock
+  positions.
+
+**Edge verdict: edge shown.** 2023–2026 diagnostic medians: incumbent +25,
+random picks −55, with the stock stop −31.
+
+**Caveats (recorded, not re-judged):**
+
+- **The survivorship test is partial.** It can't add companies that left the
+  index, because there is no price data for them, so the true edge is lower
+  than S shows.
+- **Random picks pay more costs.** New random scores every period mean about
+  2.7× the incumbent's turnover. That costs tens of points over 10 years,
+  far smaller than the gap measured here.
+- **Timing luck is still large.** S's on-time runs range from +279 to +671
+  depending on the start day.
+
+### Result: H-edge-core-stop (2026-09-26) — DROP THE CORE ETF STOPS
+
+Raw output: `research_evidence/edge_check_20260926/edge_core_stop.json`.
+Over the 20 on-time S runs, the 5% SPY/QQQ stops cut the median alpha from
++468 to +198 (the rule allowed at most a 10% giveback). They made the median
+drawdown shallower (−21.6% → −16.8%). They fired in about 44% of 20-day core
+holding periods. 2023–2026 diagnostic: +25 without them, −8 with them.
+
+**What this means for H1:** the tested strategy is the 20-day calendar with
+**no** trailing stops, on the stocks or on the ETFs. Both stops cost far more
+return than the drawdown they save. The emergency brakes (the −12% drawdown
+halt and the −8% one-day halt) are different: they rarely fire, and they
+stay.

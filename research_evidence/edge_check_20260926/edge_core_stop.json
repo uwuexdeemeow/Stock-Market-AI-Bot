@@ -1,0 +1,473 @@
+{
+ "hypothesis": "H-edge-core-stop",
+ "research_only": true,
+ "approves_trading": false,
+ "valid_full_test": true,
+ "end_date": "2026-08-12",
+ "notes": {
+  "membership_source_sha256": "36326709d46d6cd25834de5df457b16f5f96fad3a06b9beac28f7b88aa0b0d54",
+  "etf_stop_cost_pct": 0.0004,
+  "trails": {
+   "SPY": 0.05,
+   "QQQ": 0.05,
+   "TQQQ": 0.1
+  }
+ },
+ "rows": [
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 0,
+   "decision_alpha_vs_qqq_pct": 454.62,
+   "diagnostic_alpha_vs_qqq_pct": 56.46,
+   "decision_period_max_drawdown_pct": -21.9,
+   "turnover_pct": 4360.43,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 9.9
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 0,
+   "decision_alpha_vs_qqq_pct": 242.0,
+   "diagnostic_alpha_vs_qqq_pct": 10.06,
+   "decision_period_max_drawdown_pct": -19.45,
+   "core_holdings": 274,
+   "core_stop_exits": 125
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 1,
+   "decision_alpha_vs_qqq_pct": 278.89,
+   "diagnostic_alpha_vs_qqq_pct": -13.98,
+   "decision_period_max_drawdown_pct": -23.44,
+   "turnover_pct": 4603.81,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 6.0
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 1,
+   "decision_alpha_vs_qqq_pct": 105.99,
+   "diagnostic_alpha_vs_qqq_pct": -33.14,
+   "decision_period_max_drawdown_pct": -19.14,
+   "core_holdings": 275,
+   "core_stop_exits": 123
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 2,
+   "decision_alpha_vs_qqq_pct": 576.86,
+   "diagnostic_alpha_vs_qqq_pct": 35.55,
+   "decision_period_max_drawdown_pct": -21.69,
+   "turnover_pct": 4479.22,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 5.8
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 2,
+   "decision_alpha_vs_qqq_pct": 298.79,
+   "diagnostic_alpha_vs_qqq_pct": -3.97,
+   "decision_period_max_drawdown_pct": -20.93,
+   "core_holdings": 274,
+   "core_stop_exits": 121
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 3,
+   "decision_alpha_vs_qqq_pct": 577.06,
+   "diagnostic_alpha_vs_qqq_pct": 30.42,
+   "decision_period_max_drawdown_pct": -18.74,
+   "turnover_pct": 4563.27,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 6.1
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 3,
+   "decision_alpha_vs_qqq_pct": 223.4,
+   "diagnostic_alpha_vs_qqq_pct": -7.99,
+   "decision_period_max_drawdown_pct": -19.02,
+   "core_holdings": 274,
+   "core_stop_exits": 122
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 4,
+   "decision_alpha_vs_qqq_pct": 469.74,
+   "diagnostic_alpha_vs_qqq_pct": 14.34,
+   "decision_period_max_drawdown_pct": -25.27,
+   "turnover_pct": 4740.27,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 5.9
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 4,
+   "decision_alpha_vs_qqq_pct": 210.92,
+   "diagnostic_alpha_vs_qqq_pct": -25.99,
+   "decision_period_max_drawdown_pct": -16.19,
+   "core_holdings": 275,
+   "core_stop_exits": 125
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 5,
+   "decision_alpha_vs_qqq_pct": 456.17,
+   "diagnostic_alpha_vs_qqq_pct": 20.29,
+   "decision_period_max_drawdown_pct": -20.3,
+   "turnover_pct": 4763.72,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 6.0
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 5,
+   "decision_alpha_vs_qqq_pct": 138.85,
+   "diagnostic_alpha_vs_qqq_pct": -8.1,
+   "decision_period_max_drawdown_pct": -17.97,
+   "core_holdings": 274,
+   "core_stop_exits": 121
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 6,
+   "decision_alpha_vs_qqq_pct": 331.14,
+   "diagnostic_alpha_vs_qqq_pct": 64.25,
+   "decision_period_max_drawdown_pct": -28.63,
+   "turnover_pct": 4820.44,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 6.3
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 6,
+   "decision_alpha_vs_qqq_pct": 71.0,
+   "diagnostic_alpha_vs_qqq_pct": 29.74,
+   "decision_period_max_drawdown_pct": -19.31,
+   "core_holdings": 273,
+   "core_stop_exits": 120
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 7,
+   "decision_alpha_vs_qqq_pct": 670.7,
+   "diagnostic_alpha_vs_qqq_pct": 63.16,
+   "decision_period_max_drawdown_pct": -24.85,
+   "turnover_pct": 4304.76,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 5.9
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 7,
+   "decision_alpha_vs_qqq_pct": 258.03,
+   "diagnostic_alpha_vs_qqq_pct": 16.31,
+   "decision_period_max_drawdown_pct": -19.31,
+   "core_holdings": 270,
+   "core_stop_exits": 125
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 8,
+   "decision_alpha_vs_qqq_pct": 425.29,
+   "diagnostic_alpha_vs_qqq_pct": 32.96,
+   "decision_period_max_drawdown_pct": -28.33,
+   "turnover_pct": 4450.63,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 5.8
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 8,
+   "decision_alpha_vs_qqq_pct": 153.52,
+   "diagnostic_alpha_vs_qqq_pct": -23.18,
+   "decision_period_max_drawdown_pct": -16.97,
+   "core_holdings": 271,
+   "core_stop_exits": 122
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 9,
+   "decision_alpha_vs_qqq_pct": 328.33,
+   "diagnostic_alpha_vs_qqq_pct": 6.89,
+   "decision_period_max_drawdown_pct": -26.7,
+   "turnover_pct": 4692.63,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 5.5
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 9,
+   "decision_alpha_vs_qqq_pct": 41.12,
+   "diagnostic_alpha_vs_qqq_pct": -44.77,
+   "decision_period_max_drawdown_pct": -21.93,
+   "core_holdings": 270,
+   "core_stop_exits": 119
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 10,
+   "decision_alpha_vs_qqq_pct": 501.76,
+   "diagnostic_alpha_vs_qqq_pct": -33.32,
+   "decision_period_max_drawdown_pct": -26.63,
+   "turnover_pct": 4616.75,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 6.3
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 10,
+   "decision_alpha_vs_qqq_pct": 184.53,
+   "diagnostic_alpha_vs_qqq_pct": -77.67,
+   "decision_period_max_drawdown_pct": -16.66,
+   "core_holdings": 271,
+   "core_stop_exits": 121
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 11,
+   "decision_alpha_vs_qqq_pct": 417.31,
+   "diagnostic_alpha_vs_qqq_pct": -47.05,
+   "decision_period_max_drawdown_pct": -24.76,
+   "turnover_pct": 4705.51,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 6.5
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 11,
+   "decision_alpha_vs_qqq_pct": 154.13,
+   "diagnostic_alpha_vs_qqq_pct": -80.57,
+   "decision_period_max_drawdown_pct": -17.88,
+   "core_holdings": 272,
+   "core_stop_exits": 121
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 12,
+   "decision_alpha_vs_qqq_pct": 372.83,
+   "diagnostic_alpha_vs_qqq_pct": -73.0,
+   "decision_period_max_drawdown_pct": -18.94,
+   "turnover_pct": 4726.78,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 6.0
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 12,
+   "decision_alpha_vs_qqq_pct": 75.88,
+   "diagnostic_alpha_vs_qqq_pct": -96.49,
+   "decision_period_max_drawdown_pct": -13.29,
+   "core_holdings": 275,
+   "core_stop_exits": 122
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 13,
+   "decision_alpha_vs_qqq_pct": 476.55,
+   "diagnostic_alpha_vs_qqq_pct": -5.98,
+   "decision_period_max_drawdown_pct": -20.04,
+   "turnover_pct": 4891.63,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 4.9
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 13,
+   "decision_alpha_vs_qqq_pct": 117.33,
+   "diagnostic_alpha_vs_qqq_pct": -36.28,
+   "decision_period_max_drawdown_pct": -15.97,
+   "core_holdings": 277,
+   "core_stop_exits": 124
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 14,
+   "decision_alpha_vs_qqq_pct": 465.67,
+   "diagnostic_alpha_vs_qqq_pct": 8.18,
+   "decision_period_max_drawdown_pct": -14.6,
+   "turnover_pct": 4764.9,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 6.4
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 14,
+   "decision_alpha_vs_qqq_pct": 150.62,
+   "diagnostic_alpha_vs_qqq_pct": -28.92,
+   "decision_period_max_drawdown_pct": -11.93,
+   "core_holdings": 280,
+   "core_stop_exits": 125
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 15,
+   "decision_alpha_vs_qqq_pct": 472.45,
+   "diagnostic_alpha_vs_qqq_pct": 72.88,
+   "decision_period_max_drawdown_pct": -16.75,
+   "turnover_pct": 4833.31,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 6.1
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 15,
+   "decision_alpha_vs_qqq_pct": 220.51,
+   "diagnostic_alpha_vs_qqq_pct": 7.02,
+   "decision_period_max_drawdown_pct": -13.03,
+   "core_holdings": 278,
+   "core_stop_exits": 122
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 16,
+   "decision_alpha_vs_qqq_pct": 541.55,
+   "diagnostic_alpha_vs_qqq_pct": 58.93,
+   "decision_period_max_drawdown_pct": -17.34,
+   "turnover_pct": 4649.42,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 6.0
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 16,
+   "decision_alpha_vs_qqq_pct": 295.73,
+   "diagnostic_alpha_vs_qqq_pct": 5.08,
+   "decision_period_max_drawdown_pct": -13.25,
+   "core_holdings": 277,
+   "core_stop_exits": 122
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 17,
+   "decision_alpha_vs_qqq_pct": 604.53,
+   "diagnostic_alpha_vs_qqq_pct": 59.79,
+   "decision_period_max_drawdown_pct": -17.56,
+   "turnover_pct": 4910.49,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 6.0
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 17,
+   "decision_alpha_vs_qqq_pct": 247.49,
+   "diagnostic_alpha_vs_qqq_pct": 36.61,
+   "decision_period_max_drawdown_pct": -13.12,
+   "core_holdings": 274,
+   "core_stop_exits": 120
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 18,
+   "decision_alpha_vs_qqq_pct": 614.98,
+   "diagnostic_alpha_vs_qqq_pct": 44.75,
+   "decision_period_max_drawdown_pct": -21.55,
+   "turnover_pct": 4806.23,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 6.2
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 18,
+   "decision_alpha_vs_qqq_pct": 394.64,
+   "diagnostic_alpha_vs_qqq_pct": 28.79,
+   "decision_period_max_drawdown_pct": -13.36,
+   "core_holdings": 275,
+   "core_stop_exits": 119
+  },
+  {
+   "test": "S",
+   "delay": 0,
+   "offset": 19,
+   "decision_alpha_vs_qqq_pct": 400.35,
+   "diagnostic_alpha_vs_qqq_pct": 9.41,
+   "decision_period_max_drawdown_pct": -20.89,
+   "turnover_pct": 4549.15,
+   "avg_overlay_positions": 3.0,
+   "top_ticker_overlay_contributor": "NVDA",
+   "secs": 4.8
+  },
+  {
+   "test": "TC",
+   "delay": 0,
+   "offset": 19,
+   "decision_alpha_vs_qqq_pct": 289.0,
+   "diagnostic_alpha_vs_qqq_pct": -0.12,
+   "decision_period_max_drawdown_pct": -15.68,
+   "core_holdings": 276,
+   "core_stop_exits": 121
+  }
+ ],
+ "result": {
+  "numbers": {
+   "S_median_alpha": 467.70500000000004,
+   "TC_median_alpha_with_core_stop": 197.725,
+   "S_median_period_drawdown": -21.62,
+   "TC_median_period_drawdown": -16.814999999999998,
+   "S_diagnostic_median": 25.355,
+   "TC_diagnostic_median": -8.045
+  },
+  "gates": {
+   "core_stop_alpha_ok": false,
+   "core_stop_drawdown_ok": true
+  },
+  "core_stop_verdict": "drop the core ETF stops"
+ }
+}
