@@ -481,6 +481,11 @@ def evaluate_epoch(epoch: dict) -> dict:
         )
 
     requirements = epoch.get("requirements", {}) or {}
+    # PLAIN ENGLISH (audit fix H1): on hold days of the tested 20-day calendar
+    # the account keeps what it bought, so weights drift from today's targets
+    # by design.  broker_truth then passes alignment with
+    # weight_gap_enforced = False, and the gap limits below don't apply.
+    gap_enforced = canonical_alignment.get("weight_gap_enforced", True) is not False
     minimum_stage_fills = int(requirements.get("minimum_stage_comparison_fills", 20))
     stage_review_ready = bool(
         analyzed >= minimum_stage_fills
@@ -506,8 +511,14 @@ def evaluate_epoch(epoch: dict) -> dict:
             and int(order_accounting["unclassifiable_logical_orders"]) == 0
         ),
         "unexplained_orders": unexplained <= int(requirements.get("maximum_unexplained_orders", 0)),
-        "target_weight_gap": alignment_status == "pass" and max_weight_gap is not None and max_weight_gap <= float(requirements.get("maximum_target_weight_gap", 0.02)),
-        "gross_exposure_gap": alignment_status == "pass" and gross_exposure_gap is not None and gross_exposure_gap <= float(requirements.get("maximum_gross_exposure_gap", 0.05)),
+        "target_weight_gap": alignment_status == "pass" and (
+            not gap_enforced
+            or (max_weight_gap is not None and max_weight_gap <= float(requirements.get("maximum_target_weight_gap", 0.02)))
+        ),
+        "gross_exposure_gap": alignment_status == "pass" and (
+            not gap_enforced
+            or (gross_exposure_gap is not None and gross_exposure_gap <= float(requirements.get("maximum_gross_exposure_gap", 0.05)))
+        ),
         "critical_incidents": open_critical_incidents <= int(requirements.get("maximum_open_critical_incidents", 0)),
         "fill_rate": fill_rate is not None and fill_rate >= float(requirements.get("minimum_fill_rate", 0.80)),
         "average_slippage": execution_decision_eligible and avg_slippage is not None and float(avg_slippage) <= float(requirements.get("maximum_average_slippage_bps", 10.0)),

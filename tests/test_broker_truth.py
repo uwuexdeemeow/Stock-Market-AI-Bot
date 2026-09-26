@@ -30,7 +30,10 @@ def test_status_bucket_keeps_only_superseded_client_id_failure_noncritical():
     assert broker_truth._status_bucket(generic) == "failed"
 
 
-def test_broker_truth_flags_failed_order_and_missing_stop(tmp_path):
+def test_broker_truth_flags_failed_order_and_missing_stop(tmp_path, monkeypatch):
+    # Stock stops are off by default since 2026-09-26; the missing-stop check
+    # must still work when someone switches them back on.
+    monkeypatch.setattr(broker_truth, "OVERLAY_TRAILING_STOP_ENABLED", True)
     signal_path = tmp_path / "signal.csv"
     plan_path = tmp_path / "orders.csv"
     log_path = tmp_path / "alpaca_paper_log.csv"

@@ -35,6 +35,8 @@ SIGNALS = Path(SIGNAL_DIR)
 LOGS = Path(LOG_DIR)
 
 SIGNAL_FILE = SIGNALS / "core_satellite_alpha_signal.csv"
+# Written by alpaca_paper_trading.py after each 20-day rebalance (audit fix H1).
+REBALANCE_PERIOD_FILE = SIGNALS / "paper_rebalance_period.json"
 ORDER_PLAN_FILE = SIGNALS / "core_satellite_alpha_orders.csv"
 PAPER_LOG_FILE = SIGNALS / "alpaca_paper_log.csv"
 STATUS_FILE = SIGNALS / "alpaca_daily_status.json"
@@ -69,7 +71,18 @@ CORE_PROTECTION_TICKERS = {
     for ticker in os.environ.get("GUARD_CORE_TICKERS", "SPY,QQQ,TQQQ").split(",")
     if ticker.strip()
 }
-OVERLAY_TRAILING_STOP_ENABLED = os.environ.get("ALPACA_TRAILING_STOP", "1").strip().lower() in {
+# PLAIN ENGLISH: both trailing stops were retired on 2026-09-26 (pre-registered
+# tests H-edge and H-edge-core-stop).  These switches must match the ones the
+# trading scripts use, otherwise every position would be reported as
+# "missing its stop".  Same environment names, same OFF defaults.
+OVERLAY_TRAILING_STOP_ENABLED = os.environ.get("ALPACA_TRAILING_STOP", "0").strip().lower() in {
+    "true",
+    "1",
+    "yes",
+    "y",
+    "on",
+}
+CORE_TRAILING_STOP_ENABLED = os.environ.get("GUARD_CORE_STOP", "0").strip().lower() in {
     "true",
     "1",
     "yes",
@@ -354,6 +367,54 @@ def load_target_weights(signal_path: Path = SIGNAL_FILE) -> tuple[dict[str, floa
     weights.update(overlay_weights)
     meta["target_count"] = len(weights)
     return weights, meta
+
+
+def load_rebalance_calendar_state(
+    signal_path: Path = SIGNAL_FILE,
+    period_path: Path = REBALANCE_PERIOD_FILE,
+    *,
+    run_id: str | None = None,
+) -> dict[str, Any]:
+    """Is today a hold day on the tested 20-day calendar (audit fix H1)?
+
+    PLAIN ENGLISH: the paper account trades once per 20-day period and then
+    holds.  While it holds, prices move and the weights drift away from the
+    target, and today's signal may even name different stocks; that is the
+    tested strategy, not a fault.  A hold day is when the current period was
+    already rebalanced by an EARLIER run.  If this same run just rebalanced,
+    or the period hasn't been rebalanced yet, the weights must match the
+    targets and are checked as before.
+    """
+    state = {"hold_day": False, "reason": "", "signal_period": "", "recorded_period": ""}
+    try:
+        row = pd.read_csv(signal_path).iloc[0]
+    except Exception:
+        state["reason"] = "signal_unreadable"
+        return state
+    period = str(row.get("last_scheduled_rebalance_date", "") or "").strip()
+    if str(row.get("rebalance_policy", "") or "") != "tested_calendar_v1" or not period or period.lower() == "nan":
+        state["reason"] = "signal_has_no_rebalance_calendar"
+        return state
+    state["signal_period"] = period
+    if not period_path.exists():
+        state["reason"] = "no_rebalance_recorded_yet"
+        return state
+    try:
+        payload = json.loads(period_path.read_text(encoding="utf-8"))
+        recorded = str(payload["period"])
+    except Exception:
+        state["reason"] = "rebalance_period_file_unreadable"
+        return state
+    state["recorded_period"] = recorded
+    if recorded < period:
+        state["reason"] = "rebalance_due_or_not_completed"
+        return state
+    if str(payload.get("run_id", "")) == (run_id or current_run_id()):
+        state["reason"] = "rebalanced_in_this_run"
+        return state
+    state["hold_day"] = True
+    state["reason"] = "period_already_rebalanced"
+    return state
 
 
 def load_broker_status(status_path: Path = STATUS_FILE) -> tuple[dict[str, dict[str, float]], dict[str, Any]]:
@@ -674,7 +735,7 @@ def _stop_required(symbol: str, broker_qty: float, target_weight: float) -> bool
     if broker_qty <= QTY_TOLERANCE:
         return False
     if symbol in CORE_PROTECTION_TICKERS:
-        return True
+        return CORE_TRAILING_STOP_ENABLED
     if symbol in ETF_TICKERS:
         return False
     return OVERLAY_TRAILING_STOP_ENABLED and target_weight > 0
@@ -717,6 +778,7 @@ def _alignment_result(
     open_orders_meta: dict[str, Any],
     waited_seconds: float = 0.0,
     pending_timed_out: bool = False,
+    hold_day: bool = False,
 ) -> dict[str, Any]:
     """Return the canonical target-versus-Alpaca alignment verdict.
 
@@ -754,6 +816,11 @@ def _alignment_result(
     elif active_orders > 0:
         status = "pending"
         reason = "exposure_changing_orders_open"
+    elif hold_day:
+        # Tested 20-day calendar: weights drift by design between rebalances.
+        # Order problems above still fail; the weight gap is only reported.
+        status = "pass"
+        reason = "hold_day_weights_drift_by_design"
     else:
         reasons: list[str] = []
         if max_gap is not None and max_gap > WEIGHT_TOLERANCE:
@@ -776,6 +843,8 @@ def _alignment_result(
         "gross_exposure_gap": None if gross_gap is None else round(gross_gap, 6),
         "weight_tolerance": WEIGHT_TOLERANCE,
         "gross_exposure_tolerance": GROSS_EXPOSURE_TOLERANCE,
+        # False on hold days: the gap above is reported but not enforced.
+        "weight_gap_enforced": not hold_day,
         "active_rebalance_order_count": active_orders,
         "waited_seconds": round(max(0.0, float(waited_seconds)), 3),
     }
@@ -797,10 +866,13 @@ def build_broker_truth(
     now: datetime | None = None,
     alignment_waited_seconds: float = 0.0,
     alignment_pending_timed_out: bool = False,
+    rebalance_period_path: Path = REBALANCE_PERIOD_FILE,
 ) -> dict[str, Any]:
     """Build the full reconciliation payload without writing files."""
     clock = now or _now_utc()
     targets, signal_meta = load_target_weights(signal_path)
+    calendar_state = load_rebalance_calendar_state(signal_path, rebalance_period_path)
+    hold_day = bool(calendar_state["hold_day"])
     positions, status_meta = load_broker_status(status_path)
     plan, plan_meta = load_order_plan(plan_path)
     log, log_meta = load_paper_log(log_path)
@@ -954,11 +1026,14 @@ def build_broker_truth(
             issues.append(("warning", "latest_logged_order_still_open"))
         if expected_qty is not None and abs(float(quantity_gap)) > max(QTY_TOLERANCE, 0.01):
             issues.append(("warning", "broker_qty_differs_from_latest_log_expected_qty"))
-        if target_comparison_enabled and target_weight <= WEIGHT_TOLERANCE and broker_qty > QTY_TOLERANCE and open_rebalance_sell_qty <= QTY_TOLERANCE:
+        # On hold days the account keeps what it bought, so differences from
+        # today's targets are expected and not reported as issues.
+        compare_targets = target_comparison_enabled and not hold_day
+        if compare_targets and target_weight <= WEIGHT_TOLERANCE and broker_qty > QTY_TOLERANCE and open_rebalance_sell_qty <= QTY_TOLERANCE:
             issues.append(("warning", "extra_broker_position_not_in_target"))
-        if target_comparison_enabled and target_weight > WEIGHT_TOLERANCE and broker_qty <= QTY_TOLERANCE and open_buy_qty <= QTY_TOLERANCE:
+        if compare_targets and target_weight > WEIGHT_TOLERANCE and broker_qty <= QTY_TOLERANCE and open_buy_qty <= QTY_TOLERANCE:
             issues.append(("warning", "target_position_missing_at_broker"))
-        if target_comparison_enabled and abs_weight_gap > WEIGHT_TOLERANCE and open_buy_qty + open_rebalance_sell_qty <= QTY_TOLERANCE:
+        if compare_targets and abs_weight_gap > WEIGHT_TOLERANCE and open_buy_qty + open_rebalance_sell_qty <= QTY_TOLERANCE:
             issues.append(("warning", f"broker_weight_gap_{abs_weight_gap:.4f}"))
 
         if open_orders_meta.get("available") and stop_required:
@@ -1029,7 +1104,9 @@ def build_broker_truth(
         open_orders_meta=open_orders_meta,
         waited_seconds=alignment_waited_seconds,
         pending_timed_out=alignment_pending_timed_out,
+        hold_day=hold_day,
     )
+    alignment["rebalance_calendar"] = calendar_state
 
     payload = {
         "schema_version": 1,

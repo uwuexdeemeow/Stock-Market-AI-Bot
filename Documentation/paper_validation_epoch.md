@@ -128,3 +128,12 @@ A new epoch is created only after the fresh strategy bundle passes.
 The operational lock also covers `feature_health.py`, whose profile determines
 which features may contribute. The September 2026 cache-recovery repair requires
 a reviewed operational release; it does not start corrected prospective research.
+
+## September 2026: hold-day alignment
+
+The `target_weight_gap` and `gross_exposure_gap` checks require an alignment
+`pass` **and** gaps within tolerance. On hold days of the tested 20-day
+calendar, `broker_truth.py` reports `weight_gap_enforced: false`, because the
+weights drift by design between rebalances. The gap limits then don't apply,
+and the alignment `pass` is enough. On rebalance days the limits apply as
+before.

@@ -125,3 +125,30 @@ health-only reports cannot open incidents or clear recovery evidence.
 `daily_run.py --alpaca` runs `broker_truth.py` after `execution_guard.py` and
 before `paper_health.py`.  That order matters because the guard may repair
 stops, and broker truth should inspect the account after those repairs.
+
+## September 2026: hold days of the tested 20-day calendar
+
+Since audit fix H1, the paper account trades once per 20-day period and then
+holds. On hold days the weights drift away from today's targets as prices
+move, and today's signal may even name different stocks. That is the tested
+strategy, not a fault.
+
+- **Hold day:** the signal's `last_scheduled_rebalance_date` was already
+  recorded in `signals/paper_rebalance_period.json` by an **earlier** run.
+  The alignment verdict is `pass` with reason
+  `hold_day_weights_drift_by_design`. The drift is still reported in
+  `maximum_target_weight_gap`, but `weight_gap_enforced` is `false`, and the
+  per-ticker target-gap warnings are skipped.
+- **Rebalance day:** the period was recorded by **this** run
+  (`STOCKBOT_RUN_ID`), or not recorded at all. Weights must match the targets
+  within the usual tolerance, as before. A failed rebalance still fails.
+- Failed orders, stuck orders and stop checks are handled the same way on
+  every day.
+- The summary carries `alignment.rebalance_calendar` with the reason.
+
+**Retired stops:** the "stop required" check follows the real switches
+(`GUARD_CORE_STOP`, `ALPACA_TRAILING_STOP`, both off by default since
+2026-09-26). Before, QQQ/SPY always required a stop, so every day would have
+failed with `required_trailing_stop_missing`.
+
+Tests: `python -m pytest tests/test_hold_day_monitors.py -q`.
