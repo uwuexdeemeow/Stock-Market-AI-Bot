@@ -149,7 +149,9 @@ It also refreshes the execution-quality report.
   a bad-result rate.
 - **Drawdown halt** — when account drops 12% from peak, stop submitting
   new buys (sells/stops still allowed).  Auto-clears when account
-  recovers past 50% of halt threshold.
+  recovers past 50% of halt threshold, or when the market is risk-on
+  again after a minimum wait of 5 trading sessions (see the September
+  2026 sections below).
 - **Sticky holdings** — the strategy carries forward yesterday's picks
   when they still rank well, to reduce churn.  The script reads
   `alpaca_daily_status.json` so it knows what was held.
@@ -370,6 +372,27 @@ research circuit breaker uses). When it clears, today's equity is saved in
 restart point instead of the old all-time high. The daily workflow now keeps
 both files between runs. Before this, the halt file was lost every day on a
 fresh GitHub runner.
+
+## September 2026 tightening: minimum wait before a market restart
+
+The market regime signal is slow on purpose: it uses a 100-day average and
+needs 3 days in a row to flip. So the day after a sudden crash it can still
+say `risk_on`, and the rule above would restart trading after only one day.
+
+- **New rule:** a `risk_on` reading clears the halt only after at least
+  `HALT_MARKET_RESTART_MIN_SESSIONS = 5` NYSE trading sessions since the
+  halt day. Weekends and exchange holidays don't count. It is a plain
+  constant with no environment override, because it is a safety setting.
+- **Unchanged:** the "account recovered past half the halt level" path still
+  clears from the next day, with no extra wait.
+- **Bug fixed along the way:** while halted, every daily run repeats the
+  emergency sell-off. Each repeat used to re-write the halt file with a new
+  time, so any "time since halt" clock restarted daily. Repeats now keep the
+  original halt time (`_write_halt_sentinel(triggered_at=...)`).
+
+Tests: `python -m pytest tests/test_halt_and_stop_cooldown.py -q`.
+
+**Key term — trading session:** a day the stock exchange is open.
 
 ## September 2026 fix: recent stop-loss exits in the status file
 

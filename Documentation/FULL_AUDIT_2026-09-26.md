@@ -324,3 +324,29 @@ reading the old number hid. Running `python core_satellite_execution_stress.py`
 on the project computer before merging shows this in advance.
 
 Tests: `tests/test_audit_medium_fixes.py`. Full suite 878 passed, 9 skipped.
+
+## Follow-up: stress check with real data, and H2 tightened (owner request)
+
+**Stress check (project computer, new engine):** the worst stressed daily
+drawdown is −33.5% (limit −35%), so paper orders are not blocked, but the
+margin is only 1.5 points. Before M3/M4 it was about −23%. The base and plain
+one-day-delay scenarios pass; the two delay-plus-cost scenarios fail only the
+2023–2026 holdout gate and stay paper advisories.
+
+**H2 gap found in review:** the regime signal is slow (100-day average,
+3-day confirmation), so the day after a sudden crash it can still read
+`risk_on`, and the halt could clear after one day. The research circuit
+breaker only re-checks every 20 days, so it never had this problem.
+
+**Fix:**
+
+- A `risk_on` reading clears the halt only after at least 5 NYSE sessions
+  since the halt day (`HALT_MARKET_RESTART_MIN_SESSIONS`). The
+  account-recovered path is unchanged.
+- A repeated emergency sell-off while halted now keeps the original halt
+  time. Before, every repeat re-stamped it, which restarted any "time since
+  halt" clock each day and made the one-day check flaky.
+
+Locked file changed: `alpaca_paper_trading.py`, so the release was re-frozen
+(epoch start kept). Tests: 5 new tests in `tests/test_halt_and_stop_cooldown.py`.
+Full suite 883 passed, 9 skipped.

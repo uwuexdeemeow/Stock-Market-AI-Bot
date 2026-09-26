@@ -4342,11 +4342,49 @@ def _market_recovered_for_halt(signal_path: Path | None = None) -> tuple[bool, s
 # halt level (e.g. if halt is -12%, auto-clear at -6%).
 _HALT_RECOVERY_RATIO = 0.5
 
+# PLAIN ENGLISH: minimum number of NYSE trading sessions after the halt day
+# before a "the market is risk-on again" signal may restart trading.  The
+# regime signal is slow on purpose (100-day average, 3-day confirmation), so
+# the day after a sudden crash it can still read risk_on.  Without this wait
+# the halt could clear after one day and buy straight back into a crash.
+# Deliberately a plain constant (no environment override): it is a safety
+# setting, and changing it must go through the locked paper release.
+# The "account recovered" path is not affected by this wait.
+HALT_MARKET_RESTART_MIN_SESSIONS = 5
+
+
+def _nyse_sessions_since(halt_time: datetime, now: datetime | None = None) -> int:
+    """Count NYSE trading sessions after the halt day, up to and including today.
+
+    PLAIN ENGLISH: a halt on Monday gives 1 on Tuesday, 2 on Wednesday, and so
+    on; weekends and exchange holidays don't count.  If the exchange calendar
+    can't be loaded, weekdays are counted instead (holidays then count as
+    sessions, which can shorten the wait by a day or two at most).
+    """
+    clock = now or datetime.now(timezone.utc)
+    halt_day = pd.Timestamp(halt_time).tz_convert("America/New_York").normalize().tz_localize(None)
+    today = pd.Timestamp(clock).tz_convert("America/New_York").normalize().tz_localize(None)
+    if today <= halt_day:
+        return 0
+    first = halt_day + pd.Timedelta(days=1)
+    try:
+        import exchange_calendars as xcals
+
+        calendar = xcals.get_calendar("XNYS")
+        # Clamp to the calendar's range so a far-future test date can't crash it.
+        last = min(today, calendar.last_session)
+        if last < first:
+            return 0
+        return int(len(calendar.sessions_in_range(first, last)))
+    except Exception:
+        return int(np.busday_count(first.date(), (today + pd.Timedelta(days=1)).date()))
+
 
 def _write_halt_sentinel(
     path: Path | None = None,
     *,
     now: datetime | None = None,
+    triggered_at: datetime | None = None,
     liquidation: dict | None = None,
 ) -> None:
     """Write the trading-halt sentinel through an atomic text write.
@@ -4354,9 +4392,12 @@ def _write_halt_sentinel(
     PLAIN ENGLISH: This tiny file tells future runs that a drawdown recovery
     lock is active. Writing it atomically prevents a half-written halt marker
     from confusing the next trading run. It does not suppress close retries.
+    ``triggered_at`` keeps the ORIGINAL halt time when a later run repeats the
+    emergency sell-off; otherwise every retry would restart the waiting clock
+    and the halt could never clear.
     """
     target = path or _HALT_SENTINEL_FILE
-    timestamp = (now or datetime.now(timezone.utc)).isoformat()
+    timestamp = (triggered_at or now or datetime.now(timezone.utc)).isoformat()
     state = {
         "schema_version": 2,
         "triggered_at": timestamp,
@@ -4395,14 +4436,17 @@ def _halt_open_orders(broker: AlpacaBroker) -> list:
         return list(broker._api.list_orders(status="open", limit=500))
 
 
-def _maybe_auto_clear_halt(broker: AlpacaBroker) -> bool:
+def _maybe_auto_clear_halt(broker: AlpacaBroker, *, now: datetime | None = None) -> bool:
     """Auto-clear the halt sentinel if drawdown has recovered sufficiently.
 
     PLAIN ENGLISH: After an emergency liquidation, trading is halted by a
     sentinel file.  From the NEXT DAY on, it clears when the account is flat,
     no orders are open, and either:
       * the drawdown improved to less than half the halt threshold, or
-      * today's fresh signal says the market regime is risk-on again.
+      * today's fresh signal says the market regime is risk-on again AND at
+        least HALT_MARKET_RESTART_MIN_SESSIONS trading sessions have passed
+        since the halt day (the slow regime signal can still say risk_on
+        right after a sudden crash).
 
     The second rule matters because the account is all cash after the
     sell-off: cash cannot grow back to the old peak, so the first rule alone
@@ -4417,9 +4461,10 @@ def _maybe_auto_clear_halt(broker: AlpacaBroker) -> bool:
     # Only auto-clear if at least one calendar day has passed since the halt.
     # This prevents clearing the same day the halt fired — gives you time
     # to review what happened.
+    clock = now or datetime.now(timezone.utc)
     try:
         halt_time, state = _read_halt_sentinel()
-        if (datetime.now(timezone.utc) - halt_time).days < 1:
+        if (clock - halt_time).days < 1:
             return False  # same day — don't auto-clear yet
     except (OSError, ValueError, IndexError, KeyError, json.JSONDecodeError) as exc:
         # PLAIN ENGLISH: A damaged halt file is safety evidence we do not
@@ -4452,6 +4497,14 @@ def _maybe_auto_clear_halt(broker: AlpacaBroker) -> bool:
     _, current_dd = check_portfolio_drawdown(broker)
     recovery_threshold = -PORTFOLIO_DRAWDOWN_HALT_PCT * _HALT_RECOVERY_RATIO
     market_ok, market_reason = _market_recovered_for_halt()
+    # PLAIN ENGLISH: a risk-on reading only counts after the minimum wait,
+    # so a halt can't clear the day after a sudden crash that the slow
+    # regime signal hasn't registered yet.
+    sessions_waited = _nyse_sessions_since(halt_time, clock)
+    if market_ok and sessions_waited < HALT_MARKET_RESTART_MIN_SESSIONS:
+        market_ok = False
+        market_reason = (f"regime_risk_on_but_waited_{sessions_waited}_of_"
+                         f"{HALT_MARKET_RESTART_MIN_SESSIONS}_sessions")
 
     if current_dd > recovery_threshold or market_ok:
         # PLAIN ENGLISH: resume when the account recovered OR the market is
@@ -4492,13 +4545,19 @@ def _emergency_liquidate(broker: AlpacaBroker) -> dict:
     # every ticker inside one attempt remains idempotent. This avoids reusing a
     # cancelled ID when the guard retries later in the same daily run.
     attempt = 1
+    # PLAIN ENGLISH: when a halt is already active, keep its ORIGINAL start
+    # time.  While the account stays halted, the daily run repeats this
+    # sell-off; re-stamping the time on every repeat would restart the
+    # waiting clock each day, so the halt could never clear.
+    original_halt_time = None
     if _HALT_SENTINEL_FILE.exists():
         try:
-            _, previous_state = _read_halt_sentinel()
+            original_halt_time, previous_state = _read_halt_sentinel()
             previous_liquidation = previous_state.get("liquidation", {})
             attempt = int(previous_liquidation.get("attempt", 0) or 0) + 1
         except (OSError, ValueError, IndexError, KeyError, json.JSONDecodeError, TypeError):
             attempt = 1
+            original_halt_time = None
 
     cancelled = broker.cancel_all_orders()
     cancel_verified = bool(cancelled)
@@ -4555,7 +4614,7 @@ def _emergency_liquidate(broker: AlpacaBroker) -> dict:
         "errors": errors,
         "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
-    _write_halt_sentinel(liquidation=liquidation)
+    _write_halt_sentinel(triggered_at=original_halt_time, liquidation=liquidation)
     complete = not errors
     label = "complete" if complete else "incomplete"
     print(f"  {'✓' if complete else '⚠'} Halt recovery lock written ({label}): {_HALT_SENTINEL_FILE}")

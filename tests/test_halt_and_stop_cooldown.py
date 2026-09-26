@@ -72,6 +72,71 @@ def test_halt_stays_if_restart_point_cannot_be_recorded(monkeypatch, tmp_path):
     assert sentinel.exists()
 
 
+# ── H2 tightening: minimum wait before a market-based restart ──────────────
+# The halt in _halt() fired on Tuesday 2026-05-12.
+
+def test_market_restart_waits_minimum_sessions_after_halt(monkeypatch, tmp_path):
+    # Thursday: only 2 sessions (Wed, Thu) since the halt.  The slow regime
+    # signal may still read risk_on right after a crash, so no restart yet.
+    sentinel = _halt(tmp_path, monkeypatch)
+    monkeypatch.setattr(apt, "check_portfolio_drawdown", lambda _broker: (False, -0.10))
+    monkeypatch.setattr(apt, "_market_recovered_for_halt", lambda: (True, "regime_risk_on"))
+
+    thursday = datetime(2026, 5, 14, 14, 0, tzinfo=timezone.utc)
+    assert apt._maybe_auto_clear_halt(_flat_broker(88_000.0), now=thursday) is False
+    assert sentinel.exists()
+    assert not (tmp_path / "peak_reset.json").exists()
+
+
+def test_market_restart_allowed_after_minimum_sessions(monkeypatch, tmp_path):
+    # Next Tuesday: 5 sessions (Wed, Thu, Fri, Mon, Tue) have passed.
+    sentinel = _halt(tmp_path, monkeypatch)
+    monkeypatch.setattr(apt, "check_portfolio_drawdown", lambda _broker: (False, -0.10))
+    monkeypatch.setattr(apt, "_market_recovered_for_halt", lambda: (True, "regime_risk_on"))
+
+    tuesday = datetime(2026, 5, 19, 14, 0, tzinfo=timezone.utc)
+    assert apt.HALT_MARKET_RESTART_MIN_SESSIONS == 5
+    assert apt._maybe_auto_clear_halt(_flat_broker(88_000.0), now=tuesday) is True
+    assert not sentinel.exists()
+
+
+def test_account_recovery_path_does_not_wait(monkeypatch, tmp_path):
+    # The minimum wait only applies to the market signal.  A real recovery
+    # of the account itself (better than half the halt level) still clears
+    # from the next day, as before.
+    sentinel = _halt(tmp_path, monkeypatch)
+    monkeypatch.setattr(apt, "check_portfolio_drawdown", lambda _broker: (False, -0.03))
+    monkeypatch.setattr(apt, "_market_recovered_for_halt", lambda: (False, "regime_risk_off"))
+
+    thursday = datetime(2026, 5, 14, 14, 0, tzinfo=timezone.utc)
+    assert apt._maybe_auto_clear_halt(_flat_broker(97_000.0), now=thursday) is True
+    assert not sentinel.exists()
+
+
+def test_session_count_skips_weekends_and_holidays():
+    friday_halt = datetime(2026, 5, 22, 18, 0, tzinfo=timezone.utc)
+    # Memorial Day (Monday 2026-05-25) is an exchange holiday.
+    assert apt._nyse_sessions_since(friday_halt, datetime(2026, 5, 25, 18, 0, tzinfo=timezone.utc)) == 0
+    assert apt._nyse_sessions_since(friday_halt, datetime(2026, 5, 26, 18, 0, tzinfo=timezone.utc)) == 1
+    # Same day, or a clock before the halt, counts nothing.
+    assert apt._nyse_sessions_since(friday_halt, friday_halt) == 0
+
+
+def test_repeated_sell_off_keeps_the_original_halt_time(monkeypatch, tmp_path):
+    # While halted, the daily run repeats the emergency sell-off.  That must
+    # not re-stamp the halt time, or the waiting clock would restart daily.
+    sentinel = _halt(tmp_path, monkeypatch)
+    original_time, _state = apt._read_halt_sentinel(sentinel)
+    broker = SimpleNamespace(cancel_all_orders=lambda: True, get_positions=lambda: [])
+
+    apt._emergency_liquidate(broker)
+
+    halt_time, state = apt._read_halt_sentinel(sentinel)
+    assert halt_time == original_time
+    # The retry itself is still recorded (fresh liquidation state).
+    assert state["liquidation"]["cancel_verified"] is True
+
+
 def test_drawdown_is_measured_from_the_restart_point(monkeypatch, tmp_path):
     equity_file = tmp_path / "equity.csv"
     pd.DataFrame({"date": ["2026-05-01", "2026-05-11", "2026-05-20"],
