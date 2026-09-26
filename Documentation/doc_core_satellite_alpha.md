@@ -305,3 +305,41 @@ Tests: `python -m pytest tests/test_paper_rebalance_calendar.py -q`.
 
 **Key term — rebalance calendar:** the fixed list of days on which the
 strategy is allowed to change what it holds.
+
+## September 2026 fix: core ETFs are bought at the next Open
+
+**The problem:** the signal is computed from the rebalance day's closing
+prices, so a live account can't also trade at that same close. The stocks
+were already bought at the next morning's Open, but the core ETFs (SPY/QQQ)
+were bought at the signal day's own Close. That quietly used information a
+live account can't trade on.
+
+**The fix:** core ETFs are now bought at the next session's Open (plus any
+stress delay), like the stocks. They are held **Open-to-Open** until the next
+rebalance's Open, because a live account keeps holding QQQ overnight and only
+changes the amount at the morning rebalance. Only the last period of a
+window, whose next Open lies beyond the window or the data, is valued at its
+exit Close, so no price after the window is ever read.
+
+- `_etf_open_close_bars` / `_etf_bar_price` read raw Open/Close from
+  `data/<ETF>.parquet`, with no filling. A missing bar is an error.
+- The daily drawdown marks start from the entry Open.
+
+**Effect (same local data, to 2026-09-23):** small, and not in the
+strategy's favour.
+
+| | Old (signal-day Close) | New (next Open, Open-to-Open) |
+|---|---|---|
+| Alpha vs QQQ, full history | +3,280 | +3,342 |
+| 2023–2026 alpha vs QQQ | +66.7 | +67.8 |
+| Max drawdown | −30.1% | −30.2% |
+| Worst stressed drawdown | −33.5% | −33.3% |
+
+The gates still pass. The combined robustness review still passes for
+paper, with the same two paper-advisory stress scenarios.
+
+Tests: `python -m pytest tests/test_etf_next_open_entry.py -q`.
+
+**Key term — Open-to-Open:** a holding is valued from the morning price when
+it was bought to the morning price when it is next changed. That is how a
+position that is simply kept overnight really earns.

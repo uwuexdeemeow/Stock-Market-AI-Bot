@@ -385,3 +385,32 @@ before this change should not be mixed with results after it. The owner
 starts a new epoch after merging (see `doc_alpaca_paper_trading.md`).
 
 Tests: `tests/test_paper_rebalance_calendar.py` (13).
+
+## Follow-up: monitors accept hold days; ETF entry timing fixed (owner request)
+
+**Monitors (a problem H1 would have caused):**
+
+- `broker_truth.py --require-alignment` is a critical daily step. It
+  compared holdings with **today's** targets and failed on any gap above 2%.
+  On H1 hold days the weights drift by design, so most days would have failed.
+- It also always required QQQ/SPY stops, which H1 retired.
+- Now a hold day passes, with the gap reported but not enforced; the
+  rebalance run is still enforced.
+- Stop requirements follow `GUARD_CORE_STOP` / `ALPACA_TRAILING_STOP`.
+- The paper-evidence gate accepts a hold-day pass.
+- Tests: `tests/test_hold_day_monitors.py`.
+- **Owner action:** the local `.env` sets `GUARD_CORE_STOP` and turns core
+  stops back on for local runs. Set it to `0`. GitHub runs are not affected,
+  because the workflow sets it to `0`.
+
+**ETF entry timing (an honest-backtest fix):**
+
+- Core ETFs were bought at the signal day's own Close. They are now bought
+  at the next Open and held Open-to-Open.
+- The results barely change (alpha vs QQQ +3,280 → +3,342; drawdown
+  −30.1% → −30.2%), so the old numbers were not flattered by it.
+- The gates, execution stress, survivorship audit and combined robustness
+  review all still pass for paper.
+- Tests: `tests/test_etf_next_open_entry.py`.
+- **Still open:** stocks are still sold at a close and re-bought at the next
+  open, even when a stock is kept, so they skip one night per period.

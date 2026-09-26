@@ -835,6 +835,62 @@ def _compounded_yearly_alpha(strategy_returns: pd.Series, benchmark_returns: pd.
     return (strategy_year - benchmark_year) * 100.0
 
 
+_ETF_BAR_CACHE: dict[tuple, pd.DataFrame] = {}
+
+
+def _etf_open_close_bars(ticker: str) -> pd.DataFrame:
+    """Raw daily Open/Close for one core ETF, from the local parquet file.
+
+    PLAIN ENGLISH: the backtest buys core ETFs at the next morning's Open,
+    like the stocks, so it needs Opens as well as Closes.  The cache is keyed
+    on the file's size and modified time, so a data refresh is picked up.
+    """
+    path = Path(DATA_DIR) / f"{str(ticker).upper()}.parquet"
+    if not path.exists():
+        raise ValueError(f"ETF price file missing for {ticker}: {path}")
+    stat = path.stat()
+    key = (str(ticker).upper(), stat.st_mtime_ns, stat.st_size)
+    bars = _ETF_BAR_CACHE.get(key)
+    if bars is None:
+        raw = pd.read_parquet(path, columns=["Open", "Close"])
+        index = pd.DatetimeIndex(pd.to_datetime(raw.index))
+        if index.tz is not None:
+            index = index.tz_localize(None)
+        raw.index = index.normalize()
+        bars = raw.loc[~raw.index.duplicated(keep="last")].sort_index().apply(pd.to_numeric, errors="coerce")
+        _ETF_BAR_CACHE[key] = bars
+    return bars
+
+
+def _etf_exit_price(ticker: str, exit_day: pd.Timestamp, end_ts: pd.Timestamp) -> float:
+    """Value of a core ETF holding at the end of a period.
+
+    PLAIN ENGLISH: a live account doesn't sell QQQ at one close and buy it back
+    the next morning; it keeps holding it and changes the amount at the next
+    rebalance's morning Open.  So a period is valued Open-to-Open: until the
+    Open of the session after the exit day.  If that session lies beyond the
+    evaluation window or the data (only the very last period), the exit day's
+    Close is used instead, so no price after the window is ever read.
+    """
+    next_open_day = _session_offset(pd.Timestamp(exit_day), 1)
+    bars = _etf_open_close_bars(ticker)
+    if next_open_day <= pd.Timestamp(end_ts) and next_open_day in bars.index:
+        return _etf_bar_price(ticker, next_open_day, "Open")
+    return _etf_bar_price(ticker, exit_day, "Close")
+
+
+def _etf_bar_price(ticker: str, day: pd.Timestamp, column: str) -> float:
+    """One ETF price (Open or Close) on an exact trading day; never filled."""
+    bars = _etf_open_close_bars(ticker)
+    day = pd.Timestamp(day).normalize()
+    if day not in bars.index:
+        raise ValueError(f"ETF {column} missing for {ticker} on {day.date()}; no filling allowed")
+    value = float(bars.at[day, column])
+    if not np.isfinite(value) or value <= 0:
+        raise ValueError(f"ETF {column} invalid for {ticker} on {day.date()}")
+    return value
+
+
 def _cached_etf_prices(price_index: pd.DatetimeIndex, tickers: list[str]) -> pd.DataFrame:
     """Use the shared source cache, including its refresh and alignment checks."""
     # A second cache here would hide refreshed parquet files from the shared one.
@@ -1590,8 +1646,13 @@ def _intra_period_marks(
     exit_date: pd.Timestamp,
     price_pivots,
     daily_etf_prices,
+    etf_entry_prices: dict[str, float] | None = None,
 ) -> list[tuple[pd.Timestamp, float]]:
     """Account value at each close inside a holding period (not the exit day).
+
+    ``etf_entry_prices`` gives each core ETF's entry price (the Open) on the
+    same scale as ``daily_etf_prices``; without it the entry day's close is
+    used as the base.
 
     PLAIN ENGLISH: the backtest books returns once per 20-day period, which
     hides a crash and rebound inside it.  These daily marks exist only to
@@ -1624,7 +1685,10 @@ def _intra_period_marks(
             if ticker not in daily_etf_prices.columns or base_day not in daily_etf_prices.index:
                 continue
             path = daily_etf_prices[ticker].reindex(dates).ffill()
-            move = (path / float(daily_etf_prices.at[base_day, ticker]) - 1.0)
+            base_price = (etf_entry_prices or {}).get(str(ticker).upper())
+            if base_price is None:
+                base_price = float(daily_etf_prices.at[base_day, ticker])
+            move = (path / float(base_price) - 1.0)
             etf_part = etf_part + float(weight) * move.where(path.index >= base_day, 0.0).fillna(0.0)
     values = float(equity_start) * (1.0 - float(cost) + stock_part + etf_part)
     return [(pd.Timestamp(d), float(v)) for d, v in values.items()]
@@ -1909,7 +1973,14 @@ def run_core_satellite(
         # change).  We use the actual next rebalance date as exit, not the full
         # holding_days.  This prevents double-counting returns across overlapping
         # periods.
-        entry_dt = _session_offset(dt, entry_delay_days)
+        # PLAIN ENGLISH (fix 2026-09-26): the signal uses the rebalance day's
+        # closing prices, so nobody can also trade at that close.  Core ETFs
+        # are bought at the NEXT session's Open (plus any stress delay), the
+        # same as the stocks, and held Open-to-Open until the next
+        # rebalance's Open (see _etf_exit_price).  Before, they were bought at
+        # the signal day's own Close, which quietly used information a live
+        # account can't trade on.
+        entry_dt = _session_offset(dt, 1 + entry_delay_days)
         exit_dt = core_exits[dt]
         factor_ret = 0.0
         max_sector_weight = 0.0
@@ -1957,13 +2028,19 @@ def run_core_satellite(
 
         core_component_ret = 0.0
         etf_period_returns: dict[str, float] = {}
+        # Entry Open expressed on the daily-mark price scale (for drawdown).
+        etf_entry_marks: dict[str, float] = {}
         for ticker, weight in core_weights.items():
             ticker = str(ticker).upper()
             if ticker not in etf_prices.columns:
                 continue
-            etf_ret = float(etf_prices.loc[exit_dt, ticker] / etf_prices.loc[entry_dt, ticker] - 1.0)
+            entry_open = _etf_bar_price(ticker, entry_dt, "Open")
+            etf_ret = float(_etf_exit_price(ticker, exit_dt, end_ts) / entry_open - 1.0)
             etf_period_returns[ticker] = etf_ret
             core_component_ret += float(weight) * etf_ret
+            if daily_etf_prices is not None and ticker in daily_etf_prices.columns and entry_dt in daily_etf_prices.index:
+                scale = float(daily_etf_prices.at[entry_dt, ticker]) / _etf_bar_price(ticker, entry_dt, "Close")
+                etf_entry_marks[ticker] = entry_open * scale
         core_ret = core_gross * core_component_ret
         strategy_ret = core_ret + factor_ret - cost
         daily_marks.extend(_intra_period_marks(
@@ -1976,6 +2053,7 @@ def run_core_satellite(
             exit_date=exit_dt,
             price_pivots=price_pivots,
             daily_etf_prices=daily_etf_prices,
+            etf_entry_prices=etf_entry_marks,
         ))
         held_weights = _drifted_weights(
             overlay,
