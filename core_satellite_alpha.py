@@ -262,6 +262,7 @@ def _validate_live_feature_inputs(specs: list[dict], signal_panel: pd.DataFrame)
 SENTIMENT_VETO_ENABLED = os.environ.get("CORE_ALPHA_SENTIMENT_VETO", "1").strip().lower() not in {"0", "false", "no"}
 SENTIMENT_VETO_THRESHOLD = -0.25   # compound score below this → vetoed
 SENTIMENT_BOOST_WEIGHT = 0.10      # multiply factor score by (1 + sentiment * this)
+SENTIMENT_VETO_MAX_ROUNDS = 5      # re-check replacements at most this many times
 
 
 def _fetch_live_sentiment(tickers: list[str], timeout_per_ticker: float = 5.0) -> dict[str, float]:
@@ -318,47 +319,46 @@ def _apply_sentiment_veto(
     if not SENTIMENT_VETO_ENABLED or selected.empty:
         return selected, {}
 
-    tickers = selected["ticker"].tolist()
-    # Also fetch sentiment for a few backup candidates in case we need replacements
-    backup_tickers = []
-    ranked_all = day.dropna(subset=[score_col]).copy()
-    ranked_all["_rank"] = ranked_all[score_col].rank(pct=True)
-    ranked_all = ranked_all.sort_values("_rank", ascending=False)
-    for _, row in ranked_all.iterrows():
-        t = str(row["ticker"])
-        if t not in tickers and len(backup_tickers) < 3:
-            backup_tickers.append(t)
-
-    print(f"  Fetching sentiment for {len(tickers)} selected + {len(backup_tickers)} backup tickers...")
-    sentiments = _fetch_live_sentiment(tickers + backup_tickers)
-
-    # Report sentiment scores
-    vetoed = []
-    for t in tickers:
-        score = sentiments.get(t, 0.0)
-        status = "✗ VETO" if score < SENTIMENT_VETO_THRESHOLD else "✓ OK"
-        print(f"    {t:6s} sentiment={score:+.3f}  {status}")
-        if score < SENTIMENT_VETO_THRESHOLD:
-            vetoed.append(t)
-
-    if not vetoed:
-        return selected, sentiments
-
-    # Remove vetoed stocks and re-select to fill spots
-    print(f"  ⚠ Vetoed {len(vetoed)} stocks: {', '.join(vetoed)}")
-    # Mark vetoed tickers in day so they won't be re-selected
-    day_filtered = day[~day["ticker"].isin(vetoed)].copy()
-    new_selected = _select_sticky_holdings(
-        day_filtered,
-        set(t for t in tickers if t not in vetoed),  # keep non-vetoed as "held"
-        score_col=score_col,
-        return_col=None,
-        shape=shape,
-        exit_rank_floor=exit_rank_floor,
-        max_per_sector=max_per_sector,
-        earnings_blackout_days=earnings_blackout_days,
-    )
-    return new_selected, sentiments
+    original = [str(t) for t in selected["ticker"].tolist()]
+    sentiments: dict[str, float] = {}
+    vetoed: set[str] = set()
+    current = selected
+    # PLAIN ENGLISH: every stock that ends up selected must pass the news
+    # check, replacements included.  (Before, backup scores were fetched but
+    # never used, so a replacement with terrible news could still be bought.)
+    # Each round scores the new names, vetoes bad ones and re-selects.
+    for _round in range(SENTIMENT_VETO_MAX_ROUNDS):
+        names = [str(t) for t in current["ticker"].tolist()]
+        unscored = [t for t in names if t not in sentiments]
+        if unscored:
+            print(f"  Fetching sentiment for {len(unscored)} tickers...")
+            sentiments.update(_fetch_live_sentiment(unscored))
+        for t in unscored:
+            score = sentiments.get(t, 0.0)
+            status = "✗ VETO" if score < SENTIMENT_VETO_THRESHOLD else "✓ OK"
+            print(f"    {t:6s} sentiment={score:+.3f}  {status}")
+        new_vetoes = {t for t in names if sentiments.get(t, 0.0) < SENTIMENT_VETO_THRESHOLD}
+        if not new_vetoes:
+            return current, sentiments
+        vetoed |= new_vetoes
+        print(f"  ⚠ Vetoed {len(new_vetoes)} stocks: {', '.join(sorted(new_vetoes))}")
+        current = _select_sticky_holdings(
+            day[~day["ticker"].isin(vetoed)].copy(),
+            set(t for t in original if t not in vetoed),  # keep non-vetoed picks as "held"
+            score_col=score_col,
+            return_col=None,
+            shape=shape,
+            exit_rank_floor=exit_rank_floor,
+            max_per_sector=max_per_sector,
+            earnings_blackout_days=earnings_blackout_days,
+        )
+    # Out of rounds: never keep a name that is unchecked or vetoed.
+    names = [str(t) for t in current["ticker"].tolist()]
+    unscored = [t for t in names if t not in sentiments]
+    if unscored:
+        sentiments.update(_fetch_live_sentiment(unscored))
+    keep = [t for t in names if sentiments.get(t, 0.0) >= SENTIMENT_VETO_THRESHOLD]
+    return current[current["ticker"].astype(str).isin(keep)], sentiments
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -929,9 +929,18 @@ def _nyse_calendar(start_year: int, end_year: int):
     return xcals.get_calendar("XNYS", start=f"{start_year}-01-01", end=f"{end_year}-12-31")
 
 
+# PLAIN ENGLISH: building an exchange calendar is slow (about 0.25 s), so
+# one wide calendar is built once and reused.  Narrow per-call year ranges
+# used to rebuild it hundreds of times in a single backtest.
+_CALENDAR_FIRST_YEAR = 1995
+_CALENDAR_LAST_YEAR = 2035
+
+
 def _nyse_sessions(start, end) -> pd.DatetimeIndex:
     """Use exchange trading days; ordinary weekdays include market holidays."""
-    calendar = _nyse_calendar(pd.Timestamp(start).year - 1, pd.Timestamp(end).year + 1)
+    first = min(_CALENDAR_FIRST_YEAR, pd.Timestamp(start).year - 1)
+    last = max(_CALENDAR_LAST_YEAR, pd.Timestamp(end).year + 1)
+    calendar = _nyse_calendar(first, last)
     return calendar.sessions_in_range(pd.Timestamp(start), pd.Timestamp(end)).tz_localize(None)
 
 
@@ -1483,6 +1492,144 @@ def _exit_floor_for_regime(config: dict, regime: str) -> float:
     return base
 
 
+# PLAIN ENGLISH: one-way cost of trading a big ETF (SPY/QQQ).  Their bid-ask
+# spread is about 1 bp, so 2 bps is a cautious estimate.  Stocks keep the
+# calibrated cost from execution_cost_calibration.py.  Both are multiplied by
+# the same cost-stress factor.
+ETF_TURNOVER_COST_PCT = 0.0002
+
+
+def _core_target_weights(core_gross: float, core_weights: dict, etf_tickers) -> pd.Series:
+    """Account-level ETF target weights (core gross times the core mix)."""
+    allowed = {str(t).upper() for t in etf_tickers}
+    values = {
+        str(t).upper(): float(core_gross) * float(w)
+        for t, w in (core_weights or {}).items()
+        if str(t).upper() in allowed and abs(float(w)) > 0.0
+    }
+    return pd.Series(values, dtype=float)
+
+
+def _rebalance_trades(held: pd.Series, overlay: pd.Series, core_target: pd.Series) -> tuple[float, float]:
+    """Weight actually traded, (stocks, ETFs), to move from holdings to targets.
+
+    `held` is what the account holds after prices moved since the last
+    rebalance, as weights of equity.  Buying from cash counts too, so the
+    first rebalance pays for the initial ETF and stock purchases.
+    """
+    etf_names = set(core_target.index)
+    held = held if held is not None else pd.Series(dtype=float)
+    held_etf = held[held.index.isin(etf_names) | held.index.isin(STICKY_STATE_EXCLUDED_TICKERS)]
+    held_stock = held[~held.index.isin(held_etf.index)]
+    stock = pd.concat([held_stock.rename("held"), overlay.rename("target")], axis=1).fillna(0.0)
+    etf = pd.concat([held_etf.rename("held"), core_target.rename("target")], axis=1).fillna(0.0)
+    return (
+        float((stock["target"] - stock["held"]).abs().sum()),
+        float((etf["target"] - etf["held"]).abs().sum()),
+    )
+
+
+def _drifted_weights(
+    overlay: pd.Series,
+    stock_returns: pd.Series,
+    core_target: pd.Series,
+    etf_returns: dict,
+    strategy_ret: float,
+) -> pd.Series:
+    """Weights at the end of a period, after each holding's own price move."""
+    values: dict[str, float] = {}
+    for ticker, weight in overlay.items():
+        values[str(ticker)] = float(weight) * (1.0 + float(stock_returns.get(ticker, 0.0)))
+    for ticker, weight in core_target.items():
+        values[str(ticker)] = float(weight) * (1.0 + float(etf_returns.get(ticker, 0.0)))
+    growth = 1.0 + float(strategy_ret)
+    if growth <= 0 or not values:
+        return pd.Series(dtype=float)
+    return pd.Series(values, dtype=float) / growth
+
+
+def _max_drawdown_pct(equity: pd.Series) -> float:
+    values = pd.to_numeric(equity, errors="coerce").dropna()
+    if values.empty:
+        return 0.0
+    return float((values / values.cummax() - 1.0).min() * 100.0)
+
+
+_PANEL_PRICE_CACHE: _collections.OrderedDict[
+    int, tuple[_weakref.ReferenceType[pd.DataFrame], tuple[pd.DataFrame, pd.DataFrame] | None]
+] = _collections.OrderedDict()
+
+
+def _panel_price_pivots(panel: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame] | None:
+    """(Open, Close) tables with dates as rows and tickers as columns, cached per panel."""
+    key = id(panel)
+    cached = _PANEL_PRICE_CACHE.get(key)
+    if cached is not None and cached[0]() is panel:
+        return cached[1]
+    pivots = None
+    if {"Open", "Close", "date", "ticker"}.issubset(panel.columns):
+        prices = panel[["date", "ticker", "Open", "Close"]].drop_duplicates(["date", "ticker"], keep="last")
+        pivots = (
+            prices.pivot(index="date", columns="ticker", values="Open").sort_index(),
+            prices.pivot(index="date", columns="ticker", values="Close").sort_index().ffill(),
+        )
+    _PANEL_PRICE_CACHE[key] = (_weakref.ref(panel), pivots)
+    while len(_PANEL_PRICE_CACHE) > _MAX_PANEL_DAY_ENTRIES:
+        _PANEL_PRICE_CACHE.popitem(last=False)
+    return pivots
+
+
+def _intra_period_marks(
+    *,
+    equity_start: float,
+    cost: float,
+    overlay: pd.Series,
+    stock_entry_date: pd.Timestamp,
+    core_target: pd.Series,
+    etf_entry_date: pd.Timestamp,
+    exit_date: pd.Timestamp,
+    price_pivots,
+    daily_etf_prices,
+) -> list[tuple[pd.Timestamp, float]]:
+    """Account value at each close inside a holding period (not the exit day).
+
+    PLAIN ENGLISH: the backtest books returns once per 20-day period, which
+    hides a crash and rebound inside it.  These daily marks exist only to
+    measure drawdown; the period's booked return is unchanged.
+    """
+    marks: list[tuple[pd.Timestamp, float]] = []
+    start = min(pd.Timestamp(stock_entry_date), pd.Timestamp(etf_entry_date))
+    dates = _nyse_sessions(start, exit_date)
+    dates = dates[dates < pd.Timestamp(exit_date)]
+    if dates.empty:
+        return marks
+    stock_part = pd.Series(0.0, index=dates)
+    if price_pivots is not None and not overlay.empty:
+        opens, closes = price_pivots
+        entry = pd.Timestamp(stock_entry_date)
+        for ticker, weight in overlay.items():
+            if ticker not in closes.columns or entry not in opens.index:
+                continue
+            entry_price = opens.at[entry, ticker]
+            if not np.isfinite(entry_price) or entry_price <= 0:
+                continue
+            path = closes[ticker].reindex(dates).ffill()
+            held_days = path.index >= entry
+            move = (path / entry_price - 1.0).where(held_days, 0.0).fillna(0.0)
+            stock_part = stock_part + float(weight) * move
+    etf_part = pd.Series(0.0, index=dates)
+    if daily_etf_prices is not None and not core_target.empty:
+        base_day = pd.Timestamp(etf_entry_date)
+        for ticker, weight in core_target.items():
+            if ticker not in daily_etf_prices.columns or base_day not in daily_etf_prices.index:
+                continue
+            path = daily_etf_prices[ticker].reindex(dates).ffill()
+            move = (path / float(daily_etf_prices.at[base_day, ticker]) - 1.0)
+            etf_part = etf_part + float(weight) * move.where(path.index >= base_day, 0.0).fillna(0.0)
+    values = float(equity_start) * (1.0 - float(cost) + stock_part + etf_part)
+    return [(pd.Timestamp(d), float(v)) for d, v in values.items()]
+
+
 def run_core_satellite(
     panel: pd.DataFrame,
     config: dict,
@@ -1581,6 +1728,20 @@ def run_core_satellite(
     etf_tickers = _core_tickers_for_config(config)
     etf_prices = _cached_etf_prices(price_index, etf_tickers)
     day_map = _panel_day_map(panel)
+    # PLAIN ENGLISH (audit M3/M4): track what the account really holds after
+    # prices move, so trades are costed from actual holdings (ETFs included),
+    # and mark the account every trading day for an honest drawdown.
+    held_weights = pd.Series(dtype=float)
+    portfolio_turnover_total = 0.0
+    etf_turnover_total = 0.0
+    daily_marks: list[tuple[pd.Timestamp, float]] = []
+    price_pivots = _panel_price_pivots(panel)
+    daily_etf_prices = None
+    if etf_tickers:
+        daily_etf_prices = _cached_etf_prices(
+            _nyse_sessions(rebalance_dates.min(), max(exit_dates.max(), rebalance_dates.max())),
+            etf_tickers,
+        )
 
     equity = INITIAL_CAPITAL
     held: set[str] = set()
@@ -1723,12 +1884,23 @@ def run_core_satellite(
         overlay_gross = float(overlay.abs().sum())
         held = set(overlay.index.astype(str))
 
+        # `turnover` keeps its old meaning (change in stock TARGET weights);
+        # walk-forward turnover gates read it.  Costs use real trades below.
         aligned = pd.concat([prev_overlay.rename("prev"), overlay.rename("now")], axis=1).fillna(0.0)
         turnover = float((aligned["now"] - aligned["prev"]).abs().sum())
-        extra_cost = turnover * float(config.get("extra_turnover_cost_bps", 0.0)) / 10_000.0
+        core_target = _core_target_weights(core_gross, core_weights, etf_tickers)
+        stock_trade, etf_trade = _rebalance_trades(held_weights, overlay, core_target)
+        cost_stress = float(config.get("cost_stress", COST_STRESS_MULTIPLIERS[0]))
+        extra_cost = (stock_trade + etf_trade) * float(config.get("extra_turnover_cost_bps", 0.0)) / 10_000.0
         base_turnover_cost = calibrated_turnover_cost_pct()
-        cost = turnover * base_turnover_cost * float(config.get("cost_stress", COST_STRESS_MULTIPLIERS[0])) + extra_cost
+        cost = (
+            stock_trade * base_turnover_cost * cost_stress
+            + etf_trade * ETF_TURNOVER_COST_PCT * cost_stress
+            + extra_cost
+        )
         total_turnover += turnover
+        portfolio_turnover_total += stock_trade + etf_trade
+        etf_turnover_total += etf_trade
         total_cost += cost
 
         # ── Compute exit date and holding period scaling ────────────────
@@ -1784,14 +1956,34 @@ def run_core_satellite(
             effective_overlay_names = float(1.0 / max(float((norm_w ** 2).sum()), 1e-9))
 
         core_component_ret = 0.0
+        etf_period_returns: dict[str, float] = {}
         for ticker, weight in core_weights.items():
             ticker = str(ticker).upper()
             if ticker not in etf_prices.columns:
                 continue
             etf_ret = float(etf_prices.loc[exit_dt, ticker] / etf_prices.loc[entry_dt, ticker] - 1.0)
+            etf_period_returns[ticker] = etf_ret
             core_component_ret += float(weight) * etf_ret
         core_ret = core_gross * core_component_ret
         strategy_ret = core_ret + factor_ret - cost
+        daily_marks.extend(_intra_period_marks(
+            equity_start=equity,
+            cost=cost,
+            overlay=overlay,
+            stock_entry_date=_session_offset(dt, 1 + entry_delay_days),
+            core_target=core_target,
+            etf_entry_date=entry_dt,
+            exit_date=exit_dt,
+            price_pivots=price_pivots,
+            daily_etf_prices=daily_etf_prices,
+        ))
+        held_weights = _drifted_weights(
+            overlay,
+            ticker_returns if not overlay.empty else pd.Series(dtype=float),
+            core_target,
+            etf_period_returns,
+            strategy_ret,
+        )
         equity *= 1.0 + strategy_ret
         # Track returns for vol targeting (add BEFORE updating peak)
         recent_returns.append(strategy_ret)
@@ -1840,6 +2032,13 @@ def run_core_satellite(
         prev_overlay = overlay
 
     equity_series = pd.DataFrame(rows).drop_duplicates("date").set_index("date")["equity"].sort_index()
+    daily_equity = pd.concat([
+        pd.Series(dict(daily_marks), dtype=float),
+        equity_series,
+    ])
+    daily_equity = daily_equity[~daily_equity.index.duplicated(keep="last")].sort_index()
+    # Carried on the equity series so callers can slice it to their window.
+    equity_series.attrs["daily_equity"] = daily_equity
     trades = pd.DataFrame(trade_rows)
     positive_contrib = {k: v for k, v in ticker_contrib.items() if v > 0}
     positive_contrib_sum = sum(positive_contrib.values())
@@ -1850,6 +2049,9 @@ def run_core_satellite(
         top_ticker, top_ticker_share = "", 1.0
     extra = {
         "turnover_pct": round(total_turnover * 100.0, 2),
+        "portfolio_turnover_pct": round(portfolio_turnover_total * 100.0, 2),
+        "etf_turnover_pct": round(etf_turnover_total * 100.0, 2),
+        "daily_max_drawdown_pct": round(_max_drawdown_pct(daily_equity), 2),
         "estimated_cost_pct": round(total_cost * 100.0, 4),
         "avg_gross_exposure": round(float(trades["gross_exposure"].mean()), 3) if not trades.empty else 0.0,
         "avg_overlay_positions": round(float(trades["n_overlay_positions"].mean()), 2) if not trades.empty else 0.0,
@@ -1879,6 +2081,11 @@ def evaluate(panel: pd.DataFrame, config: dict) -> tuple[dict, pd.Series, pd.Dat
     equity, trades, extra = run_core_satellite(panel, config)
     periods_per_year = 252.0 / int(config.get("holding_days", HORIZON_DAYS))
     stats = portfolio_stats(equity, periods_per_year)
+    # Audit M4: drawdown from daily marks, not only the 20-day points.
+    stats["period_max_drawdown_pct"] = stats["max_drawdown_pct"]
+    daily_equity = equity.attrs.get("daily_equity")
+    if daily_equity is not None and len(daily_equity):
+        stats["max_drawdown_pct"] = round(min(stats["max_drawdown_pct"], _max_drawdown_pct(daily_equity)), 2)
     bench = benchmark_equity(pd.DatetimeIndex(equity.index))
     bench_stats = {symbol: portfolio_stats(bench[symbol], periods_per_year) for symbol in bench.columns}
     comps = compare_to_benchmarks(equity, bench)

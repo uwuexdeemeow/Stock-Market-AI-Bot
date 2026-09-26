@@ -114,7 +114,7 @@ policy.
 
 ## Medium
 
-### M1. Sentiment veto: replacements are never checked, and it was never tested
+### M1. Sentiment veto: replacements are never checked, and it was never tested — FIXED (see below)
 
 - **Unchecked replacements:** `_apply_sentiment_veto`
   (`core_satellite_alpha.py:299`) downloads news scores for 3 backup stocks
@@ -128,7 +128,7 @@ policy.
   off (`CORE_ALPHA_SENTIMENT_VETO=0` in the workflow) until it has
   backtest evidence.
 
-### M2. Trading cost is measured in a way that always looks close to zero
+### M2. Trading cost is measured in a way that always looks close to zero — FIXED (see below)
 
 - **The measure used:** `slippage_bps` compares each fill with the average
   price of the **same minute** the order filled
@@ -143,7 +143,7 @@ policy.
   calibrate from `arrival_shortfall_bps`. Also measure the gap between the
   backtest's assumed price (the next open) and the real fill.
 
-### M3. ETF trades cost nothing in the backtest (September #3, still open)
+### M3. ETF trades cost nothing in the backtest (September #3, still open) — FIXED (see below)
 
 - **What is charged:** turnover counts only stock-overlay weight changes
   (`core_satellite_alpha.py:1727`). Moving money between QQQ, SPY and cash,
@@ -151,7 +151,7 @@ policy.
 - **Why it's bigger live:** because of H1, the paper account makes these ETF
   trades more often than the backtest assumes.
 
-### M4. Drawdown is only measured every 20 days (September #5, still open)
+### M4. Drawdown is only measured every 20 days (September #5, still open) — FIXED (see below)
 
 - **Where:** `portfolio_stats` (`alpha_factor_backtest.py:615`) works on
   equity points spaced 20 days apart, so drops between those points are
@@ -170,7 +170,7 @@ policy.
   the future through the feature choice. The bake-off's idea B re-chooses
   features per year for exactly this reason.
 
-### M6. Missing numbers pass approval checks
+### M6. Missing numbers pass approval checks — FIXED (see below)
 
 `float(x or 0.0)` turns a missing value into 0, and 0 passes:
 
@@ -299,3 +299,28 @@ workflow. Each GitHub run starts on a fresh machine, so:
 `tests/test_core_satellite_live_signal.py` (end-to-end signal test, which fails
 on the old code). Two halt tests in `tests/test_brokers.py` now also pin the
 market check and give the fake broker an equity value.
+
+## Follow-up: medium items fixed (owner request, same day)
+
+| Item | Fix |
+|---|---|
+| M1 | The news veto re-checks every replacement (up to 5 rounds); a name that can't pass is dropped. The veto is still live-only. |
+| M2 | Cost calibration uses arrival shortfall (the fill-minute measure is kept only for old fills). Stop exits are excluded, and "ready" counts the same fills. |
+| M3 | The engine costs real trades from drifted holdings, ETFs included (2 bps one way), plus the purchases at the first rebalance. `turnover_pct` keeps its old meaning for the gates; `portfolio_turnover_pct` and `etf_turnover_pct` are new. |
+| M4 | Daily marks inside each period. `max_drawdown_pct` is now the daily figure (the worse of the two), in `evaluate()` and in walk-forward folds. |
+| M6 | Missing uplift or drawdown values block approval (walk-forward) and fail the stress and survivorship reviews. |
+| — | Exchange-calendar reuse makes an engine run about twice as fast. |
+
+**M5 is not fixed.** Choosing features inside each fold needs the feature
+shortlist, directions and health weights rebuilt per fold. That is a
+research redesign, like H1. The bake-off's idea B already does it for one
+candidate.
+
+**Watch after merging:** the daily run recomputes the stress reports with
+the new costs and the daily drawdown. Every drawdown will be deeper than
+before. If any stress scenario's daily drawdown is worse than −35%, the
+execution-stress review fails and paper orders stop. That would be a true
+reading the old number hid. Running `python core_satellite_execution_stress.py`
+on the project computer before merging shows this in advance.
+
+Tests: `tests/test_audit_medium_fixes.py`. Full suite 878 passed, 9 skipped.

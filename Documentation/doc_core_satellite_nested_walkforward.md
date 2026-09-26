@@ -268,3 +268,11 @@ Use the run command and inputs described above as before. Expected output is the
 Use python core_satellite_nested_walkforward.py --corrected-shadow-spec corrected_shadow_spec.json to enter the corrected runner before loading a global feature shortlist. Inner training fits feature selection, direction and health weights; actual label endpoints purge unfinished training outcomes. Each outer fold receives a frozen artifact and starts its ledger in cash. See doc_corrected_audit.md for raw-source requirements, immutable trial outputs and separate selected-configuration stress checks. Corrected and legacy accounting identities are distinct; old checkpoints cannot certify corrected results. The legacy default remains for the current paper workflow and carries no corrected-accounting claim.
 
 Historical results affected by these changes must be regenerated. Original audit evidence is preserved; no corrected historical claim is made when source checks are blocked.
+
+## September 2026 fixes (audit M4, M6)
+
+- **Missing numbers block approval.** A missing selector uplift or out-of-sample
+  drawdown now blocks approval with a `*_missing` reason. Before, `None`
+  became 0, which passed.
+- **Daily drawdown.** Each fold's `max_drawdown_pct` includes the daily
+  marks inside holding periods; the old value is `period_max_drawdown_pct`.

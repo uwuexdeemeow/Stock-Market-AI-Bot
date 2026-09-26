@@ -1188,6 +1188,14 @@ def evaluate_window(panel: pd.DataFrame, config: dict, start: pd.Timestamp, end:
 
         periods_per_year = 252.0 / int(config.get("holding_days", 10))
         stats = portfolio_stats(window, periods_per_year)
+        # Audit M4: drawdown also counts the daily marks inside each period.
+        stats["period_max_drawdown_pct"] = stats["max_drawdown_pct"]
+        daily_equity = getattr(equity, "attrs", {}).get("daily_equity")
+        if daily_equity is not None and len(daily_equity):
+            daily_window = daily_equity.loc[(daily_equity.index >= start_ts) & (daily_equity.index <= end_ts)]
+            if len(daily_window):
+                daily_dd = float((daily_window / daily_window.cummax() - 1.0).min() * 100.0)
+                stats["max_drawdown_pct"] = round(min(stats["max_drawdown_pct"], daily_dd), 2)
         # Use cached benchmark instead of benchmark_equity() — avoids
         # re-reading SPY/QQQ parquet from disk on every call.
         bench = _get_cached_bench_raw(pd.DatetimeIndex(window.index))
@@ -1576,8 +1584,16 @@ def approval_status(result: dict) -> dict:
     # ── Drawdown gates (new) ────────────────────────────────────────────────
     # Drawdowns are negative percentages (e.g. -20.4%).  Gate fires when the
     # value is MORE negative than the threshold.
-    mean_dd = float(result.get("mean_oos_max_drawdown_pct", 0.0) or 0.0)
-    worst_dd = float(result.get("worst_oos_max_drawdown_pct", 0.0) or 0.0)
+    # PLAIN ENGLISH: a missing number must block approval.  `x or 0.0` used
+    # to turn a missing drawdown into 0%, which passed every drawdown gate.
+    mean_dd = _approval_number(result.get("mean_oos_max_drawdown_pct"))
+    worst_dd = _approval_number(result.get("worst_oos_max_drawdown_pct"))
+    if mean_dd is None:
+        reasons.append("mean_oos_drawdown_missing")
+        mean_dd = 0.0
+    if worst_dd is None:
+        reasons.append("worst_oos_drawdown_missing")
+        worst_dd = 0.0
     if mean_dd < thresholds["max_mean_oos_drawdown_pct"]:
         reasons.append(
             f"mean_oos_drawdown={mean_dd:.1f}%<{thresholds['max_mean_oos_drawdown_pct']:.0f}%"
@@ -1649,11 +1665,16 @@ def approval_status(result: dict) -> dict:
     if not bool(result.get("frozen_baseline_available", False)):
         reasons.append("frozen_factor_baseline_missing")
     elif not fixed_incumbent:
-        sharpe_uplift = float(result.get("selector_sharpe_uplift_vs_baseline", -999.0) or 0.0)
-        alpha_hit_uplift = float(result.get("selector_alpha_hit_uplift_vs_baseline", -999.0) or 0.0)
-        if sharpe_uplift < thresholds["min_selector_sharpe_uplift"]:
+        # A missing uplift used to read as 0.0 and pass (">= 0"); it now blocks.
+        sharpe_uplift = _approval_number(result.get("selector_sharpe_uplift_vs_baseline"))
+        alpha_hit_uplift = _approval_number(result.get("selector_alpha_hit_uplift_vs_baseline"))
+        if sharpe_uplift is None:
+            reasons.append("selector_sharpe_uplift_missing")
+        elif sharpe_uplift < thresholds["min_selector_sharpe_uplift"]:
             reasons.append(f"selector_sharpe_uplift={sharpe_uplift:.3f}<0")
-        if alpha_hit_uplift < thresholds["min_selector_alpha_hit_uplift"]:
+        if alpha_hit_uplift is None:
+            reasons.append("selector_alpha_hit_uplift_missing")
+        elif alpha_hit_uplift < thresholds["min_selector_alpha_hit_uplift"]:
             reasons.append(f"selector_alpha_hit_uplift={alpha_hit_uplift:.3f}<0")
 
     # ── TQQQ-only: worst single-fold return ─────────────────────────────────
@@ -1667,6 +1688,15 @@ def approval_status(result: dict) -> dict:
             )
 
     return {"approved": not reasons, "reasons": reasons, "thresholds": thresholds, "warnings": warnings}
+
+
+def _approval_number(value: object) -> float | None:
+    """A finite number, or None when the value is missing or not a number."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if np.isfinite(number) else None
 
 
 def _read_json(path: Path) -> dict:
