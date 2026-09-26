@@ -440,6 +440,28 @@ that the 5% SPY/QQQ trailing stops cut 2013–2022 alpha vs QQQ from +468 to
 run cancels any core ETF stop still open on the account, so an old stop can't
 sell mid-period or block a rebalance sell.
 
+**Stock trailing stops retired:** the pre-registered test H-edge found that
+the 8% stock trailing stop fires on about half of all stock positions and cuts
+2013–2022 alpha vs QQQ from +468 to +9 points. `TRAILING_STOP_ENABLED` now
+defaults to off (`ALPACA_TRAILING_STOP=0` in the daily workflow too). Each
+`--submit` run cancels any stock stop still open on the account
+(`_cancel_retired_overlay_stops`). The stop-loss cooldown (H3) stays in the
+code but has nothing to act on while stops are off.
+
+**New evidence period (owner step after merging):** the trading rules
+changed, so paper results from before and after must not be judged as one
+experiment. On the project computer, after `git pull` and with a clean
+working tree:
+
+```bash
+python paper_validation_epoch.py --invalidate-current --reason h1_tested_calendar_no_stops
+python paper_validation_epoch.py --check-lock
+```
+
+Then commit and push what it changed. The first daily run afterwards has no
+`paper_rebalance_period.json`, so it rebalances once onto the current
+period's targets, then holds until the next scheduled date.
+
 Tests: `python -m pytest tests/test_paper_rebalance_calendar.py -q`.
 
 **Key term — hold day:** a day inside a 20-day period after the rebalance.

@@ -291,6 +291,9 @@ jobs:
           ALPACA_EXECUTION_RISK_HIGH_BUY_SCALE=0.50
           # Experimental ATR/vol sizing stays off until separate OOS proof.
           ALPACA_LIVE_RISK_CAP_ENABLED=0
+          # Stock trailing stops are OFF: the pre-registered test H-edge found
+          # an 8% stop cuts 2013-2022 alpha vs QQQ from +468 to +9 points.
+          ALPACA_TRAILING_STOP=0
           ALPACA_OVERLAY_STOP_MODE=trailing
           ALPACA_ENABLE_EXPERIMENTAL_ATR_STOPS=0
           ALPACA_EXECUTION_SCORECARD_THROTTLE=1

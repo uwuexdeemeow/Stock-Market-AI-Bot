@@ -101,7 +101,12 @@ LIVE_RISK_VOL_TARGET = float(os.environ.get("ALPACA_LIVE_RISK_VOL_TARGET", "0.08
 # ETFs (SPY, QQQ, TQQQ) do NOT get trailing stops — they're managed by regime
 # switching which already reduces exposure during downturns.
 
-TRAILING_STOP_ENABLED = os.environ.get("ALPACA_TRAILING_STOP", "1").strip().lower() in {
+# OFF by default since 2026-09-26: the backtest never had these stops, and
+# the pre-registered test H-edge (Documentation/DELAY_STRESS_PAPER_ADVISORY.md)
+# found that an 8% trailing stop fires on about half of all stock positions
+# and cuts 2013-2022 alpha vs QQQ from +468 to +9 points.  Stops left on the
+# account from before are cancelled by _cancel_retired_overlay_stops().
+TRAILING_STOP_ENABLED = os.environ.get("ALPACA_TRAILING_STOP", "0").strip().lower() in {
     "true", "1", "yes", "y", "on"
 }
 # Default 8% trailing stop — matches trade_rules.py take_profit_pct as a
@@ -4686,6 +4691,29 @@ def _record_paper_rebalance(signal, *, path: Path | None = None, now: datetime |
     )
 
 
+def _cancel_retired_overlay_stops(broker: AlpacaBroker) -> list[dict]:
+    """Cancel stock (non-ETF) protective stops left on the account.
+
+    PLAIN ENGLISH: the 8% stock trailing stops are off (see
+    TRAILING_STOP_ENABLED).  Stops placed before that change would still sell
+    a stock mid-period, which the tested strategy never does, so they are
+    cancelled.  Only SELL stop / trailing-stop orders on non-ETF tickers are
+    touched; normal orders and emergency sells are left alone.
+    """
+    actions: list[dict] = []
+    for open_order in list_open_orders(broker):
+        ticker = order_symbol(open_order)
+        if ticker in ETF_TICKERS:
+            continue
+        if order_side(open_order) != "sell" or order_type(open_order) not in {"trailing_stop", "stop"}:
+            continue
+        oid = order_id(open_order)
+        status = "cancelled" if broker.cancel_order(oid) else "failed"
+        actions.append({"ticker": ticker, "qty": order_qty(open_order), "order_id": oid, "status": status})
+        print(f"    {status}: retired stock stop {ticker} qty={order_qty(open_order):g} order={oid[:12]}")
+    return actions
+
+
 def _no_order_day_drawdown_check(broker: AlpacaBroker, *, force: bool = False) -> int | None:
     """Run the drawdown halt on days with no strategy orders.
 
@@ -4881,6 +4909,10 @@ def main():
         )
         if retired:
             print(f"  Cancelled {len(retired)} retired core ETF stop order(s)")
+    if args.submit and not TRAILING_STOP_ENABLED:
+        retired_stock = _cancel_retired_overlay_stops(broker)
+        if retired_stock:
+            print(f"  Cancelled {len(retired_stock)} retired stock stop order(s)")
 
     # ── Tested rebalance calendar (audit fix H1) ────────────────────────
     # PLAIN ENGLISH: trade the strategy only on the backtest's 20-day dates.

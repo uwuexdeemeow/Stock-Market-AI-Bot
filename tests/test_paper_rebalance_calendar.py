@@ -155,6 +155,41 @@ def test_no_order_day_still_fires_the_drawdown_halt(monkeypatch, tmp_path):
     assert fired == [True]
 
 
+def test_stops_are_off_by_default():
+    # Pre-registered H-edge / H-edge-core-stop: both trailing stops dropped.
+    import importlib
+    import os
+    import alpaca_protection
+    saved = {k: os.environ.pop(k, None) for k in ("ALPACA_TRAILING_STOP", "GUARD_CORE_STOP")}
+    try:
+        assert importlib.reload(alpaca_protection).CORE_PROTECTION_ENABLED is False
+        assert importlib.reload(apt).TRAILING_STOP_ENABLED is False
+    finally:
+        for key, value in saved.items():
+            if value is not None:
+                os.environ[key] = value
+        importlib.reload(alpaca_protection)
+        importlib.reload(apt)
+
+
+def test_retired_stock_stops_are_cancelled_but_nothing_else(monkeypatch):
+    orders = [
+        SimpleNamespace(id="s1", symbol="NVDA", side="sell", type="trailing_stop", qty=5),
+        SimpleNamespace(id="s2", symbol="AMD", side="sell", type="stop", qty=3),
+        SimpleNamespace(id="e1", symbol="QQQ", side="sell", type="trailing_stop", qty=9),
+        SimpleNamespace(id="b1", symbol="NVDA", side="buy", type="limit", qty=1),
+        SimpleNamespace(id="l1", symbol="AMD", side="sell", type="limit", qty=1),
+    ]
+    cancelled = []
+    broker = SimpleNamespace(cancel_order=lambda oid: cancelled.append(oid) or True)
+    monkeypatch.setattr(apt, "list_open_orders", lambda _broker: orders)
+
+    actions = apt._cancel_retired_overlay_stops(broker)
+
+    assert cancelled == ["s1", "s2"]
+    assert [a["status"] for a in actions] == ["cancelled", "cancelled"]
+
+
 def test_no_order_day_without_drawdown_does_nothing(monkeypatch, tmp_path):
     monkeypatch.setattr(apt, "_HALT_SENTINEL_FILE", tmp_path / "halt.txt")
     monkeypatch.setattr(apt, "_maybe_auto_clear_halt", lambda broker: False)

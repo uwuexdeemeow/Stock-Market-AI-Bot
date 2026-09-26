@@ -350,3 +350,38 @@ breaker only re-checks every 20 days, so it never had this problem.
 Locked file changed: `alpaca_paper_trading.py`, so the release was re-frozen
 (epoch start kept). Tests: 5 new tests in `tests/test_halt_and_stop_cooldown.py`.
 Full suite 883 passed, 9 skipped.
+
+## Follow-up: H1 fixed (owner request) — paper trades the tested strategy
+
+The owner asked to check the edge first and then fix H1 (option a: the paper
+account follows the tested calendar). The pre-registered edge check
+(H-edge, `DELAY_STRESS_PAPER_ADVISORY.md`) found:
+
+- the edge survives a point-in-time S&P 500 list (it keeps 78%);
+- the strategy beats all 100 random-pick runs;
+- both live trailing stops cost far more return than the drawdown they
+  save: the 8% stock stop cuts alpha from +468 to +9, and the 5% SPY/QQQ stop
+  from +468 to +198.
+
+**What changed (locked files, so the release is re-frozen):**
+
+| Before | After |
+|---|---|
+| Regime and picks re-decided and traded every day | Traded once per 20-day period on the backtest's calendar (catch-up after a failed or blocked run) |
+| Drift trades every day (3% ETFs, 1% stocks) | No strategy trades on hold days |
+| 8% trailing stops on every stock | Off; leftover stops cancelled |
+| 5% trailing stops on SPY/QQQ | Off; leftover stops cancelled |
+| −12% drawdown halt checked only on days with orders | Also checked on days without orders |
+| −8% one-day halt (guard) | Unchanged |
+| News veto | Unchanged (live-only, now only matters on rebalance days) |
+
+**Still different from the backtest:** the news veto, the whole-share
+rounding and drift bands on rebalance days, and the emergency halts. The
+backtest also buys core ETFs at the rebalance day's close, while paper buys
+at the next morning's open.
+
+**New evidence period:** the trading rules changed, so paper results from
+before this change should not be mixed with results after it. The owner
+starts a new epoch after merging (see `doc_alpaca_paper_trading.md`).
+
+Tests: `tests/test_paper_rebalance_calendar.py` (13).
