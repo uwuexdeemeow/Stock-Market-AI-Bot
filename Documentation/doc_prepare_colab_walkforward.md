@@ -7,6 +7,11 @@ includes parquet prices, their provenance manifests, and approved research
 reports. Colab clones the code separately at the exact Git commit recorded in
 the snapshot manifest. Alpaca credentials and broker account logs are excluded.
 
+The snapshot also packs `signals/core_satellite_alpha_metrics.json`. The
+research scripts in `research_evidence/phase_luck_20260926/` load the
+approved incumbent from that file plus the validation bundle. The daily run
+rewrites it, so the copy in Git can be older than the one on this computer.
+
 ## How To Run It
 
 First commit and push the project. Then run:

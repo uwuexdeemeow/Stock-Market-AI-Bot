@@ -29,6 +29,11 @@ SAFE_SIGNAL_INPUTS = (
     "feature_research_summary.csv",
     "core_satellite_live_configs.json",
     "core_satellite_validation_bundle.json",
+    # The research scripts in research_evidence/ read the approved incumbent
+    # through validation_bundle.load_approved_research_config, which compares
+    # this file with the bundle above.  The daily run rewrites it, so the copy
+    # in Git can lag; pack this computer's exact version.
+    "core_satellite_alpha_metrics.json",
 )
 SAFE_LOG_INPUTS = (
     "feature_ic_shortlist.csv",

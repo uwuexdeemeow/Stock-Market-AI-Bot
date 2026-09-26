@@ -20,10 +20,28 @@ small fold batches. It cannot place orders and receives no Alpaca credentials.
    checkpoint resumes completed folds.
 9. Download the final packaged validation results for local review.
 
+## Choosing What To Run
+
+The settings cell has two switches:
+
+- `RUN_WALKFORWARD = True` runs the nested walk-forward (the default).
+- `RUN_PHASE_LUCK = False` controls the optional research cell. Set it to
+  `True` to run the rebalance-day luck diagnostic and the H-tranche preview
+  from `research_evidence/phase_luck_20260926/` (about 6 minutes each). To
+  run only the research, set `RUN_WALKFORWARD = False`.
+
+The snapshot must be made from a commit that contains those scripts;
+otherwise Colab checks out code without them.
+
 ## Outputs
 
 Drive keeps the checkpoint, detailed JSON, yearly CSV, analyzer report, and a
-compressed validation result bundle under `StockBotWalkforward/results/`.
+compressed validation result bundle (`stockbot_colab_result.tar.gz`) in
+`StockBotWalkforward/`.
+
+The research cell saves its own bundle, `stockbot_phase_luck_result.tar.gz`,
+holding `phase_luck.json` and `tranche_preview.json`. It never overwrites the
+walk-forward bundle. Both are research only and approve nothing.
 
 ## Key Terms
 
