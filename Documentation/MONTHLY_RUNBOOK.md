@@ -23,6 +23,8 @@ python refresh_local_research_data.py
 python core_satellite_survivorship_audit.py
 python core_satellite_execution_stress.py
 python core_satellite_drawdown_throttle.py
+#    Advisory (not read by any gate): results across all 20 calendar start days
+python core_satellite_calendar_robustness.py
 
 # ── 3. Regime check (~5 min) ──────────────────────────────────────
 python regime_monitor.py
@@ -83,6 +85,11 @@ The nested walkforward's `live_config_approval` gate calls
 Old JSONs cause the gate to fail with
 `medium_risk_review_failed:<X>_review_missing`.  Refresh these BEFORE
 the walkforward so the gate sees current values.
+
+`core_satellite_calendar_robustness.py` is advisory. It reruns the
+backtest from each of the 20 possible rebalance start days. Judge the
+strategy by the median and worst holdout alpha, not the single live
+calendar. See `Documentation/doc_core_satellite_calendar_robustness.md`.
 
 ### 3. Regime check
 

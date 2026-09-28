@@ -28,7 +28,8 @@ intraday_features.py, alternative_data_features.py
 
 **Robustness / validation**
 alpha_factor_backtest.py,
-core_satellite_drawdown_throttle.py, core_satellite_execution_stress.py,
+core_satellite_calendar_robustness.py, core_satellite_drawdown_throttle.py,
+core_satellite_execution_stress.py,
 core_satellite_survivorship_audit.py, factor_decay_monitor.py,
 feature_health.py, nested_cv.py, regime_monitor.py, robustness_scoring.py,
 survivorship_audit.py, walkforward_analyzer.py
