@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
   "legacy_returns_are_alpha": false,
-  "generated_at": "2026-09-25T19:28:09.130853",
+  "generated_at": "2026-09-28T13:44:49.813282",
   "purpose": "factor_decay_monitor",
   "as_of": "2026-08-18",
   "selected_score_source": "regime_adaptive",
@@ -12,7 +12,7 @@
   "rows": [
     {
       "lookback_days": 60,
-      "daily_ic_mean": 0.10043,
+      "daily_ic_mean": 0.09966,
       "daily_ic_positive_rate": 1.0,
       "daily_ic_newey_west_tstat": 0.0,
       "top_bucket_excess_return_pct": 0.0059,
@@ -22,11 +22,11 @@
       "decile_mean_return_pct": {
         "1": -1.4989,
         "2": -1.6154,
-        "3": -1.2067,
-        "4": 0.6397,
+        "3": -1.1088,
+        "4": 0.5418,
         "5": 2.9272,
-        "6": 1.3484,
-        "7": 0.6912,
+        "6": 1.2201,
+        "7": 0.8195,
         "8": 0.3668,
         "9": 0.5282,
         "10": 0.2165
@@ -46,7 +46,7 @@
     },
     {
       "lookback_days": 120,
-      "daily_ic_mean": 0.09772,
+      "daily_ic_mean": 0.09789,
       "daily_ic_positive_rate": 0.8,
       "daily_ic_newey_west_tstat": 0.0,
       "top_bucket_excess_return_pct": 4.3435,
@@ -56,16 +56,16 @@
       "decile_mean_return_pct": {
         "1": 2.3518,
         "2": 0.1381,
-        "3": -2.2538,
-        "4": -0.3602,
-        "5": 2.047,
-        "6": -0.0465,
-        "7": -0.9361,
+        "3": -2.4905,
+        "4": -0.1235,
+        "5": 1.7184,
+        "6": 0.2051,
+        "7": -0.8592,
         "8": 0.8234,
         "9": 1.2806,
         "10": 4.7184
       },
-      "decile_monotonicity_spearman": 0.2485,
+      "decile_monotonicity_spearman": 0.297,
       "overlay_periods": 5,
       "overlay_return_sum_pct": 16.6692,
       "overlay_hit_rate": 0.8,
@@ -99,8 +99,8 @@
       "risk_control_mode": "off",
       "deployment_max_gross_exposure": 1.0
     },
-    "dataset_fingerprint": "4fcb32dfe85441e537781602714bdb3626aa8689351cefc86b7075b5a2d0b37c",
+    "dataset_fingerprint": "1eb9b7ee91716ba46cbddc6b208cec4de6b542a93a7476700c37e11daee618de",
     "research_manifest_path": "signals/research_run_manifest.json",
-    "git_commit": "6d9f8062d40cb009316c78c6f23ddfbcb462b91b"
+    "git_commit": "0c3a36525c9bf392f1ad916f22b7c7ef01456d94"
   }
 }
