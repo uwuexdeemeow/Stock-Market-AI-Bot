@@ -62,3 +62,16 @@ def test_summary_ranks_usual_calendar_and_counts_losing_calendars():
     assert summary["holdout_alpha_vs_qqq_nonpositive_share"] == 0.5
     assert summary["holdout_alpha_vs_qqq_pct"]["median"] == 15.0
     assert summary["holdout_alpha_vs_qqq_pct"]["min"] == -10.0
+
+
+def test_telegram_message_shows_median_worst_and_live_rank():
+    summary = {
+        "offsets_ok": 19, "offsets_failed": 1,
+        "holdout_alpha_vs_qqq_pct": {"median": 25.85, "min": -71.93, "max": 71.78},
+        "usual_calendar_holdout_alpha_vs_qqq_pct": 58.09, "usual_calendar_holdout_rank": 5,
+        "holdout_alpha_vs_qqq_nonpositive_share": 0.2632,
+        "max_drawdown_pct": {"median": -30.97, "min": -34.08},
+    }
+    text = cal.telegram_message(summary)
+    assert "median 25.85%" in text and "worst -71.93%" in text
+    assert "rank 5 of 19" in text and "not beating QQQ: 26%" in text

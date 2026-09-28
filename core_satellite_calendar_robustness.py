@@ -117,6 +117,22 @@ def summarize(rows: pd.DataFrame) -> dict:
     return summary
 
 
+def telegram_message(summary: dict) -> str:
+    """Short plain-text summary for the weekly Telegram message."""
+    holdout = summary.get("holdout_alpha_vs_qqq_pct", {})
+    drawdown = summary.get("max_drawdown_pct", {})
+    lines = [
+        "Weekly calendar robustness (advisory, no trading effect)",
+        f"Start days run: {summary.get('offsets_ok', 0)} ok, {summary.get('offsets_failed', 0)} failed",
+        f"2023-26 alpha vs QQQ: median {holdout.get('median')}%, worst {holdout.get('min')}%, best {holdout.get('max')}%",
+        f"Live calendar: {summary.get('usual_calendar_holdout_alpha_vs_qqq_pct')}% "
+        f"(rank {summary.get('usual_calendar_holdout_rank')} of {summary.get('offsets_ok', 0)})",
+        f"Calendars not beating QQQ: {round(100 * float(summary.get('holdout_alpha_vs_qqq_nonpositive_share', 0) or 0))}%",
+        f"Max drawdown: median {drawdown.get('median')}%, worst {drawdown.get('min')}%",
+    ]
+    return "\n".join(lines)
+
+
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--candidate-json", default=None,
@@ -125,6 +141,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                         help="Short name for the candidate output files (default: the JSON file name).")
     parser.add_argument("--offsets", type=int, default=None,
                         help="How many start days to try (default: the config's holding_days).")
+    parser.add_argument("--telegram", action="store_true",
+                        help="Also send the summary to Telegram (needs TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID).")
     return parser.parse_args(argv)
 
 
@@ -168,6 +186,11 @@ def main(argv: list[str] | None = None) -> None:
     print()
     for key, value in summary.items():
         print(f"{key}: {value}")
+    if args.telegram:
+        # PLAIN ENGLISH: a failed message must not fail the report itself.
+        from notifications import send_telegram
+        sent = send_telegram(telegram_message(summary), parse_mode="")
+        print(f"Telegram summary sent: {sent}")
 
 
 if __name__ == "__main__":

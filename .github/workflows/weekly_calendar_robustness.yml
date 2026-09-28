@@ -1,0 +1,147 @@
+# ── Weekly Calendar Robustness (advisory) ─────────────────────────────────────
+#
+# PLAIN ENGLISH: once a week, rerun the core-satellite backtest from each of
+# the 20 possible rebalance start days and publish the spread of results.
+# The report is advice for the human reviewer only.  No gate reads it, it
+# never touches the broker, and it never changes the live config.
+#
+# Schedule: Saturday 15:00 UTC, when no paper trading runs.
+# Manual trigger: Actions tab -> "Weekly Calendar Robustness" -> "Run workflow".
+#
+# Outputs published to the signals/latest branch:
+#   logs/core_satellite_calendar_robustness.json / .csv   (latest week)
+#   logs/calendar_robustness_history/YYYY-MM-DD.json      (one per week)
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: Weekly Calendar Robustness
+
+on:
+  schedule:
+    - cron: "0 15 * * 6"
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to push the report to signals/latest
+
+concurrency:
+  # PLAIN ENGLISH: every workflow writing signals/latest takes the same lock.
+  group: signals-latest-publisher
+  cancel-in-progress: false
+
+jobs:
+  calendar-robustness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-ci-${{ hashFiles('requirements-ci.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-ci-
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements-ci.txt
+
+      # PLAIN ENGLISH: use the same checked data snapshot as the daily paper
+      # run, so this report describes the data the strategy actually trades on.
+      # Restore only; this workflow never saves or replaces that cache.
+      - name: Restore checked factor snapshot
+        id: restore_checked_factor_snapshot
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            data/
+            signals/adaptive_factor_weights.json
+            signals/core_satellite_alpha_metrics.json
+            signals/factor_data_health.json
+            signals/factor_decay_monitor.csv
+            signals/feature_quality_report.json
+            signals/feature_quality_summary.csv
+            signals/feature_health_profile.json
+            signals/feature_health_profile.csv
+            signals/feature_research_report.json
+            signals/feature_research_summary.csv
+            signals/research_run_manifest.json
+            signals/robustness_snapshot_status.json
+            logs/feature_ic_shortlist.csv
+            logs/survivorship_audit.json
+            logs/factor_decay_monitor.json
+            logs/core_satellite_execution_stress.json
+            logs/core_satellite_survivorship_audit.json
+          key: checked-factor-snapshot-v1-${{ github.run_id }}
+          restore-keys: |
+            checked-factor-snapshot-v1-
+
+      - name: Require checked factor snapshot
+        shell: bash
+        env:
+          MATCHED_KEY: ${{ steps.restore_checked_factor_snapshot.outputs.cache-matched-key }}
+        run: |
+          if [[ "$MATCHED_KEY" != checked-factor-snapshot-v1-* ]]; then
+            echo "::error::No checked factor snapshot is cached. Run Factor Data Refresh first."
+            exit 1
+          fi
+          echo "Restored checked snapshot: $MATCHED_KEY"
+
+      - name: Run calendar robustness report
+        env:
+          PYTHONUNBUFFERED: "1"
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python3 core_satellite_calendar_robustness.py --telegram
+          # Keep one dated copy per week so the trend can be reviewed later.
+          mkdir -p logs/calendar_robustness_history
+          cp logs/core_satellite_calendar_robustness.json \
+             "logs/calendar_robustness_history/$(date -u +%F).json"
+
+      - name: Upload report artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: calendar-robustness-${{ github.run_number }}
+          retention-days: 90
+          if-no-files-found: ignore
+          path: |
+            logs/core_satellite_calendar_robustness.json
+            logs/core_satellite_calendar_robustness.csv
+
+      - name: Publish report to signals/latest
+        run: |
+          generated_dir="$(mktemp -d)"
+          cp -R logs "$generated_dir/logs"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Move the runner's temporary files aside so Git can switch branches.
+          git stash push --include-untracked --message "calendar robustness output" || true
+          git fetch --quiet origin +signals/latest:refs/remotes/origin/signals/latest
+          git checkout -B signals/latest origin/signals/latest
+          mkdir -p logs/calendar_robustness_history
+          cp "$generated_dir/logs/core_satellite_calendar_robustness.json" logs/
+          cp "$generated_dir/logs/core_satellite_calendar_robustness.csv" logs/
+          cp "$generated_dir"/logs/calendar_robustness_history/*.json logs/calendar_robustness_history/
+          git add -f logs/core_satellite_calendar_robustness.json \
+                     logs/core_satellite_calendar_robustness.csv \
+                     logs/calendar_robustness_history/
+          git commit -m "signals: weekly calendar robustness run #${{ github.run_number }}" || exit 0
+          git push origin signals/latest
+
+      - name: Publish detailed failure annotation
+        if: ${{ failure() }}
+        env:
+          WORKFLOW_STEPS_JSON: ${{ toJSON(steps) }}
+          WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python3 workflow_failure_annotation.py --workflow-file .github/workflows/weekly_calendar_robustness.yml --workflow-name "Weekly Calendar Robustness"
