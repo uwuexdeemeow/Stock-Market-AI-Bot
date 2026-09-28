@@ -522,3 +522,131 @@ holding periods. 2023–2026 diagnostic: +25 without them, −8 with them.
 return than the drawdown they save. The emergency brakes (the −12% drawdown
 halt and the −8% one-day halt) are different: they rarely fire, and they
 stay.
+
+## Hypothesis H-full-universe (pre-registered 2026-09-29, before any data download or run)
+
+**Owner request:** close the survivorship hole left open by H-edge. H-edge's
+point-in-time test (S) only removed "picked before it joined the index"
+hindsight. It could not add the roughly 289 companies that were in the
+S&P 500 at some point in 2013–2022 but are no longer in it (count from the
+fja05680/sp500 history, some of them plain ticker changes). None of them can
+be picked today, because there are no price files for them, and the 62-name
+`WATCHLIST` was chosen in hindsight from companies that stayed big. Script
+(to be written): `research_evidence/full_universe_20260929/full_universe_check.py`.
+
+**Question:** does the incumbent keep its 2013–2022 edge over QQQ when it
+picks from a rule-based, point-in-time list of large S&P 500 companies that
+includes the ones that later left the index?
+
+**What stays fixed:** the incumbent config, the engine, the ETF core and
+regime switch, costs, the feature shortlist (`logs/feature_ic_shortlist.csv`
+as committed today) and the membership source used in H-edge. The measure is
+the same as H-edge: alpha vs QQQ in % points, added up over 2013–2022.
+2023–2026 is printed as a diagnostic only. Every run ends on the same date
+(30 sessions before the data ends).
+
+### Step 0 — data coverage gate (judged before any engine run)
+
+The price source for delisted stocks is **not chosen yet**. Yahoo and Stooq
+both returned nothing on 2026-09-29, even for AAPL, so coverage could not be
+checked in advance. The owner chooses the source. The script records its
+name, the download date and a SHA-256 of every price file. Prices must be
+split-adjusted daily OHLCV. Paid sources are fine if the owner agrees.
+Downloads go to a separate folder (`research_evidence/full_universe_20260929/data/`,
+not in Git). The real `data/` folder is never written.
+
+**Pool:** every ticker that was an S&P 500 member on any snapshot date from
+2012-10-01 to 2022-12-31 (the extra quarter gives the first universe
+ranking its trailing data). Known ticker changes are merged into one company
+using the predecessor map; new pairs found during download are added to the
+map and listed in the output.
+
+**Coverage gate (C1):** at least **85%** of the pool companies that are no
+longer members must have prices for at least **90%** of the NYSE sessions
+they were members during 2013–2022. The same must hold for at least 95% of
+current members. If C1 fails, stop: the result is recorded as "not testable
+with this source", and no engine run is made or looked at.
+
+**Sector:** each company gets one of the 11 sector labels from its SEC SIC
+code (EDGAR, which keeps filings of delisted companies), using a fixed
+SIC→sector table written into the script before any download. Current
+`SECTOR_MAP` entries are **not** used for any name, so old and new names
+are treated the same way. No SIC code → sector `OTHER`.
+
+**Features:** built by the project's own feature code over the whole pool
+in the separate folder, including the cross-sectional (`xs_rank_*`) ranks,
+which are recomputed across that pool. The fixed feature list is not
+re-chosen.
+
+### Universe rule (U)
+
+On the first NYSE session of each month, the eligible list is the **62**
+point-in-time S&P 500 members (the same size as `WATCHLIST`) with the
+highest median daily dollar volume (Close × Volume) over the previous 63
+sessions, using data up to the day before. A stock needs 63 sessions of
+history to be ranked. The list gates new picks only: rows of names off the
+list are removed, the same way test S removed non-member rows.
+
+**Delisting inside a hold:** if a held stock's prices end before its 20-day
+exit, it is sold at its last Close. A diagnostic row also re-runs this with
+a −30% return applied at that last Close (a standard rough allowance for
+delistings caused by failure). The diagnostic row decides nothing.
+
+### Runs
+
+| Set | What | Runs |
+|---|---|---|
+| R0 | incumbent, current list and data (reference) | 20 start days × on time/late = 40 |
+| U | incumbent on the rule-based full universe | 40 |
+| MU | random picks in U: three score columns replaced by random numbers (seed 0–99), start day = seed mod 20, on time | 100 |
+| UD | U on-time runs with the −30% delisting allowance (diagnostic) | 20 |
+
+### Gates
+
+- **C1 (data):** as above. Fail → stop, "not testable with this source".
+- **U1 (survivorship):** the median one-day-late alpha of U is above 0
+  **and** at least **50%** of R0's median one-day-late alpha.
+- **U2 (luck):** the median on-time alpha of U is above the 95th percentile
+  of the 100 MU runs.
+
+**Verdicts:**
+
+- U1 and U2 pass → **"edge survives the full survivorship test"**.
+- U2 passes but U1 fails → **"edge real but mostly list hindsight"**: the
+  signal beats random picks, but most of the backtest's size comes from the
+  hand-picked list. Backtest alpha should then not be used to set
+  expectations.
+- U2 fails → **"edge not shown"** on an unbiased universe.
+
+**Recorded but not judged:** the start-day spread (the H-bakeoff lesson says
+10-year spreads are large, and this is an edge test, not a candidate
+selection), the mean delay cost, the 2023–2026 medians, the UD row, the
+number of delisting exits, and the share of U's picks that are later-removed
+companies.
+
+**Limits (written down now):**
+
+- The feature shortlist and the engine settings were chosen while looking at
+  the 62-name list's history. A U failure may partly mean "tuned to that
+  list", not only survivorship. Both mean the same thing for expectations.
+- The SIC→sector map is rougher than GICS, so sector ranks and sector caps
+  differ a little from live.
+- A free source may miss some delisted names. C1 limits this but cannot
+  rule out that the missing names are the worst ones.
+
+**What the verdict means:** it is evidence, not approval. No gate, threshold,
+universe, feature list or live config changes because of it. Switching the
+live universe to the U rule would need its own pre-registered hypothesis and
+the owner's agreement, and it would touch locked files.
+
+**How to run (project computer, after the owner picks the source):**
+
+```bash
+python research_evidence/full_universe_20260929/full_universe_check.py --step coverage
+# only if C1 passes:
+python research_evidence/full_universe_20260929/full_universe_check.py --step runs
+```
+
+Output: `research_evidence/full_universe_20260929/full_universe_check.json`.
+A smoke test (`--offsets 2 --monkeys 4`) is marked `valid_full_test: false`
+and must not be judged.
