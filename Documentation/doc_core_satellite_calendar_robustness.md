@@ -59,8 +59,10 @@ rest still run.
 
 ## Weekly Automation
 
-`.github/workflows/weekly_calendar_robustness.yml` runs this script every
-Saturday at 15:00 UTC (and on demand from the Actions tab). It:
+`.github/workflows/weekly_calendar_robustness.yml` runs this script once a
+week. Like every workflow here it has no GitHub cron: a cron-job.org job
+calls its `workflow_dispatch` every Saturday at 15:00 UTC (it can also be
+started from the Actions tab). It:
 
 1. Restores the same checked factor-data snapshot the daily paper run uses.
 2. Runs `python3 core_satellite_calendar_robustness.py --telegram`.

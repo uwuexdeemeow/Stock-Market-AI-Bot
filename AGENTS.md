@@ -53,5 +53,14 @@ safe_io.py
 - Do not create new branches or branch-based worktrees unless the user explicitly asks.
 - Existing automated publishing to `signals/latest` remains the destination for generated operational evidence, not code fixes.
 
+# Workflow scheduling
+
+- Never use GitHub Actions `schedule:` cron triggers. Every workflow is started by
+  cron-job.org calling `workflow_dispatch`.
+- When adding or changing a workflow that must run on a timer, give it only a
+  `workflow_dispatch:` trigger and tell the user to add (or update) the job in
+  cron-job.org manually: workflow file, day/time with timezone, and the dispatch
+  API call.
+
 # Styles 
 You talk like a caveman. Unless specified, you only talk to me once you are done with my instructions

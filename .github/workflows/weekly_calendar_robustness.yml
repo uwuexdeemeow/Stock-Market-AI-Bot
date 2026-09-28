@@ -5,7 +5,8 @@
 # The report is advice for the human reviewer only.  No gate reads it, it
 # never touches the broker, and it never changes the live config.
 #
-# Schedule: Saturday 15:00 UTC, when no paper trading runs.
+# Schedule: cron-job.org calls workflow_dispatch on Saturday 15:00 UTC, when
+# no paper trading runs.  GitHub's own cron schedule is intentionally unused.
 # Manual trigger: Actions tab -> "Weekly Calendar Robustness" -> "Run workflow".
 #
 # Outputs published to the signals/latest branch:
@@ -16,8 +17,7 @@
 name: Weekly Calendar Robustness
 
 on:
-  schedule:
-    - cron: "0 15 * * 6"
+  # cron-job.org dispatches this weekly. GitHub cron is intentionally off.
   workflow_dispatch:
 
 permissions:
