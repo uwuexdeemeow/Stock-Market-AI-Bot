@@ -650,3 +650,33 @@ python research_evidence/full_universe_20260929/full_universe_check.py --step ru
 Output: `research_evidence/full_universe_20260929/full_universe_check.json`.
 A smoke test (`--offsets 2 --monkeys 4`) is marked `valid_full_test: false`
 and must not be judged.
+
+### Implementation notes for H-full-universe (2026-09-29, before the coverage step)
+
+Written when the script was built, before any coverage number or backtest
+result was seen. They fill in details the rules above leave open; none of
+them changes a gate.
+
+- **Source chosen by the owner:** Tiingo end-of-day API (adjusted OHLCV for
+  features and returns; raw Close × raw Volume for the dollar-volume
+  ranking). A spot check of Tiingo's public ticker list found 227 of the 297
+  later-removed tickers by plain ticker and date, before any renames.
+- **Rename pairs** are listed in `RENAMES` in the script (35 hand-checked
+  pairs such as BK→BNY, FB→META, UTX→RTX, CBS/VIAC→PARA). Acquired or
+  bankrupt companies are **not** mapped to their buyer.
+- **"Traded recently":** besides 63 sessions of history, a stock must have
+  traded in the last 5 sessions to be ranked in a month.
+- **Scores for U** are ranked within that month's 62-name list. The live
+  signal ranks within its own list the same way. The ML score is empty for U
+  (the incumbent's regime score doesn't use it); a run fails if it picks by
+  a column outside the three regime scores.
+- **Features** that need data beyond prices and SPY/QQQ/sector ETFs (VIX,
+  macro, news, valuation) are neutral for U. The incumbent's 42 score
+  features don't use them.
+- **Sector lookup:** SEC ticker list for companies still trading. Otherwise,
+  the company name from Tiingo is searched on SEC EDGAR, and the best name
+  match is taken. Each match is saved for review.
+
+Code: `research_evidence/full_universe_20260929/full_universe_check.py`,
+tests: `tests/test_full_universe_check.py`, doc:
+`Documentation/doc_full_universe_check.md`.
