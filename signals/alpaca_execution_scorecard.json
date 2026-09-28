@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
-  "generated_at": "2026-09-25T21:16:16+00:00",
-  "measurement_cutoff_60m": "2026-09-25T20:16:16.291932+00:00",
+  "generated_at": "2026-09-28T21:16:14+00:00",
+  "measurement_cutoff_60m": "2026-09-28T20:16:14.410641+00:00",
   "status": "collecting",
   "score": 75.0,
   "decision_eligible": false,
@@ -76,7 +76,7 @@
       "adverse_15m_measured_orders": 1,
       "adverse_60m_measured_orders": 1
     },
-    "slippage_delta_vs_prior_scorecard_bps": 1.451
+    "slippage_delta_vs_prior_scorecard_bps": 0.0
   },
   "sample_gate": {
     "ready": false,
@@ -87,20 +87,20 @@
     "minimum_rebalance_sessions": 3
   },
   "protective_stops": {
-    "orders_seen": 5,
-    "eligible_orders": 5,
-    "measured_slippage_count": 5,
-    "slippage_eligible_orders": 5,
-    "slippage_measured_orders": 5,
+    "orders_seen": 6,
+    "eligible_orders": 6,
+    "measured_slippage_count": 6,
+    "slippage_eligible_orders": 6,
+    "slippage_measured_orders": 6,
     "slippage_coverage_rate": 1.0,
-    "trading_sessions": 3,
-    "avg_slippage_bps": -15.174,
-    "median_slippage_bps": -15.39,
-    "p75_slippage_bps": -12.4,
+    "trading_sessions": 4,
+    "avg_slippage_bps": -15.695,
+    "median_slippage_bps": -16.845,
+    "p75_slippage_bps": -13.148,
     "worst_slippage_bps": -4.84,
     "mean_slippage_95ci_bps": [
-      -21.423,
-      -8.925
+      -20.898,
+      -10.492
     ],
     "bad_slippage_count": 0,
     "bad_slippage_rate": 0.0,
@@ -108,18 +108,18 @@
     "raw_bad_slippage_count": 0,
     "raw_bad_slippage_rate": 0.0,
     "minor_bad_slippage_count": 0,
-    "adverse_15m_count": 4,
-    "adverse_15m_observations": 5,
-    "adverse_15m_eligible_orders": 5,
-    "adverse_15m_measured_orders": 5,
+    "adverse_15m_count": 5,
+    "adverse_15m_observations": 6,
+    "adverse_15m_eligible_orders": 6,
+    "adverse_15m_measured_orders": 6,
     "adverse_15m_coverage_rate": 1.0,
-    "adverse_15m_rate": 0.8,
+    "adverse_15m_rate": 0.8333,
     "adverse_60m_count": 4,
-    "adverse_60m_observations": 5,
-    "adverse_60m_eligible_orders": 5,
-    "adverse_60m_measured_orders": 5,
+    "adverse_60m_observations": 6,
+    "adverse_60m_eligible_orders": 6,
+    "adverse_60m_measured_orders": 6,
     "adverse_60m_coverage_rate": 1.0,
-    "adverse_60m_rate": 0.8
+    "adverse_60m_rate": 0.6667
   },
   "entry_timing": {
     "status": "advisory",
@@ -282,8 +282,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 0.7272727272727273,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-08-26T21:16:13.381644+00:00",
-      "denominator_end": "2026-09-25T21:16:13.230610+00:00"
+      "denominator_start": "2026-08-29T21:16:10.754604+00:00",
+      "denominator_end": "2026-09-28T21:16:10.570968+00:00"
     },
     "stage2": {
       "orders": 3,
@@ -299,8 +299,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 1.0,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-08-26T21:16:13.381644+00:00",
-      "denominator_end": "2026-09-25T21:16:13.230610+00:00"
+      "denominator_start": "2026-08-29T21:16:10.754604+00:00",
+      "denominator_end": "2026-09-28T21:16:10.570968+00:00"
     }
   },
   "throttle": {
@@ -372,13 +372,13 @@
     "previous_scorecard": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json"
   },
   "run_context": {
-    "run_id": "post-market-36190501856-1",
-    "generated_at": "2026-09-25T21:16:16+00:00",
+    "run_id": "post-market-36484828880-1",
+    "generated_at": "2026-09-28T21:16:14+00:00",
     "signal_as_of": "",
-    "git_commit": "ed91572a866d4cef527e5af1788191c0aed97b28",
-    "configuration_fingerprint": "997aba652a90c05d2c3b36e60f6d15f33d895148d33e549e7cee2f7407edc242",
-    "paper_version_fingerprint": "0b5c020f8654e6e3a28a7d82c98a6f603e3ab786b1975850a499fcb1eda3e43a",
+    "git_commit": "c3c9b0fac17384ed5b2d55e623fc34b9048c26e3",
+    "configuration_fingerprint": "074fefd6d0a1cf103e42bbcf5ecf91051ffcb0f5c4cf83b275ff17e3f79a6ab3",
+    "paper_version_fingerprint": "9ddf17bca000e59a167b07454d87efc531da89f25230e1397a0269f6872548c9",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-36190501856-1"
+  "run_id": "post-market-36484828880-1"
 }

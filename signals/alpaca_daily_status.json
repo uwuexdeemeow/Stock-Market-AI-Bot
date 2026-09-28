@@ -1,51 +1,81 @@
 {
   "broker": "alpaca",
   "paper_account_hash": "53467e021997593c",
-  "generated_at": "2026-09-25T21:16:13",
-  "account_equity": 117656.4,
-  "account_cash": 2412.76,
-  "account_invested": 115243.64,
-  "position_count": 4,
+  "generated_at": "2026-09-28T21:16:10",
+  "account_equity": 115322.13,
+  "account_cash": 24639.16,
+  "account_invested": 90682.97,
+  "position_count": 3,
   "positions": {
     "FCX": 40.0,
-    "INTC": 189.0,
     "MU": 19.0,
     "QQQ": 92.0
   },
   "position_values": {
-    "FCX": 2901.5,
-    "INTC": 23247.15,
-    "MU": 20555.91,
-    "QQQ": 68539.08
+    "FCX": 2871.05,
+    "MU": 20007.0,
+    "QQQ": 67804.92
   },
   "position_details": [
     {
       "ticker": "FCX",
       "quantity": 40.0,
       "avg_price": 68.63,
-      "market_value": 2901.5,
-      "unrealized_pl": 156.3
-    },
-    {
-      "ticker": "INTC",
-      "quantity": 189.0,
-      "avg_price": 95.94963,
-      "market_value": 23247.15,
-      "unrealized_pl": 5112.67
+      "market_value": 2871.05,
+      "unrealized_pl": 125.85
     },
     {
       "ticker": "MU",
       "quantity": 19.0,
       "avg_price": 927.438421,
-      "market_value": 20555.91,
-      "unrealized_pl": 2934.58
+      "market_value": 20007.0,
+      "unrealized_pl": 2385.67
     },
     {
       "ticker": "QQQ",
       "quantity": 92.0,
       "avg_price": 724.322756,
-      "market_value": 68539.08,
-      "unrealized_pl": 1901.39
+      "market_value": 67804.92,
+      "unrealized_pl": 1167.23
+    }
+  ],
+  "recent_protective_exits_available": true,
+  "recent_protective_exits": [
+    {
+      "ticker": "INTC",
+      "filled_at": "2026-09-28T13:44:10+00:00",
+      "order_type": "trailing_stop",
+      "filled_qty": 189.0
+    },
+    {
+      "ticker": "MU",
+      "filled_at": "2026-09-14T13:34:42+00:00",
+      "order_type": "trailing_stop",
+      "filled_qty": 23.0
+    },
+    {
+      "ticker": "INTC",
+      "filled_at": "2026-09-14T13:34:25+00:00",
+      "order_type": "trailing_stop",
+      "filled_qty": 205.0
+    },
+    {
+      "ticker": "FCX",
+      "filled_at": "2026-09-10T13:32:22+00:00",
+      "order_type": "trailing_stop",
+      "filled_qty": 30.0
+    },
+    {
+      "ticker": "INTC",
+      "filled_at": "2026-09-01T13:34:55+00:00",
+      "order_type": "trailing_stop",
+      "filled_qty": 208.0
+    },
+    {
+      "ticker": "FCX",
+      "filled_at": "2026-09-01T13:33:39+00:00",
+      "order_type": "trailing_stop",
+      "filled_qty": 30.0
     }
   ]
 }
