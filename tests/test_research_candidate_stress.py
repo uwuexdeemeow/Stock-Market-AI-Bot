@@ -144,3 +144,20 @@ def test_default_mode_still_writes_official_outputs_without_candidate_stamp(tmp_
     assert "research_candidate" not in payload
     assert "approves_trading" not in payload
     assert payload["selected_config"] == official
+
+
+def test_failed_names_cannot_be_picked_after_their_failure_date():
+    """Post-failure penny prints must not stay in the stock-picking pool.
+
+    PLAIN ENGLISH: FRC failed on 2023-05-01 but its price file keeps going as
+    a $0.0005 shell.  Rows after the failure date are removed; rows up to it
+    (and every surviving ticker) are kept.
+    """
+    panel = pd.DataFrame({
+        "date": pd.to_datetime(["2023-04-28", "2023-05-01", "2023-05-02", "2025-06-02", "2025-06-02"]),
+        "ticker": ["FRC", "FRC", "FRC", "frc", "AAPL"],
+    })
+    out = survivorship_stress.drop_rows_after_failure(panel, {"FRC": "2023-05-01"})
+    assert list(zip(out["date"].dt.strftime("%Y-%m-%d"), out["ticker"])) == [
+        ("2023-04-28", "FRC"), ("2023-05-01", "FRC"), ("2025-06-02", "AAPL"),
+    ]

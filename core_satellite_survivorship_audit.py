@@ -20,7 +20,7 @@ import pandas as pd
 
 import alpha_factor_backtest as alpha
 import core_satellite_alpha as core
-from settings import LOG_DIR, SIGNAL_DIR, SURVIVORSHIP_AUDIT_TICKERS, WATCHLIST
+from settings import LOG_DIR, SIGNAL_DIR, SURVIVORSHIP_AUDIT_TICKERS, SURVIVORSHIP_FAILURE_DATES, WATCHLIST
 from core_satellite_execution_stress import candidate_name, load_candidate_config, mark_research_candidate
 from safe_io import atomic_write_csv, atomic_write_json
 from survivorship_audit import available_audit_tickers, existing_audit_profiles
@@ -51,11 +51,33 @@ def _with_alpha_watchlist(tickers: Iterable[str], fn):
         alpha.WATCHLIST = old
 
 
+def drop_rows_after_failure(panel: pd.DataFrame, failure_dates: dict[str, str] | None = None) -> pd.DataFrame:
+    """Remove each failed company's rows after its failure date.
+
+    PLAIN ENGLISH: price files for failed companies often keep going after the
+    failure as tiny over-the-counter "penny" prints (FRC traded at $0.0005 for
+    years).  A real investor could not pick that shell as a normal stock, and
+    its wild percentage swings made the stress test report both fake gains and
+    a fake drawdown.  So a failed name may be chosen only up to its failure
+    date.  Forward returns were already calculated from the full price file, so
+    a pick made just before the failure still takes the crash.
+    """
+    failure_dates = SURVIVORSHIP_FAILURE_DATES if failure_dates is None else failure_dates
+    if panel.empty or not failure_dates:
+        return panel
+    # For every row, look up its ticker's failure date (NaT = never failed).
+    cutoffs = panel["ticker"].astype(str).str.upper().map(
+        {str(t).upper(): pd.Timestamp(d) for t, d in failure_dates.items()}
+    )
+    after_failure = cutoffs.notna() & (pd.to_datetime(panel["date"]) > cutoffs)
+    return panel.loc[~after_failure]
+
+
 def _build_panel(tickers: list[str]) -> pd.DataFrame:
     def _load() -> pd.DataFrame:
         specs = alpha.load_feature_specs()
         panel = alpha.attach_scores(alpha.load_factor_panel(specs, require_forward_returns=False), specs, alpha.load_prediction_scores())
-        return core._ensure_robust_score_columns(panel)
+        return core._ensure_robust_score_columns(drop_rows_after_failure(panel))
 
     return _with_alpha_watchlist(tickers, _load)
 
@@ -190,6 +212,7 @@ def main(argv: list[str] | None = None) -> None:
         "limitations": [
             "This is a failed-name stress test, not a complete point-in-time constituent database.",
             "Only locally available audit tickers can be included.",
+            "Failed names cannot be picked after their failure date; post-failure penny prints are ignored.",
             "The production strategy is unchanged; this script only evaluates research scenarios.",
         ],
         "rows": rows,

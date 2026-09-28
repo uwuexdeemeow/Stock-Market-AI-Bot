@@ -100,3 +100,22 @@ still exist today, so it looks better than reality. This audit adds some
 failed or delisted companies back in to see how much the result changes.
 
 Offline tests: `python -m pytest tests/test_research_candidate_stress.py -q`.
+
+## Failed names stop at their failure date (September 2026 fix)
+
+Price files for failed companies often continue after the failure as tiny
+over-the-counter "penny" prints. FRC (First Republic Bank, failed 2023-05-01)
+kept trading around $0.0005 for years. The old stress test let the strategy
+pick that shell in 2025-2026, and its wild percentage swings produced a fake
++3,378% return gain and a fake -12.7 point drawdown hit, which blocked paper
+trading on 2026-09-28.
+
+Now `drop_rows_after_failure()` removes each failed name's rows after its date
+in `settings.SURVIVORSHIP_FAILURE_DATES`. Forward returns are calculated from
+the full price file first, so a pick made just before a failure still takes
+the crash (FRC fell from $3.51 to $0.33). Surviving tickers are untouched.
+
+Key term: **failure date** is the day a company went bankrupt or was seized;
+after it, the stock is no longer something the strategy could sensibly buy.
+
+Offline test: `python -m pytest tests/test_research_candidate_stress.py -q`.
