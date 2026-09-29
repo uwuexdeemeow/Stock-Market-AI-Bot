@@ -34,6 +34,10 @@ def test_broker_truth_flags_failed_order_and_missing_stop(tmp_path, monkeypatch)
     # Stock stops are off by default since 2026-09-26; the missing-stop check
     # must still work when someone switches them back on.
     monkeypatch.setattr(broker_truth, "OVERLAY_TRAILING_STOP_ENABLED", True)
+    # The QQQ row here carries a core trailing stop, which only counts as
+    # correct while core stops are on.  H1 turned them off in the live .env
+    # (GUARD_CORE_STOP=0), so set the switch here instead of relying on it.
+    monkeypatch.setattr(broker_truth, "CORE_TRAILING_STOP_ENABLED", True)
     signal_path = tmp_path / "signal.csv"
     plan_path = tmp_path / "orders.csv"
     log_path = tmp_path / "alpaca_paper_log.csv"
@@ -153,7 +157,9 @@ def test_write_broker_truth_writes_latest_and_dated_outputs(tmp_path, monkeypatc
     assert json.loads((log_dir / "broker_truth_20260605.json").read_text(encoding="utf-8"))["status"] == "pass"
 
 
-def test_live_positions_override_saved_status_snapshot(tmp_path):
+def test_live_positions_override_saved_status_snapshot(tmp_path, monkeypatch):
+    # Same as above: this scenario has a QQQ core stop, so core stops are on.
+    monkeypatch.setattr(broker_truth, "CORE_TRAILING_STOP_ENABLED", True)
     signal_path = tmp_path / "signal.csv"
     plan_path = tmp_path / "orders.csv"
     log_path = tmp_path / "alpaca_paper_log.csv"

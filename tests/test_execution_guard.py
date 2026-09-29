@@ -71,8 +71,21 @@ def _order(symbol, qty, order_type="trailing_stop", side="sell", trail_percent="
     )
 
 
+def _core_stops_on(monkeypatch):
+    """These tests check the core-stop repair logic itself.
+
+    PLAIN ENGLISH: the live account turned core ETF stops off in H1
+    (GUARD_CORE_STOP=0 in .env), so turn the switch on here explicitly
+    instead of depending on whatever the local .env says.
+    """
+    import alpaca_protection as protection
+    monkeypatch.setattr(protection, "CORE_PROTECTION_ENABLED", True)
+
+
 def test_repair_preserves_matching_core_stop(monkeypatch):
     import alpaca_protection as protection
+
+    _core_stops_on(monkeypatch)
 
     broker = FakeBroker(
         positions=[Position("SPY", 10, 500.0)],
@@ -91,8 +104,10 @@ def test_repair_preserves_matching_core_stop(monkeypatch):
     assert result["skipped"][0]["reason"] == "already_protected"
 
 
-def test_repair_replaces_wrong_sized_core_stop():
+def test_repair_replaces_wrong_sized_core_stop(monkeypatch):
     import alpaca_protection as protection
+
+    _core_stops_on(monkeypatch)
 
     broker = FakeBroker(
         positions=[Position("TQQQ", 7, 80.0)],
@@ -167,8 +182,10 @@ def test_stale_guard_replaces_stale_sell_after_cancel(monkeypatch):
     assert any("Replaced stale sell FCX" in alert for alert in alerts)
 
 
-def test_repair_does_not_submit_replacement_when_cancel_fails():
+def test_repair_does_not_submit_replacement_when_cancel_fails(monkeypatch):
     import alpaca_protection as protection
+
+    _core_stops_on(monkeypatch)
 
     broker = FakeBroker(
         positions=[Position("SPY", 12, 500.0)],
@@ -189,6 +206,8 @@ def test_repair_does_not_submit_replacement_when_cancel_fails():
 
 def test_repair_skips_invalid_trailing_stop_config(monkeypatch):
     import alpaca_protection as protection
+
+    _core_stops_on(monkeypatch)
 
     monkeypatch.setattr(protection, "CORE_PROTECTION_TRAIL_PCT", float("nan"))
     broker = FakeBroker(
@@ -387,3 +406,15 @@ def test_broker_truth_refresh_fail_alert_is_deduped(monkeypatch):
 
     assert alerts == ["Broker truth is FAIL after execution guard cycle"]
     assert state["broker_truth_fail_alert_sent"] is True
+
+
+def test_repair_does_nothing_while_core_stops_are_retired(monkeypatch):
+    """H1 setting (GUARD_CORE_STOP=0): no stop is placed or cancelled."""
+    import alpaca_protection as protection
+
+    monkeypatch.setattr(protection, "CORE_PROTECTION_ENABLED", False)
+    broker = FakeBroker(positions=[Position("SPY", 10, 500.0)], orders=[])
+    result = protection.repair_core_etf_protective_stops(broker, tickers={"SPY"}, logger=lambda _msg: None)
+
+    assert broker.placed == [] and broker.cancelled == []
+    assert result["skipped"][0]["reason"] == "disabled"

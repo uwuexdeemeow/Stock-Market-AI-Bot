@@ -53,6 +53,10 @@ try:
 except Exception:  # pragma: no cover - defensive fallback for tests
     DATA_DIR = "data"
     SECTOR_MAP = {}
+try:
+    from settings import SURVIVORSHIP_FAILURE_DATES
+except Exception:  # pragma: no cover - defensive fallback for tests
+    SURVIVORSHIP_FAILURE_DATES = {}
 
 log = logging.getLogger("cross_sectional")
 
@@ -136,6 +140,7 @@ def apply_cross_sectional_rank_features(
     data_dir: str = DATA_DIR,
     sector_map: dict[str, str] | None = None,
     source_cols: list[str] | None = None,
+    failure_dates: dict[str, str] | None = None,
 ) -> dict:
     """Compute within-sector and within-market rank percentiles for each ticker.
 
@@ -154,12 +159,21 @@ def apply_cross_sectional_rank_features(
         data_dir:    directory containing <ticker>.parquet files.
         sector_map:  optional override for SECTOR_MAP.
         source_cols: optional override for SOURCE_COLS.
+        failure_dates: optional override for SURVIVORSHIP_FAILURE_DATES
+                     ({ticker: "YYYY-MM-DD"}).  Rows AFTER a company's failure
+                     date are left out of every ranking.
 
     Returns:
         Summary dict with counts of updated parquets and any per-ticker errors.
     """
     sector_map = sector_map or SECTOR_MAP
     source_cols = source_cols or SOURCE_COLS
+    failure_dates = SURVIVORSHIP_FAILURE_DATES if failure_dates is None else failure_dates
+    # PLAIN ENGLISH: a failed company (e.g. First Republic after May 2023)
+    # keeps trading for years at fractions of a cent on the OTC market.  Those
+    # rows are not a real, buyable stock, so they must not push the other
+    # stocks' ranks up or down.  Look up each ticker's failure date once.
+    cutoffs = {str(t).upper(): pd.Timestamp(d) for t, d in failure_dates.items()}
 
     # ── Step 1: load each parquet, collect rows for the panel ─────────────────
     # We only pull the source columns + index (date) to keep the panel small.
@@ -192,6 +206,10 @@ def apply_cross_sectional_rank_features(
         sub["ticker"] = ticker
         sub["sector"] = sector_map.get(ticker, "OTHER")
         sub["date"] = pd.to_datetime(df.index)
+        if ticker in cutoffs:
+            # Keep rows up to and including the failure date only.  Its later
+            # rows get the neutral 0.5 rank when the columns are written back.
+            sub = sub[sub["date"] <= cutoffs[ticker]]
         frames.append(sub.reset_index(drop=True))
         paths[ticker] = path
 
