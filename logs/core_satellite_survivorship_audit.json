@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-28T13:43:37.506365",
+  "generated_at": "2026-09-29T13:43:40.963007",
   "purpose": "core_satellite_survivorship_bias_stress",
   "selected_config": {
     "strategy": "core-alpha",
@@ -197,7 +197,7 @@
       "XOM"
     ],
     "coverage_start": "2010-01-01",
-    "coverage_end": "2026-09-28",
+    "coverage_end": "2026-09-29",
     "active_members_at_coverage_start": 0,
     "minimum_active_members": 400,
     "inactive_members": 0,
@@ -216,13 +216,14 @@
       "historical_price_coverage_incomplete"
     ]
   },
-  "survivorship_adjusted_score": 1.7058,
-  "primary_return_pct": 4787.04,
-  "failed_name_stressed_return_pct": 8165.62,
-  "stressed_return_delta_pct": 3378.58,
+  "survivorship_adjusted_score": 0.9995,
+  "primary_return_pct": 4547.83,
+  "failed_name_stressed_return_pct": 4545.77,
+  "stressed_return_delta_pct": -2.06,
   "limitations": [
     "This is a failed-name stress test, not a complete point-in-time constituent database.",
     "Only locally available audit tickers can be included.",
+    "Failed names cannot be picked after their failure date; post-failure penny prints are ignored.",
     "The production strategy is unchanged; this script only evaluates research scenarios."
   ],
   "rows": [
@@ -232,45 +233,45 @@
       "audit_tickers": "FRC",
       "audit_rebalance_selections": 0,
       "audit_selection_counts_json": "{\"FRC\": 0}",
-      "total_return_pct": 4787.04,
-      "cagr_pct": 26.28,
-      "sharpe": 1.345,
+      "total_return_pct": 4547.83,
+      "cagr_pct": 25.9,
+      "sharpe": 1.337,
       "max_drawdown_pct": -30.47,
-      "alpha_vs_spy_pct": 3995.5,
-      "alpha_vs_qqq_pct": 3136.03,
-      "alpha_vs_blend_pct": 3651.71,
-      "turnover_pct": 4591.15,
-      "estimated_cost_pct": 10.7603,
+      "alpha_vs_spy_pct": 3756.29,
+      "alpha_vs_qqq_pct": 2896.82,
+      "alpha_vs_blend_pct": 3412.5,
+      "turnover_pct": 4596.62,
+      "estimated_cost_pct": 10.7795,
       "paper_ready": true
     },
     {
       "scenario": "watchlist_plus_failed_audit_tickers",
       "universe_size": 63,
       "audit_tickers": "FRC",
-      "audit_rebalance_selections": 21,
-      "audit_selection_counts_json": "{\"FRC\": 21}",
-      "total_return_pct": 8165.62,
-      "cagr_pct": 30.33,
-      "sharpe": 1.41,
-      "max_drawdown_pct": -43.17,
-      "alpha_vs_spy_pct": 7374.08,
-      "alpha_vs_qqq_pct": 6514.61,
-      "alpha_vs_blend_pct": 7030.29,
-      "turnover_pct": 4592.51,
-      "estimated_cost_pct": 10.8286,
+      "audit_rebalance_selections": 14,
+      "audit_selection_counts_json": "{\"FRC\": 14}",
+      "total_return_pct": 4545.77,
+      "cagr_pct": 25.9,
+      "sharpe": 1.331,
+      "max_drawdown_pct": -30.46,
+      "alpha_vs_spy_pct": 3754.23,
+      "alpha_vs_qqq_pct": 2894.76,
+      "alpha_vs_blend_pct": 3410.44,
+      "turnover_pct": 4617.07,
+      "estimated_cost_pct": 10.8114,
       "paper_ready": true
     },
     {
       "scenario": "delta_stressed_minus_base",
-      "total_return_pct": 3378.58,
-      "cagr_pct": 4.05,
-      "sharpe": 0.065,
-      "max_drawdown_pct": -12.7,
-      "alpha_vs_spy_pct": 3378.58,
-      "alpha_vs_qqq_pct": 3378.58,
-      "alpha_vs_blend_pct": 3378.58,
-      "turnover_pct": 1.36,
-      "estimated_cost_pct": 0.0683
+      "total_return_pct": -2.06,
+      "cagr_pct": 0.0,
+      "sharpe": -0.006,
+      "max_drawdown_pct": 0.01,
+      "alpha_vs_spy_pct": -2.06,
+      "alpha_vs_qqq_pct": -2.06,
+      "alpha_vs_blend_pct": -2.06,
+      "turnover_pct": 20.45,
+      "estimated_cost_pct": 0.0319
     }
   ],
   "profile_summary": [
@@ -422,8 +423,8 @@
       "risk_control_mode": "off",
       "deployment_max_gross_exposure": 1.0
     },
-    "dataset_fingerprint": "1eb9b7ee91716ba46cbddc6b208cec4de6b542a93a7476700c37e11daee618de",
+    "dataset_fingerprint": "ae46570ba733311bf2395ab1ffbcd3d8fe231cc153794d38164869307b9a965e",
     "research_manifest_path": "signals/research_run_manifest.json",
-    "git_commit": "0c3a36525c9bf392f1ad916f22b7c7ef01456d94"
+    "git_commit": "38064189e546d4c7d977c8409f77e5ca8ea85b34"
   }
 }
