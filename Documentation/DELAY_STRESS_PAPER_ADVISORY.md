@@ -757,8 +757,9 @@ points to QQQ over 2013–2022 (H-bakeoff control E). Script (to be written):
 
 **Base:** the same as H-top-names: test S, incumbent config unchanged, 20
 start days × on time/one day late, decision window 2013–2022, 2023–2026 printed
-only, and the same end-date rule. No extra engine runs are needed beyond
-the 40 S runs.
+only, and the same end-date rule. The only extra engine runs are 20 on-time
+runs of control E (overlay gross 0, as in H-bakeoff), which are diagnostic
+only.
 
 **Two fair yardsticks:**
 
