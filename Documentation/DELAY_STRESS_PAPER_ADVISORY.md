@@ -680,3 +680,120 @@ them changes a gate.
 Code: `research_evidence/full_universe_20260929/full_universe_check.py`,
 tests: `tests/test_full_universe_check.py`, doc:
 `Documentation/doc_full_universe_check.md`.
+
+## Hypothesis H-top-names (pre-registered 2026-09-29, before any run)
+
+**Owner request:** find out whether the incumbent's edge is spread across
+many picks or rests on a few lucky names or a few big winners. NVDA alone
+was 20% of overlay profit in the walk-forward report. Script (to be
+written): `research_evidence/top_names_20260929/top_names_check.py`.
+
+**Base:** the point-in-time list from H-edge (test S: a stock can be picked
+only while it was in the S&P 500), the incumbent config unchanged, the same
+measure (alpha vs QQQ in % points added up over 2013–2022; 2023–2026 printed
+only), the same end date rule (30 sessions before the data ends), and the
+same 20 start days × on time/one day late. It runs after H-full-universe
+finishes and does not depend on its verdict.
+
+**Tests:**
+
+| Set | What | Runs |
+|---|---|---|
+| S | base, unchanged (reference) | 40 |
+| N1 | S with the single biggest-contributing ticker removed from the list | 40 |
+| N3 | S with the 3 biggest-contributing tickers removed from the list | 40 |
+| P1 | S on-time runs, with each 20-day period's best-returning pick replaced by a neutral stand-in | 20 (no extra engine runs) |
+| MP | 100 random-pick runs (as H-edge test M: seeds 0–99, start day = seed mod 20, on time), with the same P1 replacement | 100 |
+
+- **Biggest contributors** are chosen once, from the 20 on-time S runs: for
+  each ticker, add up weight × 20-day holding return over every period it
+  was held in 2013–2022, average across the 20 runs, and rank. The chosen
+  tickers are written to the output before N1/N3 run. N1 and N3 remove those
+  tickers' rows from the panel, so the engine picks the next best stocks.
+- **Holding return** is the panel's on-time 20-day label for that stock on
+  the period's decision date (buy at the next Open, sell at the Close 20
+  sessions later).
+- **P1 stand-in:** the best pick's return in each period is swapped for the
+  median 20-day label of all stocks that had a score on that decision date.
+  Its weight stays the same, and the period return changes by weight ×
+  (median − best). The equity curve is rebuilt from the adjusted period
+  returns.
+
+**Gates:**
+
+- **T1 (names):** the median one-day-late alpha of N3 is above 0 **and** at
+  least **50%** of S's median one-day-late alpha.
+- **T2 (big winners):** the median alpha of P1 is above the **95th
+  percentile** of the 100 MP runs. The same removal is applied to random
+  picks, so this checks skill after the harsh cut instead of expecting a
+  positive number that any strategy would struggle to reach.
+
+**Verdicts:**
+
+- T1 and T2 pass → **"edge is broad"**.
+- T1 fails → **"edge rests on a few names"** (named in the output).
+- T2 fails → **"edge rests on each period's one big winner"**.
+- Both fail → both labels.
+
+**Recorded, not judged:** N1 numbers, the chosen tickers and their share of
+S's overlay profit, spread across start days, the delay cost, and 2023–2026.
+
+**Limit (written now):** removing the top names after seeing S's results is
+deliberately a hindsight test. It asks "what if those names had not
+existed", not "could an investor have known". It is evidence about how
+concentrated the edge is, not a tradable rule.
+
+**What the verdict means:** evidence only. No gate, config or stock list
+changes because of it.
+
+## Hypothesis H-benchmark (pre-registered 2026-09-29, before any run)
+
+**Owner request:** judge the incumbent against a fairer yardstick. The core
+is only partly invested (gross 0.50–0.75, with SPY or cash in weaker
+regimes), so "alpha vs QQQ" mixes stock-picking skill with how much money
+is in the market. With no stock picks at all, the core loses about 146
+points to QQQ over 2013–2022 (H-bakeoff control E). Script (to be written):
+`research_evidence/benchmark_20260929/benchmark_check.py`.
+
+**Base:** the same as H-top-names: test S, incumbent config unchanged, 20
+start days × on time/one day late, decision window 2013–2022, 2023–2026 printed
+only, and the same end-date rule. No extra engine runs are needed beyond
+the 40 S runs.
+
+**Two fair yardsticks:**
+
+1. **Exposure-matched benchmark (B-exp):** for each 20-day period, the
+   benchmark earns g × QQQ return + (1 − g) × cash return, where g is the
+   strategy's actual gross exposure that period (`gross_exposure` in the
+   trades output) and cash is BIL's return (0 before BIL data starts). If
+   g > 1, the extra is borrowed at the cash return. The benchmark pays no
+   trading costs. Alpha = strategy minus B-exp, in % points, added up over
+   2013–2022 like every other test.
+2. **Beta-adjusted alpha (B-beta):** regress the strategy's daily returns on
+   QQQ's daily returns over 2013–2022 (both minus cash). The intercept,
+   annualised, is the alpha. Its significance is the Newey–West t-stat from
+   `backtest._newey_west_tstat` with the helper's default lag. The
+   information ratio is the annualised intercept divided by the annualised
+   residual volatility.
+
+**Gates:**
+
+- **F1:** the median one-day-late B-exp alpha is above **0**.
+- **F2:** the median one-day-late B-beta Newey–West t-stat is at least
+  **2.0**.
+
+**Verdicts:**
+
+- F1 and F2 pass → **"edge holds against a fair benchmark"**.
+- F1 passes, F2 fails → **"beats a fair benchmark, but not reliably"**.
+- F1 fails → **"headline alpha is mostly market exposure and timing of the
+  core, not stock-picking skill"**.
+
+**Recorded, not judged:** the median beta, information ratio, annualised
+alpha, the on-time numbers, spread across start days, and 2023–2026. Control E
+(no overlay) is also measured against B-exp, to show how much the core
+timing alone earns on this yardstick.
+
+**What the verdict means:** evidence only. This does not replace "alpha vs
+QQQ" in any existing gate or report. Changing an official measure would be
+its own decision for the owner.
