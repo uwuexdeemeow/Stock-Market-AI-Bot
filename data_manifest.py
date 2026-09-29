@@ -30,6 +30,13 @@ OHLC_RELATIVE_TOLERANCE = 1e-10
 # Large earnings and turnaround moves are real. Treat only a 100% single-day
 # adjusted-close jump as suspicious; the old 50% cutoff falsely blocked AMD.
 MAX_SUSPICIOUS_DAILY_CLOSE_MOVE_PCT = 100.0
+# A price file must not skip any NYSE trading day inside its last 252 bars.
+# PLAIN ENGLISH: this used to allow 2 missing days.  On 2026-09-24 a backup
+# provider silently skipped 2026-09-22 for 44 stocks; the gap later broke the
+# 20-day labels (and a calendar-robustness run).  With 0 allowed, a frame with
+# a hole is rejected, the next provider is tried, and a stored file with a
+# hole is rebuilt on the next refresh instead of being kept.
+MAX_MISSING_RECENT_SESSIONS = 0
 
 
 def parquet_manifest_path(parquet_path: str | Path) -> Path:
@@ -90,7 +97,7 @@ def frame_quality_issues(frame: pd.DataFrame) -> list[str]:
             expected = xcals.get_calendar("XNYS").sessions_in_range(recent.min(), recent.max())
             expected = pd.DatetimeIndex(expected).tz_localize(None).normalize()
             missing_sessions = expected.difference(recent)
-            if len(missing_sessions) > 2:
+            if len(missing_sessions) > MAX_MISSING_RECENT_SESSIONS:
                 issues.append(f"missing_recent_sessions:{len(missing_sessions)}")
         except Exception:
             pass

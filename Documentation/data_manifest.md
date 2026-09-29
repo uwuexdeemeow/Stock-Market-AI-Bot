@@ -17,6 +17,14 @@ provider. A provider change is rejected when the median difference is above
 normal dividend-adjustment differences while the per-date ceiling still
 rejects split-scale and wrong-symbol data.
 
+**No missing trading days.** Within a file's last 252 bars, every NYSE
+trading day must be there (`MAX_MISSING_RECENT_SESSIONS = 0`; market holidays
+don't count). Before 2026-09-29 up to 2 missing days were allowed. Then a
+backup provider skipped 2026-09-22 for 44 stocks, and the hole broke the
+20-day labels. Now a frame with a gap is rejected: the next provider is tried,
+and a saved file with a gap is rebuilt on the next refresh. If every provider
+has the gap, the refresh for that ticker fails loudly instead of saving it.
+
 ## How It Runs
 
 You normally do not run this file directly. `research.py` and
