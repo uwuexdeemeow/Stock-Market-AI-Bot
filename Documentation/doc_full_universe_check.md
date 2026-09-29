@@ -50,6 +50,8 @@ python research_evidence/full_universe_20260929/full_universe_check.py --step ru
   plan (a paid month removes that limit). When Tiingo says the limit is
   reached, the script saves its progress and stops; run the same command
   again later.
+  Tiingo reports the monthly limit as a normal "200 OK" reply with a
+  message instead of prices; the script recognises that message too.
 - **Outputs:**
   - `research_evidence/full_universe_20260929/full_universe_coverage.json`:
     the C1 result, per-company coverage, sector counts, renames used.

@@ -193,3 +193,14 @@ def test_judge_edge_not_shown_when_random_picks_do_as_well():
 
 def test_judge_negative_late_alpha_fails_u1():
     assert fu.judge(_rows(-10.0, -8.0, 300.0, [0.0]))["gates"]["U1_survivorship"] is False
+
+
+# ── Tiingo allowance messages ──────────────────────────────────────────────
+
+def test_monthly_symbol_limit_reply_counts_as_quota_even_with_status_200():
+    body = '{"detail": "You have run over your 500 symbol look up for this month. Please upgrade at https://api.tiingo.com/pricing"}'
+    assert fu.is_quota_reply(200, body)
+    assert fu.is_quota_reply(429, "")
+    assert fu.is_quota_reply(200, '{"detail": "Error: You have run over your hourly request allocation."}')
+    assert not fu.is_quota_reply(200, '[{"date": "2020-01-02T00:00:00.000Z", "close": 1.0}]')
+    assert not fu.is_quota_reply(404, '{"detail": "Error: Ticker XYZ not found"}')

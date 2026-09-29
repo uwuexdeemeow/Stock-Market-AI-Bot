@@ -501,10 +501,24 @@ class Throttle:
         self.last = time.time()
 
 
+QUOTA_WORDS = ("allocation", "rate limit", "run over", "symbol look up", "upgrade")
+
+
+def is_quota_reply(status_code: int, body: str) -> bool:
+    """True when Tiingo says an allowance (hourly/daily/monthly) is used up.
+
+    PLAIN ENGLISH: Tiingo does not always answer "429 Too Many Requests".
+    When the 500-tickers-a-month limit is hit it answers "200 OK" with a
+    message like {"detail": "You have run over your 500 symbol look up for
+    this month..."} instead of prices, so the words must be checked too.
+    """
+    text = (body or "")[:400].lower()
+    return status_code == 429 or any(word in text for word in QUOTA_WORDS)
+
+
 def _tiingo_get(session, url: str, key: str, params: dict | None = None):
     response = session.get(url, params=params or {}, headers={"Authorization": f"Token {key}"}, timeout=60)
-    text = response.text[:300].lower()
-    if response.status_code == 429 or "allocation" in text or "rate limit" in text:
+    if is_quota_reply(response.status_code, response.text):
         raise QuotaReached(response.text[:300])
     return response
 
@@ -538,6 +552,11 @@ def download_prices(companies: list[str], *, per_hour: int, end: str) -> dict:
             log[company] = {"status": "not_found"}
         elif response.ok:
             rows = response.json()
+            if isinstance(rows, dict):
+                # A message instead of a price list (not a quota message,
+                # those are caught above): skip for now, retry next run.
+                print(f"[download] {company}: Tiingo said {str(rows)[:160]}", flush=True)
+                continue
             if not rows:
                 log[company] = {"status": "empty"}
             else:
