@@ -820,3 +820,22 @@ results and were not judged.
 Code: `research_evidence/top_names_20260929/top_names_check.py`,
 `research_evidence/benchmark_20260929/benchmark_check.py`; tests:
 `tests/test_top_names_and_benchmark.py`.
+
+## Note: paper block of 2026-09-29 — owner keeps the block
+
+Daily run #300 (2026-09-29) was safety-blocked. In the
+`delay_1d_extra_25bps` scenario, the strategy now also loses to the SPY/QQQ
+blend over 2023–2026 (−2.2 points), which fails `subperiod_stability_pass`
+and `holdout_2023_2026_vs_blend_pass`. The paper advisory above covers only
+`holdout_2023_2026_vs_qqq_pass`, so the block is the gate working as
+designed.
+
+- It was not caused by the same-day cross-sectional rank fix (`2e8f89d`). A
+  local run with and without that fix gave identical stress numbers, because
+  the engine re-ranks within its own stock list.
+- On local data the same scenario gives +3.6 vs the blend and would pass.
+  The recent edge under the worst stress sits near zero, so the result can
+  flip from day to day.
+- **Owner decision:** keep the block; the advisory is **not** widened. Paper
+  orders resume by themselves on days when every scenario is inside the
+  existing rules.
