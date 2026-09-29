@@ -53,6 +53,44 @@ safe_io.py
 - Do not create new branches or branch-based worktrees unless the user explicitly asks.
 - Existing automated publishing to `signals/latest` remains the destination for generated operational evidence, not code fixes.
 
+# Project focus: quant trading, not ML model training
+
+This project started as a machine-learning (XGBoost) prediction bot. It is
+now a **rule-based quant strategy**: the core-satellite engine
+(`core_satellite_alpha.py`) ranks stocks with factor scores
+(`alpha_factor_backtest.py`, `feature_health.py`) and trades them on a fixed
+20-day calendar. The ML model is switched off for picks
+(`ml_overlay_enabled` is false; the incumbent uses `score_source =
+regime_adaptive` factor scores). Model AUC was about 0.51, so it added nothing.
+
+Treat the old ML-training layer as **legacy**:
+
+- **Legacy scripts:** `train.py`, `predict.py`, `labels.py`,
+  `model_quality.py`, `model_self_check.py`, `model_registry.py`,
+  `confidence_calibration.py`, `calibration_stability.py`, `nested_cv.py`,
+  `xgb_feature_engineering.py`, `shap_feature_reducer.py`, `drift_monitor.py`,
+  `leakage_audit.py`, `alternative_data_features.py`.
+- **Legacy outputs:** `models/` (per-ticker `.pkl` / `xgb` files, train
+  summaries), `signals/*_walkforward_predictions.csv`,
+  `autoresearch-results/`, `archive/`, `research_snapshots/`.
+- **Don't** read them for context, use them as evidence, cite their metrics,
+  or propose research that trains, tunes or revives an ML model, unless the
+  owner asks for it.
+- **Don't delete, move or rename them either.** Live code still imports
+  parts of this layer: `core_satellite_alpha.py`, `alpha_factor_backtest.py`
+  and `factor_decay_monitor.py` import helpers from `backtest.py`, and
+  `backtest.py` imports `train.py`, `labels.py` and others.
+  `pipeline_shared.py` imports `sentiment_engine.py`, `social_sentiment.py`,
+  `intraday_features.py` and `options_iv_provider.py`. Removing any of them
+  would break the daily paper run. Cleaning this up needs its own plan and
+  the owner's agreement.
+- When a legacy file has to change (for example, a shared helper it holds),
+  change only what the quant path needs.
+- **Research ideas come from the quant path only:** factor signals, universe
+  and survivorship, calendar and timing robustness, execution costs, risk
+  and regime rules. Judge them with pre-registered rules in
+  `Documentation/DELAY_STRESS_PAPER_ADVISORY.md`.
+
 # Workflow scheduling
 
 - Never use GitHub Actions `schedule:` cron triggers. Every workflow is started by
