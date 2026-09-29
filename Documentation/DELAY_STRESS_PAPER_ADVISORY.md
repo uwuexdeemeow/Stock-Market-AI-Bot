@@ -839,3 +839,11 @@ designed.
 - **Owner decision:** keep the block; the advisory is **not** widened. Paper
   orders resume by themselves on days when every scenario is inside the
   existing rules.
+
+### Order change for H-top-names and H-benchmark (2026-09-30, before any full run)
+
+The owner chose to run H-top-names and H-benchmark **now**, before
+H-full-universe finishes. The Tiingo download is paused at 510/709 until the
+monthly limit resets. Their rules, base (test S) and scripts are unchanged,
+and neither depends on the H-full-universe verdict. Only the order changes.
+Data: local `data/` as refreshed on 2026-09-29 (prices to 2026-09-28).
