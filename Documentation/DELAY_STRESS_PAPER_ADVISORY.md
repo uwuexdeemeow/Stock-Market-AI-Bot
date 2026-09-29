@@ -798,3 +798,25 @@ timing alone earns on this yardstick.
 **What the verdict means:** evidence only. This does not replace "alpha vs
 QQQ" in any existing gate or report. Changing an official measure would be
 its own decision for the owner.
+
+### Implementation notes for H-top-names and H-benchmark (2026-09-29, before any full run)
+
+Written when the scripts were built, before any full run was looked at.
+Only 1-start-day smoke runs were made, to check the plumbing. They are not
+results and were not judged.
+
+- Both scripts share one panel builder (`build_s_panel` in
+  `top_names_check.py`), which is H-edge's test S.
+- H-top-names: the stand-in median uses stocks with a non-empty
+  `factor_walkforward_score` on that date. P1/MP ties for "best pick" are
+  broken by ticker name.
+- H-benchmark: the B-beta t-stat is the Newey–West t-stat (default lag 5)
+  of the daily series (strategy − β × QQQ), all in excess of cash, which
+  equals the intercept's t-stat up to β's own estimation error. The daily
+  returns come from each period's holdings, bought at the entry Open (see
+  `Documentation/doc_benchmark_check.md`). The gap to the engine's period
+  returns is reported on every row.
+
+Code: `research_evidence/top_names_20260929/top_names_check.py`,
+`research_evidence/benchmark_20260929/benchmark_check.py`; tests:
+`tests/test_top_names_and_benchmark.py`.
