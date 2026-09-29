@@ -847,3 +847,80 @@ H-full-universe finishes. The Tiingo download is paused at 510/709 until the
 monthly limit resets. Their rules, base (test S) and scripts are unchanged,
 and neither depends on the H-full-universe verdict. Only the order changes.
 Data: local `data/` as refreshed on 2026-09-29 (prices to 2026-09-28).
+
+### Result: H-top-names (2026-09-30) — EDGE RESTS ON A FEW NAMES
+
+Full test (20 start days, 100 random-pick runs), local data to 2026-09-28.
+Raw output: `research_evidence/top_names_20260929/top_names_check.json`
+(membership file SHA-256 in its notes).
+
+**Top contributors, chosen from the 20 on-time S runs before N1/N3 ran:**
+NVDA, AMD, FCX. Together they made about 47% of S's overlay profit, and
+NVDA alone about 28%.
+
+Alpha vs QQQ in % points, added up over 2013–2022:
+
+| Set | Worst | Median | Best |
+|---|---|---|---|
+| S one day late (reference) | +356 | **+436** | +645 |
+| N1 (no NVDA), one day late | +157 | +233 | +357 |
+| N3 (no NVDA, AMD, FCX), one day late | +63 | **+205** | +327 |
+| P1 (best pick each period made typical) | −265 | **−227** | −180 |
+| MP random picks with the same cut (100) | −314 | −280 (p95 −232) | −218 |
+
+**Gates:**
+
+- **T1 names: FAIL.** N3 keeps **46.9%** of S's median late alpha (+205 vs
+  +436; at least 50% was needed). It stays positive in every run.
+- **T2 big winners: PASS, barely.** P1's median (−227) is above the random
+  picks' 95th percentile (−232) by 5 points.
+
+**Verdict (by the pre-registered rule): "edge rests on a few names".**
+
+**What the numbers say:**
+
+- Without its 3 best names, the strategy still beats QQQ in every run over
+  2013–2022 (+63 to +327). The signal is not *only* NVDA. But half of the
+  backtest's size comes from 3 stocks, and NVDA alone is worth about 200
+  points. Backtest alpha overstates what a new period should be expected to
+  give.
+- Taking away each period's best pick makes every strategy, real or random,
+  lose badly to QQQ. The real one still does a little better than 95% of
+  random runs, so the picks have some skill beyond the single big winner,
+  but only just.
+- 2023–2026 diagnostic: S +18, N3 +1.5. The recent edge without the top 3
+  names is about zero.
+
+## Result: H-benchmark (2026-09-30) — EDGE HOLDS AGAINST A FAIR BENCHMARK
+
+Full test (20 start days × on time/late, plus 20 control-E runs), same data.
+Raw output: `research_evidence/benchmark_20260929/benchmark_check.json`. The
+daily rebuild was within 0.30% per period of the engine's own returns
+(median; worst 0.39%).
+
+| Measure (S, one day late, median of 20) | Value |
+|---|---|
+| Alpha vs exposure-matched QQQ/cash, 2013–2022 | **+488 points** |
+| Newey–West t-stat of beta-adjusted daily alpha | **3.10** |
+| Beta to QQQ | 0.85 |
+| Beta-adjusted alpha | 9.6% a year |
+| Information ratio | 0.93 |
+| Control E (no stock picks) vs exposure-matched | +7 points, t = 1.66 |
+| 2023–2026 (diagnostic), on time vs exposure-matched | +42 points |
+
+**Gates:** F1 (beats exposure-matched): **PASS**. F2 (t ≥ 2.0): **PASS**.
+
+**Verdict (by the pre-registered rule): "edge holds against a fair
+benchmark".**
+
+**What the numbers say:** the headline alpha is not an artefact of holding
+cash. Against QQQ at the same investment level, the strategy is further
+ahead than against plain QQQ (+488 vs +436), because the core's cash weeks
+cost it return in a rising market. Almost all of that comes from the stock
+picks: the core alone (control E) only roughly matches its fair benchmark.
+
+**Read together:** the picks add real, statistically clear return over
+2013–2022 on the partial point-in-time list, but about half of it comes from
+three names (NVDA, AMD, FCX), and the recent period is weak. H-full-universe,
+which adds the companies that left the index, is still to come.
+Nothing here changes a gate, config or the paper advisory.
