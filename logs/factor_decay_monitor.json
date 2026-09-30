@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
   "legacy_returns_are_alpha": false,
-  "generated_at": "2026-09-29T13:44:51.520894",
+  "generated_at": "2026-09-30T13:44:32.676847",
   "purpose": "factor_decay_monitor",
   "as_of": "2026-08-18",
   "selected_score_source": "regime_adaptive",
@@ -12,7 +12,7 @@
   "rows": [
     {
       "lookback_days": 60,
-      "daily_ic_mean": 0.09676,
+      "daily_ic_mean": 0.09951,
       "daily_ic_positive_rate": 1.0,
       "daily_ic_newey_west_tstat": 0.0,
       "top_bucket_excess_return_pct": 0.5287,
@@ -22,16 +22,16 @@
       "decile_mean_return_pct": {
         "1": -1.4989,
         "2": -1.6154,
-        "3": -0.4087,
-        "4": 0.2425,
-        "5": 2.7387,
+        "3": -0.5066,
+        "4": -0.6349,
+        "5": 3.714,
         "6": 1.0078,
-        "7": 1.2674,
-        "8": 0.3066,
+        "7": 0.8195,
+        "8": 0.7544,
         "9": -0.4006,
         "10": 0.6803
       },
-      "decile_monotonicity_spearman": 0.5515,
+      "decile_monotonicity_spearman": 0.5636,
       "overlay_periods": 3,
       "overlay_return_sum_pct": 12.7773,
       "overlay_hit_rate": 1.0,
@@ -46,7 +46,7 @@
     },
     {
       "lookback_days": 120,
-      "daily_ic_mean": 0.09444,
+      "daily_ic_mean": 0.09442,
       "daily_ic_positive_rate": 0.8,
       "daily_ic_newey_west_tstat": 0.0,
       "top_bucket_excess_return_pct": 4.6572,
@@ -56,16 +56,16 @@
       "decile_mean_return_pct": {
         "1": 2.3518,
         "2": 0.1381,
-        "3": -1.775,
-        "4": -0.5985,
-        "5": 1.6053,
+        "3": -1.8338,
+        "4": -1.1249,
+        "5": 2.1904,
         "6": 0.0777,
-        "7": -0.7123,
-        "8": 1.4336,
+        "7": -0.5224,
+        "8": 1.2436,
         "9": 0.1988,
         "10": 4.9967
       },
-      "decile_monotonicity_spearman": 0.2364,
+      "decile_monotonicity_spearman": 0.2727,
       "overlay_periods": 5,
       "overlay_return_sum_pct": 13.9182,
       "overlay_hit_rate": 0.8,
@@ -99,8 +99,8 @@
       "risk_control_mode": "off",
       "deployment_max_gross_exposure": 1.0
     },
-    "dataset_fingerprint": "ae46570ba733311bf2395ab1ffbcd3d8fe231cc153794d38164869307b9a965e",
+    "dataset_fingerprint": "84688c8137308aba0712be0d040fca52c826a87dfe73d3eceebcf1dbbeaf513b",
     "research_manifest_path": "signals/research_run_manifest.json",
-    "git_commit": "38064189e546d4c7d977c8409f77e5ca8ea85b34"
+    "git_commit": "14ed103033de927eb9f2586890570472b78e0d43"
   }
 }

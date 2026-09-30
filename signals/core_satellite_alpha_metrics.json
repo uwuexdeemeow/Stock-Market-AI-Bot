@@ -745,10 +745,10 @@
   "survivorship_review": {
     "pass": true,
     "capital_approval_pass": false,
-    "survivorship_adjusted_score": 0.9995,
+    "survivorship_adjusted_score": 1.0002,
     "audit_rebalance_selections": 14,
     "generic_stressed_paper_ready": true,
-    "total_return_delta_pct": -2.05,
+    "total_return_delta_pct": 0.78,
     "max_drawdown_delta_pct": 0.01,
     "failed_name_coverage_rate": 0.0588,
     "minimum_failed_name_coverage_for_capital": 1.0,
@@ -768,14 +768,14 @@
         "failed_gates": [
           "holdout_2023_2026_vs_qqq_pass"
         ],
-        "holdout_alpha_vs_qqq_pct": -19.43
+        "holdout_alpha_vs_qqq_pct": -19.31
       },
       {
         "scenario": "delay_1d_extra_10bps",
         "failed_gates": [
           "holdout_2023_2026_vs_qqq_pass"
         ],
-        "holdout_alpha_vs_qqq_pct": -24.38
+        "holdout_alpha_vs_qqq_pct": -24.26
       }
     ],
     "failed_scenario_details": [
@@ -786,7 +786,7 @@
           "holdout_2023_2026_vs_qqq_pass",
           "holdout_2023_2026_vs_blend_pass"
         ],
-        "holdout_alpha_vs_qqq_pct": -31.63
+        "holdout_alpha_vs_qqq_pct": -31.53
       }
     ],
     "worst_stressed_drawdown_pct": -33.38
