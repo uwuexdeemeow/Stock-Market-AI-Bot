@@ -1112,3 +1112,39 @@ idea's score change applied to its panel (and `max_per_sector` 1 for N).
 **Verdict per idea:** "passes", "fails decision gates" or "fails the exam".
 A passing idea needs the owner's agreement before it gets its own paper
 epoch.
+
+### Result: H-newedge-2 (2026-10-02) — NO IDEA PASSES
+
+Full round (20 start days, 200 engine runs), same data. Raw output:
+`research_evidence/newedge_20261002/newedge_round2.json`. No idea passed
+its decision gates, so no exam was run and 2023–2026 is still unused.
+
+| Idea | Median late alpha (S: +436) | Other gate | Pass? |
+|---|---|---|---|
+| **Q** low-volatility filter | **−28** (G1 fails) | without its top 3 (MA, MSFT, AAPL): −93 | no |
+| **M** smoothed score | **+502** (G1 passes) | spread 446 vs S 387 (limit 290); delay cost 9.1 vs S 8.7 | no |
+| **N** sector-neutral, 1 per sector | **+95** (G1 fails) | without its top 3 (FCX, DE, AMZN): −6 | no |
+
+**What the numbers say:**
+
+- **The edge lives in the jumpy stocks.** Taking out the most volatile third
+  (Q) wipes it out completely. The score works by picking volatile names
+  that are about to move, which is also why a few big winners dominate.
+- **The edge is not a sector bet that can be neutralised.** Forcing one
+  stock per sector (N) keeps only about a fifth of it, and nothing is left
+  without its top 3.
+- **Smoothing (M) earns more, but it is not steadier.** It beat S by about
+  66 points, but it depends even more on the start day, and late fills hurt
+  it slightly more, so it fails the robustness goal it was registered for.
+  Under the rules, M's higher alpha is **not** a reason to adopt it. Testing
+  it again as an "alpha" idea now that its result is known would be fitting
+  to the data, so it is not done.
+
+**Decision (by the pre-registered rule):** no idea passes, and the
+incumbent stays on paper under `FORWARD_TEST_RULE.md`.
+
+**Across both rounds (6 ideas):** every attempt to make the edge broader,
+steadier or less dependent on timing removed most of it. The incumbent's
+edge seems to be specifically "catch a few volatile stocks just before
+big moves". That is real (H-edge, H-benchmark), but it is also fragile by
+nature.
