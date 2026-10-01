@@ -983,3 +983,57 @@ A full test needs a source with complete delisted histories (paid ones such
 as Norgate, EODHD or CRSP). Adding more rename pairs or narrowing the window
 now, after seeing this number, would be a new hypothesis. It would have to
 be pre-registered on its own and agreed by the owner.
+
+## Hypothesis H-newedge-1 (pre-registered 2026-10-02, before any run)
+
+**Owner request:** look for a new edge in parallel with paper trading
+(`Documentation/FORWARD_TEST_RULE.md`), running three ideas as one round.
+Script (to be written): `research_evidence/newedge_20261002/newedge_round1.py`.
+
+**Prior evidence, written down now:** `core_satellite_alpha.py` notes that a
+strategy-level volatility target of 0.15 was tried earlier and "reduces DD
+but hurts Sharpe/returns". Idea V below is different: it scales only the
+ETF core, and by QQQ's recent volatility. But it is close kin, so a failure
+would not be a surprise.
+
+**Common base:** the point-in-time list (H-edge test S), the incumbent
+config, the same end-date rule (30 sessions before the data ends), 20 start
+days. The decision window is 2013–2022. 2023–2026 is used only once, in the
+final exam. Nothing in the locked engine file is edited: each idea swaps
+one engine helper while the research script runs.
+
+| Idea | What changes (all else = incumbent) | Fixed settings |
+|---|---|---|
+| **W** let winners run | A held stock is kept while its 12-1 momentum (`factor_mom_12_1`) ranks in the top 30% of that day's eligible stocks, instead of while its score ranks ≥ 0.80. New picks still come from the incumbent score. | keep threshold 0.70 |
+| **V** volatility-scaled core | The core ETF sleeve's size is multiplied by min(1, 0.20 ÷ QQQ's annualised volatility over the last 20 sessions up to the decision day), never below 0.3. The stock overlay is unchanged. No leverage. | target 20%, 20 sessions, floor 0.3 |
+| **T** multi-asset trend core | The core sleeve is split equally across SPY, QQQ, TLT, IEF and GLD. Each asset holds its fifth only while its 252-session return beats BIL's; otherwise that fifth goes to BIL. Sleeve size and stock overlay follow the incumbent regime rules unchanged. | 5 assets, 252 sessions |
+
+**Runs:** S (incumbent), W, V and T, each over 20 start days × on time/one
+day late. Then three more sets, one day late only: W with its own top 3
+contributing tickers removed (chosen from W's on-time runs as in
+H-top-names); T-core and E-core (overlay gross 0 in every regime, as control
+E). That's 220 engine runs. Sharpe and max drawdown use the 20-day period
+equity inside 2013–2022 (Sharpe annualised with 252/20 periods a year, no
+cash deduction). Alpha is vs QQQ, as before.
+
+**Decision gates (2013–2022, one-day-late runs):**
+
+- **W:** (W1) median alpha ≥ 90% of S's median; (W2) mean delay cost
+  (on time − late, same start day) ≤ 50% of S's mean delay cost; (W3)
+  without its top 3 tickers, median alpha ≥ 50% of W's.
+- **V:** in at least 15 of the 20 start days, V has **both** a higher Sharpe
+  **and** a shallower max drawdown than S on the same start day.
+- **T:** in at least 15 of 20 start days, T-core has a higher Sharpe than
+  E-core, **and** T-core's median max drawdown is shallower than QQQ's
+  (QQQ measured on the same period dates).
+
+**Final exam (only for ideas that pass their decision gates):** the
+existing `core_satellite_execution_stress.py` run in research-candidate
+mode with the idea switched on (base, one day late, +10 bps, one day late
++10 bps, one day late +25 bps; full history and the 2023–2026 holdout).
+**Pass = no failed gate in any scenario.** No paper advisory counts.
+
+**Verdict per idea:** "passes" (decision gates and exam), "fails decision
+gates", or "fails the exam". An idea that passes becomes a candidate for its
+own paper epoch and forward test. That still needs the owner's agreement
+and a locked-file change with a re-freeze; nothing changes automatically.
