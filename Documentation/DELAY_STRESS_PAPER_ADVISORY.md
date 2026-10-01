@@ -924,3 +924,28 @@ picks: the core alone (control E) only roughly matches its fair benchmark.
 three names (NVDA, AMD, FCX), and the recent period is weak. H-full-universe,
 which adds the companies that left the index, is still to come.
 Nothing here changes a gate, config or the paper advisory.
+
+### More implementation notes for H-full-universe (2026-10-02, before C1 was computed)
+
+Written after all 709 price files were downloaded, but before any coverage
+number was computed or looked at.
+
+- **Reused tickers.** Tiingo sometimes stores a newer security under an old
+  ticker in the same file. For example, CAM holds Cameron International to
+  2016-04, then a bond fund from 2025-10. Each price file is now cut at its
+  first gap of more than 30 calendar days, and only the part before the gap
+  is used. This affected 9 files: ANSS, APOL, CAM, CHK, DISCK, FL, HBI, PCL,
+  SIVB. Tickers whose file holds only a newer security (for example CA, DF,
+  EMC) don't overlap the old company's index years, so they count as not
+  covered. Tiingo's own "Stock/ETF" labels were checked and rejected as a
+  filter: they mislabel real stocks such as L3 (LLL).
+- **Sector lookup method.** The SEC type-ahead search returned nothing for
+  most multi-word names. The lookup now uses EDGAR's company browse for
+  10-K filers, which also matches former names (Chesapeake Energy → Expand
+  Energy). Among up to 5 matching companies, it picks the one whose current
+  or former name contains every query word and that has the most filings.
+  The SIC→sector table is unchanged. Companies still without a code stay
+  `OTHER`, as pre-registered.
+- **Order inside the coverage step.** C1 is computed and saved first. The
+  slow sector lookup runs only if C1 passes, and the runs step refuses to
+  start until the sector lookup has finished.

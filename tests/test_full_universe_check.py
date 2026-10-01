@@ -204,3 +204,36 @@ def test_monthly_symbol_limit_reply_counts_as_quota_even_with_status_200():
     assert fu.is_quota_reply(200, '{"detail": "Error: You have run over your hourly request allocation."}')
     assert not fu.is_quota_reply(200, '[{"date": "2020-01-02T00:00:00.000Z", "close": 1.0}]')
     assert not fu.is_quota_reply(404, '{"detail": "Error: Ticker XYZ not found"}')
+
+
+# ── SEC name search and reused tickers ─────────────────────────────────────
+
+def test_sec_name_queries_drop_suffixes_and_shorten():
+    assert fu.sec_name_queries("Flir Systems Inc") == ["Flir Systems", "Flir"]
+    assert fu.sec_name_queries("Dish Network Corp - Class A") == ["Dish Network", "Dish"]
+    assert fu.sec_name_queries("") == []
+
+
+def test_parse_browse_atom_single_company_and_list():
+    one = ("<feed><company-info><cik>0000895126</cik><assigned-sic>1311</assigned-sic>"
+           "<conformed-name>EXPAND ENERGY Corp</conformed-name></company-info></feed>")
+    assert fu.parse_browse_atom(one) == [{"cik": 895126, "sic": "1311", "name": "EXPAND ENERGY Corp"}]
+    many = "<feed><entry><cik>0001054833</cik></entry><entry><cik>0000801335</cik></entry></feed>"
+    assert [c["cik"] for c in fu.parse_browse_atom(many)] == [1054833, 801335]
+
+
+def test_names_match_uses_whole_words_and_former_names():
+    assert fu.names_match("Chesapeake Energy", ["EXPAND ENERGY Corp", "CHESAPEAKE ENERGY CORP"])
+    assert not fu.names_match("Flir", ["FlirtAR Inc."])
+    assert not fu.names_match("AGL", ["agilonhealth"])
+
+
+def test_first_segment_cuts_at_a_long_gap():
+    idx = pd.DatetimeIndex(["2016-04-07", "2016-04-08", "2016-04-11", "2025-10-06", "2025-10-07"])
+    frame = pd.DataFrame({"Close": [1.0, 2.0, 3.0, 50.0, 51.0]}, index=idx)
+    kept = fu.first_segment(frame)
+    assert kept.index.max() == pd.Timestamp("2016-04-11")
+    # Normal weekends and holidays are not breaks.
+    normal = pd.DataFrame({"Close": [1.0, 2.0, 3.0]},
+                          index=pd.DatetimeIndex(["2020-12-23", "2020-12-28", "2021-01-04"]))
+    assert len(fu.first_segment(normal)) == 3

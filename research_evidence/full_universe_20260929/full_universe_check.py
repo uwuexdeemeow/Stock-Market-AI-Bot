@@ -84,7 +84,6 @@ PRICE_START = "2010-01-01"        # features need about a year of history first
 
 TIINGO_URL = "https://api.tiingo.com/tiingo/daily/{ticker}"
 SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
-SEC_SEARCH_URL = "https://efts.sec.gov/LATEST/search-index"
 SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik:010d}.json"
 # The SEC asks every script to say who it is.  Set SEC_USER_AGENT in .env to
 # "Your Name your@email" if the SEC ever refuses the default.
@@ -602,7 +601,7 @@ def load_raw(company: str) -> pd.DataFrame:
     frame = frame[~frame.index.duplicated(keep="last")].sort_index()
     # A bar needs positive prices to be usable.
     good = (frame[["Open", "High", "Low", "Close"]] > 0).all(axis=1)
-    return frame.loc[good]
+    return first_segment(frame.loc[good])
 
 
 # ── Sectors from the SEC ───────────────────────────────────────────────────
@@ -613,6 +612,104 @@ def _sec_get(session, url: str, params: dict | None = None):
     response = session.get(url, params=params or {}, headers={"User-Agent": agent}, timeout=60)
     response.raise_for_status()
     return response
+
+
+NAME_SUFFIXES = {"inc", "inc.", "corp", "corp.", "corporation", "co", "co.", "company", "ltd", "ltd.",
+                 "plc", "llc", "lp", "l.p.", "holdings", "holding", "group", "the", "new", "de", "/de/"}
+
+
+def sec_name_queries(name: str) -> list[str]:
+    """Search texts to try on the SEC company search, longest first.
+
+    PLAIN ENGLISH: the SEC search box works like type-ahead, so "Flir
+    Systems Inc" finds nothing while "Flir" finds FLIR SYSTEMS INC.  We drop
+    share-class text ("- Class A") and words like Inc/Corp, then try the
+    name with fewer and fewer words until something matches.
+    """
+    base = str(name or "").split(" - ")[0].replace(",", " ")
+    words = [w for w in base.split() if w.lower() not in NAME_SUFFIXES]
+    queries = []
+    for n in range(len(words), 0, -1):
+        query = " ".join(words[:n])
+        if query and query not in queries:
+            queries.append(query)
+    return queries
+
+
+SEC_BROWSE_URL = "https://www.sec.gov/cgi-bin/browse-edgar"
+
+
+def parse_browse_atom(text: str) -> list[dict]:
+    """Read EDGAR's company-browse answer (atom format).
+
+    PLAIN ENGLISH: when exactly one company matches, EDGAR answers with that
+    company's details, including its industry code (SIC).  When several
+    match, it answers with a list of company IDs (CIKs) and no codes.
+    """
+    import re
+
+    infos = re.findall(r"<company-info>(.*?)</company-info>", text, re.S)
+    if infos:
+        out = []
+        for info in infos:
+            cik = re.search(r"<cik>(\d+)</cik>", info)
+            sic = re.search(r"<assigned-sic>(\d+)</assigned-sic>", info)
+            name = re.search(r"<conformed-name>(.*?)</conformed-name>", info)
+            if cik:
+                out.append({"cik": int(cik.group(1)), "sic": sic.group(1) if sic else None,
+                            "name": name.group(1) if name else None})
+        return out
+    return [{"cik": int(c), "sic": None, "name": None} for c in dict.fromkeys(re.findall(r"<cik>(\d+)</cik>", text))]
+
+
+def names_match(query: str, names: list[str]) -> bool:
+    """Every query word appears as a whole word in one of the names."""
+    import re
+
+    words = [w.lower() for w in query.split()]
+    for name in names:
+        low = str(name or "").lower()
+        if all(re.search(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", low) for w in words):
+            return True
+    return False
+
+
+MAX_PRICE_GAP_DAYS = 30
+
+
+def first_segment(frame: pd.DataFrame, max_gap_days: int = MAX_PRICE_GAP_DAYS) -> pd.DataFrame:
+    """Keep prices up to the first long break in trading.
+
+    PLAIN ENGLISH: Tiingo sometimes reuses an old ticker for a new security
+    and stores both under one name.  CAM was Cameron International until
+    2016; years later a bond fund started trading as CAM, so the file jumps
+    from 2016 straight to 2025.  A real stock trades every weekday, so a gap
+    of more than 30 calendar days means "a different thing from here on".
+    We keep only the part before the first such gap.
+    """
+    if len(frame) < 2:
+        return frame
+    gaps = frame.index.to_series().diff().dt.days
+    breaks = gaps[gaps > max_gap_days]
+    if breaks.empty:
+        return frame
+    return frame.loc[frame.index < breaks.index[0]]
+
+
+def valid_companies(companies: list[str], download_log: dict) -> tuple[list[str], list[str]]:
+    """Split companies into (have usable prices, cut at a long gap)."""
+    good, cut = [], []
+    for company in companies:
+        if download_log.get(company, {}).get("status") != "ok":
+            continue
+        raw_rows = len(pd.read_parquet(RAW_DIR / f"{company}.parquet", columns=["date"]))
+        kept = load_raw(company)
+        if kept.empty:
+            continue
+        good.append(company)
+        if len(kept) < raw_rows:
+            cut.append(company)
+    return good, cut
 
 
 def lookup_sectors(companies: list[str], download_log: dict, *, per_hour: int) -> dict:
@@ -638,7 +735,8 @@ def lookup_sectors(companies: list[str], download_log: dict, *, per_hour: int) -
     throttle = Throttle(per_hour)
     recent = pd.Timestamp(date.today()) - pd.Timedelta(days=30)
     for company in companies:
-        if company in cache:
+        cached = cache.get(company)
+        if cached and (cached.get("method") == "sec_ticker" or cached.get("searched_v3")):
             continue
         info = download_log.get(company, {})
         if info.get("status") != "ok":
@@ -649,18 +747,33 @@ def lookup_sectors(companies: list[str], download_log: dict, *, per_hour: int) -
             if still_listed and company in sec_by_ticker:
                 entry.update(cik=sec_by_ticker[company], method="sec_ticker")
             else:
-                key = key or _tiingo_key()
-                throttle.wait()
-                meta = _tiingo_get(session, TIINGO_URL.format(ticker=company), key).json()
-                name = str(meta.get("name") or "").strip()
+                if cached and cached.get("tiingo_name") is not None:
+                    name = cached["tiingo_name"]        # reuse: saves Tiingo quota
+                else:
+                    key = key or _tiingo_key()
+                    throttle.wait()
+                    meta = _tiingo_get(session, TIINGO_URL.format(ticker=company), key).json()
+                    name = str(meta.get("name") or "").strip()
                 entry["tiingo_name"] = name
-                if name:
-                    hits = _sec_get(session, SEC_SEARCH_URL, {"keysTyped": name}).json()["hits"]["hits"]
-                    if hits:
-                        best = max(hits, key=lambda h: (h.get("_score", 0), h["_source"].get("rank", 0)))
-                        entry.update(cik=int(best["_id"]), method="sec_name_search",
-                                     sec_name=best["_source"].get("entity"))
-            if entry["cik"]:
+                entry["searched_v3"] = True
+                for query in sec_name_queries(name):
+                    params = {"action": "getcompany", "company": query, "type": "10-K",
+                              "owner": "include", "count": 40, "output": "atom"}
+                    found = parse_browse_atom(_sec_get(session, SEC_BROWSE_URL, params).text)
+                    best = None
+                    for candidate in found[:5]:
+                        sub = _sec_get(session, SEC_SUBMISSIONS_URL.format(cik=candidate["cik"])).json()
+                        former = [f.get("name") for f in sub.get("formerNames", [])]
+                        if names_match(query, [sub.get("name")] + former):
+                            filings = len(sub.get("filings", {}).get("recent", {}).get("form", []))
+                            if best is None or filings > best[0]:
+                                best = (filings, candidate["cik"], sub)
+                    if best is not None:
+                        _, cik, sub = best
+                        entry.update(cik=cik, method="sec_browse", sec_query=query, sec_name=sub.get("name"),
+                                     sic=sub.get("sic") or None, sic_description=sub.get("sicDescription"))
+                        break
+            if entry["cik"] and entry.get("method") == "sec_ticker":
                 sub = _sec_get(session, SEC_SUBMISSIONS_URL.format(cik=entry["cik"])).json()
                 entry.update(sic=sub.get("sic") or None, sic_description=sub.get("sicDescription"),
                              sec_name=sub.get("name"))
@@ -712,10 +825,12 @@ def step_coverage(args) -> dict:
         return {"step": "coverage", "status": "downloads unfinished", **status}
 
     log = _read_json(DOWNLOAD_LOG, {})
-    sectors = lookup_sectors(companies, log, per_hour=args.per_hour)
+    good, cut_at_gap = valid_companies(companies, log)
     sessions = core._nyse_sessions(*COVERAGE_WINDOW)
     members = member_matrix(snapshots, sessions, names)
-    price_dates = {c: load_raw(c).index for c in companies if log.get(c, {}).get("status") == "ok"}
+    # load_raw keeps only each file's first unbroken run of prices, so a
+    # reused ticker (now a fund or another company) adds no wrong days.
+    price_dates = {c: load_raw(c).index for c in good}
     table = coverage_table(members, price_dates, current)
     result = judge_coverage(table)
     payload = {
@@ -724,14 +839,28 @@ def step_coverage(args) -> dict:
         "membership_source_url": membership.SOURCE_URL, "membership_source_sha256": membership_sha,
         "pool_companies": len(pool), "renames_used": {k: v for k, v in RENAMES.items() if v in pool},
         "result": result,
-        "sector_counts": pd.Series([sectors.get(c, {}).get("sector", "OTHER") for c in companies]).value_counts().to_dict(),
-        "sector_lookup_errors": sorted(c for c, e in sectors.items() if e.get("error")),
         "download_status_counts": pd.Series([v.get("status") for v in log.values()]).value_counts().to_dict(),
+        "cut_at_long_gap": sorted(cut_at_gap),
         "companies": table.to_dict("records"),
+        "sectors": "pending",
     }
+    # Write C1 first: the sector lookup below is slow (Tiingo's hourly limit)
+    # and is only needed for the runs step.
     _write_json(COVERAGE_JSON, payload)
     print(json.dumps({"C1": result["C1_pass"], "removed": result["removed_covered_share"],
-                      "current": result["current_covered_share"]}, indent=1))
+                      "current": result["current_covered_share"]}, indent=1), flush=True)
+    if not result["C1_pass"]:
+        return payload
+
+    sectors = lookup_sectors(good, log, per_hour=args.per_hour)
+    payload.update({
+        "sectors": "done" if all(c in sectors for c in good) else "unfinished (run again)",
+        "sector_counts": pd.Series([sectors.get(c, {}).get("sector", "OTHER") for c in good]).value_counts().to_dict(),
+        "sector_lookup_errors": sorted(c for c in good if sectors.get(c, {}).get("error")),
+        "sectors_found": sum(1 for c in good if sectors.get(c, {}).get("sic")),
+        "sectors_missing": sorted(c for c in good if not sectors.get(c, {}).get("sic")),
+    })
+    _write_json(COVERAGE_JSON, payload)
     return payload
 
 
@@ -868,13 +997,15 @@ def step_runs(args) -> dict:
     coverage = _read_json(COVERAGE_JSON, {})
     if not coverage.get("result", {}).get("C1_pass"):
         raise SystemExit("C1 has not passed (run --step coverage first). By the pre-registered rule, no runs.")
+    if coverage.get("sectors") != "done":
+        raise SystemExit("Sector lookup unfinished: run --step coverage again until it reports sectors done.")
     edge = _edge_module()
     membership, snapshots, _sha = _snapshots(args)
     pool = build_pool(snapshots)
     names = membership_names(pool, membership.PREDECESSORS)
     latest = set(snapshots["members"].iloc[-1])
     log = _read_json(DOWNLOAD_LOG, {})
-    companies = sorted(c for c in pool if log.get(c, {}).get("status") == "ok")
+    companies, _wrong = valid_companies(sorted(c for c in pool if log.get(c, {}).get("status") == "ok"), log)
     sectors = _read_json(SEC_DIR / "sectors.json", {})
     sector_map = {c: sectors.get(c, {}).get("sector", "OTHER") for c in companies}
 
