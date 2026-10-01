@@ -1,0 +1,5096 @@
+{
+ "hypothesis": "H-full-universe",
+ "step": "coverage",
+ "research_only": true,
+ "approves_trading": false,
+ "price_source": "Tiingo end-of-day API (adjusted OHLCV)",
+ "membership_source_url": "https://raw.githubusercontent.com/fja05680/sp500/master/S%26P%20500%20Historical%20Components%20%26%20Changes%20(Updated).csv",
+ "membership_source_sha256": "36326709d46d6cd25834de5df457b16f5f96fad3a06b9beac28f7b88aa0b0d54",
+ "pool_companies": 709,
+ "renames_used": {
+  "ABC": "COR",
+  "ADS": "BFH",
+  "ANTM": "ELV",
+  "ARNC": "HWM",
+  "BHGE": "BKR",
+  "BK": "BNY",
+  "BLL": "BALL",
+  "CBS": "PARA",
+  "CDAY": "DAY",
+  "COG": "CTRA",
+  "CTL": "LUMN",
+  "DISCA": "WBD",
+  "DWDP": "DD",
+  "FB": "META",
+  "FBHS": "FBIN",
+  "FII": "FHI",
+  "FLT": "CPAY",
+  "GPS": "GAP",
+  "HCP": "DOC",
+  "PEAK": "DOC",
+  "HFC": "DINO",
+  "HRS": "LHX",
+  "JEC": "J",
+  "KORS": "CPRI",
+  "LB": "BBWI",
+  "MMC": "MRSH",
+  "NLOK": "GEN",
+  "SYMC": "GEN",
+  "PKI": "RVTY",
+  "RE": "EG",
+  "TMK": "GL",
+  "UTX": "RTX",
+  "VIAC": "PARA",
+  "WLTW": "WTW",
+  "WYND": "TNL"
+ },
+ "result": {
+  "removed_companies": 261,
+  "removed_covered_share": 0.8084,
+  "current_companies": 442,
+  "current_covered_share": 0.9819,
+  "C1_pass": false,
+  "not_covered": [
+   "ADT",
+   "ALTR",
+   "APC",
+   "APOL",
+   "BBBY",
+   "BEAM",
+   "BIG",
+   "BKR",
+   "BMC",
+   "BRCM",
+   "BTUUQ",
+   "CA",
+   "CCE",
+   "CSRA",
+   "CVC",
+   "DELL",
+   "DF",
+   "DNB",
+   "DO",
+   "DOW",
+   "DTV",
+   "DXC",
+   "EMC",
+   "ENDP",
+   "EQR",
+   "ESV",
+   "FOX",
+   "FOXA",
+   "FRC",
+   "FTR",
+   "HAR",
+   "HOT",
+   "IGT",
+   "INFO",
+   "IR",
+   "JCP",
+   "LIFE",
+   "LIN",
+   "LLTC",
+   "MNK",
+   "MOLX",
+   "MON",
+   "NE",
+   "NFX",
+   "NYX",
+   "PARA",
+   "PCP",
+   "PLL",
+   "POM",
+   "S",
+   "SE",
+   "SNDK",
+   "SPLS",
+   "STI",
+   "TE",
+   "VIAV",
+   "WIN",
+   "WRK"
+  ]
+ },
+ "download_status_counts": {
+  "ok": 695,
+  "empty": 9,
+  "not_found": 5
+ },
+ "cut_at_long_gap": [
+  "ANSS",
+  "APOL",
+  "CAM",
+  "CHK",
+  "DISCK",
+  "FL",
+  "HBI",
+  "PCL",
+  "SIVB"
+ ],
+ "companies": [
+  {
+   "company": "BBBY",
+   "current_member": false,
+   "member_sessions": 1149,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "ZBH",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CVC",
+   "current_member": false,
+   "member_sessions": 873,
+   "priced_sessions": 105,
+   "share": 0.12027491408934708
+  },
+  {
+   "company": "ACN",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "EOG",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "COP",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "KR",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "DOW",
+   "current_member": true,
+   "member_sessions": 2122,
+   "priced_sessions": 946,
+   "share": 0.4458058435438266
+  },
+  {
+   "company": "CI",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "JWN",
+   "current_member": false,
+   "member_sessions": 1880,
+   "priced_sessions": 1880,
+   "share": 1.0
+  },
+  {
+   "company": "PSX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BMC",
+   "current_member": false,
+   "member_sessions": 174,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "EXPE",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "EFX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "FAST",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "NI",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "NYX",
+   "current_member": false,
+   "member_sessions": 219,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "APH",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "SNI",
+   "current_member": false,
+   "member_sessions": 1303,
+   "priced_sessions": 1303,
+   "share": 1.0
+  },
+  {
+   "company": "DD",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BEAM",
+   "current_member": false,
+   "member_sessions": 334,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "GHC",
+   "current_member": false,
+   "member_sessions": 433,
+   "priced_sessions": 433,
+   "share": 1.0
+  },
+  {
+   "company": "WU",
+   "current_member": false,
+   "member_sessions": 2258,
+   "priced_sessions": 2258,
+   "share": 1.0
+  },
+  {
+   "company": "IBM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "JEF",
+   "current_member": false,
+   "member_sessions": 1695,
+   "priced_sessions": 1695,
+   "share": 1.0
+  },
+  {
+   "company": "STI",
+   "current_member": false,
+   "member_sessions": 1746,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "KMI",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "TRIP",
+   "current_member": false,
+   "member_sessions": 1756,
+   "priced_sessions": 1756,
+   "share": 1.0
+  },
+  {
+   "company": "MCD",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "AMAT",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "K",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PH",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "NSC",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PAYX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "APC",
+   "current_member": false,
+   "member_sessions": 1662,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "AVB",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HRB",
+   "current_member": false,
+   "member_sessions": 1943,
+   "priced_sessions": 1943,
+   "share": 1.0
+  },
+  {
+   "company": "TEL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "USB",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HIG",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ABT",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CTRA",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "TIE",
+   "current_member": false,
+   "member_sessions": 0,
+   "priced_sessions": 0,
+   "share": NaN
+  },
+  {
+   "company": "TAP",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CMCSA",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HAS",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "SWN",
+   "current_member": false,
+   "member_sessions": 1071,
+   "priced_sessions": 1071,
+   "share": 1.0
+  },
+  {
+   "company": "IGT",
+   "current_member": false,
+   "member_sessions": 369,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "LDOS",
+   "current_member": true,
+   "member_sessions": 1038,
+   "priced_sessions": 1038,
+   "share": 1.0
+  },
+  {
+   "company": "CMS",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "SWY",
+   "current_member": false,
+   "member_sessions": 520,
+   "priced_sessions": 520,
+   "share": 1.0
+  },
+  {
+   "company": "RVTY",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "LM",
+   "current_member": false,
+   "member_sessions": 988,
+   "priced_sessions": 988,
+   "share": 1.0
+  },
+  {
+   "company": "XOM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CAG",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MRSH",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PEG",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "XYL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CAM",
+   "current_member": false,
+   "member_sessions": 818,
+   "priced_sessions": 818,
+   "share": 1.0
+  },
+  {
+   "company": "MOS",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HAR",
+   "current_member": false,
+   "member_sessions": 1055,
+   "priced_sessions": 299,
+   "share": 0.2834123222748815
+  },
+  {
+   "company": "NTRS",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "XLNX",
+   "current_member": false,
+   "member_sessions": 2297,
+   "priced_sessions": 2297,
+   "share": 1.0
+  },
+  {
+   "company": "BBWI",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "XL",
+   "current_member": false,
+   "member_sessions": 1434,
+   "priced_sessions": 1434,
+   "share": 1.0
+  },
+  {
+   "company": "NOC",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "DTV",
+   "current_member": false,
+   "member_sessions": 645,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "STZ",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "RL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "LHX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HP",
+   "current_member": false,
+   "member_sessions": 1860,
+   "priced_sessions": 1860,
+   "share": 1.0
+  },
+  {
+   "company": "VIAV",
+   "current_member": false,
+   "member_sessions": 246,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "JPM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "COF",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MWV",
+   "current_member": false,
+   "member_sessions": 629,
+   "priced_sessions": 629,
+   "share": 1.0
+  },
+  {
+   "company": "UNP",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "VIAB",
+   "current_member": false,
+   "member_sessions": 1744,
+   "priced_sessions": 1744,
+   "share": 1.0
+  },
+  {
+   "company": "ORLY",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BTUUQ",
+   "current_member": false,
+   "member_sessions": 433,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "ETFC",
+   "current_member": false,
+   "member_sessions": 1955,
+   "priced_sessions": 1953,
+   "share": 0.9989769820971867
+  },
+  {
+   "company": "ADI",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CA",
+   "current_member": false,
+   "member_sessions": 1473,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "DRI",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "WHR",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "SRE",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ALTR",
+   "current_member": false,
+   "member_sessions": 752,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "NUE",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "GIS",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "TEG",
+   "current_member": false,
+   "member_sessions": 627,
+   "priced_sessions": 627,
+   "share": 1.0
+  },
+  {
+   "company": "BKNG",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "VZ",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ANRZQ",
+   "current_member": false,
+   "member_sessions": 0,
+   "priced_sessions": 0,
+   "share": NaN
+  },
+  {
+   "company": "RHT",
+   "current_member": false,
+   "member_sessions": 1643,
+   "priced_sessions": 1639,
+   "share": 0.9975654290931223
+  },
+  {
+   "company": "TRV",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "FLS",
+   "current_member": false,
+   "member_sessions": 2068,
+   "priced_sessions": 2068,
+   "share": 1.0
+  },
+  {
+   "company": "WEC",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "AABA",
+   "current_member": false,
+   "member_sessions": 1123,
+   "priced_sessions": 1123,
+   "share": 1.0
+  },
+  {
+   "company": "SNA",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BRCM",
+   "current_member": false,
+   "member_sessions": 775,
+   "priced_sessions": 19,
+   "share": 0.024516129032258065
+  },
+  {
+   "company": "FDX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "AAPL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "AON",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "SEE",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ANDV",
+   "current_member": false,
+   "member_sessions": 1447,
+   "priced_sessions": 1447,
+   "share": 1.0
+  },
+  {
+   "company": "GE",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "AMT",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "DELL",
+   "current_member": true,
+   "member_sessions": 208,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "PRU",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "IFF",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CTXS",
+   "current_member": false,
+   "member_sessions": 2455,
+   "priced_sessions": 2455,
+   "share": 1.0
+  },
+  {
+   "company": "CLF",
+   "current_member": false,
+   "member_sessions": 314,
+   "priced_sessions": 314,
+   "share": 1.0
+  },
+  {
+   "company": "FOSL",
+   "current_member": false,
+   "member_sessions": 757,
+   "priced_sessions": 757,
+   "share": 1.0
+  },
+  {
+   "company": "SYK",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "FE",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "FFIV",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MDLZ",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "WFM",
+   "current_member": false,
+   "member_sessions": 1172,
+   "priced_sessions": 1172,
+   "share": 1.0
+  },
+  {
+   "company": "SPGI",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "TIF",
+   "current_member": false,
+   "member_sessions": 2018,
+   "priced_sessions": 2018,
+   "share": 1.0
+  },
+  {
+   "company": "PCG",
+   "current_member": true,
+   "member_sessions": 1585,
+   "priced_sessions": 1585,
+   "share": 1.0
+  },
+  {
+   "company": "AMZN",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "OXY",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "JCP",
+   "current_member": false,
+   "member_sessions": 231,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "HAL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HON",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "LLTC",
+   "current_member": false,
+   "member_sessions": 1055,
+   "priced_sessions": 298,
+   "share": 0.2824644549763033
+  },
+  {
+   "company": "BNY",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CVS",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "IP",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "SLB",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "WIN",
+   "current_member": false,
+   "member_sessions": 568,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "MRO",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "WBD",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "GD",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "GT",
+   "current_member": false,
+   "member_sessions": 1548,
+   "priced_sessions": 1548,
+   "share": 1.0
+  },
+  {
+   "company": "BBY",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "TMO",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MDT",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "FTR",
+   "current_member": false,
+   "member_sessions": 1060,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "PM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "RHI",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "M",
+   "current_member": false,
+   "member_sessions": 1827,
+   "priced_sessions": 1827,
+   "share": 1.0
+  },
+  {
+   "company": "DNR",
+   "current_member": false,
+   "member_sessions": 558,
+   "priced_sessions": 558,
+   "share": 1.0
+  },
+  {
+   "company": "ORCL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ZION",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HES",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "FTI",
+   "current_member": false,
+   "member_sessions": 2043,
+   "priced_sessions": 2043,
+   "share": 1.0
+  },
+  {
+   "company": "DUK",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "DVA",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "AGN",
+   "current_member": false,
+   "member_sessions": 1852,
+   "priced_sessions": 1851,
+   "share": 0.9994600431965442
+  },
+  {
+   "company": "URBN",
+   "current_member": false,
+   "member_sessions": 1060,
+   "priced_sessions": 1060,
+   "share": 1.0
+  },
+  {
+   "company": "DGX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "STX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "NEE",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "AEE",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "INTC",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "TGNA",
+   "current_member": false,
+   "member_sessions": 1112,
+   "priced_sessions": 1112,
+   "share": 1.0
+  },
+  {
+   "company": "BLK",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PFE",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "NOV",
+   "current_member": false,
+   "member_sessions": 2194,
+   "priced_sessions": 2194,
+   "share": 1.0
+  },
+  {
+   "company": "QEP",
+   "current_member": false,
+   "member_sessions": 628,
+   "priced_sessions": 628,
+   "share": 1.0
+  },
+  {
+   "company": "WFC",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PCL",
+   "current_member": false,
+   "member_sessions": 789,
+   "priced_sessions": 789,
+   "share": 1.0
+  },
+  {
+   "company": "VAR",
+   "current_member": false,
+   "member_sessions": 2088,
+   "priced_sessions": 2087,
+   "share": 0.9995210727969349
+  },
+  {
+   "company": "NWL",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "KIM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CFN",
+   "current_member": false,
+   "member_sessions": 554,
+   "priced_sessions": 554,
+   "share": 1.0
+  },
+  {
+   "company": "ETR",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BAX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "RSG",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PWR",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ADM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "LUV",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HD",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "SO",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "GWW",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "TER",
+   "current_member": true,
+   "member_sessions": 821,
+   "priced_sessions": 821,
+   "share": 1.0
+  },
+  {
+   "company": "BALL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MNST",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CCE",
+   "current_member": false,
+   "member_sessions": 858,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "NTAP",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "AEP",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "AXP",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CVX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "GPC",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ISRG",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "FIS",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ETN",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BXP",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "VFC",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ROP",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "STT",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CMI",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "AMP",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MO",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "LH",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CBRE",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "LO",
+   "current_member": false,
+   "member_sessions": 615,
+   "priced_sessions": 615,
+   "share": 1.0
+  },
+  {
+   "company": "JNPR",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "JOY",
+   "current_member": false,
+   "member_sessions": 697,
+   "priced_sessions": 697,
+   "share": 1.0
+  },
+  {
+   "company": "LEG",
+   "current_member": false,
+   "member_sessions": 2258,
+   "priced_sessions": 2258,
+   "share": 1.0
+  },
+  {
+   "company": "EA",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "GILD",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "SRCL",
+   "current_member": false,
+   "member_sessions": 1491,
+   "priced_sessions": 1491,
+   "share": 1.0
+  },
+  {
+   "company": "GEN",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "FMC",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PBCT",
+   "current_member": false,
+   "member_sessions": 2330,
+   "priced_sessions": 2330,
+   "share": 1.0
+  },
+  {
+   "company": "WY",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "KEY",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "AIV",
+   "current_member": false,
+   "member_sessions": 2007,
+   "priced_sessions": 2007,
+   "share": 1.0
+  },
+  {
+   "company": "ROK",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "LUMN",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "LSI",
+   "current_member": false,
+   "member_sessions": 338,
+   "priced_sessions": 338,
+   "share": 1.0
+  },
+  {
+   "company": "CNP",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "RTN",
+   "current_member": false,
+   "member_sessions": 1827,
+   "priced_sessions": 1827,
+   "share": 1.0
+  },
+  {
+   "company": "CMA",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HPQ",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "NFLX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PEP",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PNC",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "T",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "JCI",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "C",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "SJM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "GNW",
+   "current_member": false,
+   "member_sessions": 726,
+   "priced_sessions": 726,
+   "share": 1.0
+  },
+  {
+   "company": "PHM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "POM",
+   "current_member": false,
+   "member_sessions": 812,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "DHI",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "FHI",
+   "current_member": false,
+   "member_sessions": 0,
+   "priced_sessions": 0,
+   "share": NaN
+  },
+  {
+   "company": "DF",
+   "current_member": false,
+   "member_sessions": 99,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "WM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "RAI",
+   "current_member": false,
+   "member_sessions": 1148,
+   "priced_sessions": 1148,
+   "share": 1.0
+  },
+  {
+   "company": "DTE",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ADP",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MOLX",
+   "current_member": false,
+   "member_sessions": 236,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "PCAR",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PGR",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "RF",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ADSK",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BEN",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "FISV",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PFG",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "WELL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BA",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CSX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "FRX",
+   "current_member": false,
+   "member_sessions": 376,
+   "priced_sessions": 376,
+   "share": 1.0
+  },
+  {
+   "company": "MAS",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MYL",
+   "current_member": false,
+   "member_sessions": 1984,
+   "priced_sessions": 1984,
+   "share": 1.0
+  },
+  {
+   "company": "NBR",
+   "current_member": false,
+   "member_sessions": 558,
+   "priced_sessions": 558,
+   "share": 1.0
+  },
+  {
+   "company": "FCX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "IR",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 1420,
+   "share": 0.5639396346306592
+  },
+  {
+   "company": "DO",
+   "current_member": false,
+   "member_sessions": 945,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "MCK",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "LIFE",
+   "current_member": false,
+   "member_sessions": 267,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "LYB",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CLX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "IRM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "NDAQ",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "RTX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "TE",
+   "current_member": false,
+   "member_sessions": 881,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "MAT",
+   "current_member": false,
+   "member_sessions": 1618,
+   "priced_sessions": 1618,
+   "share": 1.0
+  },
+  {
+   "company": "PX",
+   "current_member": false,
+   "member_sessions": 1469,
+   "priced_sessions": 1469,
+   "share": 1.0
+  },
+  {
+   "company": "AFL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BSX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "TGT",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CCL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "KDP",
+   "current_member": true,
+   "member_sessions": 1519,
+   "priced_sessions": 1519,
+   "share": 1.0
+  },
+  {
+   "company": "SPLS",
+   "current_member": false,
+   "member_sessions": 1183,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "ARG",
+   "current_member": false,
+   "member_sessions": 853,
+   "priced_sessions": 853,
+   "share": 1.0
+  },
+  {
+   "company": "CCI",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CINF",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "WYNN",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "RRD",
+   "current_member": false,
+   "member_sessions": 0,
+   "priced_sessions": 0,
+   "share": NaN
+  },
+  {
+   "company": "NFX",
+   "current_member": false,
+   "member_sessions": 1541,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "ALXN",
+   "current_member": false,
+   "member_sessions": 2152,
+   "priced_sessions": 2152,
+   "share": 1.0
+  },
+  {
+   "company": "IPG",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "AZO",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "COV",
+   "current_member": false,
+   "member_sessions": 520,
+   "priced_sessions": 520,
+   "share": 1.0
+  },
+  {
+   "company": "EMN",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HUM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PDCO",
+   "current_member": false,
+   "member_sessions": 1311,
+   "priced_sessions": 1311,
+   "share": 1.0
+  },
+  {
+   "company": "AIG",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "FLIR",
+   "current_member": false,
+   "member_sessions": 2106,
+   "priced_sessions": 2106,
+   "share": 1.0
+  },
+  {
+   "company": "CL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CVH",
+   "current_member": false,
+   "member_sessions": 86,
+   "priced_sessions": 86,
+   "share": 1.0
+  },
+  {
+   "company": "BF-B",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "DVN",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CHRW",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "LMT",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "NBL",
+   "current_member": false,
+   "member_sessions": 1958,
+   "priced_sessions": 1955,
+   "share": 0.998467824310521
+  },
+  {
+   "company": "FITB",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "DOC",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MAR",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CAH",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "LRCX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MCHP",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "LNC",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MJN",
+   "current_member": false,
+   "member_sessions": 1121,
+   "priced_sessions": 1121,
+   "share": 1.0
+  },
+  {
+   "company": "AKAM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "SCG",
+   "current_member": false,
+   "member_sessions": 1510,
+   "priced_sessions": 1510,
+   "share": 1.0
+  },
+  {
+   "company": "BMY",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BIIB",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "KLAC",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PCP",
+   "current_member": false,
+   "member_sessions": 775,
+   "priced_sessions": 19,
+   "share": 0.024516129032258065
+  },
+  {
+   "company": "SE",
+   "current_member": false,
+   "member_sessions": 1045,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "WBA",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "FOXA",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 961,
+   "share": 0.3816521048451152
+  },
+  {
+   "company": "TSN",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BDX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MS",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "THC",
+   "current_member": false,
+   "member_sessions": 828,
+   "priced_sessions": 828,
+   "share": 1.0
+  },
+  {
+   "company": "PG",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "AMD",
+   "current_member": true,
+   "member_sessions": 1640,
+   "priced_sessions": 1640,
+   "share": 1.0
+  },
+  {
+   "company": "PNW",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "TWX",
+   "current_member": false,
+   "member_sessions": 1373,
+   "priced_sessions": 1373,
+   "share": 1.0
+  },
+  {
+   "company": "ADBE",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CERN",
+   "current_member": false,
+   "member_sessions": 2375,
+   "priced_sessions": 2375,
+   "share": 1.0
+  },
+  {
+   "company": "OI",
+   "current_member": false,
+   "member_sessions": 988,
+   "priced_sessions": 988,
+   "share": 1.0
+  },
+  {
+   "company": "GME",
+   "current_member": false,
+   "member_sessions": 833,
+   "priced_sessions": 833,
+   "share": 1.0
+  },
+  {
+   "company": "CB",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ESV",
+   "current_member": false,
+   "member_sessions": 815,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "PPG",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PARA",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 475,
+   "share": 0.18864177918983321
+  },
+  {
+   "company": "TDC",
+   "current_member": false,
+   "member_sessions": 1123,
+   "priced_sessions": 1123,
+   "share": 1.0
+  },
+  {
+   "company": "ES",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "OKE",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "NEM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CMG",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "COR",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "RRC",
+   "current_member": false,
+   "member_sessions": 1374,
+   "priced_sessions": 1374,
+   "share": 1.0
+  },
+  {
+   "company": "MSI",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MPC",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PNR",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "IVZ",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HST",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "APA",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "SWK",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MU",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MTB",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "TXT",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "QCOM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CNX",
+   "current_member": false,
+   "member_sessions": 798,
+   "priced_sessions": 798,
+   "share": 1.0
+  },
+  {
+   "company": "NKE",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MON",
+   "current_member": false,
+   "member_sessions": 1367,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "DE",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "GL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HRL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BCR",
+   "current_member": false,
+   "member_sessions": 1258,
+   "priced_sessions": 1258,
+   "share": 1.0
+  },
+  {
+   "company": "AN",
+   "current_member": false,
+   "member_sessions": 1158,
+   "priced_sessions": 1158,
+   "share": 1.0
+  },
+  {
+   "company": "TJX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MSFT",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "DIS",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "EQR",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "PPL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HWM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "INTU",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HOG",
+   "current_member": false,
+   "member_sessions": 1880,
+   "priced_sessions": 1880,
+   "share": 1.0
+  },
+  {
+   "company": "OMC",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HBAN",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "GLW",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ED",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "UPS",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "DLTR",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HOT",
+   "current_member": false,
+   "member_sessions": 939,
+   "priced_sessions": 183,
+   "share": 0.19488817891373802
+  },
+  {
+   "company": "CSCO",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ICE",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "SPG",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "GOOGL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "YUM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "KMB",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "NVDA",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PLL",
+   "current_member": false,
+   "member_sessions": 670,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "CF",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "S",
+   "current_member": false,
+   "member_sessions": 129,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "CPB",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "DHR",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MRK",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MKC",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "WPX",
+   "current_member": false,
+   "member_sessions": 307,
+   "priced_sessions": 307,
+   "share": 1.0
+  },
+  {
+   "company": "AIZ",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "VTR",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MET",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BIG",
+   "current_member": false,
+   "member_sessions": 30,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "AES",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "F",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "FSLR",
+   "current_member": true,
+   "member_sessions": 1069,
+   "priced_sessions": 1069,
+   "share": 1.0
+  },
+  {
+   "company": "UNM",
+   "current_member": false,
+   "member_sessions": 2194,
+   "priced_sessions": 2194,
+   "share": 1.0
+  },
+  {
+   "company": "TWC",
+   "current_member": false,
+   "member_sessions": 850,
+   "priced_sessions": 850,
+   "share": 1.0
+  },
+  {
+   "company": "KMX",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HNZ",
+   "current_member": false,
+   "member_sessions": 108,
+   "priced_sessions": 108,
+   "share": 1.0
+  },
+  {
+   "company": "SYY",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MMM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "EXPD",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "UNH",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "AVP",
+   "current_member": false,
+   "member_sessions": 558,
+   "priced_sessions": 558,
+   "share": 1.0
+  },
+  {
+   "company": "EW",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "LLY",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CRM",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "LEN",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ITW",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "APD",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "APOL",
+   "current_member": false,
+   "member_sessions": 124,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "D",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "MA",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CBE",
+   "current_member": false,
+   "member_sessions": 0,
+   "priced_sessions": 0,
+   "share": NaN
+  },
+  {
+   "company": "SCHW",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "SBUX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "NE",
+   "current_member": false,
+   "member_sessions": 640,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "EQT",
+   "current_member": true,
+   "member_sessions": 1541,
+   "priced_sessions": 1541,
+   "share": 1.0
+  },
+  {
+   "company": "XRAY",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "VLO",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BRK-B",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "RDC",
+   "current_member": false,
+   "member_sessions": 410,
+   "priced_sessions": 410,
+   "share": 1.0
+  },
+  {
+   "company": "AVY",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "LOW",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "SLM",
+   "current_member": false,
+   "member_sessions": 334,
+   "priced_sessions": 334,
+   "share": 1.0
+  },
+  {
+   "company": "WMB",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CAT",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BBT",
+   "current_member": false,
+   "member_sessions": 1746,
+   "priced_sessions": 1746,
+   "share": 1.0
+  },
+  {
+   "company": "AMGN",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CTAS",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HSY",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "SIAL",
+   "current_member": false,
+   "member_sessions": 726,
+   "priced_sessions": 726,
+   "share": 1.0
+  },
+  {
+   "company": "TPR",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "VNO",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PSA",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "COL",
+   "current_member": false,
+   "member_sessions": 1487,
+   "priced_sessions": 1487,
+   "share": 1.0
+  },
+  {
+   "company": "ALL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BKR",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 1384,
+   "share": 0.5496425734710088
+  },
+  {
+   "company": "ATI",
+   "current_member": false,
+   "member_sessions": 629,
+   "priced_sessions": 629,
+   "share": 1.0
+  },
+  {
+   "company": "J",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ECL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "XRX",
+   "current_member": false,
+   "member_sessions": 2068,
+   "priced_sessions": 2068,
+   "share": 1.0
+  },
+  {
+   "company": "L",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "STJ",
+   "current_member": false,
+   "member_sessions": 1010,
+   "priced_sessions": 1010,
+   "share": 1.0
+  },
+  {
+   "company": "EMC",
+   "current_member": false,
+   "member_sessions": 927,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "NRG",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ESRX",
+   "current_member": false,
+   "member_sessions": 1504,
+   "priced_sessions": 1504,
+   "share": 1.0
+  },
+  {
+   "company": "VRSN",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CELG",
+   "current_member": false,
+   "member_sessions": 1735,
+   "priced_sessions": 1735,
+   "share": 1.0
+  },
+  {
+   "company": "KSS",
+   "current_member": false,
+   "member_sessions": 1943,
+   "priced_sessions": 1943,
+   "share": 1.0
+  },
+  {
+   "company": "EL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "TMUS",
+   "current_member": true,
+   "member_sessions": 957,
+   "priced_sessions": 957,
+   "share": 1.0
+  },
+  {
+   "company": "MCO",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CME",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "TXN",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "WAT",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "DFS",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "CTSH",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "EIX",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "XEL",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "AET",
+   "current_member": false,
+   "member_sessions": 1489,
+   "priced_sessions": 1489,
+   "share": 1.0
+  },
+  {
+   "company": "PXD",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PRGO",
+   "current_member": false,
+   "member_sessions": 2194,
+   "priced_sessions": 2194,
+   "share": 1.0
+  },
+  {
+   "company": "MUR",
+   "current_member": false,
+   "member_sessions": 1149,
+   "priced_sessions": 1149,
+   "share": 1.0
+  },
+  {
+   "company": "ANF",
+   "current_member": false,
+   "member_sessions": 246,
+   "priced_sessions": 246,
+   "share": 1.0
+  },
+  {
+   "company": "SNDK",
+   "current_member": true,
+   "member_sessions": 846,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "DNB",
+   "current_member": false,
+   "member_sessions": 1072,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "A",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "DOV",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ELV",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "EXC",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HCBK",
+   "current_member": false,
+   "member_sessions": 714,
+   "priced_sessions": 714,
+   "share": 1.0
+  },
+  {
+   "company": "JNJ",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BAC",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PBI",
+   "current_member": false,
+   "member_sessions": 1047,
+   "priced_sessions": 1047,
+   "share": 1.0
+  },
+  {
+   "company": "FDO",
+   "current_member": false,
+   "member_sessions": 631,
+   "priced_sessions": 631,
+   "share": 1.0
+  },
+  {
+   "company": "BWA",
+   "current_member": false,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PLD",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "COST",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "WDC",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "DXC",
+   "current_member": false,
+   "member_sessions": 2181,
+   "priced_sessions": 1447,
+   "share": 0.6634571297569922
+  },
+  {
+   "company": "X",
+   "current_member": false,
+   "member_sessions": 377,
+   "priced_sessions": 377,
+   "share": 1.0
+  },
+  {
+   "company": "WMT",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "SUN",
+   "current_member": false,
+   "member_sessions": 0,
+   "priced_sessions": 0,
+   "share": NaN
+  },
+  {
+   "company": "EMR",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "BMS",
+   "current_member": false,
+   "member_sessions": 486,
+   "priced_sessions": 486,
+   "share": 1.0
+  },
+  {
+   "company": "FLR",
+   "current_member": false,
+   "member_sessions": 1614,
+   "priced_sessions": 1614,
+   "share": 1.0
+  },
+  {
+   "company": "FHN",
+   "current_member": false,
+   "member_sessions": 119,
+   "priced_sessions": 119,
+   "share": 1.0
+  },
+  {
+   "company": "CHK",
+   "current_member": false,
+   "member_sessions": 1311,
+   "priced_sessions": 1311,
+   "share": 1.0
+  },
+  {
+   "company": "R",
+   "current_member": false,
+   "member_sessions": 1123,
+   "priced_sessions": 1123,
+   "share": 1.0
+  },
+  {
+   "company": "VMC",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "LLL",
+   "current_member": false,
+   "member_sessions": 1634,
+   "priced_sessions": 1634,
+   "share": 1.0
+  },
+  {
+   "company": "KO",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "GAS",
+   "current_member": false,
+   "member_sessions": 881,
+   "priced_sessions": 881,
+   "share": 1.0
+  },
+  {
+   "company": "TSS",
+   "current_member": false,
+   "member_sessions": 1692,
+   "priced_sessions": 1689,
+   "share": 0.99822695035461
+  },
+  {
+   "company": "ROST",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "GAP",
+   "current_member": false,
+   "member_sessions": 2288,
+   "priced_sessions": 2288,
+   "share": 1.0
+  },
+  {
+   "company": "SHW",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "TROW",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "HSP",
+   "current_member": false,
+   "member_sessions": 673,
+   "priced_sessions": 673,
+   "share": 1.0
+  },
+  {
+   "company": "GS",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "V",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "JBL",
+   "current_member": true,
+   "member_sessions": 465,
+   "priced_sessions": 465,
+   "share": 1.0
+  },
+  {
+   "company": "TNL",
+   "current_member": false,
+   "member_sessions": 1362,
+   "priced_sessions": 1362,
+   "share": 1.0
+  },
+  {
+   "company": "EBAY",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ADT",
+   "current_member": false,
+   "member_sessions": 838,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "KRFT",
+   "current_member": false,
+   "member_sessions": 630,
+   "priced_sessions": 630,
+   "share": 1.0
+  },
+  {
+   "company": "PETM",
+   "current_member": false,
+   "member_sessions": 551,
+   "priced_sessions": 551,
+   "share": 1.0
+  },
+  {
+   "company": "DG",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "GRMN",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "APTV",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "ABBV",
+   "current_member": true,
+   "member_sessions": 2518,
+   "priced_sessions": 2518,
+   "share": 1.0
+  },
+  {
+   "company": "PVH",
+   "current_member": false,
+   "member_sessions": 2415,
+   "priced_sessions": 2415,
+   "share": 1.0
+  },
+  {
+   "company": "REGN",
+   "current_member": true,
+   "member_sessions": 2436,
+   "priced_sessions": 2436,
+   "share": 1.0
+  },
+  {
+   "company": "MAC",
+   "current_member": false,
+   "member_sessions": 1668,
+   "priced_sessions": 1668,
+   "share": 1.0
+  },
+  {
+   "company": "KSU",
+   "current_member": false,
+   "member_sessions": 2155,
+   "priced_sessions": 2155,
+   "share": 1.0
+  },
+  {
+   "company": "GM",
+   "current_member": true,
+   "member_sessions": 2410,
+   "priced_sessions": 2410,
+   "share": 1.0
+  },
+  {
+   "company": "ZTS",
+   "current_member": true,
+   "member_sessions": 2399,
+   "priced_sessions": 2399,
+   "share": 1.0
+  },
+  {
+   "company": "NWSA",
+   "current_member": true,
+   "member_sessions": 2394,
+   "priced_sessions": 2394,
+   "share": 1.0
+  },
+  {
+   "company": "NLSN",
+   "current_member": false,
+   "member_sessions": 2333,
+   "priced_sessions": 2333,
+   "share": 1.0
+  },
+  {
+   "company": "DAL",
+   "current_member": true,
+   "member_sessions": 2344,
+   "priced_sessions": 2344,
+   "share": 1.0
+  },
+  {
+   "company": "AME",
+   "current_member": true,
+   "member_sessions": 2336,
+   "priced_sessions": 2336,
+   "share": 1.0
+  },
+  {
+   "company": "VRTX",
+   "current_member": true,
+   "member_sessions": 2336,
+   "priced_sessions": 2336,
+   "share": 1.0
+  },
+  {
+   "company": "RIG",
+   "current_member": false,
+   "member_sessions": 941,
+   "priced_sessions": 941,
+   "share": 1.0
+  },
+  {
+   "company": "CPRI",
+   "current_member": false,
+   "member_sessions": 1633,
+   "priced_sessions": 1633,
+   "share": 1.0
+  },
+  {
+   "company": "ALLE",
+   "current_member": true,
+   "member_sessions": 2287,
+   "priced_sessions": 2287,
+   "share": 1.0
+  },
+  {
+   "company": "GGP",
+   "current_member": false,
+   "member_sessions": 1187,
+   "priced_sessions": 1187,
+   "share": 1.0
+  },
+  {
+   "company": "META",
+   "current_member": true,
+   "member_sessions": 2272,
+   "priced_sessions": 2272,
+   "share": 1.0
+  },
+  {
+   "company": "BFH",
+   "current_member": false,
+   "member_sessions": 1634,
+   "priced_sessions": 1634,
+   "share": 1.0
+  },
+  {
+   "company": "MHK",
+   "current_member": false,
+   "member_sessions": 2272,
+   "priced_sessions": 2272,
+   "share": 1.0
+  },
+  {
+   "company": "TSCO",
+   "current_member": true,
+   "member_sessions": 2251,
+   "priced_sessions": 2251,
+   "share": 1.0
+  },
+  {
+   "company": "GMCR",
+   "current_member": false,
+   "member_sessions": 490,
+   "priced_sessions": 490,
+   "share": 1.0
+  },
+  {
+   "company": "ESS",
+   "current_member": true,
+   "member_sessions": 2204,
+   "priced_sessions": 2204,
+   "share": 1.0
+  },
+  {
+   "company": "GOOG",
+   "current_member": true,
+   "member_sessions": 2203,
+   "priced_sessions": 2203,
+   "share": 1.0
+  },
+  {
+   "company": "UAA",
+   "current_member": false,
+   "member_sessions": 2049,
+   "priced_sessions": 2049,
+   "share": 1.0
+  },
+  {
+   "company": "NAVI",
+   "current_member": false,
+   "member_sessions": 1031,
+   "priced_sessions": 1031,
+   "share": 1.0
+  },
+  {
+   "company": "AVGO",
+   "current_member": true,
+   "member_sessions": 2179,
+   "priced_sessions": 2179,
+   "share": 1.0
+  },
+  {
+   "company": "XEC",
+   "current_member": false,
+   "member_sessions": 1434,
+   "priced_sessions": 1434,
+   "share": 1.0
+  },
+  {
+   "company": "AMG",
+   "current_member": false,
+   "member_sessions": 1380,
+   "priced_sessions": 1380,
+   "share": 1.0
+  },
+  {
+   "company": "MLM",
+   "current_member": true,
+   "member_sessions": 2141,
+   "priced_sessions": 2141,
+   "share": 1.0
+  },
+  {
+   "company": "DISCK",
+   "current_member": false,
+   "member_sessions": 1933,
+   "priced_sessions": 1933,
+   "share": 1.0
+  },
+  {
+   "company": "MNK",
+   "current_member": false,
+   "member_sessions": 739,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "URI",
+   "current_member": true,
+   "member_sessions": 2085,
+   "priced_sessions": 2085,
+   "share": 1.0
+  },
+  {
+   "company": "UHS",
+   "current_member": true,
+   "member_sessions": 2085,
+   "priced_sessions": 2085,
+   "share": 1.0
+  },
+  {
+   "company": "LVLT",
+   "current_member": false,
+   "member_sessions": 740,
+   "priced_sessions": 740,
+   "share": 1.0
+  },
+  {
+   "company": "RCL",
+   "current_member": true,
+   "member_sessions": 2032,
+   "priced_sessions": 2032,
+   "share": 1.0
+  },
+  {
+   "company": "ENDP",
+   "current_member": false,
+   "member_sessions": 528,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "HCA",
+   "current_member": true,
+   "member_sessions": 1998,
+   "priced_sessions": 1998,
+   "share": 1.0
+  },
+  {
+   "company": "SWKS",
+   "current_member": true,
+   "member_sessions": 1967,
+   "priced_sessions": 1967,
+   "share": 1.0
+  },
+  {
+   "company": "HSIC",
+   "current_member": true,
+   "member_sessions": 1963,
+   "priced_sessions": 1963,
+   "share": 1.0
+  },
+  {
+   "company": "SLG",
+   "current_member": false,
+   "member_sessions": 1510,
+   "priced_sessions": 1510,
+   "share": 1.0
+  },
+  {
+   "company": "HBI",
+   "current_member": false,
+   "member_sessions": 1700,
+   "priced_sessions": 1700,
+   "share": 1.0
+  },
+  {
+   "company": "EQIX",
+   "current_member": true,
+   "member_sessions": 1960,
+   "priced_sessions": 1960,
+   "share": 1.0
+  },
+  {
+   "company": "AAL",
+   "current_member": false,
+   "member_sessions": 1960,
+   "priced_sessions": 1960,
+   "share": 1.0
+  },
+  {
+   "company": "O",
+   "current_member": true,
+   "member_sessions": 1950,
+   "priced_sessions": 1950,
+   "share": 1.0
+  },
+  {
+   "company": "QRVO",
+   "current_member": false,
+   "member_sessions": 1903,
+   "priced_sessions": 1903,
+   "share": 1.0
+  },
+  {
+   "company": "BXLT",
+   "current_member": false,
+   "member_sessions": 233,
+   "priced_sessions": 231,
+   "share": 0.9914163090128756
+  },
+  {
+   "company": "JBHT",
+   "current_member": true,
+   "member_sessions": 1890,
+   "priced_sessions": 1890,
+   "share": 1.0
+  },
+  {
+   "company": "WRK",
+   "current_member": false,
+   "member_sessions": 1889,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "CPGX",
+   "current_member": false,
+   "member_sessions": 252,
+   "priced_sessions": 252,
+   "share": 1.0
+  },
+  {
+   "company": "KHC",
+   "current_member": true,
+   "member_sessions": 1888,
+   "priced_sessions": 1888,
+   "share": 1.0
+  },
+  {
+   "company": "AAP",
+   "current_member": false,
+   "member_sessions": 1885,
+   "priced_sessions": 1885,
+   "share": 1.0
+  },
+  {
+   "company": "PYPL",
+   "current_member": true,
+   "member_sessions": 1878,
+   "priced_sessions": 1878,
+   "share": 1.0
+  },
+  {
+   "company": "SIG",
+   "current_member": false,
+   "member_sessions": 664,
+   "priced_sessions": 664,
+   "share": 1.0
+  },
+  {
+   "company": "ATVI",
+   "current_member": false,
+   "member_sessions": 1848,
+   "priced_sessions": 1848,
+   "share": 1.0
+  },
+  {
+   "company": "UAL",
+   "current_member": true,
+   "member_sessions": 1845,
+   "priced_sessions": 1845,
+   "share": 1.0
+  },
+  {
+   "company": "CMCSK",
+   "current_member": false,
+   "member_sessions": 59,
+   "priced_sessions": 59,
+   "share": 1.0
+  },
+  {
+   "company": "FOX",
+   "current_member": true,
+   "member_sessions": 1834,
+   "priced_sessions": 960,
+   "share": 0.5234460196292258
+  },
+  {
+   "company": "NWS",
+   "current_member": true,
+   "member_sessions": 1834,
+   "priced_sessions": 1834,
+   "share": 1.0
+  },
+  {
+   "company": "VRSK",
+   "current_member": true,
+   "member_sessions": 1821,
+   "priced_sessions": 1821,
+   "share": 1.0
+  },
+  {
+   "company": "HPE",
+   "current_member": true,
+   "member_sessions": 1804,
+   "priced_sessions": 1804,
+   "share": 1.0
+  },
+  {
+   "company": "FCPT",
+   "current_member": false,
+   "member_sessions": 5,
+   "priced_sessions": 5,
+   "share": 1.0
+  },
+  {
+   "company": "SYF",
+   "current_member": true,
+   "member_sessions": 1792,
+   "priced_sessions": 1792,
+   "share": 1.0
+  },
+  {
+   "company": "ILMN",
+   "current_member": false,
+   "member_sessions": 1791,
+   "priced_sessions": 1791,
+   "share": 1.0
+  },
+  {
+   "company": "CSRA",
+   "current_member": false,
+   "member_sessions": 589,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "CHD",
+   "current_member": true,
+   "member_sessions": 1765,
+   "priced_sessions": 1765,
+   "share": 1.0
+  },
+  {
+   "company": "CCEP",
+   "current_member": false,
+   "member_sessions": 102,
+   "priced_sessions": 102,
+   "share": 1.0
+  },
+  {
+   "company": "WTW",
+   "current_member": true,
+   "member_sessions": 1761,
+   "priced_sessions": 1761,
+   "share": 1.0
+  },
+  {
+   "company": "EXR",
+   "current_member": true,
+   "member_sessions": 1752,
+   "priced_sessions": 1752,
+   "share": 1.0
+  },
+  {
+   "company": "CFG",
+   "current_member": true,
+   "member_sessions": 1743,
+   "priced_sessions": 1743,
+   "share": 1.0
+  },
+  {
+   "company": "FRT",
+   "current_member": true,
+   "member_sessions": 1743,
+   "priced_sessions": 1743,
+   "share": 1.0
+  },
+  {
+   "company": "CXO",
+   "current_member": false,
+   "member_sessions": 1238,
+   "priced_sessions": 1236,
+   "share": 0.9983844911147012
+  },
+  {
+   "company": "AWK",
+   "current_member": true,
+   "member_sessions": 1720,
+   "priced_sessions": 1720,
+   "share": 1.0
+  },
+  {
+   "company": "UDR",
+   "current_member": true,
+   "member_sessions": 1719,
+   "priced_sessions": 1719,
+   "share": 1.0
+  },
+  {
+   "company": "CNC",
+   "current_member": true,
+   "member_sessions": 1703,
+   "priced_sessions": 1703,
+   "share": 1.0
+  },
+  {
+   "company": "HOLX",
+   "current_member": false,
+   "member_sessions": 1703,
+   "priced_sessions": 1703,
+   "share": 1.0
+  },
+  {
+   "company": "FL",
+   "current_member": false,
+   "member_sessions": 844,
+   "priced_sessions": 844,
+   "share": 1.0
+  },
+  {
+   "company": "UA",
+   "current_member": false,
+   "member_sessions": 1561,
+   "priced_sessions": 1561,
+   "share": 1.0
+  },
+  {
+   "company": "ULTA",
+   "current_member": true,
+   "member_sessions": 1690,
+   "priced_sessions": 1690,
+   "share": 1.0
+  },
+  {
+   "company": "GPN",
+   "current_member": true,
+   "member_sessions": 1685,
+   "priced_sessions": 1685,
+   "share": 1.0
+  },
+  {
+   "company": "AYI",
+   "current_member": false,
+   "member_sessions": 535,
+   "priced_sessions": 535,
+   "share": 1.0
+  },
+  {
+   "company": "ALK",
+   "current_member": false,
+   "member_sessions": 1671,
+   "priced_sessions": 1671,
+   "share": 1.0
+  },
+  {
+   "company": "DLR",
+   "current_member": true,
+   "member_sessions": 1668,
+   "priced_sessions": 1668,
+   "share": 1.0
+  },
+  {
+   "company": "LKQ",
+   "current_member": false,
+   "member_sessions": 1665,
+   "priced_sessions": 1665,
+   "share": 1.0
+  },
+  {
+   "company": "AJG",
+   "current_member": true,
+   "member_sessions": 1660,
+   "priced_sessions": 1660,
+   "share": 1.0
+  },
+  {
+   "company": "TDG",
+   "current_member": true,
+   "member_sessions": 1657,
+   "priced_sessions": 1657,
+   "share": 1.0
+  },
+  {
+   "company": "FBIN",
+   "current_member": false,
+   "member_sessions": 1633,
+   "priced_sessions": 1633,
+   "share": 1.0
+  },
+  {
+   "company": "LNT",
+   "current_member": true,
+   "member_sessions": 1637,
+   "priced_sessions": 1637,
+   "share": 1.0
+  },
+  {
+   "company": "ALB",
+   "current_member": true,
+   "member_sessions": 1637,
+   "priced_sessions": 1637,
+   "share": 1.0
+  },
+  {
+   "company": "FTV",
+   "current_member": true,
+   "member_sessions": 1636,
+   "priced_sessions": 1636,
+   "share": 1.0
+  },
+  {
+   "company": "MTD",
+   "current_member": true,
+   "member_sessions": 1592,
+   "priced_sessions": 1592,
+   "share": 1.0
+  },
+  {
+   "company": "CHTR",
+   "current_member": true,
+   "member_sessions": 1590,
+   "priced_sessions": 1590,
+   "share": 1.0
+  },
+  {
+   "company": "COO",
+   "current_member": true,
+   "member_sessions": 1579,
+   "priced_sessions": 1579,
+   "share": 1.0
+  },
+  {
+   "company": "COTY",
+   "current_member": false,
+   "member_sessions": 998,
+   "priced_sessions": 998,
+   "share": 1.0
+  },
+  {
+   "company": "EVHC",
+   "current_member": false,
+   "member_sessions": 467,
+   "priced_sessions": 467,
+   "share": 1.0
+  },
+  {
+   "company": "MAA",
+   "current_member": true,
+   "member_sessions": 1530,
+   "priced_sessions": 1530,
+   "share": 1.0
+  },
+  {
+   "company": "IDXX",
+   "current_member": true,
+   "member_sessions": 1508,
+   "priced_sessions": 1508,
+   "share": 1.0
+  },
+  {
+   "company": "INCY",
+   "current_member": true,
+   "member_sessions": 1472,
+   "priced_sessions": 1472,
+   "share": 1.0
+  },
+  {
+   "company": "CBOE",
+   "current_member": true,
+   "member_sessions": 1471,
+   "priced_sessions": 1471,
+   "share": 1.0
+  },
+  {
+   "company": "REG",
+   "current_member": true,
+   "member_sessions": 1470,
+   "priced_sessions": 1470,
+   "share": 1.0
+  },
+  {
+   "company": "DISH",
+   "current_member": false,
+   "member_sessions": 1463,
+   "priced_sessions": 1463,
+   "share": 1.0
+  },
+  {
+   "company": "SNPS",
+   "current_member": true,
+   "member_sessions": 1460,
+   "priced_sessions": 1460,
+   "share": 1.0
+  },
+  {
+   "company": "ARE",
+   "current_member": true,
+   "member_sessions": 1458,
+   "priced_sessions": 1458,
+   "share": 1.0
+  },
+  {
+   "company": "RJF",
+   "current_member": true,
+   "member_sessions": 1458,
+   "priced_sessions": 1458,
+   "share": 1.0
+  },
+  {
+   "company": "IT",
+   "current_member": true,
+   "member_sessions": 1446,
+   "priced_sessions": 1446,
+   "share": 1.0
+  },
+  {
+   "company": "INFO",
+   "current_member": false,
+   "member_sessions": 1195,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "EG",
+   "current_member": true,
+   "member_sessions": 1395,
+   "priced_sessions": 1395,
+   "share": 1.0
+  },
+  {
+   "company": "ALGN",
+   "current_member": true,
+   "member_sessions": 1395,
+   "priced_sessions": 1395,
+   "share": 1.0
+  },
+  {
+   "company": "ANSS",
+   "current_member": false,
+   "member_sessions": 1395,
+   "priced_sessions": 1395,
+   "share": 1.0
+  },
+  {
+   "company": "HLT",
+   "current_member": true,
+   "member_sessions": 1395,
+   "priced_sessions": 1395,
+   "share": 1.0
+  },
+  {
+   "company": "MGM",
+   "current_member": true,
+   "member_sessions": 1369,
+   "priced_sessions": 1369,
+   "share": 1.0
+  },
+  {
+   "company": "PKG",
+   "current_member": true,
+   "member_sessions": 1369,
+   "priced_sessions": 1369,
+   "share": 1.0
+  },
+  {
+   "company": "DRE",
+   "current_member": false,
+   "member_sessions": 1306,
+   "priced_sessions": 1306,
+   "share": 1.0
+  },
+  {
+   "company": "RMD",
+   "current_member": true,
+   "member_sessions": 1369,
+   "priced_sessions": 1369,
+   "share": 1.0
+  },
+  {
+   "company": "AOS",
+   "current_member": true,
+   "member_sessions": 1369,
+   "priced_sessions": 1369,
+   "share": 1.0
+  },
+  {
+   "company": "BHF",
+   "current_member": false,
+   "member_sessions": 415,
+   "priced_sessions": 415,
+   "share": 1.0
+  },
+  {
+   "company": "IQV",
+   "current_member": true,
+   "member_sessions": 1345,
+   "priced_sessions": 1345,
+   "share": 1.0
+  },
+  {
+   "company": "SBAC",
+   "current_member": true,
+   "member_sessions": 1342,
+   "priced_sessions": 1342,
+   "share": 1.0
+  },
+  {
+   "company": "CDNS",
+   "current_member": true,
+   "member_sessions": 1332,
+   "priced_sessions": 1332,
+   "share": 1.0
+  },
+  {
+   "company": "NCLH",
+   "current_member": true,
+   "member_sessions": 1313,
+   "priced_sessions": 1313,
+   "share": 1.0
+  },
+  {
+   "company": "HII",
+   "current_member": true,
+   "member_sessions": 1258,
+   "priced_sessions": 1258,
+   "share": 1.0
+  },
+  {
+   "company": "IPGP",
+   "current_member": false,
+   "member_sessions": 1080,
+   "priced_sessions": 1080,
+   "share": 1.0
+  },
+  {
+   "company": "NKTR",
+   "current_member": false,
+   "member_sessions": 389,
+   "priced_sessions": 389,
+   "share": 1.0
+  },
+  {
+   "company": "SIVB",
+   "current_member": false,
+   "member_sessions": 1207,
+   "priced_sessions": 1207,
+   "share": 1.0
+  },
+  {
+   "company": "TTWO",
+   "current_member": true,
+   "member_sessions": 1207,
+   "priced_sessions": 1207,
+   "share": 1.0
+  },
+  {
+   "company": "MSCI",
+   "current_member": true,
+   "member_sessions": 1196,
+   "priced_sessions": 1196,
+   "share": 1.0
+  },
+  {
+   "company": "ABMD",
+   "current_member": false,
+   "member_sessions": 1150,
+   "priced_sessions": 1150,
+   "share": 1.0
+  },
+  {
+   "company": "EVRG",
+   "current_member": true,
+   "member_sessions": 1153,
+   "priced_sessions": 1153,
+   "share": 1.0
+  },
+  {
+   "company": "TWTR",
+   "current_member": false,
+   "member_sessions": 1109,
+   "priced_sessions": 1108,
+   "share": 0.9990982867448152
+  },
+  {
+   "company": "DINO",
+   "current_member": false,
+   "member_sessions": 746,
+   "priced_sessions": 746,
+   "share": 1.0
+  },
+  {
+   "company": "BR",
+   "current_member": true,
+   "member_sessions": 1144,
+   "priced_sessions": 1144,
+   "share": 1.0
+  },
+  {
+   "company": "CPAY",
+   "current_member": true,
+   "member_sessions": 1142,
+   "priced_sessions": 1142,
+   "share": 1.0
+  },
+  {
+   "company": "CPRT",
+   "current_member": true,
+   "member_sessions": 1134,
+   "priced_sessions": 1134,
+   "share": 1.0
+  },
+  {
+   "company": "ANET",
+   "current_member": true,
+   "member_sessions": 1094,
+   "priced_sessions": 1094,
+   "share": 1.0
+  },
+  {
+   "company": "WCG",
+   "current_member": false,
+   "member_sessions": 342,
+   "priced_sessions": 340,
+   "share": 0.9941520467836257
+  },
+  {
+   "company": "ROL",
+   "current_member": true,
+   "member_sessions": 1071,
+   "priced_sessions": 1071,
+   "share": 1.0
+  },
+  {
+   "company": "FTNT",
+   "current_member": true,
+   "member_sessions": 1063,
+   "priced_sessions": 1063,
+   "share": 1.0
+  },
+  {
+   "company": "LIN",
+   "current_member": true,
+   "member_sessions": 2514,
+   "priced_sessions": 1067,
+   "share": 0.42442322991249004
+  },
+  {
+   "company": "KEYS",
+   "current_member": true,
+   "member_sessions": 1045,
+   "priced_sessions": 1045,
+   "share": 1.0
+  },
+  {
+   "company": "JKHY",
+   "current_member": true,
+   "member_sessions": 1040,
+   "priced_sessions": 1040,
+   "share": 1.0
+  },
+  {
+   "company": "FANG",
+   "current_member": true,
+   "member_sessions": 1027,
+   "priced_sessions": 1027,
+   "share": 1.0
+  },
+  {
+   "company": "MXIM",
+   "current_member": false,
+   "member_sessions": 689,
+   "priced_sessions": 689,
+   "share": 1.0
+  },
+  {
+   "company": "LW",
+   "current_member": false,
+   "member_sessions": 1027,
+   "priced_sessions": 1027,
+   "share": 1.0
+  },
+  {
+   "company": "CE",
+   "current_member": false,
+   "member_sessions": 1013,
+   "priced_sessions": 1013,
+   "share": 1.0
+  },
+  {
+   "company": "FRC",
+   "current_member": false,
+   "member_sessions": 1008,
+   "priced_sessions": 0,
+   "share": 0.0
+  },
+  {
+   "company": "TFX",
+   "current_member": false,
+   "member_sessions": 996,
+   "priced_sessions": 996,
+   "share": 1.0
+  },
+  {
+   "company": "ATO",
+   "current_member": true,
+   "member_sessions": 977,
+   "priced_sessions": 977,
+   "share": 1.0
+  },
+  {
+   "company": "WAB",
+   "current_member": true,
+   "member_sessions": 970,
+   "priced_sessions": 970,
+   "share": 1.0
+  },
+  {
+   "company": "CTVA",
+   "current_member": true,
+   "member_sessions": 904,
+   "priced_sessions": 904,
+   "share": 1.0
+  },
+  {
+   "company": "AMCR",
+   "current_member": true,
+   "member_sessions": 900,
+   "priced_sessions": 898,
+   "share": 0.9977777777777778
+  },
+  {
+   "company": "MKTX",
+   "current_member": false,
+   "member_sessions": 884,
+   "priced_sessions": 884,
+   "share": 1.0
+  },
+  {
+   "company": "IEX",
+   "current_member": true,
+   "member_sessions": 856,
+   "priced_sessions": 856,
+   "share": 1.0
+  },
+  {
+   "company": "CDW",
+   "current_member": true,
+   "member_sessions": 826,
+   "priced_sessions": 826,
+   "share": 1.0
+  },
+  {
+   "company": "NVR",
+   "current_member": true,
+   "member_sessions": 823,
+   "priced_sessions": 823,
+   "share": 1.0
+  },
+  {
+   "company": "LVS",
+   "current_member": true,
+   "member_sessions": 818,
+   "priced_sessions": 818,
+   "share": 1.0
+  },
+  {
+   "company": "NOW",
+   "current_member": true,
+   "member_sessions": 783,
+   "priced_sessions": 783,
+   "share": 1.0
+  },
+  {
+   "company": "WRB",
+   "current_member": true,
+   "member_sessions": 774,
+   "priced_sessions": 774,
+   "share": 1.0
+  },
+  {
+   "company": "ODFL",
+   "current_member": true,
+   "member_sessions": 772,
+   "priced_sessions": 772,
+   "share": 1.0
+  },
+  {
+   "company": "TFC",
+   "current_member": true,
+   "member_sessions": 772,
+   "priced_sessions": 772,
+   "share": 1.0
+  },
+  {
+   "company": "STE",
+   "current_member": true,
+   "member_sessions": 762,
+   "priced_sessions": 762,
+   "share": 1.0
+  },
+  {
+   "company": "ZBRA",
+   "current_member": true,
+   "member_sessions": 762,
+   "priced_sessions": 762,
+   "share": 1.0
+  },
+  {
+   "company": "LYV",
+   "current_member": true,
+   "member_sessions": 762,
+   "priced_sessions": 762,
+   "share": 1.0
+  },
+  {
+   "company": "PAYC",
+   "current_member": false,
+   "member_sessions": 739,
+   "priced_sessions": 739,
+   "share": 1.0
+  },
+  {
+   "company": "TT",
+   "current_member": true,
+   "member_sessions": 715,
+   "priced_sessions": 715,
+   "share": 1.0
+  },
+  {
+   "company": "OTIS",
+   "current_member": true,
+   "member_sessions": 692,
+   "priced_sessions": 692,
+   "share": 1.0
+  },
+  {
+   "company": "CARR",
+   "current_member": true,
+   "member_sessions": 692,
+   "priced_sessions": 692,
+   "share": 1.0
+  },
+  {
+   "company": "DPZ",
+   "current_member": true,
+   "member_sessions": 666,
+   "priced_sessions": 666,
+   "share": 1.0
+  },
+  {
+   "company": "DXCM",
+   "current_member": true,
+   "member_sessions": 666,
+   "priced_sessions": 666,
+   "share": 1.0
+  },
+  {
+   "company": "WST",
+   "current_member": true,
+   "member_sessions": 658,
+   "priced_sessions": 658,
+   "share": 1.0
+  },
+  {
+   "company": "BIO",
+   "current_member": false,
+   "member_sessions": 638,
+   "priced_sessions": 638,
+   "share": 1.0
+  },
+  {
+   "company": "TYL",
+   "current_member": true,
+   "member_sessions": 638,
+   "priced_sessions": 638,
+   "share": 1.0
+  },
+  {
+   "company": "TDY",
+   "current_member": true,
+   "member_sessions": 638,
+   "priced_sessions": 638,
+   "share": 1.0
+  },
+  {
+   "company": "ETSY",
+   "current_member": false,
+   "member_sessions": 575,
+   "priced_sessions": 575,
+   "share": 1.0
+  },
+  {
+   "company": "CTLT",
+   "current_member": false,
+   "member_sessions": 575,
+   "priced_sessions": 575,
+   "share": 1.0
+  },
+  {
+   "company": "POOL",
+   "current_member": false,
+   "member_sessions": 563,
+   "priced_sessions": 563,
+   "share": 1.0
+  },
+  {
+   "company": "VNT",
+   "current_member": false,
+   "member_sessions": 110,
+   "priced_sessions": 110,
+   "share": 1.0
+  },
+  {
+   "company": "VTRS",
+   "current_member": true,
+   "member_sessions": 534,
+   "priced_sessions": 534,
+   "share": 1.0
+  },
+  {
+   "company": "TSLA",
+   "current_member": true,
+   "member_sessions": 511,
+   "priced_sessions": 511,
+   "share": 1.0
+  },
+  {
+   "company": "ENPH",
+   "current_member": false,
+   "member_sessions": 500,
+   "priced_sessions": 500,
+   "share": 1.0
+  },
+  {
+   "company": "TRMB",
+   "current_member": true,
+   "member_sessions": 491,
+   "priced_sessions": 491,
+   "share": 1.0
+  },
+  {
+   "company": "MPWR",
+   "current_member": true,
+   "member_sessions": 475,
+   "priced_sessions": 475,
+   "share": 1.0
+  },
+  {
+   "company": "NXPI",
+   "current_member": true,
+   "member_sessions": 450,
+   "priced_sessions": 450,
+   "share": 1.0
+  },
+  {
+   "company": "PENN",
+   "current_member": false,
+   "member_sessions": 377,
+   "priced_sessions": 377,
+   "share": 1.0
+  },
+  {
+   "company": "GNRC",
+   "current_member": true,
+   "member_sessions": 450,
+   "priced_sessions": 450,
+   "share": 1.0
+  },
+  {
+   "company": "CZR",
+   "current_member": false,
+   "member_sessions": 450,
+   "priced_sessions": 450,
+   "share": 1.0
+  },
+  {
+   "company": "PTC",
+   "current_member": true,
+   "member_sessions": 430,
+   "priced_sessions": 430,
+   "share": 1.0
+  },
+  {
+   "company": "CRL",
+   "current_member": true,
+   "member_sessions": 412,
+   "priced_sessions": 412,
+   "share": 1.0
+  },
+  {
+   "company": "OGN",
+   "current_member": false,
+   "member_sessions": 398,
+   "priced_sessions": 398,
+   "share": 1.0
+  },
+  {
+   "company": "MRNA",
+   "current_member": true,
+   "member_sessions": 366,
+   "priced_sessions": 366,
+   "share": 1.0
+  },
+  {
+   "company": "TECH",
+   "current_member": true,
+   "member_sessions": 338,
+   "priced_sessions": 338,
+   "share": 1.0
+  },
+  {
+   "company": "DAY",
+   "current_member": false,
+   "member_sessions": 324,
+   "priced_sessions": 324,
+   "share": 1.0
+  },
+  {
+   "company": "BRO",
+   "current_member": true,
+   "member_sessions": 324,
+   "priced_sessions": 324,
+   "share": 1.0
+  },
+  {
+   "company": "MTCH",
+   "current_member": false,
+   "member_sessions": 324,
+   "priced_sessions": 324,
+   "share": 1.0
+  },
+  {
+   "company": "EPAM",
+   "current_member": false,
+   "member_sessions": 264,
+   "priced_sessions": 264,
+   "share": 1.0
+  },
+  {
+   "company": "FDS",
+   "current_member": true,
+   "member_sessions": 260,
+   "priced_sessions": 260,
+   "share": 1.0
+  },
+  {
+   "company": "SEDG",
+   "current_member": false,
+   "member_sessions": 260,
+   "priced_sessions": 260,
+   "share": 1.0
+  },
+  {
+   "company": "SBNY",
+   "current_member": false,
+   "member_sessions": 260,
+   "priced_sessions": 260,
+   "share": 1.0
+  },
+  {
+   "company": "CEG",
+   "current_member": true,
+   "member_sessions": 230,
+   "priced_sessions": 230,
+   "share": 1.0
+  },
+  {
+   "company": "NDSN",
+   "current_member": true,
+   "member_sessions": 221,
+   "priced_sessions": 221,
+   "share": 1.0
+  },
+  {
+   "company": "MOH",
+   "current_member": false,
+   "member_sessions": 211,
+   "priced_sessions": 211,
+   "share": 1.0
+  },
+  {
+   "company": "CPT",
+   "current_member": true,
+   "member_sessions": 188,
+   "priced_sessions": 188,
+   "share": 1.0
+  },
+  {
+   "company": "VICI",
+   "current_member": true,
+   "member_sessions": 143,
+   "priced_sessions": 143,
+   "share": 1.0
+  },
+  {
+   "company": "ON",
+   "current_member": true,
+   "member_sessions": 135,
+   "priced_sessions": 135,
+   "share": 1.0
+  },
+  {
+   "company": "CSGP",
+   "current_member": true,
+   "member_sessions": 73,
+   "priced_sessions": 73,
+   "share": 1.0
+  },
+  {
+   "company": "INVH",
+   "current_member": true,
+   "member_sessions": 73,
+   "priced_sessions": 73,
+   "share": 1.0
+  },
+  {
+   "company": "TRGP",
+   "current_member": true,
+   "member_sessions": 56,
+   "priced_sessions": 56,
+   "share": 1.0
+  },
+  {
+   "company": "ACGL",
+   "current_member": true,
+   "member_sessions": 42,
+   "priced_sessions": 42,
+   "share": 1.0
+  },
+  {
+   "company": "STLD",
+   "current_member": true,
+   "member_sessions": 6,
+   "priced_sessions": 6,
+   "share": 1.0
+  }
+ ],
+ "sectors": "pending"
+}

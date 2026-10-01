@@ -949,3 +949,37 @@ number was computed or looked at.
 - **Order inside the coverage step.** C1 is computed and saved first. The
   slow sector lookup runs only if C1 passes, and the runs step refuses to
   start until the sector lookup has finished.
+
+### Result: H-full-universe coverage gate C1 (2026-10-02) — FAIL: NOT TESTABLE WITH THIS SOURCE
+
+Coverage output: `research_evidence/full_universe_20260929/full_universe_coverage.json`.
+709 companies were downloaded from Tiingo; 703 of them were index members
+during 2013–2022.
+
+| Group | Companies | Covered (≥ 90% of member days priced) | Needed |
+|---|---|---|---|
+| Later removed from the index | 261 | **80.8%** | 85% |
+| Still members | 442 | 98.2% | 95% |
+
+**Verdict (by the pre-registered rule): C1 fails, so the test is "not
+testable with this source".** No engine run was made or looked at, and
+`--step runs` refuses to start.
+
+**Why the 50 removed companies weren't covered:**
+
+- 13 have no file at Tiingo at all (for example BBBY, FRC, JCP, MOLX).
+- 8 have history only from 2016-01-04, when the free history starts for
+  those names (for example BRCM, HAR, HOT, CVC).
+- About 29 tickers now hold a different, later security, and the old
+  company's prices are missing (for example CA, EMC, STI, APC). A few are
+  partly covered (for example PARA, DXC).
+- 8 current members are also short, mostly because their history in Tiingo
+  starts after a spin-off or merger (DOW, LIN, IR, BKR, FOX/FOXA).
+
+**What this means:** H-edge's partial survivorship test (78% of the alpha
+kept) remains the best evidence available. It still leans in the
+strategy's favour, because companies that left the index can't be picked.
+A full test needs a source with complete delisted histories (paid ones such
+as Norgate, EODHD or CRSP). Adding more rename pairs or narrowing the window
+now, after seeing this number, would be a new hypothesis. It would have to
+be pre-registered on its own and agreed by the owner.
