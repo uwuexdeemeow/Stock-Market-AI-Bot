@@ -1070,3 +1070,45 @@ unused.
 
 **Decision (by the pre-registered rule):** no idea passes, and the
 incumbent stays on paper under `FORWARD_TEST_RULE.md`.
+
+## Hypothesis H-newedge-2 (pre-registered 2026-10-02, before any run)
+
+**Owner request:** a second round aimed at the stock-picking score, the one
+part of the strategy that clearly works (H-edge, H-benchmark). Round 1
+showed that changing the holding rule or the ETF core doesn't help. Script
+(to be written): `research_evidence/newedge_20261002/newedge_round2.py`.
+
+**Common base:** the same as H-newedge-1: test S, the incumbent config, 20
+start days × on time/one day late, decision window 2013–2022, and
+2023–2026 only in the final exam. Each idea changes only the three score
+columns the incumbent picks with (`factor_risk_on_score`,
+`factor_defensive_score`, `factor_walkforward_score`), after the normal
+panel is built. The engine is not edited.
+
+| Idea | What changes | Fixed settings |
+|---|---|---|
+| **Q** low-volatility filter | Each day, stocks in the most volatile third by 1-year stock-specific volatility (`factor_idio_vol_252_spy`) get no score, so they can't be picked. This is a price-only "quality" screen, based on the documented low-volatility effect. | cut-off: top third |
+| **M** smoothed score | Each score is replaced by its average over the stock's last 5 panel rows (today and the 4 before). The incumbent's features are mostly 1–5-day signals, so a calmer score should depend less on the exact trade day. | 5 rows; fewer than 5 → no score |
+| **N** sector-neutral score | Each score is replaced by its percentile rank within its sector that day, and at most 1 stock per sector may be held (`max_per_sector` 1). This aims at the concentration in a few sectors (NVDA, AMD and MU are all semiconductors). | 1 per sector |
+
+**Runs:** S, Q, M and N over 20 start days × on time/late (160 runs).
+Then Q and N one day late with their own top 3 contributing tickers removed
+(chosen from their on-time runs as in H-top-names): 40 runs. 200 in total.
+
+**Decision gates (2013–2022, one-day-late runs unless stated):**
+
+- **All ideas, G1:** median alpha vs QQQ ≥ **90%** of S's median.
+- **Q and N, G2:** without their own top 3 tickers, median alpha > 0 and ≥
+  **50%** of the idea's own median. S fails this at 46.9% (H-top-names).
+- **M, G2:** the on-time spread across start days (max − min) ≤ **75%** of
+  S's spread **and** the mean delay cost (on time − late, same start day) ≤
+  S's.
+
+**Final exam (only for ideas that pass G1 and G2):** the existing
+`core_satellite_execution_stress.py` in research-candidate mode, with the
+idea's score change applied to its panel (and `max_per_sector` 1 for N).
+**Pass = no failed gate in any scenario**, with no paper advisory.
+
+**Verdict per idea:** "passes", "fails decision gates" or "fails the exam".
+A passing idea needs the owner's agreement before it gets its own paper
+epoch.
