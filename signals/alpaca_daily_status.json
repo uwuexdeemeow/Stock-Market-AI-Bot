@@ -1,46 +1,43 @@
 {
   "broker": "alpaca",
   "paper_account_hash": "53467e021997593c",
-  "generated_at": "2026-09-30T21:16:18",
-  "account_equity": 115446.44,
-  "account_cash": 24639.16,
-  "account_invested": 90807.28,
-  "position_count": 3,
+  "generated_at": "2026-10-01T21:16:11",
+  "account_equity": 116353.01,
+  "account_cash": 27387.46,
+  "account_invested": 88965.55,
+  "position_count": 2,
   "positions": {
-    "FCX": 40.0,
     "MU": 19.0,
     "QQQ": 92.0
   },
   "position_values": {
-    "FCX": 2798.24,
-    "MU": 19959.5,
-    "QQQ": 68049.54
+    "MU": 20698.79,
+    "QQQ": 68266.76
   },
   "position_details": [
-    {
-      "ticker": "FCX",
-      "quantity": 40.0,
-      "avg_price": 68.63,
-      "market_value": 2798.24,
-      "unrealized_pl": 53.04
-    },
     {
       "ticker": "MU",
       "quantity": 19.0,
       "avg_price": 927.438421,
-      "market_value": 19959.5,
-      "unrealized_pl": 2338.17
+      "market_value": 20698.79,
+      "unrealized_pl": 3077.46
     },
     {
       "ticker": "QQQ",
       "quantity": 92.0,
       "avg_price": 724.322756,
-      "market_value": 68049.54,
-      "unrealized_pl": 1411.85
+      "market_value": 68266.76,
+      "unrealized_pl": 1629.07
     }
   ],
   "recent_protective_exits_available": true,
   "recent_protective_exits": [
+    {
+      "ticker": "FCX",
+      "filled_at": "2026-10-01T13:32:32+00:00",
+      "order_type": "trailing_stop",
+      "filled_qty": 40.0
+    },
     {
       "ticker": "INTC",
       "filled_at": "2026-09-28T13:44:10+00:00",
