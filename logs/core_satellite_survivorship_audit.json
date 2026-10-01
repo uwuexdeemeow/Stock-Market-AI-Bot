@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-30T13:43:21.100410",
+  "generated_at": "2026-10-01T13:42:55.760005",
   "purpose": "core_satellite_survivorship_bias_stress",
   "selected_config": {
     "strategy": "core-alpha",
@@ -197,7 +197,7 @@
       "XOM"
     ],
     "coverage_start": "2010-01-01",
-    "coverage_end": "2026-09-30",
+    "coverage_end": "2026-10-01",
     "active_members_at_coverage_start": 0,
     "minimum_active_members": 400,
     "inactive_members": 0,
@@ -423,7 +423,7 @@
       "risk_control_mode": "off",
       "deployment_max_gross_exposure": 1.0
     },
-    "dataset_fingerprint": "84688c8137308aba0712be0d040fca52c826a87dfe73d3eceebcf1dbbeaf513b",
+    "dataset_fingerprint": "51b0e2e19a9ea340241f9c71f0cbd62ef9d97b75bb79cf3ae1f01e3b0d42a696",
     "research_manifest_path": "signals/research_run_manifest.json",
     "git_commit": "14ed103033de927eb9f2586890570472b78e0d43"
   }
