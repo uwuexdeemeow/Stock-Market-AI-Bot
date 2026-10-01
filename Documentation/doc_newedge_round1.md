@@ -49,3 +49,23 @@ reports go to `logs/research_candidate_execution_stress_newedge_<idea>.*`.
 - **Volatility:** how much prices swing from day to day.
 - **Decision window / final exam:** ideas are judged on 2013–2022 first.
   2023–2026 is touched only once, at the end, so it can't be tuned to.
+
+## Round 2: `newedge_round2.py` (H-newedge-2)
+
+Script: `research_evidence/newedge_20261002/newedge_round2.py`
+(tests: `tests/test_newedge_round2.py`). Round 2 changes the stock score
+itself, three ways:
+
+- **Q, low-volatility filter:** each day the most volatile third of stocks
+  (by 1-year stock-specific volatility) can't be picked.
+- **M, smoothed score:** each stock's score is averaged over its last 5
+  days, so one noisy day matters less.
+- **N, sector-neutral score:** stocks are ranked within their own sector,
+  and at most 1 stock per sector is held.
+
+Run it the same way:
+`python research_evidence/newedge_20261002/newedge_round2.py --membership-csv PATH`.
+It makes 200 engine runs plus up to 3 exams, and writes
+`research_evidence/newedge_20261002/newedge_round2.json`. For the exam, the
+score change is applied to the stress test's own panel by swapping
+`_ensure_robust_score_columns` while it runs.
