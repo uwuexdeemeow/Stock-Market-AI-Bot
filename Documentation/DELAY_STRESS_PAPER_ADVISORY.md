@@ -1037,3 +1037,36 @@ mode with the idea switched on (base, one day late, +10 bps, one day late
 gates", or "fails the exam". An idea that passes becomes a candidate for its
 own paper epoch and forward test. That still needs the owner's agreement
 and a locked-file change with a re-freeze; nothing changes automatically.
+
+### Result: H-newedge-1 (2026-10-02) — NO IDEA PASSES
+
+Full round (20 start days, 220 engine runs), local data to 2026-09-28.
+Raw output: `research_evidence/newedge_20261002/newedge_round1.json`. No
+idea passed its decision gates, so no final exam was run and 2023–2026 stays
+unused.
+
+| Idea | Gate | Result | Pass? |
+|---|---|---|---|
+| **W** let winners run | W1 median late alpha ≥ 90% of S (+436) | +360 (83%) | no |
+| | W2 delay cost ≤ half of S's (8.7) | 14.7 (higher, not lower) | no |
+| | W3 keeps ≥ 50% without its top 3 (NVDA, MU, FCX) | +117 (33%) | no |
+| **V** vol-scaled core | better Sharpe **and** drawdown than S on ≥ 15 of 20 start days | 10 of 20 | no |
+| **T** multi-asset trend core | T-core Sharpe > E-core on ≥ 15 of 20 start days | 1 of 20 (median 0.97 vs 1.06) | no |
+| | T-core median max drawdown shallower than QQQ's | −6.0% vs −32.5% | yes |
+
+**What the numbers say:**
+
+- **W makes things worse.** Holding momentum winners longer leans *more* on
+  a few names (only a third of its alpha is left without its top 3), and it
+  is not less sensitive to late fills.
+- **V helps a little, but not reliably.** Its median Sharpe (1.39 vs 1.37)
+  and drawdown (−20.5% vs −22.4%) are slightly better, but only on half of
+  the start days. This matches the earlier note that volatility targeting
+  doesn't clearly pay.
+- **T is a very safe core but a weaker one.** Its worst drop over
+  2013–2022 is about −6%, against −32% for QQQ, but it earns less per unit
+  of risk than the current QQQ/SPY switch. With stock picks on top, T beats
+  QQQ by only +43 points (median, one day late), against +436 for S.
+
+**Decision (by the pre-registered rule):** no idea passes, and the
+incumbent stays on paper under `FORWARD_TEST_RULE.md`.
