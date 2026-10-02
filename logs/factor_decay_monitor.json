@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
   "legacy_returns_are_alpha": false,
-  "generated_at": "2026-10-01T13:44:01.748092",
+  "generated_at": "2026-10-02T13:44:59.058886",
   "purpose": "factor_decay_monitor",
   "as_of": "2026-08-18",
   "selected_score_source": "regime_adaptive",
@@ -33,9 +33,9 @@
       },
       "decile_monotonicity_spearman": 0.5636,
       "overlay_periods": 3,
-      "overlay_return_sum_pct": 12.7773,
+      "overlay_return_sum_pct": 12.8158,
       "overlay_hit_rate": 1.0,
-      "legacy_overlay_raw_return_sum_pct": 12.7773,
+      "legacy_overlay_raw_return_sum_pct": 12.8158,
       "top_selected_ticker": "HSY",
       "top_selected_count": 2,
       "as_of": "2026-08-18",
@@ -67,9 +67,9 @@
       },
       "decile_monotonicity_spearman": 0.2727,
       "overlay_periods": 5,
-      "overlay_return_sum_pct": 13.9182,
+      "overlay_return_sum_pct": 13.9567,
       "overlay_hit_rate": 0.8,
-      "legacy_overlay_raw_return_sum_pct": 13.9182,
+      "legacy_overlay_raw_return_sum_pct": 13.9567,
       "top_selected_ticker": "EOG",
       "top_selected_count": 3,
       "as_of": "2026-08-18",
@@ -99,8 +99,8 @@
       "risk_control_mode": "off",
       "deployment_max_gross_exposure": 1.0
     },
-    "dataset_fingerprint": "51b0e2e19a9ea340241f9c71f0cbd62ef9d97b75bb79cf3ae1f01e3b0d42a696",
+    "dataset_fingerprint": "fc6c0b6afccfc5830d17a0f0885e047992ce5b3928e2d345e5d212b8beb9f8b7",
     "research_manifest_path": "signals/research_run_manifest.json",
-    "git_commit": "14ed103033de927eb9f2586890570472b78e0d43"
+    "git_commit": "cb1975db9fa531c54bf311a2be245d56e5feb94f"
   }
 }
