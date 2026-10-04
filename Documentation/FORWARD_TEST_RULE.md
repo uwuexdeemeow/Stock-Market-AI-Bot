@@ -108,4 +108,4 @@ when it starts paper trading.
 
 | Date | Periods done | M1 (annualised) | M2 mean (bps, 95% CI) | M3 blocked share | Note |
 |---|---|---|---|---|---|
-| | | | | | |
+| 2026-10-03 | 0 | n/a | −20 bps (−100 to +61), 16 fills, all before this epoch | 0 of 0 scheduled dates | Daily runs blocked 9-29 to 10-02 (stress `delay_1d_extra_25bps` loses to the blend by about 2.3 points), but no rebalance was due. Next scheduled rebalance: 2026-10-14. Owner: leave the gate as is. |
