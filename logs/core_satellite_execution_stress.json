@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-02T13:41:09.451941",
+  "generated_at": "2026-10-05T13:41:03.678140",
   "purpose": "core_satellite_execution_stress",
   "selected_config": {
     "strategy": "core-alpha",
@@ -250,8 +250,8 @@
       "risk_control_mode": "off",
       "deployment_max_gross_exposure": 1.0
     },
-    "dataset_fingerprint": "fc6c0b6afccfc5830d17a0f0885e047992ce5b3928e2d345e5d212b8beb9f8b7",
+    "dataset_fingerprint": "1157ff709b9dabbcc9691ee7084a9f16b27446b28e9a0d46376d7b15e3e97cde",
     "research_manifest_path": "signals/research_run_manifest.json",
-    "git_commit": "cb1975db9fa531c54bf311a2be245d56e5feb94f"
+    "git_commit": "269b6fd7f3ee69a8187127b51cacf85509ecb257"
   }
 }

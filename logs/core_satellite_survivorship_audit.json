@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-02T13:43:45.585694",
+  "generated_at": "2026-10-05T13:43:39.213747",
   "purpose": "core_satellite_survivorship_bias_stress",
   "selected_config": {
     "strategy": "core-alpha",
@@ -197,7 +197,7 @@
       "XOM"
     ],
     "coverage_start": "2010-01-01",
-    "coverage_end": "2026-10-02",
+    "coverage_end": "2026-10-05",
     "active_members_at_coverage_start": 0,
     "minimum_active_members": 400,
     "inactive_members": 0,
@@ -216,10 +216,10 @@
       "historical_price_coverage_incomplete"
     ]
   },
-  "survivorship_adjusted_score": 1.0002,
+  "survivorship_adjusted_score": 1.0006,
   "primary_return_pct": 4545.9,
-  "failed_name_stressed_return_pct": 4546.68,
-  "stressed_return_delta_pct": 0.78,
+  "failed_name_stressed_return_pct": 4548.52,
+  "stressed_return_delta_pct": 2.62,
   "limitations": [
     "This is a failed-name stress test, not a complete point-in-time constituent database.",
     "Only locally available audit tickers can be included.",
@@ -250,27 +250,27 @@
       "audit_tickers": "FRC",
       "audit_rebalance_selections": 14,
       "audit_selection_counts_json": "{\"FRC\": 14}",
-      "total_return_pct": 4546.68,
+      "total_return_pct": 4548.52,
       "cagr_pct": 25.9,
       "sharpe": 1.331,
       "max_drawdown_pct": -30.46,
-      "alpha_vs_spy_pct": 3755.14,
-      "alpha_vs_qqq_pct": 2895.68,
-      "alpha_vs_blend_pct": 3411.36,
-      "turnover_pct": 4616.39,
+      "alpha_vs_spy_pct": 3756.98,
+      "alpha_vs_qqq_pct": 2897.51,
+      "alpha_vs_blend_pct": 3413.19,
+      "turnover_pct": 4615.9,
       "estimated_cost_pct": 10.8125,
       "paper_ready": true
     },
     {
       "scenario": "delta_stressed_minus_base",
-      "total_return_pct": 0.78,
+      "total_return_pct": 2.62,
       "cagr_pct": 0.0,
       "sharpe": -0.006,
       "max_drawdown_pct": 0.01,
-      "alpha_vs_spy_pct": 0.78,
-      "alpha_vs_qqq_pct": 0.78,
-      "alpha_vs_blend_pct": 0.78,
-      "turnover_pct": 19.7,
+      "alpha_vs_spy_pct": 2.62,
+      "alpha_vs_qqq_pct": 2.61,
+      "alpha_vs_blend_pct": 2.61,
+      "turnover_pct": 19.21,
       "estimated_cost_pct": 0.0319
     }
   ],
@@ -423,8 +423,8 @@
       "risk_control_mode": "off",
       "deployment_max_gross_exposure": 1.0
     },
-    "dataset_fingerprint": "fc6c0b6afccfc5830d17a0f0885e047992ce5b3928e2d345e5d212b8beb9f8b7",
+    "dataset_fingerprint": "1157ff709b9dabbcc9691ee7084a9f16b27446b28e9a0d46376d7b15e3e97cde",
     "research_manifest_path": "signals/research_run_manifest.json",
-    "git_commit": "cb1975db9fa531c54bf311a2be245d56e5feb94f"
+    "git_commit": "269b6fd7f3ee69a8187127b51cacf85509ecb257"
   }
 }
