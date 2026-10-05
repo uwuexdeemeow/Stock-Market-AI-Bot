@@ -1,71 +1,71 @@
 {
   "schema_version": 3,
-  "generated_at": "2026-10-02T21:16:10+00:00",
-  "measurement_cutoff_60m": "2026-10-02T20:16:10.546122+00:00",
+  "generated_at": "2026-10-05T21:16:49+00:00",
+  "measurement_cutoff_60m": "2026-10-05T20:16:49.162996+00:00",
   "status": "collecting",
   "score": 75.0,
   "decision_eligible": false,
   "decision_blockers": [
-    "slippage_sample_11_below_20",
-    "adverse_15m_sample_11_below_20",
-    "adverse_60m_sample_11_below_20"
+    "slippage_sample_8_below_20",
+    "adverse_15m_sample_8_below_20",
+    "adverse_60m_sample_8_below_20"
   ],
   "lookback_days": 30,
   "summary": {
-    "paper_log_rows": 25,
+    "paper_log_rows": 23,
     "unmatched_broker_fill_count": 0,
     "unmatched_broker_fill_ids": [],
-    "accepted_orders": 11,
-    "filled_orders": 10,
-    "any_filled_orders": 10,
+    "accepted_orders": 9,
+    "filled_orders": 8,
+    "any_filled_orders": 8,
     "skipped_orders": 13,
-    "fill_rate": 0.9091,
-    "complete_fill_rate": 0.9091,
-    "any_fill_rate": 0.9091,
+    "fill_rate": 0.8889,
+    "complete_fill_rate": 0.8889,
+    "any_fill_rate": 0.8889,
     "partially_filled_orders": 0,
     "open_orders": 0,
     "canceled_unfilled_orders": 1,
     "duplicate_logical_orders": 0,
     "duplicate_child_attempts": 0,
-    "child_attempts": 14,
+    "child_attempts": 10,
     "unclassifiable_order_rows": 0,
     "unclassifiable_logical_orders": 0,
-    "skipped_rate": 0.52,
-    "orders_seen": 11,
-    "eligible_orders": 11,
-    "measured_slippage_count": 11,
-    "slippage_eligible_orders": 11,
-    "slippage_measured_orders": 11,
+    "skipped_rate": 0.5652,
+    "orders_seen": 8,
+    "eligible_orders": 8,
+    "measured_slippage_count": 8,
+    "slippage_eligible_orders": 8,
+    "slippage_measured_orders": 8,
     "slippage_coverage_rate": 1.0,
-    "trading_sessions": 7,
-    "avg_slippage_bps": 5.338,
-    "median_slippage_bps": 1.29,
-    "p75_slippage_bps": 5.015,
+    "trading_sessions": 6,
+    "avg_slippage_bps": 6.954,
+    "median_slippage_bps": 1.3,
+    "p75_slippage_bps": 5.078,
     "worst_slippage_bps": 42.79,
     "mean_slippage_95ci_bps": [
-      -2.243,
-      12.919
+      -3.28,
+      17.188
     ],
-    "bad_slippage_count": 4,
-    "bad_slippage_rate": 0.3636,
+    "bad_slippage_count": 3,
+    "bad_slippage_rate": 0.375,
     "bad_slippage_threshold_bps": 2.0,
-    "raw_bad_slippage_count": 8,
-    "raw_bad_slippage_rate": 0.7273,
-    "minor_bad_slippage_count": 4,
+    "raw_bad_slippage_count": 6,
+    "raw_bad_slippage_rate": 0.75,
+    "minor_bad_slippage_count": 3,
     "adverse_15m_count": 3,
-    "adverse_15m_observations": 11,
-    "adverse_15m_eligible_orders": 11,
-    "adverse_15m_measured_orders": 11,
+    "adverse_15m_observations": 8,
+    "adverse_15m_eligible_orders": 8,
+    "adverse_15m_measured_orders": 8,
     "adverse_15m_coverage_rate": 1.0,
-    "adverse_15m_rate": 0.2727,
+    "adverse_15m_rate": 0.375,
     "adverse_60m_count": 3,
-    "adverse_60m_observations": 11,
-    "adverse_60m_eligible_orders": 11,
-    "adverse_60m_measured_orders": 11,
+    "adverse_60m_observations": 8,
+    "adverse_60m_eligible_orders": 8,
+    "adverse_60m_measured_orders": 8,
     "adverse_60m_coverage_rate": 1.0,
-    "adverse_60m_rate": 0.2727,
-    "orders_analyzed": 11,
-    "limit_avg_slippage_bps": 5.338,
+    "adverse_60m_rate": 0.375,
+    "orders_analyzed": 8,
+    "limit_avg_slippage_bps": 6.954,
     "market_avg_slippage_bps": null,
     "limit_vs_market_delta_bps": null,
     "source": "alpaca_api",
@@ -76,14 +76,14 @@
       "adverse_15m_measured_orders": 1,
       "adverse_60m_measured_orders": 1
     },
-    "slippage_delta_vs_prior_scorecard_bps": 0.0
+    "slippage_delta_vs_prior_scorecard_bps": 1.616
   },
   "sample_gate": {
     "ready": false,
-    "measured_rebalance_fills": 11,
+    "measured_rebalance_fills": 8,
     "minimum_rebalance_fills": 20,
     "minimum_definitive_fills": 20,
-    "rebalance_sessions": 7,
+    "rebalance_sessions": 6,
     "minimum_rebalance_sessions": 3
   },
   "protective_stops": {
@@ -123,10 +123,10 @@
   },
   "entry_timing": {
     "status": "advisory",
-    "adverse_15m_rate": 0.2727,
-    "adverse_15m_observations": 11,
-    "adverse_60m_rate": 0.2727,
-    "adverse_60m_observations": 11,
+    "adverse_15m_rate": 0.375,
+    "adverse_15m_observations": 8,
+    "adverse_60m_rate": 0.375,
+    "adverse_60m_observations": 8,
     "note": "Post-fill movement measures entry timing, not fill quality."
   },
   "diagnostics": {
@@ -134,18 +134,18 @@
     "by_symbol": [
       {
         "group": "FCX",
-        "samples": 2,
-        "mean_bps": 2.01,
-        "median_bps": 2.01,
-        "p75_bps": 3.905,
-        "worst_bps": 5.8
+        "samples": 1,
+        "mean_bps": -1.78,
+        "median_bps": -1.78,
+        "p75_bps": -1.78,
+        "worst_bps": -1.78
       },
       {
         "group": "INTC",
-        "samples": 6,
-        "mean_bps": 8.163,
-        "median_bps": 0.995,
-        "p75_bps": 6.043,
+        "samples": 4,
+        "mean_bps": 12.922,
+        "median_bps": 4.465,
+        "p75_bps": 16.413,
         "worst_bps": 42.79
       },
       {
@@ -168,10 +168,10 @@
     "by_side": [
       {
         "group": "buy",
-        "samples": 8,
-        "mean_bps": 1.666,
-        "median_bps": 0.44,
-        "p75_bps": 4.623,
+        "samples": 5,
+        "mean_bps": 2.048,
+        "median_bps": 0.2,
+        "p75_bps": 4.23,
         "worst_bps": 7.62
       },
       {
@@ -186,38 +186,38 @@
     "by_order_stage": [
       {
         "group": "stage1",
-        "samples": 8,
-        "mean_bps": 6.51,
-        "median_bps": 0.985,
-        "p75_bps": 2.888,
+        "samples": 7,
+        "mean_bps": 7.343,
+        "median_bps": 1.29,
+        "p75_bps": 4.465,
         "worst_bps": 42.79
       },
       {
         "group": "stage2",
-        "samples": 3,
-        "mean_bps": 2.213,
+        "samples": 1,
+        "mean_bps": 4.23,
         "median_bps": 4.23,
-        "p75_bps": 5.015,
-        "worst_bps": 5.8
+        "p75_bps": 4.23,
+        "worst_bps": 4.23
       }
     ],
     "by_order_type": [
       {
         "group": "limit",
-        "samples": 11,
-        "mean_bps": 5.338,
-        "median_bps": 1.29,
-        "p75_bps": 5.015,
+        "samples": 8,
+        "mean_bps": 6.954,
+        "median_bps": 1.3,
+        "p75_bps": 5.078,
         "worst_bps": 42.79
       }
     ],
     "by_spread_band": [
       {
         "group": "unknown",
-        "samples": 11,
-        "mean_bps": 5.338,
-        "median_bps": 1.29,
-        "p75_bps": 5.015,
+        "samples": 8,
+        "mean_bps": 6.954,
+        "median_bps": 1.3,
+        "p75_bps": 5.078,
         "worst_bps": 42.79
       }
     ],
@@ -237,23 +237,15 @@
         "median_bps": 0.2,
         "p75_bps": 1.31,
         "worst_bps": 42.79
-      },
-      {
-        "group": "unknown",
-        "samples": 3,
-        "mean_bps": 1.03,
-        "median_bps": 0.68,
-        "p75_bps": 3.24,
-        "worst_bps": 5.8
       }
     ],
     "by_fill_latency_band": [
       {
         "group": "<= 30s",
-        "samples": 11,
-        "mean_bps": 5.338,
-        "median_bps": 1.29,
-        "p75_bps": 5.015,
+        "samples": 8,
+        "mean_bps": 6.954,
+        "median_bps": 1.3,
+        "p75_bps": 5.078,
         "worst_bps": 42.79
       }
     ],
@@ -262,45 +254,45 @@
   },
   "calibration_advisory": {
     "status": "collecting",
-    "measured_rebalance_fills": 11,
+    "measured_rebalance_fills": 8,
     "minimum_samples": 20,
     "may_change_live_parameters": false,
     "requires_new_epoch_if_applied": true
   },
   "stage_comparison": {
     "stage1": {
-      "orders": 11,
+      "orders": 9,
       "filled_orders": 7,
-      "any_filled_orders": 8,
-      "measured_fills": 8,
-      "fill_rate": 0.6363636363636364,
+      "any_filled_orders": 7,
+      "measured_fills": 7,
+      "fill_rate": 0.7777777777777778,
       "fill_rate_reason": "complete_submission_population",
-      "avg_slippage_bps": 6.51,
-      "median_slippage_bps": 0.985,
-      "material_bad_rate": 0.25,
-      "avg_fill_latency_seconds": 7.97,
+      "avg_slippage_bps": 7.343,
+      "median_slippage_bps": 1.29,
+      "material_bad_rate": 0.2857,
+      "avg_fill_latency_seconds": 6.93,
       "source": "alpaca_api_child_fills",
-      "any_fill_rate": 0.7272727272727273,
+      "any_fill_rate": 0.7777777777777778,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-09-02T21:16:08.292962+00:00",
-      "denominator_end": "2026-10-02T21:16:08.222421+00:00"
+      "denominator_start": "2026-09-05T21:16:47.370433+00:00",
+      "denominator_end": "2026-10-05T21:16:47.325830+00:00"
     },
     "stage2": {
-      "orders": 3,
-      "filled_orders": 3,
-      "any_filled_orders": 3,
-      "measured_fills": 3,
+      "orders": 1,
+      "filled_orders": 1,
+      "any_filled_orders": 1,
+      "measured_fills": 1,
       "fill_rate": 1.0,
       "fill_rate_reason": "complete_submission_population",
-      "avg_slippage_bps": 2.213,
+      "avg_slippage_bps": 4.23,
       "median_slippage_bps": 4.23,
-      "material_bad_rate": 0.6667,
-      "avg_fill_latency_seconds": 1.69,
+      "material_bad_rate": 1.0,
+      "avg_fill_latency_seconds": 2.2,
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 1.0,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-09-02T21:16:08.292962+00:00",
-      "denominator_end": "2026-10-02T21:16:08.222421+00:00"
+      "denominator_start": "2026-09-05T21:16:47.370433+00:00",
+      "denominator_end": "2026-10-05T21:16:47.325830+00:00"
     }
   },
   "throttle": {
@@ -317,7 +309,7 @@
     {
       "name": "avg_slippage_bps",
       "status": "pass",
-      "value": 5.338,
+      "value": 6.954,
       "threshold": 10.0,
       "operator": "<=",
       "reason": "ok"
@@ -325,7 +317,7 @@
     {
       "name": "bad_slippage_rate",
       "status": "pass",
-      "value": 0.3636,
+      "value": 0.375,
       "threshold": 0.6,
       "operator": "<=",
       "reason": "ok"
@@ -333,7 +325,7 @@
     {
       "name": "fill_rate",
       "status": "pass",
-      "value": 0.9091,
+      "value": 0.8889,
       "threshold": 0.8,
       "operator": ">=",
       "reason": "ok"
@@ -341,10 +333,10 @@
     {
       "name": "skipped_rate",
       "status": "fail",
-      "value": 0.52,
+      "value": 0.5652,
       "threshold": 0.35,
       "operator": "<=",
-      "reason": "0.5200 <= 0.35 failed"
+      "reason": "0.5652 <= 0.35 failed"
     }
   ],
   "thresholds": {
@@ -372,13 +364,13 @@
     "previous_scorecard": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json"
   },
   "run_context": {
-    "run_id": "post-market-37065699593-1",
-    "generated_at": "2026-10-02T21:16:10+00:00",
+    "run_id": "post-market-37374700138-1",
+    "generated_at": "2026-10-05T21:16:49+00:00",
     "signal_as_of": "",
-    "git_commit": "cb1975db9fa531c54bf311a2be245d56e5feb94f",
+    "git_commit": "269b6fd7f3ee69a8187127b51cacf85509ecb257",
     "configuration_fingerprint": "074fefd6d0a1cf103e42bbcf5ecf91051ffcb0f5c4cf83b275ff17e3f79a6ab3",
     "paper_version_fingerprint": "f9468239d817e26bff45ada9291fa45e667a530772d98c8d9a03d0a707b03b94",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-37065699593-1"
+  "run_id": "post-market-37374700138-1"
 }
