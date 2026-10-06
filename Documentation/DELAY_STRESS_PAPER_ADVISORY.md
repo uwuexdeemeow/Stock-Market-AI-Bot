@@ -1258,8 +1258,8 @@ re-tested with other settings (window, threshold, weights).
   **99.1%** (2,568 of 2,591). The remaining gaps are mostly reports that
   land just across a quarter boundary (COST 6, MU 6).
 - The filing times are saved in
-  `research_evidence/newedge_20261007/earnings_events.json` (5,552 usable
-  events). They are true UTC times: most fall just after 16:00 or between
+  `research_evidence/newedge_20261007/earnings_events.json` (4,377 events
+  inside panel S, 4,167 of them with a usable price reaction). They are true UTC times: most fall just after 16:00 or between
   06:00 and 09:00 New York time, as expected for earnings.
 - The script and its tests were committed before the round was run.
 
