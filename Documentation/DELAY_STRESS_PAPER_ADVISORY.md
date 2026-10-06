@@ -1246,3 +1246,65 @@ A passing idea needs the owner's agreement before it gets its own paper
 epoch, and live use would also need a daily earnings-date feed, which does
 not exist yet. Nothing changes automatically. An idea that fails is not
 re-tested with other settings (window, threshold, weights).
+
+### Implementation notes for H-newedge-3 (2026-10-07, before any engine run)
+
+- **Step 0 — C0 passes.** With only the current SEC numbers, coverage was
+  94.1% (2,437 of 2,591 ticker-quarters). Five companies had no early
+  filings under their current number, so their predecessors were added, as
+  the rule allows: AVGO (Broadcom Ltd, Avago Technologies), DIS (the old
+  Walt Disney Co), GOOGL (Google Inc), LIN (Praxair) and XOM (the old Exxon
+  Mobil Corp). Each was checked by company name on EDGAR. Final coverage:
+  **99.1%** (2,568 of 2,591). The remaining gaps are mostly reports that
+  land just across a quarter boundary (COST 6, MU 6).
+- The filing times are saved in
+  `research_evidence/newedge_20261007/earnings_events.json` (5,552 usable
+  events). They are true UTC times: most fall just after 16:00 or between
+  06:00 and 09:00 New York time, as expected for earnings.
+- The script and its tests were committed before the round was run.
+
+### Result: H-newedge-3 (2026-10-07) — NO IDEA PASSES
+
+Full round (20 start days, 200 engine runs), local data to 2026-09-28.
+Raw output: `research_evidence/newedge_20261007/newedge_round3.json`. No
+idea passed its decision gates, so no exam was run and 2023–2026 is still
+unused.
+
+| Idea | Gate | Result | Pass? |
+|---|---|---|---|
+| **P** earnings drift | P1 all 40 runs beat QQQ | 37 of 40 (worst −17.6; median late +112) | no |
+| | P2 delay cost ≤ S's (8.7) | −8.7 (late fills did slightly *better*) | yes |
+| | P3 keeps ≥ 50% without its top 3 (NVDA, AMD, MU) | −34 (all 20 runs negative) | no |
+| **X** real earnings blackout | X1 median late alpha ≥ 90% of S (+436) | +410 (94%) | yes |
+| | X2 on-time spread ≤ 75% of S's (387) and delay cost ≤ S's | spread 530; delay cost 10.5 | no |
+| **PS** blended score | PS1 median late alpha ≥ 75% of S | +309 (71%) | no |
+| | PS2 keeps ≥ 50% without its top 3 (NVDA, NFLX, MU) | +107 (35%) | no |
+
+**What the numbers say:**
+
+- **Earnings drift is real here, but it is the same few names again.** P
+  beats QQQ in 37 of 40 runs and does not mind late fills at all, which is
+  what a slow signal should do. But take out NVDA, AMD and MU and it loses
+  to QQQ on every start day. In a 62-stock panel it mostly finds the same
+  winners by another road.
+- **The blackout does not steady the strategy.** With real dates, skipping
+  new picks just before earnings costs a little alpha and makes the start-day
+  spread *wider* (530 vs 387). The timing luck does not come from buying
+  just before earnings.
+- **The blend is the closest miss of all twelve ideas.** PS keeps 71% of
+  the alpha, cuts the delay cost from 8.7 to 1.1, stays positive on every
+  start day even without its top 3 names, and its worst late run is +142.
+  It still fails both of its gates, and the rule is the rule: it is **not**
+  re-tested with other weights or windows.
+
+**Decision (by the pre-registered rule):** no idea passes, and the
+incumbent stays on paper under `FORWARD_TEST_RULE.md`, blocked by the
+execution-stress review as before.
+
+**Across three rounds (9 new-edge ideas, 12 with H-bakeoff):** the limit
+now looks like the **panel**, not the signal. Three different kinds of
+signal (short-term reversal, slow momentum, earnings drift) all end up
+earning their alpha from the same handful of volatile large stocks, because
+only about 62 stocks can be picked. A sturdier edge needs more stocks to
+choose from, which is the question H-full-universe could not answer with
+Tiingo's coverage (C1 failed at 80.8%).
