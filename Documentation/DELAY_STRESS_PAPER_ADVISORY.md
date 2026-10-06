@@ -1148,3 +1148,101 @@ steadier or less dependent on timing removed most of it. The incumbent's
 edge seems to be specifically "catch a few volatile stocks just before
 big moves". That is real (H-edge, H-benchmark), but it is also fragile by
 nature.
+
+## Note: paper blocks to 2026-10-06 — owner restarts new-edge research
+
+Daily runs #299–#305 (2026-09-28 to 2026-10-06) were all safety-blocked.
+#299 failed the survivorship review (since fixed). #300–#305 failed the
+execution-stress review: one day late plus 25 bps loses to the blend
+benchmark over 2023–2026 (−2.2 on 9-29, **−10.6** on 10-06). On 10-06 the
+base 2023–2026 alpha vs QQQ was +10.2 (it was +42.0 on 9-28). No scheduled
+rebalance was missed: the last was 2026-09-16 and the next is 2026-10-14.
+
+**Owner decision (2026-10-07):** keep the block, treat the incumbent as
+**not proven**, and look again for an edge that survives late fills. This
+ends the research pause that followed H-newedge-2.
+
+## Hypothesis H-newedge-3 (pre-registered 2026-10-07, before any run)
+
+**Why this round is different:** all nine earlier ideas re-used the same
+price and volume features. This round adds one new kind of information:
+**real earnings dates**. The panel's earnings columns are placeholders
+(`USE_EARNINGS_DATA = False`, every row says "60 days"), so the incumbent's
+own 5-day earnings blackout has never been active, and earnings drift (idea
+D in `SIGNAL_IDEAS_2026-09-26.md`) could not be tested. Script (to be
+written): `research_evidence/newedge_20261007/newedge_round3.py`.
+
+**Prior evidence, written down now:** published research finds that drift
+after earnings is weak in very large companies in recent decades, and the
+point-in-time panel holds only about 62 large stocks. A failure of P would
+not be a surprise. The only look at the new data so far was a feasibility
+probe: NVDA's filing list was read to check that dates and times are
+there. No price or return was joined to it.
+
+**Earnings events (fixed rule):**
+
+- **Source:** the SEC EDGAR "submissions" list for each company. An event is
+  a form **8-K** whose items include **2.02** ("Results of Operations").
+  Amendments (8-K/A) are ignored.
+- **Reaction day E:** the filing's acceptance time in New York time. Before
+  16:00 on a trading session → E is that session. Otherwise E is the next
+  session.
+- **Reaction R:** the stock's return from the close of E−1 to the close of
+  E+1, minus the median of the same two-day return over all panel stocks.
+  An event with a missing price on E−1 or E+1 is dropped.
+- **Company history:** if a company's current SEC number doesn't reach back
+  to 2012 (mergers, re-registrations), its predecessor's number is added.
+  This list is fixed, using filings only, before any engine run and is saved
+  in the output.
+
+**Step 0 — data coverage gate (judged before any engine run):** count every
+ticker-quarter from 2012 Q1 to 2022 Q4 in which the ticker has at least 40
+rows in panel S. **C0 passes if at least 90% of them have one or more usable
+events.** If C0 fails, the round stops: "not testable with this source".
+
+**Common base:** the same as H-newedge-1 and -2: test S, the incumbent
+config, 20 start days × on time/one day late, the same end-date rule,
+decision window 2013–2022, and 2023–2026 only in the final exam. The engine
+is not edited; each idea changes panel columns after the normal panel is
+built.
+
+| Idea | What changes (all else = incumbent) | Fixed settings |
+|---|---|---|
+| **P** earnings drift | The three score columns are replaced by an earnings score. On each day from E+1 to E+40, a stock's value is its latest reaction R, but only if R is above 0. Stocks with no such event get no score and can't be picked. The value is turned into a percentile rank among that day's scored stocks. | 40 sessions; R > 0 only |
+| **X** real earnings blackout | `days_to_next_earnings` is filled with the real number of calendar days to the stock's next event (cap 120; 60 if none is known). The incumbent's own `earnings_blackout_days = 5` then works as designed: no **new** pick within 5 days before earnings. The score is unchanged. | 5 days (already in the config) |
+| **PS** blended score | Each score column becomes 0.5 × its own percentile rank that day + 0.5 × the earnings rank. The earnings rank is the percentile rank of R among all stocks with an event in the last 40 sessions (good and bad reactions), and 0.5 for stocks with none. | equal weights; neutral 0.5 |
+
+**Known limit of X:** it uses the real date of the next report. In live
+trading that date is normally announced weeks ahead, but not always, so the
+backtest is slightly better informed than real life.
+
+**Runs:** S, P, X and PS over 20 start days × on time/late (160 runs). Then
+P and PS one day late with their own top 3 contributing tickers removed
+(chosen from their on-time runs as in H-top-names): 40 runs. 200 in total.
+
+**Decision gates (2013–2022; one-day-late runs unless stated):**
+
+- **P** (a new signal, so it is judged on its own, as in H-bakeoff):
+  (P1) all 40 runs beat QQQ; (P2) mean delay cost (on time − late, same
+  start day) ≤ S's; (P3) without its top 3 tickers, median alpha > 0 and ≥
+  **50%** of P's own median.
+- **X** (same strategy, steadier): (X1) median alpha ≥ **90%** of S's
+  median; (X2) on-time spread across start days (max − min) ≤ **75%** of S's
+  **and** mean delay cost ≤ S's.
+- **PS** (same strategy, less dependent on a few names): (PS1) median alpha
+  ≥ **75%** of S's median; (PS2) without its top 3 tickers, median alpha > 0
+  and ≥ **50%** of PS's own median. PS1 is looser than round 2's 90% on
+  purpose, and this is fixed now: the goal of this round is a sturdier edge,
+  and rounds 1–2 showed that every broadening costs some headline alpha.
+  The final exam still has to be passed in full.
+
+**Final exam (only for ideas that pass their decision gates):** the existing
+`core_satellite_execution_stress.py` in research-candidate mode with the
+idea's panel change applied. **Pass = no failed gate in any scenario**, with
+no paper advisory.
+
+**Verdict per idea:** "passes", "fails decision gates" or "fails the exam".
+A passing idea needs the owner's agreement before it gets its own paper
+epoch, and live use would also need a daily earnings-date feed, which does
+not exist yet. Nothing changes automatically. An idea that fails is not
+re-tested with other settings (window, threshold, weights).
