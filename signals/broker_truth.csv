@@ -2,6 +2,6 @@ ticker,target_weight,broker_qty,broker_value,broker_weight,planned_side,planned_
 AMAT,0.145872,0.0,0.0,0.0,buy,33.0,33.0,0.0,0.0,33.0,0.1459,33.0,0.0,0.0,0.0,33.0,0.0,skipped,0.0,0.0,0.0,0.0,0.0,0,0.0,0,False,warning,latest_logged_order_skipped;target_position_missing_at_broker;broker_weight_gap_0.1459
 AMD,0.2,0.0,0.0,0.0,buy,36.0,36.0,0.0,0.0,36.0,0.2,36.0,0.0,0.0,0.0,36.0,0.0,skipped,0.0,0.0,0.0,0.0,0.0,0,0.0,0,False,warning,latest_logged_order_skipped;target_position_missing_at_broker;broker_weight_gap_0.2000
 CAT,0.054128,0.0,0.0,0.0,buy,8.0,8.0,0.0,0.0,8.0,0.0541,8.0,0.0,0.0,0.0,8.0,0.0,skipped,0.0,0.0,0.0,0.0,0.0,0,0.0,0,False,warning,latest_logged_order_skipped;target_position_missing_at_broker;broker_weight_gap_0.0541
-QQQ,0.6,92.0,69226.32,0.597186,,0.0,0.0,0.0,,,,0.0,0.0,0.0,0.0,0.0,0.0,,,,0.0,0.0,0.0,0,0.0,0,False,pass,
+QQQ,0.6,92.0,69718.52,0.59889,,0.0,0.0,0.0,,,,0.0,0.0,0.0,0.0,0.0,0.0,,,,0.0,0.0,0.0,0,0.0,0,False,pass,
 SPY,0.0,0.0,0.0,0.0,,0.0,0.0,0.0,,,,0.0,0.0,0.0,0.0,0.0,0.0,,,,0.0,0.0,0.0,0,0.0,0,False,pass,
 TQQQ,0.0,0.0,0.0,0.0,,0.0,0.0,0.0,,,,0.0,0.0,0.0,0.0,0.0,0.0,,,,0.0,0.0,0.0,0,0.0,0,False,pass,

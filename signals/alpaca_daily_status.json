@@ -1,24 +1,24 @@
 {
   "broker": "alpaca",
   "paper_account_hash": "53467e021997593c",
-  "generated_at": "2026-10-07T13:48:54",
-  "account_equity": 115923.09,
+  "generated_at": "2026-10-07T21:15:58",
+  "account_equity": 116412.99,
   "account_cash": 46694.47,
-  "account_invested": 69228.62,
+  "account_invested": 69718.52,
   "position_count": 1,
   "positions": {
     "QQQ": 92.0
   },
   "position_values": {
-    "QQQ": 69223.56
+    "QQQ": 69718.52
   },
   "position_details": [
     {
       "ticker": "QQQ",
       "quantity": 92.0,
       "avg_price": 724.322756,
-      "market_value": 69223.56,
-      "unrealized_pl": 2585.87
+      "market_value": 69718.52,
+      "unrealized_pl": 3080.83
     }
   ],
   "recent_protective_exits_available": true,
