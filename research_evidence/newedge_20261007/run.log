@@ -1,0 +1,238 @@
+{
+ "coverage": {
+  "ticker_quarters": 2591,
+  "covered": 2568,
+  "share": 0.9911,
+  "C0_pass": true,
+  "missing_quarters_by_ticker": {
+   "COST": 6,
+   "MU": 6,
+   "LLY": 2,
+   "ABBV": 1,
+   "C": 1,
+   "CMCSA": 1,
+   "EXC": 1,
+   "GE": 1,
+   "LIN": 1,
+   "PEP": 1,
+   "PSA": 1,
+   "RTX": 1
+  }
+ }
+}
+{"test": "S", "delay": 0, "offset": 0, "decision_alpha_vs_qqq_pct": 455.16, "secs": 6.8}
+{"test": "S", "delay": 0, "offset": 1, "decision_alpha_vs_qqq_pct": 279.97, "secs": 3.5}
+{"test": "S", "delay": 0, "offset": 2, "decision_alpha_vs_qqq_pct": 596.71, "secs": 3.8}
+{"test": "S", "delay": 0, "offset": 3, "decision_alpha_vs_qqq_pct": 574.18, "secs": 3.7}
+{"test": "S", "delay": 0, "offset": 4, "decision_alpha_vs_qqq_pct": 463.62, "secs": 4.1}
+{"test": "S", "delay": 0, "offset": 5, "decision_alpha_vs_qqq_pct": 445.49, "secs": 3.8}
+{"test": "S", "delay": 0, "offset": 6, "decision_alpha_vs_qqq_pct": 334.64, "secs": 3.6}
+{"test": "S", "delay": 0, "offset": 7, "decision_alpha_vs_qqq_pct": 666.76, "secs": 3.8}
+{"test": "S", "delay": 0, "offset": 8, "decision_alpha_vs_qqq_pct": 432.61, "secs": 3.8}
+{"test": "S", "delay": 0, "offset": 9, "decision_alpha_vs_qqq_pct": 332.49, "secs": 3.7}
+{"test": "S", "delay": 0, "offset": 10, "decision_alpha_vs_qqq_pct": 499.34, "secs": 3.8}
+{"test": "S", "delay": 0, "offset": 11, "decision_alpha_vs_qqq_pct": 418.63, "secs": 3.9}
+{"test": "S", "delay": 0, "offset": 12, "decision_alpha_vs_qqq_pct": 374.34, "secs": 3.5}
+{"test": "S", "delay": 0, "offset": 13, "decision_alpha_vs_qqq_pct": 468.88, "secs": 3.7}
+{"test": "S", "delay": 0, "offset": 14, "decision_alpha_vs_qqq_pct": 456.93, "secs": 3.4}
+{"test": "S", "delay": 0, "offset": 15, "decision_alpha_vs_qqq_pct": 473.72, "secs": 3.6}
+{"test": "S", "delay": 0, "offset": 16, "decision_alpha_vs_qqq_pct": 543.4, "secs": 3.3}
+{"test": "S", "delay": 0, "offset": 17, "decision_alpha_vs_qqq_pct": 614.01, "secs": 3.3}
+{"test": "S", "delay": 0, "offset": 18, "decision_alpha_vs_qqq_pct": 641.02, "secs": 3.5}
+{"test": "S", "delay": 0, "offset": 19, "decision_alpha_vs_qqq_pct": 383.18, "secs": 3.4}
+{"test": "S", "delay": 1, "offset": 0, "decision_alpha_vs_qqq_pct": 458.16, "secs": 3.4}
+{"test": "S", "delay": 1, "offset": 1, "decision_alpha_vs_qqq_pct": 356.04, "secs": 3.4}
+{"test": "S", "delay": 1, "offset": 2, "decision_alpha_vs_qqq_pct": 585.92, "secs": 3.4}
+{"test": "S", "delay": 1, "offset": 3, "decision_alpha_vs_qqq_pct": 410.14, "secs": 3.8}
+{"test": "S", "delay": 1, "offset": 4, "decision_alpha_vs_qqq_pct": 386.45, "secs": 3.6}
+{"test": "S", "delay": 1, "offset": 5, "decision_alpha_vs_qqq_pct": 373.67, "secs": 3.3}
+{"test": "S", "delay": 1, "offset": 6, "decision_alpha_vs_qqq_pct": 359.89, "secs": 3.3}
+{"test": "S", "delay": 1, "offset": 7, "decision_alpha_vs_qqq_pct": 644.85, "secs": 3.4}
+{"test": "S", "delay": 1, "offset": 8, "decision_alpha_vs_qqq_pct": 412.59, "secs": 3.3}
+{"test": "S", "delay": 1, "offset": 9, "decision_alpha_vs_qqq_pct": 485.03, "secs": 3.2}
+{"test": "S", "delay": 1, "offset": 10, "decision_alpha_vs_qqq_pct": 438.31, "secs": 3.4}
+{"test": "S", "delay": 1, "offset": 11, "decision_alpha_vs_qqq_pct": 486.17, "secs": 3.2}
+{"test": "S", "delay": 1, "offset": 12, "decision_alpha_vs_qqq_pct": 388.18, "secs": 3.5}
+{"test": "S", "delay": 1, "offset": 13, "decision_alpha_vs_qqq_pct": 403.94, "secs": 3.5}
+{"test": "S", "delay": 1, "offset": 14, "decision_alpha_vs_qqq_pct": 565.79, "secs": 3.4}
+{"test": "S", "delay": 1, "offset": 15, "decision_alpha_vs_qqq_pct": 537.76, "secs": 3.2}
+{"test": "S", "delay": 1, "offset": 16, "decision_alpha_vs_qqq_pct": 546.12, "secs": 3.2}
+{"test": "S", "delay": 1, "offset": 17, "decision_alpha_vs_qqq_pct": 619.91, "secs": 3.6}
+{"test": "S", "delay": 1, "offset": 18, "decision_alpha_vs_qqq_pct": 433.78, "secs": 3.5}
+{"test": "S", "delay": 1, "offset": 19, "decision_alpha_vs_qqq_pct": 387.99, "secs": 3.6}
+{"test": "P", "delay": 0, "offset": 0, "decision_alpha_vs_qqq_pct": 69.07, "secs": 4.2}
+{"test": "P", "delay": 0, "offset": 1, "decision_alpha_vs_qqq_pct": 100.86, "secs": 3.7}
+{"test": "P", "delay": 0, "offset": 2, "decision_alpha_vs_qqq_pct": 90.65, "secs": 3.7}
+{"test": "P", "delay": 0, "offset": 3, "decision_alpha_vs_qqq_pct": 241.96, "secs": 3.5}
+{"test": "P", "delay": 0, "offset": 4, "decision_alpha_vs_qqq_pct": 66.66, "secs": 4.0}
+{"test": "P", "delay": 0, "offset": 5, "decision_alpha_vs_qqq_pct": 109.46, "secs": 4.2}
+{"test": "P", "delay": 0, "offset": 6, "decision_alpha_vs_qqq_pct": 75.94, "secs": 3.9}
+{"test": "P", "delay": 0, "offset": 7, "decision_alpha_vs_qqq_pct": 129.38, "secs": 3.9}
+{"test": "P", "delay": 0, "offset": 8, "decision_alpha_vs_qqq_pct": 85.7, "secs": 3.9}
+{"test": "P", "delay": 0, "offset": 9, "decision_alpha_vs_qqq_pct": 105.89, "secs": 4.4}
+{"test": "P", "delay": 0, "offset": 10, "decision_alpha_vs_qqq_pct": 86.31, "secs": 3.9}
+{"test": "P", "delay": 0, "offset": 11, "decision_alpha_vs_qqq_pct": 16.77, "secs": 4.3}
+{"test": "P", "delay": 0, "offset": 12, "decision_alpha_vs_qqq_pct": 3.18, "secs": 4.6}
+{"test": "P", "delay": 0, "offset": 13, "decision_alpha_vs_qqq_pct": 57.62, "secs": 4.5}
+{"test": "P", "delay": 0, "offset": 14, "decision_alpha_vs_qqq_pct": 65.96, "secs": 4.0}
+{"test": "P", "delay": 0, "offset": 15, "decision_alpha_vs_qqq_pct": -0.58, "secs": 4.2}
+{"test": "P", "delay": 0, "offset": 16, "decision_alpha_vs_qqq_pct": 62.45, "secs": 4.0}
+{"test": "P", "delay": 0, "offset": 17, "decision_alpha_vs_qqq_pct": 60.8, "secs": 3.2}
+{"test": "P", "delay": 0, "offset": 18, "decision_alpha_vs_qqq_pct": 147.15, "secs": 3.2}
+{"test": "P", "delay": 0, "offset": 19, "decision_alpha_vs_qqq_pct": 84.37, "secs": 3.0}
+{"test": "P", "delay": 1, "offset": 0, "decision_alpha_vs_qqq_pct": 103.02, "secs": 3.1}
+{"test": "P", "delay": 1, "offset": 1, "decision_alpha_vs_qqq_pct": 128.55, "secs": 3.0}
+{"test": "P", "delay": 1, "offset": 2, "decision_alpha_vs_qqq_pct": 162.41, "secs": 3.0}
+{"test": "P", "delay": 1, "offset": 3, "decision_alpha_vs_qqq_pct": 143.29, "secs": 3.0}
+{"test": "P", "delay": 1, "offset": 4, "decision_alpha_vs_qqq_pct": 95.11, "secs": 3.0}
+{"test": "P", "delay": 1, "offset": 5, "decision_alpha_vs_qqq_pct": 122.09, "secs": 3.0}
+{"test": "P", "delay": 1, "offset": 6, "decision_alpha_vs_qqq_pct": 129.19, "secs": 3.0}
+{"test": "P", "delay": 1, "offset": 7, "decision_alpha_vs_qqq_pct": 137.02, "secs": 3.1}
+{"test": "P", "delay": 1, "offset": 8, "decision_alpha_vs_qqq_pct": 139.36, "secs": 3.2}
+{"test": "P", "delay": 1, "offset": 9, "decision_alpha_vs_qqq_pct": 129.73, "secs": 3.1}
+{"test": "P", "delay": 1, "offset": 10, "decision_alpha_vs_qqq_pct": 64.03, "secs": 3.1}
+{"test": "P", "delay": 1, "offset": 11, "decision_alpha_vs_qqq_pct": -17.6, "secs": 3.1}
+{"test": "P", "delay": 1, "offset": 12, "decision_alpha_vs_qqq_pct": 5.89, "secs": 3.1}
+{"test": "P", "delay": 1, "offset": 13, "decision_alpha_vs_qqq_pct": 68.4, "secs": 3.1}
+{"test": "P", "delay": 1, "offset": 14, "decision_alpha_vs_qqq_pct": 40.25, "secs": 3.2}
+{"test": "P", "delay": 1, "offset": 15, "decision_alpha_vs_qqq_pct": -5.92, "secs": 3.0}
+{"test": "P", "delay": 1, "offset": 16, "decision_alpha_vs_qqq_pct": 41.22, "secs": 3.1}
+{"test": "P", "delay": 1, "offset": 17, "decision_alpha_vs_qqq_pct": 147.85, "secs": 3.0}
+{"test": "P", "delay": 1, "offset": 18, "decision_alpha_vs_qqq_pct": 77.16, "secs": 3.0}
+{"test": "P", "delay": 1, "offset": 19, "decision_alpha_vs_qqq_pct": 121.93, "secs": 3.2}
+{"test": "X", "delay": 0, "offset": 0, "decision_alpha_vs_qqq_pct": 432.76, "secs": 3.1}
+{"test": "X", "delay": 0, "offset": 1, "decision_alpha_vs_qqq_pct": 345.36, "secs": 3.0}
+{"test": "X", "delay": 0, "offset": 2, "decision_alpha_vs_qqq_pct": 744.86, "secs": 3.1}
+{"test": "X", "delay": 0, "offset": 3, "decision_alpha_vs_qqq_pct": 657.28, "secs": 3.0}
+{"test": "X", "delay": 0, "offset": 4, "decision_alpha_vs_qqq_pct": 436.7, "secs": 2.9}
+{"test": "X", "delay": 0, "offset": 5, "decision_alpha_vs_qqq_pct": 467.02, "secs": 2.9}
+{"test": "X", "delay": 0, "offset": 6, "decision_alpha_vs_qqq_pct": 311.31, "secs": 2.9}
+{"test": "X", "delay": 0, "offset": 7, "decision_alpha_vs_qqq_pct": 652.07, "secs": 2.9}
+{"test": "X", "delay": 0, "offset": 8, "decision_alpha_vs_qqq_pct": 416.03, "secs": 3.0}
+{"test": "X", "delay": 0, "offset": 9, "decision_alpha_vs_qqq_pct": 301.77, "secs": 3.4}
+{"test": "X", "delay": 0, "offset": 10, "decision_alpha_vs_qqq_pct": 426.43, "secs": 3.0}
+{"test": "X", "delay": 0, "offset": 11, "decision_alpha_vs_qqq_pct": 386.05, "secs": 3.0}
+{"test": "X", "delay": 0, "offset": 12, "decision_alpha_vs_qqq_pct": 407.0, "secs": 2.9}
+{"test": "X", "delay": 0, "offset": 13, "decision_alpha_vs_qqq_pct": 467.94, "secs": 3.0}
+{"test": "X", "delay": 0, "offset": 14, "decision_alpha_vs_qqq_pct": 478.83, "secs": 3.0}
+{"test": "X", "delay": 0, "offset": 15, "decision_alpha_vs_qqq_pct": 432.61, "secs": 3.0}
+{"test": "X", "delay": 0, "offset": 16, "decision_alpha_vs_qqq_pct": 618.06, "secs": 3.2}
+{"test": "X", "delay": 0, "offset": 17, "decision_alpha_vs_qqq_pct": 338.48, "secs": 3.0}
+{"test": "X", "delay": 0, "offset": 18, "decision_alpha_vs_qqq_pct": 443.81, "secs": 3.0}
+{"test": "X", "delay": 0, "offset": 19, "decision_alpha_vs_qqq_pct": 214.87, "secs": 2.9}
+{"test": "X", "delay": 1, "offset": 0, "decision_alpha_vs_qqq_pct": 419.1, "secs": 3.0}
+{"test": "X", "delay": 1, "offset": 1, "decision_alpha_vs_qqq_pct": 403.85, "secs": 2.9}
+{"test": "X", "delay": 1, "offset": 2, "decision_alpha_vs_qqq_pct": 705.11, "secs": 3.0}
+{"test": "X", "delay": 1, "offset": 3, "decision_alpha_vs_qqq_pct": 490.19, "secs": 3.0}
+{"test": "X", "delay": 1, "offset": 4, "decision_alpha_vs_qqq_pct": 361.34, "secs": 3.2}
+{"test": "X", "delay": 1, "offset": 5, "decision_alpha_vs_qqq_pct": 394.13, "secs": 3.0}
+{"test": "X", "delay": 1, "offset": 6, "decision_alpha_vs_qqq_pct": 337.02, "secs": 3.0}
+{"test": "X", "delay": 1, "offset": 7, "decision_alpha_vs_qqq_pct": 633.17, "secs": 3.0}
+{"test": "X", "delay": 1, "offset": 8, "decision_alpha_vs_qqq_pct": 393.66, "secs": 3.0}
+{"test": "X", "delay": 1, "offset": 9, "decision_alpha_vs_qqq_pct": 439.29, "secs": 3.0}
+{"test": "X", "delay": 1, "offset": 10, "decision_alpha_vs_qqq_pct": 391.42, "secs": 3.0}
+{"test": "X", "delay": 1, "offset": 11, "decision_alpha_vs_qqq_pct": 460.32, "secs": 3.2}
+{"test": "X", "delay": 1, "offset": 12, "decision_alpha_vs_qqq_pct": 416.14, "secs": 3.0}
+{"test": "X", "delay": 1, "offset": 13, "decision_alpha_vs_qqq_pct": 394.45, "secs": 3.0}
+{"test": "X", "delay": 1, "offset": 14, "decision_alpha_vs_qqq_pct": 574.43, "secs": 2.9}
+{"test": "X", "delay": 1, "offset": 15, "decision_alpha_vs_qqq_pct": 462.46, "secs": 3.0}
+{"test": "X", "delay": 1, "offset": 16, "decision_alpha_vs_qqq_pct": 633.95, "secs": 3.0}
+{"test": "X", "delay": 1, "offset": 17, "decision_alpha_vs_qqq_pct": 355.56, "secs": 3.0}
+{"test": "X", "delay": 1, "offset": 18, "decision_alpha_vs_qqq_pct": 264.35, "secs": 3.2}
+{"test": "X", "delay": 1, "offset": 19, "decision_alpha_vs_qqq_pct": 240.0, "secs": 3.0}
+{"test": "PS", "delay": 0, "offset": 0, "decision_alpha_vs_qqq_pct": 375.43, "secs": 3.1}
+{"test": "PS", "delay": 0, "offset": 1, "decision_alpha_vs_qqq_pct": 286.83, "secs": 3.2}
+{"test": "PS", "delay": 0, "offset": 2, "decision_alpha_vs_qqq_pct": 396.77, "secs": 3.0}
+{"test": "PS", "delay": 0, "offset": 3, "decision_alpha_vs_qqq_pct": 439.36, "secs": 3.0}
+{"test": "PS", "delay": 0, "offset": 4, "decision_alpha_vs_qqq_pct": 366.13, "secs": 3.0}
+{"test": "PS", "delay": 0, "offset": 5, "decision_alpha_vs_qqq_pct": 241.84, "secs": 3.0}
+{"test": "PS", "delay": 0, "offset": 6, "decision_alpha_vs_qqq_pct": 104.88, "secs": 3.0}
+{"test": "PS", "delay": 0, "offset": 7, "decision_alpha_vs_qqq_pct": 307.92, "secs": 3.1}
+{"test": "PS", "delay": 0, "offset": 8, "decision_alpha_vs_qqq_pct": 222.66, "secs": 3.0}
+{"test": "PS", "delay": 0, "offset": 9, "decision_alpha_vs_qqq_pct": 236.16, "secs": 3.1}
+{"test": "PS", "delay": 0, "offset": 10, "decision_alpha_vs_qqq_pct": 367.04, "secs": 3.3}
+{"test": "PS", "delay": 0, "offset": 11, "decision_alpha_vs_qqq_pct": 254.13, "secs": 3.0}
+{"test": "PS", "delay": 0, "offset": 12, "decision_alpha_vs_qqq_pct": 305.05, "secs": 3.0}
+{"test": "PS", "delay": 0, "offset": 13, "decision_alpha_vs_qqq_pct": 253.24, "secs": 3.0}
+{"test": "PS", "delay": 0, "offset": 14, "decision_alpha_vs_qqq_pct": 312.76, "secs": 3.0}
+{"test": "PS", "delay": 0, "offset": 15, "decision_alpha_vs_qqq_pct": 371.15, "secs": 3.0}
+{"test": "PS", "delay": 0, "offset": 16, "decision_alpha_vs_qqq_pct": 424.62, "secs": 3.0}
+{"test": "PS", "delay": 0, "offset": 17, "decision_alpha_vs_qqq_pct": 394.77, "secs": 3.0}
+{"test": "PS", "delay": 0, "offset": 18, "decision_alpha_vs_qqq_pct": 443.96, "secs": 3.3}
+{"test": "PS", "delay": 0, "offset": 19, "decision_alpha_vs_qqq_pct": 258.32, "secs": 3.2}
+{"test": "PS", "delay": 1, "offset": 0, "decision_alpha_vs_qqq_pct": 423.81, "secs": 3.1}
+{"test": "PS", "delay": 1, "offset": 1, "decision_alpha_vs_qqq_pct": 295.64, "secs": 3.0}
+{"test": "PS", "delay": 1, "offset": 2, "decision_alpha_vs_qqq_pct": 471.62, "secs": 3.1}
+{"test": "PS", "delay": 1, "offset": 3, "decision_alpha_vs_qqq_pct": 322.75, "secs": 3.1}
+{"test": "PS", "delay": 1, "offset": 4, "decision_alpha_vs_qqq_pct": 362.91, "secs": 3.1}
+{"test": "PS", "delay": 1, "offset": 5, "decision_alpha_vs_qqq_pct": 223.16, "secs": 3.2}
+{"test": "PS", "delay": 1, "offset": 6, "decision_alpha_vs_qqq_pct": 142.11, "secs": 3.1}
+{"test": "PS", "delay": 1, "offset": 7, "decision_alpha_vs_qqq_pct": 321.2, "secs": 3.4}
+{"test": "PS", "delay": 1, "offset": 8, "decision_alpha_vs_qqq_pct": 241.13, "secs": 3.4}
+{"test": "PS", "delay": 1, "offset": 9, "decision_alpha_vs_qqq_pct": 286.52, "secs": 4.0}
+{"test": "PS", "delay": 1, "offset": 10, "decision_alpha_vs_qqq_pct": 319.25, "secs": 3.4}
+{"test": "PS", "delay": 1, "offset": 11, "decision_alpha_vs_qqq_pct": 248.77, "secs": 3.3}
+{"test": "PS", "delay": 1, "offset": 12, "decision_alpha_vs_qqq_pct": 282.66, "secs": 3.2}
+{"test": "PS", "delay": 1, "offset": 13, "decision_alpha_vs_qqq_pct": 226.91, "secs": 3.2}
+{"test": "PS", "delay": 1, "offset": 14, "decision_alpha_vs_qqq_pct": 381.22, "secs": 3.3}
+{"test": "PS", "delay": 1, "offset": 15, "decision_alpha_vs_qqq_pct": 374.73, "secs": 3.7}
+{"test": "PS", "delay": 1, "offset": 16, "decision_alpha_vs_qqq_pct": 414.18, "secs": 3.3}
+{"test": "PS", "delay": 1, "offset": 17, "decision_alpha_vs_qqq_pct": 450.72, "secs": 3.2}
+{"test": "PS", "delay": 1, "offset": 18, "decision_alpha_vs_qqq_pct": 299.01, "secs": 3.1}
+{"test": "PS", "delay": 1, "offset": 19, "decision_alpha_vs_qqq_pct": 252.27, "secs": 3.0}
+{"test": "P_N3", "delay": 1, "offset": 0, "decision_alpha_vs_qqq_pct": -69.08, "secs": 3.5}
+{"test": "P_N3", "delay": 1, "offset": 1, "decision_alpha_vs_qqq_pct": -40.08, "secs": 3.0}
+{"test": "P_N3", "delay": 1, "offset": 2, "decision_alpha_vs_qqq_pct": -15.99, "secs": 3.0}
+{"test": "P_N3", "delay": 1, "offset": 3, "decision_alpha_vs_qqq_pct": -10.19, "secs": 3.0}
+{"test": "P_N3", "delay": 1, "offset": 4, "decision_alpha_vs_qqq_pct": -58.27, "secs": 3.1}
+{"test": "P_N3", "delay": 1, "offset": 5, "decision_alpha_vs_qqq_pct": -37.44, "secs": 3.1}
+{"test": "P_N3", "delay": 1, "offset": 6, "decision_alpha_vs_qqq_pct": -1.88, "secs": 3.1}
+{"test": "P_N3", "delay": 1, "offset": 7, "decision_alpha_vs_qqq_pct": -46.11, "secs": 3.0}
+{"test": "P_N3", "delay": 1, "offset": 8, "decision_alpha_vs_qqq_pct": -5.13, "secs": 3.0}
+{"test": "P_N3", "delay": 1, "offset": 9, "decision_alpha_vs_qqq_pct": -9.47, "secs": 3.1}
+{"test": "P_N3", "delay": 1, "offset": 10, "decision_alpha_vs_qqq_pct": -30.3, "secs": 3.0}
+{"test": "P_N3", "delay": 1, "offset": 11, "decision_alpha_vs_qqq_pct": -121.82, "secs": 3.1}
+{"test": "P_N3", "delay": 1, "offset": 12, "decision_alpha_vs_qqq_pct": -66.39, "secs": 3.2}
+{"test": "P_N3", "delay": 1, "offset": 13, "decision_alpha_vs_qqq_pct": -21.43, "secs": 3.2}
+{"test": "P_N3", "delay": 1, "offset": 14, "decision_alpha_vs_qqq_pct": -11.8, "secs": 3.1}
+{"test": "P_N3", "delay": 1, "offset": 15, "decision_alpha_vs_qqq_pct": -50.26, "secs": 3.3}
+{"test": "P_N3", "delay": 1, "offset": 16, "decision_alpha_vs_qqq_pct": -97.62, "secs": 3.0}
+{"test": "P_N3", "delay": 1, "offset": 17, "decision_alpha_vs_qqq_pct": -8.46, "secs": 3.0}
+{"test": "P_N3", "delay": 1, "offset": 18, "decision_alpha_vs_qqq_pct": -60.06, "secs": 3.0}
+{"test": "P_N3", "delay": 1, "offset": 19, "decision_alpha_vs_qqq_pct": -9.94, "secs": 3.1}
+{"test": "PS_N3", "delay": 1, "offset": 0, "decision_alpha_vs_qqq_pct": 229.75, "secs": 3.3}
+{"test": "PS_N3", "delay": 1, "offset": 1, "decision_alpha_vs_qqq_pct": 174.72, "secs": 3.6}
+{"test": "PS_N3", "delay": 1, "offset": 2, "decision_alpha_vs_qqq_pct": 258.41, "secs": 3.1}
+{"test": "PS_N3", "delay": 1, "offset": 3, "decision_alpha_vs_qqq_pct": 118.16, "secs": 3.1}
+{"test": "PS_N3", "delay": 1, "offset": 4, "decision_alpha_vs_qqq_pct": 199.69, "secs": 3.1}
+{"test": "PS_N3", "delay": 1, "offset": 5, "decision_alpha_vs_qqq_pct": 90.33, "secs": 3.1}
+{"test": "PS_N3", "delay": 1, "offset": 6, "decision_alpha_vs_qqq_pct": 68.04, "secs": 3.0}
+{"test": "PS_N3", "delay": 1, "offset": 7, "decision_alpha_vs_qqq_pct": 161.93, "secs": 3.1}
+{"test": "PS_N3", "delay": 1, "offset": 8, "decision_alpha_vs_qqq_pct": 102.17, "secs": 3.1}
+{"test": "PS_N3", "delay": 1, "offset": 9, "decision_alpha_vs_qqq_pct": 87.84, "secs": 3.2}
+{"test": "PS_N3", "delay": 1, "offset": 10, "decision_alpha_vs_qqq_pct": 52.96, "secs": 3.2}
+{"test": "PS_N3", "delay": 1, "offset": 11, "decision_alpha_vs_qqq_pct": 63.32, "secs": 3.4}
+{"test": "PS_N3", "delay": 1, "offset": 12, "decision_alpha_vs_qqq_pct": 79.76, "secs": 3.0}
+{"test": "PS_N3", "delay": 1, "offset": 13, "decision_alpha_vs_qqq_pct": 11.9, "secs": 3.1}
+{"test": "PS_N3", "delay": 1, "offset": 14, "decision_alpha_vs_qqq_pct": 138.74, "secs": 3.1}
+{"test": "PS_N3", "delay": 1, "offset": 15, "decision_alpha_vs_qqq_pct": 86.1, "secs": 3.0}
+{"test": "PS_N3", "delay": 1, "offset": 16, "decision_alpha_vs_qqq_pct": 103.77, "secs": 3.0}
+{"test": "PS_N3", "delay": 1, "offset": 17, "decision_alpha_vs_qqq_pct": 150.85, "secs": 3.0}
+{"test": "PS_N3", "delay": 1, "offset": 18, "decision_alpha_vs_qqq_pct": 131.61, "secs": 3.0}
+{"test": "PS_N3", "delay": 1, "offset": 19, "decision_alpha_vs_qqq_pct": 110.15, "secs": 3.0}
+{
+ "gates": {
+  "P1": false,
+  "P2": true,
+  "P3": false,
+  "X1": true,
+  "X2": false,
+  "PS1": false,
+  "PS2": false
+ },
+ "verdicts": {
+  "P": "fails decision gates",
+  "X": "fails decision gates",
+  "PS": "fails decision gates"
+ }
+}
