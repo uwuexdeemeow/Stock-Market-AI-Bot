@@ -1,30 +1,50 @@
 {
   "schema_version": 2,
-  "run_id": "github-35876592636",
-  "generated_at": "2026-09-23T15:59:41+00:00",
-  "status": "executed",
-  "reason_code": "all_planned_orders_filled",
+  "run_id": "github-37629655516",
+  "generated_at": "2026-10-07T13:48:52+00:00",
+  "status": "blocked",
+  "reason_code": "all_orders_safety_skipped",
   "market_open": null,
-  "planned_orders": 1,
-  "submitted_orders": 1,
-  "accepted_orders": 1,
-  "filled_orders": 1,
+  "planned_orders": 3,
+  "submitted_orders": 0,
+  "accepted_orders": 0,
+  "filled_orders": 0,
   "open_orders": 0,
-  "skipped_orders": 0,
+  "skipped_orders": 3,
   "rejected_orders": 0,
   "failed_orders": 0,
-  "completion_ratio": 1.0,
+  "completion_ratio": 0.0,
   "recovery_eligible": false,
-  "unresolved_orders": [],
+  "unresolved_orders": [
+    {
+      "ticker": "AMD",
+      "side": "buy",
+      "order_id": "SKIPPED: spread_guard:1.09%>0.5%",
+      "status": "skipped",
+      "reason": "spread_guard:1.09%>0.5%"
+    },
+    {
+      "ticker": "AMAT",
+      "side": "buy",
+      "order_id": "SKIPPED: spread_guard:3.39%>0.5%",
+      "status": "skipped",
+      "reason": "spread_guard:3.39%>0.5%"
+    },
+    {
+      "ticker": "CAT",
+      "side": "buy",
+      "order_id": "SKIPPED: spread_guard:5.06%>0.5%",
+      "status": "skipped",
+      "reason": "spread_guard:5.06%>0.5%"
+    }
+  ],
   "quote_feed": "iex",
   "account_alignment": {
-    "status": "pass",
-    "score": 100.0,
+    "status": "warning",
+    "score": 85.0,
     "fail_count": 0,
-    "warning_count": 0
+    "warning_count": 3
   },
   "errors": [],
-  "order_statuses": {
-    "b95ef64b-c14d-44ce-8c20-57a13ed0401c": "filled"
-  }
+  "order_statuses": {}
 }
