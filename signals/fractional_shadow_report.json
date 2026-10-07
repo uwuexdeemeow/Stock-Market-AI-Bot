@@ -1,32 +1,32 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-25T14:19:17+00:00",
+  "generated_at": "2026-10-07T13:59:13+00:00",
   "status": "ok",
   "mode": "fractional_shadow_only",
   "capital": {
     "initial_equity": 400.0,
-    "current_equity": 427.021246,
-    "cash": 2.126958,
-    "invested_value": 424.894288
+    "current_equity": 426.755312,
+    "cash": 2.125524,
+    "invested_value": 424.629788
   },
   "signal": {
-    "signal_key": "2ff960180017fc841740",
-    "predicted_at": "2026-09-23T23:59+08:00",
-    "valuation_date": "2026-09-21",
+    "signal_key": "447fc2c38ea1aeaf7b99",
+    "predicted_at": "2026-10-07T21:48+08:00",
+    "valuation_date": "2026-10-06",
     "live_config_hash": "efc9620f12f77952",
-    "repeated_signal": true
+    "repeated_signal": false
   },
   "execution": {
-    "orders_simulated": 0,
+    "orders_simulated": 7,
     "broker_orders_submitted": false,
     "minimum_order_notional": 1.0,
     "quantity_precision_decimals": 9,
     "order_type": "market",
     "time_in_force": "day",
     "slippage_bps": 10.0,
-    "slippage_cost_today": 0.0,
-    "regulatory_fees_today": 0.0,
-    "regulatory_fees_raw_today": 0.0,
+    "slippage_cost_today": 0.33964447,
+    "regulatory_fees_today": 0.01,
+    "regulatory_fees_raw_today": 0.00367834,
     "commission_today": 0.0,
     "fee_model": {
       "sec_sell_fee_bps": 0.206,
@@ -37,50 +37,53 @@
   },
   "allocation": {
     "target_weights": {
-      "FCX": 0.023598,
-      "INTC": 0.194829,
-      "MU": 0.181573,
+      "AMAT": 0.145872,
+      "AMD": 0.2,
+      "CAT": 0.054128,
       "QQQ": 0.6
     },
     "actual_weights": {
-      "FCX": 0.0234475947,
-      "INTC": 0.195094104,
-      "MU": 0.178959572,
-      "QQQ": 0.5975178104
+      "AMAT": 0.1452615562,
+      "AMD": 0.1991630427,
+      "CAT": 0.0531056113,
+      "QQQ": 0.5974891269
     },
     "target_weight_gaps": {
-      "FCX": -0.0001504053,
-      "INTC": 0.000265104,
-      "MU": -0.002613428,
-      "QQQ": -0.0024821896
+      "AMAT": -0.0006104438,
+      "AMD": -0.0008369573,
+      "CAT": -0.0010223887,
+      "QQQ": -0.0025108731
     },
-    "max_absolute_target_weight_gap": 0.002613428,
-    "cash_weight": 0.0049809189,
+    "max_absolute_target_weight_gap": 0.0025108731,
+    "cash_weight": 0.0049806629,
     "positions": {
       "QQQ": {
-        "quantity": 0.34411751,
+        "quantity": 0.335652355,
         "avg_cost": 726.6766520388
       },
-      "MU": {
-        "quantity": 0.0732016,
-        "avg_cost": 932.1208445275
+      "AMD": {
+        "quantity": 0.130876611,
+        "avg_cost": 650.0694028931
       },
-      "FCX": {
-        "quantity": 0.138755829,
-        "avg_cost": 71.1991547847
+      "AMAT": {
+        "quantity": 0.116904857,
+        "avg_cost": 530.8002895508
       },
-      "INTC": {
-        "quantity": 0.684096964,
-        "avg_cost": 121.9017787781
+      "CAT": {
+        "quantity": 0.026247454,
+        "avg_cost": 864.3034424438
       }
     }
   },
   "data": {
     "price_dates": {
-      "FCX": "2026-09-21",
-      "INTC": "2026-09-21",
-      "MU": "2026-09-21",
-      "QQQ": "2026-09-21"
+      "AMAT": "2026-10-06",
+      "AMD": "2026-10-06",
+      "CAT": "2026-10-06",
+      "FCX": "2026-10-06",
+      "INTC": "2026-10-06",
+      "MU": "2026-10-06",
+      "QQQ": "2026-10-06"
     },
     "no_lookahead": true
   },
