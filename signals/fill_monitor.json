@@ -1,8 +1,8 @@
 {
-  "checked_at": "2026-10-07T13:45:30+00:00",
+  "checked_at": "2026-10-08T13:42:39+00:00",
   "lookback_days": 2,
   "status": "ok",
-  "reason": "no_recent_orders",
+  "reason": "no_actionable_orders",
   "total_checked": 0,
   "filled": 0,
   "cancelled": 0,

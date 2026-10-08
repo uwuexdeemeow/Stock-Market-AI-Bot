@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-07T13:44:15.339777",
+  "generated_at": "2026-10-08T13:41:46.938942",
   "purpose": "core_satellite_survivorship_bias_stress",
   "selected_config": {
     "strategy": "core-alpha",
@@ -197,7 +197,7 @@
       "XOM"
     ],
     "coverage_start": "2010-01-01",
-    "coverage_end": "2026-10-07",
+    "coverage_end": "2026-10-08",
     "active_members_at_coverage_start": 0,
     "minimum_active_members": 400,
     "inactive_members": 0,
@@ -216,10 +216,10 @@
       "historical_price_coverage_incomplete"
     ]
   },
-  "survivorship_adjusted_score": 1.013,
-  "primary_return_pct": 4285.05,
-  "failed_name_stressed_return_pct": 4340.65,
-  "stressed_return_delta_pct": 55.6,
+  "survivorship_adjusted_score": 1.01,
+  "primary_return_pct": 4645.45,
+  "failed_name_stressed_return_pct": 4691.7,
+  "stressed_return_delta_pct": 46.25,
   "limitations": [
     "This is a failed-name stress test, not a complete point-in-time constituent database.",
     "Only locally available audit tickers can be included.",
@@ -233,15 +233,15 @@
       "audit_tickers": "FRC",
       "audit_rebalance_selections": 0,
       "audit_selection_counts_json": "{\"FRC\": 0}",
-      "total_return_pct": 4285.05,
-      "cagr_pct": 25.46,
-      "sharpe": 1.322,
+      "total_return_pct": 4645.45,
+      "cagr_pct": 26.06,
+      "sharpe": 1.343,
       "max_drawdown_pct": -30.47,
-      "alpha_vs_spy_pct": 3493.51,
-      "alpha_vs_qqq_pct": 2634.04,
-      "alpha_vs_blend_pct": 3149.72,
-      "turnover_pct": 4648.05,
-      "estimated_cost_pct": 10.8601,
+      "alpha_vs_spy_pct": 3853.91,
+      "alpha_vs_qqq_pct": 2994.44,
+      "alpha_vs_blend_pct": 3510.12,
+      "turnover_pct": 4684.07,
+      "estimated_cost_pct": 10.9436,
       "paper_ready": true
     },
     {
@@ -250,28 +250,28 @@
       "audit_tickers": "FRC",
       "audit_rebalance_selections": 14,
       "audit_selection_counts_json": "{\"FRC\": 14}",
-      "total_return_pct": 4340.65,
-      "cagr_pct": 25.56,
-      "sharpe": 1.323,
+      "total_return_pct": 4691.7,
+      "cagr_pct": 26.13,
+      "sharpe": 1.341,
       "max_drawdown_pct": -30.46,
-      "alpha_vs_spy_pct": 3549.11,
-      "alpha_vs_qqq_pct": 2689.64,
-      "alpha_vs_blend_pct": 3205.32,
-      "turnover_pct": 4667.75,
-      "estimated_cost_pct": 10.8931,
+      "alpha_vs_spy_pct": 3900.16,
+      "alpha_vs_qqq_pct": 3040.69,
+      "alpha_vs_blend_pct": 3556.38,
+      "turnover_pct": 4702.1,
+      "estimated_cost_pct": 10.9786,
       "paper_ready": true
     },
     {
       "scenario": "delta_stressed_minus_base",
-      "total_return_pct": 55.6,
-      "cagr_pct": 0.1,
-      "sharpe": 0.001,
+      "total_return_pct": 46.25,
+      "cagr_pct": 0.07,
+      "sharpe": -0.002,
       "max_drawdown_pct": 0.01,
-      "alpha_vs_spy_pct": 55.6,
-      "alpha_vs_qqq_pct": 55.6,
-      "alpha_vs_blend_pct": 55.6,
-      "turnover_pct": 19.7,
-      "estimated_cost_pct": 0.033
+      "alpha_vs_spy_pct": 46.25,
+      "alpha_vs_qqq_pct": 46.25,
+      "alpha_vs_blend_pct": 46.26,
+      "turnover_pct": 18.03,
+      "estimated_cost_pct": 0.035
     }
   ],
   "profile_summary": [
@@ -423,8 +423,8 @@
       "risk_control_mode": "off",
       "deployment_max_gross_exposure": 1.0
     },
-    "dataset_fingerprint": "bcdd84d54965dcc98d781e7e65a9b6b0987d2aab28eca4f4ad7ee81f32f16be2",
+    "dataset_fingerprint": "57500b2a930b8d79a3fe475cefd0255d0234eb4639e42f4701d3b1a4bcb59d46",
     "research_manifest_path": "signals/research_run_manifest.json",
-    "git_commit": "269b6fd7f3ee69a8187127b51cacf85509ecb257"
+    "git_commit": "ecdf7afc4eb9e5d2fb757bcc4f48d69faeea8354"
   }
 }

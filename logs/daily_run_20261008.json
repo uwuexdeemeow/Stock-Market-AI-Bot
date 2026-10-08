@@ -1,0 +1,205 @@
+{
+  "timestamp": "2026-10-08T13:42:39.177032",
+  "run_id": "github-37785492221",
+  "mode": "daily_run",
+  "steps_total": 20,
+  "steps_ok": 16,
+  "steps_no_action": 0,
+  "steps_failed": 4,
+  "total_elapsed_seconds": 189.1,
+  "results": [
+    {
+      "name": "fill_monitor",
+      "status": "ok",
+      "elapsed": 0.4
+    },
+    {
+      "name": "broker_health",
+      "status": "ok",
+      "elapsed": 1.0
+    },
+    {
+      "name": "factor_data_health",
+      "status": "ok",
+      "elapsed": 1.4
+    },
+    {
+      "name": "drift_monitor",
+      "status": "ok",
+      "elapsed": 0.4
+    },
+    {
+      "name": "alpaca_pre_signal_status",
+      "status": "ok",
+      "elapsed": 2.4
+    },
+    {
+      "name": "core_satellite_signal",
+      "status": "ok",
+      "elapsed": 124.2
+    },
+    {
+      "name": "regime_monitor",
+      "status": "ok",
+      "elapsed": 0.4
+    },
+    {
+      "name": "alpaca_submit",
+      "status": "failed",
+      "exit_code": 1,
+      "elapsed": 47.3,
+      "stderr_tail": "",
+      "execution_outcome": {
+        "schema_version": 2,
+        "run_id": "github-37785492221",
+        "generated_at": "2026-10-08T13:45:36+00:00",
+        "status": "failed",
+        "reason_code": "partial_or_rejected_submission",
+        "market_open": null,
+        "planned_orders": 3,
+        "submitted_orders": 1,
+        "accepted_orders": 1,
+        "filled_orders": 0,
+        "open_orders": 0,
+        "skipped_orders": 2,
+        "rejected_orders": 1,
+        "failed_orders": 0,
+        "completion_ratio": 0.0,
+        "recovery_eligible": false,
+        "unresolved_orders": [
+          {
+            "ticker": "AMD",
+            "side": "buy",
+            "order_id": "SKIPPED: spread_guard:0.83%>0.5%",
+            "status": "skipped",
+            "reason": "spread_guard:0.83%>0.5%"
+          },
+          {
+            "ticker": "AMAT",
+            "side": "buy",
+            "order_id": "SKIPPED: spread_guard:0.61%>0.5%",
+            "status": "skipped",
+            "reason": "spread_guard:0.61%>0.5%"
+          },
+          {
+            "ticker": "CAT",
+            "side": "buy",
+            "order_id": "f328563d-aaa9-4305-84cc-9cbe224d9f34",
+            "status": "canceled",
+            "reason": "passive_midpoint"
+          }
+        ],
+        "quote_feed": "iex",
+        "account_alignment": {
+          "status": "warning",
+          "score": 85.0,
+          "fail_count": 0,
+          "warning_count": 3
+        },
+        "errors": [],
+        "order_statuses": {
+          "f328563d-aaa9-4305-84cc-9cbe224d9f34": "canceled"
+        }
+      }
+    },
+    {
+      "name": "alpaca_reconcile",
+      "status": "ok",
+      "elapsed": 2.3,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "alpaca_execution_guard",
+      "status": "ok",
+      "elapsed": 1.2,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "broker_truth",
+      "status": "failed",
+      "exit_code": 1,
+      "elapsed": 1.0,
+      "stderr_tail": "",
+      "alignment": {
+        "status": "fail",
+        "passed": false,
+        "reason": "max_weight_gap_0.200000_above_0.020000;gross_exposure_gap_0.402514_above_0.050000",
+        "comparable_tickers": 6,
+        "maximum_target_weight_gap": 0.2,
+        "current_gross_exposure": 0.597486,
+        "target_gross_exposure": 1.0,
+        "gross_exposure_gap": 0.402514,
+        "weight_tolerance": 0.02,
+        "gross_exposure_tolerance": 0.05,
+        "weight_gap_enforced": true,
+        "active_rebalance_order_count": 0,
+        "waited_seconds": 0.0,
+        "rebalance_calendar": {
+          "hold_day": false,
+          "reason": "no_rebalance_recorded_yet",
+          "signal_period": "2026-09-16",
+          "recorded_period": ""
+        }
+      },
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "alpaca_paper_health",
+      "status": "ok",
+      "elapsed": 1.7,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "alpaca_execution_scorecard",
+      "status": "ok",
+      "elapsed": 0.5,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "execution_cost_calibration",
+      "status": "ok",
+      "elapsed": 0.5,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "alpaca_gauntlet",
+      "status": "failed",
+      "exit_code": 1,
+      "elapsed": 1.0,
+      "stderr_tail": "",
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "paper_validation_epoch",
+      "status": "ok",
+      "elapsed": 0.7,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "monitor_heartbeat",
+      "status": "ok",
+      "elapsed": 0.4,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "canonical_paper_readiness",
+      "status": "failed",
+      "exit_code": 1,
+      "elapsed": 1.8,
+      "stderr_tail": "",
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "paper_evidence_manifest",
+      "status": "ok",
+      "elapsed": 0.4,
+      "upstream_blocked_by": "alpaca_submit"
+    },
+    {
+      "name": "log_cleanup",
+      "status": "ok",
+      "elapsed": 0.1,
+      "upstream_blocked_by": "alpaca_submit"
+    }
+  ]
+}

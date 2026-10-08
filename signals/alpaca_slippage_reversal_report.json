@@ -2,15 +2,15 @@
   "stage_attempt_counts": {
     "complete": true,
     "population": "submitted_child_attempts",
-    "start": "2026-09-07T21:15:59.084314+00:00",
-    "end": "2026-10-07T21:15:59.005932+00:00",
+    "start": "2026-09-08T13:45:37.747072+00:00",
+    "end": "2026-10-08T13:45:37.649839+00:00",
     "stages": {
       "stage1": {
-        "orders": 9,
+        "orders": 10,
         "filled_orders": 7,
         "any_filled_orders": 7,
-        "fill_rate": 0.7777777777777778,
-        "any_fill_rate": 0.7777777777777778
+        "fill_rate": 0.7,
+        "any_fill_rate": 0.7
       },
       "stage2": {
         "orders": 1,
@@ -22,8 +22,8 @@
     }
   },
   "schema_version": 3,
-  "generated_at": "2026-10-07T21:15:59+00:00",
-  "measurement_cutoff_60m": "2026-10-07T20:15:59+00:00",
+  "generated_at": "2026-10-08T13:45:37+00:00",
+  "measurement_cutoff_60m": "2026-10-08T12:45:37+00:00",
   "source": "alpaca_api",
   "api_order_limit": 100,
   "lookback_orders": 100,
@@ -1182,8 +1182,8 @@
   },
   "parent_execution": {
     "complete": false,
-    "parent_count": 21,
-    "child_order_count": 22,
+    "parent_count": 22,
+    "child_order_count": 23,
     "parents": [
       {
         "parent_order_id": "20260914_INTC_buy_197",
@@ -1292,6 +1292,18 @@
         "opportunity_cost_complete": true,
         "canceled_children": 0,
         "filled_children": 1
+      },
+      {
+        "parent_order_id": "20261008_CAT_buy_8",
+        "child_orders": 1,
+        "filled_quantity": 0.0,
+        "original_requested_quantity": 8.0,
+        "unfilled_quantity": 8.0,
+        "quantity_complete": true,
+        "opportunity_cost_dollars": null,
+        "opportunity_cost_complete": false,
+        "canceled_children": 1,
+        "filled_children": 0
       },
       {
         "parent_order_id": "2d3d166b-025b-4ad2-975a-1bd1cc7a749d",
