@@ -23,16 +23,16 @@
       "avg_cost": 864.3034424438
     }
   },
-  "last_signal_key": "cd546f2b73fcc603206e",
-  "last_valuation_date": "2026-10-07",
+  "last_signal_key": "3a68a2865ab5a759b09a",
+  "last_valuation_date": "2026-10-08",
   "cumulative_slippage_cost": 1.4806110024,
   "cumulative_regulatory_fees": 0.06,
   "created_at": "2026-08-31T23:45:09+00:00",
-  "last_run_at": "2026-10-08T13:59:17+00:00",
+  "last_run_at": "2026-10-09T13:59:15+00:00",
   "last_price_dates": {
-    "AMAT": "2026-10-07",
-    "AMD": "2026-10-07",
-    "CAT": "2026-10-07",
-    "QQQ": "2026-10-07"
+    "AMAT": "2026-10-08",
+    "AMD": "2026-10-08",
+    "CAT": "2026-10-08",
+    "QQQ": "2026-10-08"
   }
 }
