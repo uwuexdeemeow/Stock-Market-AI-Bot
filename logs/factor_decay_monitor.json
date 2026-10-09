@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
   "legacy_returns_are_alpha": false,
-  "generated_at": "2026-10-08T13:42:37.214791",
+  "generated_at": "2026-10-09T13:40:58.938558",
   "purpose": "factor_decay_monitor",
   "as_of": "2026-08-18",
   "selected_score_source": "regime_adaptive",
@@ -99,7 +99,7 @@
       "risk_control_mode": "off",
       "deployment_max_gross_exposure": 1.0
     },
-    "dataset_fingerprint": "57500b2a930b8d79a3fe475cefd0255d0234eb4639e42f4701d3b1a4bcb59d46",
+    "dataset_fingerprint": "d2927bfa1aafd51a51cb95008a41bd8ee214116356e2ab67915d3dbc88c00129",
     "research_manifest_path": "signals/research_run_manifest.json",
     "git_commit": "ecdf7afc4eb9e5d2fb757bcc4f48d69faeea8354"
   }
