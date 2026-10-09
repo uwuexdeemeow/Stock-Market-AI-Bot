@@ -2,8 +2,8 @@
   "stage_attempt_counts": {
     "complete": true,
     "population": "submitted_child_attempts",
-    "start": "2026-09-09T13:43:23.381840+00:00",
-    "end": "2026-10-09T13:43:23.271017+00:00",
+    "start": "2026-09-09T21:16:06.994386+00:00",
+    "end": "2026-10-09T21:16:06.942209+00:00",
     "stages": {
       "stage1": {
         "orders": 10,
@@ -22,8 +22,8 @@
     }
   },
   "schema_version": 3,
-  "generated_at": "2026-10-09T13:43:23+00:00",
-  "measurement_cutoff_60m": "2026-10-09T12:43:23+00:00",
+  "generated_at": "2026-10-09T21:16:06+00:00",
+  "measurement_cutoff_60m": "2026-10-09T20:16:06+00:00",
   "source": "alpaca_api",
   "api_order_limit": 100,
   "lookback_orders": 100,
