@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
-  "generated_at": "2026-10-09T21:16:09+00:00",
-  "measurement_cutoff_60m": "2026-10-09T20:16:09.106561+00:00",
+  "generated_at": "2026-10-12T14:14:14+00:00",
+  "measurement_cutoff_60m": "2026-10-12T13:14:14.918092+00:00",
   "status": "collecting",
   "score": 75.0,
   "decision_eligible": false,
@@ -12,13 +12,13 @@
   ],
   "lookback_days": 30,
   "summary": {
-    "paper_log_rows": 32,
+    "paper_log_rows": 35,
     "unmatched_broker_fill_count": 0,
     "unmatched_broker_fill_ids": [],
     "accepted_orders": 10,
     "filled_orders": 8,
     "any_filled_orders": 8,
-    "skipped_orders": 21,
+    "skipped_orders": 24,
     "fill_rate": 0.8,
     "complete_fill_rate": 0.8,
     "any_fill_rate": 0.8,
@@ -30,7 +30,7 @@
     "child_attempts": 11,
     "unclassifiable_order_rows": 0,
     "unclassifiable_logical_orders": 0,
-    "skipped_rate": 0.6562,
+    "skipped_rate": 0.6857,
     "orders_seen": 8,
     "eligible_orders": 8,
     "measured_slippage_count": 8,
@@ -87,20 +87,20 @@
     "minimum_rebalance_sessions": 3
   },
   "protective_stops": {
-    "orders_seen": 6,
-    "eligible_orders": 6,
-    "measured_slippage_count": 6,
-    "slippage_eligible_orders": 6,
-    "slippage_measured_orders": 6,
+    "orders_seen": 5,
+    "eligible_orders": 5,
+    "measured_slippage_count": 5,
+    "slippage_eligible_orders": 5,
+    "slippage_measured_orders": 5,
     "slippage_coverage_rate": 1.0,
-    "trading_sessions": 5,
-    "avg_slippage_bps": -17.763,
-    "median_slippage_bps": -16.845,
-    "p75_slippage_bps": -7.478,
+    "trading_sessions": 4,
+    "avg_slippage_bps": -20.348,
+    "median_slippage_bps": -18.3,
+    "p75_slippage_bps": -15.39,
     "worst_slippage_bps": -0.36,
     "mean_slippage_95ci_bps": [
-      -31.055,
-      -4.471
+      -35.399,
+      -5.297
     ],
     "bad_slippage_count": 0,
     "bad_slippage_rate": 0.0,
@@ -109,17 +109,17 @@
     "raw_bad_slippage_rate": 0.0,
     "minor_bad_slippage_count": 0,
     "adverse_15m_count": 5,
-    "adverse_15m_observations": 6,
-    "adverse_15m_eligible_orders": 6,
-    "adverse_15m_measured_orders": 6,
+    "adverse_15m_observations": 5,
+    "adverse_15m_eligible_orders": 5,
+    "adverse_15m_measured_orders": 5,
     "adverse_15m_coverage_rate": 1.0,
-    "adverse_15m_rate": 0.8333,
+    "adverse_15m_rate": 1.0,
     "adverse_60m_count": 4,
-    "adverse_60m_observations": 6,
-    "adverse_60m_eligible_orders": 6,
-    "adverse_60m_measured_orders": 6,
+    "adverse_60m_observations": 5,
+    "adverse_60m_eligible_orders": 5,
+    "adverse_60m_measured_orders": 5,
     "adverse_60m_coverage_rate": 1.0,
-    "adverse_60m_rate": 0.6667
+    "adverse_60m_rate": 0.8
   },
   "entry_timing": {
     "status": "advisory",
@@ -274,8 +274,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 0.7,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-09-09T21:16:06.994386+00:00",
-      "denominator_end": "2026-10-09T21:16:06.942209+00:00"
+      "denominator_start": "2026-09-12T14:14:07.438669+00:00",
+      "denominator_end": "2026-10-12T14:14:07.290628+00:00"
     },
     "stage2": {
       "orders": 1,
@@ -291,8 +291,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 1.0,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-09-09T21:16:06.994386+00:00",
-      "denominator_end": "2026-10-09T21:16:06.942209+00:00"
+      "denominator_start": "2026-09-12T14:14:07.438669+00:00",
+      "denominator_end": "2026-10-12T14:14:07.290628+00:00"
     }
   },
   "throttle": {
@@ -333,10 +333,10 @@
     {
       "name": "skipped_rate",
       "status": "fail",
-      "value": 0.6562,
+      "value": 0.6857,
       "threshold": 0.35,
       "operator": "<=",
-      "reason": "0.6562 <= 0.35 failed"
+      "reason": "0.6857 <= 0.35 failed"
     }
   ],
   "thresholds": {
@@ -364,13 +364,13 @@
     "previous_scorecard": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json"
   },
   "run_context": {
-    "run_id": "post-market-37992284396-1",
-    "generated_at": "2026-10-09T21:16:09+00:00",
+    "run_id": "github-38259709623",
+    "generated_at": "2026-10-12T14:14:14+00:00",
     "signal_as_of": "",
     "git_commit": "ecdf7afc4eb9e5d2fb757bcc4f48d69faeea8354",
     "configuration_fingerprint": "074fefd6d0a1cf103e42bbcf5ecf91051ffcb0f5c4cf83b275ff17e3f79a6ab3",
     "paper_version_fingerprint": "f9468239d817e26bff45ada9291fa45e667a530772d98c8d9a03d0a707b03b94",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-37992284396-1"
+  "run_id": "github-38259709623"
 }

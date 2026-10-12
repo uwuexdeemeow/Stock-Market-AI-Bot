@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-09T13:40:21.524618",
+  "generated_at": "2026-10-12T14:09:16.794630",
   "purpose": "core_satellite_survivorship_bias_stress",
   "selected_config": {
     "strategy": "core-alpha",
@@ -197,7 +197,7 @@
       "XOM"
     ],
     "coverage_start": "2010-01-01",
-    "coverage_end": "2026-10-09",
+    "coverage_end": "2026-10-12",
     "active_members_at_coverage_start": 0,
     "minimum_active_members": 400,
     "inactive_members": 0,
@@ -238,8 +238,8 @@
       "sharpe": 1.343,
       "max_drawdown_pct": -30.47,
       "alpha_vs_spy_pct": 3853.9,
-      "alpha_vs_qqq_pct": 2994.43,
-      "alpha_vs_blend_pct": 3510.11,
+      "alpha_vs_qqq_pct": 2994.44,
+      "alpha_vs_blend_pct": 3510.12,
       "turnover_pct": 4684.07,
       "estimated_cost_pct": 10.9436,
       "paper_ready": true
@@ -268,8 +268,8 @@
       "sharpe": -0.002,
       "max_drawdown_pct": 0.01,
       "alpha_vs_spy_pct": 46.26,
-      "alpha_vs_qqq_pct": 46.26,
-      "alpha_vs_blend_pct": 46.26,
+      "alpha_vs_qqq_pct": 46.25,
+      "alpha_vs_blend_pct": 46.25,
       "turnover_pct": 18.03,
       "estimated_cost_pct": 0.035
     }
@@ -423,7 +423,7 @@
       "risk_control_mode": "off",
       "deployment_max_gross_exposure": 1.0
     },
-    "dataset_fingerprint": "d2927bfa1aafd51a51cb95008a41bd8ee214116356e2ab67915d3dbc88c00129",
+    "dataset_fingerprint": "da95d2e10f6b1ddcdb192f81844288ec2a1737877ca8a0191b3f9ec4626268bf",
     "research_manifest_path": "signals/research_run_manifest.json",
     "git_commit": "ecdf7afc4eb9e5d2fb757bcc4f48d69faeea8354"
   }

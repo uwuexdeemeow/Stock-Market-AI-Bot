@@ -63,16 +63,16 @@
   "vol_target": 0.0,
   "live_config_source": "nested_walkforward",
   "live_config_source_json": "signals\\core_satellite_nested_walkforward.json",
-  "total_return_pct": 4950.76,
-  "cagr_pct": 26.53,
+  "total_return_pct": 4952.62,
+  "cagr_pct": 26.54,
   "sharpe": 1.363,
   "max_drawdown_pct": -30.47,
   "period_max_drawdown_pct": -21.72,
-  "turnover_pct": 4679.9,
-  "portfolio_turnover_pct": 8102.19,
-  "etf_turnover_pct": 3288.87,
+  "turnover_pct": 4678.38,
+  "portfolio_turnover_pct": 8102.01,
+  "etf_turnover_pct": 3288.85,
   "daily_max_drawdown_pct": -30.47,
-  "estimated_cost_pct": 10.9422,
+  "estimated_cost_pct": 10.9419,
   "avg_gross_exposure": 0.946,
   "avg_overlay_positions": 3.0,
   "avg_effective_overlay_names": 2.599,
@@ -95,18 +95,18 @@
   "benchmark_comparisons": {
     "SPY": {
       "benchmark_return_pct": 791.54,
-      "alpha_pct": 4159.22,
-      "nw_tstat_vs_benchmark": 4.377
+      "alpha_pct": 4161.08,
+      "nw_tstat_vs_benchmark": 4.379
     },
     "QQQ": {
       "benchmark_return_pct": 1651.01,
-      "alpha_pct": 3299.75,
-      "nw_tstat_vs_benchmark": 2.746
+      "alpha_pct": 3301.61,
+      "nw_tstat_vs_benchmark": 2.747
     },
     "BLEND": {
       "benchmark_return_pct": 1135.33,
-      "alpha_pct": 3815.43,
-      "nw_tstat_vs_benchmark": 3.876
+      "alpha_pct": 3817.29,
+      "nw_tstat_vs_benchmark": 3.878
     }
   },
   "benchmark_stats": {
@@ -150,20 +150,20 @@
     },
     "2023_2026": {
       "data_available": true,
-      "return_pct": 192.03,
+      "return_pct": 192.14,
       "benchmark_return_pct": 127.1,
-      "alpha_pct": 64.94
+      "alpha_pct": 65.05
     }
   },
   "holdout_2023_2026": {
     "data_available": true,
-    "strategy_return_pct": 192.03,
+    "strategy_return_pct": 192.14,
     "spy_return_pct": 97.89,
-    "alpha_vs_spy_pct": 94.14,
+    "alpha_vs_spy_pct": 94.25,
     "qqq_return_pct": 155.94,
-    "alpha_vs_qqq_pct": 36.09,
+    "alpha_vs_qqq_pct": 36.2,
     "blend_return_pct": 127.1,
-    "alpha_vs_blend_pct": 64.94
+    "alpha_vs_blend_pct": 65.05
   },
   "yearly_alpha_pct": {
     "2010": -0.51,
@@ -182,7 +182,7 @@
     "2023": 8.85,
     "2024": 27.02,
     "2025": -0.51,
-    "2026": 3.73
+    "2026": 3.77
   },
   "cost_stress": 2.0,
   "core_satellite_gate_results": {
