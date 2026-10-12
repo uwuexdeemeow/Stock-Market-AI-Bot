@@ -401,6 +401,21 @@ EXECUTION_CANCEL_WAIT_SECONDS = float(os.environ.get("ALPACA_EXECUTION_CANCEL_WA
 EXECUTION_STAGE2_OFFSET_BPS_ETF = float(os.environ.get("ALPACA_EXECUTION_STAGE2_OFFSET_BPS_ETF", "1"))
 EXECUTION_STAGE2_OFFSET_BPS_OVERLAY = float(os.environ.get("ALPACA_EXECUTION_STAGE2_OFFSET_BPS_OVERLAY", "3"))
 EXECUTION_QUOTE_MAX_AGE_SECONDS = float(os.environ.get("ALPACA_EXECUTION_QUOTE_MAX_AGE_SECONDS", "5"))
+# IEX last-trade band.  PLAIN ENGLISH: the free "iex" feed only shows the
+# buyers and sellers on one small exchange, so its bid/ask gap is often several
+# percent wide even for a huge liquid stock whose real gap is a few cents.
+# When that happens we do NOT simply trust or ignore the wide quote.  We look
+# at the most recent real trade, and if it is fresh and sits between the IEX
+# bid and ask, we price the order inside a narrow band around that trade.  The
+# band is exactly as wide as the normal spread limit, so the most we can ever
+# pay is the same as on an ordinary quote that just passes the guard.
+# This never applies to the full-market "sip" feed, where a wide gap is real.
+IEX_LAST_TRADE_GUARD_ENABLED = os.environ.get("ALPACA_IEX_LAST_TRADE_GUARD", "1").strip().lower() in {
+    "true", "1", "yes", "y", "on"
+}
+# How old the last trade may be.  A stale trade cannot make us overpay (the
+# limit price caps the fill), it can only leave the order unfilled.
+IEX_LAST_TRADE_MAX_AGE_SECONDS = float(os.environ.get("ALPACA_IEX_LAST_TRADE_MAX_AGE_SECONDS", "300"))
 EXECUTION_WINDOW_START = os.environ.get("ALPACA_EXECUTION_WINDOW_START", "09:35").strip()
 EXECUTION_WINDOW_END = os.environ.get("ALPACA_EXECUTION_WINDOW_END", "10:30").strip()
 EXECUTION_TIMEZONE = ZoneInfo("America/New_York")
@@ -762,8 +777,70 @@ def _submission_quote(quote: dict, ticker: str) -> tuple[dict, str]:
         return checked, "quote_stale"
     threshold = MAX_SPREAD_PCT_ETF if ticker.upper() in ETF_TICKERS else MAX_SPREAD_PCT_OVERLAY
     if spread > threshold:
-        return checked, f"spread_guard:{spread*100:.2f}%>{threshold*100:.1f}%"
+        # A wide IEX quote may only mean IEX itself is thin.  Try the fresh
+        # last trade before giving up; anything unverifiable still blocks.
+        band = _iex_last_trade_band(checked, threshold)
+        if band is None:
+            return checked, f"spread_guard:{spread*100:.2f}%>{threshold*100:.1f}%"
+        checked.update(band)
     return checked, ""
+
+
+# Extra columns that explain which prices an order was actually checked against.
+QUOTE_REFERENCE_FIELDS = (
+    "quote_reference", "raw_bid_price", "raw_ask_price", "raw_spread_pct",
+    "last_trade_price", "last_trade_timestamp", "last_trade_age_seconds",
+)
+
+
+def _quote_reference_fields(quote: dict) -> dict:
+    """Copy the last-trade evidence from a checked quote into an order row."""
+    return {key: quote.get(key, "") for key in QUOTE_REFERENCE_FIELDS}
+
+
+def _iex_last_trade_band(quote: dict, threshold: float, *, now: datetime | None = None) -> dict | None:
+    """Replace a too-wide IEX bid/ask with a narrow band around the last trade.
+
+    PLAIN ENGLISH: Returns the new bid/ask to use, or None when the wide quote
+    must still block the order.  It only helps when ALL of these are true:
+    the feed is "iex", Alpaca gave us a last trade, that trade is recent, and
+    its price lies between the IEX bid and ask (so the two agree).  The band
+    is the last trade plus or minus half the normal spread limit, and it is
+    never allowed to reach outside the real IEX bid/ask.
+    """
+    if not IEX_LAST_TRADE_GUARD_ENABLED:
+        return None
+    if str(quote.get("feed", ALPACA_DATA_FEED) or "").strip().lower() != "iex":
+        return None
+    bid = _float_or_none(quote.get("bid_price"))
+    ask = _float_or_none(quote.get("ask_price"))
+    last = _float_or_none(quote.get("last_trade_price"))
+    stamp = _parse_broker_datetime(quote.get("last_trade_timestamp"))
+    if bid is None or ask is None or last is None or last <= 0 or stamp is None:
+        return None
+    clock = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    age = (clock - stamp.astimezone(timezone.utc)).total_seconds()
+    if not 0.0 <= age <= max(0.0, IEX_LAST_TRADE_MAX_AGE_SECONDS):
+        return None
+    # A trade outside the current bid/ask means the price has moved since.
+    if not bid <= last <= ask:
+        return None
+    half = max(0.0, float(threshold)) / 2.0
+    band_bid = max(bid, last * (1.0 - half))
+    band_ask = min(ask, last * (1.0 + half))
+    midpoint = band_bid / 2.0 + band_ask / 2.0
+    return {
+        "bid_price": band_bid,
+        "ask_price": band_ask,
+        "quote_mid_price": midpoint,
+        "spread_pct": (band_ask - band_bid) / midpoint,
+        "quote_reference": "iex_last_trade_band",
+        # Keep the untouched IEX numbers so the log shows what was replaced.
+        "raw_bid_price": bid,
+        "raw_ask_price": ask,
+        "raw_spread_pct": quote.get("spread_pct"),
+        "last_trade_age_seconds": round(age, 3),
+    }
 
 
 def _submission_quote_with_retries(
@@ -1197,9 +1274,22 @@ class AlpacaBroker(Broker):
             "feed": ALPACA_DATA_FEED,
             "bid_exchange": None,
             "ask_exchange": None,
+            "last_trade_price": None,
+            "last_trade_timestamp": None,
         }
         try:
             snapshot = self._api.get_snapshot(ticker)
+            # The same snapshot also carries the most recent trade.  It is read
+            # in its own try-block so a missing trade never hides a good quote.
+            try:
+                trade = snapshot.latest_trade
+                trade_price = float(trade.p) if hasattr(trade, "p") else float(trade.price)
+                trade_stamp = _parse_broker_datetime(getattr(trade, "timestamp", getattr(trade, "t", None)))
+                if trade_price > 0 and trade_stamp is not None:
+                    out["last_trade_price"] = trade_price
+                    out["last_trade_timestamp"] = trade_stamp.isoformat()
+            except Exception:
+                pass
             quote = snapshot.latest_quote
             bid = float(quote.bp) if hasattr(quote, 'bp') else float(quote.bid_price)
             ask = float(quote.ap) if hasattr(quote, 'ap') else float(quote.ask_price)
@@ -1722,6 +1812,9 @@ def log_submission(orders: list[dict], order_ids: list[str]) -> None:
             "arrival_quote_timestamp": order.get("arrival_quote_timestamp", ""),
             "arrival_feed": order.get("arrival_feed", ""),
             "arrival_spread_bps": order.get("arrival_spread_bps", ""),
+            # Blank unless the IEX last-trade band replaced a too-wide quote.
+            **{key: order.get(key, "") for key in QUOTE_REFERENCE_FIELDS},
+            "stage2_quote_reference": order.get("stage2_quote_reference", ""),
             "original_requested_quantity": order.get("original_requested_quantity", ""),
             "spread_pct": order.get("spread_pct", ""),
             "parent_order_id": order.get("parent_order_id", ""),
@@ -2095,6 +2188,7 @@ def _submit_two_stage_limit(broker: AlpacaBroker, order_row: dict) -> str:
         "quote_feed": quote.get("feed", ALPACA_DATA_FEED),
         "submission_quote_attempts": quote_attempts,
         "submission_quote_final_reason": blocked_reason,
+        **_quote_reference_fields(quote),
     })
     if blocked_reason:
         order_row["execution_stage"] = "stage1_blocked"
@@ -2200,6 +2294,7 @@ def _submit_two_stage_limit(broker: AlpacaBroker, order_row: dict) -> str:
         "stage2_spread_pct": second_spread, "stage2_quote_age_seconds": second_quote_age,
         "stage2_quote_feed": second_quote.get("feed", ALPACA_DATA_FEED),
         "stage2_quote_attempts": second_quote_attempts,
+        "stage2_quote_reference": second_quote.get("quote_reference", ""),
     })
     if blocked_reason:
         order_row["stage2_block_reason"] = blocked_reason
@@ -2475,6 +2570,7 @@ def _apply_spread_guard(
             "broker_quote_timestamp": quote.get("quote_timestamp"),
             "quote_age_seconds": _quote_age_seconds(quote),
             "quote_feed": quote.get("feed", ALPACA_DATA_FEED),
+            **_quote_reference_fields(quote),
         })
 
         if reason:

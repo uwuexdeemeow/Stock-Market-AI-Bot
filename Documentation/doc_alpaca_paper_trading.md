@@ -122,6 +122,20 @@ It also refreshes the execution-quality report.
   you test a strategy with real-time market behavior, no risk.
 - **Spread guard** — refuses routine execution above 0.10% for ETFs or
   0.50% for overlay stocks. Wide spreads mean poor or unreliable prices.
+- **IEX last-trade band** — the free `iex` data feed only shows the buyers
+  and sellers on one small exchange, so its bid/ask gap is often several
+  percent wide even for a big liquid stock whose real gap is a few cents.
+  When an `iex` quote fails the spread guard, the bot looks at the most
+  recent real trade. If that trade is recent (5 minutes by default) and its
+  price sits between the IEX bid and ask, the order is priced inside a narrow
+  band around the trade: the trade price plus or minus half the normal spread
+  limit, never outside the real IEX bid/ask. The most the bot can pay is
+  therefore the same as on an ordinary quote that just passes the guard. If
+  any of those checks fail, or the feed is `sip` (full market, where a wide
+  gap is real), the order is still skipped. Rows priced this way show
+  `quote_reference=iex_last_trade_band` in `alpaca_paper_log.csv`, with the
+  untouched IEX numbers kept in `raw_bid_price`, `raw_ask_price` and
+  `raw_spread_pct`.
 - **Two-stage limit** — Stage 1 rests at the bid/ask midpoint for 15 seconds.
   If needed, the bot confirms cancellation and sends only the unfilled shares
   as Stage 2 at the current quote with a 1 bps ETF or 3 bps stock cap. A price-
@@ -214,7 +228,10 @@ The script has multiple layers of protection:
    `MAX_SPREAD_PCT_*` and `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT`).  Skipped rows
    stay in `alpaca_paper_log.csv`, but they do not count as submitted orders.
    Repeated identical spread-guard Telegram alerts are deduped for 20 hours by
-   default (`SPREAD_GUARD_ALERT_TTL_HOURS`).
+   default (`SPREAD_GUARD_ALERT_TTL_HOURS`). On the `iex` feed a too-wide
+   quote is re-checked against a fresh last trade before the order is skipped
+   (`ALPACA_IEX_LAST_TRADE_GUARD`, `ALPACA_IEX_LAST_TRADE_MAX_AGE_SECONDS`);
+   see "IEX last-trade band" under Key concepts.
 10. **Market-closed fail-closed behavior** — when run non-interactively at
    market close, it aborts instead of queueing orders.  Use
    `--allow-closed-market-queue` or `ALPACA_ALLOW_CLOSED_MARKET_QUEUE=1`

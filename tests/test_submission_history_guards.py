@@ -40,6 +40,85 @@ def test_threshold_uses_prices_and_asset_type(monkeypatch):
     assert trading._submission_quote(quote(100, 100), "SPY")[1] == ""
 
 
+def iex_quote(bid, ask, last, trade_age=10, feed="iex"):
+    """A wide quote plus the last trade the snapshot would carry."""
+    stamp = (datetime.now(timezone.utc) - timedelta(seconds=trade_age)).isoformat()
+    return quote(bid, ask, feed=feed, last_trade_price=last, last_trade_timestamp=stamp)
+
+
+def test_wide_iex_quote_is_priced_around_a_fresh_last_trade(monkeypatch):
+    monkeypatch.setattr(trading, "MAX_SPREAD_PCT_OVERLAY", .005)
+    monkeypatch.setattr(trading, "IEX_LAST_TRADE_GUARD_ENABLED", True)
+    monkeypatch.setattr(trading, "IEX_LAST_TRADE_MAX_AGE_SECONDS", 300)
+    # The real 2026-10-12 CAT quote: 3.87% wide on IEX, last trade near the bid.
+    checked, reason = trading._submission_quote(iex_quote(810.10, 842.09, 811.00), "CAT")
+    assert reason == ""
+    assert checked["quote_reference"] == "iex_last_trade_band"
+    assert checked["raw_bid_price"] == 810.10 and checked["raw_ask_price"] == 842.09
+    assert checked["raw_spread_pct"] == pytest.approx(.03872, abs=1e-4)
+    # Band is last trade +/- 0.25%, and never reaches outside the real quote.
+    assert checked["bid_price"] == pytest.approx(810.10)
+    assert checked["ask_price"] == pytest.approx(811.00 * 1.0025)
+    assert checked["spread_pct"] <= .005
+    # The buy cap now follows the last trade, not the far-away IEX ask.
+    assert trading.passive_midpoint_limit_price(checked["bid_price"], checked["ask_price"], "buy") < 812.0
+
+
+@pytest.mark.parametrize("last,changes", [
+    (811.00, {"feed": "sip"}),       # full-market feed: wide is real
+    (811.00, {"trade_age": 900}),    # last trade too old
+    (811.00, {"trade_age": -60}),    # timestamp in the future
+    (805.00, {}),                    # trade below the bid
+    (850.00, {}),                    # trade above the ask
+    (None, {}),                      # no trade at all
+    (0, {}),                         # nonsense trade price
+])
+def test_wide_iex_quote_still_blocks_without_trustworthy_last_trade(monkeypatch, last, changes):
+    monkeypatch.setattr(trading, "MAX_SPREAD_PCT_OVERLAY", .005)
+    monkeypatch.setattr(trading, "IEX_LAST_TRADE_GUARD_ENABLED", True)
+    monkeypatch.setattr(trading, "IEX_LAST_TRADE_MAX_AGE_SECONDS", 300)
+    # Built inside the test so the quote timestamp is fresh when it is checked.
+    checked, reason = trading._submission_quote(iex_quote(810.10, 842.09, last, **changes), "CAT")
+    assert reason.startswith("spread_guard:3.87%")
+    assert "quote_reference" not in checked
+    assert checked["bid_price"] == 810.10 and checked["ask_price"] == 842.09
+
+
+def test_last_trade_band_can_be_switched_off_and_never_rescues_a_stale_quote(monkeypatch):
+    monkeypatch.setattr(trading, "MAX_SPREAD_PCT_OVERLAY", .005)
+    monkeypatch.setattr(trading, "IEX_LAST_TRADE_MAX_AGE_SECONDS", 300)
+    monkeypatch.setattr(trading, "IEX_LAST_TRADE_GUARD_ENABLED", False)
+    assert trading._submission_quote(iex_quote(810.10, 842.09, 811.00), "CAT")[1].startswith("spread_guard")
+    monkeypatch.setattr(trading, "IEX_LAST_TRADE_GUARD_ENABLED", True)
+    stale = iex_quote(810.10, 842.09, 811.00)
+    stale["quote_timestamp"] = "2020-01-01T00:00:00Z"
+    assert trading._submission_quote(stale, "CAT")[1] == "quote_stale"
+
+
+def test_two_stage_buy_on_wide_iex_quote_is_capped_near_the_last_trade(monkeypatch):
+    monkeypatch.setattr(trading, "MAX_SPREAD_PCT_OVERLAY", .005)
+    monkeypatch.setattr(trading, "IEX_LAST_TRADE_GUARD_ENABLED", True)
+    monkeypatch.setattr(trading, "IEX_LAST_TRADE_MAX_AGE_SECONDS", 300)
+    monkeypatch.setattr(trading, "TWO_STAGE_EXECUTION_ENABLED", True)
+    monkeypatch.setattr(trading, "SPREAD_GUARD_QUOTE_RETRIES", 0)
+    monkeypatch.setattr(trading, "wait_for_order_fills", lambda *args, **kwargs: {})
+    monkeypatch.setattr(trading, "_order_execution_snapshot",
+                        lambda broker, oid: {"status": "filled", "filled_qty": 8, "filled_avg_price": 811.0})
+    sent = []
+    broker = SimpleNamespace(get_quote_snapshot=lambda ticker: iex_quote(810.10, 842.09, 811.00),
+                             place_order=lambda order: sent.append(order) or "broker-order-1",
+                             cancel_order=lambda oid: True)
+    order = {"ticker": "CAT", "side": "buy", "quantity": 8, "price": 809.5}
+    accepted, skipped, _ = trading._apply_spread_guard(broker, [order])
+    assert accepted == [order] and skipped == []
+    assert order["quote_reference"] == "iex_last_trade_band"
+    result = trading._submit_one_rebalance_order(broker, order, use_market_order=False, use_quote_limit=True)
+    assert result == "broker-order-1"
+    # Old behaviour would have rested at the IEX midpoint of about 826.
+    assert 810.10 <= sent[0].limit_price <= 811.00 * 1.0025
+    assert order["raw_ask_price"] == 842.09
+
+
 @pytest.mark.parametrize("two_stage", [True, False])
 def test_narrow_planning_quote_then_wide_submission_blocks(monkeypatch, two_stage):
     monkeypatch.setattr(trading, "MAX_SPREAD_PCT_OVERLAY", .005)

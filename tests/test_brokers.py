@@ -1507,6 +1507,28 @@ class _QuoteBroker:
         })
 
 
+def test_quote_snapshot_carries_last_trade_and_survives_a_missing_one():
+    import alpaca_paper_trading as apt
+
+    stamp = datetime.now(timezone.utc)
+    latest_quote = SimpleNamespace(bid_price=810.10, ask_price=842.09, timestamp=stamp)
+    broker = apt.AlpacaBroker.__new__(apt.AlpacaBroker)
+    broker._api = SimpleNamespace(get_snapshot=lambda ticker: SimpleNamespace(
+        latest_quote=latest_quote, latest_trade=SimpleNamespace(price=811.0, timestamp=stamp)))
+
+    snapshot = broker.get_quote_snapshot("CAT")
+
+    assert snapshot["last_trade_price"] == 811.0
+    assert snapshot["last_trade_timestamp"] == stamp.isoformat()
+    assert snapshot["bid_price"] == 810.10
+
+    # No trade in the snapshot: the quote is still returned, the trade is blank.
+    broker._api = SimpleNamespace(get_snapshot=lambda ticker: SimpleNamespace(latest_quote=latest_quote))
+    snapshot = broker.get_quote_snapshot("CAT")
+    assert snapshot["last_trade_price"] is None
+    assert snapshot["ask_price"] == 842.09
+
+
 def test_apply_spread_guard_logs_wide_spread_skip(monkeypatch):
     import alpaca_paper_trading as apt
 

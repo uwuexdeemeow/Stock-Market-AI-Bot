@@ -177,6 +177,7 @@ The Alpaca submit path now has extra no-margin guards:
 - closed-market queueing is off by default (`ALPACA_ALLOW_CLOSED_MARKET_QUEUE=0`)
 - sells submit before buys
 - quote/spread guard logs skipped orders above 0.10% for ETFs or 0.50% for stocks
+- on the `iex` feed a too-wide quote is priced in a narrow band around a fresh last trade that sits inside the quote; without such a trade the order is still skipped
 - buys are skipped if sells fail, sells do not fill quickly, or cash is below the no-margin threshold
 - cash-limited buys are resized down to the largest whole-share quantity that fits available cash after a default 0.5% equity cash buffer; if even one share cannot fit or the trade falls below `ALPACA_MIN_TRADE_VALUE`, the buy is skipped and logged
 - buy cash checks use the smaller of Alpaca cash and buying power, so pending order reservations cannot be double-spent
@@ -727,6 +728,8 @@ daily GitHub workflow:
 | `ALPACA_REQUIRE_QUOTE_FOR_SUBMIT` | `1` | Skip/log an order when Alpaca cannot provide a quote for spread checking. |
 | `MAX_SPREAD_PCT_ETF` | `0.001` | Max ETF spread accepted before skipping an order. |
 | `MAX_SPREAD_PCT_OVERLAY` | `0.005` | Max overlay-stock spread accepted before skipping an order. |
+| `ALPACA_IEX_LAST_TRADE_GUARD` | `1` | On the `iex` feed, price a too-wide quote in a narrow band around a fresh last trade instead of skipping. `0` restores the plain spread guard. |
+| `ALPACA_IEX_LAST_TRADE_MAX_AGE_SECONDS` | `300` | Oldest last trade the IEX band may use. Older, missing, or out-of-quote trades still skip the order. |
 | `SPREAD_GUARD_ALERT_TTL_HOURS` | `20` | Suppress repeated identical spread-guard alerts for this many hours. |
 | `ALPACA_ALLOW_CLOSED_MARKET_QUEUE` | `0` | Whether non-interactive runs may queue orders while market is closed. Keep `0`. |
 | `ALPACA_SKIP_BUYS_UNTIL_SELLS_FILLED` | `1` | Skip buys unless same-run sells fill first. |
