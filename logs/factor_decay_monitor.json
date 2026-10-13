@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
   "legacy_returns_are_alpha": false,
-  "generated_at": "2026-10-12T14:10:30.441614",
+  "generated_at": "2026-10-13T14:07:47.256680",
   "purpose": "factor_decay_monitor",
   "as_of": "2026-08-18",
   "selected_score_source": "regime_adaptive",
@@ -12,7 +12,7 @@
   "rows": [
     {
       "lookback_days": 60,
-      "daily_ic_mean": 0.10252,
+      "daily_ic_mean": 0.09944,
       "daily_ic_positive_rate": 1.0,
       "daily_ic_newey_west_tstat": 0.0,
       "top_bucket_excess_return_pct": 0.5287,
@@ -21,8 +21,8 @@
       "observations": 186,
       "decile_mean_return_pct": {
         "1": -1.8321,
-        "2": -2.0103,
-        "3": 0.2769,
+        "2": -1.2267,
+        "3": -0.5066,
         "4": -0.7757,
         "5": 3.8548,
         "6": 1.0078,
@@ -31,11 +31,11 @@
         "9": -0.4006,
         "10": 0.6803
       },
-      "decile_monotonicity_spearman": 0.4909,
+      "decile_monotonicity_spearman": 0.5758,
       "overlay_periods": 3,
-      "overlay_return_sum_pct": 12.7773,
+      "overlay_return_sum_pct": 9.3588,
       "overlay_hit_rate": 1.0,
-      "legacy_overlay_raw_return_sum_pct": 12.7773,
+      "legacy_overlay_raw_return_sum_pct": 9.3588,
       "top_selected_ticker": "HSY",
       "top_selected_count": 2,
       "as_of": "2026-08-18",
@@ -46,7 +46,7 @@
     },
     {
       "lookback_days": 120,
-      "daily_ic_mean": 0.0958,
+      "daily_ic_mean": 0.09376,
       "daily_ic_positive_rate": 0.8,
       "daily_ic_newey_west_tstat": 0.0,
       "top_bucket_excess_return_pct": 4.6572,
@@ -55,21 +55,21 @@
       "observations": 310,
       "decile_mean_return_pct": {
         "1": 2.1519,
-        "2": -0.0988,
-        "3": -1.3636,
+        "2": 0.3713,
+        "3": -1.8338,
         "4": -1.2094,
         "5": 2.2749,
         "6": 0.5159,
-        "7": -1.4192,
-        "8": 1.7023,
+        "7": -0.9605,
+        "8": 1.2436,
         "9": 0.1988,
         "10": 4.9967
       },
       "decile_monotonicity_spearman": 0.2485,
       "overlay_periods": 5,
-      "overlay_return_sum_pct": 13.9182,
+      "overlay_return_sum_pct": 10.4997,
       "overlay_hit_rate": 0.8,
-      "legacy_overlay_raw_return_sum_pct": 13.9182,
+      "legacy_overlay_raw_return_sum_pct": 10.4997,
       "top_selected_ticker": "EOG",
       "top_selected_count": 3,
       "as_of": "2026-08-18",
@@ -99,8 +99,8 @@
       "risk_control_mode": "off",
       "deployment_max_gross_exposure": 1.0
     },
-    "dataset_fingerprint": "da95d2e10f6b1ddcdb192f81844288ec2a1737877ca8a0191b3f9ec4626268bf",
+    "dataset_fingerprint": "5a22a9baafb843561587bf27d887b8d4e5ba3467dc207a4924e37b851e012262",
     "research_manifest_path": "signals/research_run_manifest.json",
-    "git_commit": "ecdf7afc4eb9e5d2fb757bcc4f48d69faeea8354"
+    "git_commit": "a8d8e2bf8c645b6a8bb9991b5748d62cf77fa7f8"
   }
 }
