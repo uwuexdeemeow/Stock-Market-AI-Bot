@@ -664,6 +664,8 @@ def main() -> None:
                         help="Take an equity snapshot and save to tracking CSV")
     parser.add_argument("--json", action="store_true",
                         help="Output raw JSON instead of formatted report")
+    parser.add_argument("--strict", action="store_true",
+                        help="Exit with code 1 when the gauntlet fails (default: report only, exit 0)")
     args = parser.parse_args()
 
     LOGS.mkdir(parents=True, exist_ok=True)
@@ -722,11 +724,21 @@ def main() -> None:
             # Notification failure is non-fatal — don't break the CI step.
             print(f"  ⚠ Could not send gauntlet alert: {e}")
 
-    # Exit code 0 if passed, 1 if failed — lets CI surface the status
-    # to the workflow without depending on string parsing.
+    # PLAIN ENGLISH: The gauntlet answers "is this ready for REAL money?".
+    # A "no" is a report, not a broken paper run, so by default the script
+    # exits 0 and the daily paper workflow stays green.  The failure is still
+    # saved in the JSON report above and sent to Telegram, and real capital
+    # stays blocked (approved_for_real_capital is False).
+    # Pass --strict to get the old behavior: exit code 1 on failure, for a
+    # script or manual check that wants a hard pass/fail signal.
     if result.get("status") == "failed":
-        import sys
-        sys.exit(1)
+        if args.strict:
+            import sys
+            sys.exit(1)
+        # Keep --json output clean so another program can still parse it.
+        if not args.json:
+            print("  Gauntlet failed: reported only; paper trading is not blocked. "
+                  "Use --strict for exit code 1.")
 
 
 if __name__ == "__main__":

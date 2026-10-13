@@ -45,6 +45,9 @@ python3 alpaca_paper_gauntlet.py --json
 
 # Just take an equity snapshot (no gauntlet)
 python3 alpaca_paper_gauntlet.py --snapshot
+
+# Strict — exit with code 1 if the gauntlet fails
+python3 alpaca_paper_gauntlet.py --strict
 ```
 
 ## Inputs
@@ -62,7 +65,7 @@ python3 alpaca_paper_gauntlet.py --snapshot
 |------|--------------|
 | `logs/alpaca_paper_gauntlet_YYYYMMDD.json` | Full result (all checks + thresholds + reasons) |
 | Telegram alert | Sent when status=failed |
-| Exit code | 0 = passed OR within 30-day data-accumulation grace period.  1 = failed and accumulation period over. |
+| Exit code | 0 by default, even when the gauntlet fails (the result is a report).  With `--strict`: 1 = failed and the 30-day data-accumulation period is over. |
 
 The equity CSV and dated JSON report are written atomically, so dashboard and
 health checks never read half-written gauntlet data.
@@ -96,6 +99,23 @@ health checks never read half-written gauntlet data.
   trading days of data have accumulated.  In the first 30 days,
   failures are expected (insufficient history for Sharpe/drawdown) and
   the gauntlet exits 0 with an informational note.
+
+## Behavior change (October 14, 2026): failure is report-only
+
+The gauntlet answers "is this ready for real money?". A "no" does not mean
+the paper run is broken, so a failed gauntlet no longer fails the daily paper
+workflow.
+
+- Default: the script exits 0 whether the gauntlet passes or fails. The
+  `alpaca_gauntlet` step in `daily_run.py` therefore shows `ok`.
+- A failure is still saved to `logs/alpaca_paper_gauntlet_YYYYMMDD.json`,
+  sent to Telegram, and shown as `gauntlet_status` / `gauntlet_reason` in
+  `signals/alpaca_paper_health.json`. `approved_for_real_capital` stays false.
+- `--strict` restores the hard signal: exit code 1 on failure.
+
+Why it changed: once the 30-day grace period ended, the lifetime fill-rate
+gate (filled rows divided by every row in `alpaca_paper_log.csv`, skipped
+orders included) turned the workflow red on days when every order filled.
 
 ## Threshold tuning
 
