@@ -4,15 +4,15 @@
   "real_capital_approved": false,
   "broker_orders_submitted": false,
   "initial_equity": 400.0,
-  "cash": 2.1255243536,
+  "cash": 4.363598147,
   "positions": {
     "QQQ": {
-      "quantity": 0.335652355,
+      "quantity": 0.327654467,
       "avg_cost": 726.6766520388
     },
     "AMD": {
-      "quantity": 0.130876611,
-      "avg_cost": 650.0694028931
+      "quantity": 0.137118188,
+      "avg_cost": 647.5551151217
     },
     "AMAT": {
       "quantity": 0.116904857,
@@ -23,16 +23,16 @@
       "avg_cost": 864.3034424438
     }
   },
-  "last_signal_key": "4fa3fbac9d925a607e34",
-  "last_valuation_date": "2026-10-09",
-  "cumulative_slippage_cost": 1.4806110024,
-  "cumulative_regulatory_fees": 0.06,
+  "last_signal_key": "7d8a0be6b4b9a0028b62",
+  "last_valuation_date": "2026-10-12",
+  "cumulative_slippage_cost": 1.4902867412,
+  "cumulative_regulatory_fees": 0.07,
   "created_at": "2026-08-31T23:45:09+00:00",
-  "last_run_at": "2026-10-12T14:23:00+00:00",
+  "last_run_at": "2026-10-13T14:24:32+00:00",
   "last_price_dates": {
-    "AMAT": "2026-10-09",
-    "AMD": "2026-10-09",
-    "CAT": "2026-10-09",
-    "QQQ": "2026-10-09"
+    "AMAT": "2026-10-12",
+    "AMD": "2026-10-12",
+    "CAT": "2026-10-12",
+    "QQQ": "2026-10-12"
   }
 }

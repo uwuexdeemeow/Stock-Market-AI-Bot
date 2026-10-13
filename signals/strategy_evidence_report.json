@@ -1,9 +1,9 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-10-12T14:23:10.167474+00:00",
+  "generated_at": "2026-10-13T14:24:45.431529+00:00",
   "audit_start": "2012-01-01",
-  "audit_end": "2026-10-12",
-  "audit_code_commit": "ecdf7afc4eb9e5d2fb757bcc4f48d69faeea8354",
+  "audit_end": "2026-10-13",
+  "audit_code_commit": "a8d8e2bf8c645b6a8bb9991b5748d62cf77fa7f8",
   "audit_worktree_dirty": true,
   "status": "blocked",
   "sources": [
@@ -35,8 +35,8 @@
         "core_satellite_live_configs.json": "cf02ce4def81ba7cefb122e1084f0091891928a637276b11fb4327976865e9b2",
         "core_satellite_validation_bundle.json": "c02a982cf74b789ee01ffa0a25f8f73751d55394490fe6f024ef445fcf0b2f17",
         "alpaca_paper_log.csv": "732c6a03f9b4740315520d95a230e0c82ec2c83a420e5f42bbc6e42b3a35e762",
-        "core_satellite_alpha_signal.csv": "33ac4f9306d36eb661d1ca30bc62e7d88b6fcd50c73a350f40235276f818aedb",
-        "core_satellite_alpha_input_snapshot.csv": "373eee228bba5ff061ecc79105dcc793b630f3393bcce823db21439c8d89b299"
+        "core_satellite_alpha_signal.csv": "e4f0ed39c51b1172bba173c0b70aa84245a88910be3faace2992a8cab1eb1c44",
+        "core_satellite_alpha_input_snapshot.csv": "284b6116461f8d29b903cfcfb7fac57bbb42a3539f3175c87f1af508f76c4b4d"
       },
       "approval": {
         "status": "identity_consistent_pending_runtime_checks",
@@ -58,15 +58,15 @@
     },
     {
       "source": "signals/latest",
-      "source_commit": "9599f25d60037a774291093439c257a5e9c24ea0",
+      "source_commit": "225477027a8821318f91fee759c96a3189466d71",
       "profile": "daily",
-      "run_commit": "ecdf7afc4eb9e5d2fb757bcc4f48d69faeea8354",
-      "generated_at": "2026-10-12T14:14:21+00:00",
-      "age_hours": 0.14683083638888889,
+      "run_commit": "a8d8e2bf8c645b6a8bb9991b5748d62cf77fa7f8",
+      "generated_at": "2026-10-13T14:11:05+00:00",
+      "age_hours": 0.22759667555555554,
       "complete": true,
       "issues": [],
       "measured_fills": 8,
-      "sessions": 6,
+      "sessions": 7,
       "decision_eligible": false,
       "operational_issues": [
         "execution_observations_insufficient_or_failed",
@@ -80,21 +80,21 @@
         "epoch_check_failed:two_stage_design"
       ],
       "file_hashes": {
-        "paper_run_manifest.json": "647ad40971f067384a93e53659c3d3c3d7445361de52ab41635e7ab40ae03233",
+        "paper_run_manifest.json": "421203bae34b58aa3115274deb732c9b4f24b3aedd210b5f8e0935cf2fe38b86",
         "core_satellite_live_configs.json": "1d0bf9c29cd0003938c775111ffb37374c7b9ac117702b260469bef81a533b6e",
         "core_satellite_validation_bundle.json": "81764e5363ae6ff54693cff9abda3d4fd9150313b72e5c98a5e9363ad21caef9",
-        "broker_truth.json": "95ed2b3e20f34f7ab0f8431feedf47c3a436bf6fe0f3468bf9d5e4b3b610a2f6",
-        "alpaca_execution_scorecard.json": "631d4dbfbecbadfac4c514bfe7dbe3a2585ee709cd2bb15d9bbf691e2c382cb7",
-        "paper_validation_epoch_status.json": "4f9dee04946ba792d3b2d2637dfef3eebb07141449e58875431c642929baea01",
-        "alpaca_paper_health.json": "a385580605efe9a9de949c5e90d7ebb26273a4cce23716b53c1746ebc5d64af4",
-        "workflow_heartbeat_daily.json": "520cc6e00fdb25634e209b39f9a62a974f261661af0560dd46b2d822c725efbf",
-        "alpaca_paper_log.csv": "a9ae074c1c83b6fb721db6cd29bd29bc5faa98b9422f0d9186571a73f13680c0",
-        "alpaca_submit_outcomes.csv": "6fd3acdb2409d91ac4137a82d1cd40bf601e18c218f3f0bcc5db13e9b6b6348c",
-        "core_satellite_alpha_signal.csv": "33ac4f9306d36eb661d1ca30bc62e7d88b6fcd50c73a350f40235276f818aedb",
-        "core_satellite_alpha_orders.csv": "880f7b108a716c4a52f3690a96500225416f12d9cb260607a9d772858d17797b",
-        "core_satellite_alpha_input_snapshot.csv": "f9fbb07c76f2d2df2c2cabda8f0c92c3321015278b23221a3d963a931a84f708",
-        "workflow_heartbeat_execution.json": "a93fd50a0cf7779e09c74f47e8f4b4d03410dfdcaa22e77fe442a46cf0508055",
-        "execution_run_manifest.json": "67e42c7f676ca8111e32370546ddc72d4eb666dc5b4546c001ae7cb98916775d"
+        "broker_truth.json": "c3d06be8a15a1f7231755b573b21d49c042268648733c3c83d33c954c53695a6",
+        "alpaca_execution_scorecard.json": "974cd3479b04130f140354326e5fe18b2d33c3b87482435afba06342e67f1ab7",
+        "paper_validation_epoch_status.json": "e85056f3b22a2738be141179d6eee78555e1d69517a5161b2039abec97a99c56",
+        "alpaca_paper_health.json": "e1a01d664422c5a43488fde568130cd7f20ab0417467ce06b8df44d2df603128",
+        "workflow_heartbeat_daily.json": "5376732137281f23d19ffc3dff2a5da19219c14ff3f9fde6c56918d253f145e1",
+        "alpaca_paper_log.csv": "0e79855de98f06422fbe7b51c03d40f1879be9d5514f7b061cd95cdff8f42c41",
+        "alpaca_submit_outcomes.csv": "6e1928289355d33a8042e359c41c25c5c72fdac95e670e9830b2b4ab542e6c9c",
+        "core_satellite_alpha_signal.csv": "e4f0ed39c51b1172bba173c0b70aa84245a88910be3faace2992a8cab1eb1c44",
+        "core_satellite_alpha_orders.csv": "407ccaa9d70a70105c060a23f1595e11b32540368a7b0dae102bbe1ac9409eea",
+        "core_satellite_alpha_input_snapshot.csv": "17958abac4c2fb47a3c8b9e4ae566468e019a114b6ef1c9578b6139b86380a8b",
+        "workflow_heartbeat_execution.json": "478ed5b17f688e9100238143d8c79d2f37b3f4e1c8f6e842dd4a5128c4a552a5",
+        "execution_run_manifest.json": "509aeeefbd76b12c3d125c2d36e1db33cb2a00a27f6bd3e21795089d8ca2665a"
       },
       "approval": {
         "status": "identity_consistent_pending_runtime_checks",
@@ -115,16 +115,16 @@
       }
     },
     {
-      "source": "workflow_artifact:38259709623:11752801149:failure",
-      "source_commit": "ecdf7afc4eb9e5d2fb757bcc4f48d69faeea8354",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
+      "source_commit": "a8d8e2bf8c645b6a8bb9991b5748d62cf77fa7f8",
       "profile": "daily",
-      "run_commit": "ecdf7afc4eb9e5d2fb757bcc4f48d69faeea8354",
-      "generated_at": "2026-10-12T14:14:21+00:00",
-      "age_hours": 0.14683124250000001,
+      "run_commit": "a8d8e2bf8c645b6a8bb9991b5748d62cf77fa7f8",
+      "generated_at": "2026-10-13T14:11:05+00:00",
+      "age_hours": 0.22759739222222222,
       "complete": true,
       "issues": [],
       "measured_fills": 8,
-      "sessions": 6,
+      "sessions": 7,
       "decision_eligible": false,
       "operational_issues": [
         "execution_observations_insufficient_or_failed",
@@ -138,17 +138,17 @@
         "epoch_check_failed:two_stage_design"
       ],
       "file_hashes": {
-        "core_satellite_alpha_signal.csv": "33ac4f9306d36eb661d1ca30bc62e7d88b6fcd50c73a350f40235276f818aedb",
-        "core_satellite_alpha_input_snapshot.csv": "f9fbb07c76f2d2df2c2cabda8f0c92c3321015278b23221a3d963a931a84f708",
-        "core_satellite_alpha_orders.csv": "880f7b108a716c4a52f3690a96500225416f12d9cb260607a9d772858d17797b",
-        "alpaca_paper_log.csv": "a9ae074c1c83b6fb721db6cd29bd29bc5faa98b9422f0d9186571a73f13680c0",
-        "alpaca_paper_health.json": "a385580605efe9a9de949c5e90d7ebb26273a4cce23716b53c1746ebc5d64af4",
-        "alpaca_execution_scorecard.json": "631d4dbfbecbadfac4c514bfe7dbe3a2585ee709cd2bb15d9bbf691e2c382cb7",
-        "alpaca_submit_outcomes.csv": "6fd3acdb2409d91ac4137a82d1cd40bf601e18c218f3f0bcc5db13e9b6b6348c",
-        "paper_validation_epoch_status.json": "4f9dee04946ba792d3b2d2637dfef3eebb07141449e58875431c642929baea01",
-        "broker_truth.json": "95ed2b3e20f34f7ab0f8431feedf47c3a436bf6fe0f3468bf9d5e4b3b610a2f6",
-        "paper_run_manifest.json": "647ad40971f067384a93e53659c3d3c3d7445361de52ab41635e7ab40ae03233",
-        "workflow_heartbeat_daily.json": "520cc6e00fdb25634e209b39f9a62a974f261661af0560dd46b2d822c725efbf"
+        "core_satellite_alpha_signal.csv": "e4f0ed39c51b1172bba173c0b70aa84245a88910be3faace2992a8cab1eb1c44",
+        "core_satellite_alpha_input_snapshot.csv": "17958abac4c2fb47a3c8b9e4ae566468e019a114b6ef1c9578b6139b86380a8b",
+        "core_satellite_alpha_orders.csv": "407ccaa9d70a70105c060a23f1595e11b32540368a7b0dae102bbe1ac9409eea",
+        "alpaca_paper_log.csv": "0e79855de98f06422fbe7b51c03d40f1879be9d5514f7b061cd95cdff8f42c41",
+        "alpaca_paper_health.json": "e1a01d664422c5a43488fde568130cd7f20ab0417467ce06b8df44d2df603128",
+        "alpaca_execution_scorecard.json": "974cd3479b04130f140354326e5fe18b2d33c3b87482435afba06342e67f1ab7",
+        "alpaca_submit_outcomes.csv": "6e1928289355d33a8042e359c41c25c5c72fdac95e670e9830b2b4ab542e6c9c",
+        "broker_truth.json": "c3d06be8a15a1f7231755b573b21d49c042268648733c3c83d33c954c53695a6",
+        "paper_validation_epoch_status.json": "e85056f3b22a2738be141179d6eee78555e1d69517a5161b2039abec97a99c56",
+        "paper_run_manifest.json": "421203bae34b58aa3115274deb732c9b4f24b3aedd210b5f8e0935cf2fe38b86",
+        "workflow_heartbeat_daily.json": "5376732137281f23d19ffc3dff2a5da19219c14ff3f9fde6c56918d253f145e1"
       },
       "approval": {
         "status": "blocked",
@@ -428,102 +428,102 @@
     },
     {
       "reason": "config_fingerprint_missing",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "configuration_fingerprint_mismatch",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "deployed_configuration_missing",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "deployment_state_missing",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "deployment_status_conflict",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "paper_approval_not_unanimous",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "robustness_review_missing",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "strategy_bundle_reference_mismatch",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "top_bundle_reference_mismatch",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "validation_bundle_hash_missing",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "validation_bundle_schema_outdated",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "execution_observations_insufficient_or_failed",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:trading_days",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:rebalance_events",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:accepted_orders",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:classified_sessions",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:average_slippage",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:bad_slippage_rate",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:stage_comparison_ready",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
       "reason": "epoch_check_failed:two_stage_design",
-      "source": "workflow_artifact:38259709623:11752801149:failure",
+      "source": "workflow_artifact:38409633041:11823115203:failure",
       "next_action": "Recover matching evidence and rerun existing validation; do not edit approval flags."
     },
     {
@@ -743,10 +743,10 @@
   "historical_interpretation": "superseded_results_require_corrected_rebuild",
   "workflow_observations": [
     {
-      "run_id": 38259709623,
+      "run_id": 38409633041,
       "status": "artifact_selected",
       "older_fallback": false,
-      "source_commit": "ecdf7afc4eb9e5d2fb757bcc4f48d69faeea8354"
+      "source_commit": "a8d8e2bf8c645b6a8bb9991b5748d62cf77fa7f8"
     }
   ],
   "review_sections": {
@@ -795,15 +795,15 @@
   },
   "version_lock_changes": {
     "epoch_id": "paper-v20260926T140402Z",
-    "expected_fingerprint": "f9468239d817e26bff45ada9291fa45e667a530772d98c8d9a03d0a707b03b94",
-    "observed_fingerprint": "f9468239d817e26bff45ada9291fa45e667a530772d98c8d9a03d0a707b03b94",
+    "expected_fingerprint": "241b069c01e96d38d26623ba2668b744c5fb99bcd2f88083e442bfd5a1171073",
+    "observed_fingerprint": "241b069c01e96d38d26623ba2668b744c5fb99bcd2f88083e442bfd5a1171073",
     "changes": [],
     "lock_modified": false,
     "replacement_approved": false
   },
   "verified_fixes": [],
   "gap_register": {
-    "findings": 519,
+    "findings": 539,
     "original_findings": 92,
     "path": "gap_register.json",
     "automatic_closure": false

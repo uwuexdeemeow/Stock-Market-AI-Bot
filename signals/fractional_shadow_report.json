@@ -1,32 +1,32 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-12T14:23:00+00:00",
+  "generated_at": "2026-10-13T14:24:32+00:00",
   "status": "ok",
   "mode": "fractional_shadow_only",
   "capital": {
     "initial_equity": 400.0,
-    "current_equity": 414.161708,
-    "cash": 2.125524,
-    "invested_value": 412.036183
+    "current_equity": 409.433141,
+    "cash": 4.363598,
+    "invested_value": 405.069543
   },
   "signal": {
-    "signal_key": "4fa3fbac9d925a607e34",
-    "predicted_at": "2026-10-12T22:13+08:00",
-    "valuation_date": "2026-10-09",
+    "signal_key": "7d8a0be6b4b9a0028b62",
+    "predicted_at": "2026-10-13T22:10+08:00",
+    "valuation_date": "2026-10-12",
     "live_config_hash": "efc9620f12f77952",
     "repeated_signal": false
   },
   "execution": {
-    "orders_simulated": 0,
+    "orders_simulated": 2,
     "broker_orders_submitted": false,
     "minimum_order_notional": 1.0,
     "quantity_precision_decimals": 9,
     "order_type": "market",
     "time_in_force": "day",
     "slippage_bps": 10.0,
-    "slippage_cost_today": 0.0,
-    "regulatory_fees_today": 0.0,
-    "regulatory_fees_raw_today": 0.0,
+    "slippage_cost_today": 0.00967574,
+    "regulatory_fees_today": 0.01,
+    "regulatory_fees_raw_today": 0.00012439,
     "commission_today": 0.0,
     "fee_model": {
       "sec_sell_fee_bps": 0.206,
@@ -43,27 +43,27 @@
       "QQQ": 0.6
     },
     "actual_weights": {
-      "AMAT": 0.1431186621,
-      "AMD": 0.1921618113,
-      "CAT": 0.0507296989,
-      "QQQ": 0.6088577155
+      "AMAT": 0.1420590264,
+      "AMD": 0.1990095637,
+      "CAT": 0.0512450632,
+      "QQQ": 0.5970286893
     },
     "target_weight_gaps": {
-      "AMAT": -0.0027533379,
-      "AMD": -0.0078381887,
-      "CAT": -0.0033983011,
-      "QQQ": 0.0088577155
+      "AMAT": -0.0038129736,
+      "AMD": -0.0009904363,
+      "CAT": -0.0028829368,
+      "QQQ": -0.0029713107
     },
-    "max_absolute_target_weight_gap": 0.0088577155,
-    "cash_weight": 0.0051321122,
+    "max_absolute_target_weight_gap": 0.0038129736,
+    "cash_weight": 0.0106576574,
     "positions": {
       "QQQ": {
-        "quantity": 0.335652355,
+        "quantity": 0.327654467,
         "avg_cost": 726.6766520388
       },
       "AMD": {
-        "quantity": 0.130876611,
-        "avg_cost": 650.0694028931
+        "quantity": 0.137118188,
+        "avg_cost": 647.5551151217
       },
       "AMAT": {
         "quantity": 0.116904857,
@@ -77,10 +77,10 @@
   },
   "data": {
     "price_dates": {
-      "AMAT": "2026-10-09",
-      "AMD": "2026-10-09",
-      "CAT": "2026-10-09",
-      "QQQ": "2026-10-09"
+      "AMAT": "2026-10-12",
+      "AMD": "2026-10-12",
+      "CAT": "2026-10-12",
+      "QQQ": "2026-10-12"
     },
     "no_lookahead": true
   },
