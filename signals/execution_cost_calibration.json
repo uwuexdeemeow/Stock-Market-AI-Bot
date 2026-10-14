@@ -1,26 +1,26 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-13T21:16:22+00:00",
-  "source_generated_at": "2026-10-13T21:16:17+00:00",
+  "generated_at": "2026-10-14T14:08:19+00:00",
+  "source_generated_at": "2026-10-14T14:08:14+00:00",
   "status": "collecting",
-  "sample_count": 12,
+  "sample_count": 11,
   "minimum_sample_count": 20,
-  "recommended_one_way_slippage_bps": 11.5134,
+  "recommended_one_way_slippage_bps": 11.9682,
   "configured_floor_bps": 10.0,
   "cost_measure": "arrival_shortfall_bps_with_fill_minute_fallback",
-  "arrival_shortfall_samples": 12,
+  "arrival_shortfall_samples": 11,
   "fill_minute_fallback_samples": 0,
-  "all_fill_count": 17,
+  "all_fill_count": 14,
   "segments": [
     {
       "side": "buy",
       "order_type": "limit",
       "liquidity_bucket": "high",
-      "median_notional": 16706.2,
-      "samples": 7,
-      "median_slippage_bps": 4.66,
-      "p75_slippage_bps": 8.205,
-      "mean_slippage_bps": 5.4729
+      "median_notional": 10298.22,
+      "samples": 6,
+      "median_slippage_bps": 6.14,
+      "p75_slippage_bps": 8.4975,
+      "mean_slippage_bps": 6.385
     },
     {
       "side": "buy",
@@ -66,8 +66,8 @@
       "side": "sell",
       "order_type": "trailing_stop",
       "liquidity_bucket": "high",
-      "median_notional": 20178.95,
-      "samples": 4,
+      "median_notional": 20766.74,
+      "samples": 2,
       "median_slippage_bps": 0.0,
       "p75_slippage_bps": 0.0,
       "mean_slippage_bps": 0.0

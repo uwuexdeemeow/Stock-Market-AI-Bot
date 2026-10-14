@@ -63,22 +63,22 @@
   "vol_target": 0.0,
   "live_config_source": "nested_walkforward",
   "live_config_source_json": "signals\\core_satellite_nested_walkforward.json",
-  "total_return_pct": 4808.81,
-  "cagr_pct": 26.32,
-  "sharpe": 1.359,
+  "total_return_pct": 4849.88,
+  "cagr_pct": 26.38,
+  "sharpe": 1.363,
   "max_drawdown_pct": -30.47,
   "period_max_drawdown_pct": -21.72,
-  "turnover_pct": 4679.68,
-  "portfolio_turnover_pct": 8104.73,
-  "etf_turnover_pct": 3290.5,
+  "turnover_pct": 4677.73,
+  "portfolio_turnover_pct": 8103.1,
+  "etf_turnover_pct": 3290.28,
   "daily_max_drawdown_pct": -30.47,
-  "estimated_cost_pct": 10.9447,
+  "estimated_cost_pct": 10.9418,
   "avg_gross_exposure": 0.946,
   "avg_overlay_positions": 3.0,
-  "avg_effective_overlay_names": 2.6,
+  "avg_effective_overlay_names": 2.598,
   "max_sector_overlay_weight": 0.4056,
   "top_ticker_overlay_contributor": "NVDA",
-  "top_ticker_overlay_contribution_share": 0.224,
+  "top_ticker_overlay_contribution_share": 0.223,
   "n_rebalances": 210,
   "boundary_mode": "full_history",
   "evaluation_trade_start": "2010-01-04",
@@ -95,18 +95,18 @@
   "benchmark_comparisons": {
     "SPY": {
       "benchmark_return_pct": 791.54,
-      "alpha_pct": 4017.27,
-      "nw_tstat_vs_benchmark": 4.319
+      "alpha_pct": 4058.34,
+      "nw_tstat_vs_benchmark": 4.345
     },
     "QQQ": {
       "benchmark_return_pct": 1651.01,
-      "alpha_pct": 3157.8,
-      "nw_tstat_vs_benchmark": 2.667
+      "alpha_pct": 3198.88,
+      "nw_tstat_vs_benchmark": 2.696
     },
     "BLEND": {
       "benchmark_return_pct": 1135.33,
-      "alpha_pct": 3673.48,
-      "nw_tstat_vs_benchmark": 3.802
+      "alpha_pct": 3714.56,
+      "nw_tstat_vs_benchmark": 3.834
     }
   },
   "benchmark_stats": {
@@ -150,20 +150,20 @@
     },
     "2023_2026": {
       "data_available": true,
-      "return_pct": 183.83,
+      "return_pct": 186.2,
       "benchmark_return_pct": 127.1,
-      "alpha_pct": 56.73
+      "alpha_pct": 59.11
     }
   },
   "holdout_2023_2026": {
     "data_available": true,
-    "strategy_return_pct": 183.83,
+    "strategy_return_pct": 186.2,
     "spy_return_pct": 97.89,
-    "alpha_vs_spy_pct": 85.93,
+    "alpha_vs_spy_pct": 88.31,
     "qqq_return_pct": 155.94,
-    "alpha_vs_qqq_pct": 27.89,
+    "alpha_vs_qqq_pct": 30.26,
     "blend_return_pct": 127.1,
-    "alpha_vs_blend_pct": 56.73
+    "alpha_vs_blend_pct": 59.11
   },
   "yearly_alpha_pct": {
     "2010": -0.51,
@@ -182,7 +182,7 @@
     "2023": 8.85,
     "2024": 27.02,
     "2025": -0.51,
-    "2026": 0.48
+    "2026": 1.42
   },
   "cost_stress": 2.0,
   "core_satellite_gate_results": {
@@ -745,10 +745,10 @@
   "survivorship_review": {
     "pass": true,
     "capital_approval_pass": false,
-    "survivorship_adjusted_score": 1.0052,
+    "survivorship_adjusted_score": 1.0002,
     "audit_rebalance_selections": 14,
     "generic_stressed_paper_ready": true,
-    "total_return_delta_pct": 23.3,
+    "total_return_delta_pct": 0.79,
     "max_drawdown_delta_pct": 0.01,
     "failed_name_coverage_rate": 0.0588,
     "minimum_failed_name_coverage_for_capital": 1.0,
@@ -768,21 +768,21 @@
         "failed_gates": [
           "holdout_2023_2026_vs_qqq_pass"
         ],
-        "holdout_alpha_vs_qqq_pct": -14.39
+        "holdout_alpha_vs_qqq_pct": -12.25
       },
       {
         "scenario": "delay_1d_extra_10bps",
         "failed_gates": [
           "holdout_2023_2026_vs_qqq_pass"
         ],
-        "holdout_alpha_vs_qqq_pct": -19.63
+        "holdout_alpha_vs_qqq_pct": -17.56
       },
       {
         "scenario": "delay_1d_extra_25bps",
         "failed_gates": [
           "holdout_2023_2026_vs_qqq_pass"
         ],
-        "holdout_alpha_vs_qqq_pct": -27.31
+        "holdout_alpha_vs_qqq_pct": -25.31
       }
     ],
     "failed_scenario_details": [],
@@ -797,10 +797,10 @@
   "survivorship_review_published": {
     "pass": true,
     "capital_approval_pass": false,
-    "survivorship_adjusted_score": 1.0052,
+    "survivorship_adjusted_score": 1.0002,
     "audit_rebalance_selections": 14,
     "generic_stressed_paper_ready": true,
-    "total_return_delta_pct": 23.3,
+    "total_return_delta_pct": 0.79,
     "max_drawdown_delta_pct": 0.01,
     "failed_name_coverage_rate": 0.0588,
     "minimum_failed_name_coverage_for_capital": 1.0,
@@ -820,21 +820,21 @@
         "failed_gates": [
           "holdout_2023_2026_vs_qqq_pass"
         ],
-        "holdout_alpha_vs_qqq_pct": -14.39
+        "holdout_alpha_vs_qqq_pct": -12.25
       },
       {
         "scenario": "delay_1d_extra_10bps",
         "failed_gates": [
           "holdout_2023_2026_vs_qqq_pass"
         ],
-        "holdout_alpha_vs_qqq_pct": -19.63
+        "holdout_alpha_vs_qqq_pct": -17.56
       },
       {
         "scenario": "delay_1d_extra_25bps",
         "failed_gates": [
           "holdout_2023_2026_vs_qqq_pass"
         ],
-        "holdout_alpha_vs_qqq_pct": -27.31
+        "holdout_alpha_vs_qqq_pct": -25.31
       }
     ],
     "failed_scenario_details": [],

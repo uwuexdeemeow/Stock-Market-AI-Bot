@@ -1,32 +1,22 @@
 {
   "schema_version": 2,
-  "run_id": "github-38409633041",
-  "generated_at": "2026-10-13T14:10:51+00:00",
-  "status": "executed",
-  "reason_code": "all_planned_orders_filled",
-  "market_open": null,
-  "planned_orders": 3,
-  "submitted_orders": 3,
-  "accepted_orders": 3,
-  "filled_orders": 3,
+  "run_id": "github-38576630438",
+  "generated_at": "2026-10-14T14:08:13+00:00",
+  "status": "no_action",
+  "reason_code": "holding_until_next_scheduled_rebalance",
+  "market_open": true,
+  "planned_orders": 0,
+  "submitted_orders": 0,
+  "accepted_orders": 0,
+  "filled_orders": 0,
   "open_orders": 0,
   "skipped_orders": 0,
   "rejected_orders": 0,
   "failed_orders": 0,
-  "completion_ratio": 1.0,
+  "completion_ratio": 0.0,
   "recovery_eligible": false,
   "unresolved_orders": [],
-  "quote_feed": "iex",
-  "account_alignment": {
-    "status": "warning",
-    "score": 90.0,
-    "fail_count": 0,
-    "warning_count": 2
-  },
-  "errors": [],
-  "order_statuses": {
-    "64bba210-0752-46b0-aa74-b5bea3b6c57e": "filled",
-    "aed75bff-19ff-4768-9919-4a69043ba6ff": "filled",
-    "66950fd5-cd40-4778-9501-7a9a22480022": "filled"
-  }
+  "quote_feed": "",
+  "account_alignment": {},
+  "errors": []
 }
