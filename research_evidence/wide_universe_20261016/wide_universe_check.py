@@ -291,14 +291,499 @@ def step_coverage(args) -> dict:
     return payload
 
 
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Step "sectors": one sector label per company (SEC SIC code, fixed table)
+# ═══════════════════════════════════════════════════════════════════════════
+
+SEC_DIR = DATA_ROOT / "sec"
+WIKIPEDIA_CHANGES_URL = ("https://en.wikipedia.org/w/index.php?"
+                         "title=Historical_components_of_the_S%26P_500&action=raw")
+
+
+def _wiki_text(cell: str) -> str:
+    """'[[Bed Bath & Beyond Inc.|Bed Bath & Beyond]]' -> 'Bed Bath & Beyond'."""
+    import re
+    cell = re.sub(r"<ref[^>]*/>|<ref[^>]*>.*?</ref>", "", cell)
+    cell = re.sub(r"\[\[(?:[^\]|]*\|)?([^\]]*)\]\]", r"\1", cell)
+    cell = re.sub(r"\{\{[^}]*\}\}", "", cell)
+    return cell.replace("'''", "").replace("''", "").strip()
+
+
+def wikipedia_names(text: str) -> dict[str, str]:
+    """Ticker -> company name from Wikipedia's S&P 500 changes table.
+
+    PLAIN ENGLISH: companies that left the index often have no current SEC
+    ticker, so we need their NAME to find them at the SEC.  Wikipedia's
+    "Historical components of the S&P 500" table lists each change as
+    (date, added ticker, added name, removed ticker, removed name, ...).
+    The table runs newest first; for a ticker that was reused by a later
+    company, the OLDEST mention wins, which is the one inside our window
+    more often.  Cells may start with "|" or "||".
+    """
+    start = text.find('id="changes"')
+    if start < 0:
+        return {}
+    body = text[start:text.find("\n|}", start)]
+    names: dict[str, str] = {}
+    for block in body.split("\n|-")[1:]:
+        cells = [_wiki_text(line.lstrip("|")) for line in block.strip().split("\n")
+                 if line.startswith("|") and not line.startswith("|-")]
+        if len(cells) < 5:
+            continue
+        for ticker, name in ((cells[1], cells[2]), (cells[3], cells[4])):
+            ticker = ticker.strip().upper().replace(".", "-")
+            if ticker and name:
+                names[ticker] = name      # later rows are older, so they overwrite
+    return names
+
+
+def stitched_companies() -> list[str]:
+    return sorted(p.stem for p in STITCHED_DIR.glob("*.parquet"))
+
+
+def load_stitched(company: str) -> pd.DataFrame:
+    """One company's joined WIKI+Tiingo prices (same shape as the Tiingo loader)."""
+    path = STITCHED_DIR / f"{company}.parquet"
+    if not path.exists():
+        return pd.DataFrame()
+    frame = pd.read_parquet(path)
+    frame.index = pd.DatetimeIndex(frame.index)
+    return frame
+
+
+def step_sectors(args) -> dict:
+    """Find each company's SIC code with the H-full-universe lookup.
+
+    Companies still listed are found by ticker in the SEC list.  Others are
+    found by name on SEC EDGAR; the name comes from Wikipedia's changes
+    table, and only if Wikipedia has none, from Tiingo (slow free limit).
+    Resumable: run again until it says "done".
+    """
+    import shutil
+    import requests
+
+    SEC_DIR.mkdir(parents=True, exist_ok=True)
+    for name in ("company_tickers.json", "sectors.json"):
+        if not (SEC_DIR / name).exists() and (fu.SEC_DIR / name).exists():
+            shutil.copy(fu.SEC_DIR / name, SEC_DIR / name)
+    wiki_path = SEC_DIR / "wikipedia_sp500_changes.txt"
+    if not wiki_path.exists():
+        response = requests.get(WIKIPEDIA_CHANGES_URL, timeout=60,
+                                headers={"User-Agent": fu.DEFAULT_SEC_USER_AGENT})
+        response.raise_for_status()
+        wiki_path.write_text(response.text, encoding="utf-8")
+    wiki_names = wikipedia_names(wiki_path.read_text(encoding="utf-8"))
+
+    companies = stitched_companies()
+    _, _, _, _, names, _ = _pool_and_names(args)
+    tiingo_log = fu._read_json(fu.DOWNLOAD_LOG, {})
+    # Companies priced from WIKI alone have no Tiingo entry; give them one so
+    # the lookup treats them as "stopped trading" and searches by name.
+    log = {}
+    for company in companies:
+        entry = dict(tiingo_log.get(company, {}))
+        if entry.get("status") != "ok":
+            entry = {"status": "ok", "last": str(load_stitched(company).index.max().date())}
+        log[company] = entry
+    cache_path = SEC_DIR / "sectors.json"
+    cache = fu._read_json(cache_path, {})
+    for company in companies:
+        found = next((wiki_names[t] for t in sorted(names.get(company, {company})) if t in wiki_names), None)
+        cached = cache.get(company, {})
+        if found and cached.get("tiingo_name") is None and not cached.get("searched_v3"):
+            cache[company] = {**cached, "tiingo_name": found, "name_source": "wikipedia"}
+    fu._write_json(cache_path, cache)
+
+    old_dir = fu.SEC_DIR
+    fu.SEC_DIR = SEC_DIR
+    try:
+        sectors = fu.lookup_sectors(companies, log, per_hour=args.per_hour)
+    finally:
+        fu.SEC_DIR = old_dir
+    done = all(c in sectors for c in companies)
+    summary = {"companies": len(companies), "done": done,
+               "with_sic": sum(1 for c in companies if sectors.get(c, {}).get("sic")),
+               "sector_counts": pd.Series([sectors.get(c, {}).get("sector", "OTHER")
+                                           for c in companies]).value_counts().to_dict()}
+    print(json.dumps(summary, indent=1), flush=True)
+    return summary
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Step "runs": features, universes, engine runs and the pre-registered gates
+# ═══════════════════════════════════════════════════════════════════════════
+
+FEATURE_DIR = DATA_ROOT / "features"
+RESULT_JSON = OUT_DIR / "wide_universe_check.json"
+RUN_END = "2022-12-30"            # every run ends here; 2023-2026 is kept for the exam
+FEATURE_END = "2023-03-01"        # enough later prices for the last 20-day labels
+PANEL_START = "2012-06-01"        # rows before this are never eligible (saves memory)
+C2_TOLERANCE = 0.25
+MIN_SHARE = 0.50                  # W1, W3 (and U1) need at least 50%
+P95 = 95
+TOP_K = 3
+
+
+def rerank_cross_sectional(source: pd.DataFrame, eligible: pd.Series, sector_map: dict,
+                           source_cols=None, min_group: int | None = None) -> pd.DataFrame:
+    """Recompute the xs_rank_* columns using only eligible rows.
+
+    PLAIN ENGLISH: "rank within sector" only means something relative to
+    the stocks you can actually pick that day.  The pre-registered rule says
+    ranks are taken within each day's eligible list, so the live rule from
+    cross_sectional_features.py is applied to those rows only: percentile
+    rank per date (market) and per date+sector (sector), sector falls back
+    to market when a sector has fewer than 6 names that day, a lone value
+    gets 0.5, and missing ranks get 0.5.
+    """
+    import cross_sectional_features as xs
+
+    source_cols = source_cols or xs.SOURCE_COLS
+    min_group = xs.MIN_GROUP_SIZE if min_group is None else min_group
+    panel = source.loc[eligible.to_numpy()].copy()
+    panel["sector"] = panel["ticker"].map(lambda t: sector_map.get(t, "OTHER"))
+    out = panel[["date", "ticker"]].copy()
+    by_date = panel.groupby("date")
+    by_sector = panel.groupby(["date", "sector"])
+    sector_size = by_sector["ticker"].transform("count")
+
+    def pct(groups, values):
+        ranks = groups[values].rank(method="average", pct=True)
+        counts = groups[values].transform("count")
+        return ranks.where(counts != 1, 0.5)
+
+    for col in source_cols:
+        if col not in panel.columns:
+            continue
+        sector_col, market_col = xs._rank_column_names(col)
+        market = pct(by_date, col)
+        sector = pct(by_sector, col)
+        out[market_col] = market.fillna(0.5).clip(0.0, 1.0)
+        out[sector_col] = np.where(sector_size < min_group, market, sector)
+        out[sector_col] = out[sector_col].astype(float).fillna(0.5).clip(0.0, 1.0)
+    return out
+
+
+def eligible_rows(source: pd.DataFrame, lists: dict | None, tickers=None) -> pd.Series:
+    """Rows whose ticker is on that month's list (or in `tickers` on every day)."""
+    if lists is None:
+        return source["ticker"].isin(set(tickers))
+    return fu.universe_mask(source, lists)
+
+
+def judge(rows: list[dict]) -> dict:
+    """Apply the pre-registered H-wide-universe rules (C2, U1, U2, W1, W2, W3)."""
+    med = lambda test, delay: fu._median(fu._alphas(rows, test, delay))  # noqa: E731
+    r0, r0n = med("R0", 1), med("R0n", 1)
+    c2 = (r0 is not None and r0n is not None and r0 != 0
+          and abs(r0n - r0) <= C2_TOLERANCE * abs(r0))
+    out = {"numbers": {"R0_median_late": r0, "R0n_median_late": r0n,
+                       "R0n_vs_R0": (r0n / r0) if (r0 and r0n is not None) else None},
+           "gates": {"C2_source_agreement": c2}}
+    if not c2:
+        out["verdict"] = "source disagrees with project data"
+        return out
+
+    def p95(test):
+        values = fu._alphas(rows, test, 0)
+        return float(np.percentile(values, P95)) if values else None
+
+    u_late, u_on, mu95 = med("U", 1), med("U", 0), p95("MU")
+    w_late, w_on, mw95 = med("W", 1), med("W", 0), p95("MW")
+    wn3 = med("WN3", 1)
+    u1 = u_late is not None and u_late > 0 and u_late >= MIN_SHARE * r0n
+    u2 = u_on is not None and mu95 is not None and u_on > mu95
+    w1 = w_late is not None and w_late > 0 and w_late >= MIN_SHARE * r0n
+    w2 = w_on is not None and mw95 is not None and w_on > mw95
+    w3 = wn3 is not None and w_late is not None and wn3 > 0 and wn3 >= MIN_SHARE * w_late
+    if u1 and u2:
+        u_verdict = "edge survives the full survivorship test"
+    elif u2:
+        u_verdict = "edge real but mostly list hindsight"
+    else:
+        u_verdict = "edge not shown"
+    if w1 and w2 and w3:
+        w_verdict = "edge holds on a wide universe"
+    elif w2:
+        w_verdict = "real but too small or too narrow"
+    else:
+        w_verdict = "no stock-picking edge on an unbiased universe"
+    out["numbers"].update({
+        "U_median_late": u_late, "U_median_on_time": u_on, "MU_p95": mu95, "MU_median": fu._median(fu._alphas(rows, "MU", 0)),
+        "W_median_late": w_late, "W_median_on_time": w_on, "MW_p95": mw95, "MW_median": fu._median(fu._alphas(rows, "MW", 0)),
+        "WN3_median_late": wn3,
+        "U_share_of_R0n": (u_late / r0n) if (u_late is not None and r0n) else None,
+        "W_share_of_R0n": (w_late / r0n) if (w_late is not None and r0n) else None,
+        "WN3_share_of_W": (wn3 / w_late) if (wn3 is not None and w_late) else None,
+    })
+    out["gates"].update({"U1_survivorship": u1, "U2_beats_random_picks": u2,
+                         "W1_width": w1, "W2_skill": w2, "W3_breadth": w3})
+    out["U_verdict"], out["W_verdict"] = u_verdict, w_verdict
+
+    def spread(test):
+        values = fu._alphas(rows, test, 0)
+        return (max(values) - min(values)) if values else None
+
+    def delay_cost(test):
+        late = {r["offset"]: r["decision_alpha_vs_qqq_pct"] for r in rows
+                if r["test"] == test and r["delay"] == 1 and r.get("decision_alpha_vs_qqq_pct") is not None}
+        costs = [r["decision_alpha_vs_qqq_pct"] - late[r["offset"]] for r in rows
+                 if r["test"] == test and r["delay"] == 0 and r["offset"] in late
+                 and r.get("decision_alpha_vs_qqq_pct") is not None]
+        return float(np.mean(costs)) if costs else None
+
+    out["diagnostics"] = {
+        "on_time_spread": {t: spread(t) for t in ("R0", "R0n", "U", "W")},
+        "mean_delay_cost": {t: delay_cost(t) for t in ("R0", "R0n", "U", "W")},
+        "UD_median_on_time": med("UD", 0), "WD_median_on_time": med("WD", 0),
+    }
+    return out
+
+
+def _done_key(row: dict) -> tuple:
+    return (row["test"], row["delay"], row["offset"], row.get("seed"))
+
+
+def step_runs(args) -> dict:
+    import contextlib
+    import time
+    import alpha_factor_backtest as afb
+    import core_satellite_alpha as core
+    from settings import WATCHLIST
+    from validation_bundle import load_approved_research_config
+
+    coverage = fu._read_json(COVERAGE_JSON, {})
+    if not coverage.get("result", {}).get("C1_pass"):
+        raise SystemExit("C1 has not passed. By the pre-registered rule, no runs.")
+    sectors = fu._read_json(SEC_DIR / "sectors.json", {})
+    companies = stitched_companies()
+    if not all(c in sectors for c in companies):
+        raise SystemExit("Sector lookup unfinished: run --step sectors until it says done.")
+    sector_map = {c: sectors[c].get("sector", "OTHER") for c in companies}
+    edge = fu._edge_module()
+    top_names = fu._load_module("top_names_check", OUT_DIR.parent / "top_names_20260929" / "top_names_check.py")
+    membership, snapshots, _sha, pool, names, current = _pool_and_names(args)
+
+    # ── Features from the stitched prices (offline, cached) ──
+    # PLAIN ENGLISH: re-use H-full-universe's feature builder, but point its
+    # price loader at the stitched files and its output at our own folder.
+    old = {"load_raw": fu.load_raw, "FEATURE_DIR": fu.FEATURE_DIR}
+    fu.load_raw, fu.FEATURE_DIR = load_stitched, FEATURE_DIR
+    try:
+        built = fu.build_features(companies, sector_map, rebuild=args.rebuild_features, end=FEATURE_END)
+        sessions_all = core._nyse_sessions(fu.PRICE_START, FEATURE_END)
+        dollar_volume = fu.dollar_volume_table(built, sessions_all)
+    finally:
+        fu.load_raw, fu.FEATURE_DIR = old["load_raw"], old["FEATURE_DIR"]
+    print(f"[features] built for {len(built)} companies", flush=True)
+
+    last_real = {c: load_stitched(c).index.max() for c in built}
+    data_end = max(last_real.values())
+    last_real = {c: d for c, d in last_real.items() if d < data_end - pd.Timedelta(days=10)}
+    members = fu.member_matrix(snapshots, sessions_all, {c: names[c] for c in built})
+    u_lists = fu.monthly_universe(dollar_volume, members)
+    w_lists = fu.monthly_universe(dollar_volume, members, size=10**6)
+
+    # ── Source columns for the cross-sectional re-ranking ──
+    import cross_sectional_features as xs
+    frames = []
+    for company in built:
+        frame = pd.read_parquet(FEATURE_DIR / f"{company}.parquet",
+                                columns=None)
+        frame.index = pd.DatetimeIndex(frame.index)
+        frame = frame.loc[frame.index >= pd.Timestamp(PANEL_START)]
+        cols = [c for c in xs.SOURCE_COLS if c in frame.columns]
+        sub = frame[cols].copy()
+        sub["ticker"], sub["date"] = company, sub.index
+        frames.append(sub.reset_index(drop=True))
+    source = pd.concat(frames, ignore_index=True)
+    del frames
+    xs_tables = {
+        "R0n": rerank_cross_sectional(source, eligible_rows(source, None, WATCHLIST), sector_map),
+        "U": rerank_cross_sectional(source, eligible_rows(source, u_lists), sector_map),
+        "W": rerank_cross_sectional(source, eligible_rows(source, w_lists), sector_map),
+    }
+    del source
+
+    specs = afb.load_feature_specs(write_health_outputs=False)
+    feature_dir = str(FEATURE_DIR)
+    original_read = pd.read_parquet
+
+    def build_panel(universe: str, tickers, lists, haircut: float) -> pd.DataFrame:
+        table = xs_tables[universe].set_index(["ticker", "date"])
+        xs_cols = list(table.columns)
+        by_ticker = {t: g.droplevel(0) for t, g in table.groupby(level=0)}
+
+        def read(path, *a, **k):
+            frame = original_read(path, *a, **k)
+            company = Path(str(path)).stem
+            if str(Path(str(path)).parent) != feature_dir:
+                return frame
+            index = pd.DatetimeIndex(pd.to_datetime(frame.index))
+            frame.index = index.tz_localize(None) if index.tz is not None else index
+            frame = frame.sort_index()
+            frame = frame.loc[frame.index >= pd.Timestamp(PANEL_START)].copy()
+            ranks = by_ticker.get(company)
+            for col in xs_cols:
+                frame[col] = (ranks[col].reindex(frame.index) if ranks is not None
+                              else pd.Series(np.nan, index=frame.index)).fillna(0.5).to_numpy()
+            if company in last_real:
+                frame = fu.pad_after_delisting(frame, sessions_all, haircut)
+            return frame
+
+        with fu.patched(afb, WATCHLIST=list(tickers), DATA_DIR=feature_dir, SECTOR_MAP=sector_map), \
+                fu.patched(pd, read_parquet=read):
+            panel = afb.load_factor_panel(specs, require_forward_returns=False)
+        status = panel.attrs.get("point_in_time_membership", {})
+        notes.setdefault("project_membership_filter", {})[universe] = bool(status.get("applied"))
+        last = panel["ticker"].map(last_real)
+        panel = panel[last.isna() | (panel["date"] <= last)]
+        if lists is not None:
+            panel = panel.loc[fu.universe_mask(panel, lists)]
+        panel = panel.reset_index(drop=True)
+        empty_ml = pd.DataFrame(columns=["date", "ticker", "ml_score"])
+        return core._ensure_robust_score_columns(afb.attach_scores(panel, specs, empty_ml))
+
+    notes: dict = {
+        "price_source": coverage.get("price_source"), "companies_with_features": len(built),
+        "stopped_trading_companies": len(last_real),
+        "u_months": len(u_lists), "w_months": len(w_lists),
+        "w_median_list_size": float(np.median([len(v) for v in w_lists.values()])) if w_lists else None,
+        "u_companies_ever_listed": len({t for v in u_lists.values() for t in v}),
+        "run_end": RUN_END,
+    }
+
+    # ── Runs ──
+    config = load_approved_research_config(Path("signals") / "core_satellite_alpha_metrics.json")
+    r0_panel = core._ensure_robust_score_columns(afb.attach_scores(
+        afb.load_factor_panel(specs, require_forward_returns=False), specs, afb.load_prediction_scores()))
+    notes.setdefault("project_membership_filter", {})["R0"] = bool(
+        r0_panel.attrs.get("point_in_time_membership", {}).get("applied"))
+    sessions = core._nyse_sessions(r0_panel["date"].min(), r0_panel["date"].max())
+    end = pd.Timestamp(RUN_END)
+    holding_days = int(config.get("holding_days", afb.HORIZON_DAYS))
+    label = top_names.label_column(holding_days, afb.HORIZON_DAYS)
+    later_removed = {c for c in built if not (names[c] & set(snapshots["members"].iloc[-1]))}
+
+    out_path = Path(args.out)
+    previous = fu._read_json(out_path, {})
+    valid = args.offsets == fu.N_OFFSETS and args.monkeys == fu.N_MONKEYS
+    same_setup = previous.get("offsets") == args.offsets and previous.get("monkeys") == args.monkeys
+    rows: list[dict] = list(previous.get("rows", [])) if same_setup else []
+    done = {_done_key(r) for r in rows}
+
+    def save(result=None):
+        payload = {"hypothesis": HYPOTHESIS, "research_only": True, "approves_trading": False,
+                   "valid_full_test": valid, "end_date": RUN_END, "offsets": args.offsets,
+                   "monkeys": args.monkeys, "notes": notes, "rows": rows}
+        if result is not None:
+            payload["result"] = result
+        fu._write_json(out_path, payload)
+
+    def holdings(trades: pd.DataFrame) -> dict:
+        picks = removed = delist = 0
+        if "overlay_tickers" not in trades:
+            return {}
+        for tickers, exit_day in zip(trades["overlay_tickers"].fillna(""), trades["exit_date"]):
+            for t in [x for x in str(tickers).split(",") if x]:
+                picks += 1
+                removed += t in later_removed
+                delist += bool(t in last_real and pd.Timestamp(exit_day) > last_real[t])
+        return {"stock_positions": picks, "later_removed_positions": removed, "delisting_exits": delist}
+
+    def run(test, panel, delay, offset, *, seed=None, labels=None, randomise=False):
+        key = (test, delay, offset, seed)
+        if key in done:
+            return
+        t0 = time.time()
+        frame = edge.randomized_scores(panel, seed) if randomise else panel
+        equity, trades, extra = core.run_core_satellite(
+            frame, {**config, "entry_delay_days": delay},
+            evaluation_start=sessions[offset], evaluation_end=end)
+        if randomise:
+            unexpected = {c for c in trades.get("score_col", pd.Series(dtype=str)).astype(str).unique()
+                          if c not in edge.SCORE_COLS and not c.startswith("_blended_regime_score_")}
+            if unexpected:
+                raise SystemExit(f"Random-pick runs used non-randomised score columns: {sorted(unexpected)}")
+        row = edge._summarise(core, test, equity, extra, delay=delay, offset=offset, seed=seed, t0=t0)
+        row.update(holdings(trades))
+        if labels is not None:
+            row["contributions"] = top_names.ticker_contributions(trades, labels)
+        rows.append(row)
+        done.add(key)
+        print(json.dumps({k: v for k, v in row.items() if k != "contributions"}), flush=True)
+        save()
+
+    # R0 and R0n first: gate C2 decides whether anything else runs.
+    r0n_panel = build_panel("R0n", WATCHLIST, None, 0.0)
+    notes["r0n_panel_rows"] = int(len(r0n_panel))
+    for test, panel in (("R0", r0_panel), ("R0n", r0n_panel)):
+        for delay in fu.DELAYS:
+            for offset in range(args.offsets):
+                run(test, panel, delay, offset)
+    del r0_panel, r0n_panel
+    c2 = judge(rows)
+    if not c2["gates"]["C2_source_agreement"]:
+        save(c2)
+        print(json.dumps(c2, indent=1), flush=True)
+        return c2
+
+    u_panel = build_panel("U", built, u_lists, 0.0)
+    w_panel = build_panel("W", built, w_lists, 0.0)
+    notes.update({"u_panel_rows": int(len(u_panel)), "w_panel_rows": int(len(w_panel))})
+    w_labels = top_names.label_lookup(w_panel, label)
+    for test, panel in (("U", u_panel), ("W", w_panel)):
+        for delay in fu.DELAYS:
+            for offset in range(args.offsets):
+                run(test, panel, delay, offset, labels=w_labels if (test == "W" and delay == 0) else None)
+
+    contributions = [r["contributions"] for r in rows if r["test"] == "W" and r["delay"] == 0]
+    top3 = top_names.top_contributors(contributions, TOP_K)
+    total = sum(sum(c.values()) for c in contributions) / max(len(contributions), 1)
+    top_avg = {t: sum(c.get(t, 0.0) for c in contributions) / max(len(contributions), 1) for t in top3}
+    notes.update({"W_top3_tickers": top3, "W_top3_avg_contribution": top_avg,
+                  "W_top3_share_of_overlay_profit": (sum(top_avg.values()) / total) if total else None})
+    save()
+    print(f"[W] top 3 contributors, chosen before WN3: {top3}", flush=True)
+    wn3_panel = w_panel[~w_panel["ticker"].astype(str).str.upper().isin(top3)].reset_index(drop=True)
+    for offset in range(args.offsets):
+        run("WN3", wn3_panel, 1, offset)
+    del wn3_panel
+
+    for test, panel in (("MU", u_panel), ("MW", w_panel)):
+        for seed in range(args.monkeys):
+            run(test, panel, 0, seed % fu.N_OFFSETS, seed=seed, randomise=True)
+    del u_panel, w_panel
+
+    for test, universe, lists in (("UD", "U", u_lists), ("WD", "W", w_lists)):
+        panel = build_panel(universe, built, lists, fu.DELIST_HAIRCUT)
+        for offset in range(args.offsets):
+            run(test, panel, 0, offset)
+        del panel
+
+    result = judge(rows)
+    save(result)
+    print(json.dumps({k: result.get(k) for k in ("gates", "U_verdict", "W_verdict", "verdict")}, indent=1),
+          flush=True)
+    return result
+
+
 def main(argv: list[str] | None = None):
-    parser = argparse.ArgumentParser(description="Pre-registered H-wide-universe data step (research only).")
-    parser.add_argument("--step", choices=("wiki", "coverage"), required=True)
+    parser = argparse.ArgumentParser(description="Pre-registered H-wide-universe check (research only).")
+    parser.add_argument("--step", choices=("wiki", "coverage", "sectors", "runs"), required=True)
     parser.add_argument("--wiki-zip", default=str(WIKI_ZIP), help="Kaggle WIKI zip (wiki step)")
     parser.add_argument("--membership-csv", default=str(fu.DATA_ROOT / "sp500_membership.csv"),
                         help="membership CSV (default: the copy saved by H-full-universe)")
+    parser.add_argument("--per-hour", type=int, default=45, help="Tiingo requests per hour (sectors step)")
+    parser.add_argument("--offsets", type=int, default=fu.N_OFFSETS)
+    parser.add_argument("--monkeys", type=int, default=fu.N_MONKEYS)
+    parser.add_argument("--rebuild-features", action="store_true")
+    parser.add_argument("--out", default=str(RESULT_JSON))
     args = parser.parse_args(argv)
-    return step_wiki(args) if args.step == "wiki" else step_coverage(args)
+    steps = {"wiki": step_wiki, "coverage": step_coverage, "sectors": step_sectors, "runs": step_runs}
+    return steps[args.step](args)
 
 
 if __name__ == "__main__":

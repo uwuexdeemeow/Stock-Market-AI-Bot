@@ -1546,3 +1546,40 @@ No engine run has been made yet.
 
 **Next (by the rule):** build the runs step: C2 (source agreement), then
 U, W, the random-pick sets, WN3 and the delisting diagnostics.
+
+### More implementation notes for H-wide-universe (2026-10-16, after C1, before any engine run)
+
+Written when the runs step was built, before any feature file or engine
+result existed. None of them changes a gate.
+
+- **Sectors:** H-full-universe's SIC lookup, unchanged. For companies that
+  stopped trading, the company **name** used for the SEC search comes from
+  Wikipedia's "Historical components of the S&P 500" changes table (saved
+  in the data folder); Tiingo is asked only when Wikipedia has no name.
+  This only changes where the name comes from, not the SIC→sector table.
+  No SIC code → `OTHER`, as pre-registered.
+- **Features:** the project's own feature code, run offline on the
+  stitched prices up to **2023-03-01** (enough for the last 20-day labels
+  after 2022-12-30; nothing later is built). Feature rows before
+  2012-06-01 are left out of the panels, since no list exists before
+  2012-10-01.
+- **Cross-sectional ranks:** the `xs_rank_*` columns are recomputed with
+  the live rule (`cross_sectional_features.py`: percentile per date and per
+  date+sector, sector falls back to market under 6 names, lone value 0.5,
+  missing 0.5), using **only that day's eligible rows** of each universe.
+  A test checks that the result equals the live function exactly.
+- **R0n:** the 62 `WATCHLIST` names on the stitched data, every day, xs
+  ranks within those 62 (as the live data does). Like U and W, it uses no
+  ML score; the incumbent's regime score doesn't use one.
+- **W list:** the same monthly eligibility as U (member that day, 63
+  sessions of history, traded in the last 5) with no size limit.
+- **Run window:** every run starts on the same 20 start days as H-edge (the
+  first sessions of the project panel) and ends on 2022-12-30. A position
+  opened in late December 2022 is sold at its normal 20-day exit in January
+  2023; that is the only 2023 price any run uses.
+- **Order:** R0 and R0n first; if C2 fails, nothing else runs. Then U, W,
+  WN3 (top 3 chosen from W's on-time runs before WN3 runs), MU, MW, UD,
+  WD. The output file is saved after every run, and a restart skips runs
+  already done.
+- A smoke test (`--offsets 2 --monkeys 4`) writes to its own file, is
+  marked `valid_full_test: false` and is not judged.

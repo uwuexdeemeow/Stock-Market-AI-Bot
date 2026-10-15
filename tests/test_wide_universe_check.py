@@ -87,3 +87,89 @@ def test_wiki_frame_cuts_after_march_2018_and_bad_bars():
     assert frame.index.max() <= pd.Timestamp(wu.WIKI_END)
     assert days[1] not in frame.index
     assert frame["RawClose"].iloc[0] == 10.0 and frame["Close"].iloc[0] == 9.0
+
+
+# ── Runs step helpers ──────────────────────────────────────────────────────
+
+def test_wikipedia_names_reads_both_cell_styles_and_markup():
+    text = """{| class="wikitable sortable" id="changes"
+|-
+! Effective Date
+|-
+|October 6, 2026
+|TWLO
+|[[Twilio]]
+|WBD
+|[[Warner Bros. Discovery]]
+|reason<ref name=":1">x</ref>
+|-
+|| July 26, 2017
+|| AOS
+|| [[A. O. Smith]]
+|| BBBY
+|| [[Bed Bath & Beyond Inc.|Bed Bath & Beyond]]
+|| Market capitalization changes.
+|}"""
+    names = wu.wikipedia_names(text)
+    assert names["BBBY"] == "Bed Bath & Beyond"
+    assert names["TWLO"] == "Twilio" and names["AOS"] == "A. O. Smith"
+
+
+def test_rerank_matches_live_cross_sectional_code(tmp_path):
+    import cross_sectional_features as xs
+
+    rng = np.random.default_rng(0)
+    days = pd.bdate_range("2015-01-01", periods=5)
+    tickers = [f"T{i}" for i in range(10)]
+    sector_map = {t: ("XLK" if i < 7 else "XLE") for i, t in enumerate(tickers)}
+    cols = ["ret_5d", "hvol_20d"]
+    for t in tickers:
+        frame = pd.DataFrame(rng.normal(size=(len(days), 2)), index=days, columns=cols)
+        if t == "T3":
+            frame.iloc[1, 0] = np.nan
+        frame.to_parquet(tmp_path / f"{t}.parquet")
+    xs.apply_cross_sectional_rank_features(tickers, str(tmp_path), sector_map=sector_map,
+                                           source_cols=cols, failure_dates={})
+    source = pd.concat([pd.read_parquet(tmp_path / f"{t}.parquet")[cols].assign(ticker=t, date=days)
+                        for t in tickers], ignore_index=True)
+    mine = wu.rerank_cross_sectional(source, pd.Series(True, index=source.index), sector_map, source_cols=cols)
+    for t in tickers:
+        live = pd.read_parquet(tmp_path / f"{t}.parquet")
+        ours = mine[mine["ticker"] == t].set_index("date")
+        for col in ["xs_rank_sector_ret_5d", "xs_rank_market_ret_5d", "xs_rank_sector_hvol_20d"]:
+            np.testing.assert_allclose(ours[col].to_numpy(), live[col].to_numpy())
+
+
+def test_rerank_uses_only_eligible_rows():
+    days = pd.bdate_range("2015-01-01", periods=1)
+    source = pd.DataFrame({"date": list(days) * 3, "ticker": ["A", "B", "C"], "ret_5d": [1.0, 2.0, 3.0]})
+    eligible = pd.Series([True, True, False])
+    out = wu.rerank_cross_sectional(source, eligible, {}, source_cols=["ret_5d"])
+    assert list(out["ticker"]) == ["A", "B"]
+    assert list(out["xs_rank_market_ret_5d"]) == [0.5, 1.0]
+
+
+def _rows(test, delay, values, start_seed=None):
+    return [{"test": test, "delay": delay, "offset": i % 20, "decision_alpha_vs_qqq_pct": v,
+             **({"seed": start_seed + i} if start_seed is not None else {})} for i, v in enumerate(values)]
+
+
+def test_judge_stops_when_sources_disagree():
+    rows = _rows("R0", 1, [100.0] * 3) + _rows("R0n", 1, [60.0] * 3)
+    result = wu.judge(rows)
+    assert result["gates"]["C2_source_agreement"] is False
+    assert result["verdict"] == "source disagrees with project data"
+
+
+def test_judge_applies_wide_universe_gates():
+    rows = (_rows("R0", 1, [100.0] * 3) + _rows("R0n", 1, [90.0] * 3)
+            + _rows("U", 1, [50.0] * 3) + _rows("U", 0, [60.0] * 3) + _rows("MU", 0, list(range(100)), 0)
+            + _rows("W", 1, [80.0] * 3) + _rows("W", 0, [200.0] * 3) + _rows("MW", 0, list(range(100)), 0)
+            + _rows("WN3", 1, [30.0] * 3))
+    result = wu.judge(rows)
+    gates = result["gates"]
+    assert gates["C2_source_agreement"] and gates["U1_survivorship"] and gates["W1_width"] and gates["W2_skill"]
+    assert gates["U2_beats_random_picks"] is False          # 60 < p95 of 0..99
+    assert gates["W3_breadth"] is False                      # 30 < 50% of 80
+    assert result["W_verdict"] == "real but too small or too narrow"
+    assert result["U_verdict"] == "edge not shown"
