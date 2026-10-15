@@ -442,6 +442,13 @@ period, on the same calendar as the backtest.
   `--force` still trades.
 - A missing or damaged period file, or a signal without the calendar, means
   "rebalance". Trading once more is safer than never trading again.
+- **Calendar dates are signal days, not trade days.** A date like
+  `2026-10-14` means the picks use that day's closing prices. The orders
+  go in on the next trading session's run (here 2026-10-15), the same as
+  the backtest, which buys at the next day's Open. So the run on the
+  calendar date itself still says HOLD. That is expected, not a late
+  rebalance. The HOLD log line says "next rebalance signal day … (orders go
+  in on the next trading session)".
 
 **Safety that still runs every day:**
 
