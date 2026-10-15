@@ -1606,3 +1606,9 @@ result existed. None of them changes a gate.
      their random/delisting/WN3 sets now use the first 20 sessions of their
      own panels (October 2012). R0 and R0n keep the project panel's start
      days.
+  3. **Memory.** The second smoke test (which confirmed fixes 1 and 2) was
+     stopped by the computer running low on memory while it held both
+     ~700-stock panels. The run order is now U, MU, UD, then W, WN3 (top 3
+     still chosen from W's on-time runs before WN3 runs), MW, WD, with one
+     panel in memory at a time, and feature files are read for the needed
+     columns only. No gate or setting changes.

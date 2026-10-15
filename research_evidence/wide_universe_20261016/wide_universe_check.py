@@ -339,6 +339,11 @@ def wikipedia_names(text: str) -> dict[str, str]:
     return names
 
 
+def pq_schema_names(path) -> list[str]:
+    import pyarrow.parquet as pq
+    return pq.read_schema(path).names
+
+
 def stitched_companies() -> list[str]:
     return sorted(p.stem for p in STITCHED_DIR.glob("*.parquet"))
 
@@ -603,8 +608,8 @@ def step_runs(args) -> dict:
     import cross_sectional_features as xs
     frames = []
     for company in built:
-        frame = pd.read_parquet(FEATURE_DIR / f"{company}.parquet",
-                                columns=None)
+        path = FEATURE_DIR / f"{company}.parquet"
+        frame = pd.read_parquet(path, columns=[c for c in pq_schema_names(path) if c in xs.SOURCE_COLS])
         frame.index = pd.DatetimeIndex(frame.index)
         frame = frame.loc[frame.index >= pd.Timestamp(PANEL_START)]
         cols = [c for c in xs.SOURCE_COLS if c in frame.columns]
@@ -620,6 +625,13 @@ def step_runs(args) -> dict:
     del source
 
     specs = afb.load_feature_specs(write_health_outputs=False)
+    import pyarrow.parquet as pq
+    # Columns load_factor_panel can use: the score features, its fixed extras
+    # and the prices for the labels.  Everything else is never read.
+    panel_columns = ({sp["feature"] for sp in specs} | {"Open", "High", "Low", "Close", "Volume"}
+                     | {"days_to_next_earnings", "days_since_earnings", "factor_beta_252_spy",
+                        "factor_idio_vol_252_spy", "hvol_20d"}
+                     | {c for c in xs_tables["U"].columns if c.startswith("xs_rank_")})
     feature_dir = str(FEATURE_DIR)
     original_read = pd.read_parquet
 
@@ -629,10 +641,12 @@ def step_runs(args) -> dict:
         by_ticker = {t: g.droplevel(0) for t, g in table.groupby(level=0)}
 
         def read(path, *a, **k):
-            frame = original_read(path, *a, **k)
             company = Path(str(path)).stem
             if str(Path(str(path)).parent) != feature_dir:
-                return frame
+                return original_read(path, *a, **k)
+            # Read only the columns the panel uses (saves most of the memory).
+            available = pq.read_schema(path).names
+            frame = original_read(path, columns=[c for c in available if c in panel_columns or c == "__index_level_0__"])
             index = pd.DatetimeIndex(pd.to_datetime(frame.index))
             frame.index = index.tz_localize(None) if index.tz is not None else index
             frame = frame.sort_index()
@@ -754,24 +768,41 @@ def step_runs(args) -> dict:
         print(json.dumps(c2, indent=1), flush=True)
         return c2
 
-    u_panel = build_panel("U", built, u_lists, 0.0)
-    w_panel = build_panel("W", built, w_lists, 0.0)
-    notes.update({"u_panel_rows": int(len(u_panel)), "w_panel_rows": int(len(w_panel))})
-    # PLAIN ENGLISH: U and W have no rows before their first monthly list, so
-    # their 20 start days are the first 20 sessions of their own panels.
-    # (Using the project panel's 2010 start days would make all 20 calendars
-    # identical, because the engine can't start before the data does.)
-    for test, panel in (("U", u_panel), ("W", w_panel)):
+    # PLAIN ENGLISH: one universe at a time, so only one ~700-stock panel
+    # is in memory at once (two at once ran the computer out of memory).
+    # U and W have no rows before their first monthly list, so their 20
+    # start days are the first 20 sessions of their own panels.  (The
+    # project panel's 2010 start days would make all 20 calendars identical,
+    # because the engine can't start before the data does.)
+    def own_start_days(panel, family):
         own = core._nyse_sessions(panel["date"].min(), panel["date"].max())
-        family = ("U", "MU", "UD") if test == "U" else ("W", "MW", "WN3", "WD")
         start_days.update({t: own for t in family})
-    notes["start_days"] = {t: str(pd.Timestamp(v[0]).date()) for t, v in start_days.items()}
-    w_labels = top_names.label_lookup(w_panel, label)
-    for test, panel in (("U", u_panel), ("W", w_panel)):
-        for delay in fu.DELAYS:
-            for offset in range(args.offsets):
-                run(test, panel, delay, offset, labels=w_labels if (test == "W" and delay == 0) else None)
+        notes.setdefault("start_days", {}).update({t: str(pd.Timestamp(own[0]).date()) for t in family})
 
+    # ── U family: U, MU, UD ──
+    panel = build_panel("U", built, u_lists, 0.0)
+    notes["u_panel_rows"] = int(len(panel))
+    own_start_days(panel, ("U", "MU", "UD"))
+    for delay in fu.DELAYS:
+        for offset in range(args.offsets):
+            run("U", panel, delay, offset)
+    for seed in range(args.monkeys):
+        run("MU", panel, 0, seed % fu.N_OFFSETS, seed=seed, randomise=True)
+    del panel
+    panel = build_panel("U", built, u_lists, fu.DELIST_HAIRCUT)
+    for offset in range(args.offsets):
+        run("UD", panel, 0, offset)
+    del panel
+
+    # ── W family: W, WN3 (top 3 chosen from W's on-time runs first), MW, WD ──
+    panel = build_panel("W", built, w_lists, 0.0)
+    notes["w_panel_rows"] = int(len(panel))
+    own_start_days(panel, ("W", "MW", "WN3", "WD"))
+    w_labels = top_names.label_lookup(panel, label)
+    for delay in fu.DELAYS:
+        for offset in range(args.offsets):
+            run("W", panel, delay, offset, labels=w_labels if delay == 0 else None)
+    del w_labels
     contributions = [r["contributions"] for r in rows if r["test"] == "W" and r["delay"] == 0]
     top3 = top_names.top_contributors(contributions, TOP_K)
     total = sum(sum(c.values()) for c in contributions) / max(len(contributions), 1)
@@ -780,21 +811,17 @@ def step_runs(args) -> dict:
                   "W_top3_share_of_overlay_profit": (sum(top_avg.values()) / total) if total else None})
     save()
     print(f"[W] top 3 contributors, chosen before WN3: {top3}", flush=True)
-    wn3_panel = w_panel[~w_panel["ticker"].astype(str).str.upper().isin(top3)].reset_index(drop=True)
+    wn3_panel = panel[~panel["ticker"].astype(str).str.upper().isin(top3)].reset_index(drop=True)
     for offset in range(args.offsets):
         run("WN3", wn3_panel, 1, offset)
     del wn3_panel
-
-    for test, panel in (("MU", u_panel), ("MW", w_panel)):
-        for seed in range(args.monkeys):
-            run(test, panel, 0, seed % fu.N_OFFSETS, seed=seed, randomise=True)
-    del u_panel, w_panel
-
-    for test, universe, lists in (("UD", "U", u_lists), ("WD", "W", w_lists)):
-        panel = build_panel(universe, built, lists, fu.DELIST_HAIRCUT)
-        for offset in range(args.offsets):
-            run(test, panel, 0, offset)
-        del panel
+    for seed in range(args.monkeys):
+        run("MW", panel, 0, seed % fu.N_OFFSETS, seed=seed, randomise=True)
+    del panel
+    panel = build_panel("W", built, w_lists, fu.DELIST_HAIRCUT)
+    for offset in range(args.offsets):
+        run("WD", panel, 0, offset)
+    del panel
 
     result = judge(rows)
     save(result)
