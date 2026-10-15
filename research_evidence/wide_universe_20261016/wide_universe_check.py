@@ -416,6 +416,7 @@ def step_sectors(args) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════
 
 FEATURE_DIR = DATA_ROOT / "features"
+R0N_FEATURE_DIR = DATA_ROOT / "features_r0n"   # R0n: built exactly like the project's data/
 RESULT_JSON = OUT_DIR / "wide_universe_check.json"
 RUN_END = "2022-12-30"            # every run ends here; 2023-2026 is kept for the exam
 FEATURE_END = "2023-03-01"        # enough later prices for the last 20-day labels
@@ -579,6 +580,18 @@ def step_runs(args) -> dict:
         fu.load_raw, fu.FEATURE_DIR = old["load_raw"], old["FEATURE_DIR"]
     print(f"[features] built for {len(built)} companies", flush=True)
 
+    # R0n is the project's own recipe on the new prices: the project's
+    # SECTOR_MAP, cross-sectional ranks across WATCHLIST + the survivorship
+    # training names (as research.py does), and the live rank function.
+    from settings import SECTOR_MAP as PROJECT_SECTOR_MAP, SURVIVORSHIP_TRAINING_TICKERS
+    r0n_names = sorted(set(WATCHLIST) | {t for t in SURVIVORSHIP_TRAINING_TICKERS
+                                         if (STITCHED_DIR / f"{t}.parquet").exists()})
+    fu.load_raw, fu.FEATURE_DIR = load_stitched, R0N_FEATURE_DIR
+    try:
+        fu.build_features(r0n_names, PROJECT_SECTOR_MAP, rebuild=args.rebuild_features, end=FEATURE_END)
+    finally:
+        fu.load_raw, fu.FEATURE_DIR = old["load_raw"], old["FEATURE_DIR"]
+
     last_real = {c: load_stitched(c).index.max() for c in built}
     data_end = max(last_real.values())
     last_real = {c: d for c, d in last_real.items() if d < data_end - pd.Timedelta(days=10)}
@@ -601,7 +614,6 @@ def step_runs(args) -> dict:
     source = pd.concat(frames, ignore_index=True)
     del frames
     xs_tables = {
-        "R0n": rerank_cross_sectional(source, eligible_rows(source, None, WATCHLIST), sector_map),
         "U": rerank_cross_sectional(source, eligible_rows(source, u_lists), sector_map),
         "W": rerank_cross_sectional(source, eligible_rows(source, w_lists), sector_map),
     }
@@ -643,6 +655,14 @@ def step_runs(args) -> dict:
         if lists is not None:
             panel = panel.loc[fu.universe_mask(panel, lists)]
         panel = panel.reset_index(drop=True)
+        empty_ml = pd.DataFrame(columns=["date", "ticker", "ml_score"])
+        return core._ensure_robust_score_columns(afb.attach_scores(panel, specs, empty_ml))
+
+    def build_r0n_panel() -> pd.DataFrame:
+        with fu.patched(afb, WATCHLIST=list(WATCHLIST), DATA_DIR=str(R0N_FEATURE_DIR)):
+            panel = afb.load_factor_panel(specs, require_forward_returns=False)
+        notes.setdefault("project_membership_filter", {})["R0n"] = bool(
+            panel.attrs.get("point_in_time_membership", {}).get("applied"))
         empty_ml = pd.DataFrame(columns=["date", "ticker", "ml_score"])
         return core._ensure_robust_score_columns(afb.attach_scores(panel, specs, empty_ml))
 
@@ -693,6 +713,8 @@ def step_runs(args) -> dict:
                 delist += bool(t in last_real and pd.Timestamp(exit_day) > last_real[t])
         return {"stock_positions": picks, "later_removed_positions": removed, "delisting_exits": delist}
 
+    start_days = {"R0": sessions, "R0n": sessions}
+
     def run(test, panel, delay, offset, *, seed=None, labels=None, randomise=False):
         key = (test, delay, offset, seed)
         if key in done:
@@ -701,7 +723,7 @@ def step_runs(args) -> dict:
         frame = edge.randomized_scores(panel, seed) if randomise else panel
         equity, trades, extra = core.run_core_satellite(
             frame, {**config, "entry_delay_days": delay},
-            evaluation_start=sessions[offset], evaluation_end=end)
+            evaluation_start=start_days[test][offset], evaluation_end=end)
         if randomise:
             unexpected = {c for c in trades.get("score_col", pd.Series(dtype=str)).astype(str).unique()
                           if c not in edge.SCORE_COLS and not c.startswith("_blended_regime_score_")}
@@ -717,7 +739,8 @@ def step_runs(args) -> dict:
         save()
 
     # R0 and R0n first: gate C2 decides whether anything else runs.
-    r0n_panel = build_panel("R0n", WATCHLIST, None, 0.0)
+    r0n_panel = build_r0n_panel()
+    notes["r0n_xs_names"] = r0n_names
     notes["r0n_panel_rows"] = int(len(r0n_panel))
     for test, panel in (("R0", r0_panel), ("R0n", r0n_panel)):
         for delay in fu.DELAYS:
@@ -725,7 +748,8 @@ def step_runs(args) -> dict:
                 run(test, panel, delay, offset)
     del r0_panel, r0n_panel
     c2 = judge(rows)
-    if not c2["gates"]["C2_source_agreement"]:
+    # A smoke test (not a valid run) carries on past C2 so every code path is exercised.
+    if valid and not c2["gates"]["C2_source_agreement"]:
         save(c2)
         print(json.dumps(c2, indent=1), flush=True)
         return c2
@@ -733,6 +757,15 @@ def step_runs(args) -> dict:
     u_panel = build_panel("U", built, u_lists, 0.0)
     w_panel = build_panel("W", built, w_lists, 0.0)
     notes.update({"u_panel_rows": int(len(u_panel)), "w_panel_rows": int(len(w_panel))})
+    # PLAIN ENGLISH: U and W have no rows before their first monthly list, so
+    # their 20 start days are the first 20 sessions of their own panels.
+    # (Using the project panel's 2010 start days would make all 20 calendars
+    # identical, because the engine can't start before the data does.)
+    for test, panel in (("U", u_panel), ("W", w_panel)):
+        own = core._nyse_sessions(panel["date"].min(), panel["date"].max())
+        family = ("U", "MU", "UD") if test == "U" else ("W", "MW", "WN3", "WD")
+        start_days.update({t: own for t in family})
+    notes["start_days"] = {t: str(pd.Timestamp(v[0]).date()) for t, v in start_days.items()}
     w_labels = top_names.label_lookup(w_panel, label)
     for test, panel in (("U", u_panel), ("W", w_panel)):
         for delay in fu.DELAYS:

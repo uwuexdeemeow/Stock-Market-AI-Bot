@@ -1583,3 +1583,26 @@ result existed. None of them changes a gate.
   already done.
 - A smoke test (`--offsets 2 --monkeys 4`) writes to its own file, is
   marked `valid_full_test: false` and is not judged.
+- **Corrections after the smoke test (2026-10-16, before any valid run).**
+  The smoke test (2 start days, 4 random runs, marked not valid, not
+  judged) showed two code problems. Both are fixed before the full run:
+  1. **R0n was not the project's recipe.** The note above said the live
+     data ranks within the 62 names; that was wrong. `research.py` ranks
+     across `WATCHLIST` + `SURVIVORSHIP_TRAINING_TICKERS` (BBBY, FRC) using
+     the project's own `SECTOR_MAP`, and the sector-relative features also
+     use `SECTOR_MAP`. R0n had used the SIC sectors (7 of the 62 names get
+     a different sector, NFLX even `OTHER`). A feature-by-feature check
+     found every non-ranked feature matching the project data (correlation
+     above 0.98) and only the ranks differing. R0n is now built exactly as
+     the project builds `data/`: `SECTOR_MAP`, ranks across the 62 names
+     plus BBBY (FRC has no price in the new source), the live rank
+     function, in its own folder. Disclosed honestly: the problem was
+     noticed because the smoke R0n was far below R0, but the fix only makes
+     R0n copy the project's recipe; no setting was tried for its effect on
+     the numbers. U and W keep the pre-registered SIC sectors.
+  2. **Start days collapsed.** The engine can't start before a panel's first
+     row, so with the project panel's 2010 start days every U and W run used
+     the same calendar (offsets 0 and 1 gave identical results). U, W and
+     their random/delisting/WN3 sets now use the first 20 sessions of their
+     own panels (October 2012). R0 and R0n keep the project panel's start
+     days.
