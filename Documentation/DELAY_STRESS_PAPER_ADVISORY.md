@@ -1516,3 +1516,33 @@ None of them changes a gate.
   `adfd226694c6f3ec2c56b585d973764180a39a3ec516601721e90096dc1de94f`).
   It is an unofficial copy, so its row count and last date are written to
   the output. Every other rule above is unchanged.
+
+### Result: H-wide-universe coverage gate C1 (2026-10-16) — PASS (narrowly)
+
+Source: Quandl WIKI (Kaggle copy, 15,389,314 rows, last date 2018-03-27)
+stitched with the H-full-universe Tiingo files. Output:
+`research_evidence/wide_universe_20261016/wide_universe_coverage.json`.
+No engine run has been made yet.
+
+| | Covered | Needed | Pass? |
+|---|---|---|---|
+| Companies that left the index (261) | **85.8%** | 85% | yes |
+| Current members (442) | 98.2% | 95% | yes |
+
+- **What WIKI added:** 9 companies priced from WIKI alone (among them
+  BBBY, JCP, ENDP, MNK, ESV, which later failed or nearly failed) and 5
+  stitched WIKI+Tiingo (CVC, LLTC, HAR, HOT, APOL; return correlation 1.0
+  on the overlap). That lifted removed-company coverage from Tiingo's
+  80.8% to 85.8%.
+- **Still missing:** 45 companies, including FRC (First Republic), BMC,
+  NYX and MOLX, which have no prices from either source.
+- **Joins dropped by the rule:** 56. Most are companies Tiingo already
+  covers in full, so nothing is lost. Several dropped as "returns disagree"
+  (MSI, XRX, CAG, IR, AAL and others) had spin-offs or mergers, where the
+  two sources adjust differently. The rule is kept as written.
+- **Honest reading:** the pass is narrow. About 14% of the removed
+  companies are still missing, and C1 can't rule out that they are the
+  worst ones. Results from U and W should be read with that in mind.
+
+**Next (by the rule):** build the runs step: C2 (source agreement), then
+U, W, the random-pick sets, WN3 and the delisting diagnostics.
