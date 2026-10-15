@@ -1473,3 +1473,37 @@ A smoke test (`--offsets 2 --monkeys 4`) is marked `valid_full_test: false`
 and must not be judged. Details found while building the script go in an
 "Implementation notes" section dated before the coverage step, and none of
 them may change a gate.
+
+### Implementation notes for H-wide-universe (2026-10-16, before the coverage step)
+
+Written before any WIKI price was downloaded and before C1 was computed.
+None of them changes a gate.
+
+- **Source chosen by the owner: a free stitch**, not a paid source. The
+  pre-registration allows the owner's choice; this note records it.
+  - **Quandl WIKI prices** (Nasdaq Data Link table `WIKI/PRICES`, free
+    account key, frozen in March 2018, includes delisted companies) for
+    dates up to 2018-03-27.
+  - **Tiingo** for everything else: the price files already downloaded for
+    H-full-universe (`research_evidence/full_universe_20260929/data/raw/`)
+    are reused read-only. No new Tiingo downloads for C1.
+- **Which WIKI ticker:** for each company, every name it had in the
+  membership list (its own ticker, `RENAMES`, predecessors) is tried, and
+  `.` in a ticker is also tried as `_`. The name with the most rows inside
+  the company's 2013–2022 member sessions is used. WIKI files go through the
+  same `first_segment` cut as Tiingo files (a gap of more than 30 days ends
+  the file).
+- **Stitch rule (per company):** Tiingo prices are used wherever Tiingo has
+  a bar. WIKI fills only the dates before Tiingo's first bar (or all dates,
+  if Tiingo has no file). WIKI's adjusted prices are scaled by one number,
+  the median ratio of Tiingo adjusted Close to WIKI adjusted Close over the
+  days both have, so returns are unchanged and levels line up. Raw Close and
+  Volume come from WIKI's unadjusted columns.
+- **Stitch check:** if the two sources overlap on at least 20 days and the
+  correlation of their daily Close returns there is below **0.95**, the WIKI
+  part of that company is dropped (they are not the same security). Fewer
+  than 20 overlap days with Tiingo present: the WIKI part is dropped too,
+  since the join can't be checked. Dropped joins are listed in the output.
+- **C1 is computed on the stitched files**, with the H-full-universe code
+  and thresholds, unchanged. The C1 output lists, for each company, which
+  source covered it.
