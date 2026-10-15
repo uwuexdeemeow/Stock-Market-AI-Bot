@@ -1308,3 +1308,168 @@ earning their alpha from the same handful of volatile large stocks, because
 only about 62 stocks can be picked. A sturdier edge needs more stocks to
 choose from, which is the question H-full-universe could not answer with
 Tiingo's coverage (C1 failed at 80.8%).
+
+## Hypothesis H-wide-universe (pre-registered 2026-10-16, before any data purchase, download or run)
+
+**Owner request:** after three failed new-edge rounds, test whether the
+limit really is the 62-stock panel. This retries H-full-universe with a paid
+source that keeps delisted companies, and adds the question that matters
+most: does the incumbent's signal work when it can pick from **all** S&P 500
+members, not just 62? Script (to be written):
+`research_evidence/wide_universe_20261016/wide_universe_check.py`, re-using
+the H-full-universe code where it fits.
+
+**Why this is a new hypothesis, not a re-judgement:** H-full-universe ended
+at its coverage gate (C1 failed with Tiingo), so no engine run was ever
+made or seen. Nothing in it is re-judged. Its rules for C1, the pool, the
+universe rule U, sectors and delistings are reused unchanged below.
+
+**Questions:**
+
+1. **Survivorship (U):** does the edge survive a rule-based 62-name list
+   that includes companies that later left the index? (H-full-universe's
+   question.)
+2. **Width (W):** does the edge hold, and stop resting on a few names,
+   when every point-in-time S&P 500 member can be picked?
+
+**What stays fixed:** the incumbent config (including the number of names
+it holds, sector caps and costs), the engine, the ETF core and regime
+switch, the feature shortlist (`logs/feature_ic_shortlist.csv` as committed
+today), and the membership source used in H-edge (fja05680/sp500). The
+measure is the same as H-edge: alpha vs QQQ in % points, added up over
+2013–2022. Nothing is tuned.
+
+**2023–2026 is not used at all in this step.** Every run ends on
+2022-12-30. 2023–2026 stays unused so it can be the final exam (below) if W
+passes. This is stricter than H-full-universe, which printed 2023–2026 as a
+diagnostic.
+
+### Data source (owner chooses, before the coverage step)
+
+Requirements: split- and dividend-adjusted daily OHLCV **plus** raw Close
+and Volume, history from 2012-07-01, companies that were delisted or
+acquired included, a stable company ID across ticker changes, and a licence
+that allows local research. Candidates: Norgate Data, Sharadar (Nasdaq Data
+Link), EODHD, CRSP. The script records the source name, download date and a
+SHA-256 of every price file. Downloads go to
+`research_evidence/wide_universe_20261016/data/` (not in Git). The real
+`data/` folder is never written. If the vendor gives its own index
+membership history, it is saved as a cross-check only; the membership
+source above is not changed.
+
+### Step 0 — data gates (judged before any engine run is looked at)
+
+- **C1 (coverage):** exactly as in H-full-universe: at least **85%** of
+  the pool companies that are no longer members must have prices for at
+  least **90%** of the NYSE sessions they were members during 2013–2022,
+  and the same for at least **95%** of current members. Fail → stop, "not
+  testable with this source". The thresholds are not loosened.
+- **C2 (source agreement):** the incumbent on its own 62-name list is run
+  twice: once on the project's data (R0) and once on the new source (R0n).
+  The median one-day-late alpha of R0n must be within **±25%** of R0's.
+  Fail → stop, "source disagrees with project data"; the difference is
+  reported, not explained away. All later gates compare against **R0n**, so
+  source differences don't count as edge.
+
+### Universes
+
+- **U:** H-full-universe's rule, unchanged: on the first NYSE session of
+  each month, the 62 point-in-time members with the highest median daily
+  dollar volume over the previous 63 sessions (data up to the day before),
+  needing 63 sessions of history and a trade in the last 5 sessions.
+- **W:** every point-in-time member that meets the same history and
+  "traded recently" checks (about 500 names). No volume ranking.
+- In both, cross-sectional features and the three score columns are ranked
+  within that day's eligible list, the same way the live signal ranks
+  within its own list.
+- **Sectors** come from SEC SIC codes with H-full-universe's fixed
+  SIC→sector table; current `SECTOR_MAP` is not used for any name.
+- **Delisting inside a hold:** sold at its last Close. A diagnostic row
+  applies −30% at that Close instead (decides nothing).
+
+### Runs
+
+| Set | What | Runs |
+|---|---|---|
+| R0 | incumbent, 62-name list, project data | 20 start days × on time/late = 40 |
+| R0n | the same on the new source | 40 |
+| U | incumbent on universe U | 40 |
+| W | incumbent on universe W | 40 |
+| MU | random picks in U (three score columns replaced by random numbers, seeds 0–99, start day = seed mod 20, on time) | 100 |
+| MW | the same random picks in W | 100 |
+| WN3 | W one day late, with W's 3 biggest-contributing tickers removed (chosen from W's on-time runs by the H-top-names method, written to the output before WN3 runs) | 20 |
+| UD, WD | U and W on-time runs with the −30% delisting allowance (diagnostic) | 40 |
+
+### Gates (2013–2022)
+
+- **C1, C2:** as above.
+- **U1 (survivorship):** median one-day-late alpha of U > 0 **and** ≥
+  **50%** of R0n's.
+- **U2 (luck):** median on-time alpha of U > the **95th percentile** of MU.
+- **W1 (width):** median one-day-late alpha of W > 0 **and** ≥ **50%** of
+  R0n's.
+- **W2 (skill):** median on-time alpha of W > the **95th percentile** of
+  MW.
+- **W3 (breadth):** median one-day-late alpha of WN3 > 0 **and** ≥ **50%**
+  of W's own median.
+
+### Verdicts
+
+- **U:** the same three labels as H-full-universe ("survives", "real but
+  mostly list hindsight", "not shown"). Evidence about the current
+  incumbent only.
+- **W1, W2 and W3 pass → "edge holds on a wide universe".** W becomes a
+  candidate and goes to the final exam (below).
+- **W2 passes, W1 or W3 fails → "real but too small or too narrow".** No
+  candidate. Stock-picking research stops here; the incumbent keeps its
+  forward test.
+- **W2 fails → "no stock-picking edge on an unbiased universe".** No
+  candidate, and stock-picking research stops. The incumbent keeps its
+  forward test under `FORWARD_TEST_RULE.md`, but its backtest alpha should
+  no longer be used to set expectations.
+
+### Final exam (only if W passes all three)
+
+Run once, never re-run with other settings: the existing
+`core_satellite_execution_stress.py` in research-candidate mode on universe
+W, **including 2023–2026** for the first time. Pass = no failed gate in any
+scenario, with no paper advisory. A pass allows the owner to *discuss* a
+separate W paper epoch. That would need its own pre-registered plan, a
+daily data feed for about 500 names, locked-file changes and the owner's
+agreement. It never approves real money.
+
+**Recorded but not judged:** start-day spreads, mean delay costs, the UD/WD
+rows, the number of delisting exits, the share of picks that are
+later-removed companies, average turnover and names per period in W, and
+the top-contributor names in U and W.
+
+**Limits (written down now):**
+
+- The feature shortlist and engine settings were chosen on the 62-name
+  history. A W failure may partly mean "tuned to that list". For
+  expectations it means the same thing.
+- W holds more small and volatile names, so real trading costs could be
+  higher than the fixed 10 bps. The exam's +25 bps scenario covers part of
+  this.
+- SIC sectors are rougher than GICS, so sector caps differ a little from
+  live.
+- Removing the top names in W3 is a hindsight test, as in H-top-names.
+- A paid source can still miss some failed companies. C1 limits this but
+  cannot rule out that the missing ones are the worst.
+
+**What the verdict means:** evidence, not approval. No gate, threshold,
+live universe, feature list or live config changes because of it.
+
+**How to run (project computer, after the owner picks the source):**
+
+```bash
+python research_evidence/wide_universe_20261016/wide_universe_check.py --step coverage   # C1
+python research_evidence/wide_universe_20261016/wide_universe_check.py --step agreement  # C2, only if C1 passes
+python research_evidence/wide_universe_20261016/wide_universe_check.py --step runs       # only if C1 and C2 pass
+```
+
+Output: `research_evidence/wide_universe_20261016/wide_universe_check.json`.
+A smoke test (`--offsets 2 --monkeys 4`) is marked `valid_full_test: false`
+and must not be judged. Details found while building the script go in an
+"Implementation notes" section dated before the coverage step, and none of
+them may change a gate.
