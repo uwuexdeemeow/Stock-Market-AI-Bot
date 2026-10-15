@@ -1,36 +1,26 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-15T14:07:58+00:00",
-  "source_generated_at": "2026-10-15T14:07:50+00:00",
+  "generated_at": "2026-10-15T21:16:10+00:00",
+  "source_generated_at": "2026-10-15T21:16:08+00:00",
   "status": "collecting",
-  "sample_count": 10,
+  "sample_count": 8,
   "minimum_sample_count": 20,
-  "recommended_one_way_slippage_bps": 11.3785,
+  "recommended_one_way_slippage_bps": 10.0,
   "configured_floor_bps": 10.0,
   "cost_measure": "arrival_shortfall_bps_with_fill_minute_fallback",
-  "arrival_shortfall_samples": 10,
+  "arrival_shortfall_samples": 8,
   "fill_minute_fallback_samples": 0,
-  "all_fill_count": 13,
+  "all_fill_count": 11,
   "segments": [
     {
       "side": "buy",
       "order_type": "limit",
       "liquidity_bucket": "high",
-      "median_notional": 16706.2,
-      "samples": 5,
-      "median_slippage_bps": 4.66,
-      "p75_slippage_bps": 8.79,
-      "mean_slippage_bps": 6.138
-    },
-    {
-      "side": "buy",
-      "order_type": "limit",
-      "liquidity_bucket": "medium",
-      "median_notional": 2745.2,
-      "samples": 1,
-      "median_slippage_bps": 0.0,
-      "p75_slippage_bps": 0.0,
-      "mean_slippage_bps": 0.0
+      "median_notional": 10298.22,
+      "samples": 4,
+      "median_slippage_bps": 6.725,
+      "p75_slippage_bps": 8.9675,
+      "mean_slippage_bps": 6.615
     },
     {
       "side": "buy",
