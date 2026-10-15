@@ -1,0 +1,155 @@
+{
+  "timestamp": "2026-10-15T14:06:01.447867",
+  "run_id": "github-38747531203",
+  "mode": "daily_run",
+  "steps_total": 20,
+  "steps_ok": 19,
+  "steps_no_action": 1,
+  "steps_failed": 0,
+  "total_elapsed_seconds": 122.3,
+  "results": [
+    {
+      "name": "fill_monitor",
+      "status": "ok",
+      "elapsed": 0.4
+    },
+    {
+      "name": "broker_health",
+      "status": "ok",
+      "elapsed": 1.2
+    },
+    {
+      "name": "factor_data_health",
+      "status": "ok",
+      "elapsed": 1.1
+    },
+    {
+      "name": "drift_monitor",
+      "status": "ok",
+      "elapsed": 0.4
+    },
+    {
+      "name": "alpaca_pre_signal_status",
+      "status": "ok",
+      "elapsed": 4.6
+    },
+    {
+      "name": "core_satellite_signal",
+      "status": "ok",
+      "elapsed": 96.0
+    },
+    {
+      "name": "regime_monitor",
+      "status": "ok",
+      "elapsed": 0.4
+    },
+    {
+      "name": "alpaca_submit",
+      "status": "no_action",
+      "elapsed": 3.0,
+      "execution_outcome": {
+        "schema_version": 2,
+        "run_id": "github-38747531203",
+        "generated_at": "2026-10-15T14:07:48+00:00",
+        "status": "no_action",
+        "reason_code": "portfolio_within_rebalance_thresholds",
+        "market_open": true,
+        "planned_orders": 0,
+        "submitted_orders": 0,
+        "accepted_orders": 0,
+        "filled_orders": 0,
+        "open_orders": 0,
+        "skipped_orders": 0,
+        "rejected_orders": 0,
+        "failed_orders": 0,
+        "completion_ratio": 0.0,
+        "recovery_eligible": false,
+        "unresolved_orders": [],
+        "quote_feed": "",
+        "account_alignment": {},
+        "errors": []
+      }
+    },
+    {
+      "name": "alpaca_reconcile",
+      "status": "ok",
+      "elapsed": 4.5
+    },
+    {
+      "name": "alpaca_execution_guard",
+      "status": "ok",
+      "elapsed": 1.7
+    },
+    {
+      "name": "broker_truth",
+      "status": "ok",
+      "elapsed": 1.4,
+      "alignment": {
+        "status": "pass",
+        "passed": true,
+        "reason": "ok",
+        "comparable_tickers": 6,
+        "maximum_target_weight_gap": 0.01124,
+        "current_gross_exposure": 0.993664,
+        "target_gross_exposure": 1.0,
+        "gross_exposure_gap": 0.006336,
+        "weight_tolerance": 0.02,
+        "gross_exposure_tolerance": 0.05,
+        "weight_gap_enforced": true,
+        "active_rebalance_order_count": 0,
+        "waited_seconds": 0.0,
+        "rebalance_calendar": {
+          "hold_day": false,
+          "reason": "rebalanced_in_this_run",
+          "signal_period": "2026-10-14",
+          "recorded_period": "2026-10-14"
+        }
+      }
+    },
+    {
+      "name": "alpaca_paper_health",
+      "status": "ok",
+      "elapsed": 1.9
+    },
+    {
+      "name": "alpaca_execution_scorecard",
+      "status": "ok",
+      "elapsed": 0.5
+    },
+    {
+      "name": "execution_cost_calibration",
+      "status": "ok",
+      "elapsed": 0.5
+    },
+    {
+      "name": "alpaca_gauntlet",
+      "status": "ok",
+      "elapsed": 1.2
+    },
+    {
+      "name": "paper_validation_epoch",
+      "status": "ok",
+      "elapsed": 0.7
+    },
+    {
+      "name": "monitor_heartbeat",
+      "status": "ok",
+      "elapsed": 0.4
+    },
+    {
+      "name": "canonical_paper_readiness",
+      "status": "ok",
+      "elapsed": 1.9
+    },
+    {
+      "name": "paper_evidence_manifest",
+      "status": "ok",
+      "elapsed": 0.4
+    },
+    {
+      "name": "log_cleanup",
+      "status": "ok",
+      "elapsed": 0.1
+    }
+  ]
+}
