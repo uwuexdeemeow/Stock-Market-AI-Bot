@@ -1507,3 +1507,12 @@ None of them changes a gate.
 - **C1 is computed on the stitched files**, with the H-full-universe code
   and thresholds, unchanged. The C1 output lists, for each company, which
   source covered it.
+- **Source change (2026-10-16, still before C1):** the official WIKI API
+  looks closed to free accounts (the owner checked, and an anonymous request
+  was refused). The same WIKI table is read instead from a public Kaggle
+  copy: `marketneutral/quandl-wiki-prices-us-equites` (one file,
+  `WIKI_PRICES.csv`, same columns as the official table; downloaded without
+  a login; zip SHA-256
+  `adfd226694c6f3ec2c56b585d973764180a39a3ec516601721e90096dc1de94f`).
+  It is an unofficial copy, so its row count and last date are written to
+  the output. Every other rule above is unchanged.

@@ -9,9 +9,9 @@ W)?  Before any backtest, the price data has to be good enough.
 
 This file does the data part:
 
-  1. "wiki" step: downloads the free Quandl WIKI price archive (frozen in
-     March 2018, but it still has many companies that no longer trade) for
-     every company that was in the S&P 500 at some point in 2012-10-01 to
+  1. "wiki" step: reads a public Kaggle copy of the free Quandl WIKI price
+     archive (frozen in March 2018, but it still has many companies that no
+     longer trade) and keeps the rows for every company that was in the S&P 500 at some point in 2012-10-01 to
      2022-12-31.
   2. "coverage" step: joins ("stitches") WIKI with the Tiingo files already
      downloaded for H-full-universe, then checks gate C1: do enough of
@@ -22,8 +22,9 @@ H-wide-universe" and its implementation notes in
 Documentation/DELAY_STRESS_PAPER_ADVISORY.md.  Research only: nothing here
 changes a gate, a config, the live stock list or the data/ folder.
 
-Run from the project root (needs internet and a free Nasdaq Data Link key
-in .env as NASDAQ_DATA_LINK_API_KEY):
+Run from the project root.  First save the public Kaggle copy of WIKI
+(marketneutral/quandl-wiki-prices-us-equites, no login needed) as
+research_evidence/wide_universe_20261016/data/kaggle_wiki/wiki.zip:
     python research_evidence/wide_universe_20261016/wide_universe_check.py --step wiki
     python research_evidence/wide_universe_20261016/wide_universe_check.py --step coverage
 Output: research_evidence/wide_universe_20261016/wide_universe_coverage.json
@@ -36,7 +37,6 @@ import importlib.util
 import json
 import os
 import sys
-import time
 from pathlib import Path
 
 import numpy as np
@@ -49,7 +49,7 @@ OUT_DIR = Path(__file__).resolve().parent
 DATA_ROOT = OUT_DIR / "data"                 # everything downloaded lives here (not in Git)
 WIKI_DIR = DATA_ROOT / "wiki"                # one WIKI price file per ticker
 STITCHED_DIR = DATA_ROOT / "stitched"        # one joined WIKI+Tiingo file per company
-WIKI_LOG = DATA_ROOT / "wiki_log.json"       # which tickers were asked for and what came back
+WIKI_LOG = DATA_ROOT / "wiki_log.json"       # file hash, and rows found per ticker
 COVERAGE_JSON = OUT_DIR / "wide_universe_coverage.json"
 
 HYPOTHESIS = "H-wide-universe"
@@ -57,10 +57,6 @@ FULL_UNIVERSE_SCRIPT = OUT_DIR.parent / "full_universe_20260929" / "full_univers
 
 # WIKI stopped updating in March 2018.  Its last full day:
 WIKI_END = "2018-03-27"
-WIKI_URL = "https://data.nasdaq.com/api/v3/datatables/WIKI/PRICES.json"
-WIKI_COLUMNS = ("ticker,date,open,high,low,close,volume,"
-                "adj_open,adj_high,adj_low,adj_close,adj_volume")
-WIKI_BATCH = 20                  # tickers per request (the API pages at 10,000 rows)
 
 # Stitch check (fixed in the implementation notes before any download).
 MIN_OVERLAP_DAYS = 20
@@ -173,43 +169,22 @@ def stitch(tiingo: pd.DataFrame, wiki: pd.DataFrame) -> tuple[pd.DataFrame, dict
     return joined, {**info, "source": "wiki+tiingo", "wiki_days_added": int(len(early))}
 
 
-# ── WIKI download ──────────────────────────────────────────────────────────
+# ── WIKI file (Kaggle copy) ────────────────────────────────────────────────
 
-def _wiki_key() -> str:
-    try:
-        from dotenv import load_dotenv
-        load_dotenv(Path.cwd() / ".env")
-    except Exception:
-        pass
-    key = os.environ.get("NASDAQ_DATA_LINK_API_KEY") or os.environ.get("QUANDL_API_KEY")
-    if not key:
-        raise SystemExit("No Nasdaq Data Link key: add NASDAQ_DATA_LINK_API_KEY=... to .env "
-                         "(free account at data.nasdaq.com)")
-    return key
+# The official WIKI API now needs a paid/locked key, so we use a public
+# Kaggle copy of the same table (saved by hand, see the implementation notes).
+KAGGLE_WIKI_REF = "marketneutral/quandl-wiki-prices-us-equites"
+KAGGLE_WIKI_URL = f"https://www.kaggle.com/api/v1/datasets/download/{KAGGLE_WIKI_REF}"
+WIKI_ZIP = DATA_ROOT / "kaggle_wiki" / "wiki.zip"
 
 
-def _wiki_fetch(session, tickers: list[str], key: str) -> pd.DataFrame:
-    """All WIKI rows for a batch of tickers, following the page cursor."""
-    params = {"ticker": ",".join(tickers), "date.gte": fu.PRICE_START,
-              "qopts.columns": WIKI_COLUMNS, "api_key": key}
-    frames, cursor = [], None
-    while True:
-        if cursor:
-            params["qopts.cursor_id"] = cursor
-        for attempt in range(5):
-            response = session.get(WIKI_URL, params=params, timeout=120)
-            if response.status_code == 429:          # too many requests: wait and retry
-                time.sleep(15 * (attempt + 1))
-                continue
-            break
-        response.raise_for_status()
-        payload = response.json()["datatable"]
-        names = [c["name"] for c in payload["columns"]]
-        frames.append(pd.DataFrame(payload["data"], columns=names))
-        cursor = response.json().get("meta", {}).get("next_cursor_id")
-        if not cursor:
-            break
-    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+def _sha256(path: Path) -> str:
+    import hashlib
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def _pool_and_names(args):
@@ -223,29 +198,43 @@ def _pool_and_names(args):
 
 
 def step_wiki(args) -> dict:
-    import requests
+    """Split the big WIKI CSV into one small file per ticker we need.
 
-    key = _wiki_key()
+    PLAIN ENGLISH: the Kaggle file holds ~15 million rows for ~3,200
+    tickers.  We read it in pieces, keep only the tickers that could belong
+    to a pool company and only dates from 2010 on, and save each ticker on
+    its own so the coverage step can load it fast.
+    """
+    import zipfile
+
+    zip_path = Path(args.wiki_zip)
+    if not zip_path.exists():
+        raise SystemExit(f"WIKI file not found: {zip_path}. Download it from {KAGGLE_WIKI_URL}")
     _, _, _, _, names, _ = _pool_and_names(args)
-    wanted = sorted({t for aliases in names.values() for t in wiki_candidates(aliases)})
-    log = fu._read_json(WIKI_LOG, {})
-    todo = [t for t in wanted if t not in log]
-    print(f"WIKI tickers to ask for: {len(todo)} (of {len(wanted)})", flush=True)
+    wanted = set(t for aliases in names.values() for t in wiki_candidates(aliases))
+    parts: dict[str, list[pd.DataFrame]] = {}
+    total_rows, last_date = 0, ""
+    with zipfile.ZipFile(zip_path) as archive, archive.open("WIKI_PRICES.csv") as handle:
+        for chunk in pd.read_csv(handle, chunksize=1_000_000):
+            total_rows += len(chunk)
+            last_date = max(last_date, str(chunk["date"].max()))
+            keep = chunk[chunk["ticker"].isin(wanted) & (chunk["date"] >= fu.PRICE_START)]
+            for ticker, rows in keep.groupby("ticker"):
+                parts.setdefault(ticker, []).append(rows)
+            print(f"  read {total_rows:,} rows", flush=True)
     WIKI_DIR.mkdir(parents=True, exist_ok=True)
-    session = requests.Session()
-    for start in range(0, len(todo), WIKI_BATCH):
-        batch = todo[start:start + WIKI_BATCH]
-        rows = _wiki_fetch(session, batch, key)
-        for ticker in batch:
-            part = rows[rows["ticker"] == ticker] if len(rows) else rows
-            if len(part):
-                part.to_parquet(WIKI_DIR / f"{ticker}.parquet", index=False)
-            log[ticker] = {"rows": int(len(part))}
-        fu._write_json(WIKI_LOG, log)
-        print(f"  {min(start + WIKI_BATCH, len(todo))}/{len(todo)}", flush=True)
-    found = sum(1 for v in log.values() if v["rows"])
-    print(f"WIKI tickers with data: {found} of {len(log)}", flush=True)
-    return {"asked": len(log), "with_data": found}
+    log = {}
+    for ticker in sorted(wanted):
+        rows = pd.concat(parts[ticker], ignore_index=True) if ticker in parts else pd.DataFrame()
+        if len(rows):
+            rows.to_parquet(WIKI_DIR / f"{ticker}.parquet", index=False)
+        log[ticker] = {"rows": int(len(rows))}
+    summary = {"source": KAGGLE_WIKI_REF, "zip_sha256": _sha256(zip_path), "csv_rows": total_rows,
+               "csv_last_date": last_date, "asked": len(log),
+               "with_data": sum(1 for v in log.values() if v["rows"])}
+    fu._write_json(WIKI_LOG, {"summary": summary, "tickers": log})
+    print(json.dumps(summary, indent=1), flush=True)
+    return summary
 
 
 def load_wiki(ticker: str) -> pd.DataFrame:
@@ -305,6 +294,7 @@ def step_coverage(args) -> dict:
 def main(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(description="Pre-registered H-wide-universe data step (research only).")
     parser.add_argument("--step", choices=("wiki", "coverage"), required=True)
+    parser.add_argument("--wiki-zip", default=str(WIKI_ZIP), help="Kaggle WIKI zip (wiki step)")
     parser.add_argument("--membership-csv", default=str(fu.DATA_ROOT / "sp500_membership.csv"),
                         help="membership CSV (default: the copy saved by H-full-universe)")
     args = parser.parse_args(argv)

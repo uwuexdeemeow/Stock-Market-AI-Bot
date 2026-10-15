@@ -12,7 +12,8 @@ were never in the test. H-wide-universe re-tests the strategy on every
 company that was in the S&P 500 back then. First the price data has to be
 good enough, and that is what this script checks.
 
-1. **`--step wiki`** downloads the free Quandl WIKI price archive for every
+1. **`--step wiki`** reads a public Kaggle copy of the free Quandl WIKI
+   price archive and keeps the rows for every
    company that was in the S&P 500 at any time from 2012-10-01 to
    2022-12-31 (709 companies, about 748 ticker spellings). WIKI stopped
    updating in March 2018, but it still holds many companies that no
@@ -28,12 +29,15 @@ is only built if C1 passes.
 
 ## How to run
 
-One-time setup: make a free account at data.nasdaq.com, copy the API key
-from account settings, and add this line to `.env`:
+One-time setup: download the Kaggle copy of WIKI (about 463 MB, no login
+needed) to `research_evidence/wide_universe_20261016/data/kaggle_wiki/wiki.zip`:
 
+```bash
+curl -L -o research_evidence/wide_universe_20261016/data/kaggle_wiki/wiki.zip https://www.kaggle.com/api/v1/datasets/download/marketneutral/quandl-wiki-prices-us-equites
 ```
-NASDAQ_DATA_LINK_API_KEY=your_key_here
-```
+
+The official WIKI API on data.nasdaq.com no longer works with a free
+account, so the Kaggle copy (same table, frozen 2018-03-27) is used.
 
 Then, from the project root:
 
@@ -42,8 +46,9 @@ python research_evidence/wide_universe_20261016/wide_universe_check.py --step wi
 python research_evidence/wide_universe_20261016/wide_universe_check.py --step coverage
 ```
 
-- `--step wiki` can be run again; it only asks for tickers it has not
-  asked for yet.
+- `--step wiki` takes a few minutes: it reads ~15 million rows and saves
+  one small file per needed ticker. It records the zip's SHA-256, row count
+  and last date.
 - **Output:** `research_evidence/wide_universe_20261016/wide_universe_coverage.json`
   with the C1 verdict, per-company coverage and which source covered each
   company. The console prints a short summary.
