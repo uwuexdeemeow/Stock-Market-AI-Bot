@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
   "legacy_returns_are_alpha": false,
-  "generated_at": "2026-10-15T14:05:59.634790",
+  "generated_at": "2026-10-16T14:08:18.050899",
   "purpose": "factor_decay_monitor",
   "as_of": "2026-09-16",
   "selected_score_source": "regime_adaptive",
@@ -12,7 +12,7 @@
   "rows": [
     {
       "lookback_days": 60,
-      "daily_ic_mean": -0.10698,
+      "daily_ic_mean": -0.10775,
       "daily_ic_positive_rate": 0.6667,
       "daily_ic_newey_west_tstat": 0.0,
       "top_bucket_excess_return_pct": -2.9183,
@@ -21,8 +21,8 @@
       "observations": 186,
       "decile_mean_return_pct": {
         "1": 1.4333,
-        "2": -0.3081,
-        "3": -0.8715,
+        "2": 0.1971,
+        "3": -1.3766,
         "4": 0.6651,
         "5": 1.6972,
         "6": -0.0773,
@@ -46,7 +46,7 @@
     },
     {
       "lookback_days": 120,
-      "daily_ic_mean": 0.04699,
+      "daily_ic_mean": 0.04653,
       "daily_ic_positive_rate": 0.8,
       "daily_ic_newey_west_tstat": 0.0,
       "top_bucket_excess_return_pct": 3.8646,
@@ -55,8 +55,8 @@
       "observations": 310,
       "decile_mean_return_pct": {
         "1": -1.2347,
-        "2": -0.4717,
-        "3": -1.8751,
+        "2": -0.1686,
+        "3": -2.1782,
         "4": 0.7488,
         "5": 2.5851,
         "6": 0.335,
@@ -99,8 +99,8 @@
       "risk_control_mode": "off",
       "deployment_max_gross_exposure": 1.0
     },
-    "dataset_fingerprint": "56e0c1b87130850008678ff3ec07e0ca2a5eece3e0a27795fa1e385295c9609a",
+    "dataset_fingerprint": "a340b5260601cf90ce77ec9d2f3f324127a62a67b93dac03799e1c8551677f19",
     "research_manifest_path": "signals/research_run_manifest.json",
-    "git_commit": "f15f20d2ad563adedcfb7af4135037b8bc67fc15"
+    "git_commit": "00e63d7ce5e56a06df8181612542c9db403bef9e"
   }
 }

@@ -63,9 +63,9 @@
   "vol_target": 0.0,
   "live_config_source": "nested_walkforward",
   "live_config_source_json": "signals\\core_satellite_nested_walkforward.json",
-  "total_return_pct": 4766.24,
-  "cagr_pct": 26.11,
-  "sharpe": 1.353,
+  "total_return_pct": 4736.53,
+  "cagr_pct": 26.06,
+  "sharpe": 1.35,
   "max_drawdown_pct": -30.47,
   "period_max_drawdown_pct": -21.72,
   "turnover_pct": 4752.73,
@@ -95,18 +95,18 @@
   "benchmark_comparisons": {
     "SPY": {
       "benchmark_return_pct": 812.18,
-      "alpha_pct": 3954.06,
-      "nw_tstat_vs_benchmark": 4.219
+      "alpha_pct": 3924.35,
+      "nw_tstat_vs_benchmark": 4.198
     },
     "QQQ": {
       "benchmark_return_pct": 1713.1,
-      "alpha_pct": 3053.14,
-      "nw_tstat_vs_benchmark": 2.556
+      "alpha_pct": 3023.43,
+      "nw_tstat_vs_benchmark": 2.537
     },
     "BLEND": {
       "benchmark_return_pct": 1172.55,
-      "alpha_pct": 3593.69,
-      "nw_tstat_vs_benchmark": 3.688
+      "alpha_pct": 3563.98,
+      "nw_tstat_vs_benchmark": 3.666
     }
   },
   "benchmark_stats": {
@@ -150,20 +150,20 @@
     },
     "2023_2026": {
       "data_available": true,
-      "return_pct": 181.37,
+      "return_pct": 179.65,
       "benchmark_return_pct": 133.94,
-      "alpha_pct": 47.43
+      "alpha_pct": 45.71
     }
   },
   "holdout_2023_2026": {
     "data_available": true,
-    "strategy_return_pct": 181.37,
+    "strategy_return_pct": 179.65,
     "spy_return_pct": 102.48,
-    "alpha_vs_spy_pct": 78.89,
+    "alpha_vs_spy_pct": 77.17,
     "qqq_return_pct": 165.02,
-    "alpha_vs_qqq_pct": 16.35,
+    "alpha_vs_qqq_pct": 14.63,
     "blend_return_pct": 133.94,
-    "alpha_vs_blend_pct": 47.43
+    "alpha_vs_blend_pct": 45.71
   },
   "yearly_alpha_pct": {
     "2010": -0.51,
@@ -182,7 +182,7 @@
     "2023": 8.85,
     "2024": 27.02,
     "2025": -0.51,
-    "2026": -3.86
+    "2026": -4.54
   },
   "cost_stress": 2.0,
   "core_satellite_gate_results": {
@@ -759,33 +759,36 @@
     ]
   },
   "execution_stress_review": {
-    "pass": true,
+    "pass": false,
     "capital_approval_pass": false,
-    "failed_scenarios": 0,
+    "failed_scenarios": 1,
     "paper_advisory_scenarios": [
       {
         "scenario": "delay_1d",
         "failed_gates": [
           "holdout_2023_2026_vs_qqq_pass"
         ],
-        "holdout_alpha_vs_qqq_pct": -12.25
+        "holdout_alpha_vs_qqq_pct": -20.43
       },
       {
         "scenario": "delay_1d_extra_10bps",
         "failed_gates": [
           "holdout_2023_2026_vs_qqq_pass"
         ],
-        "holdout_alpha_vs_qqq_pct": -17.56
-      },
+        "holdout_alpha_vs_qqq_pct": -25.91
+      }
+    ],
+    "failed_scenario_details": [
       {
         "scenario": "delay_1d_extra_25bps",
         "failed_gates": [
-          "holdout_2023_2026_vs_qqq_pass"
+          "subperiod_stability_pass",
+          "holdout_2023_2026_vs_qqq_pass",
+          "holdout_2023_2026_vs_blend_pass"
         ],
-        "holdout_alpha_vs_qqq_pct": -25.31
+        "holdout_alpha_vs_qqq_pct": -33.92
       }
     ],
-    "failed_scenario_details": [],
     "worst_stressed_drawdown_pct": -33.38
   },
   "factor_decay_review": {
@@ -797,53 +800,28 @@
   "survivorship_review_published": {
     "pass": true,
     "capital_approval_pass": false,
-    "survivorship_adjusted_score": 1.0002,
-    "audit_rebalance_selections": 14,
-    "generic_stressed_paper_ready": true,
-    "total_return_delta_pct": 0.76,
-    "max_drawdown_delta_pct": 0.01,
-    "failed_name_coverage_rate": 0.0588,
+    "survivorship_adjusted_score": 0.8914,
+    "audit_rebalance_selections": 25,
+    "total_return_delta_pct": -1406.84,
+    "max_drawdown_delta_pct": -1.28,
+    "failed_name_coverage_rate": 0.2941,
     "minimum_failed_name_coverage_for_capital": 1.0,
     "point_in_time_universe_complete": false,
     "capital_blockers": [
       "failed_name_coverage_incomplete",
-      "point_in_time_universe_incomplete"
+      "point_in_time_universe_incomplete",
+      "survivorship_return_delta_below_capital_floor"
     ]
   },
   "execution_stress_review_published": {
     "pass": true,
-    "capital_approval_pass": false,
     "failed_scenarios": 0,
-    "paper_advisory_scenarios": [
-      {
-        "scenario": "delay_1d",
-        "failed_gates": [
-          "holdout_2023_2026_vs_qqq_pass"
-        ],
-        "holdout_alpha_vs_qqq_pct": -12.25
-      },
-      {
-        "scenario": "delay_1d_extra_10bps",
-        "failed_gates": [
-          "holdout_2023_2026_vs_qqq_pass"
-        ],
-        "holdout_alpha_vs_qqq_pct": -17.56
-      },
-      {
-        "scenario": "delay_1d_extra_25bps",
-        "failed_gates": [
-          "holdout_2023_2026_vs_qqq_pass"
-        ],
-        "holdout_alpha_vs_qqq_pct": -25.31
-      }
-    ],
-    "failed_scenario_details": [],
-    "worst_stressed_drawdown_pct": -33.38
+    "worst_stressed_drawdown_pct": -29.93
   },
   "factor_decay_review_published": {
     "pass": true,
-    "edge_health_status": "advisory",
-    "reason": "corrected paired-ledger evidence is missing, sparse, or inconclusive"
+    "edge_health_status": "pass",
+    "reason": "factor decay monitor has no real-capital blocking warning"
   },
   "robust_cost_stress_pass": true,
   "live_gate_reasons": []
