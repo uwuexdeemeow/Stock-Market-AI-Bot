@@ -99,7 +99,10 @@ when it starts paper trading.
 ## Who checks and when
 
 - Monthly: Claude (or the owner) computes M1, M2 and M3 and adds one line
-  to the log below. Nothing is judged before a checkpoint, except the T-block
+  to the log below, with `python forward_test_monitor.py --append-log`
+  (added 2026-10-16; see `doc_forward_test_monitor.md`). Note: the equity
+  file on `signals/latest` is `signals/alpaca_paper_equity.csv`; the name
+  `paper_equity.csv` above was a slip. The measures are unchanged. Nothing is judged before a checkpoint, except the T-block
   trigger.
 - At each checkpoint: apply the rule exactly as written, record the result
   here, and don't change the thresholds.
