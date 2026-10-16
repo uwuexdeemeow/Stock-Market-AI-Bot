@@ -1666,3 +1666,67 @@ None of these would turn W's result into a win.
 **What does not change:** no gate, config, live universe or locked file
 changes because of this. The paper incumbent keeps running on paper, real
 money stays blocked, and the forward test is judged at its checkpoints.
+
+## Hypothesis H-index-risk (pre-registered 2026-10-16, before any run)
+
+**Owner request:** after H-wide-universe closed stock-picking research,
+test the one direction left that doesn't pick stocks: **simple risk rules
+on QQQ itself**. The question is not "can we beat QQQ" but "can a fixed,
+simple rule give a clearly smoother ride than holding QQQ, at a small and
+known cost?" Script (to be written):
+`research_evidence/index_risk_20261016/index_risk_check.py`.
+
+**Honest expectation, written down now:** published evidence says rules
+like these mostly **cut deep drawdowns** (2008, 2022) and often **cost some
+return** in strong bull years through late re-entry and whipsaws. A pass
+means "smoother at an acceptable price", not "more money".
+
+**Ideas (2, fixed settings from the literature, nothing tuned):**
+
+| Idea | Rule | Fixed settings |
+|---|---|---|
+| **T** trend | On the last session of each month, hold 100% QQQ if QQQ's Close is above its 200-session average, otherwise 100% BIL. | 200 sessions; monthly |
+| **V** volatility target | On the last session of each month, QQQ weight = min(1, 20% ÷ QQQ's annualised volatility of the last 63 sessions); the rest in BIL. | 20% target; 63 sessions; monthly; no leverage |
+
+**Reference:** buy-and-hold QQQ (**B**). Cash is BIL in all three.
+
+**Trading assumptions:** the signal uses that day's Close; trades happen at
+the **next session's Open** (as the paper strategy does). Cost **5 bps** per
+unit of weight traded. Stress version: one more session of delay **and**
+25 bps per unit traded. Daily prices from the project's `data/QQQ.parquet`
+and `data/BIL.parquet` (adjusted).
+
+**Windows:** BIL starts on 2007-05-30, so the **decision window is
+2007-07-02 to 2022-12-30** (includes 2008, 2020 and 2022). This differs
+from the stock-picking rule (2013–2022) on purpose: risk rules can only be
+judged across real crashes, and nothing here is tuned, so a longer window
+adds evidence without adding choice. **2023-01-03 to the latest date** is
+the exam, used once, only for an idea that passes.
+
+**Measures:** CAGR; Sharpe ratio of daily returns over BIL (annualised);
+maximum drawdown; and the share of months invested in QQQ (T) or the
+average QQQ weight (V).
+
+**Decision gates (decision window, each idea against B):**
+
+- **R1 (smoother):** max drawdown at least **10 percentage points smaller**
+  than B's.
+- **R2 (not worse per unit of risk):** Sharpe ≥ B's Sharpe.
+- **R3 (affordable):** CAGR ≥ B's CAGR **minus 3 points** a year.
+- **R4 (robust):** R1 and R2 still hold in the stress version (one more
+  session late, 25 bps).
+
+**Final exam (only for ideas passing R1–R4), 2023 to the latest date:**
+max drawdown not worse than B's **and** Sharpe ≥ B's Sharpe minus 0.20.
+(2023–2026 had no deep crash, so the exam only checks that the rule
+didn't break or bleed badly; it can't confirm the crash protection.)
+
+**Verdict per idea:** "passes", "fails decision gates" or "fails the exam".
+Ideas that fail are not re-tested with other settings (window, threshold,
+target). **Recorded, not judged:** yearly returns side by side, number of
+switches per year, and how each idea did in 2008, 2020 and 2022.
+
+**What a pass means:** evidence only. It doesn't change the paper bot, any
+gate or any locked file. It gives the owner a tested, simple option for
+money held in an index fund. Using it with real money is the owner's own
+decision.

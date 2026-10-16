@@ -84,6 +84,11 @@ A new idea that passes its own pre-registered research gets its **own**
 paper epoch and its own forward test under this same rule. Its clock starts
 when it starts paper trading.
 
+**Update 2026-10-16:** H-wide-universe ("real but too small or too narrow")
+closed stock-picking research by its own rule. The incumbent's forward test
+above continues unchanged. The next research question is risk control on
+QQQ itself (H-index-risk), not a new stock-picking signal.
+
 ## Rules for that new-edge research (so it doesn't fool us)
 
 1. Each idea is written into `DELAY_STRESS_PAPER_ADVISORY.md` with its
