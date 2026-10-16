@@ -45,7 +45,7 @@ signal_freshness.py, status.py, trade_rules.py
 config_health.py, data_provider.py, data_validation.py,
 experiment_ledger.py, http_retry.py, log_cleanup.py, monitor.py,
 monitor_heartbeat.py, notifications.py, options_iv_provider.py,
-safe_io.py
+safe_io.py, v_rule_helper.py
 
 # Project focus: quant trading, not ML model training
 
