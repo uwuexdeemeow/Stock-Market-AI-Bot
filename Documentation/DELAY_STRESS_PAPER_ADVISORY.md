@@ -1749,3 +1749,50 @@ None of them changes a gate.
   daily closes.
 - **Exam:** each rule starts fresh at the 2023-01-03 Open with the target
   decided on 2022-12-30.
+
+### Result: H-index-risk (2026-10-16) — V (volatility target) PASSES; T (trend) fails the exam
+
+Raw output: `research_evidence/index_risk_20261016/index_risk_check.json`.
+Data to 2026-09-28.
+
+**Decision window 2007-07-02 to 2022-12-30 (B = buy and hold QQQ):**
+
+| | CAGR | Sharpe | Max drawdown | Avg QQQ weight |
+|---|---|---|---|---|
+| **B** hold QQQ | 12.7% | 0.61 | −53.4% | 100% |
+| **T** trend | 11.4% | 0.68 | −28.6% | 79% |
+| **V** vol target | 11.6% | 0.64 | −38.1% | 89% |
+
+| Gate | T | V |
+|---|---|---|
+| R1 drawdown ≥ 10 pts smaller | yes (25 pts) | yes (15 pts) |
+| R2 Sharpe ≥ B's | yes | yes |
+| R3 CAGR ≥ B's − 3 pts | yes (−1.3) | yes (−1.1) |
+| R4 holds one session late + 25 bps | yes (DD −28.6, Sharpe 0.66 vs 0.61) | yes (DD −38.2, Sharpe 0.62 vs 0.61) |
+
+**Exam 2023-01-03 to 2026-09-28 (used once):**
+
+| | CAGR | Sharpe | Max drawdown | Exam |
+|---|---|---|---|---|
+| B | 31.7% | 1.28 | −22.8% | — |
+| T | 20.8% | 0.92 | −13.6% | **fails** (Sharpe more than 0.20 below B's) |
+| V | 27.5% | 1.17 | −21.8% | **passes** |
+
+**Verdicts (by the rule):** **V passes. T fails the exam.** T is not
+re-tested with other settings.
+
+**Crash years (recorded, not judged):** 2008: B −41.7%, T −20.1%, V −29.5%.
+2020: B +48.4%, T +27.7%, V +15.5%. 2022: B −32.6%, T −7.1%, V −23.5%.
+
+**What it means, in plain words:** the volatility-target rule (hold less
+QQQ when the market gets jumpy, checked once a month) gave a somewhat
+smoother ride at a small cost: the worst fall over 2007–2022 was −38%
+instead of −53%, for about 1 point a year less return, and it held up in
+the strong 2023–2026 market (about 4 points a year behind QQQ, with a
+similar worst fall). It is **not** crash-proof: it still lost 30% in 2008
+and 23% in 2022. The trend rule protected far more in crashes but lagged
+too much in the recent bull market, and the rule is the rule.
+
+**What does not change:** the paper bot, every gate and every locked file.
+V is a tested option for the owner's own index money only. Using it is the
+owner's decision.
