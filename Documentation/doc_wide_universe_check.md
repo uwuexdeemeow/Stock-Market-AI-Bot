@@ -24,8 +24,18 @@ good enough, and that is what this script checks.
    members, must have prices on at least 90% of the days they were members.
    If C1 fails, the test stops: "not testable with this source".
 
-The backtest runs (universes U and W) come later, in a separate step that
-is only built if C1 passes.
+3. **`--step sectors`** gives every company a sector from its SEC SIC code.
+   Companies that no longer trade are found at the SEC by name; the name
+   comes from Wikipedia's "Historical components of the S&P 500" table.
+4. **`--step runs`** builds the project's features from the stitched
+   prices and runs the unchanged strategy:
+   - **R0** (project data) and **R0n** (new data, project recipe) first;
+     gate **C2** stops everything if they disagree by more than 25%.
+   - **U**: the 62 most-traded S&P 500 members each month (fair version of
+     today's list). **W**: every S&P 500 member that month (~494).
+   - **MU / MW**: 100 random-pick runs in each universe (luck check).
+   - **WN3**: W without its 3 biggest winners (breadth check).
+   - **UD / WD**: a −30% hit when a held company stops trading (diagnostic).
 
 ## How to run
 
@@ -44,7 +54,14 @@ Then, from the project root:
 ```bash
 python research_evidence/wide_universe_20261016/wide_universe_check.py --step wiki
 python research_evidence/wide_universe_20261016/wide_universe_check.py --step coverage
+python research_evidence/wide_universe_20261016/wide_universe_check.py --step sectors
+python research_evidence/wide_universe_20261016/wide_universe_check.py --step runs
 ```
+
+- `--step runs` takes about an hour and needs ~10 GB of memory. Run it in
+  a normal terminal; if it stops, run it again and it skips finished runs.
+  Output: `research_evidence/wide_universe_20261016/wide_universe_check.json`.
+- Smoke test (not a valid result): add `--offsets 2 --monkeys 4 --out <other file>`.
 
 - `--step wiki` takes a few minutes: it reads ~15 million rows and saves
   one small file per needed ticker. It records the zip's SHA-256, row count
@@ -69,6 +86,13 @@ Tests: `python -m pytest tests/test_wide_universe_check.py -q`.
   different securities with the same ticker. The WIKI part is then dropped
   and listed in the output.
 
+## Result (2026-10-16)
+
+C1 and C2 passed. **U:** "edge real but mostly list hindsight" (keeps
+about 16% of the hand-picked list's alpha). **W:** "real but too small or
+too narrow" (beats random picks but loses to QQQ). Details in
+`DELAY_STRESS_PAPER_ADVISORY.md`.
+
 ## Key terms
 
 - **Survivorship bias:** testing only on companies that survived to today.
@@ -82,5 +106,10 @@ Tests: `python -m pytest tests/test_wide_universe_check.py -q`.
   companies have no prices, any result would be unreliable, so the test
   stops.
 - **Stitching:** joining two price sources into one history for a company.
+- **Random-pick run ("monkey"):** the same strategy with its scores
+  replaced by random numbers. If the real strategy can't beat these, its
+  results could be luck.
+- **Hindsight list:** a stock list chosen today from companies that turned
+  out well. Backtesting on it overstates how good a strategy would have been.
 - **Pre-registered:** the pass/fail rules were written down before the data
   or results were seen, so they can't be bent to fit the results.
