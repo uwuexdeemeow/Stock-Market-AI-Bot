@@ -1612,3 +1612,57 @@ result existed. None of them changes a gate.
      still chosen from W's on-time runs before WN3 runs), MW, WD, with one
      panel in memory at a time, and feature files are read for the needed
      columns only. No gate or setting changes.
+
+### Result: H-wide-universe (2026-10-16) — EDGE IS MOSTLY THE HAND-PICKED LIST; NO WIDE-UNIVERSE CANDIDATE
+
+Full run: 420 engine runs, `valid_full_test: true`, every run ending
+2022-12-30. Raw output:
+`research_evidence/wide_universe_20261016/wide_universe_check.json`
+(log: `full_run.log`). 2023–2026 was not used; no final exam is run.
+
+| Gate | Rule | Result | Pass? |
+|---|---|---|---|
+| **C2** source agreement | R0n late median within ±25% of R0 | 508.7 vs 545.2 (93%) | yes |
+| **U1** survivorship | U late median > 0 and ≥ 50% of R0n | +79.4 (16% of R0n) | **no** |
+| **U2** luck | U on-time median > MU p95 | +70.6 vs −35.1 | yes |
+| **W1** width | W late median > 0 and ≥ 50% of R0n | **−31.9** | **no** |
+| **W2** skill | W on-time median > MW p95 | −16.9 vs −53.7 | yes |
+| **W3** breadth | WN3 late median > 0 and ≥ 50% of W | −120.0 (all 20 runs below QQQ) | **no** |
+
+**Verdicts (by the pre-registered rule):**
+
+- **U: "edge real but mostly list hindsight".** On a fair, rule-based
+  62-name list (one that includes companies that later left the index),
+  the signal still beats random picks clearly and beats QQQ in 16–18 of
+  20 runs. But it keeps only about **16%** of the alpha the hand-picked
+  list shows (+79 vs +509 points over 2013–2022). By the rule, the
+  backtest alpha should **no longer be used to set expectations**.
+- **W: "real but too small or too narrow".** Picking from all ~494
+  members, the signal still beats random picks (random picks lose badly:
+  median −141), but it **loses to QQQ** (median −32; 7–8 of 20 runs beat
+  QQQ). Without its top 3 names (NVDA, BBWI, FCX — 60% of overlay profit)
+  every run loses to QQQ. No candidate; by the rule, **stock-picking
+  research stops here**, and the incumbent keeps its forward test under
+  `FORWARD_TEST_RULE.md`.
+
+**Recorded, not judged:** on-time start-day spread U 228 / W 241 (R0 628);
+mean delay cost U −1.1 / W +5.9; delisting allowance changes U not at all
+and W by −6 (−23.2 vs −16.9); later-removed companies are 29% of W's
+positions and 4% of U's; NVDA is the top contributor in 34 of 40 U runs
+and 32 of 40 W runs.
+
+**What it means, in plain words:** the signal does carry some information
+(it beats random stock picks in every universe), but the large backtest
+alpha comes mostly from the 62-name list having been chosen in hindsight
+from companies that became big winners. On an unbiased universe the edge
+is small, and on the whole S&P 500 it doesn't beat simply holding QQQ.
+
+**Limits (as written before the run):** about 14% of the companies that
+left the index are still missing from the data and could be the worst
+ones (which would make U and W look *better*, not worse); SIC sectors are
+rougher than the project's; the features were chosen on the 62-name list.
+None of these would turn W's result into a win.
+
+**What does not change:** no gate, config, live universe or locked file
+changes because of this. The paper incumbent keeps running on paper, real
+money stays blocked, and the forward test is judged at its checkpoints.

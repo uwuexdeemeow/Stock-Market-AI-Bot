@@ -1,0 +1,19 @@
+{
+ "companies": 704,
+ "done": true,
+ "with_sic": 693,
+ "sector_counts": {
+  "XLI": 116,
+  "XLK": 104,
+  "XLY": 79,
+  "XLF": 76,
+  "XLV": 75,
+  "XLP": 56,
+  "XLE": 43,
+  "XLB": 40,
+  "XLU": 39,
+  "XLRE": 39,
+  "XLC": 24,
+  "OTHER": 13
+ }
+}
