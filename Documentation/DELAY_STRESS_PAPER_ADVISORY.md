@@ -1730,3 +1730,22 @@ switches per year, and how each idea did in 2008, 2020 and 2022.
 gate or any locked file. It gives the owner a tested, simple option for
 money held in an index fund. Using it with real money is the owner's own
 decision.
+
+### Implementation notes for H-index-risk (2026-10-16, before any run)
+
+None of them changes a gate.
+
+- **Data:** the local `data/QQQ.parquet` (from 1999) and `data/BIL.parquet`
+  (from 2007-05-30), adjusted, last date 2026-09-28. The 200- and 63-session
+  signals use QQQ's full history, so both rules have a signal at the first
+  month end (2007-06-29).
+- **Timing:** each month-end target is traded at the Open of the next
+  session (stress: the one after). Between trades both holdings move with
+  their own prices (the volatility-target weight drifts within the month).
+- **Costs:** the first purchase pays on the whole amount for every rule
+  (B, T and V alike); later trades pay on the weight changed.
+- **Sharpe:** daily return minus BIL's daily return, mean ÷ standard
+  deviation × √252. **CAGR:** from calendar time. **Max drawdown:** from
+  daily closes.
+- **Exam:** each rule starts fresh at the 2023-01-03 Open with the target
+  decided on 2022-12-30.
