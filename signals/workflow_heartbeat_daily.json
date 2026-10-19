@@ -3,12 +3,12 @@
   "workflow_file": "daily_paper_trading.yml",
   "event": "workflow_dispatch",
   "schedule": null,
-  "run_id": "38912249772",
-  "run_number": "313",
-  "run_url": "https://github.com/uwuexdeemeow/Stock-Market-AI-Bot/actions/runs/38912249772",
+  "run_id": "39265024388",
+  "run_number": "314",
+  "run_url": "https://github.com/uwuexdeemeow/Stock-Market-AI-Bot/actions/runs/39265024388",
   "branch": "main",
-  "status": "success",
+  "status": "failure",
   "market_closed": false,
-  "safety_blocked": true,
-  "completed_at": "2026-10-16T14:08:19+00:00"
+  "safety_blocked": false,
+  "completed_at": "2026-10-19T14:03:41+00:00"
 }

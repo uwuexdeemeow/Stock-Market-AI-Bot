@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-16T14:07:20.884860",
+  "generated_at": "2026-10-16T12:42:31.143071",
   "purpose": "core_satellite_survivorship_bias_stress",
   "selected_config": {
     "strategy": "core-alpha",
@@ -218,8 +218,8 @@
   },
   "survivorship_adjusted_score": 1.0002,
   "primary_return_pct": 4444.2,
-  "failed_name_stressed_return_pct": 4444.97,
-  "stressed_return_delta_pct": 0.77,
+  "failed_name_stressed_return_pct": 4444.96,
+  "stressed_return_delta_pct": 0.76,
   "limitations": [
     "This is a failed-name stress test, not a complete point-in-time constituent database.",
     "Only locally available audit tickers can be included.",
@@ -237,8 +237,8 @@
       "cagr_pct": 25.6,
       "sharpe": 1.33,
       "max_drawdown_pct": -30.47,
-      "alpha_vs_spy_pct": 3632.02,
-      "alpha_vs_qqq_pct": 2731.11,
+      "alpha_vs_spy_pct": 3632.01,
+      "alpha_vs_qqq_pct": 2731.1,
       "alpha_vs_blend_pct": 3271.65,
       "turnover_pct": 4761.09,
       "estimated_cost_pct": 11.1145,
@@ -250,26 +250,26 @@
       "audit_tickers": "FRC",
       "audit_rebalance_selections": 14,
       "audit_selection_counts_json": "{\"FRC\": 14}",
-      "total_return_pct": 4444.97,
+      "total_return_pct": 4444.96,
       "cagr_pct": 25.6,
       "sharpe": 1.324,
       "max_drawdown_pct": -30.46,
       "alpha_vs_spy_pct": 3632.78,
-      "alpha_vs_qqq_pct": 2731.87,
-      "alpha_vs_blend_pct": 3272.42,
+      "alpha_vs_qqq_pct": 2731.86,
+      "alpha_vs_blend_pct": 3272.41,
       "turnover_pct": 4780.8,
       "estimated_cost_pct": 11.1463,
       "paper_ready": true
     },
     {
       "scenario": "delta_stressed_minus_base",
-      "total_return_pct": 0.77,
+      "total_return_pct": 0.76,
       "cagr_pct": 0.0,
       "sharpe": -0.006,
       "max_drawdown_pct": 0.01,
-      "alpha_vs_spy_pct": 0.76,
+      "alpha_vs_spy_pct": 0.77,
       "alpha_vs_qqq_pct": 0.76,
-      "alpha_vs_blend_pct": 0.77,
+      "alpha_vs_blend_pct": 0.76,
       "turnover_pct": 19.71,
       "estimated_cost_pct": 0.0318
     }
@@ -423,7 +423,7 @@
       "risk_control_mode": "off",
       "deployment_max_gross_exposure": 1.0
     },
-    "dataset_fingerprint": "a340b5260601cf90ce77ec9d2f3f324127a62a67b93dac03799e1c8551677f19",
+    "dataset_fingerprint": "039cf6ab83d8207302248e8cc16c758beb35dbb0fa015e52b63ef2cec337abff",
     "research_manifest_path": "signals/research_run_manifest.json",
     "git_commit": "00e63d7ce5e56a06df8181612542c9db403bef9e"
   }
