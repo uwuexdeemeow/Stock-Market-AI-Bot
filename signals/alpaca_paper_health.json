@@ -1,20 +1,23 @@
 {
-  "generated_at": "2026-10-16T21:16:14+00:00",
+  "generated_at": "2026-10-19T21:16:15+00:00",
   "strategy": "core_satellite_alpha",
   "paper_ready": false,
   "gates_all_pass": false,
-  "medium_risk_review_pass": true,
+  "medium_risk_review_pass": false,
   "strategy_ready": false,
   "readiness_block_reasons": [
     "paper_ready=false",
-    "gates_all_pass=false"
+    "gates_all_pass=false",
+    "medium_risk_review_pass=false"
   ],
   "readiness_source": "core_satellite_alpha_signal.csv",
-  "freshness_ok": true,
-  "freshness_issues": [],
+  "freshness_ok": false,
+  "freshness_issues": [
+    "missing_latest_factor_date"
+  ],
   "freshness_source": "core_satellite_alpha_signal.csv",
-  "paper_equity_days": 40,
-  "paper_equity_rows": 40,
+  "paper_equity_days": 41,
+  "paper_equity_rows": 41,
   "paper_trades": 46,
   "submitted_orders": 21,
   "skipped_orders": 24,
@@ -593,122 +596,111 @@
   "filled_orders": 19,
   "fill_rate": 0.41304347826086957,
   "cancel_rate": 0.0,
-  "account_equity": 106935.22,
+  "account_equity": 108185.22,
   "account_alignment": {
-    "status": "fail",
+    "status": "collecting",
     "passed": false,
-    "reason": "max_weight_gap_0.610872_above_0.020000;gross_exposure_gap_0.993579_above_0.050000",
-    "comparable_tickers": 6,
-    "max_weight_gap": 0.610872,
-    "current_gross_exposure": 0.993579,
-    "target_gross_exposure": 0.0,
-    "gross_exposure_gap": 0.993579,
-    "active_rebalance_order_count": 0,
-    "waited_seconds": 0.0,
-    "source": "broker_truth_canonical",
-    "recovery_plan_path": "",
-    "recovery_plan_rows": 0,
-    "recovery_review_required": false,
-    "recovery_orders_submitted": false,
-    "incident_ledger_path": "",
-    "alignment_incidents_total": 0,
-    "alignment_incidents_open": 0,
-    "current_alignment_incident_id": ""
+    "reason": "broker_truth_target_comparison_unavailable",
+    "comparable_tickers": 0,
+    "max_weight_gap": null,
+    "current_gross_exposure": null,
+    "target_gross_exposure": null,
+    "gross_exposure_gap": null
   },
-  "account_alignment_status": "fail",
-  "current_gross_exposure": 0.993579,
-  "target_gross_exposure": 0.0,
-  "max_drift_abs": 0.610872,
+  "account_alignment_status": "collecting",
+  "current_gross_exposure": null,
+  "target_gross_exposure": null,
+  "max_drift_abs": null,
   "gauntlet_status": "failed",
   "approved_for_real_capital": false,
-  "gauntlet_reason": "fill_rate 0.413 < 0.950; paper_sharpe 0.120 < 0.500; portfolio_drift 0.623 > 0.150",
+  "gauntlet_reason": "fill_rate 0.413 < 0.950; paper_sharpe 0.424 < 0.500; portfolio_drift 0.616 > 0.150",
   "slippage": {
     "source": "alpaca_slippage_reversal_report.json",
-    "report_generated_at": "2026-10-16T21:16:09+00:00",
+    "report_generated_at": "2026-10-19T21:16:10+00:00",
     "latest_fill_at": "2026-10-13T14:10:46+00:00",
-    "filled_orders_with_slippage": 10,
-    "avg_slippage_bps": -3.71,
-    "median_slippage_bps": 1.3,
+    "filled_orders_with_slippage": 9,
+    "avg_slippage_bps": -4.27,
+    "median_slippage_bps": 1.31,
     "worst_slippage_bps": 9.5,
     "total_slippage_dollars": null,
     "slippage_bad_count": 4,
-    "adverse_5m_count": 4,
-    "adverse_15m_count": 9,
-    "adverse_30m_count": 8,
-    "adverse_60m_count": 7,
-    "avg_worst_adverse_60m_bps": 120.99,
+    "adverse_5m_count": 3,
+    "adverse_15m_count": 8,
+    "adverse_30m_count": 7,
+    "adverse_60m_count": 6,
+    "avg_worst_adverse_60m_bps": 129.57,
     "max_worst_adverse_60m_bps": 415.37,
     "segments": {
       "all_orders": {
-        "orders_seen": 10,
-        "orders_analyzed": 10,
-        "eligible_orders": 10,
-        "slippage_eligible_orders": 10,
-        "slippage_measured_orders": 10,
+        "orders_seen": 9,
+        "orders_analyzed": 9,
+        "eligible_orders": 9,
+        "slippage_eligible_orders": 9,
+        "slippage_measured_orders": 9,
         "slippage_coverage_rate": 1.0,
-        "avg_slippage_bps": -3.71,
-        "median_slippage_bps": 1.3,
+        "avg_slippage_bps": -4.27,
+        "median_slippage_bps": 1.31,
         "slippage_bad_threshold_bps": 2.0,
         "slippage_bad_count": 4,
-        "raw_slippage_bad_count": 7,
-        "minor_bad_slippage_count": 3,
-        "adverse_5m_eligible_orders": 10,
-        "adverse_5m_measured_orders": 10,
-        "adverse_5m_observations": 10,
+        "raw_slippage_bad_count": 6,
+        "minor_bad_slippage_count": 2,
+        "adverse_5m_eligible_orders": 9,
+        "adverse_5m_measured_orders": 9,
+        "adverse_5m_observations": 9,
         "adverse_5m_coverage_rate": 1.0,
-        "adverse_5m_count": 4,
-        "adverse_15m_eligible_orders": 10,
-        "adverse_15m_measured_orders": 10,
-        "adverse_15m_observations": 10,
+        "adverse_5m_count": 3,
+        "adverse_15m_eligible_orders": 9,
+        "adverse_15m_measured_orders": 9,
+        "adverse_15m_observations": 9,
         "adverse_15m_coverage_rate": 1.0,
-        "adverse_15m_count": 9,
-        "adverse_30m_eligible_orders": 10,
-        "adverse_30m_measured_orders": 10,
-        "adverse_30m_observations": 10,
+        "adverse_15m_count": 8,
+        "adverse_30m_eligible_orders": 9,
+        "adverse_30m_measured_orders": 9,
+        "adverse_30m_observations": 9,
         "adverse_30m_coverage_rate": 1.0,
-        "adverse_30m_count": 8,
-        "adverse_60m_eligible_orders": 10,
-        "adverse_60m_measured_orders": 10,
-        "adverse_60m_observations": 10,
+        "adverse_30m_count": 7,
+        "adverse_60m_eligible_orders": 9,
+        "adverse_60m_measured_orders": 9,
+        "adverse_60m_observations": 9,
         "adverse_60m_coverage_rate": 1.0,
-        "adverse_60m_count": 7,
-        "avg_worst_adverse_60m_bps": 120.99,
+        "adverse_60m_count": 6,
+        "avg_worst_adverse_60m_bps": 129.57,
         "max_worst_adverse_60m_bps": 415.37
       },
       "rebalance_orders": {
-        "orders_seen": 7,
-        "orders_analyzed": 7,
-        "eligible_orders": 7,
-        "slippage_eligible_orders": 7,
-        "slippage_measured_orders": 7,
+        "orders_seen": 6,
+        "orders_analyzed": 6,
+        "eligible_orders": 6,
+        "slippage_eligible_orders": 6,
+        "slippage_measured_orders": 6,
         "slippage_coverage_rate": 1.0,
-        "avg_slippage_bps": 4.18,
-        "median_slippage_bps": 3.51,
+        "avg_slippage_bps": 4.66,
+        "median_slippage_bps": 4.08,
         "slippage_bad_threshold_bps": 2.0,
         "slippage_bad_count": 4,
-        "raw_slippage_bad_count": 7,
-        "minor_bad_slippage_count": 3,
-        "adverse_5m_eligible_orders": 7,
-        "adverse_5m_measured_orders": 7,
-        "adverse_5m_observations": 7,
+        "raw_slippage_bad_count": 6,
+        "minor_bad_slippage_count": 2,
+        "adverse_5m_eligible_orders": 6,
+        "adverse_5m_measured_orders": 6,
+        "adverse_5m_observations": 6,
         "adverse_5m_coverage_rate": 1.0,
-        "adverse_5m_count": 2,
-        "adverse_15m_eligible_orders": 7,
-        "adverse_15m_measured_orders": 7,
-        "adverse_15m_observations": 7,
+        "adverse_5m_count": 1,
+        "adverse_15m_eligible_orders": 6,
+        "adverse_15m_measured_orders": 6,
+        "adverse_15m_observations": 6,
         "adverse_15m_coverage_rate": 1.0,
-        "adverse_15m_count": 6,
-        "adverse_30m_eligible_orders": 7,
-        "adverse_30m_measured_orders": 7,
-        "adverse_30m_observations": 7,
+        "adverse_15m_count": 5,
+        "adverse_30m_eligible_orders": 6,
+        "adverse_30m_measured_orders": 6,
+        "adverse_30m_observations": 6,
         "adverse_30m_coverage_rate": 1.0,
-        "adverse_30m_count": 6,
-        "adverse_60m_eligible_orders": 7,
-        "adverse_60m_measured_orders": 7,
-        "adverse_60m_observations": 7,
+        "adverse_30m_count": 5,
+        "adverse_60m_eligible_orders": 6,
+        "adverse_60m_measured_orders": 6,
+        "adverse_60m_observations": 6,
         "adverse_60m_coverage_rate": 1.0,
-        "adverse_60m_count": 5,
-        "avg_worst_adverse_60m_bps": 84.81,
+        "adverse_60m_count": 4,
+        "avg_worst_adverse_60m_bps": 91.65,
         "max_worst_adverse_60m_bps": 156.69
       },
       "protective_stops": {
@@ -748,39 +740,39 @@
         "max_worst_adverse_60m_bps": 415.37
       },
       "limit_orders": {
-        "orders_seen": 7,
-        "orders_analyzed": 7,
-        "eligible_orders": 7,
-        "slippage_eligible_orders": 7,
-        "slippage_measured_orders": 7,
+        "orders_seen": 6,
+        "orders_analyzed": 6,
+        "eligible_orders": 6,
+        "slippage_eligible_orders": 6,
+        "slippage_measured_orders": 6,
         "slippage_coverage_rate": 1.0,
-        "avg_slippage_bps": 4.18,
-        "median_slippage_bps": 3.51,
+        "avg_slippage_bps": 4.66,
+        "median_slippage_bps": 4.08,
         "slippage_bad_threshold_bps": 2.0,
         "slippage_bad_count": 4,
-        "raw_slippage_bad_count": 7,
-        "minor_bad_slippage_count": 3,
-        "adverse_5m_eligible_orders": 7,
-        "adverse_5m_measured_orders": 7,
-        "adverse_5m_observations": 7,
+        "raw_slippage_bad_count": 6,
+        "minor_bad_slippage_count": 2,
+        "adverse_5m_eligible_orders": 6,
+        "adverse_5m_measured_orders": 6,
+        "adverse_5m_observations": 6,
         "adverse_5m_coverage_rate": 1.0,
-        "adverse_5m_count": 2,
-        "adverse_15m_eligible_orders": 7,
-        "adverse_15m_measured_orders": 7,
-        "adverse_15m_observations": 7,
+        "adverse_5m_count": 1,
+        "adverse_15m_eligible_orders": 6,
+        "adverse_15m_measured_orders": 6,
+        "adverse_15m_observations": 6,
         "adverse_15m_coverage_rate": 1.0,
-        "adverse_15m_count": 6,
-        "adverse_30m_eligible_orders": 7,
-        "adverse_30m_measured_orders": 7,
-        "adverse_30m_observations": 7,
+        "adverse_15m_count": 5,
+        "adverse_30m_eligible_orders": 6,
+        "adverse_30m_measured_orders": 6,
+        "adverse_30m_observations": 6,
         "adverse_30m_coverage_rate": 1.0,
-        "adverse_30m_count": 6,
-        "adverse_60m_eligible_orders": 7,
-        "adverse_60m_measured_orders": 7,
-        "adverse_60m_observations": 7,
+        "adverse_30m_count": 5,
+        "adverse_60m_eligible_orders": 6,
+        "adverse_60m_measured_orders": 6,
+        "adverse_60m_observations": 6,
         "adverse_60m_coverage_rate": 1.0,
-        "adverse_60m_count": 5,
-        "avg_worst_adverse_60m_bps": 84.81,
+        "adverse_60m_count": 4,
+        "avg_worst_adverse_60m_bps": 91.65,
         "max_worst_adverse_60m_bps": 156.69
       },
       "market_orders": {
@@ -859,8 +851,8 @@
   },
   "slippage_warning": false,
   "equity_risk": {
-    "paper_return_pct": 0.007,
-    "paper_drawdown_pct": -9.523,
+    "paper_return_pct": 1.176,
+    "paper_drawdown_pct": -8.465,
     "paper_drawdown_warning": true
   },
   "equity_sanity": {
@@ -871,37 +863,37 @@
   },
   "concentration": {
     "ticker_weights": {
-      "AMAT": 0.134684,
-      "AMD": 0.19328,
-      "CAT": 0.054743,
-      "QQQ": 0.610872
+      "AMAT": 0.134131,
+      "AMD": 0.194471,
+      "CAT": 0.053687,
+      "QQQ": 0.611363
     },
     "core_ticker_weights": {
-      "QQQ": 0.610872
+      "QQQ": 0.611363
     },
     "overlay_ticker_weights": {
-      "AMAT": 0.134684,
-      "AMD": 0.19328,
-      "CAT": 0.054743
+      "AMAT": 0.134131,
+      "AMD": 0.194471,
+      "CAT": 0.053687
     },
     "sector_weights": {
-      "OTHER": 0.610872,
-      "XLI": 0.054743,
-      "XLK": 0.327964
+      "OTHER": 0.611363,
+      "XLI": 0.053687,
+      "XLK": 0.328603
     },
     "overlay_sector_weights": {
-      "XLI": 0.054743,
-      "XLK": 0.327964
+      "XLI": 0.053687,
+      "XLK": 0.328603
     },
-    "max_ticker_weight": 0.610872,
+    "max_ticker_weight": 0.611363,
     "max_ticker": "QQQ",
-    "max_core_ticker_weight": 0.610872,
+    "max_core_ticker_weight": 0.611363,
     "max_core_ticker": "QQQ",
-    "max_overlay_ticker_weight": 0.19328,
+    "max_overlay_ticker_weight": 0.194471,
     "max_overlay_ticker": "AMD",
-    "max_sector_weight": 0.610872,
+    "max_sector_weight": 0.611363,
     "max_sector": "OTHER",
-    "max_overlay_sector_weight": 0.327964,
+    "max_overlay_sector_weight": 0.328603,
     "max_overlay_sector": "XLK",
     "ticker_concentration_warning": false,
     "core_ticker_concentration_warning": false,
@@ -912,48 +904,48 @@
   "open_position_attribution": {
     "data_available": true,
     "source": "alpaca_position_snapshot_remaining_basis",
-    "as_of": "2026-10-16T21:16:09",
+    "as_of": "2026-10-19T21:16:10",
     "historical_accounting_certified": false,
-    "core_open_pnl": -1314.01,
-    "overlay_open_pnl": -5082.51,
-    "total_open_position_pnl": -6396.52,
+    "core_open_pnl": -497.2,
+    "overlay_open_pnl": -4649.32,
+    "total_open_position_pnl": -5146.52,
     "by_ticker": {
       "AMAT": {
         "sleeve": "overlay",
         "shares": 35.0,
         "fill_price": 477.32,
         "remaining_average_entry_price": 477.32,
-        "current_price": 411.49914285714283,
-        "open_pnl": -2303.73
+        "current_price": 414.6,
+        "open_pnl": -2195.2
       },
       "AMD": {
         "sleeve": "overlay",
         "shares": 39.0,
         "fill_price": 591.75,
         "remaining_average_entry_price": 591.75,
-        "current_price": 529.9599999999999,
-        "open_pnl": -2409.81
+        "current_price": 539.4599999999999,
+        "open_pnl": -2039.31
       },
       "CAT": {
         "sleeve": "overlay",
         "shares": 8.0,
         "fill_price": 777.87125,
         "remaining_average_entry_price": 777.87125,
-        "current_price": 731.75,
-        "open_pnl": -368.97
+        "current_price": 726.02,
+        "open_pnl": -414.81
       },
       "QQQ": {
         "sleeve": "core",
         "shares": 92.0,
         "fill_price": 724.322756,
         "remaining_average_entry_price": 724.322756,
-        "current_price": 710.04,
-        "open_pnl": -1314.01
+        "current_price": 718.9183695652174,
+        "open_pnl": -497.2
       }
     }
   },
   "factor_data": {
-    "latest_data_date": "2026-10-15",
+    "latest_data_date": "2026-10-16",
     "age_trading_days": 1,
     "missing_or_unreadable_count": 0,
     "missing_or_unreadable_sample": []
@@ -962,28 +954,28 @@
     "data_available": true,
     "reason": "ok",
     "warnings": [
-      "live_sharpe_below_backtest: 0.12 vs backtest mean 1.56 (ratio 0.08, threshold 0.3)",
-      "live_cagr_underperforming: 0.0% vs backtest mean 30.1% (gap 30.0pp, threshold 20pp)"
+      "live_sharpe_below_backtest: 0.42 vs backtest mean 1.56 (ratio 0.27, threshold 0.3)",
+      "live_cagr_underperforming: 7.6% vs backtest mean 30.1% (gap 22.4pp, threshold 20pp)"
     ],
     "backtest_mean_oos_sharpe": 1.558,
     "backtest_mean_oos_cagr_pct": 30.07,
     "backtest_worst_oos_drawdown_pct": -22.89,
     "backtest_mean_oos_drawdown_pct": -8.1,
-    "live_equity_days": 40,
-    "live_total_return_pct": 0.007,
-    "live_annualised_cagr_pct": 0.046,
-    "live_annualised_sharpe": 0.12,
+    "live_equity_days": 41,
+    "live_total_return_pct": 1.176,
+    "live_annualised_cagr_pct": 7.645,
+    "live_annualised_sharpe": 0.424,
     "live_max_drawdown_pct": -9.523,
     "drawdown_ratio_vs_worst_oos": 0.416,
-    "sharpe_fraction_of_backtest": 0.077,
-    "cagr_gap_pct": 30.024,
+    "sharpe_fraction_of_backtest": 0.272,
+    "cagr_gap_pct": 22.425,
     "drift_detected": true
   },
   "readiness_flags": {
     "strategy_ready": false,
-    "signal_fresh": true,
+    "signal_fresh": false,
     "broker_synced": true,
-    "account_alignment_status": "fail",
+    "account_alignment_status": "collecting",
     "account_aligned": false,
     "slippage_ok": true,
     "drawdown_ok": false,
@@ -992,7 +984,7 @@
     "backtest_drift_ok": false
   },
   "go_live_scorecard": {
-    "passed": 6,
+    "passed": 5,
     "total": 11,
     "ready": false,
     "criteria": [
@@ -1004,8 +996,8 @@
       },
       {
         "name": "signal_fresh",
-        "passed": true,
-        "actual": true,
+        "passed": false,
+        "actual": false,
         "target": true
       },
       {
@@ -1023,7 +1015,7 @@
       {
         "name": "paper_equity_days",
         "passed": true,
-        "actual": 40,
+        "actual": 41,
         "target": 20
       },
       {
@@ -1034,16 +1026,16 @@
       },
       {
         "name": "max_drift_abs",
-        "status": "fail",
+        "status": "collecting",
         "passed": false,
-        "actual": 0.610872,
+        "actual": null,
         "target": 0.02,
-        "reason": "max_weight_gap_0.610872_above_0.020000;gross_exposure_gap_0.993579_above_0.050000"
+        "reason": "broker_truth_target_comparison_unavailable"
       },
       {
         "name": "avg_slippage_bps",
         "passed": true,
-        "actual": -3.71,
+        "actual": -4.27,
         "target": 10.0
       },
       {
@@ -1071,7 +1063,8 @@
     "reason": "strategy_submission_gates_not_ready",
     "blockers": [
       "strategy_submission_gates_not_ready",
-      "alpaca_alignment_failed:max_weight_gap_0.610872_above_0.020000;gross_exposure_gap_0.993579_above_0.050000"
+      "signal_or_factor_data_not_fresh",
+      "alpaca_alignment_evidence_unavailable:broker_truth_target_comparison_unavailable"
     ],
     "collecting_reasons": [
       "execution_evidence_collecting",
@@ -1083,40 +1076,30 @@
     ],
     "recommended_actions": [
       "Review the signal gate reasons; do not override submission gates.",
-      "Review the alignment recovery CSV; never submit it automatically."
+      "Refresh and validate market data before the next trading run.",
+      "Run live broker reconciliation and confirm account equity and positions are available."
     ],
-    "signal_as_of": "2026-10-16T14:03:00+00:00",
+    "signal_as_of": "2026-10-19T14:03:40.731805+00:00",
     "components": {
       "alignment": {
-        "status": "fail",
+        "status": "collecting",
         "passed": false,
-        "reason": "max_weight_gap_0.610872_above_0.020000;gross_exposure_gap_0.993579_above_0.050000",
-        "comparable_tickers": 6,
-        "max_weight_gap": 0.610872,
-        "current_gross_exposure": 0.993579,
-        "target_gross_exposure": 0.0,
-        "gross_exposure_gap": 0.993579,
-        "active_rebalance_order_count": 0,
-        "waited_seconds": 0.0,
-        "source": "broker_truth_canonical",
-        "recovery_plan_path": "",
-        "recovery_plan_rows": 0,
-        "recovery_review_required": false,
-        "recovery_orders_submitted": false,
-        "incident_ledger_path": "",
-        "alignment_incidents_total": 0,
-        "alignment_incidents_open": 0,
-        "current_alignment_incident_id": ""
+        "reason": "broker_truth_target_comparison_unavailable",
+        "comparable_tickers": 0,
+        "max_weight_gap": null,
+        "current_gross_exposure": null,
+        "target_gross_exposure": null,
+        "gross_exposure_gap": null
       },
       "execution": {
         "status": "collecting",
-        "score": 75.0,
+        "score": 50.0,
         "sample_gate": {
           "ready": false,
-          "measured_rebalance_fills": 7,
+          "measured_rebalance_fills": 6,
           "minimum_rebalance_fills": 20,
           "minimum_definitive_fills": 20,
-          "rebalance_sessions": 4,
+          "rebalance_sessions": 3,
           "minimum_rebalance_sessions": 3
         },
         "decision_eligible": false
@@ -1130,7 +1113,7 @@
           "classified_sessions": false,
           "duplicate_orders": true,
           "classifiable_orders": true,
-          "unexplained_orders": true,
+          "unexplained_orders": false,
           "target_weight_gap": false,
           "gross_exposure_gap": false,
           "critical_incidents": true,
@@ -1141,7 +1124,7 @@
           "two_stage_design": false,
           "paper_version_lock": true
         },
-        "trading_days": 15,
+        "trading_days": 16,
         "paper_version_lock_valid": true
       },
       "workflow_continuity": {
@@ -1155,9 +1138,9 @@
       }
     },
     "evidence_run_ids": {
-      "broker_truth": "post-market-38968049627-1",
-      "execution_scorecard": "post-market-38968049627-1",
-      "validation_epoch": "post-market-38968049627-1",
+      "broker_truth": "post-market-39326006859-1",
+      "execution_scorecard": "post-market-39326006859-1",
+      "validation_epoch": "post-market-39326006859-1",
       "monitor_heartbeat": ""
     },
     "real_capital_approved": false
@@ -1165,15 +1148,17 @@
   "status": "fail",
   "blockers": [
     "strategy_submission_gates_not_ready",
-    "alpaca_alignment_failed:max_weight_gap_0.610872_above_0.020000;gross_exposure_gap_0.993579_above_0.050000"
+    "signal_or_factor_data_not_fresh",
+    "alpaca_alignment_evidence_unavailable:broker_truth_target_comparison_unavailable"
   ],
   "recommended_actions": [
     "Review the signal gate reasons; do not override submission gates.",
-    "Review the alignment recovery CSV; never submit it automatically."
+    "Refresh and validate market data before the next trading run.",
+    "Run live broker reconciliation and confirm account equity and positions are available."
   ],
   "readiness_dimensions": {
     "signal_strategy_gates": false,
-    "signal_freshness": true,
+    "signal_freshness": false,
     "version_lock": true,
     "execution_evidence": false,
     "capital_eligibility": false
@@ -1186,14 +1171,14 @@
   "overall_ready": false,
   "freshness_context": "Calendar age gates remain enforced during weekends and holidays.",
   "run_context": {
-    "run_id": "post-market-38968049627-1",
-    "generated_at": "2026-10-16T21:16:15+00:00",
-    "signal_as_of": "2026-10-16T14:03:00+00:00",
+    "run_id": "post-market-39326006859-1",
+    "generated_at": "2026-10-19T21:16:16+00:00",
+    "signal_as_of": "2026-10-19T14:03:40.731805+00:00",
     "git_commit": "a979454412896f426a82ab2b2fe57f7e10b2ee85",
     "configuration_fingerprint": "fcc80270b1638077f9709ba93f561e8577c4b629753905237a80257d2f9d127f",
     "paper_version_fingerprint": "241b069c01e96d38d26623ba2668b744c5fb99bcd2f88083e442bfd5a1171073",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-38968049627-1",
+  "run_id": "post-market-39326006859-1",
   "broker": "alpaca"
 }
