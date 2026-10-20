@@ -451,16 +451,20 @@ def _load_frozen_factor_baseline_config() -> dict | None:
         return None
     approved = (payload.get("approved_live_configs", {}) or {}).get("core-alpha", {}) or {}
     config = approved.get("config")
-    if isinstance(config, dict):
+    if isinstance(config, dict) and isinstance(config.get("nested_params"), dict):
         return dict(config)
 
-    # PLAIN ENGLISH: a rejected challenger used to erase the last approved
-    # live config. The survivorship audit still records the exact incumbent it
-    # tested, so rebuild that configuration as the frozen comparison baseline.
-    # This report is used only to choose the candidate to validate; it does not
-    # grant approval by itself.
-    audit = _read_json(MEDIUM_RISK_SURVIVORSHIP_PATH)
-    incumbent = audit.get("selected_config", {}) if isinstance(audit, dict) else {}
+    # PLAIN ENGLISH: the published live config has its internal
+    # "nested_params" stripped (see live_signal_config), so it cannot be scored
+    # as-is. Rebuild the same configuration from its plain fields. If no live
+    # config exists (a rejected challenger used to erase it), fall back to the
+    # exact incumbent the survivorship audit tested. This only chooses the
+    # candidate to validate; it does not grant approval by itself.
+    if isinstance(config, dict) and config:
+        incumbent = config
+    else:
+        audit = _read_json(MEDIUM_RISK_SURVIVORSHIP_PATH)
+        incumbent = audit.get("selected_config", {}) if isinstance(audit, dict) else {}
     if not isinstance(incumbent, dict) or not incumbent:
         return None
     tqqq_weight = float((incumbent.get("core_weights", {}) or {}).get("TQQQ", 0.0) or 0.0)
@@ -1124,6 +1128,19 @@ def evaluate_window(panel: pd.DataFrame, config: dict, start: pd.Timestamp, end:
         eval_panel = panel.loc[panel["_date"] <= end_ts]
     else:
         eval_panel = panel.loc[pd.to_datetime(panel["date"], errors="coerce") <= end_ts]
+
+    # PLAIN ENGLISH: the current year's fold ends on Dec 31, which is still in
+    # the future. Stop it at the last day we have data, so the engine drops a
+    # final trade whose 20-day result is not known yet instead of failing the
+    # whole fold on its missing return.
+    if not eval_panel.empty:
+        latest_ts = (
+            eval_panel["_date"].max()
+            if "_date" in eval_panel.columns
+            else pd.to_datetime(eval_panel["date"], errors="coerce").max()
+        )
+        if pd.notna(latest_ts) and pd.Timestamp(latest_ts) < end_ts:
+            end_ts = pd.Timestamp(latest_ts)
 
     metrics = None
     equity = None

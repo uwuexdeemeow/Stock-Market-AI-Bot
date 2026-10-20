@@ -178,6 +178,18 @@ worst-turnover cap, or evaluation failures.
 
 ## Recent fixes
 
+- **Current-year fold no longer crashes (2026-10-21)** — the newest yearly
+  fold ends on Dec 31, which is still in the future. Its last trade's 20-day
+  result is not known yet, so the fold failed with
+  `Invalid forward_return_20d_end_date` and was silently left out.
+  `evaluate_window` now stops the window at the last day with data, so the
+  unfinished trade is dropped and the rest of the year is scored.
+- **`--fixed-frozen-baseline` with a live config (2026-10-21)** — the
+  published live config has its internal `nested_params` removed, which
+  crashed the run with `KeyError: 'nested_params'`. The loader now rebuilds the
+  full config from the live config's plain fields (the result is identical
+  to the approved config).
+
 - **Research/deployment parity** — nested candidates are still described by
   their raw sleeve choices, but each simulated rebalance applies the same
   1.00x final-weight scaling used by paper trading. Newly generated validation
