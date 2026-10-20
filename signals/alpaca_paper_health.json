@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-19T21:16:15+00:00",
+  "generated_at": "2026-10-20T21:16:15+00:00",
   "strategy": "core_satellite_alpha",
   "paper_ready": false,
   "gates_all_pass": false,
@@ -13,11 +13,12 @@
   "readiness_source": "core_satellite_alpha_signal.csv",
   "freshness_ok": false,
   "freshness_issues": [
+    "signal_age_39.2h_gt_24.0h",
     "missing_latest_factor_date"
   ],
   "freshness_source": "core_satellite_alpha_signal.csv",
-  "paper_equity_days": 41,
-  "paper_equity_rows": 41,
+  "paper_equity_days": 42,
+  "paper_equity_rows": 42,
   "paper_trades": 46,
   "submitted_orders": 21,
   "skipped_orders": 24,
@@ -596,7 +597,7 @@
   "filled_orders": 19,
   "fill_rate": 0.41304347826086957,
   "cancel_rate": 0.0,
-  "account_equity": 108185.22,
+  "account_equity": 108698.15,
   "account_alignment": {
     "status": "collecting",
     "passed": false,
@@ -613,10 +614,10 @@
   "max_drift_abs": null,
   "gauntlet_status": "failed",
   "approved_for_real_capital": false,
-  "gauntlet_reason": "fill_rate 0.413 < 0.950; paper_sharpe 0.424 < 0.500; portfolio_drift 0.616 > 0.150",
+  "gauntlet_reason": "fill_rate 0.413 < 0.950; portfolio_drift 0.613 > 0.150",
   "slippage": {
     "source": "alpaca_slippage_reversal_report.json",
-    "report_generated_at": "2026-10-19T21:16:10+00:00",
+    "report_generated_at": "2026-10-20T21:16:10+00:00",
     "latest_fill_at": "2026-10-13T14:10:46+00:00",
     "filled_orders_with_slippage": 9,
     "avg_slippage_bps": -4.27,
@@ -851,8 +852,8 @@
   },
   "slippage_warning": false,
   "equity_risk": {
-    "paper_return_pct": 1.176,
-    "paper_drawdown_pct": -8.465,
+    "paper_return_pct": 1.656,
+    "paper_drawdown_pct": -8.031,
     "paper_drawdown_warning": true
   },
   "equity_sanity": {
@@ -863,37 +864,37 @@
   },
   "concentration": {
     "ticker_weights": {
-      "AMAT": 0.134131,
-      "AMD": 0.194471,
-      "CAT": 0.053687,
-      "QQQ": 0.611363
+      "AMAT": 0.133077,
+      "AMD": 0.195588,
+      "CAT": 0.053999,
+      "QQQ": 0.611019
     },
     "core_ticker_weights": {
-      "QQQ": 0.611363
+      "QQQ": 0.611019
     },
     "overlay_ticker_weights": {
-      "AMAT": 0.134131,
-      "AMD": 0.194471,
-      "CAT": 0.053687
+      "AMAT": 0.133077,
+      "AMD": 0.195588,
+      "CAT": 0.053999
     },
     "sector_weights": {
-      "OTHER": 0.611363,
-      "XLI": 0.053687,
-      "XLK": 0.328603
+      "OTHER": 0.611019,
+      "XLI": 0.053999,
+      "XLK": 0.328665
     },
     "overlay_sector_weights": {
-      "XLI": 0.053687,
-      "XLK": 0.328603
+      "XLI": 0.053999,
+      "XLK": 0.328665
     },
-    "max_ticker_weight": 0.611363,
+    "max_ticker_weight": 0.611019,
     "max_ticker": "QQQ",
-    "max_core_ticker_weight": 0.611363,
+    "max_core_ticker_weight": 0.611019,
     "max_core_ticker": "QQQ",
-    "max_overlay_ticker_weight": 0.194471,
+    "max_overlay_ticker_weight": 0.195588,
     "max_overlay_ticker": "AMD",
-    "max_sector_weight": 0.611363,
+    "max_sector_weight": 0.611019,
     "max_sector": "OTHER",
-    "max_overlay_sector_weight": 0.328603,
+    "max_overlay_sector_weight": 0.328665,
     "max_overlay_sector": "XLK",
     "ticker_concentration_warning": false,
     "core_ticker_concentration_warning": false,
@@ -904,48 +905,48 @@
   "open_position_attribution": {
     "data_available": true,
     "source": "alpaca_position_snapshot_remaining_basis",
-    "as_of": "2026-10-19T21:16:10",
+    "as_of": "2026-10-20T21:16:10",
     "historical_accounting_certified": false,
-    "core_open_pnl": -497.2,
-    "overlay_open_pnl": -4649.32,
-    "total_open_position_pnl": -5146.52,
+    "core_open_pnl": -221.05,
+    "overlay_open_pnl": -4412.54,
+    "total_open_position_pnl": -4633.59,
     "by_ticker": {
       "AMAT": {
         "sleeve": "overlay",
         "shares": 35.0,
         "fill_price": 477.32,
         "remaining_average_entry_price": 477.32,
-        "current_price": 414.6,
-        "open_pnl": -2195.2
+        "current_price": 413.29171428571425,
+        "open_pnl": -2240.99
       },
       "AMD": {
         "sleeve": "overlay",
         "shares": 39.0,
         "fill_price": 591.75,
         "remaining_average_entry_price": 591.75,
-        "current_price": 539.4599999999999,
-        "open_pnl": -2039.31
+        "current_price": 545.13,
+        "open_pnl": -1818.18
       },
       "CAT": {
         "sleeve": "overlay",
         "shares": 8.0,
         "fill_price": 777.87125,
         "remaining_average_entry_price": 777.87125,
-        "current_price": 726.02,
-        "open_pnl": -414.81
+        "current_price": 733.7,
+        "open_pnl": -353.37
       },
       "QQQ": {
         "sleeve": "core",
         "shares": 92.0,
         "fill_price": 724.322756,
         "remaining_average_entry_price": 724.322756,
-        "current_price": 718.9183695652174,
-        "open_pnl": -497.2
+        "current_price": 721.92,
+        "open_pnl": -221.05
       }
     }
   },
   "factor_data": {
-    "latest_data_date": "2026-10-16",
+    "latest_data_date": "2026-10-19",
     "age_trading_days": 1,
     "missing_or_unreadable_count": 0,
     "missing_or_unreadable_sample": []
@@ -953,23 +954,20 @@
   "backtest_vs_live_drift": {
     "data_available": true,
     "reason": "ok",
-    "warnings": [
-      "live_sharpe_below_backtest: 0.42 vs backtest mean 1.56 (ratio 0.27, threshold 0.3)",
-      "live_cagr_underperforming: 7.6% vs backtest mean 30.1% (gap 22.4pp, threshold 20pp)"
-    ],
+    "warnings": [],
     "backtest_mean_oos_sharpe": 1.558,
     "backtest_mean_oos_cagr_pct": 30.07,
     "backtest_worst_oos_drawdown_pct": -22.89,
     "backtest_mean_oos_drawdown_pct": -8.1,
-    "live_equity_days": 41,
-    "live_total_return_pct": 1.176,
-    "live_annualised_cagr_pct": 7.645,
-    "live_annualised_sharpe": 0.424,
+    "live_equity_days": 42,
+    "live_total_return_pct": 1.656,
+    "live_annualised_cagr_pct": 10.621,
+    "live_annualised_sharpe": 0.541,
     "live_max_drawdown_pct": -9.523,
     "drawdown_ratio_vs_worst_oos": 0.416,
-    "sharpe_fraction_of_backtest": 0.272,
-    "cagr_gap_pct": 22.425,
-    "drift_detected": true
+    "sharpe_fraction_of_backtest": 0.347,
+    "cagr_gap_pct": 19.449,
+    "drift_detected": false
   },
   "readiness_flags": {
     "strategy_ready": false,
@@ -981,10 +979,10 @@
     "drawdown_ok": false,
     "concentration_ok": true,
     "real_capital_allowed": false,
-    "backtest_drift_ok": false
+    "backtest_drift_ok": true
   },
   "go_live_scorecard": {
-    "passed": 5,
+    "passed": 6,
     "total": 11,
     "ready": false,
     "criteria": [
@@ -1015,7 +1013,7 @@
       {
         "name": "paper_equity_days",
         "passed": true,
-        "actual": 41,
+        "actual": 42,
         "target": 20
       },
       {
@@ -1052,8 +1050,8 @@
       },
       {
         "name": "backtest_drift_ok",
-        "passed": false,
-        "actual": false,
+        "passed": true,
+        "actual": true,
         "target": true
       }
     ]
@@ -1071,9 +1069,7 @@
       "formal_validation_epoch_collecting",
       "workflow_continuity_not_yet_measured"
     ],
-    "warnings": [
-      "backtest_vs_live_drift_detected"
-    ],
+    "warnings": [],
     "recommended_actions": [
       "Review the signal gate reasons; do not override submission gates.",
       "Refresh and validate market data before the next trading run.",
@@ -1124,7 +1120,7 @@
           "two_stage_design": false,
           "paper_version_lock": true
         },
-        "trading_days": 16,
+        "trading_days": 1,
         "paper_version_lock_valid": true
       },
       "workflow_continuity": {
@@ -1138,9 +1134,9 @@
       }
     },
     "evidence_run_ids": {
-      "broker_truth": "post-market-39326006859-1",
-      "execution_scorecard": "post-market-39326006859-1",
-      "validation_epoch": "post-market-39326006859-1",
+      "broker_truth": "post-market-39498825079-1",
+      "execution_scorecard": "post-market-39498825079-1",
+      "validation_epoch": "post-market-39498825079-1",
       "monitor_heartbeat": ""
     },
     "real_capital_approved": false
@@ -1171,14 +1167,14 @@
   "overall_ready": false,
   "freshness_context": "Calendar age gates remain enforced during weekends and holidays.",
   "run_context": {
-    "run_id": "post-market-39326006859-1",
-    "generated_at": "2026-10-19T21:16:16+00:00",
+    "run_id": "post-market-39498825079-1",
+    "generated_at": "2026-10-20T21:16:16+00:00",
     "signal_as_of": "2026-10-19T14:03:40.731805+00:00",
-    "git_commit": "a979454412896f426a82ab2b2fe57f7e10b2ee85",
-    "configuration_fingerprint": "fcc80270b1638077f9709ba93f561e8577c4b629753905237a80257d2f9d127f",
-    "paper_version_fingerprint": "241b069c01e96d38d26623ba2668b744c5fb99bcd2f88083e442bfd5a1171073",
+    "git_commit": "59090ad8f133a702a4c1a991a0f79b5af284f230",
+    "configuration_fingerprint": "6c5af7129f636da336ed70da5b0262204799f6da02e16739ee417f65b395d8c7",
+    "paper_version_fingerprint": "b5040cbaaca594510cd93439d566aa080295afccc2ff7f4f9679b9b9c08da3fe",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-39326006859-1",
+  "run_id": "post-market-39498825079-1",
   "broker": "alpaca"
 }
