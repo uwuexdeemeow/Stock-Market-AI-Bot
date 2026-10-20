@@ -1796,3 +1796,32 @@ too much in the recent bull market, and the rule is the rule.
 **What does not change:** the paper bot, every gate and every locked file.
 V is a tested option for the owner's own index money only. Using it is the
 owner's decision.
+
+## 2026-10-21 revalidation: core-alpha cannot be renewed; paper moves to V
+
+**What happened:** the live core-alpha config was approved on 2026-09-02 and
+hit its 45-day expiry on 2026-10-19 (`LIVE_CONFIG_MAX_AGE_DAYS`). Every
+workflow failed from then on. A fresh `--fixed-frozen-baseline` walk-forward
+was run on new data after two bug fixes (commit 7c4c627):
+- the KeyError on `nested_params`;
+- the current-year fold crashing on its unfinished last trade, which had
+  silently dropped 2026.
+
+**Result:** with all 14 years scored, the incumbent **fails**
+`cost_stress_approval`. Only 8 of 14 years pass the inner cost-stress check,
+and the rule needs ≥60%. The 9/2 approval had 11 of 14.
+
+**Why (A/B against the 9/2 code `df996e9`):**
+- **The data is the main cause.** The 9/2 code, run on today's data, also
+  loses 2019 (+3.7% → −14.2% vs QQQ) and 2021 (+12.6% → +1.1%).
+- **Score inputs make no difference.** Swapping in the 9/2 feature grades and
+  adaptive weights changes nothing (Sharpe 1.66, still fails).
+- **What it means:** a top-3 portfolio flips its picks on tiny price
+  differences, so this gate passes or fails on data noise. That matches the
+  start-day result (holdout alpha −72%..+72%).
+
+**The gate is not lowered.** Core-alpha stays unapproved.
+
+**Decision (owner, 2026-10-21):** the paper account switches to rule V
+(H-index-risk) from the 2026-10-30 signal. It is judged by Forward Test Rule
+FV (`V_RULE_FORWARD_TEST.md`), which was written before the first V trade.
