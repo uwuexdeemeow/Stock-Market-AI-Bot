@@ -80,3 +80,4 @@ Filled in automatically on the 3rd of each month by the Forward Test Monitor wor
 
 | Month | Rebalances done | Account DD | QQQ DD | Account Sharpe | QQQ Sharpe | Mean cost (bps) | V4 gap (pts) | Note |
 |---|---|---|---|---|---|---|---|---|
+| 2026-10 | 0 | n/a | n/a | n/a | n/a | n/a | n/a | Monthly check (forward_test_monitor.py). |
