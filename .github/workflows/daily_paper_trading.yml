@@ -75,6 +75,14 @@ jobs:
   paper-trade:
     runs-on: ubuntu-latest
     timeout-minutes: 75
+    env:
+      # PLAIN ENGLISH: the strategy this paper account follows.
+      #   v_rule               = QQQ/BIL volatility-target rule V from the
+      #                          2026-10-30 signal (Documentation/V_RULE_FORWARD_TEST.md)
+      #   core_satellite_alpha = the factor stock strategy (approval expired 2026-10-19)
+      # Rule V reads only QQQ/BIL prices, so the core-alpha factor snapshot and
+      # robustness steps below are skipped in that mode.
+      PAPER_MODE: v_rule
 
     steps:
       # ── 0. DST-safe schedule gate ─────────────────────────────────
@@ -174,7 +182,7 @@ jobs:
             checked-factor-snapshot-v1-
 
       - name: Require checked factor snapshot
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        if: ${{ env.PAPER_MODE != 'v_rule' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         shell: bash
         env:
           MATCHED_KEY: ${{ steps.restore_checked_factor_snapshot.outputs.cache-matched-key }}
@@ -263,6 +271,10 @@ jobs:
           ALPACA_API_KEY=${{ secrets.ALPACA_API_KEY }}
           ALPACA_SECRET_KEY=${{ secrets.ALPACA_SECRET_KEY }}
           ALPACA_MAX_GROSS_EXPOSURE=1.00
+          # Rule V: the account-wide halts sell everything, which the tested
+          # rule never does, so they sit outside its tested range (worst
+          # drawdown -38%). Core-alpha keeps 12%.
+          ALPACA_DD_HALT_PCT=${{ env.PAPER_MODE == 'v_rule' && '0.40' || '0.12' }}
           ALPACA_ORDER_TYPE=limit
           ALPACA_ALLOW_MARKET_ORDER_OVERRIDE=0
           ALPACA_LIMIT_REFERENCE=quote
@@ -351,7 +363,7 @@ jobs:
           SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
           ALERT_EMAIL_FROM=${{ secrets.SMTP_USER }}
           ALERT_EMAIL_TO=${{ secrets.ALERT_EMAIL_TO }}
-          PAPER_MODE_STRATEGY=core_satellite_alpha
+          PAPER_MODE_STRATEGY=${{ env.PAPER_MODE }}
           PAPER_SIGNAL_TIMEZONE=Asia/Singapore
           SENTIMENT_ENGINE_LEVEL=vader
           STOCKBOT_SKIP_RESEARCH_SENTIMENT=1
@@ -359,8 +371,8 @@ jobs:
           PAPER_GAUNTLET_MAX_AVG_SLIPPAGE_BPS=10
           PAPER_HEALTH_MAX_AVG_SLIPPAGE_BPS=10
           PAPER_HEALTH_MAX_DRAWDOWN_WARN_PCT=-5
-          PAPER_HEALTH_CORE_TICKERS=SPY,QQQ,TQQQ
-          PAPER_HEALTH_MAX_CORE_TICKER_WEIGHT=0.65
+          PAPER_HEALTH_CORE_TICKERS=${{ env.PAPER_MODE == 'v_rule' && 'SPY,QQQ,TQQQ,BIL' || 'SPY,QQQ,TQQQ' }}
+          PAPER_HEALTH_MAX_CORE_TICKER_WEIGHT=${{ env.PAPER_MODE == 'v_rule' && '1.00' || '0.65' }}
           PAPER_HEALTH_MAX_TICKER_WEIGHT=0.35
           PAPER_HEALTH_MAX_SECTOR_WEIGHT=0.50
           PAPER_HEALTH_STALE_OPEN_ORDER_MINUTES=60
@@ -376,7 +388,7 @@ jobs:
           GUARD_STALE_MINUTES=90
           GUARD_PNL_MONITOR=1
           GUARD_PNL_WARN_PCT=-3.0
-          GUARD_PNL_HALT_PCT=-8.0
+          GUARD_PNL_HALT_PCT=${{ env.PAPER_MODE == 'v_rule' && '-12.0' || '-8.0' }}
           GUARD_INTERVAL_SEC=300
           GUARD_ALERTS=1
           ENVEOF
@@ -430,7 +442,7 @@ jobs:
       # reports and can take past the execution cutoff. The factor workflow
       # owns that rebuild and must publish one validated snapshot first.
       - name: Validate restored factor data
-        if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         run: |
           if ! python3 factor_data_health.py --strict --no-write; then
             echo "::error::Validated factor snapshot is stale or unhealthy. Complete Factor Data Refresh before trading."
@@ -450,7 +462,7 @@ jobs:
           PYTHONUNBUFFERED: "1"
 
       - name: Record final daily price fingerprint
-        if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         run: |
           # Update the input manifest after the ETF refresh. Otherwise its
           # checksums still describe the earlier cached ETF files.
@@ -465,21 +477,21 @@ jobs:
       # after the one strict ETF refresh so all fingerprints identify the same
       # prices before daily_run.py generates a signal.
       - name: Refresh approved-config validation for daily snapshot
-        if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         run: python3 core_satellite_alpha.py --validation-refresh
         env:
           PYTHONUNBUFFERED: "1"
           STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
 
       - name: Refresh execution stress for daily snapshot
-        if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         run: python3 core_satellite_execution_stress.py
         env:
           PYTHONUNBUFFERED: "1"
           STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
 
       - name: Refresh survivorship review for daily snapshot
-        if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         run: python3 core_satellite_survivorship_audit.py
         env:
           PYTHONUNBUFFERED: "1"
@@ -487,7 +499,7 @@ jobs:
 
       - name: Refresh factor-decay evidence for daily cache
         id: refresh_daily_factor_decay
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
+        if: ${{ env.PAPER_MODE != 'v_rule' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         run: python3 factor_decay_monitor.py
         env:
           PYTHONUNBUFFERED: "1"
@@ -495,7 +507,7 @@ jobs:
 
       - name: Verify daily robustness and matching data
         id: verify_daily_robustness
-        if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         # Invalid or mismatched evidence still fails the job. A coherent safety
         # rejection becomes an intentional no-order run instead of an outage.
         run: python3 robustness_snapshot_gate.py --github-output
@@ -507,7 +519,7 @@ jobs:
       #    still blocks orders if that data is too stale.
       - name: Run daily paper trading (Alpaca only)
         id: run_daily_paper
-        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && (github.event.inputs.dry_run == 'true' || steps.verify_daily_robustness.outputs.trading_allowed == 'true') }}
+        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && (github.event.inputs.dry_run == 'true' || env.PAPER_MODE == 'v_rule' || steps.verify_daily_robustness.outputs.trading_allowed == 'true') }}
         run: |
           # The strict ETF preflight and matching robustness reports above
           # already ran on this runner; another refresh would change their ID.
@@ -814,7 +826,7 @@ jobs:
       #    Preserve the checked factor/report set under a new immutable cache.
       #    A blocked status remains blocked; strategy approval stays on main.
       - name: Save state files cache
-        if: ${{ steps.run_daily_paper.outputs.market_closed != 'true' && success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ env.PAPER_MODE != 'v_rule' && steps.run_daily_paper.outputs.market_closed != 'true' && success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
         uses: actions/cache/save@v6
         with:
           path: |

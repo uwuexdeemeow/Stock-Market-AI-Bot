@@ -76,6 +76,10 @@ PAPER_LOGIC_FILES = (
     "settings.py",
     "signal_freshness.py",
     "trade_rules.py",
+    # Rule V (paper strategy from the 2026-10-30 signal): the signal writer
+    # and the tested weight arithmetic it uses.
+    "v_rule_helper.py",
+    "v_rule_signal.py",
     "validation_bundle.py",
     "workflow_watchdog.py",
     "signals/core_satellite_live_configs.json",

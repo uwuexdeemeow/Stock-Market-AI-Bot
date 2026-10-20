@@ -40,7 +40,7 @@ import pandas as pd
 from broker_interface import Broker, Order, Position, Fill
 from safe_io import atomic_write_csv, atomic_write_json, atomic_write_text, configure_console_output
 from run_evidence import current_run_id, update_rebalance_state
-from settings import DATA_DIR, LOG_DIR, SIGNAL_DIR
+from settings import DATA_DIR, LOG_DIR, PAPER_MODE_STRATEGY, SIGNAL_DIR
 from risk_sizing import atr_stop, annualized_realized_vol, position_size_with_stop, vol_target_size
 from signal_freshness import (
     extract_signal_weights,
@@ -4944,11 +4944,21 @@ def main():
         print(f"  ✗ {e}")
         sys.exit(1)
 
+    # PLAIN ENGLISH: the account follows one strategy at a time. Rule V's
+    # signal has no walk-forward live config, so the config match applies to
+    # core-alpha only. A signal from the other strategy is never traded.
+    v_rule_mode = PAPER_MODE_STRATEGY == "v_rule"
+    signal_type = str(signal.get("paper_signal_type", "") or "").strip().lower()
+    if (signal_type == "v_rule") != v_rule_mode:
+        print(f"  ✗ Signal type '{signal_type}' does not match PAPER_MODE_STRATEGY "
+              f"'{PAPER_MODE_STRATEGY}'")
+        sys.exit(1)
+
     try:
         freshness_ok, freshness_issues = check_signal_freshness(
             signal,
             allow_stale_signal=bool(args.allow_stale_signal),
-            check_live_config_match=True,
+            check_live_config_match=not v_rule_mode,
             max_signal_age_hours=float(args.max_signal_age_hours),
             max_factor_age_trading_days=int(args.max_factor_age_trading_days),
         )

@@ -137,3 +137,9 @@ calendar, `broker_truth.py` reports `weight_gap_enforced: false`, because the
 weights drift by design between rebalances. The gap limits then don't apply,
 and the alignment `pass` is enough. On rebalance days the limits apply as
 before.
+
+## October 2026: rule V files locked
+
+`v_rule_helper.py` and `v_rule_signal.py` are in `PAPER_LOGIC_FILES`, because
+they decide the rule V paper targets. A new epoch started with the switch to
+rule V (2026-10-21), so V's evidence is never mixed with core-alpha's.

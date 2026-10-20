@@ -31,6 +31,20 @@ WORKFLOWS = {
     "shadow_paper": ("shadow_paper_journal.yml", time(9, 55), time(10, 5), time(16, 0), time(11, 30)),
     "execution_quality": ("post_market_execution_quality.yml", time(17, 15), time(17, 30), time(20, 0), time(19, 0)),
 }
+# PLAIN ENGLISH: under rule V (PAPER_MODE_STRATEGY=v_rule) the paper account
+# needs no factor data and runs no stock-strategy shadow, so those two jobs are
+# paused on purpose. Don't alert on them or dispatch them as "missing".
+CORE_ALPHA_ONLY_WORKFLOWS = ("factor_data", "shadow_paper")
+
+
+def active_workflows(strategy: str | None = None) -> dict:
+    """The workflows the watchdog checks for the current paper strategy."""
+    mode = str(strategy if strategy is not None else os.environ.get("PAPER_MODE_STRATEGY", "")).strip().lower()
+    if mode == "v_rule":
+        return {k: v for k, v in WORKFLOWS.items() if k not in CORE_ALPHA_ONLY_WORKFLOWS}
+    return dict(WORKFLOWS)
+
+
 # Match each workflow's GitHub timeout so telemetry can distinguish a normal
 # cancellation from a run that reached its hard time budget.
 WORKFLOW_TIMEOUT_MINUTES = {
@@ -317,7 +331,7 @@ def check_workflows(*, now: datetime | None = None) -> dict:
     problems: list[str] = []
     dispatched: list[str] = []
 
-    for name, (workflow_file, expected_start, fallback_at, fallback_cutoff, deadline) in WORKFLOWS.items():
+    for name, (workflow_file, expected_start, fallback_at, fallback_cutoff, deadline) in active_workflows().items():
         due = bool(session and clock.time() >= deadline)
         recovery_dispatched = False
         attempt_key = f"{clock.date().isoformat()}:{name}"

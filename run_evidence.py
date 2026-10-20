@@ -69,6 +69,8 @@ FINGERPRINT_FILES = (
     "risk_sizing.py",
     "settings.py",
     "trade_rules.py",
+    "v_rule_helper.py",
+    "v_rule_signal.py",
     "signals/core_satellite_live_configs.json",
 )
 

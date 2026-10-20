@@ -44,6 +44,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Keep in step with PAPER_MODE in daily_paper_trading.yml.
+          PAPER_MODE_STRATEGY: v_rule
         run: python workflow_watchdog.py --json
 
       - name: Save alert-deduplication state

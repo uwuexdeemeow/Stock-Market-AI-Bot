@@ -490,3 +490,24 @@ Tests: `python -m pytest tests/test_paper_rebalance_calendar.py -q`.
 
 **Key term — hold day:** a day inside a 20-day period after the rebalance.
 The account keeps what it bought, exactly like the backtest.
+
+## October 2026: rule V signals
+
+When `PAPER_MODE_STRATEGY=v_rule`, the signal file comes from
+`v_rule_signal.py` (QQQ + BIL, month-end; see `V_RULE_FORWARD_TEST.md`). The
+broker then works like this:
+
+- It refuses any signal whose `paper_signal_type` doesn't match the mode.
+  A leftover core-alpha signal is never traded in V mode, and a V signal is
+  never traded in core-alpha mode.
+- It skips the core-alpha live-config match. Rule V has no walk-forward
+  config; it passed its own pre-registered test.
+- Everything else is unchanged: the gate flags, freshness, the sanity check,
+  the tested rebalance calendar (signal day → trade next session, hold
+  otherwise, catch up after a failed run), the limit orders and the halts.
+
+The V workflow sets the two sell-everything halts outside the tested range:
+`ALPACA_DD_HALT_PCT=0.40` and `GUARD_PNL_HALT_PCT=-12`. If either fires, treat
+it as an incident. After an emergency sale, the "market is risk-on again"
+restart does not apply to V signals (their regime reads `v_rule`), so the
+halt clears only on account recovery or by the owner's review.

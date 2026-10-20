@@ -137,3 +137,9 @@ capital (e.g., MIN_SHARPE 1.0+, MAX_DRAWDOWN_PCT -10).
 During the first 30 trading days the result is `collecting`, not a misleading
 pass or failure. Final operational acceptance is tracked by the separate paper
 validation epoch after enough days, rebalances, and accepted orders exist.
+
+## October 2026: one shared target parser
+
+The drift check now reads targets with `signal_freshness.extract_signal_weights`,
+the same parser the broker uses. Before, its own parser knew only SPY, QQQ,
+TQQQ and the stock overlay, so it would have missed rule V's BIL share.

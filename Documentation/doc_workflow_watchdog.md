@@ -54,3 +54,12 @@ run. A fast daylight-saving gate-only success is ignored.
 # Timing evidence
 
 Every tracked workflow now records its schedule delivery delay, GitHub queue time, runtime, configured timeout, whether a timeout was detected, and whether a manual fallback was used. Missing timestamps stay blank instead of being treated as zero, so incomplete GitHub data cannot look healthy.
+
+## Rule V mode
+
+With `PAPER_MODE_STRATEGY=v_rule` (set in
+`independent_workflow_watchdog.yml`, kept in step with `PAPER_MODE` in the
+daily workflow), the watchdog checks only the daily paper and post-market
+jobs. Factor Data Refresh and Shadow Paper Journal belong to the stock
+strategy and are paused on purpose, so the watchdog doesn't alert on them or
+dispatch them as "missing" (`active_workflows()`).

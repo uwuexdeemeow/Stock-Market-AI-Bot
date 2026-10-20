@@ -60,3 +60,9 @@ Malformed numeric weights, non-finite values, non-object weight maps, and
 broken overlay JSON now fail the sanity gate. They are never silently changed
 to zero, because that could make the broker sell a holding that vanished only
 because its input was unreadable.
+
+## October 2026: BIL weight column
+
+`extract_signal_weights` also reads `target_bil_weight`, the BIL (T-bill
+fund) share written by `v_rule_signal.py`. `broker_truth.py` reads the same
+`target_<ticker>_weight` pattern, so every check sees the same targets.

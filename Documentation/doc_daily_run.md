@@ -256,3 +256,19 @@ step is not critical: if it fails, the signal uses the older status file.
 The local sync list also includes the halt lock
 (`signals/alpaca_halt_active.txt`) and the drawdown restart point
 (`signals/alpaca_drawdown_peak_reset.json`).
+
+## October 2026: rule V mode (`PAPER_MODE_STRATEGY=v_rule`)
+
+From the 2026-10-30 signal the paper account follows rule V (QQQ + BIL,
+month-end volatility target; see `V_RULE_FORWARD_TEST.md`). In this mode
+`build_steps` makes three changes:
+- `v_rule_signal.py` replaces `core_satellite_alpha.py` as the signal step;
+- the factor refresh steps (`research.py`, `feature_quality_diagnostic.py`)
+  are left out;
+- `factor_data_health.py` and `drift_monitor.py` are left out too.
+
+Rule V reads only QQQ/BIL prices, so these steps have nothing to check.
+Everything else stays the same: ETF refresh, fill monitor, broker health,
+submit, reconcile, guard, broker truth, health and evidence. Any other value
+of `PAPER_MODE_STRATEGY` keeps the core-satellite pipeline. The workflow sets
+the value through `PAPER_MODE` in `daily_paper_trading.yml`.

@@ -71,3 +71,19 @@ averages out, but single months can look better or worse than they were.
 - **Basis point (bp):** 0.01%. 20 bps = 0.20%.
 - **Annualised:** turned into a "per year" rate so periods of different
   length can be compared.
+
+## Rule V (Forward Test Rule FV)
+
+`python forward_test_monitor.py --rule v [--append-log]` computes the
+monthly numbers for `V_RULE_FORWARD_TEST.md`, starting from the first V
+trade (the session after the 2026-10-30 signal):
+
+- **V1 / V2:** max drawdown and Sharpe of the account vs buy-and-hold QQQ
+  over the same days. Both use `metrics` from the tested H-index-risk script.
+- **V3:** fill cost vs that day's Open, weighted by trade value.
+- **V4:** each completed month's account return minus the tested `simulate`
+  of rule V over the same month. This is information only.
+
+Output: `signals/forward_test_check_v.json`. `--append-log` adds a row under
+"## Monthly log" in `V_RULE_FORWARD_TEST.md`. The checkpoint comes after 12
+rebalances.

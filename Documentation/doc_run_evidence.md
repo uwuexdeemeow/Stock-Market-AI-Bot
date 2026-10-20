@@ -44,3 +44,8 @@ python run_evidence.py --profile execution verifies only the four same-run read-
 Post-market publishing puts an incomplete manifest under a run-specific
 `signals/diagnostics/` folder and preserves the previous operational reports.
 This exposes the failure without labeling a partial snapshot complete.
+
+## October 2026: rule V files fingerprinted
+
+`v_rule_helper.py` and `v_rule_signal.py` are in `FINGERPRINT_FILES`, so a
+change to the rule V signal changes the run's configuration fingerprint.

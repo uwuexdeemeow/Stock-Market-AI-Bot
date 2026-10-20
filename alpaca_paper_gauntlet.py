@@ -311,22 +311,10 @@ def _check_live_account() -> dict:
         if ALPACA_SIGNAL.exists():
             try:
                 sig = pd.read_csv(ALPACA_SIGNAL).iloc[0]
-                target_weights = {}
-                for sym, col in [("SPY", "target_spy_weight"), ("QQQ", "target_qqq_weight"), ("TQQQ", "target_tqqq_weight")]:
-                    w = float(sig.get(col, 0.0) or 0.0)
-                    if abs(w) > 1e-9:
-                        target_weights[sym] = w
-
-                # Add overlay tickers
-                import json as _json
-                overlay_raw = sig.get("overlay_weights_json", "{}")
-                try:
-                    overlay = _json.loads(str(overlay_raw)) if pd.notna(overlay_raw) else {}
-                except Exception:
-                    overlay = {}
-                for t, w in overlay.items():
-                    if abs(float(w)) > 1e-9:
-                        target_weights[str(t).upper()] = float(w)
+                # One shared parser, so the gauntlet sees the same targets
+                # (core ETFs, BIL and stock overlay) as the broker.
+                from signal_freshness import extract_signal_weights
+                target_weights = extract_signal_weights(sig)
 
                 # Compare current vs target
                 all_tickers = set(target_weights.keys()) | set(position_data.keys())

@@ -183,7 +183,7 @@ def _raw_signal_weight_issues(signal) -> list[str]:
         (str(key), value)
         for key, value in items
         if str(key).startswith("target_weight_")
-        or str(key) in {"target_spy_weight", "target_qqq_weight", "target_tqqq_weight"}
+        or str(key) in {"target_spy_weight", "target_qqq_weight", "target_tqqq_weight", "target_bil_weight"}
     ]
     for field, value in numeric_fields:
         if _strict_weight(value) is None:
@@ -246,11 +246,13 @@ def extract_signal_weights(signal) -> dict[str, float]:
             if ticker and abs(weight) > 1e-9:
                 weights[ticker] = weights.get(ticker, 0.0) + weight
 
-    # Current core ETF columns produced by core_satellite_alpha.py.
+    # Current core ETF columns produced by core_satellite_alpha.py, plus the
+    # BIL (T-bill fund) share written by v_rule_signal.py.
     core_columns = {
         "SPY": "target_spy_weight",
         "QQQ": "target_qqq_weight",
         "TQQQ": "target_tqqq_weight",
+        "BIL": "target_bil_weight",
     }
     for ticker, column in core_columns.items():
         weight = _coerce_float(signal.get(column, 0.0) if hasattr(signal, "get") else 0.0)

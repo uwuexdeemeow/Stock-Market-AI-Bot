@@ -1,5 +1,48 @@
 # Reliability-First Project Workflow
 
+## Current paper strategy: rule V (from the 2026-10-30 signal)
+
+**What changed and why:** the core-alpha stock strategy's approval expired
+on 2026-10-19. A fresh walk-forward could not renew it: with every year
+scored, it fails the cost-stress check, and the result depends on tiny data
+differences (`DELAY_STRESS_PAPER_ADVISORY.md`, "2026-10-21 revalidation").
+The owner moved the paper account to **rule V**. V passed the pre-registered
+H-index-risk test, including its one-time 2023–2026 exam.
+
+**How V works, end to end:**
+1. **Prices:** `refresh_etf_data.py` updates QQQ and BIL every morning.
+2. **Signal:** `v_rule_signal.py` finds the latest month-end signal day.
+   - QQQ share = min(1, 20% ÷ QQQ's 63-day volatility); BIL gets the rest.
+   - It writes the broker's usual signal file.
+3. **Trade:** `alpaca_paper_trading.py` trades only on the session after a
+   signal day and holds every other day.
+4. **Checks:** `broker_truth.py`, `paper_health.py` and the epoch tracker
+   check the account the same way as before.
+5. **Verdict:** `forward_test_monitor.py --rule v` gives the monthly numbers.
+   The pass/fail rule is in `V_RULE_FORWARD_TEST.md`, written before the
+   first V trade, and is judged after 12 rebalances.
+
+**Design reasons:**
+- **One switch** (`PAPER_MODE` in `daily_paper_trading.yml`) moves the
+  account between strategies, so core-alpha's code and evidence stay intact.
+- **Reuse the tested pieces** (calendar, limit orders, safety checks) instead
+  of writing a second broker path.
+- **Use the tested weight function** exactly as it is.
+- **Keep the halts outside V's tested range.** The account-wide halts sell
+  everything, which V never does, so they sit at 40% drawdown and a −12% day.
+
+**What is paused:** Factor Data Refresh, Shadow Paper Journal and Weekly
+Calendar Robustness serve the stock strategy only. Their cron-job.org jobs
+are paused, and the watchdog skips them in V mode.
+
+**For a beginner:** look at Telegram each morning. On the first trading day
+of each month, expect a rebalance. Around the 3rd of each month, run
+`python forward_test_monitor.py --rule v --append-log`. Don't change the 20%
+or 63-day settings while the test runs.
+
+The older scan → research → train → predict → backtest stock pipeline below
+is unchanged and documented as before; it no longer places paper orders.
+
 ## Current script maintenance
 
 The September 14 cleanup removed an unused concentration-sizing prototype, an

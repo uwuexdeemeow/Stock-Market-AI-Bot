@@ -49,7 +49,12 @@ import psutil
 
 from safe_io import atomic_write_json, popen_utf8
 from run_evidence import current_run_id
-from settings import LOG_DIR, SIGNAL_DIR
+from settings import LOG_DIR, PAPER_MODE_STRATEGY, SIGNAL_DIR
+
+# PLAIN ENGLISH: which strategy the paper account follows.  "v_rule" is the
+# QQQ/BIL volatility-target rule (Documentation/V_RULE_FORWARD_TEST.md); any
+# other value keeps the core-satellite stock strategy.
+V_RULE_STRATEGY = "v_rule"
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 LOGS = Path(LOG_DIR)
@@ -252,6 +257,13 @@ CORE_SATELLITE_SIGNAL_STEP = Step(
     "core_satellite_signal",
     [sys.executable, "core_satellite_alpha.py"],
     "Generate core-satellite signal for Alpaca paper trading",
+    critical=True,
+)
+
+V_RULE_SIGNAL_STEP = Step(
+    "v_rule_signal",
+    [sys.executable, "v_rule_signal.py"],
+    "Generate the month-end rule V signal (QQQ/BIL) for Alpaca paper trading",
     critical=True,
 )
 
@@ -702,8 +714,10 @@ def build_steps(
     stress: bool = False,
     allow_repeat_submit: bool = False,
     allow_outside_execution_window: bool = False,
+    strategy: str | None = None,
 ) -> list[Step]:
     steps: list[Step] = []
+    v_rule = str(strategy if strategy is not None else PAPER_MODE_STRATEGY).strip().lower() == V_RULE_STRATEGY
     if health_only:
         steps.append(FILL_MONITOR_STEP)
         if run_alpaca:
@@ -725,20 +739,22 @@ def build_steps(
 
     if not skip_refresh:
         steps.append(ETF_REFRESH_STEP)
-        if not skip_factor_refresh:
+        # Rule V reads only QQQ and BIL prices, so it needs no factor data.
+        if not skip_factor_refresh and not v_rule:
             steps.extend(FACTOR_REFRESH_STEPS)
     steps.append(FILL_MONITOR_STEP)
     if run_alpaca:
         steps.append(BROKER_HEALTH_STEP)
-    steps.append(FACTOR_DATA_HEALTH_STEP)
-    steps.append(DRIFT_MONITOR_STEP)
+    if not v_rule:
+        steps.append(FACTOR_DATA_HEALTH_STEP)
+        steps.append(DRIFT_MONITOR_STEP)
     if run_alpaca:
         # PLAIN ENGLISH: refresh the account snapshot right before the signal,
         # so it sees positions and stop-loss exits since yesterday's run (the
         # stop cooldown in core_satellite_alpha.py reads them).  Not critical:
         # if it fails, the signal uses the older snapshot and says so.
         steps.append(PRE_SIGNAL_ALPACA_STATUS_STEP)
-    steps.append(CORE_SATELLITE_SIGNAL_STEP)
+    steps.append(V_RULE_SIGNAL_STEP if v_rule else CORE_SATELLITE_SIGNAL_STEP)
     # Record the generated market regime before submitting orders. A broker
     # refusal must not hide a valid signal; failed signal generation still
     # blocks this step through the normal critical-failure guard.
@@ -1170,7 +1186,10 @@ def main():
     print(f"  Steps: {len(steps)}")
     print(f"  Run ID: {current_run_id()}")
     if run_alpaca:
-        print("  Alpaca: core-satellite unified signal")
+        if PAPER_MODE_STRATEGY == V_RULE_STRATEGY:
+            print("  Alpaca: rule V signal (QQQ/BIL, month-end)")
+        else:
+            print("  Alpaca: core-satellite unified signal")
     if args.dry_run:
         print("  ⚠ DRY RUN MODE — nothing will execute")
     if args.health_only:

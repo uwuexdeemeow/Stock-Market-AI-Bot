@@ -39,7 +39,7 @@ alpaca_paper_gauntlet.py, alpaca_paper_trading.py, alpaca_protection.py,
 broker_health.py, broker_interface.py, daily_run.py, execution_guard.py,
 execution_model.py, fill_monitor.py, paper_health.py, paper_scorecard.py,
 publish_live_config_from_csv.py, refresh_etf_data.py, risk_sizing.py,
-signal_freshness.py, status.py, trade_rules.py
+signal_freshness.py, status.py, trade_rules.py, v_rule_signal.py
 
 **Infrastructure**
 config_health.py, data_provider.py, data_validation.py,
@@ -56,6 +56,12 @@ now a **rule-based quant strategy**: the core-satellite engine
 20-day calendar. The ML model is switched off for picks
 (`ml_overlay_enabled` is false; the incumbent uses `score_source =
 regime_adaptive` factor scores). Model AUC was about 0.51, so it added nothing.
+
+**Since the 2026-10-30 signal the paper account trades rule V** (QQQ + BIL,
+month-end volatility target, `v_rule_signal.py`; switch: `PAPER_MODE` in
+`daily_paper_trading.yml`). It is judged by `Documentation/V_RULE_FORWARD_TEST.md`.
+Core-alpha's approval expired on 2026-10-19 and failed revalidation; its code
+stays in place but places no orders.
 
 Treat the old ML-training layer as **legacy**:
 
