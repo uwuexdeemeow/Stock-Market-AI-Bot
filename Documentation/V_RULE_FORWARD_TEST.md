@@ -75,7 +75,7 @@ continues, unless the fix changes what is traded.
 
 ## Monthly log
 
-Fill in around the 3rd trading day of each month
+Filled in automatically on the 3rd of each month by the Forward Test Monitor workflow
 (`python forward_test_monitor.py --rule v --append-log`).
 
 | Month | Rebalances done | Account DD | QQQ DD | Account Sharpe | QQQ Sharpe | Mean cost (bps) | V4 gap (pts) | Note |

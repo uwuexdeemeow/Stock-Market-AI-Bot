@@ -87,3 +87,19 @@ trade (the session after the 2026-10-30 signal):
 Output: `signals/forward_test_check_v.json`. `--append-log` adds a row under
 "## Monthly log" in `V_RULE_FORWARD_TEST.md`. The checkpoint comes after 12
 rebalances.
+
+## Automatic monthly run (GitHub Actions)
+
+`.github/workflows/forward_test_monitor.yml` runs
+`forward_test_monitor.py --rule v --append-log` on GitHub, so you don't have
+to run it by hand:
+- It reads the account files from `signals/latest` and downloads QQQ/BIL
+  prices.
+- It commits the new row to `V_RULE_FORWARD_TEST.md` on main.
+- It sends a Telegram summary, with a reminder once the 12-rebalance
+  checkpoint arrives.
+
+It has no broker keys and sends no orders. It starts only through
+`workflow_dispatch`: cron-job.org calls it on the 3rd of each month at
+18:00 New York time. For a check without a new row, run it from the Actions
+tab with `append_log = false`.

@@ -1,0 +1,140 @@
+# -- Forward Test Monitor (rule V, monthly) -----------------------------------
+#
+# PLAIN ENGLISH: once a month, compute Forward Test Rule FV's numbers for the
+# rule V paper account (Documentation/V_RULE_FORWARD_TEST.md):
+#   V1 worst fall and V2 Sharpe vs buy-and-hold QQQ, V3 fill cost vs the Open,
+#   V4 monthly gap to a simulation of the rule (information only).
+# It adds one row to the monthly log table on main and sends a Telegram
+# summary.  Read-only for trading: no broker keys, no orders, no gate changes.
+#
+# External trigger: cron-job.org calls workflow_dispatch on the 3rd of each
+# month at 18:00 New York time.  GitHub's own cron schedule is not used.
+# Manual trigger: Actions tab -> "Forward Test Monitor" -> "Run workflow".
+# -----------------------------------------------------------------------------
+
+name: Forward Test Monitor
+
+on:
+  workflow_dispatch:
+    inputs:
+      append_log:
+        description: "Add the row to V_RULE_FORWARD_TEST.md"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  contents: write   # commits the monthly log row to main
+
+concurrency:
+  group: forward-test-monitor
+  cancel-in-progress: false
+
+jobs:
+  forward-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements-ci.txt
+
+      # The daily run publishes the account's equity and fills here.
+      - name: Fetch paper evidence branch
+        run: git fetch --quiet origin +signals/latest:refs/remotes/origin/signals/latest
+
+      - name: Compute Forward Test Rule FV numbers
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: |
+          FLAGS="--rule v"
+          if [ "${{ github.event.inputs.append_log || 'true' }}" = "true" ]; then
+            FLAGS="$FLAGS --append-log"
+          fi
+          python3 forward_test_monitor.py $FLAGS
+
+      - name: Commit monthly log row
+        if: ${{ (github.event.inputs.append_log || 'true') == 'true' }}
+        run: |
+          if git diff --quiet -- Documentation/V_RULE_FORWARD_TEST.md; then
+            echo "No log change to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Documentation/V_RULE_FORWARD_TEST.md
+          git commit -m "forward test FV: monthly log $(date -u +%Y-%m-%d)"
+          # Another push may have landed meanwhile; replay the one-line change on top.
+          for attempt in 1 2 3; do
+            git pull --rebase --quiet origin main && git push --quiet origin HEAD:main && exit 0
+            sleep 10
+          done
+          echo "::error::Could not push the monthly log row."
+          exit 1
+
+      - name: Upload result
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: forward-test-v-${{ github.run_number }}
+          path: signals/forward_test_check_v.json
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Send Telegram summary
+        if: ${{ always() }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
+            echo "Telegram secrets not set - skipping notification"
+            exit 0
+          fi
+          python3 - <<'PY' > /tmp/telegram_summary.txt
+          import json
+          import os
+          from pathlib import Path
+
+          lines = [f"Forward Test FV (rule V): {os.environ.get('JOB_STATUS', 'unknown').upper()}",
+                   os.environ.get("RUN_URL", "")]
+          path = Path("signals/forward_test_check_v.json")
+          if path.exists():
+              r = json.loads(path.read_text())
+              m = r.get("V1_V2_V4", {})
+              acc, qqq = m.get("account", {}), m.get("qqq", {})
+              lines.append(f"As of {r.get('as_of')}: {r.get('rebalances_done')} of {r.get('checkpoint_at')} rebalances")
+              if m.get("status") == "ok":
+                  lines.append(f"Max drawdown: account {acc.get('max_drawdown_pct')}% vs QQQ {qqq.get('max_drawdown_pct')}%")
+                  lines.append(f"Sharpe: account {acc.get('sharpe')} vs QQQ {qqq.get('sharpe')}")
+                  gaps = m.get("v4_monthly") or []
+                  if gaps:
+                      lines.append(f"V4 gap {gaps[-1]['month']}: {gaps[-1]['gap_pts']} pts")
+              else:
+                  lines.append(f"Status: {m.get('status')}")
+              cost = (r.get("V3") or {}).get("mean_bps")
+              lines.append("Mean fill cost: " + ("n/a" if cost is None else f"{cost:.1f} bps"))
+              if int(r.get("rebalances_done") or 0) >= int(r.get("checkpoint_at") or 12):
+                  lines.append("CHECKPOINT REACHED: judge V by V_RULE_FORWARD_TEST.md now.")
+          else:
+              lines.append("No result file was written.")
+          print("\n".join(lines))
+          PY
+          cat /tmp/telegram_summary.txt
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d disable_web_page_preview=true \
+            --data-urlencode "text@/tmp/telegram_summary.txt" \
+            || echo "Telegram notification failed (non-fatal)"
