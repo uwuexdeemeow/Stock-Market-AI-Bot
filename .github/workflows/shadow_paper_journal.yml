@@ -42,37 +42,15 @@ jobs:
     timeout-minutes: 75
 
     steps:
-      - name: New York schedule gate
-        id: ny_schedule_gate
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          NY_OFFSET="$(TZ=America/New_York date +%z)"
-          TRIGGER="${{ github.event.schedule }}"
-          if [ "${TRIGGER}" = "55 13 * * 1-5" ] && [ "${NY_OFFSET}" = "-0400" ]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-          elif [ "${TRIGGER}" = "55 14 * * 1-5" ] && [ "${NY_OFFSET}" = "-0500" ]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "should_run=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Checkout repository
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/checkout@v7
 
       - name: Set up Python 3.12
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Cache pip packages
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v6
         with:
           path: ~/.cache/pip
@@ -81,13 +59,11 @@ jobs:
             ${{ runner.os }}-pip-ci-
 
       - name: Install dependencies
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           pip install --upgrade pip
           pip install -r requirements-ci.txt
 
       - name: Cache data directory
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v6
         with:
           path: data/
@@ -98,7 +74,6 @@ jobs:
       # Factor Refresh owns these generated runtime inputs. Shadow may read the
       # newest healthy copy, but it must not mix them into its journal cache.
       - name: Restore factor runtime state
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v6
         with:
           path: |
@@ -124,7 +99,6 @@ jobs:
       # journal. Strategy approval stays on main; rolling robustness evidence
       # comes only from the validated factor-data cache above.
       - name: Cache shadow journal state
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v6
         with:
           path: |
@@ -146,7 +120,6 @@ jobs:
             shadow-journal-v2-
 
       - name: Restore prior shadow files from signals/latest
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           git fetch --quiet origin signals/latest:refs/remotes/origin/signals/latest || true
           mkdir -p signals
@@ -174,7 +147,6 @@ jobs:
       # history is empty, not broken, so make a CSV with column names instead
       # of letting a missing file stop the workflow.
       - name: Initialize paper trade log
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           python3 - <<'PY'
           import csv
@@ -194,7 +166,6 @@ jobs:
           PY
 
       - name: Create .env from secrets
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           cat <<'ENVEOF' > .env
           ALPACA_API_KEY=${{ secrets.ALPACA_API_KEY }}
@@ -212,7 +183,6 @@ jobs:
 
       - name: Weekend and holiday guard
         id: calendar_gate
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         shell: bash
         run: |
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
@@ -246,14 +216,14 @@ jobs:
           echo "should_run=true" >> "$GITHUB_OUTPUT"
 
       - name: Refresh ETF prices
-        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        if: ${{ steps.calendar_gate.outputs.should_run == 'true' }}
         run: python3 refresh_etf_data.py --refresh --force
         env:
           PYTHONUNBUFFERED: "1"
 
       - name: Require completed factor-data cache
         id: require_factor_cache
-        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        if: ${{ steps.calendar_gate.outputs.should_run == 'true' }}
         run: |
           if ! python3 factor_data_health.py --strict --no-write; then
             # Older caches contain fresh parquets but omit their generated
@@ -278,14 +248,14 @@ jobs:
           PYTHONUNBUFFERED: "1"
 
       - name: Sync Alpaca status for sticky holdings
-        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        if: ${{ steps.calendar_gate.outputs.should_run == 'true' }}
         run: python3 alpaca_paper_trading.py --status
         env:
           PYTHONUNBUFFERED: "1"
 
       - name: Run shadow paper journal
         id: run_shadow_journal
-        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        if: ${{ steps.calendar_gate.outputs.should_run == 'true' }}
         run: |
           FLAGS=""
           if [ "${{ github.event.inputs.ignore_stale }}" = "true" ]; then
@@ -297,7 +267,7 @@ jobs:
 
       - name: Compare Alpaca paper vs shadow paper
         id: compare_standard_shadow
-        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        if: ${{ steps.calendar_gate.outputs.should_run == 'true' }}
         run: python3 paper_shadow_compare.py
         env:
           PYTHONUNBUFFERED: "1"
@@ -307,7 +277,7 @@ jobs:
       # contains no Alpaca client and cannot submit, cancel, or replace orders.
       - name: Run $400 fractional shadow account
         id: run_fractional_shadow
-        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        if: ${{ steps.calendar_gate.outputs.should_run == 'true' }}
         run: python3 fractional_shadow_paper.py --initial-equity "$FRACTIONAL_SHADOW_INITIAL_EQUITY"
         env:
           PYTHONUNBUFFERED: "1"
@@ -315,7 +285,7 @@ jobs:
 
       - name: Compare Alpaca paper vs $400 fractional shadow
         id: compare_fractional_shadow
-        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        if: ${{ steps.calendar_gate.outputs.should_run == 'true' }}
         run: |
           python3 paper_shadow_compare.py \
             --shadow-equity signals/fractional_shadow_equity.csv \
@@ -326,7 +296,7 @@ jobs:
 
       - name: Verify shadow evidence and current comparison
         id: verify_shadow_evidence
-        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        if: ${{ steps.calendar_gate.outputs.should_run == 'true' }}
         env:
           FRACTIONAL_EXPECTED_INITIAL_EQUITY: ${{ github.event.inputs.fractional_initial_equity || '400' }}
         run: |
@@ -379,7 +349,7 @@ jobs:
           PY
 
       - name: Write workflow heartbeat
-        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        if: ${{ always() && steps.calendar_gate.outputs.should_run == 'true' }}
         env:
           WORKFLOW_STATUS: ${{ job.status }}
           SCHEDULE_CRON: ${{ github.event.schedule }}
@@ -408,14 +378,14 @@ jobs:
           PY
 
       - name: Record corrected accounting data gaps
-        if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        if: ${{ success() && steps.calendar_gate.outputs.should_run == 'true' }}
         run: |
           # This reads local inputs only and cannot submit broker orders.
           python corrected_audit.py --audit-only
           cp signals/corrected_audit/data_quality.json signals/corrected_audit_data_quality.json
 
       - name: Build sanitized strategy evidence report
-        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        if: ${{ always() && steps.calendar_gate.outputs.should_run == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -427,7 +397,7 @@ jobs:
           cp signals/corrected_audit/gap_register.md signals/gap_register.md
 
       - name: Upload shadow journal artifact
-        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        if: ${{ always() && steps.calendar_gate.outputs.should_run == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: shadow-paper-journal-${{ github.run_number }}
@@ -452,7 +422,7 @@ jobs:
           retention-days: 60
 
       - name: Commit shadow journal to repo
-        if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        if: ${{ success() && steps.calendar_gate.outputs.should_run == 'true' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -516,7 +486,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Save shadow journal state cache
-        if: ${{ success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && steps.calendar_gate.outputs.should_run == 'true' }}
+        if: ${{ success() && steps.calendar_gate.outputs.should_run == 'true' }}
         uses: actions/cache/save@v6
         with:
           path: |

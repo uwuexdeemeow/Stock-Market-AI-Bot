@@ -17,40 +17,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: New York schedule gate
-        id: ny_schedule_gate
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          NY_OFFSET="$(TZ=America/New_York date +%z)"
-          TRIGGER="${{ github.event.schedule }}"
-          if [ "$TRIGGER" = "15 21 * * 1-5" ] && [ "$NY_OFFSET" = "-0400" ]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-          elif [ "$TRIGGER" = "15 22 * * 1-5" ] && [ "$NY_OFFSET" = "-0500" ]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "should_run=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Checkout repository
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/checkout@v7
 
       - name: Set up Python
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Install dependencies
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: pip install -r requirements-ci.txt
 
       - name: Restore market data cache
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v6
         with:
           path: data/
@@ -58,7 +36,6 @@ jobs:
           restore-keys: factor-data-parquets-
 
       - name: Restore operational evidence
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           git fetch --quiet origin +signals/latest:refs/remotes/origin/signals/latest
           for f in \
@@ -81,7 +58,6 @@ jobs:
 
       - name: Refresh read-only execution evidence
         id: refresh_execution_evidence
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         env:
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
           ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
@@ -100,13 +76,13 @@ jobs:
           python3 paper_health.py
 
       - name: Verify read-only run manifest
-        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ always() }}
         env:
           STOCKBOT_RUN_ID: post-market-${{ github.run_id }}-${{ github.run_attempt }}
         run: python3 run_evidence.py --profile execution
 
       - name: Write workflow heartbeat
-        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ always() }}
         env:
           WORKFLOW_STATUS: ${{ job.status }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -131,7 +107,7 @@ jobs:
           PY
 
       - name: Upload audit artifact
-        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
           name: post-market-execution-${{ github.run_number }}
@@ -149,7 +125,7 @@ jobs:
 
       - name: Publish refreshed evidence
         id: publish_execution_evidence
-        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ always() }}
         run: |
           generated_dir="$(mktemp -d)"
           # An incomplete run gets its own diagnostic folder and cannot replace

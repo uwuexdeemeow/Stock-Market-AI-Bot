@@ -85,55 +85,18 @@ jobs:
       PAPER_MODE: v_rule
 
     steps:
-      # ── 0. DST-safe schedule gate ─────────────────────────────────
-      # GitHub cron is UTC, not America/New_York.  We schedule both possible
-      # 9:35 AM NY equivalents and skip whichever one is wrong for today's
-      # DST offset.  Manual workflow_dispatch runs are always allowed.
-      - name: New York schedule gate
-        id: ny_schedule_gate
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-            echo "Manual trigger - running."
-            exit 0
-          fi
-
-          NY_OFFSET="$(TZ=America/New_York date +%z)"
-          TRIGGER="${{ github.event.schedule }}"
-          echo "Trigger cron: ${TRIGGER}"
-          echo "New York offset now: ${NY_OFFSET}"
-
-          if [ "${TRIGGER}" = "35 13 * * 1-5" ] && [ "${NY_OFFSET}" = "-0400" ]; then
-            echo "DST trigger matches 9:35 AM New York - running."
-          elif [ "${TRIGGER}" = "35 14 * * 1-5" ] && [ "${NY_OFFSET}" = "-0500" ]; then
-            echo "Standard-time trigger matches 9:35 AM New York - running."
-          else
-            echo "should_run=false" >> "$GITHUB_OUTPUT"
-            echo "Off-season duplicate trigger - skipping trading pipeline."
-            exit 0
-          fi
-
-          # Do not suppress cron just because a manual run happened earlier.
-          # daily_run.py and alpaca_paper_trading.py are idempotent, so they
-          # protect against duplicate orders while still proving cron works.
-          echo "should_run=true" >> "$GITHUB_OUTPUT"
-
       # ── 1. Check out the repo ──────────────────────────────────────
       - name: Checkout repository
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/checkout@v7
 
       # ── 2. Set up Python ───────────────────────────────────────────
       - name: Set up Python 3.12
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       # ── 3. Cache pip packages (speeds up subsequent runs) ──────────
       - name: Cache pip packages
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v6
         with:
           path: ~/.cache/pip
@@ -143,7 +106,6 @@ jobs:
 
       # ── 4. Install dependencies ────────────────────────────────────
       - name: Install dependencies
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           pip install --upgrade pip
           pip install -r requirements-ci.txt
@@ -155,7 +117,6 @@ jobs:
       # in main and are not restored from the cache.
       - name: Restore checked factor snapshot
         id: restore_checked_factor_snapshot
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache/restore@v6
         with:
           path: |
@@ -182,7 +143,7 @@ jobs:
             checked-factor-snapshot-v1-
 
       - name: Require checked factor snapshot
-        if: ${{ env.PAPER_MODE != 'v_rule' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ env.PAPER_MODE != 'v_rule' }}
         shell: bash
         env:
           MATCHED_KEY: ${{ steps.restore_checked_factor_snapshot.outputs.cache-matched-key }}
@@ -201,7 +162,6 @@ jobs:
       # from signals/latest, because that branch can still contain the prior
       # epoch after a newly frozen epoch is pushed.
       - name: Restore latest paper state
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           git fetch --quiet origin +signals/latest:refs/remotes/origin/signals/latest
           for f in \
@@ -242,7 +202,6 @@ jobs:
       # paper log. Create a header-only log before any health or broker step
       # reads it. Later order submissions append real rows to this same file.
       - name: Initialize paper trade log
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           python3 - <<'PY'
           import csv
@@ -265,7 +224,6 @@ jobs:
       #    Secrets are stored encrypted in repo settings, injected at
       #    runtime.  The .env file is never committed to git.
       - name: Create .env from secrets
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           cat <<'ENVEOF' > .env
           ALPACA_API_KEY=${{ secrets.ALPACA_API_KEY }}
@@ -398,7 +356,6 @@ jobs:
       #    data download + feature build.  Fail fast if credentials are
       #    wrong or Alpaca is having an outage.
       - name: Pre-flight API health check
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           python3 -c "
           import os, sys
@@ -442,7 +399,7 @@ jobs:
       # reports and can take past the execution cutoff. The factor workflow
       # owns that rebuild and must publish one validated snapshot first.
       - name: Validate restored factor data
-        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' }}
         run: |
           if ! python3 factor_data_health.py --strict --no-write; then
             echo "::error::Validated factor snapshot is stale or unhealthy. Complete Factor Data Refresh before trading."
@@ -456,13 +413,13 @@ jobs:
       #    monitor also reads QQQ/SPY. Check yesterday's close first so an
       #    incomplete provider row cannot crash the monitor or enter signals.
       - name: Refresh ETF reference prices for daily factor-decay
-        if: ${{ github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         run: python3 refresh_etf_data.py --refresh --force --strict
         env:
           PYTHONUNBUFFERED: "1"
 
       - name: Record final daily price fingerprint
-        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' }}
         run: |
           # Update the input manifest after the ETF refresh. Otherwise its
           # checksums still describe the earlier cached ETF files.
@@ -477,21 +434,21 @@ jobs:
       # after the one strict ETF refresh so all fingerprints identify the same
       # prices before daily_run.py generates a signal.
       - name: Refresh approved-config validation for daily snapshot
-        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' }}
         run: python3 core_satellite_alpha.py --validation-refresh
         env:
           PYTHONUNBUFFERED: "1"
           STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
 
       - name: Refresh execution stress for daily snapshot
-        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' }}
         run: python3 core_satellite_execution_stress.py
         env:
           PYTHONUNBUFFERED: "1"
           STOCKBOT_SCRIPT_TELEGRAM_ENABLED: "0"
 
       - name: Refresh survivorship review for daily snapshot
-        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' }}
         run: python3 core_satellite_survivorship_audit.py
         env:
           PYTHONUNBUFFERED: "1"
@@ -499,7 +456,7 @@ jobs:
 
       - name: Refresh factor-decay evidence for daily cache
         id: refresh_daily_factor_decay
-        if: ${{ env.PAPER_MODE != 'v_rule' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ env.PAPER_MODE != 'v_rule' }}
         run: python3 factor_decay_monitor.py
         env:
           PYTHONUNBUFFERED: "1"
@@ -507,7 +464,7 @@ jobs:
 
       - name: Verify daily robustness and matching data
         id: verify_daily_robustness
-        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ env.PAPER_MODE != 'v_rule' && github.event.inputs.dry_run != 'true' }}
         # Invalid or mismatched evidence still fails the job. A coherent safety
         # rejection becomes an intentional no-order run instead of an outage.
         run: python3 robustness_snapshot_gate.py --github-output
@@ -519,7 +476,7 @@ jobs:
       #    still blocks orders if that data is too stale.
       - name: Run daily paper trading (Alpaca only)
         id: run_daily_paper
-        if: ${{ (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') && (github.event.inputs.dry_run == 'true' || env.PAPER_MODE == 'v_rule' || steps.verify_daily_robustness.outputs.trading_allowed == 'true') }}
+        if: ${{ (github.event.inputs.dry_run == 'true' || env.PAPER_MODE == 'v_rule' || steps.verify_daily_robustness.outputs.trading_allowed == 'true') }}
         run: |
           # The strict ETF preflight and matching robustness reports above
           # already ran on this runner; another refresh would change their ID.
@@ -547,7 +504,7 @@ jobs:
           PYTHONUNBUFFERED: "1"
 
       - name: Write workflow heartbeat
-        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ always() }}
         env:
           WORKFLOW_STATUS: ${{ job.status }}
           MARKET_CLOSED: ${{ steps.run_daily_paper.outputs.market_closed }}
@@ -580,11 +537,11 @@ jobs:
           PY
 
       - name: Record intentional skip
-        if: ${{ always() && (steps.ny_schedule_gate.outputs.should_run == 'false' || steps.run_daily_paper.outputs.market_closed == 'true' || (github.event.inputs.dry_run != 'true' && steps.verify_daily_robustness.outputs.trading_allowed == 'false')) }}
+        if: ${{ always() && (steps.run_daily_paper.outputs.market_closed == 'true' || (github.event.inputs.dry_run != 'true' && steps.verify_daily_robustness.outputs.trading_allowed == 'false')) }}
         env:
-          SKIP_REASON: ${{ steps.ny_schedule_gate.outputs.should_run == 'false' && 'schedule_guard' || steps.run_daily_paper.outputs.market_closed == 'true' && 'market_closed' || 'robustness_gate' }}
+          SKIP_REASON: ${{ steps.run_daily_paper.outputs.market_closed == 'true' && 'market_closed' || 'robustness_gate' }}
         run: |
-          # Runner Python is available even when the schedule skips checkout.
+          # Runner Python is available even if checkout failed.
           python3 - <<'PY_SKIP'
           import json, os
           from pathlib import Path
@@ -597,7 +554,7 @@ jobs:
           PY_SKIP
 
       - name: Upload skip evidence
-        if: ${{ always() && (steps.ny_schedule_gate.outputs.should_run == 'false' || steps.run_daily_paper.outputs.market_closed == 'true' || (github.event.inputs.dry_run != 'true' && steps.verify_daily_robustness.outputs.trading_allowed == 'false')) }}
+        if: ${{ always() && (steps.run_daily_paper.outputs.market_closed == 'true' || (github.event.inputs.dry_run != 'true' && steps.verify_daily_robustness.outputs.trading_allowed == 'false')) }}
         uses: actions/upload-artifact@v7
         with:
           name: intentional-skip-${{ github.run_id }}
@@ -616,7 +573,7 @@ jobs:
           retention-days: 60
 
       - name: Upload run logs
-        if: ${{ steps.run_daily_paper.outputs.market_closed != 'true' && always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ steps.run_daily_paper.outputs.market_closed != 'true' && always() }}
         uses: actions/upload-artifact@v7
         with:
           name: daily-run-logs-${{ github.run_number }}
@@ -681,7 +638,7 @@ jobs:
       #
       #    Skipped on dry-run since no signal files are generated.
       - name: Commit signals to repo
-        if: ${{ steps.run_daily_paper.outputs.market_closed != 'true' && always() && github.event.inputs.dry_run != 'true' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ steps.run_daily_paper.outputs.market_closed != 'true' && always() && github.event.inputs.dry_run != 'true' }}
         run: |
           # Never replace signals/latest with a mixed or partial daily bundle.
           # Failed-but-complete evidence is publishable for diagnosis; missing
@@ -814,7 +771,7 @@ jobs:
       # ── 10. Upload updated data cache ──────────────────────────────
       #    Save any new parquet data so the next run starts with it.
       - name: Save data cache
-        if: ${{ steps.run_daily_paper.outputs.market_closed != 'true' && success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ steps.run_daily_paper.outputs.market_closed != 'true' && success() }}
         uses: actions/cache/save@v6
         with:
           path: data/
@@ -826,7 +783,7 @@ jobs:
       #    Preserve the checked factor/report set under a new immutable cache.
       #    A blocked status remains blocked; strategy approval stays on main.
       - name: Save state files cache
-        if: ${{ env.PAPER_MODE != 'v_rule' && steps.run_daily_paper.outputs.market_closed != 'true' && success() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ env.PAPER_MODE != 'v_rule' && steps.run_daily_paper.outputs.market_closed != 'true' && success() }}
         uses: actions/cache/save@v6
         with:
           path: |
@@ -852,7 +809,7 @@ jobs:
       #    (`STOCKBOT_SCRIPT_TELEGRAM_ENABLED=0`), so this is the only
       #    Telegram message sent by the workflow.
       - name: Send consolidated Telegram summary
-        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ always() }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

@@ -42,49 +42,15 @@ jobs:
     timeout-minutes: 120
 
     steps:
-      # -- 0. DST-safe schedule gate ---------------------------------
-      - name: New York schedule gate
-        id: ny_schedule_gate
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-            echo "Manual trigger - running."
-            exit 0
-          fi
-
-          NY_OFFSET="$(TZ=America/New_York date +%z)"
-          TRIGGER="${{ github.event.schedule }}"
-          echo "Trigger cron: ${TRIGGER}"
-          echo "New York offset now: ${NY_OFFSET}"
-
-          if [ "${TRIGGER}" = "30 11 * * 1-5" ] && [ "${NY_OFFSET}" = "-0400" ]; then
-            echo "DST trigger matches 7:30 AM New York - running."
-          elif [ "${TRIGGER}" = "30 12 * * 1-5" ] && [ "${NY_OFFSET}" = "-0500" ]; then
-            echo "Standard-time trigger matches 7:30 AM New York - running."
-          else
-            echo "should_run=false" >> "$GITHUB_OUTPUT"
-            echo "Off-season duplicate trigger - skipping factor refresh."
-            exit 0
-          fi
-
-          # Do not suppress cron just because a manual run happened earlier.
-          # Concurrency prevents overlap, and downstream health checks are safe
-          # to rerun when a manual refresh already happened.
-          echo "should_run=true" >> "$GITHUB_OUTPUT"
-
       - name: Checkout repository
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/checkout@v7
 
       - name: Set up Python 3.12
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Cache pip packages
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v6
         with:
           path: ~/.cache/pip
@@ -93,13 +59,11 @@ jobs:
             ${{ runner.os }}-pip-ci-
 
       - name: Install dependencies
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           pip install --upgrade pip
           pip install -r requirements-ci.txt
 
       - name: Restore data cache
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v6
         with:
           path: data/
@@ -110,7 +74,6 @@ jobs:
       # Restore the generated reports together with their factor parquets.
       # The v4 cache is saved only after factor and robustness gates pass.
       - name: Restore state cache
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         uses: actions/cache@v6
         with:
           path: |
@@ -133,7 +96,6 @@ jobs:
             runtime-state-v4-
 
       - name: Create .env from secrets
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           cat <<'ENVEOF' > .env
           FINNHUB_API_KEY=${{ secrets.FINNHUB_API_KEY }}
@@ -149,7 +111,6 @@ jobs:
 
       - name: Refresh factor parquets
         id: refresh_factor_parquets
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           if [ "${{ github.event.inputs.xs_only }}" = "true" ]; then
             python3 research.py --xs-only
@@ -167,7 +128,6 @@ jobs:
 
       - name: Ensure survivorship audit inputs
         id: ensure_survivorship_inputs
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           # The newest shared data cache can come from Daily Paper Trading.
           # That cache contains the live universe but older caches may omit the
@@ -206,7 +166,6 @@ jobs:
 
       - name: Refresh feature quality report
         id: refresh_feature_quality
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           python3 feature_quality_diagnostic.py --top 48
           python3 feature_health.py --max-specs 48
@@ -215,7 +174,6 @@ jobs:
 
       - name: Validate factor data health
         id: validate_factor_data_health
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           # Keep the strict gate: a bad cache must never look like a good one.
           # Print the report when it blocks the job so the Actions page shows
@@ -234,7 +192,6 @@ jobs:
 
       - name: Refresh ETF reference prices
         id: refresh_etf_prices
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: python3 refresh_etf_data.py --refresh --force --strict
         env:
           PYTHONUNBUFFERED: "1"
@@ -245,7 +202,6 @@ jobs:
 
       - name: Validate final research outputs and prices
         id: validate_research_outputs
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: |
           # The manifest must identify the ETF files after their final refresh.
           python3 research_output_guard.py \
@@ -259,7 +215,6 @@ jobs:
       # instead of reporting one ambiguous four-command failure.
       - name: Refresh approved-config validation
         id: refresh_core_alpha_validation
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: python3 core_satellite_alpha.py --validation-refresh
         env:
           PYTHONUNBUFFERED: "1"
@@ -267,7 +222,6 @@ jobs:
 
       - name: Refresh execution-stress evidence
         id: refresh_execution_stress
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: python3 core_satellite_execution_stress.py
         env:
           PYTHONUNBUFFERED: "1"
@@ -275,7 +229,6 @@ jobs:
 
       - name: Refresh survivorship evidence
         id: refresh_survivorship_audit
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: python3 core_satellite_survivorship_audit.py
         env:
           PYTHONUNBUFFERED: "1"
@@ -283,7 +236,6 @@ jobs:
 
       - name: Refresh factor-decay evidence
         id: refresh_factor_decay
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         run: python3 factor_decay_monitor.py
         env:
           PYTHONUNBUFFERED: "1"
@@ -291,7 +243,6 @@ jobs:
 
       - name: Verify refreshed robustness evidence
         id: verify_robustness_evidence
-        if: ${{ github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true' }}
         # A coherent report set may truthfully reject trading. Preserve that
         # evidence for the daily job, but never turn the rejection into approval.
         run: python3 robustness_snapshot_gate.py --github-output
@@ -299,7 +250,7 @@ jobs:
           PYTHONUNBUFFERED: "1"
 
       - name: Upload refresh logs
-        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
           name: factor-data-refresh-logs-${{ github.run_number }}
@@ -326,7 +277,7 @@ jobs:
         # Research may finish but a later safety gate may block trading.  Keep
         # that freshly built data for the next run; the health report remains
         # the authority that decides whether it is safe to trade.
-        if: ${{ always() && steps.refresh_factor_parquets.outcome == 'success' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ always() && steps.refresh_factor_parquets.outcome == 'success' }}
         uses: actions/cache/save@v6
         with:
           path: data/
@@ -336,7 +287,7 @@ jobs:
       - name: Save state cache
         # A safety rejection is preserved as data, not approval. Consumers
         # still read robustness_snapshot_status.json and fail closed.
-        if: ${{ always() && steps.validate_factor_data_health.outcome == 'success' && steps.validate_research_outputs.outcome == 'success' && steps.refresh_etf_prices.outcome == 'success' && steps.refresh_core_alpha_validation.outcome == 'success' && steps.refresh_execution_stress.outcome == 'success' && steps.ensure_survivorship_inputs.outcome == 'success' && steps.refresh_survivorship_audit.outcome == 'success' && steps.refresh_factor_decay.outcome == 'success' && steps.verify_robustness_evidence.outcome == 'success' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ always() && steps.validate_factor_data_health.outcome == 'success' && steps.validate_research_outputs.outcome == 'success' && steps.refresh_etf_prices.outcome == 'success' && steps.refresh_core_alpha_validation.outcome == 'success' && steps.refresh_execution_stress.outcome == 'success' && steps.ensure_survivorship_inputs.outcome == 'success' && steps.refresh_survivorship_audit.outcome == 'success' && steps.refresh_factor_decay.outcome == 'success' && steps.verify_robustness_evidence.outcome == 'success' }}
         uses: actions/cache/save@v6
         with:
           path: |
@@ -362,7 +313,7 @@ jobs:
       # same completed refresh. A checked snapshot can be approved or explicitly
       # trading-blocked; an invalid/mismatched snapshot is never saved here.
       - name: Save checked paper snapshot
-        if: ${{ always() && steps.validate_factor_data_health.outcome == 'success' && steps.validate_research_outputs.outcome == 'success' && steps.refresh_etf_prices.outcome == 'success' && steps.refresh_core_alpha_validation.outcome == 'success' && steps.refresh_execution_stress.outcome == 'success' && steps.ensure_survivorship_inputs.outcome == 'success' && steps.refresh_survivorship_audit.outcome == 'success' && steps.refresh_factor_decay.outcome == 'success' && steps.verify_robustness_evidence.outcome == 'success' && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ always() && steps.validate_factor_data_health.outcome == 'success' && steps.validate_research_outputs.outcome == 'success' && steps.refresh_etf_prices.outcome == 'success' && steps.refresh_core_alpha_validation.outcome == 'success' && steps.refresh_execution_stress.outcome == 'success' && steps.ensure_survivorship_inputs.outcome == 'success' && steps.refresh_survivorship_audit.outcome == 'success' && steps.refresh_factor_decay.outcome == 'success' && steps.verify_robustness_evidence.outcome == 'success' }}
         uses: actions/cache/save@v6
         with:
           path: |
@@ -387,7 +338,7 @@ jobs:
           key: checked-factor-snapshot-v1-${{ github.run_id }}
 
       - name: Send consolidated Telegram summary
-        if: ${{ always() && (github.event_name != 'schedule' || steps.ny_schedule_gate.outputs.should_run == 'true') }}
+        if: ${{ always() }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
