@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "frozen_at": "2026-10-20T16:45:12+00:00",
+  "frozen_at": "2026-10-21T17:06:55+00:00",
   "epoch_id": "paper-v20261020T164504Z",
   "epoch_started_at": "2026-10-20T16:45:04+00:00",
-  "git_commit_at_freeze": "cecfc841dadc0678ce7cdb1247d2a93dd0a8c696",
-  "logic_fingerprint": "b5040cbaaca594510cd93439d566aa080295afccc2ff7f4f9679b9b9c08da3fe",
+  "git_commit_at_freeze": "51bd2bd1a4e910723c4ccaa401152db857cd0948",
+  "logic_fingerprint": "78ee983efe8c624555f32212ad8aaca6eef9ad93ae59f4f56122bf49854cd6a9",
   "files": {
     ".github/workflows/daily_paper_trading.yml": "302ff5e0318d85d820a427db5ab404bce969cd5e6cfda17e8fe0fced85623c96",
     ".github/workflows/factor_data_refresh.yml": "2a805a5751fa01cd1540257c629898a795230f7f0c300d18b8c411d55d8b6f3b",
@@ -15,7 +15,7 @@
     "alpaca_protection.py": "08dec015c1d144717bbcf3060fd628058961ecd343a59d58bbfc35682a813a2c",
     "alpaca_sdk_adapter.py": "a20538cc46c7ed7fa27d2292ebe13d4579129d60542f7c19deb8e79339f50110",
     "broker_interface.py": "6ba6a10e177f354644f562836aacfb33ecb1183645578950caf10f6e8dff7bc4",
-    "broker_truth.py": "93baee37b42b81270cacf1b2069adde58ae6ec6dd62164bb9523f5efc859ad3d",
+    "broker_truth.py": "ade76a537ad4202c19c5f480f80c5b9433021d3f65d7c16a0a4d0cb0e870069c",
     "core_satellite_alpha.py": "61520c5c299871e035f816a37cd93db964490b5efebf17b8b41d3942ea52f6cf",
     "daily_run.py": "f99c38d2fb1b295ccd1b5f8b0b9196242c4f7840d9c1c87646035ce227d180fd",
     "data_manifest.py": "0a884bbd4d3c06b5f662ac45767df29d3109a2ad526eb956f9f81843eb9ce1fe",
