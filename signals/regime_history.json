@@ -1,9 +1,9 @@
 {
   "alpaca_core_satellite": {
-    "regime": "risk_on",
-    "since": "2026-09-22T17:14:33",
-    "previous_regime": "neutral",
-    "core_gross": 0.6,
-    "overlay_gross": 0.4
+    "regime": "v_rule",
+    "since": "2026-10-21T14:01:44",
+    "previous_regime": "risk_on",
+    "core_gross": 0.0,
+    "overlay_gross": 0.0
   }
 }

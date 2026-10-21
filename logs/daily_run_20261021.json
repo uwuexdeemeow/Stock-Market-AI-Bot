@@ -1,0 +1,158 @@
+{
+  "timestamp": "2026-10-21T14:01:38.144761",
+  "run_id": "github-39612948947",
+  "mode": "daily_run",
+  "steps_total": 18,
+  "steps_ok": 15,
+  "steps_no_action": 1,
+  "steps_failed": 2,
+  "total_elapsed_seconds": 22.4,
+  "results": [
+    {
+      "name": "fill_monitor",
+      "status": "ok",
+      "elapsed": 0.5
+    },
+    {
+      "name": "broker_health",
+      "status": "ok",
+      "elapsed": 1.0
+    },
+    {
+      "name": "alpaca_pre_signal_status",
+      "status": "ok",
+      "elapsed": 3.6
+    },
+    {
+      "name": "v_rule_signal",
+      "status": "ok",
+      "elapsed": 0.8
+    },
+    {
+      "name": "regime_monitor",
+      "status": "ok",
+      "elapsed": 0.5
+    },
+    {
+      "name": "alpaca_submit",
+      "status": "no_action",
+      "elapsed": 1.5,
+      "execution_outcome": {
+        "schema_version": 2,
+        "run_id": "github-39612948947",
+        "generated_at": "2026-10-21T14:01:45+00:00",
+        "status": "no_action",
+        "reason_code": "holding_until_next_scheduled_rebalance",
+        "market_open": true,
+        "planned_orders": 0,
+        "submitted_orders": 0,
+        "accepted_orders": 0,
+        "filled_orders": 0,
+        "open_orders": 0,
+        "skipped_orders": 0,
+        "rejected_orders": 0,
+        "failed_orders": 0,
+        "completion_ratio": 0.0,
+        "recovery_eligible": false,
+        "unresolved_orders": [],
+        "quote_feed": "",
+        "account_alignment": {},
+        "errors": []
+      }
+    },
+    {
+      "name": "alpaca_reconcile",
+      "status": "ok",
+      "elapsed": 3.7
+    },
+    {
+      "name": "alpaca_execution_guard",
+      "status": "ok",
+      "elapsed": 1.6
+    },
+    {
+      "name": "broker_truth",
+      "status": "failed",
+      "exit_code": 1,
+      "elapsed": 1.5,
+      "stderr_tail": "",
+      "alignment": {
+        "status": "fail",
+        "passed": false,
+        "reason": "max_weight_gap_0.387113_above_0.020000",
+        "comparable_tickers": 7,
+        "maximum_target_weight_gap": 0.387113,
+        "current_gross_exposure": 0.993666,
+        "target_gross_exposure": 1.0,
+        "gross_exposure_gap": 0.006334,
+        "weight_tolerance": 0.02,
+        "gross_exposure_tolerance": 0.05,
+        "weight_gap_enforced": true,
+        "active_rebalance_order_count": 0,
+        "waited_seconds": 0.0,
+        "rebalance_calendar": {
+          "hold_day": false,
+          "reason": "signal_has_no_rebalance_calendar",
+          "signal_period": "",
+          "recorded_period": ""
+        }
+      }
+    },
+    {
+      "name": "alpaca_paper_health",
+      "status": "ok",
+      "elapsed": 2.0,
+      "upstream_blocked_by": "broker_truth"
+    },
+    {
+      "name": "alpaca_execution_scorecard",
+      "status": "ok",
+      "elapsed": 0.5,
+      "upstream_blocked_by": "broker_truth"
+    },
+    {
+      "name": "execution_cost_calibration",
+      "status": "ok",
+      "elapsed": 0.6,
+      "upstream_blocked_by": "broker_truth"
+    },
+    {
+      "name": "alpaca_gauntlet",
+      "status": "ok",
+      "elapsed": 0.9,
+      "upstream_blocked_by": "broker_truth"
+    },
+    {
+      "name": "paper_validation_epoch",
+      "status": "ok",
+      "elapsed": 0.8,
+      "upstream_blocked_by": "broker_truth"
+    },
+    {
+      "name": "monitor_heartbeat",
+      "status": "ok",
+      "elapsed": 0.4,
+      "upstream_blocked_by": "broker_truth"
+    },
+    {
+      "name": "canonical_paper_readiness",
+      "status": "failed",
+      "exit_code": 1,
+      "elapsed": 1.9,
+      "stderr_tail": "",
+      "upstream_blocked_by": "broker_truth"
+    },
+    {
+      "name": "paper_evidence_manifest",
+      "status": "ok",
+      "elapsed": 0.5,
+      "upstream_blocked_by": "broker_truth"
+    },
+    {
+      "name": "log_cleanup",
+      "status": "ok",
+      "elapsed": 0.1,
+      "upstream_blocked_by": "broker_truth"
+    }
+  ]
+}
