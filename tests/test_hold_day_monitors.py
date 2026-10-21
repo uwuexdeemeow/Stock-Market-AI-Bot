@@ -67,6 +67,18 @@ def test_signal_without_calendar_is_checked(tmp_path):
     assert state["hold_day"] is False
 
 
+def test_rule_v_month_end_signal_gets_hold_days(tmp_path):
+    # Rule V writes its own policy name; its hold days must count too.
+    pd.DataFrame([{
+        "target_qqq_weight": 1.0,
+        "rebalance_policy": "v_rule_month_end",
+        "last_scheduled_rebalance_date": "2026-09-30",
+    }]).to_csv(tmp_path / "s.csv", index=False)
+    _period_file(tmp_path / "p.json", period="2026-10-14")
+    state = broker_truth.load_rebalance_calendar_state(tmp_path / "s.csv", tmp_path / "p.json", run_id="x")
+    assert state["hold_day"] is True and state["reason"] == "period_already_rebalanced"
+
+
 # ── The alignment gate, end to end ─────────────────────────────────────────
 
 def _drifted_truth(tmp_path, monkeypatch, *, period_run_id):

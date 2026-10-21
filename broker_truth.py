@@ -37,6 +37,9 @@ LOGS = Path(LOG_DIR)
 SIGNAL_FILE = SIGNALS / "core_satellite_alpha_signal.csv"
 # Written by alpaca_paper_trading.py after each 20-day rebalance (audit fix H1).
 REBALANCE_PERIOD_FILE = SIGNALS / "paper_rebalance_period.json"
+# Rebalance policies that trade on a calendar and hold in between:
+# core-alpha's 20-day calendar and rule V's month-end calendar.
+CALENDAR_REBALANCE_POLICIES = {"tested_calendar_v1", "v_rule_month_end"}
 ORDER_PLAN_FILE = SIGNALS / "core_satellite_alpha_orders.csv"
 PAPER_LOG_FILE = SIGNALS / "alpaca_paper_log.csv"
 STATUS_FILE = SIGNALS / "alpaca_daily_status.json"
@@ -392,7 +395,7 @@ def load_rebalance_calendar_state(
         state["reason"] = "signal_unreadable"
         return state
     period = str(row.get("last_scheduled_rebalance_date", "") or "").strip()
-    if str(row.get("rebalance_policy", "") or "") != "tested_calendar_v1" or not period or period.lower() == "nan":
+    if str(row.get("rebalance_policy", "") or "") not in CALENDAR_REBALANCE_POLICIES or not period or period.lower() == "nan":
         state["reason"] = "signal_has_no_rebalance_calendar"
         return state
     state["signal_period"] = period
