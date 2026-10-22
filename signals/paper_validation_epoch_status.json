@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "epoch_id": "paper-v20261020T164504Z",
-  "evaluated_at": "2026-10-22T14:02:10+00:00",
+  "evaluated_at": "2026-10-22T21:16:18+00:00",
   "status": "collecting",
   "trading_days": 3,
   "rebalance_events": 0,
@@ -9,9 +9,9 @@
   "classified_sessions": 2,
   "duplicate_orders": 0,
   "unexplained_orders": 0,
-  "maximum_target_weight_gap": 0.381823,
-  "gross_exposure_gap": 0.006481,
-  "alignment_status": "pass",
+  "maximum_target_weight_gap": 0.378025,
+  "gross_exposure_gap": 0.006591,
+  "alignment_status": "fail",
   "open_critical_incidents": 0,
   "fill_rate": null,
   "complete_fill_rate": null,
@@ -56,8 +56,8 @@
     "duplicate_orders": true,
     "classifiable_orders": true,
     "unexplained_orders": true,
-    "target_weight_gap": true,
-    "gross_exposure_gap": true,
+    "target_weight_gap": false,
+    "gross_exposure_gap": false,
     "critical_incidents": true,
     "fill_rate": false,
     "average_slippage": false,
@@ -69,13 +69,13 @@
   "manual_real_capital_review_eligible": false,
   "real_capital_approved": false,
   "run_context": {
-    "run_id": "github-39791921217",
-    "generated_at": "2026-10-22T14:02:10+00:00",
+    "run_id": "post-market-39855709756-1",
+    "generated_at": "2026-10-22T21:16:18+00:00",
     "signal_as_of": "2026-10-22T22:01+08:00",
     "git_commit": "80521d5f76941aa7576ace889db368d94072763d",
     "configuration_fingerprint": "0aae2cd37fe58f1b974d5e69f1c6c091f3be03c7f2d641f3e58f43e5e836090d",
     "paper_version_fingerprint": "522c6e00e2abd78d081041d313719ee8dc9b48001515acae188c58e15525d5a1",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "github-39791921217"
+  "run_id": "post-market-39855709756-1"
 }
