@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-22T14:02:11+00:00",
+  "checked_at": "2026-10-23T14:02:07+00:00",
   "max_age_hours": 36,
   "all_ok": true,
   "stale_monitors": [],
@@ -48,7 +48,7 @@
       "status": "fresh"
     },
     "daily_run": {
-      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/logs/daily_run_20261022.json",
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/logs/daily_run_20261023.json",
       "exists": true,
       "age_hours": 0.0,
       "status": "fresh"
@@ -61,13 +61,13 @@
     "resolved_incident_ids": []
   },
   "run_context": {
-    "run_id": "github-39791921217",
-    "generated_at": "2026-10-22T14:02:11+00:00",
+    "run_id": "github-39965909917",
+    "generated_at": "2026-10-23T14:02:07+00:00",
     "signal_as_of": "",
     "git_commit": "80521d5f76941aa7576ace889db368d94072763d",
     "configuration_fingerprint": "0aae2cd37fe58f1b974d5e69f1c6c091f3be03c7f2d641f3e58f43e5e836090d",
     "paper_version_fingerprint": "522c6e00e2abd78d081041d313719ee8dc9b48001515acae188c58e15525d5a1",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "github-39791921217"
+  "run_id": "github-39965909917"
 }

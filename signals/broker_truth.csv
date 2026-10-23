@@ -1,8 +1,8 @@
 ticker,target_weight,broker_qty,broker_value,broker_weight,planned_side,planned_quantity,planned_buy_qty,planned_sell_qty,planned_current_qty,planned_target_qty,planned_target_weight,submitted_quantity,accepted_quantity,filled_quantity,failed_quantity,skipped_quantity,open_quantity,latest_fill_status,expected_qty_from_log,quantity_gap,open_buy_qty,open_sell_qty,open_rebalance_sell_qty,open_rebalance_order_count,trailing_stop_qty,trailing_stop_count,stop_required,issue_severity,issues
-AMAT,0.0,35.0,13205.5,0.126758,,0.0,0.0,0.0,,,,0.0,0.0,0.0,0.0,0.0,0.0,,,,0.0,0.0,0.0,0,0.0,0,False,warning,extra_broker_position_not_in_target;broker_weight_gap_0.1268
-AMD,0.0,39.0,19851.0,0.190548,,0.0,0.0,0.0,,,,0.0,0.0,0.0,0.0,0.0,0.0,,,,0.0,0.0,0.0,0,0.0,0,False,warning,extra_broker_position_not_in_target;broker_weight_gap_0.1905
+AMAT,0.0,35.0,13207.25,0.126369,,0.0,0.0,0.0,,,,0.0,0.0,0.0,0.0,0.0,0.0,,,,0.0,0.0,0.0,0,0.0,0,False,pass,
+AMD,0.0,39.0,20194.98,0.193228,,0.0,0.0,0.0,,,,0.0,0.0,0.0,0.0,0.0,0.0,,,,0.0,0.0,0.0,0,0.0,0,False,pass,
 BIL,0.0,0.0,0.0,0.0,,0.0,0.0,0.0,,,,0.0,0.0,0.0,0.0,0.0,0.0,,,,0.0,0.0,0.0,0,0.0,0,False,pass,
-CAT,0.0,8.0,5638.93,0.054128,,0.0,0.0,0.0,,,,0.0,0.0,0.0,0.0,0.0,0.0,,,,0.0,0.0,0.0,0,0.0,0,False,warning,extra_broker_position_not_in_target;broker_weight_gap_0.0541
-QQQ,1.0,92.0,64796.52,0.621975,,0.0,0.0,0.0,,,,0.0,0.0,0.0,0.0,0.0,0.0,,,,0.0,0.0,0.0,0,0.0,0,False,warning,broker_weight_gap_0.3780
+CAT,0.0,8.0,5507.08,0.052692,,0.0,0.0,0.0,,,,0.0,0.0,0.0,0.0,0.0,0.0,,,,0.0,0.0,0.0,0,0.0,0,False,pass,
+QQQ,1.0,92.0,64920.72,0.62117,,0.0,0.0,0.0,,,,0.0,0.0,0.0,0.0,0.0,0.0,,,,0.0,0.0,0.0,0,0.0,0,False,pass,
 SPY,0.0,0.0,0.0,0.0,,0.0,0.0,0.0,,,,0.0,0.0,0.0,0.0,0.0,0.0,,,,0.0,0.0,0.0,0,0.0,0,False,pass,
 TQQQ,0.0,0.0,0.0,0.0,,0.0,0.0,0.0,,,,0.0,0.0,0.0,0.0,0.0,0.0,,,,0.0,0.0,0.0,0,0.0,0,False,pass,
