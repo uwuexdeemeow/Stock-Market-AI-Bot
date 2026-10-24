@@ -1947,3 +1947,35 @@ None of them changes a gate.
   check. If it doesn't, the engine is fixed before any M/ML number is read.
 - **Exam:** each rule starts fresh at the 2023-01-03 Open, with the target
   decided on 2022-12-30.
+
+### More implementation notes for H-multi-asset (2026-10-25, after D1, before any engine run)
+
+**D1 result.** Alpaca adjusted bars (SIP, `adjustment=all`) were compared
+with the local files. They exist only from 2016-01-04
+(`research_evidence/multi_asset_20261025/raw/`).
+
+| ETF | Days compared | Days with a return gap > 0.5% | Growth, local vs Alpaca |
+|---|---|---|---|
+| QQQ | 2,715 | 0 (max 0.18%) | 7.083 vs 7.093 |
+| TLT | 2,702 | 0 (max 0.40%) | 0.864 vs 0.866 |
+| GLD | 2,715 | 4 (2020-03-12, 13, 16, 17) | 3.682 vs 3.670 |
+| BIL | 2,715 | 0 (max 0.03%) | 1.259 vs 1.258 |
+
+- **TLT is adjusted.** It grows the same as Alpaca's total-return bars; the
+  `dividends` column is extra information. The worry in the first notes is
+  cleared.
+- **The 4 GLD days are the March 2020 market-wide circuit-breaker days,
+  and the error is on Alpaca's side:**
+  - Alpaca's 2020-03-16 close equals that day's open exactly, for GLD and
+    for IAU (another gold ETF) alike;
+  - on 2020-03-12, IAU (Alpaca) fell 4.0%, matching local GLD's −4.0%,
+    while Alpaca GLD shows −2.3%;
+  - both sources are back together by 2020-03-18 (140.70 vs 140.69).
+  - So these are not real price differences, and the switch to Alpaca bars
+    is not triggered.
+- Switching was also impossible: Alpaca has no bars before 2016, and the
+  decision window starts in 2007.
+- **Decision: all four ETFs use the local `data/*.parquet` files.**
+- **Exam end date:** local TLT ends 2026-10-01. Under the same-dates rule
+  the exam runs from 2023-01-03 to **2026-10-01**. TLT is not patched with
+  bars from another source.
