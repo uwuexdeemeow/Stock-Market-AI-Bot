@@ -1,0 +1,87 @@
+{
+  "window": [
+    "2016-05-02",
+    "2026-10-20"
+  ],
+  "weights": {
+    "signal_days": 126,
+    "max_gap_run_py_vs_project_code_same_data": 4.955133208195406e-07,
+    "max_gap_run_py_vs_live_helper_same_data": 4.955133208195406e-07,
+    "max_gap_project_data_vs_alpaca_data": 0.0009153103280319375,
+    "mean_gap_project_data_vs_alpaca_data": 7.008400283384671e-05,
+    "worst_data_gap_day": "2018-03-29"
+  },
+  "performance": {
+    "project_code_project_data": {
+      "cagr_pct": 17.352,
+      "sharpe": 0.805,
+      "max_drawdown_pct": -28.56,
+      "total_return_pct": 433.76,
+      "average_qqq_weight": 0.898
+    },
+    "project_code_alpaca_data": {
+      "cagr_pct": 17.362,
+      "sharpe": 0.806,
+      "max_drawdown_pct": -28.56,
+      "total_return_pct": 434.25,
+      "average_qqq_weight": 0.898
+    },
+    "run_py_alpaca_data": {
+      "cagr_pct": 17.317,
+      "sharpe": 0.804,
+      "max_drawdown_pct": -28.54,
+      "total_return_pct": 432.1
+    }
+  },
+  "yearly_returns_pct": {
+    "project_code_project_data": {
+      "2016": 12.64,
+      "2017": 32.66,
+      "2018": 1.08,
+      "2019": 31.3,
+      "2020": 15.46,
+      "2021": 25.53,
+      "2022": -23.45,
+      "2023": 46.58,
+      "2024": 25.48,
+      "2025": 12.93,
+      "2026": 16.78
+    },
+    "project_code_alpaca_data": {
+      "2016": 12.69,
+      "2017": 32.62,
+      "2018": 1.09,
+      "2019": 31.32,
+      "2020": 15.6,
+      "2021": 25.54,
+      "2022": -23.37,
+      "2023": 46.58,
+      "2024": 25.48,
+      "2025": 12.93,
+      "2026": 16.56
+    },
+    "run_py_alpaca_data": {
+      "2016": 12.69,
+      "2017": 32.6,
+      "2018": 1.06,
+      "2019": 31.27,
+      "2020": 15.51,
+      "2021": 25.48,
+      "2022": -23.39,
+      "2023": 46.52,
+      "2024": 25.45,
+      "2025": 12.87,
+      "2026": 16.53
+    }
+  },
+  "daily_return_gap_same_data": {
+    "max": 0.00030019774125200627,
+    "mean": 5.823335704751397e-06
+  },
+  "calendar": {
+    "live_next_signal_day": "2026-10-30",
+    "alpaca_month_end_for_that_month": "2026-10-30",
+    "alpaca_next_session_after_signal": "2026-11-02",
+    "month_ends_disagree_2016_2026": []
+  }
+}

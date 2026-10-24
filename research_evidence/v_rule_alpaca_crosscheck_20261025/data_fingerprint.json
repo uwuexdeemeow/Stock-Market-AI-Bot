@@ -1,0 +1,43 @@
+{
+  "QQQ": {
+    "provider": "alpaca",
+    "access_method": "alpaca_cli 0.0.14",
+    "feed": "sip",
+    "adjustment": "all",
+    "timeframe": "1Day",
+    "extended_hours": false,
+    "total_bars_fetched": 2718,
+    "bars_after_filter": 2718,
+    "first_bar_ts": "2016-01-04",
+    "last_bar_ts": "2026-10-23",
+    "close_sum": 841838.93,
+    "volume_sum": 118920511204,
+    "calendar_filter": "NYSE sessions from alpaca calendar; daily bars are regular-hours aggregates",
+    "raw_file_hash": {
+      "bars_QQQ_BIL_all_p1.json": "85e14e3c55b9381f97be1b58cf95737a7b938ca8565cb35ea76eaec1f9711ff8"
+    },
+    "normalized_file_hash": "1581d360248d16ab545b8c5e999218be42484ae05c3ab7ec405ff6caad278952"
+  },
+  "BIL": {
+    "provider": "alpaca",
+    "access_method": "alpaca_cli 0.0.14",
+    "feed": "sip",
+    "adjustment": "all",
+    "timeframe": "1Day",
+    "extended_hours": false,
+    "total_bars_fetched": 2718,
+    "bars_after_filter": 2718,
+    "first_bar_ts": "2016-01-04",
+    "last_bar_ts": "2026-10-23",
+    "close_sum": 213121.93,
+    "volume_sum": 11965633450,
+    "calendar_filter": "NYSE sessions from alpaca calendar; daily bars are regular-hours aggregates",
+    "raw_file_hash": {
+      "bars_QQQ_BIL_all_p1.json": "85e14e3c55b9381f97be1b58cf95737a7b938ca8565cb35ea76eaec1f9711ff8"
+    },
+    "normalized_file_hash": "89b8cf57bf237cc85e36c24aa6034a481cd05ed0fc25762fec42aeef98fc0417"
+  },
+  "calendar": {
+    "raw_file_hash": "f8eb7aa25a050a367e60c8fc0bd8e71a73504e8ecdadf3bd9dce8e3915f9599e"
+  }
+}

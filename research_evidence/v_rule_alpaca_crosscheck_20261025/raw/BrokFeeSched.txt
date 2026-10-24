@@ -1,0 +1,237 @@
+Alpaca Brokerage Fee Schedule
+
+At Alpaca Securities LLC, our mission is to provide general brokerage services for free. However,
+there are some services used by our customers that cannot be provided for free because there is a
+direct cost associated with those services; that is, the service is not shared among all of our clients.
+Even in those instances, Alpaca will strive to provide the service at the lowest possible price to
+ensure that our clients benefit from low costs, and we can continue to offer those services.
+
+Bank Transfers
+
+ ACH Return Fee                                    $25 / transaction
+ Domestic Wire Transfers (Outbound)
+ International Wire Transfers (Outbound)           $15 / transaction
+ Local Currency Transfers (Inbound and Outbound)
+                                                   $35 / transaction
+Margin Rates                                       1.5% conversion fee
+
+                                                   *Max of $40 USD per transaction
+
+   Default Margin Lending Interest Rate            6.50%*
+
+   Alpaca Elite 100k Margin Lending Interest Rate  5.00%*
+
+*Charged on the daily balance at an annualized prevailing interest rate, which may change from time to time.
+
+Transaction Commissions
+
+Any fee you pay is based on the specific transaction and not the value of your account. Alpaca
+Securities does not charge commissions, except as described below. Commissions apply to index
+options trades, use of the Elite Smart Router under the Alpaca Elite offering, and order flow
+determined to be non-retail in nature.
+
+Certain arrangements with authorized business partners may also preclude commission-free trades
+by Alpaca Securities. If your account is established via an authorized business partner, please refer
+to the fee schedule provided through your authorized partner's website or platform. Please ensure
+you review the fees and costs identified on any confirmations and statements you receive.
+
+1                                                            Broker Fee Schedule
+Equities - Elite Smart Router
+
+The following commissions apply to US equity and ETF trades routed through the Elite Smart
+Router under the Alpaca Elite offering.
+
+   Monthly Shares Traded*     All-in (Fixed)         Cost Plus (Tiered)
+
+   Up to 200,000                                     $0.0025
+
+   200,0001 to 1,000,000                             $0.0020
+
+   1,000,001 to 10,000,000    $0.0040                $0.0015
+
+   10,000,001 to 50,000,000                          $0.0010
+
+   50,000,001 or more                                $0.0005
+
+   Pass-Through Fees          Regulatory Fees        Regulatory Fees
+                                                     Exchange Fees or Rebates
+
+*Volume tiers are applied based on monthly cumulative trade volume and reset per calendar month.
+
+Equity Options - Non-Retail Order Flow
+
+The following commissions apply to US equity options trades by customers designated as
+professional options traders.
+
+Under the Chicago Board Options Exchange (CBOE) 390 Professional Orders Rule (the "390
+Rule"), a customer may be designated a professional options trader if the customer averages
+390 or more options orders per trading day during a calendar month. All submitted options
+orders count toward this threshold, including orders that are partially executed or not executed
+at all. If a customer meets or exceeds this threshold, they are classified as a "Professional"
+trader.
+
+   Monthly Contracts Traded*                  Cost Plus (Tiered)
+
+   Up to 5,000                                $0.40
+
+   5,001 to 20,000                            $0.30
+
+   20,001 to 50,000                           $0.20
+
+   50,001 to 100,000                          $0.15
+
+   100,001 or more                            $0.10
+
+   Pass-Through Fees                          Regulatory Fees
+                                              Exchange Fees or Rebates
+
+*Volume tiers are applied based on monthly cumulative trade volume and reset per calendar month.
+
+2                                                                   Broker Fee Schedule
+Index Options
+
+US-listed index options trades are subject to a $0.50 per contract fee in addition to the
+pass-through regulatory and exchange fees described below.
+
+Pass-Through Regulatory and Exchange Fees
+
+Alpaca Securities LLC passes through standard regulatory and exchange fees for certain securities
+transactions, which are assessed by self-regulatory organizations, securities exchanges, and
+government agencies (including FINRA, the SEC, options exchanges, and the Options Clearing
+Corporation). Fee rates and applicability are detailed below and are subject to change without
+notice.
+
+Equities
+
+SEC Transaction Fee                       $0.0000206 * Trade Value
+When sells only
+                                          $0 per share
+FINRA Trading Activity Fees (TAF)
+When sells only                           $0.000003 per executed equivalent share
+
+FINRA Consolidated Audit Trail Fee (CAT)  *NMS Equities (1 share = 1 executed equivalent share)
+When buys and sells                       *OTC Equities (1 share = 0.01 executed equivalent shares)
+
+Options
+
+SEC Transaction Fee                       $0.0000206 * Trade Value
+When sells only
+
+FINRA Trading Activity Fee (TAF)          $0 per contract
+When sells only
+
+FINRA Consolidated Audit Trail Fee (CAT)  $0.000003 per executed equivalent share
+When buys and sells
+                                          *Options (1 contract = 100 executed equivalent shares, or
+Options Regulatory Fee (ORF)              applicable multiplier)
+When buys and sells
+                                          $0.015 per contract*
+
+                                          Charged by Options Exchanges
+
+Options Clearing Corporation (OCC)        $0.025 per contract
+Clearing Fee
+When buys and sells                       Charged by Options Clearing Corporation
+
+*The Options Regulatory Fee (ORF) is calculated based on the average fees Alpaca remits to the options exchanges.
+The amount charged may differ from, or exceed, the actual fee paid in connection with any transaction.
+
+3                                                            Broker Fee Schedule
+Index Options Exchange Fees
+
+Options exchanges charge transaction fees for index options trading that vary by symbol and
+trade characteristics. Alpaca passes these fees through to customers. The amount charged may
+differ from, or exceed, the actual fee paid by Alpaca in connection with any transaction.
+
+Index Option Symbol  Conditions              Fee per Contract
+DJX                  Quantity executed < 10  $0
+SPX                  Quantity executed  10   $0.07
+SPXW                 Premium < $1            $0.57
+XSP                  Premium  $1             $0.66
+                     Premium < $1            $0.50
+VIX / VIXW           Premium  $1             $0.59
+                     Quantity executed < 10  $0
+                     Quantity executed  10   $0.07
+                     Premium  $0.10          $0.10
+                     Premium $0.11 - $0.99   $0.25
+                     Premium $1 - $1.99      $0.40
+                     Premium  $2             $0.45
+
+How fees are charged
+
+Fees are calculated on the exact executed quantity, including fractional shares, with no rounding
+of share quantity. Each fee type is aggregated separately at the daily, per-account level. After
+aggregation, each fee total is rounded up to the nearest cent ($0.01). Accrued fees are reflected
+in account balances intraday and posted at end of day. Alpaca Securities will withhold these
+fees from your account when applicable. To determine the exact breakdown and amount of
+these fees with respect to any specific transaction, please contact support@alpaca.markets.
+
+4                                              Broker Fee Schedule
+Position Transfers
+
+   ACATS Transfers (Outbound)              $25 / full or partial ACAT
+
+   ACATS Transfers (Inbound)               Free
+
+   DWAC (Outgoing)                         $150 per security
+
+   DWAC (Incoming)                         $150 per security
+
+   DWAC Reject                             $100 per reject
+
+   DRS (Outgoing)                          $100 per security
+
+   DRS (Incoming)                          $100 per security
+
+   DRS Reject                              $150 per reject
+
+   DTC Transfer (Outgoing)                 $5 per security per submission
+
+   DTC Transfer (Incoming)                 Free
+
+   Internal Transfer                       Free
+
+   Cross-Correspondent Transfer            $25 / full or partial transfer*
+
+*Applies to internal transfers between accounts held at two different Alpaca-clearing correspondents.
+
+Miscellaneous
+
+   Easy-to-Borrow Securities               Free (no locate or stock borrow fees on
+                                           Easy-to-Borrow securities)
+   Hard-to-Borrow Securities - Locate Fee  Varies (per share fee quoted at time of request
+   Hard-to-Borrow Securities - Stock       via the Locates API)1
+   Borrow Fee
+   Voluntary Corporate Actions Processing  Varies (daily rate per security)2
+
+                                           $100 per unique election
+
+   American Depository Receipts (ADRs)     Varies (typically $0.01 to $0.05 per share)
+
+   Failure to Offboard Pursuant to Alpaca  $10 quarterly
+   Customer Agreement Section 48(g)
+
+1 Hard-to-Borrow (HTB) Securities - Locate Fee. HTB short sales require shares to be located before the short sale
+can be executed. Locate fees are quoted per share via the Locates API at the time of request and are calculated by
+
+5                                                               Broker Fee Schedule
+the quoted per-share fee multiplied by the number of shares located. Partial fills may be granted unless an all-or-none
+request is submitted. The locate fee is charged one-time when the locate is accepted, is non-refundable regardless of
+whether a short sale is executed, and cannot be reused if the short position is closed. You may not short more shares
+than your active located quantity for that security.
+2 Hard-to-Borrow (HTB) Securities - Stock Borrow Fee. A separate daily stock borrow fee applies to open HTB short
+positions. Borrow fees vary by security and change daily based on market conditions. Daily fees are based on your
+end-of-day short quantity (rounded up to the nearest 100-share lot), a per-share collateral value from the prior trading
+day's closing price (adjusted by 102% and rounded up to the nearest dollar), and the applicable annual borrow rate on
+a 360-day year. Fees accrue for each calendar day you keep the position open, including weekends and market
+holidays. They are calculated after the market close and typically post to your account by the following business day.
+If you hold a short position open from Friday's close, borrow fees are charged for Friday, Saturday, and Sunday.
+
+The content of this document is for general information only and is believed to be accurate and
+reliable as of the posting date, but may be subject to change. Alpaca reserves the right to
+charge additional fees if it is determined that the orders' flow is non-retail in nature.
+
+Revised on October 12, 2026
+
+6    Broker Fee Schedule
+

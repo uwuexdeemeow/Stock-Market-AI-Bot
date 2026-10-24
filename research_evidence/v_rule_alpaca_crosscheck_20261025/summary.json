@@ -1,0 +1,189 @@
+{
+  "strategy_name": "rule V: QQQ vol target 20% / 63 sessions, rest BIL, month-end signal",
+  "start": "2016-05-02",
+  "end": "2026-10-23",
+  "symbols": [
+    "QQQ",
+    "BIL"
+  ],
+  "timeframe": "1Day",
+  "initial_cash": 100000.0,
+  "config": {
+    "symbols": [
+      "QQQ",
+      "BIL"
+    ],
+    "timeframe": "1Day",
+    "feed": "sip",
+    "adjustment": "all",
+    "initial_cash": 100000.0,
+    "vol_sessions": 63,
+    "vol_target": 0.2,
+    "trading_days": 252,
+    "fill_model": "next_open",
+    "slippage_bps": 5.0,
+    "fractional_shares": true,
+    "sec_fee_rate": 2.06e-05,
+    "cat_fee_per_share": 3e-06,
+    "taf_fee_per_share": 0.0
+  },
+  "metrics": {
+    "total_return_pct": 422.2906740029316,
+    "ann_return_pct": 17.120246392388694,
+    "max_drawdown_pct": -28.54284460520571,
+    "sharpe_rf0": 0.9064151427529605,
+    "final_equity": 522290.67400293157,
+    "trading_days": 2636,
+    "sharpe_over_bil": 0.7933498002774085,
+    "fills": 181,
+    "rebalance_days": 126,
+    "round_trips": 155,
+    "win_rate_pct": 90.3225806451613,
+    "profit_factor": 202.85942563103745,
+    "fees_paid": 34.14953082200423,
+    "slippage_paid": 1703.7070311059963,
+    "turnover": 13.227335786148934,
+    "average_qqq_exposure": 0.8976549061565362
+  },
+  "benchmarks": {
+    "QQQ_buy_hold": {
+      "total_return_pct": 616.8912489427698,
+      "ann_return_pct": 20.72044126461796,
+      "max_drawdown_pct": -35.00167386419424,
+      "sharpe_rf0": 0.955370294758379,
+      "final_equity": 716891.2489427698,
+      "trading_days": 2636,
+      "sharpe_over_bil": 0.8564076551155438
+    },
+    "BIL_buy_hold": {
+      "total_return_pct": 25.782614812251037,
+      "ann_return_pct": 2.2171271265327475,
+      "max_drawdown_pct": -0.20913035901065635,
+      "sharpe_rf0": 8.347911456504418,
+      "final_equity": 125782.61481225103,
+      "trading_days": 2636,
+      "sharpe_over_bil": -8.057694784561736
+    },
+    "equal_weight_no_rebalance": {
+      "total_return_pct": 321.3369318775105,
+      "ann_return_pct": 14.739830446966785,
+      "max_drawdown_pct": -27.549489883748468,
+      "sharpe_rf0": 0.9377462298393816,
+      "final_equity": 421336.9318775105,
+      "trading_days": 2636,
+      "sharpe_over_bil": 0.8002283704961897
+    }
+  },
+  "yearly_returns_pct": {
+    "V": {
+      "2016": 12.69,
+      "2017": 32.6,
+      "2018": 1.06,
+      "2019": 31.27,
+      "2020": 15.51,
+      "2021": 25.48,
+      "2022": -23.39,
+      "2023": 46.52,
+      "2024": 25.45,
+      "2025": 12.87,
+      "2026": 14.38
+    },
+    "QQQ_buy_hold": {
+      "2016": 12.69,
+      "2017": 32.62,
+      "2018": -0.12,
+      "2019": 38.96,
+      "2020": 48.62,
+      "2021": 27.42,
+      "2022": -32.45,
+      "2023": 54.85,
+      "2024": 25.58,
+      "2025": 20.77,
+      "2026": 15.06
+    }
+  },
+  "first_trade": {
+    "date": "2016-05-02",
+    "signal_day": "2016-04-29",
+    "symbol": "QQQ",
+    "side": "buy",
+    "qty": "1017.7189409368635",
+    "bar_open": "98.2",
+    "fill_price": "98.2491",
+    "notional": "99989.97",
+    "fees": "0.0030531568228105905",
+    "reason": "month-end target"
+  },
+  "last_trade": {
+    "date": "2026-10-01",
+    "signal_day": "2026-09-30",
+    "symbol": "QQQ",
+    "side": "buy",
+    "qty": "156.6899863253043",
+    "bar_open": "742.51",
+    "fill_price": "742.8812549999999",
+    "notional": "116402.05368727488",
+    "fees": "0.0004700699589759129",
+    "reason": "month-end target"
+  },
+  "warnings": [],
+  "data_fingerprint": {
+    "QQQ": {
+      "provider": "alpaca",
+      "access_method": "alpaca_cli 0.0.14",
+      "feed": "sip",
+      "adjustment": "all",
+      "timeframe": "1Day",
+      "extended_hours": false,
+      "total_bars_fetched": 2718,
+      "bars_after_filter": 2718,
+      "first_bar_ts": "2016-01-04",
+      "last_bar_ts": "2026-10-23",
+      "close_sum": 841838.93,
+      "volume_sum": 118920511204,
+      "calendar_filter": "NYSE sessions from alpaca calendar; daily bars are regular-hours aggregates",
+      "raw_file_hash": {
+        "bars_QQQ_BIL_all_p1.json": "85e14e3c55b9381f97be1b58cf95737a7b938ca8565cb35ea76eaec1f9711ff8"
+      },
+      "normalized_file_hash": "1581d360248d16ab545b8c5e999218be42484ae05c3ab7ec405ff6caad278952"
+    },
+    "BIL": {
+      "provider": "alpaca",
+      "access_method": "alpaca_cli 0.0.14",
+      "feed": "sip",
+      "adjustment": "all",
+      "timeframe": "1Day",
+      "extended_hours": false,
+      "total_bars_fetched": 2718,
+      "bars_after_filter": 2718,
+      "first_bar_ts": "2016-01-04",
+      "last_bar_ts": "2026-10-23",
+      "close_sum": 213121.93,
+      "volume_sum": 11965633450,
+      "calendar_filter": "NYSE sessions from alpaca calendar; daily bars are regular-hours aggregates",
+      "raw_file_hash": {
+        "bars_QQQ_BIL_all_p1.json": "85e14e3c55b9381f97be1b58cf95737a7b938ca8565cb35ea76eaec1f9711ff8"
+      },
+      "normalized_file_hash": "89b8cf57bf237cc85e36c24aa6034a481cd05ed0fc25762fec42aeef98fc0417"
+    },
+    "calendar": {
+      "raw_file_hash": "f8eb7aa25a050a367e60c8fc0bd8e71a73504e8ecdadf3bd9dce8e3915f9599e"
+    }
+  },
+  "fee_source": {
+    "url": "https://files.alpaca.markets/disclosures/library/BrokFeeSched.pdf",
+    "revision_date": "2026-10-12",
+    "extracted_at": "2026-10-25",
+    "modeled_categories": [
+      "SEC Transaction Fee ($0.0000206 x sell value)",
+      "FINRA CAT ($0.000003 per share, buys and sells)",
+      "FINRA TAF (read as $0 per share for equities)"
+    ],
+    "excluded_categories": [
+      "commissions (none for this account type)",
+      "options fees",
+      "borrow/margin",
+      "transfer and account fees"
+    ]
+  }
+}

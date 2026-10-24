@@ -1,0 +1,16 @@
+{
+  "url": "https://files.alpaca.markets/disclosures/library/BrokFeeSched.pdf",
+  "revision_date": "2026-10-12",
+  "extracted_at": "2026-10-25",
+  "modeled_categories": [
+    "SEC Transaction Fee ($0.0000206 x sell value)",
+    "FINRA CAT ($0.000003 per share, buys and sells)",
+    "FINRA TAF (read as $0 per share for equities)"
+  ],
+  "excluded_categories": [
+    "commissions (none for this account type)",
+    "options fees",
+    "borrow/margin",
+    "transfer and account fees"
+  ]
+}
