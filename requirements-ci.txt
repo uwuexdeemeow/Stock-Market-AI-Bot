@@ -32,17 +32,20 @@ alpaca-py==0.43.4
 exchange_calendars==4.13.2
 
 # SSL / TLS (Telegram notifications need certifi for CA bundle on CI)
-certifi==2025.4.26
+certifi==2026.10.19
 
 # Utilities
 python-dotenv==1.2.2
 tqdm==4.67.3
 psutil==7.2.2
 matplotlib==3.10.8
+# matplotlib needs pillow; pinned to the first release without the 2026-10
+# pip-audit findings (streamlit 1.56 capped it below 13, see below).
+pillow==13.0.0
 rich==15.0.0
 ruff==0.16.5
-# The full CI suite imports dashboard helpers even though trading jobs do not
-# launch the web interface.
-streamlit==1.56.0
+# streamlit (dashboard only) is not here: no trading or research job imports
+# it, and it capped pillow below the patched 13.0.0.  The dashboard tests
+# install it in their own CI job (see .github/workflows/ci.yml).
 python-dateutil==2.9.0.post0
 pytz==2026.1.post1

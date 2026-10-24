@@ -3,8 +3,13 @@ from __future__ import annotations
 import json
 
 import pandas as pd
+import pytest
 
-import dashboard.data as data
+# The dashboard needs streamlit, which the trading CI install leaves out; the
+# "dashboard-tests" CI job installs it and runs this file.
+pytest.importorskip("streamlit")
+
+import dashboard.data as data  # noqa: E402
 
 
 def _clear_dashboard_caches() -> None:

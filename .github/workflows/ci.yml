@@ -61,6 +61,25 @@ jobs:
           fi
           exit "$test_status"
 
+  dashboard-tests:
+    # PLAIN ENGLISH: the Streamlit dashboard is not part of trading, so its
+    # package stays out of requirements-ci.txt (and out of pip-audit's
+    # trading scope).  Its tests still run here with streamlit added.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dashboard test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-ci.txt pytest streamlit==1.56.0
+      - name: Run dashboard tests
+        run: pytest -q tests/test_dashboard_data.py
+
   windows-paper-safety:
     runs-on: windows-latest
     timeout-minutes: 30
