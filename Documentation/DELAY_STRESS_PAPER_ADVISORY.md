@@ -1825,3 +1825,125 @@ and the rule needs ≥60%. The 9/2 approval had 11 of 14.
 **Decision (owner, 2026-10-21):** the paper account switches to rule V
 (H-index-risk) from the 2026-10-30 signal. It is judged by Forward Test Rule
 FV (`V_RULE_FORWARD_TEST.md`), which was written before the first V trade.
+
+## Hypothesis H-multi-asset (pre-registered 2026-10-25, before any run)
+
+**Owner request:** "is there no way to improve returns?" Stock picking is
+closed (H-wide-universe), and V is fixed while its forward test runs
+(`V_RULE_FORWARD_TEST.md`). The one direction left is to **spread the risk
+across assets that don't crash together** (stocks, long Treasuries, gold),
+so the mix swings less. A smoother mix can then **borrow** to reach V's
+risk level and might earn more than V for the same risk. Script (to be
+written): `research_evidence/multi_asset_20261025/multi_asset_check.py`.
+
+**Honest expectation, written down now:**
+- Without borrowing, a stocks/bonds/gold mix usually **earns less** than
+  QQQ-heavy V. It may still win on return per unit of risk.
+- With borrowing, it can earn more. Two things can sink it: interest on the
+  loan, and years when bonds and stocks fall together. 2022 is the known
+  bad case: TLT fell about 30%.
+- It may simply fail, like the earlier new-edge rounds.
+
+**Ideas (2, fixed settings, nothing tuned):**
+
+| Idea | Rule | Fixed settings |
+|---|---|---|
+| **M** mix, no borrowing | On the last NYSE session of each month: <br>• each asset's volatility = std of its last 63 daily returns (ddof=1) × √252; <br>• base weights ∝ 1 ÷ volatility (inverse-volatility), summing to 1; <br>• the mix's volatility = std of the last 63 daily returns of the base-weighted mix × √252 (this counts how the assets move together); <br>• scale k = min(1, 20% ÷ mix volatility). Weights = k × base; the rest (1 − k) in BIL. | Assets QQQ, TLT, GLD; 63 sessions; 20% target (same as V); monthly; gross ≤ 1 |
+| **ML** mix, with borrowing | The same, but k = min(2, 20% ÷ mix volatility). When k > 1, the part above 1 is borrowed. | As M, but gross ≤ 2 (the US overnight margin limit). Borrowing cost: BIL's return + 2.0 points a year |
+
+**Reference:** **V** as it runs in paper: QQQ weight = min(1, 20% ÷ QQQ's
+63-session volatility), rest in BIL. **B** = buy-and-hold QQQ is recorded
+too, but the gates compare with V, because V is what the money follows now.
+
+**Trading assumptions (same as H-index-risk):**
+- The signal uses that day's Close; trades happen at the **next session's Open**.
+- Costs are **5 bps** per unit of weight traded, on every ETF leg including BIL.
+- Between trades, the weights drift with prices.
+- **Stress version:** one more session of delay, **25 bps**, and a borrowing
+  cost of BIL + **4.0** points.
+
+**Windows:**
+- **Decision window: 2007-07-02 to 2022-12-30**, the same as H-index-risk.
+  BIL starts 2007-05-30, and GLD and TLT have the 63-session history by then.
+- **Sub-periods, for a luck check:** 2007-07..2012, 2013..2017, 2018..2022.
+- **Exam: 2023-01-03 to the latest date**, used once, only for an idea that
+  passes. It is not blind to market history: everyone knows bonds were weak
+  and gold strong in 2023–2026. That is why a pass also needs the forward
+  shadow (below).
+
+**Measures:**
+- CAGR;
+- Sharpe of daily returns over BIL (mean ÷ std × √252);
+- max drawdown from daily values;
+- average gross exposure;
+- average weight per asset;
+- turnover per year.
+
+**Decision gates (decision window):**
+
+For **M** (is the mix really smoother?):
+- **M1:** Sharpe ≥ V's Sharpe **+ 0.10**.
+- **M2:** max drawdown not worse than V's.
+- **M3:** M1 and M2 still hold in the stress version.
+
+For **ML** (does it really earn more?):
+- **L1 (more return):** CAGR ≥ V's CAGR **+ 1.0 point** a year.
+- **L2 (not more pain):** max drawdown no more than **5 points worse** than V's.
+- **L3 (risk paid for):** Sharpe ≥ V's Sharpe.
+- **L4 (not luck):** CAGR above V's in **at least 2 of the 3** sub-periods.
+- **L5 (robust):** L1 and L3 still hold in the stress version, compared with
+  V's stress version.
+
+**Final exam (only for an idea that passes all its gates), 2023 to the
+latest date:**
+- Sharpe ≥ V's Sharpe − 0.20;
+- max drawdown no more than 5 points worse than V's.
+
+**Verdict per idea:** "passes", "fails decision gates" or "fails the exam".
+A failed idea is not re-tested with other assets (IEF instead of TLT, say),
+a different target, lookback, borrowing limit or window.
+
+**Recorded, not judged:**
+- yearly returns side by side;
+- 2008, 2020 and 2022 on their own;
+- how often ML hits the 2× limit;
+- what share of ML's return goes on interest.
+
+**What a pass means:**
+- **Evidence only.** It doesn't change the paper bot, V, any gate or any
+  locked file.
+- The paper bot never borrows today: it caps spending at min(cash, buying
+  power). Trading ML for real would need the owner's decision, a code change
+  and its own forward test.
+- After a pass, the next step is a **shadow forward test**. ML (or M) is
+  computed every month from 2026-11 with no orders, and judged next to V at
+  V's checkpoints (12 and 24 months) by a rule written before it starts.
+
+### Implementation notes for H-multi-asset (2026-10-25, before any run)
+
+None of them changes a gate.
+
+- **Data check D1 (before the engine runs):**
+  - every Close must be total-return adjusted (dividends and interest included);
+  - the local `data/TLT.parquet` has a separate `dividends` column and
+    ends on 2026-10-01, so it may not be adjusted;
+  - check each of QQQ, TLT, GLD and BIL against Alpaca CLI bars
+    (`adjustment=all`, the method of `v_rule_alpaca_crosscheck_20261025`);
+  - if any local file's daily returns differ from Alpaca's by more than
+    0.5% on any day, outside known corporate-action dates, **all four**
+    use Alpaca's adjusted bars instead;
+  - the choice is recorded before the engine runs.
+- **Same dates:** all four assets must have a bar. A day missing any asset
+  is dropped from the price table, never filled forward. More than 1% of
+  sessions missing in the decision window = D1 fails = "not testable".
+- **First purchase:** pays cost on the whole amount for every rule (V, M,
+  ML alike). Later trades pay on the weight changed.
+- **Borrowing:** each day ML holds gross g > 1, it pays (g − 1) ×
+  (BIL's daily return + 2.0% ÷ 252), or + 4.0% ÷ 252 in the stress version.
+  It holds no BIL while g > 1.
+- **V inside this test** is recomputed by the same engine with the same
+  dates and costs, so the comparison is fair. It must match the H-index-risk
+  V numbers within 0.3 points of CAGR in the decision window, as a plumbing
+  check. If it doesn't, the engine is fixed before any M/ML number is read.
+- **Exam:** each rule starts fresh at the 2023-01-03 Open, with the target
+  decided on 2022-12-30.
