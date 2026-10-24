@@ -9,6 +9,37 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 from typing import Any
+from urllib.parse import urlsplit
+
+# The only trading host this project may talk to.  Alpaca's live-money host
+# is api.alpaca.markets; it never passes the check below.
+PAPER_TRADING_HOST = "paper-api.alpaca.markets"
+
+
+def is_paper_endpoint(url: Any) -> bool:
+    """True only when ``url`` is exactly Alpaca's paper trading host over HTTPS.
+
+    PLAIN ENGLISH: the old check only asked "does the text contain
+    paper-api.alpaca.markets?".  A web address such as
+    https://paper-api.alpaca.markets.example.com contains that text but points
+    somewhere else, and the bot would have sent its keys there.  Here the
+    address is taken apart and the host name itself must match.
+    """
+    try:
+        parts = urlsplit(str(url or "").strip())
+        port = parts.port
+    except ValueError:
+        return False
+    return (
+        parts.scheme.lower() == "https"
+        and (parts.hostname or "") == PAPER_TRADING_HOST
+        and port in (None, 443)
+        and not parts.username
+        and not parts.password
+        and parts.path in ("", "/")
+        and not parts.query
+        and not parts.fragment
+    )
 
 
 class _CompatObject:
@@ -42,14 +73,18 @@ class AlpacaPyRESTCompat:
         data_client: Any | None = None,
         data_feed: str = "iex",
     ) -> None:
+        # PLAIN ENGLISH: this project is paper-only.  Refuse anything that is
+        # not exactly the paper host, and tell the SDK "paper" in plain code
+        # (never from a setting), as Alpaca's paper-trading guide asks.
+        if not is_paper_endpoint(base_url):
+            raise ValueError("Refusing non-paper Alpaca endpoint; real-capital trading is not approved")
         # Imports stay here so non-broker research scripts can run without the
         # optional broker package being loaded.
-        paper = "paper-api.alpaca.markets" in str(base_url).lower()
         if trading_client is None or data_client is None:
             from alpaca.data.historical import StockHistoricalDataClient
             from alpaca.trading.client import TradingClient
         self._trading = trading_client or TradingClient(  # type: ignore[name-defined]
-            key_id, secret_key, paper=paper, url_override=base_url
+            key_id, secret_key, paper=True
         )
         self._data = data_client or StockHistoricalDataClient(key_id, secret_key)  # type: ignore[name-defined]
         # PLAIN ENGLISH: Keep the requested exchange feed explicit. Alpaca can
@@ -124,6 +159,10 @@ class AlpacaPyRESTCompat:
 
     def get_order(self, order_id: str) -> Any:
         return _wrapped(self._trading.get_order_by_id(order_id))
+
+    def get_order_by_client_id(self, client_order_id: str) -> Any:
+        """Find an order by the ID the bot gave it (used after a timeout)."""
+        return _wrapped(self._trading.get_order_by_client_id(client_order_id))
 
     def get_snapshot(self, symbol: str) -> Any:
         from alpaca.data.requests import StockSnapshotRequest

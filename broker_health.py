@@ -65,7 +65,8 @@ def check_alpaca() -> dict:
             getattr(account, "account_blocked", False)
             or getattr(account, "trading_blocked", False)
         )
-        if account_status != "ACTIVE":
+        # Alpaca documents PAPER_ONLY as a valid status for paper accounts.
+        if account_status not in ("ACTIVE", "PAPER_ONLY"):
             raise RuntimeError(f"broker account is not active: {account_status}")
         if trading_blocked:
             raise RuntimeError("broker account is blocked from trading")

@@ -79,11 +79,17 @@ Alpaca documents `PAPER_ONLY` as a valid status too. Today the account is
 `ACTIVE`. If Alpaca ever reports `PAPER_ONLY`, the bot would fail closed.
 That is safe, but the run would stop.
 
-## Advice
+## Status: all four fixed (2026-10-25, owner asked for it before 11/2)
 
-None of G1–G4 can cause a wrong trade on 2026-11-02, so the release can stay
-frozen through the first V rebalance. G1 and G2 are worth one bundled fix
-with tests and a single refreeze, after the 11/2 fills are reconciled. The
-fix changes plumbing, not what is traded, so the FV clock keeps running.
+| Gap | Fix |
+|---|---|
+| G1 | `alpaca_sdk_adapter.is_paper_endpoint` accepts only HTTPS + host `paper-api.alpaca.markets` (no other port, path, query or login). It is used at all three checks in `alpaca_paper_trading.py` and inside the adapter. The SDK is created with a literal `paper=True`. |
+| G2 | `place_order` no longer uses the blind retry. `_submit_order_idempotent` looks the order up by client order ID after a temporary error and only resends with the same ID. It accepts a found order only if the ticker, side and quantity match and it was created in the last 15 minutes. Orders without an ID get `auto_<random>`. |
+| G3 | `_broker_retry_delay` honours `Retry-After` and `X-RateLimit-Reset`, capped at 60 s. It is used by every broker retry. |
+| G4 | `ACTIVE` or `PAPER_ONLY` is accepted (`alpaca_paper_trading.py` and `broker_health.py`). |
+
+Tests: `tests/test_alpaca_paper_safety.py`. The release was refrozen for the
+same epoch. These are plumbing changes: what is traded, and when, does not
+change, so the FV clock keeps running.
 
 > Paper trading is simulated and may differ from live trading in fills, market impact, liquidity, fees and latency. This is not investment advice. Alpaca disclosures: https://alpaca.markets/disclosures

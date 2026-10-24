@@ -304,6 +304,30 @@ planned orders filled; one fill can no longer hide skipped work. The report
 includes a completion ratio, unresolved orders, quote feed, and whether one
 bounded recovery is safe. A CSV journal keeps one row per run, and
 deterministic Alpaca client order IDs stop a retry from creating a duplicate.
+
+**Sending an order after a timeout (2026-10-25).** Every order now carries a
+client order ID. Stops and guard exits used to have none; they now get a
+random `auto_…` one. If sending an order fails with a temporary error (a
+timeout, a server error, a rate limit), the bot first asks Alpaca for the
+order with that ID:
+- If it is there (same ticker, side and quantity, created in the last 15
+  minutes), the first try arrived. Its ID is used, and nothing is sent
+  again.
+- If it is not there, the bot waits and sends it again with the **same**
+  ID, so Alpaca itself refuses a second copy.
+- If the very first try gets "client_order_id must be unique", that is an
+  old ID collision. It is still logged as a failed submission, as before.
+
+When Alpaca says how long to wait (`Retry-After` or `X-RateLimit-Reset`), the
+bot waits at least that long, up to 60 seconds. The paper check now reads the
+host name itself: only `https://paper-api.alpaca.markets` is accepted, so a
+look-alike address can't receive the keys. An account status of `ACTIVE` or
+`PAPER_ONLY` counts as active. See
+`Documentation/ALPACA_PAPER_SAFETY_AUDIT_2026-10-25.md`.
+
+- **Client order ID:** a name the bot gives an order, so it can find the
+  order again and so Alpaca can refuse a duplicate.
+- **Idempotent:** doing it twice has the same effect as doing it once.
 # Paper-account identity
 
 The status snapshot records a short one-way hash of the Alpaca paper account ID. This proves that validation evidence belongs to one consistent account without saving the private account ID itself.

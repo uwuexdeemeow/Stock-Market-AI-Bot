@@ -30,6 +30,7 @@ import math
 import os
 import sys
 import time
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -37,6 +38,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 
+from alpaca_sdk_adapter import is_paper_endpoint
 from broker_interface import Broker, Order, Position, Fill
 from safe_io import atomic_write_csv, atomic_write_json, atomic_write_text, configure_console_output
 from run_evidence import current_run_id, update_rebalance_state
@@ -1003,16 +1005,50 @@ def execution_window_allowed(now: datetime | None = None) -> bool:
 # RETRY HELPER — retries transient broker API failures automatically
 # ─────────────────────────────────────────────────────────────────────────────
 
+MAX_BROKER_RETRY_WAIT_SECONDS = 60.0
+
+
+def _is_transient_broker_error(exc: Exception) -> bool:
+    """True for temporary failures (timeout, 5xx, rate limit), not auth/validation."""
+    exc_str = str(exc).lower()
+    return any(s in exc_str for s in (
+        "timeout", "timed out", "connection", "502", "503",
+        "504", "500", "rate limit", "429", "retry",
+    ))
+
+
+def _broker_retry_delay(exc: Exception, attempt: int, base_delay: float) -> float:
+    """Seconds to wait before the next try.
+
+    PLAIN ENGLISH: normally wait 1, 2, then 4 seconds.  When Alpaca says how
+    long to wait (a ``Retry-After`` header, or ``X-RateLimit-Reset`` = the
+    moment the rate limit resets), wait at least that long, up to a minute.
+    """
+    delay = base_delay * (2 ** attempt)
+    response = getattr(exc, "response", None)
+    headers = getattr(response, "headers", None) or {}
+    try:
+        retry_after = headers.get("Retry-After")
+        if retry_after not in (None, ""):
+            delay = max(delay, float(retry_after))
+        reset_at = headers.get("X-RateLimit-Reset")
+        if reset_at not in (None, ""):
+            delay = max(delay, float(reset_at) - time.time())
+    except (AttributeError, TypeError, ValueError):
+        pass
+    return min(max(delay, 0.0), MAX_BROKER_RETRY_WAIT_SECONDS)
+
+
 def _broker_retry(func, *, max_retries: int = 3, base_delay: float = 1.0):
     """Decorator: retry broker method on transient network errors.
 
     PLAIN ENGLISH: If a broker API call fails with a temporary error (network
     timeout, 5xx server error), wait a moment and try again.  After 3 failures
     in a row, give up and raise the last error.  This prevents a single hiccup
-    from killing the entire daily run.
+    from killing the entire daily run.  Only for calls that are safe to repeat
+    (reads); placing an order uses ``_submit_order_idempotent`` instead.
     """
     import functools
-    import time as _time
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -1022,18 +1058,98 @@ def _broker_retry(func, *, max_retries: int = 3, base_delay: float = 1.0):
                 return func(*args, **kwargs)
             except Exception as exc:
                 last_exc = exc
-                exc_str = str(exc).lower()
                 # Only retry on transient errors, not auth/validation failures
-                is_transient = any(s in exc_str for s in (
-                    "timeout", "timed out", "connection", "502", "503",
-                    "504", "500", "rate limit", "429", "retry",
-                ))
-                if not is_transient or attempt >= max_retries:
+                if not _is_transient_broker_error(exc) or attempt >= max_retries:
                     raise
-                delay = base_delay * (2 ** attempt)
-                _time.sleep(delay)
+                time.sleep(_broker_retry_delay(exc, attempt, base_delay))
         raise last_exc  # unreachable but satisfies type checker
     return wrapper
+
+
+# How old an order found by its client order ID may be and still count as
+# "the first try of this submission that arrived despite the timeout".
+SUBMIT_LOOKUP_MAX_AGE_SECONDS = 15 * 60
+
+
+def _is_duplicate_client_id_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return "client_order_id" in text and "unique" in text
+
+
+def _matching_order_id_for_client_id(api, kwargs: dict, started_at: datetime) -> str | None:
+    """Return the broker order ID if this exact submission already reached Alpaca.
+
+    PLAIN ENGLISH: after a timeout we can't tell whether Alpaca got the order.
+    Ask Alpaca for the order with our client order ID.  Only accept it if it
+    is the same ticker, side and quantity, and was created just now; an older
+    order that happens to share the ID is not this submission.
+    """
+    getter = getattr(api, "get_order_by_client_id", None)
+    if getter is None:
+        return None
+    try:
+        found = getter(kwargs["client_order_id"])
+    except Exception:
+        return None
+    if found is None or not getattr(found, "id", None):
+        return None
+    if str(getattr(found, "symbol", "")).upper() != str(kwargs["symbol"]).upper():
+        return None
+    if str(getattr(found, "side", "")).lower() != str(kwargs["side"]).lower():
+        return None
+    try:
+        if float(getattr(found, "qty", None)) != float(kwargs["qty"]):
+            return None
+    except (TypeError, ValueError):
+        return None
+    created = getattr(found, "created_at", None) or getattr(found, "submitted_at", None)
+    if isinstance(created, str):
+        try:
+            created = datetime.fromisoformat(created.replace("Z", "+00:00"))
+        except ValueError:
+            created = None
+    if not isinstance(created, datetime):
+        return None
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    if created < started_at - timedelta(seconds=SUBMIT_LOOKUP_MAX_AGE_SECONDS):
+        return None
+    return str(found.id)
+
+
+def _submit_order_idempotent(api, kwargs: dict, *, max_retries: int = 3,
+                             base_delay: float = 1.0) -> str:
+    """Send one order without ever risking a second copy.
+
+    PLAIN ENGLISH (Alpaca's paper-trading guide): never resend an order after
+    an unclear failure until you have checked whether the first one arrived.
+      - A temporary error (timeout, 5xx, rate limit): look the order up by its
+        client order ID.  Found -> it arrived; return its ID.  Not found ->
+        wait and send again with the SAME client order ID, so Alpaca itself
+        rejects a second copy.
+      - "client_order_id must be unique" on a resend: the earlier try did
+        arrive; look it up and return it.
+      - The same message on the very first try is an old ID collision, not
+        this order; it is raised as before so the run log records it.
+    """
+    started_at = datetime.now(timezone.utc)
+    for attempt in range(max_retries + 1):
+        try:
+            # The adapter consumes keys from the dict, so send a copy each time.
+            return str(api.submit_order(**dict(kwargs)).id)
+        except Exception as exc:
+            duplicate = _is_duplicate_client_id_error(exc)
+            if duplicate and attempt == 0:
+                raise
+            if not duplicate and not _is_transient_broker_error(exc):
+                raise
+            existing = _matching_order_id_for_client_id(api, kwargs, started_at)
+            if existing:
+                return existing
+            if duplicate or attempt >= max_retries:
+                raise
+            time.sleep(_broker_retry_delay(exc, attempt, base_delay))
+    raise RuntimeError("unreachable")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1068,7 +1184,7 @@ class AlpacaBroker(Broker):
         # PLAIN ENGLISH: This project is not approved for real capital.  A
         # copied environment variable must never silently redirect this paper
         # trader to Alpaca's live-money endpoint.
-        if "paper-api.alpaca.markets" not in ALPACA_BASE_URL.lower():
+        if not is_paper_endpoint(ALPACA_BASE_URL):
             raise ValueError(
                 "Refusing non-paper Alpaca endpoint; real-capital trading is not approved"
             )
@@ -1091,7 +1207,8 @@ class AlpacaBroker(Broker):
             getattr(self._account, "account_blocked", False)
             or getattr(self._account, "trading_blocked", False)
         )
-        if account_status and account_status != "ACTIVE":
+        # Alpaca documents PAPER_ONLY as a valid status for paper accounts.
+        if account_status and account_status not in ("ACTIVE", "PAPER_ONLY"):
             raise ConnectionError(f"Alpaca paper account is not active: {account_status}")
         if blocked:
             raise ConnectionError("Alpaca paper account reports trading_blocked/account_blocked")
@@ -1155,7 +1272,6 @@ class AlpacaBroker(Broker):
             return 0
         return max(0, int(value))
 
-    @_broker_retry
     def place_order(self, order: Order) -> str:
         """
         Submit an order to Alpaca.
@@ -1172,8 +1288,11 @@ class AlpacaBroker(Broker):
             "side": order.side,
             "time_in_force": "gtc",  # trailing stops need GTC (good-til-cancelled)
         }
-        if order.client_id:
-            kwargs["client_order_id"] = order.client_id
+        # Every order gets a client order ID so a timed-out submission can be
+        # looked up instead of blindly resent.  Orders without one (stops,
+        # guard exits) get a random one; it never starts with a date, so the
+        # same-day rebalance duplicate check still ignores them.
+        kwargs["client_order_id"] = order.client_id or f"auto_{uuid.uuid4().hex[:24]}"
 
         if order.type == "trailing_stop" and order.trail_percent is not None:
             # PLAIN ENGLISH: A trailing stop follows the stock price UP but
@@ -1197,8 +1316,7 @@ class AlpacaBroker(Broker):
             kwargs["type"] = "market"
             kwargs["time_in_force"] = "day"
 
-        result = self._api.submit_order(**kwargs)
-        return str(result.id)
+        return _submit_order_idempotent(self._api, kwargs)
 
     def cancel_order(self, order_id: str) -> bool:
         """Cancel a pending order."""
@@ -1548,7 +1666,7 @@ def _overlay_risk_cap(
 
     # This is research behavior, not a permission to trade real money.  Fail
     # closed if somebody enables it while pointing at Alpaca's live endpoint.
-    if "paper-api.alpaca.markets" not in ALPACA_BASE_URL.lower():
+    if not is_paper_endpoint(ALPACA_BASE_URL):
         raise RuntimeError("Experimental live risk cap is allowed only on Alpaca paper trading")
 
     path = Path(DATA_DIR) / f"{ticker.upper()}.parquet"
@@ -3896,7 +4014,7 @@ def _overlay_stop_type() -> str:
         raise RuntimeError(f"Unknown ALPACA_OVERLAY_STOP_MODE: {OVERLAY_STOP_MODE}")
     if not EXPERIMENTAL_ATR_STOPS_ENABLED:
         raise RuntimeError("ATR stop mode needs ALPACA_ENABLE_EXPERIMENTAL_ATR_STOPS=1")
-    if "paper-api.alpaca.markets" not in ALPACA_BASE_URL.lower():
+    if not is_paper_endpoint(ALPACA_BASE_URL):
         raise RuntimeError("Experimental ATR stops are allowed only on Alpaca paper trading")
     return "stop"
 

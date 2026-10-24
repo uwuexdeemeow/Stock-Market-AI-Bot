@@ -10,7 +10,7 @@ It checks:
 - Alpaca credentials can connect.
 - Account equity can be read.
 - Equity is positive and finite, not missing, NaN, infinite, or zero.
-- The paper account is active and not blocked from trading.
+- The paper account is active (status `ACTIVE` or `PAPER_ONLY`) and not blocked from trading.
 - Buying power is finite and non-negative.
 - Alpaca's market clock endpoint responds with a valid open/closed value.
 
