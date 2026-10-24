@@ -1,8 +1,8 @@
 # Plan: retire core-alpha (draft, 2026-10-25)
 
-**Status: PLAN ONLY. No code moves until the owner approves, and not before
-the first rule V trade (2026-11-02) has reconciled and the 11/03 monitor has
-run.** Each phase is one commit or PR, passes the full suite, and gets a
+**Status: PLAN, owner decisions made 2026-10-25 (see "Owner decisions").
+No code moves before the first rule V trade (2026-11-02) has reconciled, the
+11/03 monitor has run, and the owner says "go phase 1".** Each phase is one commit or PR, passes the full suite, and gets a
 refreeze when it touches a locked file. Built the same way as
 `LEGACY_ML_CLEANUP_PLAN.md`, which went through without a hitch.
 
@@ -157,22 +157,29 @@ helper fixes it.
 - **Not touched:** `archive/paper_epochs/` (live) and the `signals/latest`
   branch (history).
 
-## Owner decisions (needed before Phase 2)
+## Owner decisions (decided 2026-10-25)
 
 1. **Tools group** (`status`, `monitor`, `dashboard`, `config_health`,
    `disaster_recovery`, `audit_evidence_recovery`, `evidence_audit`):
    (a) keep and repoint at V's files, or (b) retire with core-alpha.
-   - Me suggest: keep `status` and `disaster_recovery` (useful for V);
-     check what `monitor` and the dashboard show before deciding; retire
-     the two audit tools.
+   - **Decided: retire only the two audit tools** (`audit_evidence_recovery`,
+     `evidence_audit`). Keep `status`, `monitor`, the dashboard,
+     `config_health` and `disaster_recovery`. Where they read core-alpha
+     files, they are repointed at V's files, or the core-alpha part is
+     dropped, in Phase 3.
 2. **Core-alpha branches inside `alpaca_paper_trading.py`:** (a) leave
    them dormant (safe, no change to the order code), or (b) strip them in a
    later, separate PR with its own review.
-   - Me suggest (a) until V has a few months of clean fills.
+   - **Decided: (a) leave them dormant.** `alpaca_paper_trading.py`'s
+     order code is not touched by this plan.
 3. **Shadow paper research** (`shadow_paper_journal`,
    `fractional_shadow_paper`, `paper_shadow_compare`): retire with
-   core-alpha (me suggest), or keep for a future V shadow such as an
-   H-multi-asset M shadow.
+   core-alpha, or keep for a future V shadow such as an H-multi-asset M
+   shadow.
+   - **Decided: retire them** with core-alpha (Phase 2 deletes
+     `shadow_paper_journal.yml`; Phase 3 moves the three scripts and their
+     tests to `legacy/core_alpha/`). A future shadow test would get its own
+     small script.
 
 ## Order and timing
 
