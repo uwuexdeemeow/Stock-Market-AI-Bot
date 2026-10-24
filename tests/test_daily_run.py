@@ -22,8 +22,7 @@ def test_default_steps_include_one_shared_signal_before_alpaca():
     names = _names(steps)
     assert names.count("core_satellite_signal") == 1
     assert names.index("factor_data_health") < names.index("core_satellite_signal")
-    assert names.index("factor_data_health") < names.index("drift_monitor")
-    assert names.index("drift_monitor") < names.index("core_satellite_signal")
+    assert "drift_monitor" not in names  # legacy ML step retired
     assert names.index("core_satellite_signal") < names.index("alpaca_submit")
     submit = next(step for step in steps if step.name == "alpaca_submit")
     assert "--allow-repeat-submit" not in submit.cmd
@@ -474,7 +473,6 @@ def test_factor_data_health_failure_blocks_signal_and_orders(monkeypatch):
         "log_cleanup",
     ]
     assert next(r for r in results if r["name"] == "core_satellite_signal")["status"] == "blocked"
-    assert next(r for r in results if r["name"] == "drift_monitor")["status"] == "blocked"
     assert next(r for r in results if r["name"] == "alpaca_submit")["blocked_by"] == "factor_data_health"
     assert next(r for r in results if r["name"] == "monitor_heartbeat")["upstream_blocked_by"] == "factor_data_health"
 

@@ -4,14 +4,12 @@ import os
 import sys
 from datetime import datetime, timezone
 
-import pandas as pd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 import core_satellite_alpha
-import predict
 import sentiment_engine
 
 
@@ -54,41 +52,8 @@ def test_score_todays_news_fallback_only_marks_partial_coverage(monkeypatch):
     assert out["primary_available"] is False
     assert out["fallback_available"] is True
     assert out["composite_score"] == 0.0
-
-    df = pd.DataFrame({
-        "sent_news_sentiment": [0, 0, 0, 0, 0],
-        "sentiment_primary_available": [0, 0, 0, 0, 0],
-        "sentiment_fallback_available": [0, 0, 0, 0, 1],
-        "sentiment_fresh_headline_count": [0, 0, 0, 0, 1],
-    })
-    health, _, _ = predict.evaluate_sentiment_health(df)
-    assert health == "PARTIAL"
-
-
-def test_sentiment_health_degraded_when_all_providers_unavailable():
-    df = pd.DataFrame({
-        "sent_news_sentiment": [0, 0, 0, 0, 0],
-        "sentiment_primary_available": [0, 0, 0, 0, 0],
-        "sentiment_fallback_available": [0, 0, 0, 0, 0],
-        "sentiment_fresh_headline_count": [0, 0, 0, 0, 0],
-    })
-
-    health, _, _ = predict.evaluate_sentiment_health(df)
-
-    assert health == "DEGRADED"
-
-
-def test_sentiment_health_full_when_primary_has_neutral_fresh_news():
-    df = pd.DataFrame({
-        "sent_news_sentiment": [0, 0, 0, 0, 0],
-        "sentiment_primary_available": [0, 0, 0, 0, 1],
-        "sentiment_fallback_available": [0, 0, 0, 0, 0],
-        "sentiment_fresh_headline_count": [0, 0, 0, 0, 1],
-    })
-
-    health, _, _ = predict.evaluate_sentiment_health(df)
-
-    assert health == "FULL"
+    # (The matching predict.evaluate_sentiment_health check moved to
+    # tests/legacy/test_predict_sentiment_health.py with predict.py.)
 
 
 def test_core_satellite_veto_uses_negative_fallback_sentiment(monkeypatch):

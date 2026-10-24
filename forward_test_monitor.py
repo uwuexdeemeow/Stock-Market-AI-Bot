@@ -281,7 +281,7 @@ def _prices(ticker: str, start, end) -> pd.DataFrame:
 
 
 def compute(args) -> dict:
-    from core_satellite_alpha import _nyse_sessions
+    from v_rule_signal import _nyse_sessions
 
     if not args.signals_dir:
         subprocess.run(["git", "fetch", "-q", "origin", "signals/latest"], check=True)
@@ -320,7 +320,7 @@ def compute(args) -> dict:
 
 def compute_v(args) -> dict:
     """Forward Test Rule FV numbers from the daily run's files."""
-    from core_satellite_alpha import _nyse_sessions
+    from v_rule_signal import _nyse_sessions
 
     if not args.signals_dir:
         subprocess.run(["git", "fetch", "-q", "origin", "signals/latest"], check=True)

@@ -71,9 +71,9 @@ it still lost about 30% in 2008 and 23% in 2022.
 
 ## Stack
 
-Python, pandas, NumPy, scikit-learn, XGBoost, PyTorch and Hugging Face
-Transformers (FinBERT news sentiment, from the earlier ML stage), the Alpaca API,
-GitHub Actions, pytest.
+Python, pandas, NumPy, the Alpaca API, GitHub Actions, pytest. The earlier ML
+stage also used scikit-learn and XGBoost (now in `legacy/`), and PyTorch with
+Hugging Face Transformers (optional FinBERT news sentiment).
 
 ## Running it
 
@@ -85,5 +85,6 @@ python daily_run.py         # run the daily pipeline once
 ```
 
 Each script has a plain-language guide in [`Documentation/`](Documentation/).
-The original ML scripts (`train.py`, `predict.py` and others) are kept because
-live code still imports parts of them, but they no longer pick trades.
+The original ML scripts (`train.py`, `predict.py` and others) are kept in
+[`legacy/`](legacy/) for the record. No live code imports them; to run them,
+`pip install -r requirements-legacy.txt` first.

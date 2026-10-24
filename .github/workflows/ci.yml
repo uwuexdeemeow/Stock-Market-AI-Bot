@@ -80,6 +80,27 @@ jobs:
       - name: Run dashboard tests
         run: pytest -q tests/test_dashboard_data.py
 
+  legacy-tests:
+    # PLAIN ENGLISH: the old ML scripts live in legacy/ and need xgboost and
+    # scikit-learn, which the trading install no longer has.  Their tests run
+    # here, on their own.  continue-on-error: a failure is shown but does not
+    # turn the paper-safety check red, because no trading code uses them.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install legacy test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-legacy.txt pytest
+      - name: Run legacy tests
+        run: pytest -q tests/legacy
+
   windows-paper-safety:
     runs-on: windows-latest
     timeout-minutes: 30

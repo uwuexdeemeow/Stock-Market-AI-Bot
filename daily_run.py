@@ -274,12 +274,6 @@ FACTOR_DATA_HEALTH_STEP = Step(
     critical=True,
 )
 
-DRIFT_MONITOR_STEP = Step(
-    "drift_monitor",
-    [sys.executable, "drift_monitor.py", "--run-name", "pooled"],
-    "Compare recent model inputs with the training-time feature baseline",
-)
-
 ALPACA_STATUS_STEP = Step(
     "alpaca_status",
     [sys.executable, "alpaca_paper_trading.py", "--status"],
@@ -747,7 +741,8 @@ def build_steps(
         steps.append(BROKER_HEALTH_STEP)
     if not v_rule:
         steps.append(FACTOR_DATA_HEALTH_STEP)
-        steps.append(DRIFT_MONITOR_STEP)
+        # (The old drift_monitor.py step, which compared ML model inputs with
+        # their training baseline, was retired with the legacy ML layer.)
     if run_alpaca:
         # PLAIN ENGLISH: refresh the account snapshot right before the signal,
         # so it sees positions and stop-loss exits since yesterday's run (the

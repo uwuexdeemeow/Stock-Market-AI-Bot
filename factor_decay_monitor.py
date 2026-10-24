@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from alpha_factor_backtest import attach_scores, load_factor_panel, load_feature_specs, load_prediction_scores
-from backtest import _newey_west_tstat
+from quant_common import _newey_west_tstat
 import core_satellite_alpha as core
 from settings import LOG_DIR, SIGNAL_DIR
 from safe_io import atomic_write_csv, atomic_write_json

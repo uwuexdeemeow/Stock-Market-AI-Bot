@@ -223,7 +223,9 @@ def write_report(build_rows: list[dict] | None, profiles: list[dict], tickers_fo
 def run_backtest(tickers: list[str], mode: str, ablate_blend: bool) -> int:
     cmd = [
         sys.executable,
-        "backtest.py",
+        # The old ML backtester now lives in legacy/ and needs
+        # requirements-legacy.txt (xgboost, scikit-learn) installed.
+        "legacy/backtest.py",
         "--tickers",
         *tickers,
         "--mode",

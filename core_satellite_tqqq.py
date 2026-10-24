@@ -46,7 +46,7 @@ from alpha_factor_backtest import (
     portfolio_stats,
     subperiod_metrics,
 )
-from backtest import INITIAL_CAPITAL
+from quant_common import INITIAL_CAPITAL
 from core_satellite_alpha import (
     REGIME_PRESETS,
     SCORE_SOURCES,

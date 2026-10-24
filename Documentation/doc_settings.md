@@ -4,7 +4,7 @@
 
 `settings.py` is the **control panel** for the entire project. Every important number — split ratios, risk limits, model hyperparameters, API keys, file paths — lives here. Changing a value here changes it everywhere.
 
-You should never have to change a number buried inside `train.py` or `backtest.py`. If you want to adjust something, look here first.
+You should never have to change a number buried inside a script (such as the legacy `legacy/train.py` or `legacy/backtest.py`). If you want to adjust something, look here first.
 
 ---
 

@@ -1076,7 +1076,7 @@ def _get_cached_bench_raw(index: pd.DatetimeIndex) -> pd.DataFrame:
     global _BENCH_RAW_CACHE
     if _BENCH_RAW_CACHE is None:
         # First call: load raw prices once and cache them
-        from backtest import DATA_DIR
+        from settings import DATA_DIR
         _BENCH_RAW_CACHE = {}
         for sym in ("SPY", "QQQ"):
             local_path = os.path.join(DATA_DIR, f"{sym}.parquet")

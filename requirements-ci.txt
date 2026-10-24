@@ -2,13 +2,14 @@
 # Excludes torch and transformers for the Alpaca-only daily pipeline.
 # This keeps CI install time under 60 seconds and avoids the 2 GB PyTorch wheel.
 
-# Core data & ML
+# Core data
 numpy==2.4.4
 pandas==3.0.2
-scikit-learn==1.8.0
-xgboost==3.2.0
+# pandas calls scipy for Spearman rank correlation (factor IC), so it stays.
 scipy==1.17.1
-joblib==1.5.3
+# The legacy ML packages (scikit-learn, xgboost, joblib, matplotlib) moved to
+# requirements-legacy.txt with the legacy/ folder on 2026-10-25.
+# tests/test_no_legacy_imports.py fails if live code needs them again.
 
 # Market data
 yfinance==0.2.40
@@ -38,14 +39,11 @@ certifi==2026.10.19
 python-dotenv==1.2.2
 tqdm==4.67.3
 psutil==7.2.2
-matplotlib==3.10.8
-# matplotlib needs pillow; pinned to the first release without the 2026-10
-# pip-audit findings (streamlit 1.56 capped it below 13, see below).
-pillow==13.0.0
 rich==15.0.0
 ruff==0.16.5
 # streamlit (dashboard only) is not here: no trading or research job imports
-# it, and it capped pillow below the patched 13.0.0.  The dashboard tests
+# it, and it capped pillow below the patched 13.0.0 (pillow itself is only
+# needed by matplotlib, now in requirements-legacy.txt).  The dashboard tests
 # install it in their own CI job (see .github/workflows/ci.yml).
 python-dateutil==2.9.0.post0
 pytz==2026.1.post1

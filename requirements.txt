@@ -1,13 +1,14 @@
-# Core data & ML
+# Core data
 numpy==2.4.4
 pandas==3.0.2
-scikit-learn==1.8.0
-xgboost==3.2.0
-shap==0.51.0
+# pandas calls scipy for Spearman rank correlation (factor IC).
 scipy==1.17.1
-joblib==1.5.3
+# Legacy ML packages (scikit-learn, xgboost, joblib, matplotlib) are in
+# requirements-legacy.txt; install it only to run the scripts in legacy/.
+# shap and seaborn were dropped: nothing imports them.
 
-# Deep learning
+# Deep learning (optional FinBERT news sentiment in sentiment_engine.py;
+# it falls back to VADER when these are missing, as on GitHub Actions)
 torch==2.11.0
 torchvision==0.26.0
 transformers==5.5.4
@@ -44,8 +45,6 @@ alpaca-py==0.43.4
 python-dotenv==1.2.2
 tqdm==4.67.3
 psutil==7.2.2
-matplotlib==3.10.8
-seaborn==0.13.2
 rich==15.0.0
 PyYAML==6.0.1
 python-dateutil==2.9.0.post0

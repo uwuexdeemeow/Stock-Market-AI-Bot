@@ -41,7 +41,10 @@ of each month, expect a rebalance. Around the 3rd of each month, run
 or 63-day settings while the test runs.
 
 The older scan → research → train → predict → backtest stock pipeline below
-is unchanged and documented as before; it no longer places paper orders.
+is documented as before; it no longer places paper orders. Since 2026-10-25
+its train / predict / backtest scripts live in `legacy/` (run them as
+`python legacy/train.py` after `pip install -r requirements-legacy.txt`).
+Live code shares only three small helpers with it, now in `quant_common.py`.
 
 ## Current script maintenance
 

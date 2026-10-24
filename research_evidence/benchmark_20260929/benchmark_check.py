@@ -227,7 +227,7 @@ def main(argv: list[str] | None = None) -> dict:
     parser.add_argument("--out", default=str(OUT_DIR / "benchmark_check.json"))
     args = parser.parse_args(argv)
 
-    from backtest import _newey_west_tstat
+    from quant_common import _newey_west_tstat
 
     top = _top_names_module()
     edge, core, config, panel_s, sessions, notes = top.build_s_panel(args.membership_csv)

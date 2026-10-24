@@ -25,22 +25,20 @@ from typing import Any
 # Anything not matched falls into "Other".
 SCRIPT_CATEGORIES: dict[str, set[str]] = {
     "Strategy & research": {
-        "backtest", "confidence_calibration", "core_satellite_alpha",
+        "core_satellite_alpha",
         "core_satellite_nested_walkforward", "core_satellite_tqqq",
         "feature_quality_diagnostic", "fundamental_features",
-        "labels", "leakage_audit", "model_quality",
-        "model_self_check", "pipeline_shared", "portfolio_manager",
-        "predict", "research", "sentiment_engine", "settings",
-        "social_sentiment", "train", "xgb_feature_engineering",
-        "ranker_utils", "calibration_stability", "cross_sectional_features",
-        "intraday_features", "alternative_data_features",
+        "pipeline_shared", "portfolio_manager",
+        "research", "sentiment_engine", "settings",
+        "social_sentiment", "ranker_utils", "cross_sectional_features",
+        "intraday_features",
     },
     "Robustness & validation": {
         "alpha_factor_backtest",
         "core_satellite_drawdown_throttle", "core_satellite_execution_stress",
         "core_satellite_survivorship_audit", "factor_decay_monitor",
         "factor_data_health",
-        "feature_health", "nested_cv", "regime_monitor", "robustness_scoring",
+        "feature_health", "regime_monitor", "robustness_scoring",
         "survivorship_audit", "walkforward_analyzer",
     },
     "Live paper trading": {
@@ -56,7 +54,7 @@ SCRIPT_CATEGORIES: dict[str, set[str]] = {
         "config_health", "data_provider", "data_validation",
         "experiment_ledger", "http_retry", "log_cleanup", "monitor",
         "monitor_heartbeat", "notifications", "options_iv_provider",
-        "safe_io",
+        "safe_io", "quant_common",
     },
 }
 
@@ -280,14 +278,14 @@ HIDDEN_SCRIPTS: set[str] = {
     "pipeline_shared",      # imported module
     "broker_interface",     # imported module
     "data_provider", "http_retry", "safe_io", "notifications",
-    "model", "labels",      # imported by train.py — rarely run directly
+    "model",
     "execution_model", "trade_rules",
     "options_iv_provider", "sentiment_engine", "social_sentiment",
     "ranker_utils", "robustness_scoring",
     "cross_sectional_features", "intraday_features",
-    "alternative_data_features", "fundamental_features",
-    "xgb_feature_engineering",
+    "fundamental_features",
     "feature_health",
+    "quant_common",         # imported helper module
 }
 
 

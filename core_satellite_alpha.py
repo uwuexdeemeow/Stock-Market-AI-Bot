@@ -31,7 +31,7 @@ from alpha_factor_backtest import (
     portfolio_stats,
     subperiod_metrics,
 )
-from backtest import INITIAL_CAPITAL, _load_etf_price_frame
+from quant_common import INITIAL_CAPITAL, _load_etf_price_frame
 from feature_health import enrich_feature_specs
 from robustness_scoring import add_cost_stress_approval_columns, robustness_score_components
 from signal_freshness import latest_completed_us_trading_day, live_config_fingerprint

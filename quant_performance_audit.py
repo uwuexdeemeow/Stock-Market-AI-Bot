@@ -29,7 +29,7 @@ from alpha_factor_backtest import (
     load_feature_specs,
     load_prediction_scores,
 )
-from backtest import _newey_west_tstat
+from quant_common import _newey_west_tstat
 from core_satellite_alpha import _ensure_robust_score_columns, run_core_satellite
 from execution_cost_calibration import calibrated_turnover_cost_pct
 from experiment_ledger import append_experiment

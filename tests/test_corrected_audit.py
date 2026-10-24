@@ -11,7 +11,6 @@ from causal_research import fit_features, score_features
 from corrected_audit import prospective_status
 from edge_evidence import edge_summary
 from execution_cost_calibration import causal_cost_parameters
-from labels import make_spy_forward_return, make_direction_target
 from paper_policy import PaperPolicy, whole_share_target
 from portfolio_ledger import Account, simulate_daily, daily_metrics, trailing_outcome, replay_events, LEDGER_VERSION
 from trade_rules import TradeRule, resolve_rule_exit
@@ -162,15 +161,6 @@ def test_positive_raw_return_underperforming_benchmark_is_not_healthy():
     assert result["benchmark_excess_return_pct"] < 0
     assert not result["statistical_healthy"]
     assert result["excess_return_ci95_pct"][1] < 0
-
-
-def test_missing_benchmark_rejected_but_raw_labels_work():
-    frame = pd.DataFrame({"Close": np.arange(100., 110.)})
-    with pytest.raises(ValueError, match="benchmark"):
-        make_spy_forward_return(frame)
-    with pytest.raises(ValueError, match="Benchmark"):
-        make_direction_target(frame.Close, prediction_target="excess_return")
-    assert len(make_direction_target(frame, prediction_target="raw_return")) == len(frame)
 
 
 def test_rule_exit_includes_entry_day_and_gap():

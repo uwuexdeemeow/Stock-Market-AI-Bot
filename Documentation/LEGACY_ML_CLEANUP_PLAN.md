@@ -1,8 +1,11 @@
-# Plan: unhook and retire the legacy ML layer (draft, 2026-10-25)
+# Plan: unhook and retire the legacy ML layer (2026-10-25)
 
-**Status: PLAN ONLY. Nothing moves until the owner approves each phase.**
-CLAUDE.md says legacy files are not deleted, moved or renamed without a plan
-and the owner's agreement. This is that plan.
+**Status: Phases 1–4 DONE on branch `legacy-cleanup` (owner: "do all the
+phase", 2026-10-25). Merge after the 2026-11-02 V rebalance reconciles,
+together with `deps-ci-audit`, which this branch already contains.** See
+"What was done" at the end. CLAUDE.md says legacy files are not deleted,
+moved or renamed without a plan and the owner's agreement. This is that
+plan.
 
 **Key term — legacy layer:** the old XGBoost prediction code (`train.py`,
 `predict.py`, `labels.py` and the rest). It was switched off for picks
@@ -109,3 +112,89 @@ live code, and it costs:
 1. After the 2026-11-02 V rebalance reconciles: merge `deps-ci-audit` and Phase 1 together, then one refreeze.
 2. Phase 2 and Phase 3: when the owner agrees, one PR each.
 3. Phase 4: any time, owner's choice.
+
+## What was done (2026-10-25, branch `legacy-cleanup`)
+
+### Phase 1: the link is cut
+- `quant_common.py` now holds `INITIAL_CAPITAL`, `_ETF_PRICE_FRAME_CACHE`,
+  `_download_yfinance`, `_newey_west_tstat` and `_load_etf_price_frame`,
+  copied verbatim. `legacy/backtest.py` re-imports them.
+- Repointed to `quant_common`: `alpha_factor_backtest.py`,
+  `core_satellite_alpha.py`, `core_satellite_drawdown_throttle.py`,
+  `core_satellite_tqqq.py`, `factor_decay_monitor.py` and
+  `quant_performance_audit.py`, plus
+  `research_evidence/benchmark_20260929/benchmark_check.py` (one import line).
+- `core_satellite_nested_walkforward.py` takes `DATA_DIR` from `settings`.
+- `forward_test_monitor.py` takes `_nyse_sessions` from `v_rule_signal`.
+  It gives the same sessions as core's version: 540 sessions for
+  2025-01-01..2027-03-01 and 2,765 for 2016..2026, all equal.
+- **Proof of no change:**
+  - 122 helper results on real data (3 symbol sets × 4 date grids × 2
+    warm-ups, and t-statistics at 3 lags) match the old `backtest.py`
+    exactly;
+  - `factor_decay_monitor.py` wrote identical JSON (ignoring timestamps)
+    and an identical CSV before and after.
+- **Guard:** `tests/test_no_legacy_imports.py` checks four things:
+  - no legacy script is back in the root;
+  - no live file imports a legacy module or xgboost / scikit-learn /
+    matplotlib / shap / seaborn (lazy imports included);
+  - no live file starts a legacy script except by an explicit
+    `legacy/...` path;
+  - importing 20 entry points loads none of them.
+
+### Phase 2: moved to `legacy/`
+- **Code:** the 14 legacy scripts and `backtest.py` are in `legacy/`
+  (`legacy/README.md`). Each gets a 4-line path setup, so
+  `python legacy/train.py` still finds `settings.py` and its neighbours.
+  `model_registry.PROJECT_ROOT` now points one level up.
+- **Docs:** moved to `Documentation/legacy/`, with a banner, and their run
+  commands now say `python legacy/<name>.py`.
+- **Tests:**
+  - 6 legacy-only test files moved to `tests/legacy/`;
+  - the legacy parts of 4 mixed files were split out (labels tests from
+    `test_sanity` and `test_corrected_audit`, nested_cv tests from
+    `test_nested_walkforward_defaults`, predict sentiment-health tests from
+    `test_sentiment_fallback`);
+  - `test_submission_history_guards` now tests the price loader in
+    `quant_common`.
+- `pytest.ini` skips `tests/legacy` by default. The new CI job
+  `legacy-tests` runs it with `continue-on-error`.
+- `daily_run.py`: the `drift_monitor` step is retired. It sat on the
+  core-alpha path only and compared ML model inputs with their training
+  baseline; nothing read its output.
+- `survivorship_audit.py --run-backtest` now calls `legacy/backtest.py`.
+- Updated: CLAUDE.md, AGENTS.md, README, `RELIABILITY_FIRST_WORKFLOW.md`,
+  the dashboard script map, and a few docs that named `backtest.py`.
+
+### Phase 3: heavy packages dropped
+- `requirements-ci.txt`, the daily trading install, no longer has
+  scikit-learn, xgboost, joblib, matplotlib or pillow.
+- **scipy stays:** in the slim test, pandas needed it for Spearman rank
+  correlation, which the factor IC code uses.
+- The new `requirements-legacy.txt` is the trading set plus those packages.
+- Local `requirements.txt` drops scikit-learn, xgboost, joblib, matplotlib,
+  shap and seaborn. Nothing imported shap or seaborn.
+- **torch / transformers stay** (correction to the plan above):
+  `sentiment_engine.py` uses them for optional FinBERT news sentiment, which
+  is not legacy.
+- **Proof:** in a clean venv with only `requirements-ci.txt` (no sklearn,
+  xgboost, matplotlib or PIL), the full main suite passes. The legacy tests
+  pass with the legacy packages installed.
+
+### Phase 4: legacy outputs → option (a), plus a tag
+- `models/`, `research_snapshots/`, `autoresearch-results/` and most of
+  `archive/` were never in git (they are gitignored or excluded), so there
+  is nothing to remove from `main`.
+- `archive/paper_epochs/` is tracked and live: `paper_validation_epoch.py`
+  writes it. It stays.
+- `models/` also stays, because it is `MODEL_DIR` for the core-alpha
+  `trade_rules.py`.
+- The commit before the move is tagged `legacy-ml-final`.
+- Deleting the local folders (for example `research_snapshots/`, 303 MB)
+  frees disk space and cannot be undone. That is left to the owner, by hand.
+
+### Release lock
+`core_satellite_alpha.py`, `daily_run.py`, `requirements-ci.txt` and
+`requirements.txt` are locked, so the branch carries a refreeze for the same
+epoch. After merging, run `python paper_validation_epoch.py --check-lock` on
+`main`. If `main` moved in between, refreeze again there.

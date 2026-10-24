@@ -27,7 +27,7 @@ from alpha_factor_backtest import (
     portfolio_stats,
     subperiod_metrics,
 )
-from backtest import INITIAL_CAPITAL
+from quant_common import INITIAL_CAPITAL
 import core_satellite_alpha as core
 from settings import SIGNAL_DIR, LOG_DIR, SLIPPAGE_BASE_PCT
 from safe_io import atomic_write_csv, atomic_write_json

@@ -45,9 +45,9 @@ In `--health-only` mode, the watchdog checks the matching
 refresh separate from the real scheduled `daily_run` evidence.
 | 15 | `log_cleanup` | always-run | Disk usage check |
 
-Before signal generation, `drift_monitor` also compares recent ML inputs with
-the pooled model's training baseline. It is advisory: a missing baseline is
-reported as `no_data`, and the next successful training run creates one.
+(Until 2026-10-25 a `drift_monitor` step also compared recent ML inputs with
+the model's training baseline. It was retired with the legacy ML layer, which
+now lives in `legacy/`; see `LEGACY_ML_CLEANUP_PLAN.md`.)
 
 ## How to run
 
@@ -265,7 +265,7 @@ month-end volatility target; see `V_RULE_FORWARD_TEST.md`). In this mode
 - `v_rule_signal.py` replaces `core_satellite_alpha.py` as the signal step;
 - the factor refresh steps (`research.py`, `feature_quality_diagnostic.py`)
   are left out;
-- `factor_data_health.py` and `drift_monitor.py` are left out too.
+- `factor_data_health.py` is left out too.
 
 Rule V reads only QQQ/BIL prices, so these steps have nothing to check.
 Everything else stays the same: ETF refresh, fill monitor, broker health,

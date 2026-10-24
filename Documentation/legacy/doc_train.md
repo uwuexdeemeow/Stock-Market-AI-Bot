@@ -1,0 +1,95 @@
+> **Legacy (moved 2026-10-25):** this script now lives in `legacy/` and needs
+> `pip install -r requirements-legacy.txt`. Live trading does not use it.
+> See `Documentation/LEGACY_ML_CLEANUP_PLAN.md`.
+
+# train.py — What It Does and How to Run It
+
+## What This Script Does (Plain English)
+
+`train.py` is the **teacher**. It takes the parquet files built by `research.py` and uses them to teach the XGBoost model patterns — like: "when these features look like this, the stock went up 5 days later."
+
+Training has strict rules to prevent cheating:
+- Data is split into train / calibration / test in chronological order (never shuffled).
+- A 5-day embargo gap sits between each split so the model can't accidentally learn from near-future data.
+- The calibrator (which converts raw model scores to probabilities) is fit only on the calibration slice.
+- Model metadata records the final training date. Drift baselines use that date
+  to exclude calibration, test, and newer market rows.
+
+**Output:** model files saved in `models/` for each ticker.
+After every successful save, `models/registry.json` receives a reproducibility
+record containing the Git commit, dataset fingerprint, metrics, command, and
+checksums of the model artifacts. Failed or incomplete training is not
+registered.
+
+---
+
+## How to Run It
+
+```bash
+# Train models for all tickers in data/
+python legacy/train.py
+
+# Train a single ticker
+python legacy/train.py --ticker AAPL
+
+# Train and show verbose output
+python legacy/train.py --ticker AAPL --verbose
+```
+
+To train a challenger without overwriting any existing model, use an isolated
+shadow directory:
+
+```bash
+python3 legacy/train.py --no-tune --shadow-output-dir models/shadow_YYYYMMDD
+```
+
+Every artifact and its drift baseline stays in that directory. The registry
+entry is named `shadow/pooled` (or `shadow/AAPL` for a single ticker), so tools
+looking for the latest production `pooled` run cannot select it accidentally.
+Only copy a shadow model into production after a separate out-of-sample
+comparison proves it is better.
+
+**Expected output:**
+- `models/<TICKER>_xgb_dir.json` — direction model (up/down)
+- `models/<TICKER>_xgb_ret.json` — return-bucket model (strong_down / down / flat / up / strong_up)
+- `models/<TICKER>_scaler.pkl` — feature normalizer
+- `models/<TICKER>_calibrator.pkl` — confidence calibrator
+- `logs/train.log` — accuracy metrics per ticker
+- `models/registry.json` — append-only reproducibility history
+- `models/<name>_drift_baseline.json` — compact input distribution baseline
+
+---
+
+## Key Concepts
+
+| Term | Plain-English Meaning |
+|---|---|
+| **XGBoost** | A machine learning algorithm that builds many small decision trees and combines them. Very good at tabular (spreadsheet-style) data. |
+| **Direction model** | Predicts UP or DOWN (binary: 1 or 0). |
+| **Return-bucket model** | Predicts one of 5 bins: strong_down / moderate_down / flat / moderate_up / strong_up. |
+| **Train / calibration / test split** | Three chronologically ordered slices of data. Train = teacher. Calibration = adjust confidence. Test = honest final grade. |
+| **Embargo** | 5-day buffer between splits. Prevents the model from "reading ahead" into adjacent time windows. |
+| **Scaler** | Normalizes features so no single feature dominates just because its numbers are bigger. |
+| **Calibrator** | Maps raw model scores (e.g., 0.72) to true probabilities ("72% chance of going up"). |
+| **Isotonic regression** | The type of calibration used here. It learns the shape of the score→probability mapping from data. |
+| **Early stopping** | Training automatically halts when accuracy on a held-out set stops improving, preventing the model from memorizing noise. |
+
+Nested tuning keeps every stock from one date in the same fold and purges the
+full prediction horizon using the market-session calendar. Inner folds choose
+one candidate per outer fold. Production settings use the most frequent inner
+winner; outer scores are reporting evidence and never select parameters.
+
+---
+
+## How It Connects
+
+```
+research.py → data/<TICKER>.parquet
+                    ↓
+               train.py → models/<TICKER>_xgb_dir.json
+                           models/<TICKER>_xgb_ret.json
+                           models/<TICKER>_scaler.pkl
+                           models/<TICKER>_calibrator.pkl
+                                      ↓
+                              predict.py / backtest.py
+```

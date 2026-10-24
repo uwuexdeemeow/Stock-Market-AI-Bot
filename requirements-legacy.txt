@@ -1,0 +1,12 @@
+# Legacy ML layer (the scripts in legacy/: train.py, backtest.py, ...).
+# Install on top of the trading set only when you need the old code:
+#   pip install -r requirements-legacy.txt
+# The CI "legacy-tests" job uses it; the daily trading run does not.
+-r requirements-ci.txt
+scikit-learn==1.8.0
+xgboost==3.2.0
+joblib==1.5.3
+matplotlib==3.10.8
+# matplotlib needs pillow; 13.0.0 is the first release without the 2026-10
+# pip-audit findings.
+pillow==13.0.0

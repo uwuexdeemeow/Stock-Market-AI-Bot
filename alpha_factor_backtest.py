@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from backtest import INITIAL_CAPITAL, _load_etf_price_frame, _newey_west_tstat
+from quant_common import INITIAL_CAPITAL, _load_etf_price_frame, _newey_west_tstat
 from feature_health import (
     MAX_CLUSTER_WEIGHT,
     MIN_ACTIVE_CLUSTERS,

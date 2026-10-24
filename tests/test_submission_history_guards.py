@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 import alpaca_paper_trading as trading
-import backtest
+import quant_common
 import core_satellite_alpha as core
 import alpha_factor_backtest as factors
 
@@ -212,62 +212,62 @@ def test_calendar_purges_december_holiday_crossing(monkeypatch):
 
 
 def test_cache_alignment_order_and_isolation(tmp_path, monkeypatch):
-    monkeypatch.setattr(backtest, "DATA_DIR", str(tmp_path))
-    monkeypatch.setattr(backtest, "_ETF_PRICE_FRAME_CACHE", {})
+    monkeypatch.setattr(quant_common, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(quant_common, "_ETF_PRICE_FRAME_CACHE", {})
     dates = pd.date_range("2024-01-02", periods=3)
     pd.DataFrame({"Close": [100., 110., 120.]}, index=dates).to_parquet(tmp_path / "SPY.parquet")
-    sparse = backtest._load_etf_price_frame(dates[[0, 2]], ["SPY"])
-    dense = backtest._load_etf_price_frame(dates, ["SPY"])
+    sparse = quant_common._load_etf_price_frame(dates[[0, 2]], ["SPY"])
+    dense = quant_common._load_etf_price_frame(dates, ["SPY"])
     assert dense.index.equals(dates)
     assert dense.SPY.tolist() == pytest.approx([1, 1.1, 1.2])
     assert sparse.SPY.tolist() == pytest.approx([1, 1.2])
     dense.iloc[0, 0] = 999
-    reversed_frame = backtest._load_etf_price_frame(dates[::-1], ["SPY"])
+    reversed_frame = quant_common._load_etf_price_frame(dates[::-1], ["SPY"])
     assert reversed_frame.SPY.tolist() == pytest.approx([1.2, 1.1, 1])
-    backtest._ETF_PRICE_FRAME_CACHE.clear()
-    backtest._load_etf_price_frame(dates, ["SPY"])
-    assert backtest._load_etf_price_frame(dates[[0, 2]], ["SPY"]).equals(sparse)
+    quant_common._ETF_PRICE_FRAME_CACHE.clear()
+    quant_common._load_etf_price_frame(dates, ["SPY"])
+    assert quant_common._load_etf_price_frame(dates[[0, 2]], ["SPY"]).equals(sparse)
 
 
 def test_cache_does_not_use_future_observation(tmp_path, monkeypatch):
-    monkeypatch.setattr(backtest, "DATA_DIR", str(tmp_path))
-    monkeypatch.setattr(backtest, "_ETF_PRICE_FRAME_CACHE", {})
+    monkeypatch.setattr(quant_common, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(quant_common, "_ETF_PRICE_FRAME_CACHE", {})
     dates = pd.date_range("2024-01-02", periods=3)
     pd.DataFrame({"Close": [110., 120.]}, index=dates[1:]).to_parquet(tmp_path / "SPY.parquet")
     with pytest.raises(ValueError, match="SPY.*2024-01-02"):
-        backtest._load_etf_price_frame(dates, ["SPY"])
+        quant_common._load_etf_price_frame(dates, ["SPY"])
 
 
 def test_etf_indicator_warmup_is_historical_and_not_backfilled(tmp_path, monkeypatch):
     """Long moving averages use earlier bars, never later requested prices."""
-    monkeypatch.setattr(backtest, "DATA_DIR", str(tmp_path))
-    monkeypatch.setattr(backtest, "_ETF_PRICE_FRAME_CACHE", {})
+    monkeypatch.setattr(quant_common, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(quant_common, "_ETF_PRICE_FRAME_CACHE", {})
     dates = pd.bdate_range("2023-01-02", periods=220)
     path = tmp_path / "SPY.parquet"
     pd.DataFrame({"Close": range(100, 320)}, index=dates).to_parquet(path)
     requested = dates[-2:]
 
-    prices = backtest._load_etf_price_frame(requested, ["SPY"], warmup_calendar_days=400)
+    prices = quant_common._load_etf_price_frame(requested, ["SPY"], warmup_calendar_days=400)
     first_ma = prices.SPY.rolling(200, min_periods=50).mean().loc[requested[0]]
     assert len(prices) > len(requested)
 
     changed = pd.read_parquet(path)
     changed.loc[requested[1], "Close"] = 10000.0
     changed.to_parquet(path)
-    refreshed = backtest._load_etf_price_frame(requested, ["SPY"], warmup_calendar_days=400)
+    refreshed = quant_common._load_etf_price_frame(requested, ["SPY"], warmup_calendar_days=400)
     refreshed_first_ma = refreshed.SPY.rolling(200, min_periods=50).mean().loc[requested[0]]
     assert refreshed_first_ma == pytest.approx(first_ma)
 
 
 def test_failed_download_can_retry(tmp_path, monkeypatch):
-    monkeypatch.setattr(backtest, "DATA_DIR", str(tmp_path))
-    monkeypatch.setattr(backtest, "_ETF_PRICE_FRAME_CACHE", {})
+    monkeypatch.setattr(quant_common, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(quant_common, "_ETF_PRICE_FRAME_CACHE", {})
     dates = pd.date_range("2024-01-02", periods=2)
     responses = iter([pd.DataFrame(), pd.DataFrame({"Close": [100., 101.]}, index=dates)])
-    monkeypatch.setattr(backtest, "_download_yfinance", lambda *args, **kwargs: next(responses))
+    monkeypatch.setattr(quant_common, "_download_yfinance", lambda *args, **kwargs: next(responses))
     with pytest.raises(ValueError, match="unavailable"):
-        backtest._load_etf_price_frame(dates, ["SPY"])
-    assert backtest._load_etf_price_frame(dates, ["SPY"]).SPY.tolist() == [1., 1.01]
+        quant_common._load_etf_price_frame(dates, ["SPY"])
+    assert quant_common._load_etf_price_frame(dates, ["SPY"]).SPY.tolist() == [1., 1.01]
 
 
 def test_early_exit_survives_purging_next_trade(monkeypatch):
@@ -327,14 +327,14 @@ def test_blocked_replacement_preserves_partial_fill_and_reason(tmp_path, monkeyp
 
 
 def test_causal_alignment_uses_interior_source_bar_and_refresh(tmp_path, monkeypatch):
-    monkeypatch.setattr(backtest, "DATA_DIR", str(tmp_path))
-    monkeypatch.setattr(backtest, "_ETF_PRICE_FRAME_CACHE", {})
+    monkeypatch.setattr(quant_common, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(quant_common, "_ETF_PRICE_FRAME_CACHE", {})
     dates = pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-05"])
     path = tmp_path / "SPY.parquet"
     frame = pd.DataFrame({"Close": [100., 110., 120.]}, index=dates)
     frame.to_parquet(path)
     requested = pd.to_datetime(["2024-01-02", "2024-01-04"])
-    assert backtest._load_etf_price_frame(requested, ["SPY"]).SPY.tolist() == [1., 1.1]
+    assert quant_common._load_etf_price_frame(requested, ["SPY"]).SPY.tolist() == [1., 1.1]
     frame.loc[dates[1], "Close"] = 115.
     frame.to_parquet(path)
     assert core._cached_etf_prices(requested, ["SPY"]).SPY.tolist() == [1., 1.15]

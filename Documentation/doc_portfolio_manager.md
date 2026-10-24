@@ -6,7 +6,7 @@
 
 Think of it like a financial compliance officer who reviews every trade before it hits the market.
 
-You don't run this script directly — `backtest.py` uses it while testing
+You don't run this script directly — the legacy `legacy/backtest.py` uses it while testing
 single-name strategies.
 
 ---
@@ -73,7 +73,7 @@ approved = manager.approve_day(
 
 ## Existing Holdings
 
-When `backtest.py` already has open positions, it passes both:
+When `legacy/backtest.py` already has open positions, it passes both:
 
 - `open_tickers` so the same ticker is not opened twice.
 - `open_position_weights` so the sector and diversification gates count what

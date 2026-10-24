@@ -395,7 +395,7 @@ paper workflows after their New York deadlines.
 
 | Script | What it does | When |
 |---|---|---|
-| `backtest.py` | Standalone single-config backtest | ad-hoc |
+| `legacy/backtest.py` | Legacy ML single-config backtest (needs `requirements-legacy.txt`) | ad-hoc |
 | `calibration_stability.py` | Model calibration over time | after retrain |
 | `confidence_calibration.py` | Calibrate predicted → realized return mapping | after retrain |
 | `core_satellite_alpha.py` | Live signal generator (also backtests when run alone) | daily / ad-hoc |

@@ -126,6 +126,6 @@ In a healthy bull market, most stocks participate. In a fragile rally, only mega
 
 After rebuilding parquets with `research.py` and retraining with `train.py`, re-run the backtest:
 ```bash
-python3 backtest.py
+python3 legacy/backtest.py   # legacy ML backtester; needs requirements-legacy.txt
 ```
 Check if Sharpe and NW t-stat improve. PEAD and sector relative strength are the highest-expected-impact features. Market breadth is a regime filter that should help the model avoid trades during narrow/fragile markets.
