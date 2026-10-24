@@ -1979,3 +1979,97 @@ with the local files. They exist only from 2016-01-04
 - **Exam end date:** local TLT ends 2026-10-01. Under the same-dates rule
   the exam runs from 2023-01-03 to **2026-10-01**. TLT is not patched with
   bars from another source.
+
+### Result: H-multi-asset (2026-10-25) — M (mix, no borrowing) PASSES but earns less; ML (mix with borrowing) FAILS
+
+- **Raw output:** `research_evidence/multi_asset_20261025/multi_asset_check.json`.
+- **Code:** commit 35fe597, written before this one run.
+- **Data:** to 2026-10-01; all four ETFs present on every session (D1).
+- **Engine check:** V recomputed here gives CAGR 11.54% vs 11.57% in
+  H-index-risk (gap 0.03, limit 0.3). The tiny gap comes from charging
+  costs on the BIL leg too, as pre-registered.
+
+**Decision window, 2007-07-02 to 2022-12-30:**
+
+| | CAGR | Sharpe | Max drawdown | Avg gross | Avg weights QQQ / TLT / GLD |
+|---|---|---|---|---|---|
+| B hold QQQ | 12.7% | 0.61 | −53.4% | 1.00 | 1.00 / – / – |
+| **V** (paper rule) | 11.5% | 0.64 | −38.2% | 0.89 | 0.89 / – / – |
+| **M** mix, no borrowing | 9.0% | **0.88** | **−25.1%** | 1.00 | 0.29 / 0.38 / 0.34 |
+| **ML** mix, up to 2× | **13.8%** | 0.78 | −39.7% | 1.90 | 0.55 / 0.72 / 0.64 |
+
+**Stress version (one session late, 25 bps, borrowing at BIL + 4):**
+
+| | CAGR | Sharpe | Max drawdown |
+|---|---|---|---|
+| V | 11.0% | 0.61 | −38.4% |
+| M | 8.8% | 0.86 | −25.2% |
+| ML | 11.5% | 0.66 | −42.5% |
+
+**CAGR by sub-period:**
+
+| | 2007–2012 | 2013–2017 | 2018–2022 |
+|---|---|---|---|
+| V | 7.7% | 19.8% | 8.0% |
+| M | 14.8% | 6.9% | 5.0% |
+| ML | **24.9%** | 11.2% | 5.3% |
+
+**Gates:**
+
+| Gate | Result |
+|---|---|
+| M1 Sharpe ≥ V + 0.10 | **yes** (0.88 vs 0.64) |
+| M2 drawdown not worse than V | **yes** (−25.1 vs −38.2) |
+| M3 both hold in stress | **yes** (0.86 vs 0.61; −25.2 vs −38.4) |
+| L1 CAGR ≥ V + 1 point | yes (13.8 vs 11.5) |
+| L2 drawdown ≤ 5 points worse | yes (−39.7 vs −38.2) |
+| L3 Sharpe ≥ V | yes (0.78 vs 0.64) |
+| L4 beats V in ≥ 2 of 3 sub-periods | **no** (only 2007–2012) |
+| L5 L1 and L3 hold in stress | **no** (stress CAGR 11.5 vs 11.0 + 1) |
+
+**Exam, 2023-01-03 to 2026-10-01 (M only, used once):**
+
+| | CAGR | Sharpe | Max drawdown |
+|---|---|---|---|
+| B | 31.9% | 1.28 | −22.8% |
+| V | 27.6% | 1.18 | −21.8% |
+| M | 15.5% | 0.99 | −10.5% |
+
+M passes the exam: its Sharpe is within 0.20 of V's, and its drawdown is
+not worse.
+
+**Verdicts:**
+- **M passes.**
+- **ML fails decision gates.** It is not re-tested with other assets,
+  targets, leverage or windows.
+
+**Recorded, not judged:**
+- **Crash years (V / M / ML):**
+  - 2008: −29.6 / **+8.0** / −1.6
+  - 2020: +15.4 / +26.4 / +37.5
+  - 2022: −23.5 / −19.3 / **−32.8** (bonds and stocks fell together)
+- ML sat at the 2× limit in 76% of months.
+- Interest ate 20% of ML's gain before interest.
+
+**What this means in plain words:**
+- **The return idea (ML) failed.** All of its extra return came from
+  2007–2012, the end of a 30-year bond rally plus a gold boom. In 2013–2022
+  it earned less than V. Under stress the gap shrinks to about half a point
+  a year, and 2022 hit it hard. Borrowing to buy a mix does not reliably
+  beat V.
+- **The risk idea (M) passed, as expected and as written down before the
+  run.** It is much smoother:
+  - worst fall about −25%, against V's −38%;
+  - it made money in 2008;
+  - but it earns clearly less: 9.0% vs 11.5% a year over 2007–2022, and
+    15.5% vs 27.6% in 2023–2026.
+- So M is a "sleep better, earn less" option, not a way to earn more.
+  Most of its smoothness also came in the 2007–2012 bond rally, which
+  rising rates may not repeat.
+
+**What does not change:** the paper bot, V, every gate and every locked file.
+Under the pre-registration, the next step for a passing idea is a
+**shadow forward test**: M computed monthly from 2026-11 with no orders,
+judged next to V by a rule written before it starts. Whether to set one up
+is the owner's call. M answers a different question (less risk) from the
+owner's question (more return).
