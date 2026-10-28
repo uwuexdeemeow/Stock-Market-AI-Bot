@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-27T21:15:55+00:00",
-  "source_generated_at": "2026-10-27T21:15:52+00:00",
+  "generated_at": "2026-10-28T14:01:37+00:00",
+  "source_generated_at": "2026-10-28T14:01:30+00:00",
   "status": "collecting",
   "sample_count": 4,
   "minimum_sample_count": 20,
@@ -10,7 +10,7 @@
   "cost_measure": "arrival_shortfall_bps_with_fill_minute_fallback",
   "arrival_shortfall_samples": 4,
   "fill_minute_fallback_samples": 0,
-  "all_fill_count": 7,
+  "all_fill_count": 6,
   "segments": [
     {
       "side": "buy",
@@ -26,8 +26,8 @@
       "side": "sell",
       "order_type": "trailing_stop",
       "liquidity_bucket": "high",
-      "median_notional": 20766.74,
-      "samples": 2,
+      "median_notional": 19307.08,
+      "samples": 1,
       "median_slippage_bps": 0.0,
       "p75_slippage_bps": 0.0,
       "mean_slippage_bps": 0.0

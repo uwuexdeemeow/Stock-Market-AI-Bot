@@ -1,8 +1,8 @@
 {
-  "date": "2026-10-27",
-  "baseline_equity": 106031.64,
+  "date": "2026-10-28",
+  "baseline_equity": 108455.8,
   "baseline_source": "alpaca_last_equity",
-  "intraday_high": 106994.94,
+  "intraday_high": 109048.06,
   "pnl_warn_sent": false,
   "pnl_halt_sent": false,
   "pnl_halt_blocked_alert_sent": false,
@@ -11,6 +11,6 @@
   "broker_truth_refresh_error": "",
   "broker_truth_refresh_error_sent": false,
   "broker_truth_status": "warning",
-  "broker_truth_refreshed_at": "2026-10-27T14:01:43+00:00",
+  "broker_truth_refreshed_at": "2026-10-28T14:01:32+00:00",
   "broker_truth_fail_alert_sent": false
 }
