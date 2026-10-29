@@ -1,10 +1,10 @@
 {
   "broker": "alpaca",
   "paper_account_hash": "53467e021997593c",
-  "generated_at": "2026-10-28T21:18:05",
-  "account_equity": 109107.48,
+  "generated_at": "2026-10-29T14:01:13",
+  "account_equity": 108408.04,
   "account_cash": 686.63,
-  "account_invested": 108420.85,
+  "account_invested": 107721.41,
   "position_count": 4,
   "positions": {
     "AMAT": 35.0,
@@ -13,39 +13,39 @@
     "QQQ": 92.0
   },
   "position_values": {
-    "AMAT": 14434.0,
-    "AMD": 22111.05,
-    "CAT": 5695.6,
-    "QQQ": 66180.2
+    "AMAT": 14508.55,
+    "AMD": 22115.53,
+    "CAT": 5255.98,
+    "QQQ": 65841.64
   },
   "position_details": [
     {
       "ticker": "AMAT",
       "quantity": 35.0,
       "avg_price": 477.32,
-      "market_value": 14434.0,
-      "unrealized_pl": -2272.2
+      "market_value": 14508.55,
+      "unrealized_pl": -2197.65
     },
     {
       "ticker": "AMD",
       "quantity": 39.0,
       "avg_price": 591.75,
-      "market_value": 22111.05,
-      "unrealized_pl": -967.2
+      "market_value": 22115.53,
+      "unrealized_pl": -962.72
     },
     {
       "ticker": "CAT",
       "quantity": 8.0,
       "avg_price": 777.87125,
-      "market_value": 5695.6,
-      "unrealized_pl": -527.37
+      "market_value": 5255.98,
+      "unrealized_pl": -966.99
     },
     {
       "ticker": "QQQ",
       "quantity": 92.0,
       "avg_price": 724.322756,
-      "market_value": 66180.2,
-      "unrealized_pl": -457.49
+      "market_value": 65841.64,
+      "unrealized_pl": -796.05
     }
   ],
   "recent_protective_exits_available": true,
@@ -67,18 +67,6 @@
       "filled_at": "2026-09-28T13:44:10+00:00",
       "order_type": "trailing_stop",
       "filled_qty": 189.0
-    },
-    {
-      "ticker": "MU",
-      "filled_at": "2026-09-14T13:34:42+00:00",
-      "order_type": "trailing_stop",
-      "filled_qty": 23.0
-    },
-    {
-      "ticker": "INTC",
-      "filled_at": "2026-09-14T13:34:25+00:00",
-      "order_type": "trailing_stop",
-      "filled_qty": 205.0
     }
   ]
 }
