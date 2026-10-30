@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-29T21:15:52+00:00",
+  "generated_at": "2026-10-30T14:01:39+00:00",
   "status": "warning",
-  "score": 75.0,
+  "score": 95.0,
   "summary": {
     "tickers_checked": 7,
     "fail_count": 0,
-    "warning_count": 5,
-    "pass_count": 3,
-    "account_equity": 106000.77,
+    "warning_count": 1,
+    "pass_count": 7,
+    "account_equity": 104348.74,
     "account_cash": 686.63,
     "live_open_orders_available": true,
     "live_open_orders_count": 0,
     "latest_log_date": "2026-10-13",
-    "signal_age_hours": 7.25,
+    "signal_age_hours": 0.01,
     "signal_freshness_status": "fresh",
     "order_plan_age_hours": 0.0,
     "order_plan_freshness_status": "fresh",
@@ -27,28 +27,41 @@
       "TQQQ": 0.0
     },
     "target_gross_exposure": 1.0,
-    "broker_gross_exposure": 0.993522,
-    "maximum_target_weight_gap": 0.387849,
+    "broker_gross_exposure": 0.99342,
+    "maximum_target_weight_gap": 0.384179,
     "alignment": {
-      "status": "fail",
-      "passed": false,
-      "reason": "max_weight_gap_0.387849_above_0.020000",
+      "status": "pass",
+      "passed": true,
+      "reason": "hold_day_weights_drift_by_design",
       "comparable_tickers": 7,
-      "maximum_target_weight_gap": 0.387849,
-      "current_gross_exposure": 0.993522,
+      "maximum_target_weight_gap": 0.384179,
+      "current_gross_exposure": 0.99342,
       "target_gross_exposure": 1.0,
-      "gross_exposure_gap": 0.006478,
+      "gross_exposure_gap": 0.00658,
       "weight_tolerance": 0.02,
       "gross_exposure_tolerance": 0.05,
-      "weight_gap_enforced": true,
+      "weight_gap_enforced": false,
       "active_rebalance_order_count": 0,
       "waited_seconds": 0.0,
       "rebalance_calendar": {
-        "hold_day": false,
-        "reason": "no_rebalance_recorded_yet",
+        "hold_day": true,
+        "reason": "period_already_rebalanced",
         "signal_period": "2026-09-30",
-        "recorded_period": ""
+        "recorded_period": "2026-10-14"
       }
+    },
+    "alignment_recovery_plan": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alignment_recovery_plan.csv",
+      "row_count": 0,
+      "review_required": false,
+      "orders_submitted": false
+    },
+    "alignment_incident_ledger": {
+      "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alignment_incident_ledger.csv",
+      "total_incidents": 20,
+      "open_incidents": 0,
+      "current_incident_id": "",
+      "orders_submitted": false
     }
   },
   "inputs": {
@@ -57,31 +70,31 @@
       "exists": true,
       "rows": 1,
       "error": "",
-      "modified_at": "2026-10-29T21:15:49+00:00",
-      "as_of": "2026-10-29T22:01+08:00",
+      "modified_at": "2026-10-30T14:01:31+00:00",
+      "as_of": "2026-10-30T22:01+08:00",
       "target_count": 4,
       "freshness_status": "fresh",
-      "age_hours": 7.25,
+      "age_hours": 0.01,
       "timestamp_used": "as_of",
-      "timestamp_utc": "2026-10-29T14:01:00+00:00"
+      "timestamp_utc": "2026-10-30T14:01:00+00:00"
     },
     "order_plan": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/core_satellite_alpha_orders.csv",
       "exists": true,
       "rows": 0,
       "error": "",
-      "modified_at": "2026-10-29T21:15:49+00:00",
+      "modified_at": "2026-10-30T14:01:33+00:00",
       "freshness_status": "fresh",
       "age_hours": 0.0,
       "timestamp_used": "modified_at",
-      "timestamp_utc": "2026-10-29T21:15:49+00:00"
+      "timestamp_utc": "2026-10-30T14:01:33+00:00"
     },
     "paper_log": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_paper_log.csv",
       "exists": true,
       "rows": 46,
       "error": "",
-      "modified_at": "2026-10-29T21:15:49+00:00",
+      "modified_at": "2026-10-30T14:01:12+00:00",
       "latest_submitted_date": "2026-10-13",
       "stale_vs_broker_status": true
     },
@@ -89,25 +102,25 @@
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_daily_status.json",
       "exists": true,
       "error": "",
-      "modified_at": "2026-10-29T21:15:51+00:00",
-      "generated_at": "2026-10-29T21:15:53+00:00",
-      "equity": 106000.77,
+      "modified_at": "2026-10-30T14:01:35+00:00",
+      "generated_at": "2026-10-30T14:01:40+00:00",
+      "equity": 104348.74,
       "cash": 686.63,
       "position_count": 4,
       "available": true,
       "attempted": true,
       "source": "alpaca_api",
-      "file_generated_at": "2026-10-29T21:15:50"
+      "file_generated_at": "2026-10-30T14:01:35"
     },
     "live_positions": {
       "available": true,
       "attempted": true,
       "source": "alpaca_api",
       "error": "",
-      "equity": 106000.77,
+      "equity": 104348.74,
       "cash": 686.63,
       "position_count": 4,
-      "generated_at": "2026-10-29T21:15:53+00:00"
+      "generated_at": "2026-10-30T14:01:40+00:00"
     },
     "open_orders": {
       "available": true,
@@ -130,8 +143,8 @@
       "ticker": "AMAT",
       "target_weight": 0.0,
       "broker_qty": 35.0,
-      "broker_value": 14353.5,
-      "broker_weight": 0.135409,
+      "broker_value": 14098.0,
+      "broker_weight": 0.135105,
       "planned_side": "",
       "planned_quantity": 0.0,
       "planned_buy_qty": 0.0,
@@ -155,15 +168,15 @@
       "trailing_stop_qty": 0.0,
       "trailing_stop_count": 0,
       "stop_required": false,
-      "issue_severity": "warning",
-      "issues": "extra_broker_position_not_in_target;broker_weight_gap_0.1354"
+      "issue_severity": "pass",
+      "issues": ""
     },
     {
       "ticker": "AMD",
       "target_weight": 0.0,
       "broker_qty": 39.0,
-      "broker_value": 20911.8,
-      "broker_weight": 0.19728,
+      "broker_value": 20210.19,
+      "broker_weight": 0.193679,
       "planned_side": "",
       "planned_quantity": 0.0,
       "planned_buy_qty": 0.0,
@@ -187,8 +200,8 @@
       "trailing_stop_qty": 0.0,
       "trailing_stop_count": 0,
       "stop_required": false,
-      "issue_severity": "warning",
-      "issues": "extra_broker_position_not_in_target;broker_weight_gap_0.1973"
+      "issue_severity": "pass",
+      "issues": ""
     },
     {
       "ticker": "BIL",
@@ -226,8 +239,8 @@
       "ticker": "CAT",
       "target_weight": 0.0,
       "broker_qty": 8.0,
-      "broker_value": 5160.32,
-      "broker_weight": 0.048682,
+      "broker_value": 5093.76,
+      "broker_weight": 0.048815,
       "planned_side": "",
       "planned_quantity": 0.0,
       "planned_buy_qty": 0.0,
@@ -251,15 +264,15 @@
       "trailing_stop_qty": 0.0,
       "trailing_stop_count": 0,
       "stop_required": false,
-      "issue_severity": "warning",
-      "issues": "extra_broker_position_not_in_target;broker_weight_gap_0.0487"
+      "issue_severity": "pass",
+      "issues": ""
     },
     {
       "ticker": "QQQ",
       "target_weight": 1.0,
       "broker_qty": 92.0,
-      "broker_value": 64888.52,
-      "broker_weight": 0.612151,
+      "broker_value": 64260.16,
+      "broker_weight": 0.615821,
       "planned_side": "",
       "planned_quantity": 0.0,
       "planned_buy_qty": 0.0,
@@ -283,8 +296,8 @@
       "trailing_stop_qty": 0.0,
       "trailing_stop_count": 0,
       "stop_required": false,
-      "issue_severity": "warning",
-      "issues": "broker_weight_gap_0.3878"
+      "issue_severity": "pass",
+      "issues": ""
     },
     {
       "ticker": "SPY",
@@ -352,13 +365,13 @@
     }
   ],
   "run_context": {
-    "run_id": "post-market-40956175127-1",
-    "generated_at": "2026-10-29T21:15:52+00:00",
-    "signal_as_of": "2026-10-29T22:01+08:00",
+    "run_id": "github-41067980030",
+    "generated_at": "2026-10-30T14:01:39+00:00",
+    "signal_as_of": "2026-10-30T22:01+08:00",
     "git_commit": "5e552b23dec1916f098738776f7fa4a6f9b7f14a",
     "configuration_fingerprint": "b01948461268ec351522a923110cbab787659ad31c61f80245be679dc59191e5",
     "paper_version_fingerprint": "ab8318d410e24970b01ff257598d15a2820c37e3c8f6cd3f9bf290fec9a5c5d3",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-40956175127-1"
+  "run_id": "github-41067980030"
 }

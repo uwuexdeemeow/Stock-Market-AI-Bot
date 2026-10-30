@@ -1,10 +1,10 @@
 {
   "broker": "alpaca",
   "paper_account_hash": "53467e021997593c",
-  "generated_at": "2026-10-29T21:15:50",
-  "account_equity": 106000.77,
+  "generated_at": "2026-10-30T14:01:35",
+  "account_equity": 104326.44,
   "account_cash": 686.63,
-  "account_invested": 105314.14,
+  "account_invested": 103639.81,
   "position_count": 4,
   "positions": {
     "AMAT": 35.0,
@@ -13,39 +13,39 @@
     "QQQ": 92.0
   },
   "position_values": {
-    "AMAT": 14353.5,
-    "AMD": 20911.8,
-    "CAT": 5160.32,
-    "QQQ": 64888.52
+    "AMAT": 14098.0,
+    "AMD": 20197.9,
+    "CAT": 5090.64,
+    "QQQ": 64253.26
   },
   "position_details": [
     {
       "ticker": "AMAT",
       "quantity": 35.0,
       "avg_price": 477.32,
-      "market_value": 14353.5,
-      "unrealized_pl": -2352.7
+      "market_value": 14098.0,
+      "unrealized_pl": -2608.2
     },
     {
       "ticker": "AMD",
       "quantity": 39.0,
       "avg_price": 591.75,
-      "market_value": 20911.8,
-      "unrealized_pl": -2166.45
+      "market_value": 20197.9,
+      "unrealized_pl": -2880.34
     },
     {
       "ticker": "CAT",
       "quantity": 8.0,
       "avg_price": 777.87125,
-      "market_value": 5160.32,
-      "unrealized_pl": -1062.65
+      "market_value": 5090.64,
+      "unrealized_pl": -1132.33
     },
     {
       "ticker": "QQQ",
       "quantity": 92.0,
       "avg_price": 724.322756,
-      "market_value": 64888.52,
-      "unrealized_pl": -1749.17
+      "market_value": 64253.26,
+      "unrealized_pl": -2384.43
     }
   ],
   "recent_protective_exits_available": true,
