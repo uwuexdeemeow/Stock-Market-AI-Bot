@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-02T15:02:28+00:00",
-  "source_generated_at": "2026-11-02T15:02:23+00:00",
+  "generated_at": "2026-11-02T22:15:53+00:00",
+  "source_generated_at": "2026-11-02T22:15:49+00:00",
   "status": "collecting",
   "sample_count": 8,
   "minimum_sample_count": 20,
@@ -27,18 +27,20 @@
       "order_type": "limit",
       "liquidity_bucket": "unknown",
       "median_notional": 38192.55,
-      "samples": 0,
-      "median_slippage_bps": null,
-      "p75_slippage_bps": null
+      "samples": 1,
+      "median_slippage_bps": 1.63,
+      "p75_slippage_bps": 1.63,
+      "mean_slippage_bps": 1.63
     },
     {
       "side": "sell",
       "order_type": "limit",
       "liquidity_bucket": "high",
       "median_notional": 13711.7,
-      "samples": 0,
-      "median_slippage_bps": null,
-      "p75_slippage_bps": null
+      "samples": 3,
+      "median_slippage_bps": 9.78,
+      "p75_slippage_bps": 10.805,
+      "mean_slippage_bps": 8.3767
     },
     {
       "side": "sell",
