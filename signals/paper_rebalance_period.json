@@ -1,7 +1,7 @@
 {
-  "period": "2026-10-14",
-  "next_scheduled_rebalance_date": "2026-11-11",
-  "policy": "tested_calendar_v1",
-  "recorded_at": "2026-10-15T14:07:48+00:00",
-  "run_id": "github-38747531203"
+  "period": "2026-10-30",
+  "next_scheduled_rebalance_date": "2026-11-30",
+  "policy": "v_rule_month_end",
+  "recorded_at": "2026-11-02T15:02:21+00:00",
+  "run_id": "github-41467299757"
 }
