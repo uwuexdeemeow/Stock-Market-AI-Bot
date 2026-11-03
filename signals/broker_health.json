@@ -1,19 +1,19 @@
 {
-  "checked_at": "2026-11-02T15:01:18+00:00",
+  "checked_at": "2026-11-03T15:01:26+00:00",
   "all_healthy": true,
   "down_brokers": [],
   "brokers": {
     "alpaca": {
       "broker": "alpaca",
       "healthy": true,
-      "equity": 103036.14,
-      "buying_power": 289325.15,
+      "equity": 101584.61,
+      "buying_power": 285470.02,
       "account_status": "ACTIVE",
       "trading_blocked": false,
       "market_open": true,
-      "latency_ms": 542.3,
+      "latency_ms": 710.9,
       "error": null,
-      "checked_at": "2026-11-02T15:01:17+00:00"
+      "checked_at": "2026-11-03T15:01:25+00:00"
     }
   }
 }
