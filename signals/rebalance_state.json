@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
-  "run_id": "github-41659300792",
-  "signal_as_of": "2026-11-03T23:01+08:00",
+  "run_id": "github-41853216316",
+  "signal_as_of": "2026-11-04T23:01+08:00",
   "status": "aligned",
-  "updated_at": "2026-11-03T15:01:43+00:00",
+  "updated_at": "2026-11-04T15:01:32+00:00",
   "terminal": true,
   "history": [
     {
       "status": "planned",
-      "at": "2026-11-03T15:01:33+00:00",
+      "at": "2026-11-04T15:01:22+00:00",
       "details": {}
     },
     {
       "status": "filled",
-      "at": "2026-11-03T15:01:34+00:00",
+      "at": "2026-11-04T15:01:23+00:00",
       "details": {
         "outcome_status": "no_action",
         "reason_code": "holding_until_next_scheduled_rebalance",
@@ -25,13 +25,13 @@
     },
     {
       "status": "aligned",
-      "at": "2026-11-03T15:01:43+00:00",
+      "at": "2026-11-04T15:01:32+00:00",
       "details": {
         "alignment_status": "pass",
         "reason": "hold_day_weights_drift_by_design",
         "active_rebalance_order_count": 0,
-        "maximum_target_weight_gap": 0.008508,
-        "gross_exposure_gap": 0.008508
+        "maximum_target_weight_gap": 0.008305,
+        "gross_exposure_gap": 0.008305
       }
     }
   ],

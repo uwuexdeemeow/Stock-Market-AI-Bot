@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
-  "generated_at": "2026-11-03T22:17:57+00:00",
-  "measurement_cutoff_60m": "2026-11-03T21:17:57.064163+00:00",
+  "generated_at": "2026-11-04T15:01:34+00:00",
+  "measurement_cutoff_60m": "2026-11-04T14:01:34.391856+00:00",
   "status": "collecting",
   "score": 50.0,
   "decision_eligible": false,
@@ -280,8 +280,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 0.5,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-10-04T22:17:53.637128+00:00",
-      "denominator_end": "2026-11-03T22:17:53.525617+00:00"
+      "denominator_start": "2026-10-05T15:01:25.550752+00:00",
+      "denominator_end": "2026-11-04T15:01:25.391672+00:00"
     },
     "stage2": {
       "orders": 4,
@@ -297,8 +297,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 1.0,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-10-04T22:17:53.637128+00:00",
-      "denominator_end": "2026-11-03T22:17:53.525617+00:00"
+      "denominator_start": "2026-10-05T15:01:25.550752+00:00",
+      "denominator_end": "2026-11-04T15:01:25.391672+00:00"
     }
   },
   "throttle": {
@@ -370,13 +370,13 @@
     "previous_scorecard": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json"
   },
   "run_context": {
-    "run_id": "post-market-41729136486-1",
-    "generated_at": "2026-11-03T22:17:57+00:00",
+    "run_id": "github-41853216316",
+    "generated_at": "2026-11-04T15:01:34+00:00",
     "signal_as_of": "",
-    "git_commit": "5e552b23dec1916f098738776f7fa4a6f9b7f14a",
+    "git_commit": "c2e60744b1a168c2c3877bbec5d19ac07ba95979",
     "configuration_fingerprint": "b01948461268ec351522a923110cbab787659ad31c61f80245be679dc59191e5",
     "paper_version_fingerprint": "ab8318d410e24970b01ff257598d15a2820c37e3c8f6cd3f9bf290fec9a5c5d3",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-41729136486-1"
+  "run_id": "github-41853216316"
 }

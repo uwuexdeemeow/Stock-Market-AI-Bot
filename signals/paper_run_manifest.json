@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-03T15:01:50+00:00",
-  "run_id": "github-41659300792",
+  "generated_at": "2026-11-04T15:01:39+00:00",
+  "run_id": "github-41853216316",
   "status": "complete",
   "problems": [],
   "files": {
@@ -11,8 +11,8 @@
       "required": true,
       "exists": true,
       "readable": true,
-      "run_id": "github-41659300792",
-      "sha256": "03a68fc34b09989dce710911277b40ee2cf637b1c07b66d722e0d9d08ae74e23"
+      "run_id": "github-41853216316",
+      "sha256": "e2d1e1f292b64d89cfbe32224b757ab9c9ef60e9cc0e0f089e54a59a00791188"
     },
     "alpaca_execution_scorecard.json": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json",
@@ -20,8 +20,8 @@
       "required": true,
       "exists": true,
       "readable": true,
-      "run_id": "github-41659300792",
-      "sha256": "e2603aabf75b1417e18217c1d40c166e74d00d8dcafa13c4d3e8e20970b76b9f"
+      "run_id": "github-41853216316",
+      "sha256": "146b4111490a8f14f6d9e8ff5808b39ab11f73eedd5381d6e1d70ba32d480cf6"
     },
     "paper_validation_epoch_status.json": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/paper_validation_epoch_status.json",
@@ -29,8 +29,8 @@
       "required": true,
       "exists": true,
       "readable": true,
-      "run_id": "github-41659300792",
-      "sha256": "ffcb29b10ca0d79abef154289e273cfdfea0e1e5517ee74f6ef4088453b52d87"
+      "run_id": "github-41853216316",
+      "sha256": "ec8fded14ae3048a02d1786093fd9a84b3ded28d6c5e16ed2f42807177f2067f"
     },
     "alpaca_paper_health.json": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_paper_health.json",
@@ -38,8 +38,8 @@
       "required": true,
       "exists": true,
       "readable": true,
-      "run_id": "github-41659300792",
-      "sha256": "fca911d9c34391ae2d56626b635c10bae15a5f2f5a697267bc257c586ad1326e"
+      "run_id": "github-41853216316",
+      "sha256": "2653ceac7e93851da3bf149ad3d34aa948d54c04f77df53ba664f8daa1ae0720"
     },
     "core_satellite_alpha_signal.csv": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/core_satellite_alpha_signal.csv",
@@ -47,8 +47,8 @@
       "required": true,
       "exists": true,
       "readable": true,
-      "run_id": "github-41659300792",
-      "sha256": "58ab73ad10445bba0fccf10f06f9de793a9598f3abba42bb6745f9a93b3c42a6"
+      "run_id": "github-41853216316",
+      "sha256": "bcec0a5f4ae44eca62bb3acbdebac19f5b0b48935da26487ebc95cca38c55b58"
     },
     "core_satellite_alpha_orders.csv": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/core_satellite_alpha_orders.csv",
@@ -74,8 +74,8 @@
       "required": true,
       "exists": true,
       "readable": true,
-      "run_id": "github-41659300792",
-      "sha256": "bf71cd98a854da0e9e3628f4c83c56d1231d84cb62808af2783592a3fe7db727"
+      "run_id": "github-41853216316",
+      "sha256": "3cb4c67c07d70f38aa0ef0ea98fc7efe50c345ab62cb3f65965d51f307d79bb2"
     },
     "core_satellite_alpha_input_snapshot.csv": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/core_satellite_alpha_input_snapshot.csv",
@@ -93,7 +93,7 @@
       "exists": true,
       "readable": false,
       "run_id": "",
-      "sha256": "3b19b4aeecf48ca930ded9185a7e28cbb8ef12987b6f342ea5dfc341320de8c1"
+      "sha256": "cc93a8b018d9b7807e25e5f3d14ba116fe684616f0e33b40af1eb4dca561923f"
     },
     "alpaca_submit_outcome.json": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_submit_outcome.json",
@@ -101,8 +101,8 @@
       "required": false,
       "exists": true,
       "readable": true,
-      "run_id": "github-41659300792",
-      "sha256": "c469abe91900fa0792ff07b62df94202d2db228d71ec3f850eada2658de02c4a"
+      "run_id": "github-41853216316",
+      "sha256": "4ff9b8fc5c6fa06199933d7293829d1103f2de44ffb2d42bbd022208f584319a"
     },
     "alignment_incident_ledger.csv": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alignment_incident_ledger.csv",
@@ -128,15 +128,15 @@
       "required": false,
       "exists": true,
       "readable": true,
-      "run_id": "github-41659300792",
-      "sha256": "92ddb50b30476e66759b14b3a103c9745f240cd279123ebba149067fddb838a8"
+      "run_id": "github-41853216316",
+      "sha256": "88064308421b212b86038d72c8ba544457aab9b539bfce36482307771239aace"
     }
   },
   "run_context": {
-    "run_id": "github-41659300792",
-    "generated_at": "2026-11-03T15:01:50+00:00",
+    "run_id": "github-41853216316",
+    "generated_at": "2026-11-04T15:01:39+00:00",
     "signal_as_of": "",
-    "git_commit": "5e552b23dec1916f098738776f7fa4a6f9b7f14a",
+    "git_commit": "c2e60744b1a168c2c3877bbec5d19ac07ba95979",
     "configuration_fingerprint": "b01948461268ec351522a923110cbab787659ad31c61f80245be679dc59191e5",
     "paper_version_fingerprint": "ab8318d410e24970b01ff257598d15a2820c37e3c8f6cd3f9bf290fec9a5c5d3",
     "paper_account_hash": "53467e021997593c"
