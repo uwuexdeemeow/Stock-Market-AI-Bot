@@ -69,10 +69,22 @@ modern SHLD ETF being mistaken for historical Sears shares.
 | Setting | Default | Meaning |
 |---|---|---|
 | `MAX_GROSS_EXPOSURE` | 100% | Total long + short can't exceed portfolio value |
-| `MAX_NET_EXPOSURE` | 60% | Long minus short can't exceed 60% |
-| `MAX_SECTOR_EXPOSURE` | 35% | No single sector can exceed 35% |
+| `MAX_NET_EXPOSURE` | 80% | Long minus short can't exceed 80% |
+| `MAX_SECTOR_EXPOSURE` | 40% | No single sector can exceed 40% |
 | `MAX_SINGLE_NAME_EXPOSURE` | 20% | No single stock can exceed 20% |
-| `MAX_DRAWDOWN_HALT_PCT` | 15% | Hard stop: halt all trading if down 15% from peak |
+| `MAX_DRAWDOWN_HALT_PCT` | 99% | Effectively off. Used only by the old backtest risk manager (`portfolio_manager.py`) and the `monitor.py` alert. **Not the paper account's kill switch** (see below). |
+
+**Where the real kill switch is.** The Alpaca paper account is protected by
+two other settings, which are not in `settings.py`:
+
+| Setting | Read by | Rule V value | What it does |
+|---|---|---|---|
+| `ALPACA_DD_HALT_PCT` | `alpaca_paper_trading.py` | 40% | Account more than 40% below its peak: sell everything, block new orders. |
+| `GUARD_PNL_HALT_PCT` | `execution_guard.py` | −12% | Account down 12% in one day: sell everything. |
+
+Both values are set in `.github/workflows/daily_paper_trading.yml`. The
+reasons for 40% and −12% are in `V_RULE_FORWARD_TEST.md`. The test
+`tests/test_v_rule_drawdown_halt.py` fakes a crash and checks the halt fires.
 
 ### VIX Regime Thresholds
 | Setting | Default | Meaning |

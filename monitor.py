@@ -544,12 +544,20 @@ def check_pipeline() -> dict:
 def check_equity_drawdown(equity_csv: str = _EQUITY_CSV) -> dict:
     """
     Read an equity curve CSV and alert if the current drawdown breaches
-    MAX_DRAWDOWN_HALT_PCT (set in settings.py, default 15 %).
+    MAX_DRAWDOWN_HALT_PCT (set in settings.py).
+
+    IMPORTANT: this is only an ALERT on a backtest equity file
+    (signals/portfolio_equity.csv).  It sells nothing.  settings.py currently
+    sets the threshold to 0.99 (99 %), so in practice this alert never fires.
+
+    The kill switch that protects the Alpaca paper account is a different
+    setting: ALPACA_DD_HALT_PCT, read by alpaca_paper_trading.py
+    (check_portfolio_drawdown).  The paper workflow sets it to 40 % for
+    rule V and 12 % for core-alpha, and it sells everything when it fires.
 
     A drawdown is how far the portfolio has fallen from its all-time peak.
     For example, if the portfolio peaked at $12,000 and is now $9,800 that is
-    a drawdown of (12000 - 9800) / 12000 = 18.3 %, which would trigger this
-    alert.
+    a drawdown of (12000 - 9800) / 12000 = 18.3 %.
 
     Parameters
     ----------

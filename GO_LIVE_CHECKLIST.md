@@ -1,53 +1,118 @@
-# Go-Live Checklist
+# Go-Live Checklist (rule V)
 
-**Do not trade real money until every box is checked.** Ordered roughly by blast-radius.
+**Do not trade real money until every box is ticked.** The most dangerous
+items come first.
 
-## 1. Security
-- [ ] `keys.txt` rotated — both OpenAI and Finnhub keys regenerated at the provider.
-- [ ] New keys live in `.env`; `.env` is gitignored; `git log -p .env` returns nothing.
-- [ ] `settings.py` loads via `load_dotenv()`; `os.environ.get("OPENAI_API_KEY")` is populated in a fresh shell.
-- [ ] Repo permissions: no public forks; read access only to trusted collaborators.
+This list is for **rule V**, the strategy the paper account has traded since
+the 2026-10-30 signal: QQQ + BIL, rebalanced at each month-end with a
+volatility target (`v_rule_signal.py`). The old XGBoost / machine-learning
+checklist is retired. That layer is in `legacy/` and trades nothing.
 
-## 2. Reproducibility
-- [ ] `requirements.txt` installs cleanly in a fresh venv.
+**Where things stand today:** paper only. The code refuses any broker address
+that is not Alpaca's paper address (`is_paper_endpoint` in
+`alpaca_sdk_adapter.py`), so real-money trading is not possible without a
+deliberate code change (section 4).
+
+**Key terms**
+
+- **Paper trading:** trading with pretend money on a real broker's test system.
+- **Forward test:** judging a strategy only on data that did not exist when it
+  was designed.
+- **Drawdown:** how far the account has fallen from its highest value.
+- **Halt (kill switch):** a hard limit in code. When it is crossed the bot
+  sells everything and blocks new orders, whatever the strategy says.
+- **Rebalance:** moving the account back to the target mix of QQQ and BIL.
+- **Refreeze:** re-recording the fingerprints of the locked trading files in
+  `paper_version_lock.json` after an approved change.
+
+## 1. Forward-test checkpoint passed
+
+The rules were fixed before the first trade, in
+`Documentation/V_RULE_FORWARD_TEST.md`.
+
+- [ ] 12 V rebalances are complete (about November 2027).
+- [ ] `python forward_test_monitor.py --rule v` reports a **PASS** on all three:
+  - [ ] **V1:** the account's worst fall is not worse than buy-and-hold QQQ's.
+  - [ ] **V2:** the account's Sharpe ≥ QQQ's Sharpe − 0.20.
+  - [ ] **V3:** mean trading cost ≤ 20 bps (QQQ and BIL fills only).
+- [ ] No early operational stop is open (V3 above 40 bps after 3 rebalances, a
+      V4 gap above 2 points in 3 months of any 6, or a rebalance more than 3
+      sessions late).
+- [ ] The 20% volatility target and the 63-day window were never changed
+      during the test.
+- [ ] The owner has read the result and agreed to go on. A pass allows a
+      real-money discussion. It is not an automatic switch.
+
+## 2. Drawdown halt verified
+
+A hard limit must not depend on the strategy behaving. The account has two
+halts. Both sell everything.
+
+| Halt | Setting | Paper value (rule V) | Code |
+|---|---|---|---|
+| Fall from peak | `ALPACA_DD_HALT_PCT` | 40% | `check_portfolio_drawdown` in `alpaca_paper_trading.py` |
+| One-day loss | `GUARD_PNL_HALT_PCT` | −12% | `execution_guard.py` |
+
+Both values are set in `.github/workflows/daily_paper_trading.yml`.
+`MAX_DRAWDOWN_HALT_PCT = 0.99` in `settings.py` is **not** this halt. It
+belongs to the old backtest risk manager and is effectively off.
+
+- [ ] The manufactured-crash tests are green:
+      `python -m pytest tests/test_v_rule_drawdown_halt.py tests/test_halt_and_stop_cooldown.py tests/test_paper_rebalance_calendar.py`
+- [ ] The halt level for **real money** is decided and written down before the
+      first live order.
+  - The paper value is 40% because rule V's worst fall in its test was −38%.
+    A halt inside that range sells at a point where the tested rule held on.
+  - A tighter real-money halt (for example 25%) is a different rule from the
+    one that was tested. Write its own pre-registered check first, in
+    `Documentation/DELAY_STRESS_PAPER_ADVISORY.md`.
+- [ ] The live workflow sets both halt values explicitly. With no value set,
+      the code falls back to 12% and −8%, the core-alpha settings.
+- [ ] One paper drill is done: lower `ALPACA_DD_HALT_PCT` for one manual run
+      until the halt fires, then confirm the sell orders appear in Alpaca and
+      `signals/alpaca_halt_active.txt` is written. Restore the value after.
+- [ ] You know how a halt clears: on account recovery or by owner review. The
+      "market is risk-on again" restart does not apply to rule V.
+
+## 3. Live keys separate from paper keys
+
+- [ ] New Alpaca **live** keys are created. The paper keys are not reused.
+- [ ] Live keys sit in their own GitHub secrets, with different names from
+      `ALPACA_API_KEY` / `ALPACA_SECRET_KEY` (the paper pair).
+- [ ] Only the live workflow reads the live secrets. Research, data-refresh and
+      monitoring workflows keep the paper keys.
+- [ ] No key is in the repository: `.env` is gitignored and
+      `git log -p -- .env` prints nothing.
+- [ ] The Alpaca account has two-factor login switched on.
+- [ ] Repository access is limited to people you trust. Anyone who can edit a
+      workflow can read its secrets.
+
+## 4. Code and operations ready
+
 - [ ] `python -m pytest tests/` is green.
-- [ ] Every training run writes to `model_registry.py` — `models/registry.json` has at least one entry with git SHA.
-- [ ] You can recreate the production model from a git commit + one command.
+- [ ] `python paper_validation_epoch.py --check-lock` passes (no locked trading
+      file changed without a refreeze).
+- [ ] The change that allows a live broker address is a separate, reviewed
+      release with its own refreeze. Paper stays the default.
+- [ ] The live workflow has only a `workflow_dispatch:` trigger and its timer
+      is a cron-job.org job (never a GitHub `schedule:`).
+- [ ] The paper account keeps running beside the live one, so the two can be
+      compared.
+- [ ] Alerts reach you: a failed run, a missed rebalance and a fired halt each
+      send a notification (`notifications.py`).
 
-## 3. Honest Edge (Phase 1 outputs)
-- [ ] `python leakage_audit.py` returns 0 for every watchlist ticker.
-- [ ] Backtest on ≥100 S&P 500 tickers, 2015–2024, 126-day walk-forward blocks, stress mode on.
-- [ ] Net-of-cost Sharpe ≥ 1.0.
-- [ ] Newey-West t-stat on alpha vs SPY > 2.0.
-- [ ] Backtest reproducible — same seed, same result.
+## 5. Small first allocation
 
-## 4. Model Quality (Phase 2 outputs)
-- [ ] Nested walk-forward CV shows hyperparameters stable across folds.
-- [ ] Feature count reduced to ~15 most-important via `shap_feature_reducer.py`; OOS Sharpe holds.
-- [ ] `calibration_stability.py` reports `max_ks < 0.10`.
+- [ ] The money at risk is money you can afford to lose.
+- [ ] The first live size is small: about **10% of the target amount**.
+- [ ] It stays at that size for at least **3 monthly rebalances**. Rule V
+      trades once a month, so one month shows only one trade.
+- [ ] Before any increase, live fills are compared with paper: cost per trade
+      (V3) and the monthly tracking gap (V4) are in the same range.
+- [ ] You have a written manual stop: pause the cron-job.org job, then close
+      the positions in the Alpaca dashboard. You have tried the pause once.
+- [ ] You have written down the loss at which you stop live trading and go
+      back to paper.
 
-## 5. Risk (Phase 3 outputs)
-- [ ] Position sizes use `vol_target_size` or `fractional_kelly`, not fixed %.
-- [ ] ATR stop-loss is in the live trading loop.
-- [ ] Soft de-risking band (8%) and hard halt (15%) verified by a manufactured drawdown test.
-- [ ] Execution model accounts for spread + sqrt-impact; capacity warnings log when triggered.
-
-## 6. Ops (Phase 4 outputs)
-- [ ] `orchestration.py daily` runs end-to-end under cron/Prefect; exit code 0 on green days.
-- [ ] `data_validation.validate_price_frame` called on every feed; bad data raises.
-- [ ] `drift_monitor.check_drift` runs daily; snapshot_baseline captured at train time.
-- [ ] Monitoring: logs shipped somewhere (Loki / Datadog / CloudWatch) and an alert fires on any `rc != 0`.
-- [ ] Alpaca paper-trading credentials, connectivity, and guard checks pass.
-
-## 7. Paper Gauntlet (Phase 5)
-- [ ] Fresh execution-validation epoch has ≥30 trading days, ≥20 accepted orders, ≥3 rebalances, and ≥10 consecutive classified sessions.
-- [ ] Epoch execution quality: fill rate ≥80%, average rebalance slippage ≤10 bps, materially bad slippage rate ≤60%, and zero duplicate/unexplained orders.
-- [ ] `python alpaca_paper_gauntlet.py` → `all_gates_passed = true`.
-- [ ] Manual review of 20 random trades: fills, sizing, stops all look sane.
-
-## 8. Business / Personal
-- [ ] Capital at risk is money you can afford to lose.
-- [ ] You have a written kill-switch procedure (who, how, when to flatten everything).
-- [ ] You've decided the max monthly drawdown that halts live trading and reverts to paper.
-
-**When every box is checked:** start live at 10% of your target size for one month, then scale.
+**When every box is ticked:** start at the small size, review after each
+rebalance, and increase in steps.
