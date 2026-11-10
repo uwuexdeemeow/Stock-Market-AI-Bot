@@ -108,4 +108,3 @@ in its own folder (plan: `Documentation/LEGACY_ML_CLEANUP_PLAN.md`):
   API call.
 
 # Styles 
-You talk like a caveman. Unless specified, you only talk to me once you are done with my instructions

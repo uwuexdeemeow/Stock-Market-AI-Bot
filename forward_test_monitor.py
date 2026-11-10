@@ -23,7 +23,9 @@ Rule V (from the 2026-10-30 signal) is judged by Forward Test Rule FV
 (Documentation/V_RULE_FORWARD_TEST.md) instead: V1 worst fall and V2 Sharpe
 vs buy-and-hold QQQ over the same days, V3 fill cost vs the Open, and V4 the
 monthly gap to a simulation of the rule (information only).  V1, V2 and V4
-use the exact functions of the tested H-index-risk script.
+use the exact functions of the tested H-index-risk script.  Amendments of
+2026-11-10: A1, V3 counts only QQQ/BIL fills; A2, the account is valued at
+each day's official close (cash + shares x close), not the 17:15 snapshot.
 
 How to run (project root, needs git and internet):
     python forward_test_monitor.py                 # print the F1 numbers
@@ -57,6 +59,12 @@ V_RULE_DOC = Path("Documentation") / "V_RULE_FORWARD_TEST.md"
 V_OUT_JSON = Path("signals") / "forward_test_check_v.json"
 V_FIRST_SIGNAL_DAY = "2026-10-30"     # first month-end signal traded under rule V
 V_CHECKPOINT_REBALANCES = 12
+# Amendment A1 (2026-11-10): V3 counts only the two funds rule V trades.  The
+# 2026-11-02 sales of the leftover core-alpha stocks are not V trades.
+V_RULE_TICKERS = ("QQQ", "BIL")
+# Amendment A2 (2026-11-10): if the close-valued equity is further than this
+# from the 17:15 snapshot on any day, the JSON says "check" (information only).
+CLOSE_MARK_CHECK_PCT = 3.0
 INDEX_RISK_SCRIPT = Path("research_evidence") / "index_risk_20261016" / "index_risk_check.py"
 
 
@@ -216,6 +224,92 @@ def v_rebalances_done(signal_days: pd.DatetimeIndex, sessions: pd.DatetimeIndex,
     return done
 
 
+def _filled_quantity(row) -> float:
+    """Shares that really traded on one log row (0 if nothing filled)."""
+    qty = pd.to_numeric(row.get("filled_qty"), errors="coerce")
+    if not np.isfinite(qty):                       # older rows: only "quantity"
+        if str(row.get("fill_status")) != "filled":
+            return 0.0
+        qty = pd.to_numeric(row.get("quantity"), errors="coerce")
+    return abs(float(qty)) if np.isfinite(qty) else 0.0
+
+
+def _utc(stamp) -> pd.Timestamp:
+    """A timestamp in UTC (a stamp with no time zone is taken as UTC)."""
+    stamp = pd.Timestamp(stamp)
+    return stamp.tz_localize("UTC") if stamp.tzinfo is None else stamp.tz_convert("UTC")
+
+
+def positions_by_day(status: dict, fills: pd.DataFrame, days: pd.DatetimeIndex) -> dict:
+    """Shares held at the end of each day in `days`.
+
+    PLAIN ENGLISH: the status file says what the account holds NOW.  The fill
+    log says what was bought and sold, and when.  To get an earlier day's
+    holdings, undo every fill that happened after that day (a later buy means
+    fewer shares back then; a later sell means more).  Rule V has no stop
+    orders, so the fill log is the full list of trades.
+    """
+    now = {str(t).upper(): float(q) for t, q in (status.get("positions") or {}).items()}
+    status_time = _utc(status["generated_at"])
+    trades = []                                    # (time, NY day, ticker, signed shares)
+    for _, row in fills.iterrows():
+        qty = _filled_quantity(row)
+        if qty <= 0:
+            continue
+        signed = -qty if str(row["side"]).lower() == "sell" else qty
+        trades.append((_utc(row["submitted_at"]), ny_date(row["submitted_at"]),
+                       str(row["ticker"]).upper(), signed))
+    out = {}
+    for day in days:
+        held = dict(now)
+        for when, trade_day, ticker, signed in trades:
+            if when <= status_time and trade_day > day:      # happened after `day`: undo it
+                held[ticker] = held.get(ticker, 0.0) - signed
+            elif when > status_time and trade_day <= day:    # status file is older: apply it
+                held[ticker] = held.get(ticker, 0.0) + signed
+        out[day] = {t: q for t, q in held.items() if abs(q) > 1e-9}
+    return out
+
+
+def close_marked_equity(equity: pd.DataFrame, status: dict, fills: pd.DataFrame,
+                        raw_close: dict[str, pd.Series], base, as_of) -> tuple[pd.DataFrame | None, dict]:
+    """Amendment A2: the account's value at each day's official 16:00 close.
+
+    PLAIN ENGLISH: the equity file is written at 17:15 New York, using
+    after-hours prices.  The QQQ yardstick uses the 16:00 close.  On a big day
+    the two clocks can differ by half a percent, which is enough to flip V1
+    when the account is 100% QQQ.  So each day is re-valued as
+        cash (from the equity file)  +  shares x that day's official close.
+    The close here is the RAW price (not dividend-adjusted), because that is
+    what the shares were really worth; dividends arrive in the cash column.
+
+    Returns (frame with date + equity, info).  The frame is None when a price
+    is missing; the caller then falls back to the snapshot and says so.
+    """
+    frame = equity.copy()
+    frame["date"] = pd.to_datetime(frame["date"]).dt.normalize()
+    frame = frame.drop_duplicates("date", keep="last").set_index("date").sort_index()
+    frame = frame.loc[pd.Timestamp(base):pd.Timestamp(as_of).normalize()]
+    if frame.empty or "cash" not in frame.columns:
+        return None, {"basis": "snapshot_1715", "reason": "no_cash_column_or_no_rows"}
+    held = positions_by_day(status, fills, frame.index)
+    values, gaps = [], []
+    for day, row in frame.iterrows():
+        total = float(row["cash"])
+        for ticker, qty in held[day].items():
+            series = raw_close.get(ticker)
+            price = series.get(day) if series is not None else None
+            if price is None or not np.isfinite(price):
+                return None, {"basis": "snapshot_1715", "reason": f"no_close_for_{ticker}_on_{day.date()}"}
+            total += qty * float(price)
+        values.append(total)
+        gaps.append(100.0 * (total / float(row["equity"]) - 1.0))
+    worst = float(np.max(np.abs(gaps)))
+    info = {"basis": "official_close", "max_gap_vs_snapshot_pct": round(worst, 3),
+            "gap_check": "ok" if worst <= CLOSE_MARK_CHECK_PCT else "check"}
+    return pd.DataFrame({"date": frame.index, "equity": values}), info
+
+
 def v_measures(equity: pd.DataFrame, qqq: pd.DataFrame, bil: pd.DataFrame, sessions: pd.DatetimeIndex,
                as_of, ir=None) -> dict:
     """V1, V2 and V4 for Forward Test Rule FV.
@@ -272,10 +366,13 @@ def v_measures(equity: pd.DataFrame, qqq: pd.DataFrame, bil: pd.DataFrame, sessi
 
 # ── Putting it together ────────────────────────────────────────────────────
 
-def _prices(ticker: str, start, end) -> pd.DataFrame:
+def _prices(ticker: str, start, end, adjusted: bool = True) -> pd.DataFrame:
+    """Daily bars.  adjusted=False gives the raw traded prices (no dividend
+    adjustment), which is what a position was really worth that day."""
     from data_provider import download_single
     frame = download_single(ticker, start=str(pd.Timestamp(start).date()),
-                            end=str((pd.Timestamp(end) + pd.Timedelta(days=1)).date()))
+                            end=str((pd.Timestamp(end) + pd.Timedelta(days=1)).date()),
+                            auto_adjust=adjusted)
     frame.index = pd.DatetimeIndex(frame.index).tz_localize(None).normalize()
     return frame
 
@@ -332,6 +429,8 @@ def compute_v(args) -> dict:
     signal_days = month_end_signal_days(sessions)
     first_trade = sessions[sessions > pd.Timestamp(V_FIRST_SIGNAL_DAY)][0]
 
+    base = sessions[sessions < first_trade][-1]
+    all_fills = fills                                # every log row, for the share count (A2)
     fills = fills[(fills["fill_status"].astype(str) == "filled")
                   & (pd.to_datetime(fills["submitted_at"], utc=True).map(ny_date) >= first_trade)]
     opens: dict = {}
@@ -340,13 +439,39 @@ def compute_v(args) -> dict:
         opens.update({(ticker, d): float(o) for d, o in bars["Open"].items()})
     qqq = _prices("QQQ", "2025-01-01", as_of)[["Open", "Close"]]
     bil = _prices("BIL", "2025-01-01", as_of)[["Open", "Close"]]
+
+    # A1: V3 is judged on QQQ/BIL fills only.  The all-fills number stays in
+    # the JSON so nothing is hidden.
+    v_fills = fills[fills["ticker"].astype(str).str.upper().isin(V_RULE_TICKERS)]
+    v3 = weighted_fill_cost(v_fills, opens)
+    v3["tickers"] = list(V_RULE_TICKERS)
+    v3["all_fills_information_only"] = weighted_fill_cost(fills, opens)
+
+    # A2: V1/V2/V4 are judged on the account valued at the official close.
+    marked, mark_info = None, {"basis": "snapshot_1715", "reason": "status_file_missing"}
+    try:
+        status = json.loads(read("alpaca_daily_status.json"))
+        after_base = all_fills[pd.to_datetime(all_fills["submitted_at"], utc=True).map(ny_date) > base]
+        tickers = {str(t).upper() for t in (status.get("positions") or {})}
+        tickers |= set(after_base["ticker"].astype(str).str.upper())
+        raw_close = {t: _prices(t, base - pd.Timedelta(days=5), as_of, adjusted=False)["Close"]
+                     for t in sorted(tickers)}
+        marked, mark_info = close_marked_equity(equity, status, after_base, raw_close, base, as_of)
+    except (subprocess.CalledProcessError, FileNotFoundError, KeyError, ValueError) as exc:
+        mark_info = {"basis": "snapshot_1715", "reason": f"close_mark_failed:{type(exc).__name__}"}
+    measures = v_measures(marked if marked is not None else equity, qqq, bil, sessions, as_of)
+    measures["equity_basis"] = mark_info
+    if marked is not None:                           # old 17:15 basis, information only
+        measures["account_snapshot_1715_information_only"] = v_measures(
+            equity, qqq, bil, sessions, as_of).get("account")
     return {
         "rule": "FV", "as_of": str(as_of.date()),
         "rebalances_done": v_rebalances_done(signal_days, sessions, as_of),
         "checkpoint_at": V_CHECKPOINT_REBALANCES,
-        "V1_V2_V4": v_measures(equity, qqq, bil, sessions, as_of),
-        "V3": weighted_fill_cost(fills, opens),
-        "note": "Numbers only. Judged after 12 rebalances by V_RULE_FORWARD_TEST.md.",
+        "V1_V2_V4": measures,
+        "V3": v3,
+        "note": "Numbers only. Judged after 12 rebalances by V_RULE_FORWARD_TEST.md "
+                "(amendments A1 and A2 of 2026-11-10 apply).",
     }
 
 

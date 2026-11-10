@@ -47,10 +47,48 @@ before the first fill.
 
 | | Measure | How |
 |---|---|---|
-| **V1** | Worst fall | Max drawdown of the account's daily equity vs B's max drawdown. |
+| **V1** | Worst fall | Max drawdown of the account's daily equity vs B's max drawdown. Since 2026-11-10 the account is valued at the official close (amendment A2). |
 | **V2** | Return per unit of risk | Sharpe of daily returns, annualised (√252), with BIL's daily return as the risk-free rate, for the account and for B. |
-| **V3** | Real trading cost | For every rebalance fill: (fill ÷ that day's Open − 1), sign flipped for sells. Mean in bps, weighted by trade value. |
+| **V3** | Real trading cost | For every rebalance fill: (fill ÷ that day's Open − 1), sign flipped for sells. Mean in bps, weighted by trade value. Since 2026-11-10: QQQ and BIL fills only (amendment A1). |
 | **V4** | Tracking (information only) | Each month: account return vs the simulated V return over the same month (same weights, Open-to-Open). Not a pass/fail measure; it shows whether the bot does what the rule says. |
+
+## Amendments (2026-11-10, owner-approved)
+
+Both were written **after** the first 6 trading days, so they are not part of
+the original pre-registration. They change only **how the account is
+measured**. What is traded, the 20% / 63-day settings and the three pass
+lines (V1, V2 − 0.20, V3 ≤ 20 bps) are unchanged. The old-style numbers stay
+in the monitor's JSON output so the two can always be compared.
+
+- **A1 — V3 counts only QQQ and BIL fills.**
+  - *Problem:* on 2026-11-02 the account also sold its leftover core-alpha
+    stocks (AMD, AMAT, CAT). Those sales were 136, 89 and 61 bps below the
+    Open, mostly because prices fell between the 09:30 Open and the 10:02
+    fill. With them V3 read 48.3 bps; the one real V trade (the QQQ buy) was
+    −13.1 bps.
+  - *Why it matters:* those sales are about half of all money traded so far.
+    They could keep the 12-rebalance mean above 20 bps even if every V trade
+    is cheap, failing V for something rule V never does.
+  - *Change:* V3 uses fills in QQQ and BIL only. The all-fills figure is still
+    reported as `all_fills_information_only`.
+- **A2 — V1, V2 and V4 value the account at the official close.**
+  - *Problem:* `alpaca_paper_equity.csv` is written at 17:15 New York with
+    after-hours prices; yardstick B uses the 16:00 close. On 2026-11-05 this
+    made the account's fall −7.03% against QQQ's −6.49% while the account
+    held only QQQ.
+  - *Why it matters:* V1 passes only if the account's fall is not worse than
+    B's. At 100% QQQ the two are equal by construction, so clock noise alone
+    could decide the test.
+  - *Change:* each day's account value = cash (from the equity file) + shares
+    × that day's raw official close. Shares come from
+    `alpaca_daily_status.json` walked back through the fill log. Valued this
+    way the same fall is −6.43%. If a price is missing the monitor falls back
+    to the 17:15 snapshot and says so in `equity_basis`.
+  - *Known small limit:* between a fund's ex-dividend day and its pay day the
+    account looks lower by the dividend (QQQ about 0.15% a quarter).
+
+The 2026-11 log row written on 2026-11-03 used the old measures. The row
+dated 2026-11-10 below is the same month re-measured.
 
 ## Checkpoint (after 12 completed V rebalances, about November 2027)
 
@@ -82,3 +120,4 @@ Filled in automatically on the 3rd of each month by the Forward Test Monitor wor
 |---|---|---|---|---|---|---|---|---|
 | 2026-10 | 0 | n/a | n/a | n/a | n/a | n/a | n/a | Monthly check (forward_test_monitor.py). |
 | 2026-11 | 1 | -1.27% | -1.36% | -1.906 | -3.0 | 48.3 | n/a | Monthly check (forward_test_monitor.py). |
+| 2026-11 | 1 | -6.43% | -6.49% | -0.96 | -0.834 | -13.1 | n/a | Re-measured after amendments A1 and A2 (2026-11-10). |

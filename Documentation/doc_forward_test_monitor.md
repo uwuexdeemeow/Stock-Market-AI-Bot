@@ -51,7 +51,7 @@ From `signals/latest`: `paper_validation_epoch.json` (epoch start),
 `paper_rebalance_period.json` (the rebalance calendar),
 `alpaca_paper_equity.csv` (daily equity and invested amount),
 `alpaca_paper_log.csv` (fills) and `alpaca_submit_outcomes.csv` (each run's
-status). Prices for QQQ, BIL and the traded stocks come from the project's
+status). Rule V also reads `alpaca_daily_status.json` (current holdings). Prices for QQQ, BIL and the traded stocks come from the project's
 `data_provider.py`.
 
 **Known limit:** the equity snapshots are taken during the 10:00 ET run,
@@ -80,9 +80,29 @@ trade (the session after the 2026-10-30 signal):
 
 - **V1 / V2:** max drawdown and Sharpe of the account vs buy-and-hold QQQ
   over the same days. Both use `metrics` from the tested H-index-risk script.
-- **V3:** fill cost vs that day's Open, weighted by trade value.
+- **V3:** fill cost vs that day's Open, weighted by trade value. Only QQQ
+  and BIL fills count (amendment A1, 2026-11-10). The figure with every fill
+  is still shown as `all_fills_information_only`.
 - **V4:** each completed month's account return minus the tested `simulate`
   of rule V over the same month. This is information only.
+
+**How the account is valued (amendment A2, 2026-11-10):** the equity file is
+written at 17:15 New York with after-hours prices, but the QQQ yardstick uses
+the 16:00 close. So the monitor re-values each day as *cash + shares × that
+day's official close*:
+- Cash comes from `alpaca_paper_equity.csv`.
+- Shares come from `alpaca_daily_status.json` (what the account holds now),
+  walked back through the fill log (`positions_by_day`).
+- Closes are raw prices, not dividend-adjusted (`close_marked_equity`).
+- `equity_basis` in the output says which basis was used. `official_close`
+  is normal. `snapshot_1715` means a price or the status file was missing, so
+  the old 17:15 values were used; look at `reason`.
+- `gap_check: check` means the two valuations differed by more than 3% on
+  some day. Nothing is blocked, but find out why.
+- The old-basis numbers stay in `account_snapshot_1715_information_only`.
+
+**Key term — mark (value) at the close:** pricing what you hold at the
+official end-of-day price, so two things are compared at the same moment.
 
 Output: `signals/forward_test_check_v.json`. `--append-log` adds a row under
 "## Monthly log" in `V_RULE_FORWARD_TEST.md`. The checkpoint comes after 12

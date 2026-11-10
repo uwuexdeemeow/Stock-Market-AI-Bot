@@ -8,6 +8,7 @@ safety check, and (4) switches the daily run and watchdog to the V steps.
 from __future__ import annotations
 
 import importlib.util
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -166,3 +167,79 @@ def test_fv_weighted_cost():
     out = ftm.weighted_fill_cost(fills, opens)
     # QQQ buy +100 bps on $10,100; MU sell 1% below Open = +100 bps on $990.
     assert out["fills"] == 2 and out["mean_bps"] == pytest.approx(100.0)
+
+
+# ── FV amendments of 2026-11-10: A1 (V3 = QQQ/BIL fills), A2 (close-valued equity) ──
+
+def _fv_fake_files(tmp_path):
+    """A tiny fake signals folder: old stock sold and QQQ bought on 2026-11-02."""
+    (tmp_path / "alpaca_paper_equity.csv").write_text(
+        "date,timestamp,equity,cash,invested\n"
+        "2026-10-30,x,20100,100,20000\n"      # 17:15 snapshots, not closes
+        "2026-11-02,x,20400,200,20200\n"
+        "2026-11-03,x,19000,200,18800\n"
+        "2026-11-04,x,20900,200,20700\n", encoding="utf-8")
+    (tmp_path / "alpaca_paper_log.csv").write_text(
+        "submitted_at,ticker,side,quantity,filled_qty,filled_avg_price,fill_status\n"
+        "2026-11-02T15:00:00+00:00,MU,sell,100,100,99.0,filled\n"       # leftover stock
+        "2026-11-02T15:01:00+00:00,QQQ,buy,100,100,101.0,filled\n"
+        "2026-11-02T15:02:00+00:00,QQQ,buy,5,0,,canceled\n", encoding="utf-8")
+    (tmp_path / "alpaca_daily_status.json").write_text(json.dumps(
+        {"generated_at": "2026-11-04T22:15:00", "positions": {"QQQ": 200.0}}), encoding="utf-8")
+
+
+def test_fv_positions_walk_back_through_fills(tmp_path):
+    _fv_fake_files(tmp_path)
+    fills = pd.read_csv(tmp_path / "alpaca_paper_log.csv")
+    status = json.loads((tmp_path / "alpaca_daily_status.json").read_text())
+    days = pd.DatetimeIndex(["2026-10-30", "2026-11-02"])
+    held = ftm.positions_by_day(status, fills, days)
+    # Before the 11/02 trades: 100 fewer QQQ and the 100 MU still there.
+    assert held[days[0]] == {"QQQ": 100.0, "MU": 100.0}
+    assert held[days[1]] == {"QQQ": 200.0}
+    # A status file written BEFORE the trades gives the same answer.
+    early = {"generated_at": "2026-11-02T14:00:00", "positions": {"QQQ": 100.0, "MU": 100.0}}
+    assert ftm.positions_by_day(early, fills, days) == held
+
+
+def test_fv_close_marked_equity_uses_cash_plus_shares_times_close(tmp_path):
+    _fv_fake_files(tmp_path)
+    equity = pd.read_csv(tmp_path / "alpaca_paper_equity.csv")
+    fills = pd.read_csv(tmp_path / "alpaca_paper_log.csv")
+    status = json.loads((tmp_path / "alpaca_daily_status.json").read_text())
+    idx = pd.DatetimeIndex(["2026-10-30", "2026-11-02", "2026-11-03", "2026-11-04"])
+    closes = {"QQQ": pd.Series([100.0, 101.0, 95.0, 103.0], index=idx),
+              "MU": pd.Series([100.0, 99.0, 98.0, 97.0], index=idx)}
+    marked, info = ftm.close_marked_equity(equity, status, fills, closes, "2026-10-30", "2026-11-04")
+    # 10/30: 100 cash + 100 QQQ x 100 + 100 MU x 100; later: 200 cash + 200 QQQ x close.
+    assert marked["equity"].tolist() == [20100.0, 20400.0, 19200.0, 20800.0]
+    assert info["basis"] == "official_close" and info["gap_check"] == "ok"
+    # A missing price falls back to the snapshot and says why.
+    none, why = ftm.close_marked_equity(equity, status, fills, {"QQQ": closes["QQQ"]},
+                                        "2026-10-30", "2026-11-04")
+    assert none is None and why["basis"] == "snapshot_1715" and "MU" in why["reason"]
+
+
+def test_fv_compute_judges_v3_on_qqq_bil_only_and_v1_on_closes(tmp_path, monkeypatch):
+    _fv_fake_files(tmp_path)
+    sessions = vs._nyse_sessions(pd.Timestamp("2025-01-02"), pd.Timestamp("2026-11-04"))
+
+    def fake_prices(ticker, start, end, adjusted=True):
+        close = pd.Series(100.0, index=sessions)
+        close.loc["2026-11-02":] = [101.0, 95.0, 103.0]
+        if ticker == "MU":
+            close.loc["2026-11-02":] = [99.0, 98.0, 97.0]
+        return pd.DataFrame({"Open": 100.0, "Close": close})
+
+    monkeypatch.setattr(ftm, "_prices", fake_prices)
+    args = type("A", (), {"signals_dir": str(tmp_path), "as_of": "2026-11-04"})()
+    out = ftm.compute_v(args)
+    # A1: only the QQQ buy counts (101 vs Open 100 = +100 bps); MU is information only.
+    assert out["V3"]["fills"] == 1 and out["V3"]["mean_bps"] == pytest.approx(100.0)
+    assert out["V3"]["all_fills_information_only"]["fills"] == 2
+    # A2: drawdown from closes (20400 -> 19200), not from snapshots (20400 -> 19000).
+    m = out["V1_V2_V4"]
+    assert m["equity_basis"]["basis"] == "official_close"
+    assert m["account"]["max_drawdown_pct"] == pytest.approx(100 * (19200 / 20400 - 1), abs=0.01)
+    assert m["account_snapshot_1715_information_only"]["max_drawdown_pct"] == pytest.approx(
+        100 * (19000 / 20400 - 1), abs=0.01)
