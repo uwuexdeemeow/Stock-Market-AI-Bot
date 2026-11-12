@@ -1,24 +1,24 @@
 {
   "schema_version": 3,
-  "generated_at": "2026-11-11T22:15:55+00:00",
-  "measurement_cutoff_60m": "2026-11-11T21:15:55.151473+00:00",
+  "generated_at": "2026-11-12T15:01:30+00:00",
+  "measurement_cutoff_60m": "2026-11-12T14:01:30.194283+00:00",
   "status": "collecting",
   "score": 75.0,
   "decision_eligible": false,
   "decision_blockers": [
-    "slippage_sample_8_below_20",
-    "adverse_15m_sample_8_below_20",
-    "adverse_60m_sample_8_below_20",
-    "rebalance_sessions_2_below_3"
+    "slippage_sample_4_below_20",
+    "adverse_15m_sample_4_below_20",
+    "adverse_60m_sample_4_below_20",
+    "rebalance_sessions_1_below_3"
   ],
   "lookback_days": 30,
   "summary": {
-    "paper_log_rows": 7,
+    "paper_log_rows": 4,
     "unmatched_broker_fill_count": 0,
     "unmatched_broker_fill_ids": [],
-    "accepted_orders": 7,
-    "filled_orders": 7,
-    "any_filled_orders": 7,
+    "accepted_orders": 4,
+    "filled_orders": 4,
+    "any_filled_orders": 4,
     "skipped_orders": 0,
     "fill_rate": 1.0,
     "complete_fill_rate": 1.0,
@@ -28,45 +28,45 @@
     "canceled_unfilled_orders": 0,
     "duplicate_logical_orders": 0,
     "duplicate_child_attempts": 0,
-    "child_attempts": 11,
+    "child_attempts": 6,
     "unclassifiable_order_rows": 0,
     "unclassifiable_logical_orders": 0,
     "skipped_rate": 0.0,
-    "orders_seen": 8,
-    "eligible_orders": 8,
-    "measured_slippage_count": 8,
-    "slippage_eligible_orders": 8,
-    "slippage_measured_orders": 8,
+    "orders_seen": 4,
+    "eligible_orders": 4,
+    "measured_slippage_count": 4,
+    "slippage_eligible_orders": 4,
+    "slippage_measured_orders": 4,
     "slippage_coverage_rate": 1.0,
-    "trading_sessions": 2,
-    "avg_slippage_bps": 6.652,
-    "median_slippage_bps": 6.725,
-    "p75_slippage_bps": 9.57,
+    "trading_sessions": 1,
+    "avg_slippage_bps": 6.69,
+    "median_slippage_bps": 6.65,
+    "p75_slippage_bps": 10.293,
     "worst_slippage_bps": 11.83,
     "mean_slippage_95ci_bps": [
-      4.058,
-      9.247
+      1.902,
+      11.478
     ],
-    "bad_slippage_count": 7,
-    "bad_slippage_rate": 0.875,
+    "bad_slippage_count": 3,
+    "bad_slippage_rate": 0.75,
     "bad_slippage_threshold_bps": 2.0,
-    "raw_bad_slippage_count": 8,
+    "raw_bad_slippage_count": 4,
     "raw_bad_slippage_rate": 1.0,
     "minor_bad_slippage_count": 1,
-    "adverse_15m_count": 6,
-    "adverse_15m_observations": 8,
-    "adverse_15m_eligible_orders": 8,
-    "adverse_15m_measured_orders": 8,
+    "adverse_15m_count": 2,
+    "adverse_15m_observations": 4,
+    "adverse_15m_eligible_orders": 4,
+    "adverse_15m_measured_orders": 4,
     "adverse_15m_coverage_rate": 1.0,
-    "adverse_15m_rate": 0.75,
-    "adverse_60m_count": 5,
-    "adverse_60m_observations": 8,
-    "adverse_60m_eligible_orders": 8,
-    "adverse_60m_measured_orders": 8,
+    "adverse_15m_rate": 0.5,
+    "adverse_60m_count": 1,
+    "adverse_60m_observations": 4,
+    "adverse_60m_eligible_orders": 4,
+    "adverse_60m_measured_orders": 4,
     "adverse_60m_coverage_rate": 1.0,
-    "adverse_60m_rate": 0.625,
-    "orders_analyzed": 8,
-    "limit_avg_slippage_bps": 6.652,
+    "adverse_60m_rate": 0.25,
+    "orders_analyzed": 4,
+    "limit_avg_slippage_bps": 6.69,
     "market_avg_slippage_bps": null,
     "limit_vs_market_delta_bps": null,
     "source": "alpaca_api",
@@ -77,14 +77,14 @@
       "adverse_15m_measured_orders": 4,
       "adverse_60m_measured_orders": 4
     },
-    "slippage_delta_vs_prior_scorecard_bps": 0.0
+    "slippage_delta_vs_prior_scorecard_bps": 0.038
   },
   "sample_gate": {
     "ready": false,
-    "measured_rebalance_fills": 8,
+    "measured_rebalance_fills": 4,
     "minimum_rebalance_fills": 20,
     "minimum_definitive_fills": 20,
-    "rebalance_sessions": 2,
+    "rebalance_sessions": 1,
     "minimum_rebalance_sessions": 3
   },
   "protective_stops": {
@@ -121,10 +121,10 @@
   },
   "entry_timing": {
     "status": "advisory",
-    "adverse_15m_rate": 0.75,
-    "adverse_15m_observations": 8,
-    "adverse_60m_rate": 0.625,
-    "adverse_60m_observations": 8,
+    "adverse_15m_rate": 0.5,
+    "adverse_15m_observations": 4,
+    "adverse_60m_rate": 0.25,
+    "adverse_60m_observations": 4,
     "note": "Post-fill movement measures entry timing, not fill quality."
   },
   "diagnostics": {
@@ -132,26 +132,26 @@
     "by_symbol": [
       {
         "group": "AMAT",
-        "samples": 2,
-        "mean_bps": 7.22,
-        "median_bps": 7.22,
-        "p75_bps": 8.5,
+        "samples": 1,
+        "mean_bps": 9.78,
+        "median_bps": 9.78,
+        "p75_bps": 9.78,
         "worst_bps": 9.78
       },
       {
         "group": "AMD",
-        "samples": 2,
-        "mean_bps": 6.155,
-        "median_bps": 6.155,
-        "p75_bps": 7.472,
-        "worst_bps": 8.79
+        "samples": 1,
+        "mean_bps": 3.52,
+        "median_bps": 3.52,
+        "p75_bps": 3.52,
+        "worst_bps": 3.52
       },
       {
         "group": "CAT",
-        "samples": 3,
-        "mean_bps": 8.28,
-        "median_bps": 9.5,
-        "p75_bps": 10.665,
+        "samples": 1,
+        "mean_bps": 11.83,
+        "median_bps": 11.83,
+        "p75_bps": 11.83,
         "worst_bps": 11.83
       },
       {
@@ -166,11 +166,11 @@
     "by_side": [
       {
         "group": "buy",
-        "samples": 5,
-        "mean_bps": 5.618,
-        "median_bps": 4.66,
-        "p75_bps": 8.79,
-        "worst_bps": 9.5
+        "samples": 1,
+        "mean_bps": 1.63,
+        "median_bps": 1.63,
+        "p75_bps": 1.63,
+        "worst_bps": 1.63
       },
       {
         "group": "sell",
@@ -184,74 +184,74 @@
     "by_order_stage": [
       {
         "group": "stage1",
-        "samples": 4,
-        "mean_bps": 4.362,
-        "median_bps": 3.515,
-        "p75_bps": 4.838,
-        "worst_bps": 8.79
+        "samples": 2,
+        "mean_bps": 2.575,
+        "median_bps": 2.575,
+        "p75_bps": 3.047,
+        "worst_bps": 3.52
       },
       {
         "group": "stage2",
-        "samples": 4,
-        "mean_bps": 8.942,
-        "median_bps": 9.64,
-        "p75_bps": 10.293,
+        "samples": 2,
+        "mean_bps": 10.805,
+        "median_bps": 10.805,
+        "p75_bps": 11.317,
         "worst_bps": 11.83
       }
     ],
     "by_order_type": [
       {
         "group": "limit",
-        "samples": 8,
-        "mean_bps": 6.652,
-        "median_bps": 6.725,
-        "p75_bps": 9.57,
+        "samples": 4,
+        "mean_bps": 6.69,
+        "median_bps": 6.65,
+        "p75_bps": 10.293,
         "worst_bps": 11.83
       }
     ],
     "by_spread_band": [
       {
         "group": "unknown",
-        "samples": 8,
-        "mean_bps": 6.652,
-        "median_bps": 6.725,
-        "p75_bps": 9.57,
+        "samples": 4,
+        "mean_bps": 6.69,
+        "median_bps": 6.65,
+        "p75_bps": 10.293,
         "worst_bps": 11.83
       }
     ],
     "by_quote_age_band": [
       {
         "group": "5-30s",
-        "samples": 3,
-        "mean_bps": 5.983,
-        "median_bps": 4.66,
-        "p75_bps": 7.22,
+        "samples": 1,
+        "mean_bps": 9.78,
+        "median_bps": 9.78,
+        "p75_bps": 9.78,
         "worst_bps": 9.78
       },
       {
         "group": "<= 5s",
-        "samples": 2,
-        "mean_bps": 6.155,
-        "median_bps": 6.155,
-        "p75_bps": 7.472,
-        "worst_bps": 8.79
+        "samples": 1,
+        "mean_bps": 3.52,
+        "median_bps": 3.52,
+        "p75_bps": 3.52,
+        "worst_bps": 3.52
       },
       {
         "group": "> 30s",
-        "samples": 3,
-        "mean_bps": 7.653,
-        "median_bps": 9.5,
-        "p75_bps": 10.665,
+        "samples": 2,
+        "mean_bps": 6.73,
+        "median_bps": 6.73,
+        "p75_bps": 9.28,
         "worst_bps": 11.83
       }
     ],
     "by_fill_latency_band": [
       {
         "group": "<= 30s",
-        "samples": 8,
-        "mean_bps": 6.652,
-        "median_bps": 6.725,
-        "p75_bps": 9.57,
+        "samples": 4,
+        "mean_bps": 6.69,
+        "median_bps": 6.65,
+        "p75_bps": 10.293,
         "worst_bps": 11.83
       }
     ],
@@ -260,45 +260,45 @@
   },
   "calibration_advisory": {
     "status": "collecting",
-    "measured_rebalance_fills": 8,
+    "measured_rebalance_fills": 4,
     "minimum_samples": 20,
     "may_change_live_parameters": false,
     "requires_new_epoch_if_applied": true
   },
   "stage_comparison": {
     "stage1": {
-      "orders": 7,
-      "filled_orders": 3,
-      "any_filled_orders": 4,
-      "measured_fills": 4,
-      "fill_rate": 0.42857142857142855,
+      "orders": 4,
+      "filled_orders": 2,
+      "any_filled_orders": 2,
+      "measured_fills": 2,
+      "fill_rate": 0.5,
       "fill_rate_reason": "complete_submission_population",
-      "avg_slippage_bps": 4.362,
-      "median_slippage_bps": 3.515,
-      "material_bad_rate": 0.75,
-      "avg_fill_latency_seconds": 4.42,
+      "avg_slippage_bps": 2.575,
+      "median_slippage_bps": 2.575,
+      "material_bad_rate": 0.5,
+      "avg_fill_latency_seconds": 0.61,
       "source": "alpaca_api_child_fills",
-      "any_fill_rate": 0.5714285714285714,
+      "any_fill_rate": 0.5,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-10-12T22:15:53.081250+00:00",
-      "denominator_end": "2026-11-11T22:15:53.035254+00:00"
+      "denominator_start": "2026-10-13T15:01:23.592378+00:00",
+      "denominator_end": "2026-11-12T15:01:23.445226+00:00"
     },
     "stage2": {
-      "orders": 4,
-      "filled_orders": 4,
-      "any_filled_orders": 4,
-      "measured_fills": 4,
+      "orders": 2,
+      "filled_orders": 2,
+      "any_filled_orders": 2,
+      "measured_fills": 2,
       "fill_rate": 1.0,
       "fill_rate_reason": "complete_submission_population",
-      "avg_slippage_bps": 8.942,
-      "median_slippage_bps": 9.64,
+      "avg_slippage_bps": 10.805,
+      "median_slippage_bps": 10.805,
       "material_bad_rate": 1.0,
-      "avg_fill_latency_seconds": 2.78,
+      "avg_fill_latency_seconds": 3.81,
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 1.0,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-10-12T22:15:53.081250+00:00",
-      "denominator_end": "2026-11-11T22:15:53.035254+00:00"
+      "denominator_start": "2026-10-13T15:01:23.592378+00:00",
+      "denominator_end": "2026-11-12T15:01:23.445226+00:00"
     }
   },
   "throttle": {
@@ -315,7 +315,7 @@
     {
       "name": "avg_slippage_bps",
       "status": "pass",
-      "value": 6.652,
+      "value": 6.69,
       "threshold": 10.0,
       "operator": "<=",
       "reason": "ok"
@@ -323,10 +323,10 @@
     {
       "name": "bad_slippage_rate",
       "status": "fail",
-      "value": 0.875,
+      "value": 0.75,
       "threshold": 0.6,
       "operator": "<=",
-      "reason": "0.8750 <= 0.6 failed"
+      "reason": "0.7500 <= 0.6 failed"
     },
     {
       "name": "fill_rate",
@@ -370,13 +370,13 @@
     "previous_scorecard": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json"
   },
   "run_context": {
-    "run_id": "post-market-43110167065-1",
-    "generated_at": "2026-11-11T22:15:55+00:00",
+    "run_id": "github-43243062804",
+    "generated_at": "2026-11-12T15:01:30+00:00",
     "signal_as_of": "",
     "git_commit": "8f5e0868fca8913dedd62a89ed22b63e2e095f26",
     "configuration_fingerprint": "b01948461268ec351522a923110cbab787659ad31c61f80245be679dc59191e5",
     "paper_version_fingerprint": "ab8318d410e24970b01ff257598d15a2820c37e3c8f6cd3f9bf290fec9a5c5d3",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-43110167065-1"
+  "run_id": "github-43243062804"
 }

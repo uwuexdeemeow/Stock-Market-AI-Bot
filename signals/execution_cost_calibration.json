@@ -1,27 +1,17 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-11T22:15:55+00:00",
-  "source_generated_at": "2026-11-11T22:15:53+00:00",
+  "generated_at": "2026-11-12T15:01:30+00:00",
+  "source_generated_at": "2026-11-12T15:01:23+00:00",
   "status": "collecting",
-  "sample_count": 8,
+  "sample_count": 4,
   "minimum_sample_count": 20,
-  "recommended_one_way_slippage_bps": 16.6526,
+  "recommended_one_way_slippage_bps": 19.3555,
   "configured_floor_bps": 10.0,
   "cost_measure": "arrival_shortfall_bps_with_fill_minute_fallback",
-  "arrival_shortfall_samples": 8,
+  "arrival_shortfall_samples": 4,
   "fill_minute_fallback_samples": 0,
-  "all_fill_count": 8,
+  "all_fill_count": 4,
   "segments": [
-    {
-      "side": "buy",
-      "order_type": "limit",
-      "liquidity_bucket": "high",
-      "median_notional": 10298.22,
-      "samples": 4,
-      "median_slippage_bps": 6.725,
-      "p75_slippage_bps": 8.9675,
-      "mean_slippage_bps": 6.615
-    },
     {
       "side": "buy",
       "order_type": "limit",
