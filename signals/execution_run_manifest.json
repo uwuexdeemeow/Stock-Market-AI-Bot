@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-16T22:15:58+00:00",
-  "run_id": "post-market-43968218830-1",
+  "generated_at": "2026-11-17T22:15:54+00:00",
+  "run_id": "post-market-44188180175-1",
   "status": "complete",
   "problems": [],
   "files": {
@@ -11,8 +11,8 @@
       "required": true,
       "exists": true,
       "readable": true,
-      "run_id": "post-market-43968218830-1",
-      "sha256": "d99b1e7232312aa52e976041d2426f8f53b9580ff7bb43c2190d49bbb0258d0a"
+      "run_id": "post-market-44188180175-1",
+      "sha256": "30a6af95fe586e6240bfed2e6a438441b835f069e0a442d67a68a01baacdeb40"
     },
     "alpaca_execution_scorecard.json": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json",
@@ -20,8 +20,8 @@
       "required": true,
       "exists": true,
       "readable": true,
-      "run_id": "post-market-43968218830-1",
-      "sha256": "ab9119b378e865573e3c214e8f2ab8cf45e4e827e3905438a5d05d4282ddc21a"
+      "run_id": "post-market-44188180175-1",
+      "sha256": "b5d498ec463ea2164276e90a7cdc7c6d359de8c84d867b0f07f404a23d4aa1a6"
     },
     "paper_validation_epoch_status.json": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/paper_validation_epoch_status.json",
@@ -29,8 +29,8 @@
       "required": true,
       "exists": true,
       "readable": true,
-      "run_id": "post-market-43968218830-1",
-      "sha256": "0b8c8f5ef558795edbe8475a548590f0d69c5632957a75ac4f605b2572516468"
+      "run_id": "post-market-44188180175-1",
+      "sha256": "3b8f5d57be97054bc65e8e1a16586095252fb58b9a667f3b268a008275063ea1"
     },
     "alpaca_paper_health.json": {
       "path": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_paper_health.json",
@@ -38,13 +38,13 @@
       "required": true,
       "exists": true,
       "readable": true,
-      "run_id": "post-market-43968218830-1",
-      "sha256": "d027d697b0267c94d063c463e77ca0de28f5820fc3a760fb3d4487a0bf4bdf3d"
+      "run_id": "post-market-44188180175-1",
+      "sha256": "229e4fabaf99bd221cbf21d17a3c034a322f9f8ee8879c070cb1623e475da5b2"
     }
   },
   "run_context": {
-    "run_id": "post-market-43968218830-1",
-    "generated_at": "2026-11-16T22:15:58+00:00",
+    "run_id": "post-market-44188180175-1",
+    "generated_at": "2026-11-17T22:15:54+00:00",
     "signal_as_of": "",
     "git_commit": "8f5e0868fca8913dedd62a89ed22b63e2e095f26",
     "configuration_fingerprint": "b01948461268ec351522a923110cbab787659ad31c61f80245be679dc59191e5",
