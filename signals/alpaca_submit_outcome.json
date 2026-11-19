@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
-  "run_id": "github-44330543413",
-  "generated_at": "2026-11-18T15:01:15+00:00",
+  "run_id": "github-44549871709",
+  "generated_at": "2026-11-19T15:01:25+00:00",
   "status": "no_action",
   "reason_code": "holding_until_next_scheduled_rebalance",
   "market_open": true,
