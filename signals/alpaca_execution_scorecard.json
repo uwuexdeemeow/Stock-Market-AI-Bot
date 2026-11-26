@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
-  "generated_at": "2026-11-25T22:15:52+00:00",
-  "measurement_cutoff_60m": "2026-11-25T21:15:52.979753+00:00",
+  "generated_at": "2026-11-26T22:16:03+00:00",
+  "measurement_cutoff_60m": "2026-11-26T21:16:03.541582+00:00",
   "status": "collecting",
   "score": 75.0,
   "decision_eligible": false,
@@ -280,8 +280,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 0.5,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-10-26T22:15:51.319859+00:00",
-      "denominator_end": "2026-11-25T22:15:51.252104+00:00"
+      "denominator_start": "2026-10-27T22:16:01.476791+00:00",
+      "denominator_end": "2026-11-26T22:16:01.302650+00:00"
     },
     "stage2": {
       "orders": 2,
@@ -297,8 +297,8 @@
       "source": "alpaca_api_child_fills",
       "any_fill_rate": 1.0,
       "denominator_population": "submitted_child_attempts",
-      "denominator_start": "2026-10-26T22:15:51.319859+00:00",
-      "denominator_end": "2026-11-25T22:15:51.252104+00:00"
+      "denominator_start": "2026-10-27T22:16:01.476791+00:00",
+      "denominator_end": "2026-11-26T22:16:01.302650+00:00"
     }
   },
   "throttle": {
@@ -370,13 +370,13 @@
     "previous_scorecard": "/home/runner/work/Stock-Market-AI-Bot/Stock-Market-AI-Bot/signals/alpaca_execution_scorecard.json"
   },
   "run_context": {
-    "run_id": "post-market-45711601333-1",
-    "generated_at": "2026-11-25T22:15:52+00:00",
+    "run_id": "post-market-45903565542-1",
+    "generated_at": "2026-11-26T22:16:03+00:00",
     "signal_as_of": "",
     "git_commit": "8f5e0868fca8913dedd62a89ed22b63e2e095f26",
     "configuration_fingerprint": "b01948461268ec351522a923110cbab787659ad31c61f80245be679dc59191e5",
     "paper_version_fingerprint": "ab8318d410e24970b01ff257598d15a2820c37e3c8f6cd3f9bf290fec9a5c5d3",
     "paper_account_hash": "53467e021997593c"
   },
-  "run_id": "post-market-45711601333-1"
+  "run_id": "post-market-45903565542-1"
 }
